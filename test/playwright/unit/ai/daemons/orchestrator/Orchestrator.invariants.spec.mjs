@@ -242,6 +242,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (envBindings is 
         expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
     });
 
+
     test('lms getters undefined-safe when AiConfig.orchestrator.lms is missing', () => {
         delete AiConfig.orchestrator.lms;
 

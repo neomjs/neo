@@ -10,6 +10,7 @@ import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import Env                         from '../../../src/util/Env.mjs';
 import AiConfig                    from '../../config.mjs';
+import {buildLmsContextLengthsMap} from '../../services/graph/ProviderReadinessHelper.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import SQLite                      from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
@@ -479,6 +480,12 @@ export class Orchestrator extends Base {
             lmsModels : this.lmsModels,
             lmsHost   : this.lmsHost,
             lmsPort   : this.lmsPort,
+            lmsContextLengths: buildLmsContextLengthsMap({
+                chatModel             : AiConfig.openAiCompatible?.model,
+                embeddingModel        : AiConfig.openAiCompatible?.embeddingModel,
+                chatContextLength     : AiConfig.localModels?.chat?.contextLimitTokens,
+                embeddingContextLength: AiConfig.localModels?.embedding?.contextLimitTokens
+            }),
             providerReadiness: AiConfig.orchestrator.providerReadiness
         });
 
