@@ -16,8 +16,9 @@ import {fileURLToPath} from 'url';
  *    structural shape (top-level imports + named exports) against the template.
  *    Mismatched items emit a stderr warning listing what's new in the template.
  *    Operator can refresh the gitignored file by re-running with
- *    `npm run prepare -- --migrate-config` (overwrites `config.mjs` from the
- *    active template shape).
+ *    `npm run prepare -- --migrate-config`. Pure Tier-1 import materialization
+ *    drift is patched in place; broader structural drift still overwrites from
+ *    the active template shape.
  *
  * The Tier-1 pair is the canonical operator overlay for deployment-wide defaults
  * (cookbook §7). Runtime code MUST import from `ai/config.mjs`, never from
@@ -35,6 +36,10 @@ const serversDir = path.join(cwd, 'ai', 'mcp', 'server');
 const aiDir      = path.join(cwd, 'ai');
 
 const MIGRATE_FLAG = '--migrate-config';
+const MATERIALIZED_SERVER_IMPORTS = new Set([
+    '../../../config.mjs',
+    '../../../config.mjs:default'
+]);
 
 /**
  * Projects a `.mjs` file's structural shape — the surface that `initServerConfigs`
@@ -133,6 +138,22 @@ export function materializeServerConfigTemplate(src) {
 }
 
 /**
+ * Detects the narrow drift shape where an existing per-server `config.mjs`
+ * only needs its Tier-1 import materialized, not a full template overwrite.
+ *
+ * @param {{missingImports: String[], missingExports: String[], hasDrift: Boolean}} drift
+ * @returns {Boolean}
+ */
+export function isOnlyServerMaterializationDrift(drift) {
+    return Boolean(
+        drift.hasDrift &&
+        drift.missingExports.length === 0 &&
+        drift.missingImports.length > 0 &&
+        drift.missingImports.every(i => MATERIALIZED_SERVER_IMPORTS.has(i))
+    )
+}
+
+/**
  * Compares two projected shapes and returns the drift items present in
  * `templateShape` but missing from `configShape`. Symmetric drift (items in
  * config but not in template — operator-removed paths) is intentionally NOT
@@ -159,15 +180,17 @@ export function detectDrift(templateShape, configShape) {
  *
  *   1. Template absent — skip (log warning).
  *   2. Config missing — clone materialized template (preserves pre-#10815 behavior).
- *   3. Config present + drift detected — warn-only (default) OR overwrite
- *      from materialized template when invoked with `--migrate-config`.
+ *   3. Config present + drift detected — warn-only (default) OR migrate when
+ *      invoked with `--migrate-config`. Pure Tier-1 import materialization
+ *      patches the existing file in place; broader drift overwrites from the
+ *      materialized template.
  *
  * @param {Object}   [options]
  * @param {String[]} [options.argv=process.argv]   Argv source; injectable for tests.
  * @param {Object}   [options.logger=console]      Log sink; injectable for tests.
  * @param {String}   [options.serversRoot=serversDir]  Override for tests.
  * @returns {Promise<{
- *     processed: Array<{serverName: String, action: 'clone'|'silent'|'warn'|'migrate'|'skip-no-template', drift?: Object}>
+ *     processed: Array<{serverName: String, action: 'clone'|'silent'|'warn'|'migrate'|'skip-no-template', drift?: Object, migration?: String}>
  * }>}
  */
 export async function initConfigs({argv = process.argv, logger = console, serversRoot = serversDir} = {}) {
@@ -204,9 +227,10 @@ export async function initConfigs({argv = process.argv, logger = console, server
             continue;
         }
 
+        const activeSrc = await fs.readFile(activePath, 'utf-8');
         const drift = detectDrift(
             projectSourceShape(activeTemplateSrc),
-            await projectShape(activePath)
+            projectSourceShape(activeSrc)
         );
 
         if (!drift.hasDrift) {
@@ -215,6 +239,15 @@ export async function initConfigs({argv = process.argv, logger = console, server
         }
 
         if (migrate) {
+            const materializedActiveSrc = materializeServerConfigTemplate(activeSrc);
+
+            if (isOnlyServerMaterializationDrift(drift) && materializedActiveSrc !== activeSrc) {
+                logger.log(`[Neo AI] Materializing stale Tier-1 import for '${serverName}' (${MIGRATE_FLAG} set, preserving operator edits)...`);
+                await fs.writeFile(activePath, materializedActiveSrc, 'utf-8');
+                processed.push({serverName, action: 'migrate', migration: 'materialize-import-only', drift});
+                continue;
+            }
+
             logger.log(`[Neo AI] Migrating stale config for '${serverName}' (drift detected, ${MIGRATE_FLAG} set)...`);
             await fs.writeFile(activePath, activeTemplateSrc, 'utf-8');
             processed.push({serverName, action: 'migrate', drift});
