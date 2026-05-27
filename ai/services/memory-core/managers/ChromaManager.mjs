@@ -248,6 +248,90 @@ class ChromaManager extends AbstractVectorManager {
     async deleteCollection({name, confirmation} = {}) {
         return chromaDeleteCollection({client: this.client, name, subsystem: 'memory-core', confirmation})
     }
+
+    /**
+     * @summary Count sessions in the Chroma summary collection that do NOT have the
+     * `graphDigested` metadata flag set to true. This is **Axis A (negative)** of the
+     * 5-axis REM observability model (per Discussion #12062 §2.6) — the count of
+     * sessions that summarization has produced but graph extraction has not yet
+     * digested into the Semantic Graph.
+     *
+     * Uses the same in-memory filtering pattern as
+     * {@link Neo.ai.daemons.services.DreamService#findUndigestedSessions} (lines 94-119)
+     * because ChromaDB filtering on missing/false attributes is unreliable across
+     * versions. The count is bounded by the same `summarizationBatchLimit` (default
+     * 2000) as the production digest path, so the number is "undigested-among-recent"
+     * not a strict global count — the count is operator-facing diagnostic, not a
+     * scheduling input.
+     *
+     * Counterpart helper: {@link #getGraphDigestedCount}. Together they bracket the
+     * digestion-progress axis; the divergence between this count and
+     * {@link Neo.ai.services.memory-core.GraphService#getSessionNodeCount} (graph
+     * SESSION node count, also pending in this Epic) is the empirical signal the
+     * 5-axis model is designed to surface (GPT live V-B-A 2026-05-27 ~01:19Z showed
+     * 76× Chroma-vs-graph divergence — 1,069 Chroma summaries vs only 14 graph
+     * SESSION nodes).
+     *
+     * @returns {Promise<Number>} Count of sessions without `graphDigested:true`
+     *     metadata; 0 if the collection is empty
+     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
+     * @see Discussion #12062 §2.6 — axis-divergence framing
+     */
+    async getUndigestedSessionCount() {
+        const collection = await this.getSummaryCollection();
+        const limit      = aiConfig.summarizationBatchLimit || 2000;
+        const batch      = await collection.get({include: ['metadatas'], limit});
+
+        if (!batch || !batch.ids?.length) return 0;
+
+        let count = 0;
+        for (let i = 0; i < batch.ids.length; i++) {
+            const meta = batch.metadatas[i];
+            if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true') {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * @summary Count sessions in the Chroma summary collection that DO have the
+     * `graphDigested` metadata flag set to true. This is **Axis A (positive)** of the
+     * 5-axis REM observability model — the count of sessions where graph extraction
+     * has reported successful digest into the Semantic Graph.
+     *
+     * Mirrors the in-memory filter shape of {@link #getUndigestedSessionCount} so
+     * the pair shares semantics: `getUndigestedSessionCount() + getGraphDigestedCount()`
+     * approximates the total session count within the `summarizationBatchLimit`
+     * window. Per-call cost is one Chroma `get()` + in-memory iteration.
+     *
+     * **Important divergence semantic:** a positive value here does NOT prove the
+     * downstream graph SESSION node exists — the flag is set when DreamService
+     * believes the digest succeeded, but the actual graph mutation is a separate
+     * substrate. Compare against
+     * {@link Neo.ai.services.memory-core.GraphService#getSessionNodeCount} for the
+     * Chroma-vs-graph divergence detection per Discussion #12062 §2.6.
+     *
+     * @returns {Promise<Number>} Count of sessions with `graphDigested:true`
+     *     metadata; 0 if the collection is empty
+     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
+     */
+    async getGraphDigestedCount() {
+        const collection = await this.getSummaryCollection();
+        const limit      = aiConfig.summarizationBatchLimit || 2000;
+        const batch      = await collection.get({include: ['metadatas'], limit});
+
+        if (!batch || !batch.ids?.length) return 0;
+
+        let count = 0;
+        for (let i = 0; i < batch.ids.length; i++) {
+            const meta = batch.metadatas[i];
+            if (meta && (meta.graphDigested === true || meta.graphDigested === 'true')) {
+                count++;
+            }
+        }
+        return count;
+    }
 }
 
 export default Neo.setupClass(ChromaManager);
