@@ -318,7 +318,7 @@ The DreamService is controlled by `ai/mcp/server/memory-core/config.mjs`:
 | `autoDream` | `true` | Process undigested sessions on startup |
 | `autoGoldenPath` | `true` | Synthesize Golden Path on startup |
 | `remSleepBatchLimit` | `10` | Max sessions to process per cycle |
-| `modelProvider` | `'openAiCompatible'` | LLM provider for extraction |
+| `graphProvider` | `'openAiCompatible'` | LLM provider for Dream/Sandman graph extraction |
 | `handoffFilePath` | `resources/content/sandman_handoff.md` | Output path |
 
 ## How It All Connects

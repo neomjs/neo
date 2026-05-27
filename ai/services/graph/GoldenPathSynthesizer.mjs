@@ -8,7 +8,7 @@ import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../servi
 import { Memory_GraphService as GraphService } from '../../services.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import {buildGraphProvider} from './providerDispatch.mjs';
+import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -279,9 +279,10 @@ class GoldenPathSynthesizer extends Base {
             });
 
             try {
-                logger.info(`[GoldenPathSynthesizer] Instantiating ${aiConfig.modelProvider} provider to interpret Mathematical Golden Path...`);
+                const graphProvider = resolveGraphModelProvider(aiConfig);
+                logger.info(`[GoldenPathSynthesizer] Instantiating ${graphProvider} provider to interpret Mathematical Golden Path...`);
                 const provider = buildGraphProvider({
-                    modelProvider         : aiConfig.modelProvider,
+                    modelProvider         : graphProvider,
                     ollamaConfig          : aiConfig.ollama,
                     openAiCompatibleConfig: aiConfig.openAiCompatible
                 });
