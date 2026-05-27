@@ -39,6 +39,26 @@ export function getOpenAiCompatibleModelIds(payload) {
 }
 
 /**
+ * @summary Extracts currently loaded model identifiers from an Ollama `/api/ps` payload.
+ *
+ * Native Ollama exposes currently resident models as `models: [{name, model}]`.
+ * `id` is accepted as a tolerance seam for compatible local-server variants, but
+ * the returned list still represents observed residency, not a config default.
+ *
+ * @param {Object} payload Parsed `/api/ps` response.
+ * @returns {String[]}
+ */
+export function getOllamaRunningModelIds(payload) {
+    if (!Array.isArray(payload?.models)) {
+        return [];
+    }
+
+    return [...new Set(payload.models
+        .map(item => item?.name || item?.model || item?.id)
+        .filter(Boolean))];
+}
+
+/**
  * @summary Fetches model ids from an OpenAI-compatible provider.
  *
  * @param {Object} options
@@ -67,6 +87,37 @@ export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = 
     }
 
     return getOpenAiCompatibleModelIds(await response.json());
+}
+
+/**
+ * @summary Fetches currently resident model ids from native Ollama.
+ *
+ * @param {Object} options
+ * @param {String} options.host Provider host.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @returns {Promise<String[]>}
+ */
+export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fetch} = {}) {
+    if (!host) {
+        throw new TypeError('fetchOllamaRunningModelIds: host is required');
+    }
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('fetchOllamaRunningModelIds: timeoutMs is required');
+    }
+
+    const url      = new URL('/api/ps', host).toString();
+    const response = await fetchFn(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(timeoutMs)
+    });
+
+    if (!response.ok) {
+        const text = typeof response.text === 'function' ? await response.text() : '';
+        throw new Error(`Ollama running-model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+    }
+
+    return getOllamaRunningModelIds(await response.json());
 }
 
 /**
@@ -245,6 +296,166 @@ export function getGraphProviderReadinessTarget(config = aiConfig.data) {
         embeddingModel,
         url
     };
+}
+
+/**
+ * @summary Builds the configured chat / embedding model set for capacity probes.
+ * @param {Object} target Provider readiness target.
+ * @returns {String[]}
+ */
+export function getRequiredProviderModels(target) {
+    return [...new Set([target?.model, target?.embeddingModel].filter(Boolean))];
+}
+
+/**
+ * @summary Creates the operator-facing warning for insufficient parallel model residency.
+ * @param {Object} options
+ * @returns {String}
+ */
+export function createParallelModelCapacityWarning({
+    provider,
+    model,
+    embeddingModel,
+    requiredModels,
+    availableModels,
+    missingModels,
+    observedCount,
+    requireParallelModels
+}) {
+    const available = availableModels.length ? availableModels.join(', ') : 'none';
+    const missing   = missingModels.length ? missingModels.join(', ') : 'none';
+    const base      = `[provider/${provider}] expected ${requireParallelModels}+ models loaded ` +
+        `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${observedCount} loaded ` +
+        `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}); ` +
+        'model swap penalty likely;';
+
+    return provider === 'ollama'
+        ? `${base} set OLLAMA_MAX_LOADED_MODELS=${requireParallelModels} in the Ollama server environment.`
+        : `${base} raise the OpenAI-compatible server loaded-model cap to ${requireParallelModels} and pre-load both models.`;
+}
+
+/**
+ * @summary Probes whether the configured graph provider has chat + embedding models resident together.
+ *
+ * This is an observability check only. It never mutates provider state and it does
+ * not substitute defaults for missing config leaves; callers decide whether to warn
+ * or fail based on the returned envelope.
+ *
+ * @param {Object} options
+ * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Number} options.timeoutMs HTTP probe timeout. Required; no module-level default.
+ * @param {Function} [options.fetchOpenAiCompatibleModels] Injectable OpenAI-compatible model-list probe.
+ * @param {Function} [options.fetchOllamaModels] Injectable Ollama running-model probe.
+ * @returns {Promise<Object>}
+ */
+export async function probeProviderParallelModelCapacity({
+    config,
+    timeoutMs,
+    fetchOpenAiCompatibleModels = opts => fetchOpenAiCompatibleModelIds(opts),
+    fetchOllamaModels           = opts => fetchOllamaRunningModelIds(opts)
+} = {}) {
+    if (!config || typeof config !== 'object') {
+        throw new TypeError('probeProviderParallelModelCapacity: config is required');
+    }
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('probeProviderParallelModelCapacity: timeoutMs is required');
+    }
+
+    const target = getGraphProviderReadinessTarget(config);
+
+    if (!target.supported || !target.host) {
+        return {
+            ready    : true,
+            skipped  : true,
+            provider : target.provider,
+            supported: target.supported,
+            reason   : target.supported ? 'missing-host' : 'unsupported-provider'
+        };
+    }
+
+    const providerConfig = config[target.provider];
+    const requireParallelModels = providerConfig?.requireParallelModels;
+
+    if (typeof requireParallelModels !== 'number') {
+        throw new TypeError(`probeProviderParallelModelCapacity: config.${target.provider}.requireParallelModels must be configured as a number`);
+    }
+
+    const requiredModels = getRequiredProviderModels(target);
+    const availableModels = target.provider === 'ollama'
+        ? await fetchOllamaModels({host: target.host, timeoutMs})
+        : await fetchOpenAiCompatibleModels({host: target.host, timeoutMs});
+    const uniqueAvailable = [...new Set(availableModels)];
+    const missingModels   = requiredModels.filter(model => !uniqueAvailable.includes(model));
+    const observedCount   = uniqueAvailable.length;
+    const ready           = observedCount >= requireParallelModels && missingModels.length === 0;
+
+    return {
+        ready,
+        provider             : target.provider,
+        host                 : target.host,
+        model                : target.model,
+        embeddingModel       : target.embeddingModel,
+        requireParallelModels,
+        requiredModels,
+        availableModels      : uniqueAvailable,
+        missingModels,
+        observedCount,
+        warning              : ready ? null : createParallelModelCapacityWarning({
+            provider: target.provider,
+            model   : target.model,
+            embeddingModel: target.embeddingModel,
+            requiredModels,
+            availableModels: uniqueAvailable,
+            missingModels,
+            observedCount,
+            requireParallelModels
+        })
+    };
+}
+
+/**
+ * @summary Emits a non-blocking warning when provider model residency cannot satisfy the REM cycle.
+ *
+ * The provider must already be reachable before callers invoke this helper. Probe
+ * failures become WARN records, not boot blockers, because readiness itself is
+ * owned by `waitForProvider()`.
+ *
+ * @param {Object} options
+ * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Number} options.timeoutMs HTTP probe timeout. Required; no module-level default.
+ * @param {Object} [options.log=logger] Logger seam.
+ * @returns {Promise<Object>}
+ */
+export async function warnProviderParallelModelCapacity({
+    config,
+    timeoutMs,
+    log = logger,
+    ...probeOptions
+} = {}) {
+    try {
+        const result = await probeProviderParallelModelCapacity({
+            config,
+            timeoutMs,
+            ...probeOptions
+        });
+
+        if (!result.ready && result.warning) {
+            log.warn?.(result.warning, result);
+        }
+
+        return result;
+    } catch (error) {
+        const provider = config ? resolveGraphModelProvider(config) : 'unknown';
+        const result = {
+            ready   : false,
+            provider,
+            error   : {message: error?.message || String(error)},
+            warning : `[provider/${provider}] parallel-model capacity probe failed: ${error?.message || error}`
+        };
+
+        log.warn?.(result.warning, result);
+        return result;
+    }
 }
 
 /**
