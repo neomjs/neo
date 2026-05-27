@@ -11,9 +11,7 @@ import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import Env                         from '../../../src/util/Env.mjs';
 import AiConfig                    from '../../config.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
-import {
-    initializeDatabase
-} from '../bridge/queries.mjs';
+import SQLite                      from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
@@ -47,6 +45,52 @@ import {
  * @param {String[]|String|undefined|null} options.configValue Local config value.
  * @returns {String[]|String|undefined|null}
  */
+/**
+ * @summary Self-bootstrapping orchestrator database open — replaces the previous
+ * `bridge/queries.mjs::initializeDatabase` consumption in this daemon's `start()`
+ * path. Resolves #12012 (orchestrator hard-exit on missing sqlite in fresh
+ * `npx-neo-app` workspaces).
+ *
+ * **Behavior contract** (per #12012 Contract Ledger):
+ * - Fresh workspace with absent sqlite path → creates the directory + opens the
+ *   sqlite file + initializes the Memory Core graph schema (Nodes / Edges /
+ *   GraphLog / triggers / SummarizationJobs), then returns the underlying
+ *   better-sqlite3 handle for downstream orchestrator + bridge daemon consumption.
+ * - Pre-existing sqlite path with valid schema → opens cleanly (no destructive
+ *   re-create; `initSchema()` self-skips when schema is already valid).
+ * - Invalid/malformed dbPath → throws (orchestrator-scoped; lane-isolated
+ *   failure-recovery in `start()`'s outer try handles it). **No `process.exit(1)`**
+ *   from this path — that hard-exit semantic was the original #12012 symptom.
+ *
+ * **Schema parity with Memory Core MCP first-boot** (#12012 Contract Ledger Row
+ * 4): delegates to `ai/graph/storage/SQLite.mjs`'s self-bootstrap chain
+ * (`ensureDir` → open without `fileMustExist` → `initSchema()`), so the
+ * orchestrator-bootstrapped schema is byte-equivalent to the MC-bootstrapped
+ * schema. Day-2 workspaces where the user boots orchestrator before MC produce
+ * the same on-disk shape as the inverse boot order.
+ *
+ * **Why this lives here (not in `bridge/queries.mjs`):** the bridge daemon's
+ * `initializeDatabase` (still in `bridge/queries.mjs`) intentionally keeps the
+ * `fileMustExist: true` + `process.exit(1)` strict contract — bridge is a child
+ * task that assumes a pre-initialized DB inherited from its parent orchestrator.
+ * Separating the two open-paths preserves the bridge contract (Contract Ledger
+ * Row 2) while giving the orchestrator the safer self-bootstrap discipline.
+ *
+ * Exported for test seam — tests can inject a sync mock via the orchestrator's
+ * `initializeDatabaseFn` config slot.
+ *
+ * @param {String} dbPath Absolute path to the sqlite file
+ * @returns {Promise<Object>} better-sqlite3 database handle, schema-initialized
+ * @see ai/graph/storage/SQLite.mjs — shared schema-creation primitive
+ * @see ai/daemons/bridge/queries.mjs — sibling strict-open primitive (preserved)
+ * @see #12012 — issue tracking this fix
+ */
+export async function initializeDatabaseSelfBootstrap(dbPath) {
+    const storage = Neo.create(SQLite, {dbPath});
+    await storage.ready();
+    return storage.db;
+}
+
 export function resolvePrimaryDevSyncRootsConfig({envValue, configValue}) {
     if (!Neo.isEmpty(envValue)) {
         return envValue;
@@ -226,7 +270,7 @@ export class Orchestrator extends Base {
     dreamService             = DreamService
     swarmHeartbeatService    = SwarmHeartbeatService
     goldenPathSynthesizer    = GoldenPathSynthesizer
-    initializeDatabaseFn     = initializeDatabase
+    initializeDatabaseFn     = initializeDatabaseSelfBootstrap
     summaryGetDueTask        = summaryGetDueTaskImport
     backupGetDueTask         = backupGetDueTaskImport
     primaryDevSyncGetDueTask = primaryDevSyncGetDueTaskImport
@@ -475,7 +519,7 @@ export class Orchestrator extends Base {
         this.processSupervisorService = {};
         this.processSupervisorService.recoverTasks();
 
-        this.db = this.initializeDatabaseFn(this.dbPath);
+        this.db = await this.initializeDatabaseFn(this.dbPath);
 
         // One-time swarm-heartbeat lane init. An init failure must log but
         // NOT crash the Orchestrator — the lane disables itself for this run via the
