@@ -267,6 +267,15 @@ class OllamaProvider extends Base {
     async *stream(input, options = {}) {
         const payload = this.preparePayload(input, options, true);
 
+        if (Object.prototype.hasOwnProperty.call(options, 'keep_alive')) {
+            payload.keep_alive = options.keep_alive;
+            delete payload.options?.keep_alive;
+
+            if (payload.options && Object.keys(payload.options).length === 0) {
+                delete payload.options;
+            }
+        }
+
         try {
             const response = await fetch(`${this.host}/api/chat`, {
                 method : 'POST',
