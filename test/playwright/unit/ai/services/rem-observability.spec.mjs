@@ -14,11 +14,13 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import {mkdir, writeFile, rm} from 'fs/promises';
-import path                   from 'path';
-import {fileURLToPath}        from 'url';
-import Neo                    from '../../../../../src/Neo.mjs';
-import * as core              from '../../../../../src/core/_export.mjs';
+import crypto             from 'node:crypto';
+import {mkdir, writeFile} from 'fs/promises';
+import os                 from 'node:os';
+import path               from 'path';
+import {fileURLToPath}    from 'url';
+import Neo                from '../../../../../src/Neo.mjs';
+import * as core          from '../../../../../src/core/_export.mjs';
 
 /**
  * @summary Cross-service unit coverage for the 5-axis REM observability primitive
@@ -49,7 +51,21 @@ import * as core              from '../../../../../src/core/_export.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const tmpDir     = path.join(__dirname, '.tmp-rem-observability-test');
+
+// Use OS tmpdir + per-test crypto UUID for full isolation across Playwright
+// parallel workers — gitignored noise + shared-tmpDir cleanup races otherwise.
+const tmpRoot = path.join(os.tmpdir(), 'neo-rem-observability-test');
+
+/**
+ * Build a unique per-test handoff file path under the OS tmpdir. Caller must
+ * `await mkdir(tmpRoot, {recursive: true})` before `writeFile`.
+ *
+ * @param {string} suffix Descriptive suffix for debug-readability
+ * @returns {string}
+ */
+function uniqueHandoffPath(suffix) {
+    return path.join(tmpRoot, `handoff-${suffix}-${crypto.randomUUID()}.md`);
+}
 
 /**
  * Build a fake Chroma summary collection that returns the given batch on `.get()`.
@@ -98,11 +114,12 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
         TopologyInferenceEngine = (await import('../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
         aiConfig                = (await import('../../../../../ai/services.mjs')).Memory_Config;
 
-        await mkdir(tmpDir, {recursive: true});
+        await mkdir(tmpRoot, {recursive: true});
     });
 
     test.afterAll(async () => {
-        await rm(tmpDir, {recursive: true, force: true}).catch(() => {});
+        // Leave tmpRoot in place — OS-tmpdir is auto-collected by the system;
+        // explicit rm would race with parallel test workers under fullyParallel.
     });
 
     test.beforeEach(() => {
@@ -213,25 +230,63 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     });
 
     test.describe('GraphService.getSessionEntityCount(sessionId)', () => {
-        test('counts outbound edges from canonical-prefixed SESSION node', () => {
+        test('counts INBOUND edges to canonical-lowercase session node (matches MemorySessionIngestor:226 writer direction)', () => {
+            // V-B-A precedent: MemorySessionIngestor.mjs:226 writes
+            // `GraphService.linkNodes(memoryNodeId, sessionNodeId, 'ORIGINATES_IN', 1.0)` —
+            // session is the TARGET. SemanticGraphExtractor.mjs:88 LLM prompt directs
+            // *"emit provenance edges linking them back to the source Memory or Session"*.
+            // Both writer paths emit edges with `target = 'session:<id>'`. The helper
+            // must query `target = ?` (not source) to count the per-session yield.
             GraphService.db = makeFakeGraphDb((sql) => {
-                expect(sql).toContain('SELECT count(*) as count FROM Edges WHERE source = ?');
+                expect(sql).toContain('SELECT count(*) as count FROM Edges WHERE target = ?');
                 return {get: (id) => {
-                    expect(id).toBe('SESSION:abc-123');
+                    // V-B-A precedent: GraphService.normalizeGraphNodeId (lines 489-505)
+                    // canonicalizes to lowercase `session:` regardless of input case.
+                    expect(id).toBe('session:abc-123');
                     return {count: 7};
                 }};
             });
 
-            expect(GraphService.getSessionEntityCount('SESSION:abc-123')).toBe(7);
+            expect(GraphService.getSessionEntityCount('session:abc-123')).toBe(7);
         });
 
-        test('normalizes bare sessionId to canonical SESSION: prefix', () => {
+        test('normalizes uppercase SESSION: input to canonical lowercase session: (uppercase appears in LLM prompts but is normalized before SQLite write)', () => {
+            // Per GraphService.mjs:405-408 + normalizeGraphNodeId(): callers that pass
+            // uppercase `SESSION:<id>` (e.g. lazy-edge-queue-shape) get normalized to
+            // canonical lowercase before persistence. The helper must mirror this
+            // normalization or it would return 0 against real SQLite data.
             GraphService.db = makeFakeGraphDb(() => ({get: (id) => {
-                expect(id).toBe('SESSION:bare-id');
+                expect(id).toBe('session:upper-was-normalized');
+                return {count: 5};
+            }}));
+
+            expect(GraphService.getSessionEntityCount('SESSION:upper-was-normalized')).toBe(5);
+        });
+
+        test('normalizes bare sessionId (no prefix) to canonical lowercase session:<id>', () => {
+            GraphService.db = makeFakeGraphDb(() => ({get: (id) => {
+                expect(id).toBe('session:bare-id');
                 return {count: 3};
             }}));
 
             expect(GraphService.getSessionEntityCount('bare-id')).toBe(3);
+        });
+
+        test('real-substrate writer-contract vector — mirrors MemorySessionIngestor.linkNodes(memory→session) edge shape', () => {
+            // This vector simulates a real ORIGINATES_IN edge as MemorySessionIngestor:226
+            // would write it: source = `memory:<id>`, target = `session:<id>` (both
+            // lowercase post-normalize). The helper's SQL filter (`target = ?`) MUST
+            // match the canonical target-side session-id to return non-zero — proves
+            // the helper is aligned with the writer's actual graph contract.
+            let queriedTarget = null;
+            GraphService.db = makeFakeGraphDb(() => ({get: (id) => {
+                queriedTarget = id;
+                // Simulate SQLite returning 4 ORIGINATES_IN edges for this session
+                return {count: id === 'session:realsubstrate-001' ? 4 : 0};
+            }}));
+
+            expect(GraphService.getSessionEntityCount('session:realsubstrate-001')).toBe(4);
+            expect(queriedTarget).toBe('session:realsubstrate-001');
         });
 
         test('returns 0 for falsy / non-string sessionId (defensive)', () => {
@@ -256,8 +311,9 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
 
     test.describe('TopologyInferenceEngine.getTopologyConflictCount', () => {
         test('counts (Source Session: lines in handoff file', async () => {
-            const handoffPath = path.join(tmpDir, 'handoff-counts.md');
-            await writeFile(handoffPath, [
+            const handoffPath = uniqueHandoffPath('counts');
+            await mkdir(tmpRoot, {recursive: true});
+            await writeFile(handoffPath,[
                 '# Sandman Handoff Alerts',
                 '',
                 '## Active Conflicts',
@@ -277,7 +333,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
         });
 
         test('returns 0 when handoff file does not exist (ENOENT)', async () => {
-            aiConfig.data.handoffFilePath = path.join(tmpDir, 'never-existed.md');
+            aiConfig.data.handoffFilePath = uniqueHandoffPath('never-existed');
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
@@ -287,16 +343,18 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
         });
 
         test('returns 0 for empty handoff file', async () => {
-            const handoffPath = path.join(tmpDir, 'handoff-empty.md');
-            await writeFile(handoffPath, '', 'utf8');
+            const handoffPath = uniqueHandoffPath('empty');
+            await mkdir(tmpRoot, {recursive: true});
+            await writeFile(handoffPath,'', 'utf8');
             aiConfig.data.handoffFilePath = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
         test('returns 0 for handoff with NO Source Session entries (Golden Path only)', async () => {
-            const handoffPath = path.join(tmpDir, 'handoff-no-conflicts.md');
-            await writeFile(handoffPath, [
+            const handoffPath = uniqueHandoffPath('no-conflicts');
+            await mkdir(tmpRoot, {recursive: true});
+            await writeFile(handoffPath,[
                 '# Sandman Handoff Alerts',
                 '',
                 '## Computed Golden Path',

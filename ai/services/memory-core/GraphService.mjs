@@ -1085,28 +1085,41 @@ class GraphService extends Base {
     }
 
     /**
-     * @summary Count outbound entity-relation edges from a specific SESSION node.
+     * @summary Count inbound entity-relation edges TO a specific session node.
      * This is **Axis C** of the 5-axis REM observability model (per Discussion
      * #12062 §2.6) — the per-session extraction yield, measured as the number
-     * of graph edges where the SESSION node is the source.
+     * of graph edges where the session node is the TARGET (the canonical
+     * provenance direction).
      *
-     * The Tri-Vector extraction emits one or more entity nodes per session plus
-     * provenance edges back to the session (`SESSION:<sessionId>`-typed sources
-     * + various relationship labels like `MENTIONS`, `ABOUT`, `DISCUSSED_IN`).
-     * Counting outbound edges from the session captures the extraction-yield
-     * surface — a session with zero outbound edges either had no entities OR
-     * suffered the extraction-failed-silent path (hypothesis #11 in PR #12077
-     * forensics runbook: 3-retry JSON parse exhaustion returning `null`).
+     * **Edge-direction contract** (V-B-A on `MemorySessionIngestor.mjs:226`
+     * `GraphService.linkNodes(memoryNodeId, sessionNodeId, 'ORIGINATES_IN', 1.0)`
+     * + `SemanticGraphExtractor.mjs:88` prompt directive *"emit provenance
+     * edges linking them back to the source Memory or Session"*):
+     * the session node is the TARGET of provenance edges from extracted
+     * entities (memories ORIGINATES_IN session; concepts/classes DISCUSSED_IN
+     * session; etc.). Counting `Edges.target = session:<id>` captures the
+     * full extraction-yield surface — a session with zero inbound edges
+     * either had no entities OR suffered the extraction-failed-silent path
+     * (hypothesis #11 in PR #12077 forensics runbook: 3-retry JSON parse
+     * exhaustion returning `null`).
      *
-     * **Normalization:** the `sessionId` is prefix-normalized to `SESSION:<id>`
-     * if not already prefixed (mirrors {@link GraphService#normalizeGraphNodeId}
-     * convention). Per Discussion #12062 §2.6 the canonical convention is
-     * uppercase-prefixed (`SESSION:abc-123`).
+     * **Case normalization:** delegated to
+     * {@link GraphService#normalizeGraphNodeId} (lines 489-505), which
+     * canonicalizes `memory:` / `session:` prefixes to lowercase regardless
+     * of input case. The canonical SQLite-stored convention is
+     * **lowercase** `session:<id>` (per MemorySessionIngestor.mjs:160 +
+     * GraphService.mjs:405-408). The `SESSION:` uppercase form appears in
+     * SemanticGraphExtractor LLM prompts as an instruction shape but is
+     * normalized to lowercase before any persistence — querying with
+     * uppercase against SQLite returns 0 (the original cycle-1 bug
+     * @neo-gpt PR #12081 review flagged).
      *
-     * @param {String} sessionId Session ID, with or without `SESSION:` prefix
-     * @returns {Number} Count of outbound edges; 0 on storage error or unknown session
+     * @param {String} sessionId Session ID, with or without `session:` / `SESSION:` prefix
+     * @returns {Number} Count of inbound edges; 0 on storage error, unknown session, or empty session
      * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
      * @see PR #12077 Sub 1 forensics runbook hypothesis #11 (extraction silent failure)
+     * @see ai/services/ingestion/MemorySessionIngestor.mjs line 226 — writer precedent
+     * @see GraphService#normalizeGraphNodeId — case-canonicalization primitive
      */
     getSessionEntityCount(sessionId) {
         if (!sessionId || typeof sessionId !== 'string') return 0;
@@ -1115,11 +1128,17 @@ class GraphService extends Base {
             const sqliteDb = this.db?.storage?.db;
             if (!sqliteDb) return 0;
 
-            const normalizedId = sessionId.startsWith('SESSION:')
+            // Normalize via the canonical primitive — handles both bare `<id>`
+            // and prefixed `session:<id>` / `SESSION:<id>` inputs, always
+            // returning the lowercase `session:<id>` form that matches SQLite
+            // storage. For a bare-id input, manually prefix first so
+            // normalizeGraphNodeId has a recognizable shape.
+            const prefixed = /^(session|memory):/i.test(sessionId)
                 ? sessionId
-                : `SESSION:${sessionId}`;
+                : `session:${sessionId}`;
+            const normalizedId = this.normalizeGraphNodeId(prefixed);
 
-            const stmt = sqliteDb.prepare('SELECT count(*) as count FROM Edges WHERE source = ?');
+            const stmt = sqliteDb.prepare('SELECT count(*) as count FROM Edges WHERE target = ?');
             return stmt.get(normalizedId).count;
         } catch (e) {
             logger.warn('[GraphService] getSessionEntityCount failed:', e?.message ?? e);
