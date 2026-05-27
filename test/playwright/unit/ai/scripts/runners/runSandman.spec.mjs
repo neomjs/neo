@@ -119,6 +119,141 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(providerReadinessHelper.getOpenAiCompatibleModelIds({data: null})).toEqual([]);
     });
 
+    test('extracts native Ollama resident model ids from /api/ps variants', () => {
+        expect(providerReadinessHelper.getOllamaRunningModelIds({
+            models: [
+                {name: 'gemma4:31b'},
+                {model: 'qwen3-embedding'},
+                {id: 'fallback-model'},
+                {name: 'gemma4:31b'},
+                {}
+            ]
+        })).toEqual(['gemma4:31b', 'qwen3-embedding', 'fallback-model']);
+
+        expect(providerReadinessHelper.getOllamaRunningModelIds({models: null})).toEqual([]);
+    });
+
+    test('fetchOllamaRunningModelIds probes native Ollama /api/ps', async () => {
+        const calls = [];
+        const result = await providerReadinessHelper.fetchOllamaRunningModelIds({
+            host     : 'http://ollama.test',
+            timeoutMs: 25,
+            fetchFn  : async (url, options) => {
+                calls.push({url, method: options.method});
+                return {
+                    ok  : true,
+                    json: async () => ({
+                        models: [{name: 'gemma4:31b'}, {name: 'qwen3-embedding'}]
+                    })
+                };
+            }
+        });
+
+        expect(result).toEqual(['gemma4:31b', 'qwen3-embedding']);
+        expect(calls).toEqual([{url: 'http://ollama.test/api/ps', method: 'GET'}]);
+    });
+
+    test('warnProviderParallelModelCapacity warns for native Ollama missing the embedding model', async () => {
+        const warnings = [];
+        const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+            config: {
+                graphProvider: 'ollama',
+                modelProvider: 'openAiCompatible',
+                ollama: {
+                    host                 : 'http://ollama.test',
+                    model                : 'gemma4:31b',
+                    embeddingModel       : 'qwen3-embedding',
+                    requireParallelModels: 2
+                }
+            },
+            timeoutMs        : 25,
+            fetchOllamaModels: async () => ['gemma4:31b'],
+            log              : {warn: (...args) => warnings.push(args)}
+        });
+
+        expect(result.ready).toBe(false);
+        expect(result.missingModels).toEqual(['qwen3-embedding']);
+        expect(result.warning).toContain('set OLLAMA_MAX_LOADED_MODELS=2');
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0][0]).toContain('[provider/ollama]');
+    });
+
+    test('warnProviderParallelModelCapacity passes when OpenAI-compatible lists both models', async () => {
+        const warnings = [];
+        const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+            config: {
+                graphProvider: 'openAiCompatible',
+                modelProvider: 'gemini',
+                openAiCompatible: {
+                    host                 : 'http://oai.test',
+                    model                : 'gemma-4-31b-it',
+                    embeddingModel       : 'text-embedding-qwen3-embedding-8b',
+                    requireParallelModels: 2
+                }
+            },
+            timeoutMs                     : 25,
+            fetchOpenAiCompatibleModels   : async () => ['gemma-4-31b-it', 'text-embedding-qwen3-embedding-8b'],
+            log                           : {warn: (...args) => warnings.push(args)}
+        });
+
+        expect(result).toMatchObject({
+            ready                : true,
+            provider             : 'openAiCompatible',
+            requireParallelModels: 2,
+            missingModels        : []
+        });
+        expect(warnings).toEqual([]);
+    });
+
+    test('warnProviderParallelModelCapacity warns when requireParallelModels is missing', async () => {
+        const warnings = [];
+        const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+            config: {
+                graphProvider: 'openAiCompatible',
+                openAiCompatible: {
+                    host          : 'http://oai.test',
+                    model         : 'gemma-4-31b-it',
+                    embeddingModel: 'text-embedding-qwen3-embedding-8b'
+                }
+            },
+            timeoutMs: 25,
+            log      : {warn: (...args) => warnings.push(args)}
+        });
+
+        expect(result.ready).toBe(false);
+        expect(result.error.message).toContain('requireParallelModels');
+        expect(warnings[0][0]).toContain('parallel-model capacity probe failed');
+    });
+
+    test('warnProviderParallelModelCapacity rejects non-finite requireParallelModels values', async () => {
+        for (const requireParallelModels of [NaN, Infinity, -Infinity]) {
+            const warnings = [];
+            let fetched = false;
+            const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+                config: {
+                    graphProvider: 'openAiCompatible',
+                    openAiCompatible: {
+                        host          : 'http://oai.test',
+                        model         : 'gemma-4-31b-it',
+                        embeddingModel: 'text-embedding-qwen3-embedding-8b',
+                        requireParallelModels
+                    }
+                },
+                timeoutMs                  : 25,
+                fetchOpenAiCompatibleModels: async () => {
+                    fetched = true;
+                    return [];
+                },
+                log: {warn: (...args) => warnings.push(args)}
+            });
+
+            expect(fetched).toBe(false);
+            expect(result.ready).toBe(false);
+            expect(result.error.message).toContain('requireParallelModels');
+            expect(warnings[0][0]).toContain('parallel-model capacity probe failed');
+        }
+    });
+
     test('ensureLmsModelsLoaded invokes lms load for missing chat and embedding models', async () => {
         const loads = [];
         const modelSnapshots = [
