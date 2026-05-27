@@ -64,10 +64,11 @@ ${contextText}
 
             const result = await provider.generate(prompt);
 
-            // #12091: Silent context-overflow detection — see SemanticGraphExtractor for the
-            // full rationale; this is the parallel single-attempt path. Empty result.content
-            // with no thrown error is the LM Studio loaded-context-cap signature; emit the
-            // deterministic `'context-overflow'` symptom (auto-surfaces) and return early.
+            // Silent context-overflow detection (parallel single-attempt path): empty
+            // result.content with no thrown error is the LM Studio loaded-context-cap
+            // signature (ttftMs===ttltMs, outputChars===0). Emit the deterministic
+            // `'context-overflow'` symptom (auto-surfaces) and return early to avoid
+            // downstream null-payload handling on empty input.
             if (!result?.content || result.content.trim() === '') {
                 logger.warn(`[TopologyInferenceEngine] Empty response from provider for session ${sessionId}; classifying as context-overflow (silent: no thrown error, no body).`);
 

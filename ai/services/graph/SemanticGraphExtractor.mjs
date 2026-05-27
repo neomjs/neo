@@ -148,12 +148,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
                 result = guardrailed.result;
 
-                // #12091: Silent context-overflow detection — the provider can stream-close
-                // immediately with an empty body when its loaded-model context window is
-                // smaller than the prompt (LM Studio loaded-context-cap signature:
-                // ttftMs===ttltMs, outputChars===0, no thrown error). The retry loop below
-                // appends the assistant echo + feedback prompt monotonically; if root cause
-                // is overflow, retries make it strictly worse. Emit the existing deterministic
+                // Silent context-overflow detection: provider can stream-close immediately
+                // with an empty body when its loaded-model context window is smaller than
+                // the prompt (LM Studio loaded-context-cap signature: ttftMs===ttltMs,
+                // outputChars===0, no thrown error). The retry loop below appends the
+                // assistant echo + feedback prompt monotonically — if root cause is overflow,
+                // retries make it strictly worse. Emit the existing deterministic
                 // `'context-overflow'` symptom (auto-surfaces, no 3-emission threshold) and
                 // abort retry to break the amplification.
                 if (!result?.content || result.content.trim() === '') {
