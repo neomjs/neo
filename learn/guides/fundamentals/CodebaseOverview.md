@@ -437,8 +437,7 @@ Local inference via MLX Server / ML Studio is a first-class deployment target �
 #### Daemon Lifecycle Scripts (`buildScripts/ai/`)
 
 Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol operations:
-- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (TEST_GAP, GUIDE_GAP).
-- `node buildScripts/ai/runGoldenPath.mjs` — Synthesizes the strategic roadmap from open issues, discussion states, and graph topology into `sandman_handoff.md`.
+- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (TEST_GAP, GUIDE_GAP). *(Note: the orchestrator's `golden-path` cadence task synthesizes the strategic roadmap into `sandman_handoff.md` directly via `GoldenPathSynthesizer.synthesizeGoldenPath()`; no separate standalone runner ships per #12078.)*
 - Additional utilities: `syncKnowledgeBase.mjs`, `defragChromaDB.mjs`, `defragSQLiteDB.mjs`, `recreateGraphDb.mjs` — the maintenance toolkit for the vector and graph databases.
 
 ---
