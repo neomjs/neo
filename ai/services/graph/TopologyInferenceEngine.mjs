@@ -3,7 +3,7 @@ import { Memory_Config as aiConfig } from '../../services.mjs';
 import Base from '../../../src/core/Base.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import {buildGraphProvider} from './providerDispatch.mjs';
+import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 
 /**
  * @class Neo.ai.daemons.services.TopologyInferenceEngine
@@ -54,8 +54,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 ${contextText}
 `;
         try {
+            const graphProvider = resolveGraphModelProvider(aiConfig);
             const provider = buildGraphProvider({
-                modelProvider         : aiConfig.modelProvider,
+                modelProvider         : graphProvider,
                 ollamaConfig          : aiConfig.ollama,
                 openAiCompatibleConfig: aiConfig.openAiCompatible
             });

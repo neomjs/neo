@@ -19,6 +19,10 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {
+    clearAggregatedFrictions,
+    getAggregatedFrictions
+} from '../../../../../../ai/services/memory-core/helpers/ConsumerFrictionHelper.mjs';
 
 test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     test.describe.configure({mode: 'serial'});
@@ -282,6 +286,43 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
         } finally {
             OpenAiCompatible.prototype.generate = baseGenerate;
+        }
+    });
+
+    test('uses configured graph-provider model for consumer friction telemetry (#12059)', async () => {
+        const originalGraphProvider                  = aiConfig.graphProvider;
+        const originalOllamaModel                    = aiConfig.ollama?.model;
+        const originalContextLimitTokens             = aiConfig.openAiCompatible.contextLimitTokens;
+        const originalSafeProcessingLimitTokens      = aiConfig.openAiCompatible.safeProcessingLimitTokens;
+
+        try {
+            clearAggregatedFrictions();
+
+            aiConfig.graphProvider                             = 'ollama';
+            aiConfig.ollama.model                              = 'gemma4-real-model';
+            aiConfig.openAiCompatible.contextLimitTokens        = 8;
+            aiConfig.openAiCompatible.safeProcessingLimitTokens = 1;
+
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-consumer-model-vector-id',
+                meta    : {sessionId: 'consumer-model-telemetry-session'},
+                document: 'Force guardrail pre-check so provider.generate is never invoked.'
+            });
+
+            expect(result).toBeNull();
+
+            const frictions = getAggregatedFrictions();
+            const friction  = frictions.find(item => item.assetRef === 'consumer-model-telemetry-session');
+
+            expect(friction).toBeDefined();
+            expect(friction.model).toBe('gemma4-real-model');
+            expect(friction.model).not.toBe('ollama');
+        } finally {
+            aiConfig.graphProvider                             = originalGraphProvider;
+            aiConfig.ollama.model                              = originalOllamaModel;
+            aiConfig.openAiCompatible.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.openAiCompatible.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            clearAggregatedFrictions();
         }
     });
 });
