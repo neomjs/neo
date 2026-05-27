@@ -87,4 +87,18 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(neighbor.properties.semanticVectorId.description).toContain('semantic vector identifier');
         expect(neighbor.additionalProperties).not.toBe(false);
     });
+
+    test('get_rem_pipeline_state surfaces the REM axis-count output contract (#12087)', async () => {
+        const { tools } = await toolService.listTools();
+        const tool = tools.find(item => item.name === 'get_rem_pipeline_state');
+
+        expect(tool).toBeTruthy();
+        expect(tool.annotations.readOnlyHint).toBe(true);
+        expect(tool.outputSchema.properties.undigested.type).toBe('integer');
+        expect(tool.outputSchema.properties.digested.type).toBe('integer');
+        expect(tool.outputSchema.properties.sessionNodes.type).toBe('integer');
+        expect(tool.outputSchema.properties.topologyConflicts.type).toBe('integer');
+        const perSession = tool.outputSchema.properties.perSession.anyOf.find(item => item.type === 'object');
+        expect(perSession.properties.entityCount.type).toBe('integer');
+    });
 });

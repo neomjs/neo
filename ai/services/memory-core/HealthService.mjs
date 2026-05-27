@@ -598,6 +598,81 @@ export function buildChromaMigrationStats(metadatas, {summaryCollection = false}
     return stats;
 }
 
+/**
+ * @summary Runs one REM observability axis probe with zero-value fallback.
+ *
+ * The MCP surface is operator-facing diagnostics, not a scheduling input. A
+ * single unavailable backing store must not hide every other axis, so failures
+ * are logged and projected as `0` in line with #12087's fallback contract.
+ *
+ * @param {String} label Human-readable axis label for warning logs
+ * @param {Function} fn Probe function returning the axis count
+ * @returns {Promise<Number>} Axis count or `0` on failure
+ */
+async function resolveRemAxis(label, fn) {
+    try {
+        return await fn();
+    } catch (e) {
+        logger.warn(`[HealthService] get_rem_pipeline_state axis ${label} failed:`, e?.message ?? e);
+        return 0;
+    }
+}
+
+/**
+ * @summary Builds the operator-facing 5-axis REM pipeline state projection.
+ *
+ * This composes the Phase 1a axis helpers from Epic #12065 Sub 2 into a single
+ * MCP-safe read envelope without mutating the Dream Pipeline. The helper remains
+ * in the Memory Core service boundary because the MCP server layer maps
+ * operationIds to existing services after the post-M6 service lift.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.sessionId] Optional session id for per-session entity yield
+ * @returns {Promise<Object>} 5-axis REM pipeline state projection
+ * @see ChromaManager#getUndigestedSessionCount
+ * @see ChromaManager#getGraphDigestedCount
+ * @see Neo.ai.services.memory-core.GraphService#getSessionNodeCount
+ * @see Neo.ai.daemons.services.TopologyInferenceEngine#getTopologyConflictCount
+ * @see https://github.com/neomjs/neo/issues/12087
+ */
+export async function buildRemPipelineState({sessionId} = {}) {
+    const [
+        {default: GraphService},
+        {default: TopologyInferenceEngine}
+    ] = await Promise.all([
+        import('./GraphService.mjs'),
+        import('../graph/TopologyInferenceEngine.mjs')
+    ]);
+
+    const [
+        undigested,
+        digested,
+        sessionNodes,
+        topologyConflicts
+    ] = await Promise.all([
+        resolveRemAxis('undigested',        () => ChromaManager.getUndigestedSessionCount()),
+        resolveRemAxis('digested',          () => ChromaManager.getGraphDigestedCount()),
+        resolveRemAxis('sessionNodes',      () => GraphService.getSessionNodeCount()),
+        resolveRemAxis('topologyConflicts', () => TopologyInferenceEngine.getTopologyConflictCount())
+    ]);
+
+    const state = {
+        undigested,
+        digested,
+        sessionNodes,
+        topologyConflicts
+    };
+
+    if (sessionId) {
+        state.perSession = {
+            sessionId,
+            entityCount: await resolveRemAxis('perSession.entityCount', () => GraphService.getSessionEntityCount(sessionId))
+        };
+    }
+
+    return state;
+}
+
 class HealthService extends Base {
     static config = {
         /**
@@ -1156,6 +1231,21 @@ class HealthService extends Base {
                 code   : 'HEALTH_CHECK_ERROR'
             };
         }
+    }
+
+    /**
+     * Public API: returns the 5-axis REM pipeline observability state.
+     *
+     * This method backs the `get_rem_pipeline_state` MCP tool. It deliberately
+     * avoids the broader healthcheck cache because the operator-facing axis
+     * counts are cheap and should reflect the latest Chroma/SQLite/handoff state.
+     *
+     * @param {Object} [options]
+     * @param {String} [options.sessionId] Optional session id for per-session entity yield
+     * @returns {Promise<Object>} 5-axis REM pipeline state projection
+     */
+    async getRemPipelineState(options = {}) {
+        return buildRemPipelineState(options);
     }
 
     /**

@@ -36,6 +36,7 @@ const serviceMapping = {
     add_message           : MailboxService          .addMessage          .bind(MailboxService),
     list_messages         : MailboxService          .listMessages        .bind(MailboxService),
     get_message           : MailboxService          .getMessage          .bind(MailboxService),
+    get_rem_pipeline_state: HealthService           .getRemPipelineState .bind(HealthService),
     mark_read             : MailboxService          .markRead            .bind(MailboxService),
     archive_message       : MailboxService          .archiveMessage      .bind(MailboxService),
     delete_message        : MailboxService          .deleteMessage       .bind(MailboxService),
