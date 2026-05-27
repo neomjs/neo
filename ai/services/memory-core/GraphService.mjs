@@ -1042,6 +1042,90 @@ class GraphService extends Base {
         });
         logger.debug(`[GraphService] Obliterated ${nodeIds.length} Nodes from Native Engine synchronously.`);
     }
+
+    /**
+     * @summary Count SESSION-labeled graph nodes (deployment-wide, untenanted).
+     * This is **Axis B** of the 5-axis REM observability model (per Discussion
+     * #12062 §2.6) — the count of sessions actually committed to the Semantic
+     * Graph by the REM digest pipeline.
+     *
+     * Mirrors the filter shape of {@link Neo.ai.services.memory-core.HealthService}
+     * lines 812-816 (`label='SESSION'` AND `COALESCE(properties.userId,'')=''`)
+     * to align with Memory Core's existing deployment-wide tenant-isolation
+     * semantic. A tenant-scoped variant (`getSessionNodeCount({userId})`) is a
+     * Phase 2 extension if operator deployments need per-tenant axis counts.
+     *
+     * **Important divergence semantic:** the divergence between this count and
+     * {@link Neo.ai.services.memory-core.managers.ChromaManager#getGraphDigestedCount}
+     * is the empirical signal the 5-axis model surfaces — GPT live V-B-A
+     * 2026-05-27 ~01:19Z showed 76× divergence (1,069 Chroma summaries vs only
+     * 14 graph SESSION nodes), pointing to silent failures in the graph-write
+     * arm of DreamService.processUndigestedSessions. A healthy pipeline produces
+     * `chroma.graphDigested ≈ graph.SESSION` within batch-window tolerance.
+     *
+     * @returns {Number} Count of deployment-wide SESSION nodes; 0 on storage error
+     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
+     * @see Discussion #12062 §2.6 — axis-divergence framing
+     */
+    getSessionNodeCount() {
+        try {
+            const sqliteDb = this.db?.storage?.db;
+            if (!sqliteDb) return 0;
+
+            const stmt = sqliteDb.prepare(`
+                SELECT COUNT(*) AS c FROM Nodes
+                WHERE json_extract(data, '$.label') = 'SESSION'
+                  AND COALESCE(json_extract(data, '$.properties.userId'), '') = ''
+            `);
+            return stmt.get().c;
+        } catch (e) {
+            logger.warn('[GraphService] getSessionNodeCount failed:', e?.message ?? e);
+            return 0;
+        }
+    }
+
+    /**
+     * @summary Count outbound entity-relation edges from a specific SESSION node.
+     * This is **Axis C** of the 5-axis REM observability model (per Discussion
+     * #12062 §2.6) — the per-session extraction yield, measured as the number
+     * of graph edges where the SESSION node is the source.
+     *
+     * The Tri-Vector extraction emits one or more entity nodes per session plus
+     * provenance edges back to the session (`SESSION:<sessionId>`-typed sources
+     * + various relationship labels like `MENTIONS`, `ABOUT`, `DISCUSSED_IN`).
+     * Counting outbound edges from the session captures the extraction-yield
+     * surface — a session with zero outbound edges either had no entities OR
+     * suffered the extraction-failed-silent path (hypothesis #11 in PR #12077
+     * forensics runbook: 3-retry JSON parse exhaustion returning `null`).
+     *
+     * **Normalization:** the `sessionId` is prefix-normalized to `SESSION:<id>`
+     * if not already prefixed (mirrors {@link GraphService#normalizeGraphNodeId}
+     * convention). Per Discussion #12062 §2.6 the canonical convention is
+     * uppercase-prefixed (`SESSION:abc-123`).
+     *
+     * @param {String} sessionId Session ID, with or without `SESSION:` prefix
+     * @returns {Number} Count of outbound edges; 0 on storage error or unknown session
+     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
+     * @see PR #12077 Sub 1 forensics runbook hypothesis #11 (extraction silent failure)
+     */
+    getSessionEntityCount(sessionId) {
+        if (!sessionId || typeof sessionId !== 'string') return 0;
+
+        try {
+            const sqliteDb = this.db?.storage?.db;
+            if (!sqliteDb) return 0;
+
+            const normalizedId = sessionId.startsWith('SESSION:')
+                ? sessionId
+                : `SESSION:${sessionId}`;
+
+            const stmt = sqliteDb.prepare('SELECT count(*) as count FROM Edges WHERE source = ?');
+            return stmt.get(normalizedId).count;
+        } catch (e) {
+            logger.warn('[GraphService] getSessionEntityCount failed:', e?.message ?? e);
+            return 0;
+        }
+    }
 }
 
 export default Neo.setupClass(GraphService);
