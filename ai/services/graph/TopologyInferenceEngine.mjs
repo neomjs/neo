@@ -107,6 +107,52 @@ ${contextText}
             }
         }
     }
+
+    /**
+     * @summary Count topological-conflict entries emitted to `sandman_handoff.md`.
+     * This is **Axis D** of the 5-axis REM observability model (per Discussion
+     * #12062 §2.6) — the count of conflicts the engine has actually written to
+     * the handoff file, which is the durable substrate consumers (next-session
+     * agents) read at boot.
+     *
+     * Counts lines matching the canonical conflict-entry suffix `(Source Session:`
+     * — each conflict entry in `sandman_handoff.md` follows the shape
+     * `- **[<TYPE>]** \`<issueId>\`: <description> (Source Session: <sessionId>)`
+     * (see {@link #extractTopology} line 83 for the writer). The suffix is
+     * distinctive enough to avoid false positives from Golden Path or other
+     * handoff sections.
+     *
+     * **Important divergence semantic per Discussion #12062 §2.11 + PR #12077
+     * Sub 1 runbook hypothesis #10:** `extractTopology()` returns `undefined`
+     * (void) on both no-conflicts AND provider-error paths — meaning a zero
+     * count here does NOT distinguish "no conflicts detected" from "topology
+     * extraction silently failed for every session." Sub 3's unified REM cycle
+     * + Sub 2 Part B (state model) will close this distinction by tracking
+     * per-cycle topology outcome explicitly.
+     *
+     * Returns 0 on file-not-found, empty file, or read error — consistent with
+     * sibling axis-count helpers' graceful-degradation contract.
+     *
+     * @returns {Promise<Number>} Count of conflict entries in `sandman_handoff.md`;
+     *     0 if file absent / empty / unreadable
+     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
+     * @see Discussion #12062 §2.6 — axis-divergence framing
+     * @see PR #12077 Sub 1 forensics runbook hypothesis #10 — TopologyInferenceEngine void-return silent failure
+     */
+    async getTopologyConflictCount() {
+        const handoffFile = aiConfig.handoffFilePath;
+        if (!handoffFile) return 0;
+
+        try {
+            const content = await fs.promises.readFile(handoffFile, 'utf8');
+            const matches = content.match(/\(Source Session:/g);
+            return matches ? matches.length : 0;
+        } catch (e) {
+            if (e.code === 'ENOENT') return 0;
+            logger.warn('[TopologyInferenceEngine] getTopologyConflictCount failed:', e?.message ?? e);
+            return 0;
+        }
+    }
 }
 
 export default Neo.setupClass(TopologyInferenceEngine);
