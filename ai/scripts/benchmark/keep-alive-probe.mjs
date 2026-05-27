@@ -11,14 +11,21 @@ import {buildGraphProvider} from '../../services/graph/providerDispatch.mjs';
  * **Why this exists** (Epic #12065 Sub 8 / #12074 Part B):
  *
  * V-B-A on the provider substrate (2026-05-27, branch `feature-12074-gemma4-bench`):
- * - `ai/provider/Ollama.mjs:108` — `generate()` hardcodes `keep_alive: "1h"`.
- *   Heavy non-streaming graph calls SHOULD get KV-cache reuse for free.
- * - `ai/provider/Ollama.mjs:267` — `stream()` does NOT pass `keep_alive`. Silent
- *   inconsistency: streamed calls (the benchmark harness, plus any future streamed
- *   consumer) may not benefit from cache reuse even when the operator expects to.
- * - `ai/provider/OpenAiCompatible.mjs:146` — `stream()` does NOT pass `keep_alive`.
- *   If the operator runs gemma via LM Studio's OpenAI-compat surface (the
- *   `openAiCompatible.host: "127.0.0.1:11434"` config), reuse may be silently absent.
+ * - `ai/provider/Ollama.mjs:108` — `generate()` hardcodes `keep_alive: "1h"` BEFORE
+ *   serialization. Heavy non-streaming graph calls (production
+ *   `SemanticGraphExtractor.executeTriVectorExtraction` path) get the long lease
+ *   unconditionally.
+ * - `ai/provider/Ollama.mjs:267-276` — `stream()` builds the payload via
+ *   `preparePayload()` (lines 48-95) which does NOT inject a top-level
+ *   `keep_alive` default; if the caller omits it, native Ollama uses its built-in
+ *   default (5min for `/api/chat`). Caller-supplied `keep_alive` IS propagated.
+ * - `ai/provider/OpenAiCompatible.mjs:146` + `preparePayload()` (lines 91-106) —
+ *   `stream()` propagates arbitrary remaining `options` into the JSON payload via
+ *   `Object.assign(payload, clonedOptions)`. Caller-supplied `keep_alive` IS
+ *   mechanically forwarded. The **unverified residual** is whether the deployed
+ *   OpenAI-compatible server (LM Studio, llama.cpp, vLLM, Ollama's `/v1/...`
+ *   surface) HONORS the non-standard `keep_alive` extension — that's what this
+ *   probe characterizes empirically.
  *
  * **What this probe actually proves / disproves**:
  *
@@ -133,17 +140,21 @@ async function main() {
     program.parse();
     const opts = program.opts();
 
-    console.log(`[keep-alive-probe] Provider: ${aiConfig.modelProvider}`);
-    console.log(`[keep-alive-probe] Model: ${
-        aiConfig.modelProvider === 'ollama' ? aiConfig.ollama.model : aiConfig.openAiCompatible.model
-    }`);
-    console.log(`[keep-alive-probe] Host: ${
-        aiConfig.modelProvider === 'ollama' ? aiConfig.ollama.host : aiConfig.openAiCompatible.host
-    }`);
+    // Mirror PR #12061's `resolveGraphModelProvider` shape inline (see sibling
+    // `gemma4-rem-benchmark.mjs` for migration note once #12061 merges).
+    const graphProvider = aiConfig.graphProvider
+        || (aiConfig.modelProvider === 'ollama' ? 'ollama' : 'openAiCompatible');
+
+    const providerHost = graphProvider === 'ollama' ? aiConfig.ollama.host : aiConfig.openAiCompatible.host;
+    const providerModel = graphProvider === 'ollama' ? aiConfig.ollama.model : aiConfig.openAiCompatible.model;
+
+    console.log(`[keep-alive-probe] Graph provider: ${graphProvider} (chat modelProvider: ${aiConfig.modelProvider})`);
+    console.log(`[keep-alive-probe] Model: ${providerModel}`);
+    console.log(`[keep-alive-probe] Host: ${providerHost}`);
     console.log(`[keep-alive-probe] Prompt: "${FIXED_PROMPT.slice(0, 60)}..." (${FIXED_PROMPT.length} chars)`);
 
     const provider = buildGraphProvider({
-        modelProvider         : aiConfig.modelProvider,
+        modelProvider         : graphProvider,
         ollamaConfig          : aiConfig.ollama,
         openAiCompatibleConfig: aiConfig.openAiCompatible
     });

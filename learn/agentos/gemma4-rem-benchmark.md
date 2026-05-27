@@ -19,13 +19,13 @@ Findings from reading the provider substrate on branch `feature-12074-gemma4-ben
 
 | File | Line | Observation |
 |------|------|-------------|
-| `ai/provider/Ollama.mjs` | 108 | `generate()` hardcodes `keep_alive: "1h"` — heavy non-streaming graph calls SHOULD reuse |
-| `ai/provider/Ollama.mjs` | 267 | `stream()` does NOT pass `keep_alive` — silent inconsistency |
-| `ai/provider/OpenAiCompatible.mjs` | 146 | `stream()` does NOT pass `keep_alive` — LM Studio / Ollama-OpenAI-compat path may lose reuse |
-| `ai/services/graph/SemanticGraphExtractor.mjs` | 134 | `provider.generate(messages)` — non-streaming; Ollama path WILL get keep_alive=1h |
-| `ai/services/graph/SemanticGraphExtractor.mjs` | 99 | Provider dispatched via `buildGraphProvider({modelProvider})` — both routes possible per operator config |
+| `ai/provider/Ollama.mjs` | 108 | `generate()` hardcodes `keep_alive: "1h"` BEFORE serialization — heavy non-streaming graph calls (production `SemanticGraphExtractor.executeTriVectorExtraction` path) get the long lease unconditionally |
+| `ai/provider/Ollama.mjs` | 267-276 | `stream()` builds the payload via `preparePayload()` (lines 48-95) which does NOT inject a top-level `keep_alive` default; if the caller omits it, native Ollama uses its built-in default (5min for `/api/chat`). Caller-supplied `keep_alive` IS propagated when set explicitly via `options` |
+| `ai/provider/OpenAiCompatible.mjs` | 146 + `preparePayload()` 91-106 | `stream()` propagates arbitrary remaining `options` into the JSON payload via `Object.assign(payload, clonedOptions)` — so caller-supplied `keep_alive` IS mechanically forwarded. **Unverified residual:** whether the OpenAI-compatible server (LM Studio, llama.cpp, vLLM, Ollama's own `/v1/...` surface) honors the non-standard `keep_alive` extension. Each backend has different cache-retention semantics; the probe characterizes one specific server at a time |
+| `ai/services/graph/SemanticGraphExtractor.mjs` | 134 | `provider.generate(messages)` — non-streaming; Ollama-native path WILL get keep_alive=1h via the hardcoded default in `Ollama.generate()` |
+| `ai/services/graph/SemanticGraphExtractor.mjs` | 99 | Provider dispatched via `buildGraphProvider({modelProvider})` — both Ollama and OpenAI-compat routes possible per operator config |
 
-**Implication:** If the operator runs gemma4 via the `openAiCompatible` host (per current `ai/config.mjs`), the production extraction path likely loses KV-cache reuse entirely. The empirical probe will confirm or refute.
+**Implication (narrowed):** The bench harness uses `provider.stream()` to measure TTFT. For the streaming path specifically: Ollama-native streamed calls don't get the hardcoded keep_alive=1h that `generate()` enjoys (unless caller passes it explicitly via `--keep-alive`), and OpenAI-compat streamed calls mechanically forward `keep_alive` but server-honor is unverified. The empirical probe characterizes the operator's specific deployed server, not a universal claim.
 
 ## Scripts
 

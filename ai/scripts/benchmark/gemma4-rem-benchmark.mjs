@@ -156,19 +156,25 @@ async function main() {
         process.exit(1);
     }
 
-    console.log(`[gemma4-rem-benchmark] Provider: ${aiConfig.modelProvider}`);
-    console.log(`[gemma4-rem-benchmark] Model: ${
-        aiConfig.modelProvider === 'ollama' ? aiConfig.ollama.model : aiConfig.openAiCompatible.model
-    }`);
-    console.log(`[gemma4-rem-benchmark] Host: ${
-        aiConfig.modelProvider === 'ollama' ? aiConfig.ollama.host : aiConfig.openAiCompatible.host
-    }`);
+    // Mirror PR #12061's `resolveGraphModelProvider` shape inline. Graph-extraction routing
+    // uses the `graphProvider` axis (chat/summarization may stay on Gemini; graph work uses
+    // Ollama or OpenAI-compat). Inlined because #12061 may not be merged yet on this branch;
+    // once it lands, replace with `import {resolveGraphModelProvider} from '../../services/graph/providerDispatch.mjs'`.
+    const graphProvider = aiConfig.graphProvider
+        || (aiConfig.modelProvider === 'ollama' ? 'ollama' : 'openAiCompatible');
+
+    const providerHost = graphProvider === 'ollama' ? aiConfig.ollama.host : aiConfig.openAiCompatible.host;
+    const providerModel = graphProvider === 'ollama' ? aiConfig.ollama.model : aiConfig.openAiCompatible.model;
+
+    console.log(`[gemma4-rem-benchmark] Graph provider: ${graphProvider} (chat modelProvider: ${aiConfig.modelProvider})`);
+    console.log(`[gemma4-rem-benchmark] Model: ${providerModel}`);
+    console.log(`[gemma4-rem-benchmark] Host: ${providerHost}`);
     console.log(`[gemma4-rem-benchmark] Iterations: ${iterations} (+${warmup} warmup discarded) per bucket`);
     console.log(`[gemma4-rem-benchmark] Buckets: ${buckets.join(', ')}`);
     console.log('');
 
     const provider = buildGraphProvider({
-        modelProvider         : aiConfig.modelProvider,
+        modelProvider         : graphProvider,
         ollamaConfig          : aiConfig.ollama,
         openAiCompatibleConfig: aiConfig.openAiCompatible
     });
@@ -180,10 +186,11 @@ async function main() {
 
     const results = {
         meta: {
-            timestamp     : new Date().toISOString(),
-            provider      : aiConfig.modelProvider,
-            model         : aiConfig.modelProvider === 'ollama' ? aiConfig.ollama.model : aiConfig.openAiCompatible.model,
-            host          : aiConfig.modelProvider === 'ollama' ? aiConfig.ollama.host : aiConfig.openAiCompatible.host,
+            timestamp    : new Date().toISOString(),
+            graphProvider,
+            chatModelProvider: aiConfig.modelProvider,
+            model        : providerModel,
+            host         : providerHost,
             iterations,
             warmup,
             providerOptions

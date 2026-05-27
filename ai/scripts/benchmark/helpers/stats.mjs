@@ -26,10 +26,19 @@ export function median(xs) {
 /**
  * Percentile via nearest-rank (NIST method, no interpolation).
  *
+ * NIST nearest-rank ordinal-rank formula: `n = ceil(p * N)` (1-indexed),
+ * so the 0-indexed array offset is `ceil(p * N) - 1`. For an array
+ * `[1..100]` and `p = 0.95`, this returns the 95th element, which is `95`.
+ *
  * Chosen over linear-interpolation because benchmark sample counts are tiny
  * (3-20 typical) and the interpolated value is misleading when N is small.
  * Nearest-rank returns an actual observed measurement, which matches the
  * "what's the 95th-percentile call I saw?" question the operator is asking.
+ *
+ * Edge cases:
+ * - `p = 0` returns the minimum (negative raw index clamped to 0)
+ * - `p = 1` returns the maximum (raw index clamped to `sorted.length - 1`)
+ * - Empty / non-array input returns `0` (sentinel)
  *
  * @param {number[]} xs
  * @param {number} p Percentile in [0, 1]
@@ -38,7 +47,8 @@ export function median(xs) {
 export function percentile(xs, p) {
     if (!Array.isArray(xs) || xs.length === 0) return 0;
     const sorted = [...xs].sort((a, b) => a - b);
-    const idx = Math.min(Math.floor(p * sorted.length), sorted.length - 1);
+    const rawIdx = Math.ceil(p * sorted.length) - 1;
+    const idx = Math.max(0, Math.min(rawIdx, sorted.length - 1));
     return sorted[idx];
 }
 

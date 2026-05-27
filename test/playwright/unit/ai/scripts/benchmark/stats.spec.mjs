@@ -50,13 +50,13 @@ test.describe('ai/scripts/benchmark/helpers/stats', () => {
     });
 
     test.describe('percentile', () => {
-        test('nearest-rank semantic: p95 of 1..100 is 95', () => {
+        test('nearest-rank semantic: p95 of 1..100 is 95 (NIST ordinal-rank: ceil(0.95 * 100) = 95th element)', () => {
             const xs = Array.from({length: 100}, (_, i) => i + 1);
-            expect(percentile(xs, 0.95)).toBe(96); // Math.floor(0.95 * 100) = 95 → sorted[95] = 96
+            expect(percentile(xs, 0.95)).toBe(95); // ceil(0.95 * 100) - 1 = 94 → sorted[94] = 95
         });
 
         test('p50 matches median for odd lengths', () => {
-            // Nearest-rank p50 with N=5: Math.floor(0.5 * 5) = 2 → sorted[2] = 30 (the middle)
+            // Nearest-rank p50 with N=5: ceil(0.5 * 5) - 1 = 2 → sorted[2] = 30 (the middle)
             expect(percentile([10, 20, 30, 40, 50], 0.5)).toBe(30);
         });
 
