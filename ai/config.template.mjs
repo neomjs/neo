@@ -31,6 +31,12 @@ class Config extends BaseConfig {
          */
         backupPath: path.resolve(neoRootDir, '.neo-ai-data/backups'),
         /**
+         * Path to the wake-daemon liveness sentinel touched on every swarm-heartbeat
+         * pulse. Operators / tests can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`.
+         * @type {string}
+         */
+        wakeDaemonHeartbeatAlivePath: path.resolve(neoRootDir, '.neo-ai-data/wake-daemon/heartbeat.alive'),
+        /**
          * Global debug flag for all AI processes.
          * @type {boolean}
          */
@@ -563,7 +569,8 @@ class Config extends BaseConfig {
             safeProcessingLimitTokens: {var: 'NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS', parse: Env.parseNumber}
         },
         vectorDimension: {var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
-        backupPath     : 'NEO_BACKUP_PATH',
+        backupPath                  : 'NEO_BACKUP_PATH',
+        wakeDaemonHeartbeatAlivePath: 'NEO_HEARTBEAT_ALIVE_PATH',
         engines        : {
             chroma: {
                 host: 'NEO_CHROMA_HOST',
@@ -573,10 +580,51 @@ class Config extends BaseConfig {
         orchestrator: {
             deploymentMode      : 'NEO_AI_DEPLOYMENT_MODE',
             tenantRepoMirrorRoot: 'NEO_TENANT_REPO_MIRROR_ROOT',
+            devSyncRoots        : {var: 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS', parse: Env.parseString},
             providerReadiness   : {
                 attempts : {var: 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', parse: Env.parseNumber},
                 delayMs  : {var: 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', parse: Env.parseNumber},
                 timeoutMs: {var: 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', parse: Env.parseNumber}
+            },
+            intervals: {
+                pollMs           : {var: 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS',              parse: Env.parseNumber},
+                summarySweepMs   : {var: 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS',     parse: Env.parseNumber},
+                kbSyncMs         : {var: 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS',           parse: Env.parseNumber},
+                backupMs         : {var: 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS',            parse: Env.parseNumber},
+                primaryDevSyncMs : {var: 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS',  parse: Env.parseNumber},
+                tenantRepoSyncMs : {var: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS',  parse: Env.parseNumber},
+                dreamMs          : {var: 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS',             parse: Env.parseNumber},
+                goldenPathMs     : {var: 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS',       parse: Env.parseNumber},
+                swarmHeartbeatMs : {var: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS',   parse: Env.parseNumber}
+            },
+            tenantRepoSync: {
+                sweepCadenceMs: {var: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', parse: Env.parseNumber},
+                jitterRatio   : {var: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO',     parse: Env.parseNumber}
+            },
+            swarmHeartbeat: {
+                targetSource: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE',
+                targets     : 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS'
+            },
+            localOnly: {
+                kbSyncEnabled                  : {var: 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',                       parse: Env.parseBool},
+                primaryDevSyncEnabled          : {var: 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',              parse: Env.parseBool},
+                chromaDaemonEnabled            : {var: 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED',                 parse: Env.parseBool},
+                bridgeDaemonEnabled            : {var: 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED',                 parse: Env.parseBool},
+                swarmHeartbeatEnabled          : {var: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED',               parse: Env.parseBool},
+                goldenPathRepoEnrichmentEnabled: {var: 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',   parse: Env.parseBool}
+            },
+            cloudOnly: {
+                tenantRepoSyncEnabled: {var: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', parse: Env.parseBool}
+            },
+            mlx: {
+                enabled: {var: 'NEO_ORCHESTRATOR_MLX_ENABLED', parse: Env.parseBool},
+                model  : 'NEO_ORCHESTRATOR_MLX_MODEL',
+                port   : 'NEO_ORCHESTRATOR_MLX_PORT'
+            },
+            lms: {
+                enabled: {var: 'NEO_ORCHESTRATOR_LMS_ENABLED', parse: Env.parseBool},
+                model  : 'NEO_ORCHESTRATOR_LMS_MODEL',
+                port   : 'NEO_ORCHESTRATOR_LMS_PORT'
             }
         }
     };

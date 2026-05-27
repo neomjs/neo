@@ -22,6 +22,7 @@ setup({
 // bootstrap pattern in TaskStateService.spec / ProcessSupervisorService.spec post-#11049/#11054.
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
+import AiConfig  from '../../../../../../../ai/config.mjs';
 
 import {test, expect} from '@playwright/test';
 
@@ -729,19 +730,20 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(capturedArgs[0]).toEqual(['@neo-gpt', 'mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
     });
 
-    test('heartbeatAlivePath() defaults to the repo-root path HealthService reads (#11872)', async () => {
-        const original = process.env.NEO_HEARTBEAT_ALIVE_PATH;
-        delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
+    test('heartbeatAlivePath() reads AiConfig.wakeDaemonHeartbeatAlivePath verbatim (#11872)', async () => {
+        const original = AiConfig.wakeDaemonHeartbeatAlivePath;
 
         try {
-            expect(heartbeatAlivePath()).toBe(path.resolve(process.cwd(), '.neo-ai-data/wake-daemon/heartbeat.alive'));
+            // Per the SSOT contract, env precedence is owned by `envBindings.wakeDaemonHeartbeatAlivePath
+            // → NEO_HEARTBEAT_ALIVE_PATH` at config-load time. The service reads the resolved value
+            // directly; tests simulate env-applied state by mutating AiConfig.
+            expect(heartbeatAlivePath()).toBe(AiConfig.wakeDaemonHeartbeatAlivePath);
 
             const overridePath = path.join(os.tmpdir(), `neo-heartbeat-override-${Date.now()}.alive`);
-            process.env.NEO_HEARTBEAT_ALIVE_PATH = overridePath;
+            AiConfig.wakeDaemonHeartbeatAlivePath = overridePath;
             expect(heartbeatAlivePath()).toBe(overridePath);
         } finally {
-            if (original === undefined) delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
-            else                        process.env.NEO_HEARTBEAT_ALIVE_PATH = original;
+            AiConfig.wakeDaemonHeartbeatAlivePath = original;
         }
     });
 
@@ -758,8 +760,8 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         delete SwarmHeartbeatService.touchLivenessFile;
 
         const alivePath = path.join(os.tmpdir(), `neo-heartbeat-alive-${Date.now()}.alive`);
-        const original  = process.env.NEO_HEARTBEAT_ALIVE_PATH;
-        process.env.NEO_HEARTBEAT_ALIVE_PATH = alivePath;
+        const original  = AiConfig.wakeDaemonHeartbeatAlivePath;
+        AiConfig.wakeDaemonHeartbeatAlivePath = alivePath;
 
         try {
             const before = Date.now();
@@ -770,8 +772,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             const stat = await fs.stat(alivePath);
             expect(stat.mtime.getTime()).toBeGreaterThanOrEqual(before - 1000);
         } finally {
-            if (original === undefined) delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
-            else                        process.env.NEO_HEARTBEAT_ALIVE_PATH = original;
+            AiConfig.wakeDaemonHeartbeatAlivePath = original;
             await fs.rm(alivePath, {force: true});
         }
     });

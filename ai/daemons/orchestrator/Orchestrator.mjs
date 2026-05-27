@@ -16,10 +16,7 @@ import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 } from './services/MaintenanceBackpressureService.mjs';
-import PrimaryRepoSyncService, {
-    DEV_SYNC_ROOTS_CONFIG_KEY,
-    DEV_SYNC_ROOTS_ENV_VAR
-} from './services/PrimaryRepoSyncService.mjs';
+import PrimaryRepoSyncService from './services/PrimaryRepoSyncService.mjs';
 import TenantRepoSyncService             from './services/TenantRepoSyncService.mjs';
 import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary.mjs';
 import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
@@ -91,31 +88,14 @@ export async function initializeDatabaseSelfBootstrap(dbPath) {
     return storage.db;
 }
 
-export function resolvePrimaryDevSyncRootsConfig({envValue, configValue}) {
-    if (!Neo.isEmpty(envValue)) {
-        return envValue;
-    }
-
-    if (Array.isArray(configValue) && configValue.length === 0) {
-        return null;
-    }
-
-    return configValue;
-}
-
-/**
- * Resolves the operator-visible dev-sync roots config source label.
- * @param {Object} options
- * @param {String|undefined|null} options.envValue Environment value.
- * @returns {String}
- */
-export function resolvePrimaryDevSyncRootsSource({envValue}) {
-    if (!Neo.isEmpty(envValue)) {
-        return DEV_SYNC_ROOTS_ENV_VAR;
-    }
-
-    return DEV_SYNC_ROOTS_CONFIG_KEY;
-}
+// dev-sync roots precedence used to live in two resolver helpers
+// (`resolvePrimaryDevSyncRootsConfig` + `resolvePrimaryDevSyncRootsSource`) plus a
+// caller-side `process.env[DEV_SYNC_ROOTS_ENV_VAR]` read. Both layers are removed
+// in favour of the SSOT chain: `ai/config.template.mjs::orchestrator.devSyncRoots`
+// (with `envBindings.orchestrator.devSyncRoots → NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`)
+// owns env-vs-config precedence at config-load time. Operator-instance overrides
+// flow through the `primaryDevSyncRootsConfig` Class A/B reactive config slot,
+// defaulting to the env-applied tier-1 value when the operator does not pass one.
 
 /**
  * Resolves a deployment-aware boolean toggle from `AiConfig.orchestrator.localOnly[key]`.
@@ -387,70 +367,67 @@ export class Orchestrator extends Base {
         this.maintenanceBackpressureService.heavyMaintenanceLeasePath = value;
     }
 
-    // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===
-    get pollIntervalMs()          { return Env.parseNumber('NEO_ORCHESTRATOR_POLL_INTERVAL_MS')             ?? AiConfig.orchestrator.intervals.pollMs;             }
-    get summarySweepIntervalMs()  { return Env.parseNumber('NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS')    ?? AiConfig.orchestrator.intervals.summarySweepMs;     }
-    get kbSyncIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS')          ?? AiConfig.orchestrator.intervals.kbSyncMs;           }
-    get backupIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS')           ?? AiConfig.orchestrator.intervals.backupMs;           }
-    get primaryDevSyncIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS') ?? AiConfig.orchestrator.intervals.primaryDevSyncMs;   }
+    // === Operator policy values — config-template + envBindings is the SSOT ===
+    // Env vars are declared on `ai/config.template.mjs::envBindings.orchestrator.*` and
+    // applied at config-load time. Consumers read `AiConfig.orchestrator.X.Y` directly;
+    // there is no per-access env probe here. The previous per-getter env reads were
+    // architectural drift relative to the post-M6 service-decomposition pattern.
+    get pollIntervalMs()              { return AiConfig.orchestrator.intervals.pollMs;            }
+    get summarySweepIntervalMs()      { return AiConfig.orchestrator.intervals.summarySweepMs;    }
+    get kbSyncIntervalMs()            { return AiConfig.orchestrator.intervals.kbSyncMs;          }
+    get backupIntervalMs()            { return AiConfig.orchestrator.intervals.backupMs;          }
+    get primaryDevSyncIntervalMs()    { return AiConfig.orchestrator.intervals.primaryDevSyncMs;  }
     /**
      * Per-repo global cadence — the default time between sync attempts for a single
-     * configured tenant repo. Decoupled from the orchestrator-level sweep cadence
-     * (`tenantRepoSyncSweepCadenceMs`) so deterministic jitter can actually spread
-     * per-repo work across the jitter window. Env var name preserved for back-compat.
+     * configured tenant repo. Decoupled from the orchestrator-level sweep cadence so
+     * deterministic jitter can spread per-repo work across the jitter window.
      */
-    get tenantRepoSyncIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS') ?? AiConfig.orchestrator.intervals.tenantRepoSyncMs;   }
+    get tenantRepoSyncIntervalMs()    { return AiConfig.orchestrator.intervals.tenantRepoSyncMs;  }
     /**
      * Orchestrator-level sweep cadence — how often `tenant-repo-sync` is invoked.
-     * Short by design (default 1min) so per-repo deterministic jitter spreads
-     * actual sync attempts across the jitter window instead of synchronizing them
-     * onto the sweep boundary.
+     * Short by design (default 1min) so per-repo deterministic jitter spreads actual
+     * sync attempts across the jitter window instead of synchronizing them onto the
+     * sweep boundary.
      */
-    get tenantRepoSyncSweepCadenceMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS') ?? AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs; }
-    /**
-     * Per-repo jitter ratio (fraction of base cadence). Defaults to the configured
-     * `aiConfig.orchestrator.tenantRepoSync.jitterRatio`; env-overridable so
-     * deployment-specific tuning doesn't require a config-template edit.
-     */
-    get tenantRepoSyncJitterRatio()  { return Env.parseNumber('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO')   ?? AiConfig.orchestrator.tenantRepoSync.jitterRatio;     }
-    get dreamIntervalMs()         { return Env.parseNumber('NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')            ?? AiConfig.orchestrator.intervals.dreamMs;            }
-    get goldenPathIntervalMs()    { return Env.parseNumber('NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')      ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
-    get swarmHeartbeatIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
-    get swarmHeartbeatIdentity()  { return Env.parseString('NEO_AGENT_IDENTITY');                                                                                  }
-    get swarmHeartbeatTargetSource() { return Env.parseString('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE') ?? AiConfig.orchestrator.swarmHeartbeat?.targetSource ?? null; }
+    get tenantRepoSyncSweepCadenceMs(){ return AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs; }
+    get tenantRepoSyncJitterRatio()   { return AiConfig.orchestrator.tenantRepoSync.jitterRatio;    }
+    get dreamIntervalMs()             { return AiConfig.orchestrator.intervals.dreamMs;             }
+    get goldenPathIntervalMs()        { return AiConfig.orchestrator.intervals.goldenPathMs;        }
+    get swarmHeartbeatIntervalMs()    { return AiConfig.orchestrator.intervals.swarmHeartbeatMs;    }
+    get swarmHeartbeatIdentity()      { return Env.parseString('NEO_AGENT_IDENTITY');               }
+    get swarmHeartbeatTargetSource()  { return AiConfig.orchestrator.swarmHeartbeat?.targetSource ?? null; }
     /**
      * Explicit env-driven target list for the swarm-heartbeat resolver. Comma-separated
      * `@handle` form via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS`. Empty or absent →
-     * `null` so the resolver falls through to `targetSource` semantics.
+     * `null` so the resolver falls through to `targetSource` semantics. The raw string
+     * arrives via `AiConfig.orchestrator.swarmHeartbeat.targets`; this getter splits +
+     * trims because the array-shape parsing is consumer-side concern, not config-shape.
      * @returns {String[]|null}
      */
     get swarmHeartbeatExplicitTargets() {
-        const raw = Env.parseString('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS');
+        const raw = AiConfig.orchestrator.swarmHeartbeat?.targets;
         if (!raw) return null;
-        const list = raw.split(',').map(s => s.trim()).filter(Boolean);
+        const list = String(raw).split(',').map(s => s.trim()).filter(Boolean);
         return list.length > 0 ? list : null;
     }
 
-    get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
-    get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
-    get tenantRepoSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED')            ?? resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
-    get chromaDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('chromaDaemonEnabled');            }
-    get bridgeDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('bridgeDaemonEnabled');            }
-    get swarmHeartbeatEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')             ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
-    get goldenPathRepoEnrichmentEnabled(){ return Env.parseBool('NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED') ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
+    get kbSyncEnabled()                  { return resolveDeploymentEnabled('kbSyncEnabled');                  }
+    get primaryDevSyncEnabled()          { return resolveDeploymentEnabled('primaryDevSyncEnabled');          }
+    get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
+    get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
+    get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
+    get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
+    get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
 
-    // MLX inference-server lane config (supervised continuous task; opt-in via AiConfig.orchestrator.mlx.enabled).
-    // Canonical defaults live in `ai/config.template.mjs::orchestrator.mlx`; env vars override per the 2-value chain.
-    get mlxEnabled() { return Env.parseBool('NEO_ORCHESTRATOR_MLX_ENABLED') ?? !!AiConfig.orchestrator.mlx?.enabled; }
-    get mlxModel()   { return Env.parseString('NEO_ORCHESTRATOR_MLX_MODEL') ?? AiConfig.orchestrator.mlx?.model;      }
-    get mlxPort()    { return Env.parseString('NEO_ORCHESTRATOR_MLX_PORT')  ?? AiConfig.orchestrator.mlx?.port;       }
+    // MLX + LM Studio CLI inference-server lane config. Canonical defaults + env overrides
+    // live in `ai/config.template.mjs::orchestrator.{mlx,lms}` + `envBindings.orchestrator.{mlx,lms}`.
+    get mlxEnabled() { return !!AiConfig.orchestrator.mlx?.enabled; }
+    get mlxModel()   { return AiConfig.orchestrator.mlx?.model;     }
+    get mlxPort()    { return AiConfig.orchestrator.mlx?.port;      }
 
-    // LM Studio CLI inference-server lane config (parallel-alternative to MLX; opt-in via
-    // AiConfig.orchestrator.lms.enabled). Mutually exclusive in practice — operators pick one.
-    // Canonical defaults live in `ai/config.template.mjs::orchestrator.lms`.
-    get lmsEnabled() { return Env.parseBool('NEO_ORCHESTRATOR_LMS_ENABLED') ?? !!AiConfig.orchestrator.lms?.enabled; }
-    get lmsModel()   { return Env.parseString('NEO_ORCHESTRATOR_LMS_MODEL') ?? AiConfig.orchestrator.lms?.model;      }
-    get lmsPort()    { return Env.parseString('NEO_ORCHESTRATOR_LMS_PORT')  ?? AiConfig.orchestrator.lms?.port;       }
+    get lmsEnabled() { return !!AiConfig.orchestrator.lms?.enabled; }
+    get lmsModel()   { return AiConfig.orchestrator.lms?.model;     }
+    get lmsPort()    { return AiConfig.orchestrator.lms?.port;      }
 
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.
@@ -500,7 +477,9 @@ export class Orchestrator extends Base {
         this.logFile                   = options.logFile  || path.join(dataDir, 'orchestrator.log');
         this.stateFile                 = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
         this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath ?? this.heavyMaintenanceLeasePath;
-        this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig ?? null;
+        this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig !== undefined
+            ? options.primaryDevSyncRootsConfig
+            : AiConfig.orchestrator.devSyncRoots;
         this.maintenanceDeferralLogKeys = new Set();
 
         fs.ensureDirSync(this.dataDir);
@@ -693,13 +672,7 @@ export class Orchestrator extends Base {
                 taskStateService  : this.taskStateService,
                 healthService     : this.healthService,
                 writeLog          : this.writeLog.bind(this),
-                devSyncRootsConfig: resolvePrimaryDevSyncRootsConfig({
-                    envValue   : process.env[DEV_SYNC_ROOTS_ENV_VAR],
-                    configValue: this.primaryDevSyncRootsConfig
-                }),
-                devSyncRootsSource: resolvePrimaryDevSyncRootsSource({
-                    envValue: process.env[DEV_SYNC_ROOTS_ENV_VAR]
-                })
+                devSyncRootsConfig: this.primaryDevSyncRootsConfig
             });
         }), context);
 
