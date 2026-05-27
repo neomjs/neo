@@ -1127,10 +1127,9 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         expect(cycleCalls).toHaveLength(1);
         expect(cycleCalls[0]).toMatchObject({
-            reason          : 'periodic-dream:1',
-            mode            : 'periodic',
-            includeGoldenPath: false,
-            includeDecay    : true
+            reason      : 'periodic-dream:1',
+            mode        : 'periodic',
+            includeDecay: true
         });
 
         const failed = outcomes.find(o => o.taskName === 'dream' && o.status === 'failed');

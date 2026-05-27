@@ -264,40 +264,40 @@ class DreamService extends Base {
     }
 
     /**
-     * Unified canonical REM (Sandman) cycle entrypoint. Returns a typed cycle outcome
-     * envelope so callers + observability surfaces can distinguish real work from
-     * silent no-ops and structured failures — the keystone fix for the orchestrator
-     * periodic dream path that previously mapped every non-throwing return to
-     * `completed` regardless of whether sessions were actually processed.
+     * @summary Unified canonical REM (Sandman) cycle entrypoint returning a typed cycle outcome envelope.
      *
-     * Outcome status semantics:
+     * The orchestrator periodic dream path previously mapped every non-throwing return
+     * from `processUndigestedSessions()` to `completed`, hiding zero-session no-ops,
+     * concurrent-invocation guards, and provider-unreachable early returns. This method
+     * returns one of `completed | skipped | failed` so consumers route each path to
+     * the correct task-state / health-telemetry surface.
      *
+     * **Outcome status semantics:**
      * - `completed` — provider was ready, undigested sessions existed, processing finished
      *   without throw. `sessionsProcessed` carries the pre-call count.
      * - `skipped`   — ran successfully but did no work (concurrent-invocation guard,
-     *   zero undigested sessions, dry-run, etc). `skipReason` carries the diagnostic.
-     * - `failed`    — provider readiness gate rejected OR in-pipeline throw caught.
+     *   zero undigested sessions, dry-run). `skipReason` carries the diagnostic string.
+     * - `failed`    — provider readiness gate rejected OR an in-pipeline throw was caught.
      *   Either `diagnostic` (for provider failure) or `error` (for throws) is populated.
      *
-     * Lease ownership stays with the caller. The orchestrator periodic dream path runs
-     * inside `MaintenanceBackpressureService`'s lease; the standalone Sandman CLI runner
-     * acquires its own lease via `withHeavyMaintenanceLease`. Re-acquiring inside this
-     * method would double-lease and deadlock.
+     * **Lease ownership stays with the caller.** The orchestrator periodic dream path
+     * runs inside `MaintenanceBackpressureService`'s lease; the standalone Sandman CLI
+     * runner acquires its own lease via `withHeavyMaintenanceLease`. Re-acquiring inside
+     * this method would double-lease and deadlock, so this method is intentionally
+     * lease-agnostic.
      *
      * @param {Object}  [options]
      * @param {String}  [options.reason]            Coordination string for logging + state model (e.g. `periodic-dream:3600000`).
      * @param {String}  [options.mode='periodic']   `'periodic' | 'manual' | 'cli'`.
-     * @param {Boolean} [options.includeGoldenPath=false] Reserved for the Sub 5 refresh helper; periodic path leaves it false.
      * @param {Boolean} [options.includeDecay=true] When true, runs `GraphService.decayGlobalTopology()` as the cycle-finalization step (24-hour Algorithmic Lock self-skips when not due).
      * @param {Boolean} [options.dryRun=false]      Probe-only mode; short-circuits to `skipped` after the readiness gate passes.
      * @returns {Promise<Object>} typed outcome envelope (see status semantics above).
      */
     async executeRemCycle({
         reason,
-        mode             = 'periodic',
-        includeGoldenPath = false,
-        includeDecay     = true,
-        dryRun           = false
+        mode         = 'periodic',
+        includeDecay = true,
+        dryRun       = false
     } = {}) {
         const startedAt = new Date();
         const runId     = `rem-${startedAt.toISOString()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -323,19 +323,32 @@ class DreamService extends Base {
             durationMs : Date.now() - startedAt.getTime()
         });
 
+        // Provider gate — abort with rich diagnostic when the configured graph provider
+        // is unsupported or unreachable. Downstream pipeline calls would silently no-op
+        // on missing provider; the typed `failed` envelope surfaces the root cause to
+        // operator-facing health telemetry instead.
         const gate = await this.checkProviderReadiness();
         if (!gate.ready) {
             return finalize('failed', {diagnostic: gate.diagnostic});
         }
 
+        // Dry-run short-circuit — used by callers that want to verify readiness without
+        // running the pipeline (e.g. operator probes, smoke tests).
         if (dryRun) {
             return finalize('skipped', {skipReason: 'dry-run requested'});
         }
 
+        // Concurrent-invocation guard — exposes the in-flight state as a stage outcome
+        // rather than the prior debug-only log line that hid double-fires from operator
+        // health telemetry.
         if (this.isProcessing) {
             return finalize('skipped', {skipReason: 'dreamService.isProcessing already true (concurrent invocation)'});
         }
 
+        // Pre-count query — distinguishes the no-work `skipped` path from the
+        // work-completed `completed` path without requiring a return-value refactor on
+        // processUndigestedSessions. A pre-call query is cheaper than the alternative
+        // of inspecting graph state after the fact.
         let sessionCount = 0;
         try {
             const undigested = await this.findUndigestedSessions();
@@ -346,6 +359,8 @@ class DreamService extends Base {
             });
         }
 
+        // No-work path — still run decay (it self-skips when the 24-hour Algorithmic
+        // Lock isn't due) so decay cadence is not coupled to session-arrival cadence.
         if (sessionCount === 0) {
             if (includeDecay) {
                 try {
@@ -360,15 +375,13 @@ class DreamService extends Base {
             return finalize('skipped', {sessionsProcessed: 0, skipReason: 'no undigested sessions'});
         }
 
+        // Work path — process sessions, then run decay as the cycle-finalization step
+        // under the same lease window the caller already holds.
         try {
             await this.processUndigestedSessions();
 
             if (includeDecay) {
                 await GraphService.decayGlobalTopology();
-            }
-
-            if (includeGoldenPath) {
-                logger.info('[DreamService] executeRemCycle: includeGoldenPath flag set but the dedicated refresh helper is deferred to its own ticket; periodic dream path does NOT refresh goldenPath in this cycle');
             }
 
             return finalize('completed', {sessionsProcessed: sessionCount});
@@ -381,14 +394,18 @@ class DreamService extends Base {
     }
 
     /**
-     * Probes the configured graph provider before invoking a graph-heavy REM cycle.
+     * @summary Probes the configured graph provider before invoking a graph-heavy REM cycle.
+     *
      * Returns `{ready: true}` when the configured provider answers the HTTP probe,
      * `{ready: false, diagnostic}` when the provider is unsupported or the readiness
-     * loop exhausts retries.
+     * loop exhausts its retry budget. The diagnostic envelope carries the full
+     * provider-failure context (provider name, host, model, attempts, elapsedMs,
+     * nextAction prose) so callers can surface it through observability telemetry
+     * without the operator tailing logs.
      *
      * Probe parameters flow from `aiConfig.orchestrator.providerReadiness` verbatim
-     * (no module-level fallbacks). Daemon-context invocations suppress the dot-progress
-     * writer used by the CLI runner.
+     * (no module-level fallbacks per the config-as-SSOT contract). Daemon-context
+     * invocations suppress the dot-progress writer used by the CLI runner.
      *
      * @returns {Promise<{ready: true} | {ready: false, diagnostic: Object}>}
      */

@@ -737,9 +737,8 @@ export class Orchestrator extends Base {
 
             const outcome = await this.dreamService.executeRemCycle({
                 reason,
-                mode            : 'periodic',
-                includeGoldenPath: false,
-                includeDecay    : true
+                mode        : 'periodic',
+                includeDecay: true
             });
 
             const recordPayload = {
