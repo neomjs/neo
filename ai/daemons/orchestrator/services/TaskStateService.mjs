@@ -197,6 +197,18 @@ export class TaskStateService extends Base {
     }
 
     /**
+     * Marks a long-running task as ready without clearing its running PID.
+     * @param {String} taskName
+     * @returns {void}
+     */
+    markReady(taskName) {
+        const state = this.taskState[taskName];
+        state.lastExitCode  = 0;
+        state.lastSuccessAt = new Date().toISOString();
+        this.writeState();
+    }
+
+    /**
      * Marks a task as skipped without treating the no-op as a successful run.
      * @param {String} taskName
      * @returns {void}

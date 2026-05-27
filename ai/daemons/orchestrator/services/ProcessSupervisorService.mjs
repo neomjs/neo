@@ -252,6 +252,61 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * Runs an optional post-spawn readiness hook for long-running child tasks.
+     *
+     * The child process can be alive before its provider surface is useful. LM Studio's
+     * `lms server start` is the concrete case: the HTTP server can listen while no chat
+     * or embedding model is resident. A task-level hook lets the task own that readiness
+     * contract while this supervisor remains provider-agnostic.
+     *
+     * @param {Object} options
+     * @param {String} options.taskName Task key.
+     * @param {Object} options.task Task definition.
+     * @param {String} options.reason Scheduling reason.
+     * @param {Object} options.child Spawned child process.
+     * @param {Function} options.clear Completion/failure finalizer.
+     * @param {Function} options.isCleared Completion-state guard.
+     * @returns {void}
+     */
+    runPostSpawnHook({taskName, task, reason, child, clear, isCleared}) {
+        if (typeof task.postSpawn !== 'function') {
+            return;
+        }
+
+        Promise.resolve()
+            .then(() => task.postSpawn({
+                taskName,
+                task,
+                reason,
+                pid     : child.pid || null,
+                writeLog: this.writeLog
+            }))
+            .then(result => {
+                if (isCleared?.()) {
+                    return;
+                }
+                this.taskStateService.markReady?.(taskName);
+                this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} readiness hook completed successfully.`);
+                this.recordTaskOutcome(taskName, 'ready', {
+                    reason,
+                    pid      : child.pid || null,
+                    readyAt  : new Date().toISOString(),
+                    readiness: result || null
+                });
+            })
+            .catch(error => {
+                if (isCleared?.()) {
+                    return;
+                }
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} readiness hook failed: ${error.message}`);
+                try {
+                    child.kill?.('SIGTERM');
+                } catch (e) {}
+                clear(null, error, 'post-spawn-readiness');
+            });
+    }
+
+    /**
      * Starts a child task and wires completion status back into task state and HealthService.
      * @param {String} taskName Task key.
      * @param {String} reason Scheduling reason.
@@ -307,7 +362,7 @@ export class ProcessSupervisorService extends Base {
         this.recordTaskOutcome(taskName, 'running', {reason, pid: child.pid || null, startedAt: new Date().toISOString()});
 
         let cleared = false;
-        const clear = (code, error) => {
+        const clear = (code, error, phase = 'start') => {
             if (cleared) {
                 return;
             }
@@ -322,8 +377,8 @@ export class ProcessSupervisorService extends Base {
 
             if (error) {
                 this.taskStateService.markFailed(taskName, null);
-                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} failed to start: ${error.message}`);
-                this.recordTaskOutcome(taskName, 'failed', {reason, phase: 'start', error: error.message});
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} failed during ${phase}: ${error.message}`);
+                this.recordTaskOutcome(taskName, 'failed', {reason, phase, error: error.message});
             } else if (code === 0) {
                 try {
                     const completedAt = new Date().toISOString();
@@ -349,8 +404,10 @@ export class ProcessSupervisorService extends Base {
             }
         };
 
+        this.runPostSpawnHook({taskName, task, reason, child, clear, isCleared: () => cleared});
+
         child.on('close', code => clear(code));
-        child.on('error', err => clear(null, err));
+        child.on('error', err => clear(null, err, 'child-process'));
 
         return true;
     }

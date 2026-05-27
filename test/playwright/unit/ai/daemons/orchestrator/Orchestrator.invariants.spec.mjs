@@ -27,6 +27,7 @@ let savedCloudOnly       = null;
 let savedDeploymentMode  = null;
 let savedMlxConfig                   = undefined;
 let savedLmsConfig                   = undefined;
+let savedOpenAiCompatibleConfig      = undefined;
 let savedEnvKbSyncEnabled            = undefined;
 let savedEnvKbSyncInterval           = undefined;
 let savedEnvTenantRepoSyncEnabled    = undefined;
@@ -71,6 +72,7 @@ test.beforeEach(() => {
     savedDeploymentMode = AiConfig.orchestrator.deploymentMode;
     savedMlxConfig      = AiConfig.orchestrator.mlx ? {...AiConfig.orchestrator.mlx} : undefined;
     savedLmsConfig      = AiConfig.orchestrator.lms ? {...AiConfig.orchestrator.lms} : undefined;
+    savedOpenAiCompatibleConfig = AiConfig.openAiCompatible ? {...AiConfig.openAiCompatible} : undefined;
 
     savedEnvKbSyncEnabled          = process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED;
     savedEnvKbSyncInterval         = process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS;
@@ -102,6 +104,11 @@ test.afterEach(() => {
         delete AiConfig.orchestrator.lms;
     } else {
         AiConfig.orchestrator.lms = savedLmsConfig;
+    }
+    if (savedOpenAiCompatibleConfig === undefined) {
+        delete AiConfig.openAiCompatible;
+    } else {
+        AiConfig.openAiCompatible = savedOpenAiCompatibleConfig;
     }
 
     restoreEnv('NEO_ORCHESTRATOR_KB_SYNC_ENABLED',           savedEnvKbSyncEnabled);
@@ -218,11 +225,18 @@ test.describe('Orchestrator config getters delegate to AiConfig (envBindings is 
 
     test('lmsEnabled / lmsModel / lmsPort getters read AiConfig.orchestrator.lms verbatim', () => {
         AiConfig.orchestrator.lms = {enabled: true, model: 'lms-from-config', port: '4242'};
+        AiConfig.openAiCompatible = {
+            host          : 'http://127.0.0.1:4242',
+            model         : 'chat-from-config',
+            embeddingModel: 'embedding-from-config'
+        };
 
         const o = createMinimalOrchestrator();
         expect(o.lmsEnabled).toBe(true);
         expect(o.lmsModel).toBe('lms-from-config');
         expect(o.lmsPort).toBe('4242');
+        expect(o.lmsHost).toBe('http://127.0.0.1:4242');
+        expect(o.lmsModels).toEqual(['chat-from-config', 'embedding-from-config']);
 
         AiConfig.orchestrator.lms = {enabled: false, model: 'qwen', port: '1234'};
         expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
