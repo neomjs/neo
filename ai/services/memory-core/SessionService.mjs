@@ -609,8 +609,8 @@ ${aggregatedContent}
             aiConfig.modelProvider === 'openAiCompatible' ? (aiConfig.openAiCompatible.model || 'openAiCompatible') :
             aiConfig.modelProvider === 'ollama'           ? (aiConfig.ollama?.model           || 'ollama') :
             (aiConfig.modelName || 'gemini');
-        const consumerContextTokens = aiConfig.openAiCompatible?.contextLimitTokens || 32768;
-        const consumerSafeTokens    = aiConfig.openAiCompatible?.safeProcessingLimitTokens;
+        const consumerContextTokens = aiConfig.localModels.chat.contextLimitTokens;
+        const consumerSafeTokens    = aiConfig.localModels.chat.safeProcessingLimitTokens;
         const guardrailed           = await invokeWithGuardrail({
             invocationFn             : () => this.model.generateContent(summaryPrompt),
             inputPayload             : summaryPrompt,

@@ -140,16 +140,71 @@ class Config extends BaseConfig {
             apiKey                  : '',
             unloadRetryCount        : 3,
             unloadRetryDelayMs      : 500,
-            keep_alive              : -1,
-            // gemma-4-31b-it (and gemma-4-26B MoE) native context = 256K (262,144) tokens.
-            // Cap sized for the model's actual capacity; env override
-            // `NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS` preserved for operator re-pinning.
-            contextLimitTokens      : 262144,
-            // Explicit ~76% of cap; ~62K tokens headroom for system-prompt envelope + LLM
-            // response generation. Prior `undefined` default fell back to 0.75 × cap via
-            // ConsumerFrictionHelper.DEFAULT_SAFE_FRACTION — explicit value avoids implicit
-            // drift if the cap moves again.
-            safeProcessingLimitTokens: 200000
+            keep_alive              : -1
+        },
+        /**
+         * @summary Local-model role-keyed context limits.
+         *
+         * The context-window axis for local-inference consumers is **model-role**
+         * (chat vs embedding), not provider-namespace. Remote providers (Gemini and
+         * future API-only endpoints) are API-bound — operators have no control over
+         * their context cap, so these knobs do not apply. Local providers
+         * (`openAiCompatible`, `ollama`) share these caps regardless of which serves
+         * the role, because the practical limit comes from the loaded model, not
+         * from the provider transport.
+         *
+         * Consumers read by model-role:
+         * - Chat-path consumers (graph extraction, session summary) → `localModels.chat.*`
+         * - Embedding-path consumers (Memory Core embedding, KB ingestion) → `localModels.embedding.*`
+         *
+         * @type {Object}
+         */
+        localModels: {
+            /**
+             * @summary Chat-model context limits in tokens.
+             *
+             * Tuned for `gemma-4-31b-it` (native 256K context). Operators serving
+             * smaller chat models should pin this to the actual loaded-model capacity;
+             * `ConsumerFrictionHelper.invokeWithGuardrail` uses these values to fire
+             * the upstream pre-check skip (emits `'context-overflow'` /
+             * `'size-precheck-skip'` friction) when composed input exceeds the safe
+             * processing band.
+             *
+             * `safeProcessingLimitTokens` is the explicit ~76% headroom band — leaves
+             * ~62K tokens for system-prompt envelope + LLM response generation. Explicit
+             * value avoids implicit `0.75 × cap` derivation drift if the cap moves.
+             *
+             * Env overrides: `NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS`,
+             * `NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS`.
+             *
+             * @type {Object}
+             */
+            chat: {
+                contextLimitTokens      : 262144,
+                safeProcessingLimitTokens: 200000
+            },
+            /**
+             * @summary Embedding-model context limits in tokens.
+             *
+             * Conservative placeholder defaults. Operators must pin to their loaded
+             * embedding model's actual capability before operational reliance — for
+             * instance Qwen3-8B-embedding typically supports 32K context, but this
+             * default holds an 8K conservative floor until V-B-A confirms the value
+             * against the configured embedding model.
+             *
+             * No active consumer reads these yet; pre-positioned for the embedding
+             * consumer surface (TextEmbeddingService + KB ingestion retry-on-unload
+             * telemetry paths).
+             *
+             * Env overrides: `NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS`,
+             * `NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS`.
+             *
+             * @type {Object}
+             */
+            embedding: {
+                contextLimitTokens      : 8192,
+                safeProcessingLimitTokens: 6144
+            }
         },
         /**
          * @summary Deployment-wide Gemini model defaults.
@@ -564,9 +619,17 @@ class Config extends BaseConfig {
             apiKey                  : 'NEO_OPENAI_COMPATIBLE_API_KEY',
             unloadRetryCount        : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
             unloadRetryDelayMs      : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
-            keep_alive              : {var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive},
-            contextLimitTokens      : {var: 'NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS', parse: Env.parseNumber},
-            safeProcessingLimitTokens: {var: 'NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS', parse: Env.parseNumber}
+            keep_alive              : {var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive}
+        },
+        localModels: {
+            chat: {
+                contextLimitTokens      : {var: 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', parse: Env.parseNumber},
+                safeProcessingLimitTokens: {var: 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', parse: Env.parseNumber}
+            },
+            embedding: {
+                contextLimitTokens      : {var: 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', parse: Env.parseNumber},
+                safeProcessingLimitTokens: {var: 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', parse: Env.parseNumber}
+            }
         },
         vectorDimension: {var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
         backupPath                  : 'NEO_BACKUP_PATH',

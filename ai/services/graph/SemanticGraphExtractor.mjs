@@ -118,12 +118,14 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // into friction symptoms. Friction is emitted into the in-memory aggregator
             // (with `serviceDomain: 'dream-pipeline'`) for handoff rendering by
             // `GoldenPathSynthesizer.synthesizeGoldenPath`.
-            // #11965 AC5 / #12059: consumerModel reflects the active graph-generation provider
-            // for accurate telemetry; openAiCompatible's context-limit knobs are kept as the conservative
-            // upstream pre-check threshold for both provider families.
+            // consumerModel reflects the active graph-generation provider for accurate
+            // telemetry; localModels.chat.* provides the role-keyed context-limit
+            // threshold (model-role axis, not provider-namespace — remote providers like
+            // Gemini are API-bound and don't expose these knobs; local providers
+            // share the same caps because the limit comes from the loaded model).
             const consumerModel          = aiConfig[graphProvider]?.model;
-            const consumerContextTokens  = aiConfig.openAiCompatible.contextLimitTokens;
-            const consumerSafeTokens     = aiConfig.openAiCompatible.safeProcessingLimitTokens;
+            const consumerContextTokens  = aiConfig.localModels.chat.contextLimitTokens;
+            const consumerSafeTokens     = aiConfig.localModels.chat.safeProcessingLimitTokens;
 
             while (attempt < maxRetries && !payload) {
                 attempt++;
