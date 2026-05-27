@@ -367,4 +367,53 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
     });
+
+    test.describe('Memory Core MCP get_rem_pipeline_state', () => {
+        test('projects all 5 axes plus optional per-session entity count through the MCP tool', async () => {
+            ChromaManager.getSummaryCollection = async () => makeFakeSummaryCollection([
+                {id: 's1', meta: {sessionId: 's1'}},
+                {id: 's2', meta: {sessionId: 's2', graphDigested: true}},
+                {id: 's3', meta: {sessionId: 's3', graphDigested: 'true'}},
+                {id: 's4', meta: {sessionId: 's4'}}
+            ]);
+
+            GraphService.db = makeFakeGraphDb((sql) => {
+                if (sql.includes('FROM Nodes')) {
+                    return {get: () => ({c: 2})};
+                }
+
+                return {get: (id) => {
+                    expect(id).toBe('session:s1');
+                    return {count: 9};
+                }};
+            });
+
+            const handoffPath = uniqueHandoffPath('mcp-state');
+            await mkdir(tmpRoot, {recursive: true});
+            await writeFile(handoffPath, [
+                '# Sandman Handoff Alerts',
+                '',
+                '## Active Conflicts',
+                '',
+                '- **[SUPERSEDES]** `issue-100`: foo (Source Session: s1)',
+                '- **[DUPLICATE]** `issue-101`: bar (Source Session: s2)',
+                ''
+            ].join('\n'), 'utf8');
+            aiConfig.data.handoffFilePath = handoffPath;
+
+            const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
+            const state = await callTool('get_rem_pipeline_state', {sessionId: 's1'});
+
+            expect(state).toEqual({
+                undigested       : 2,
+                digested         : 2,
+                sessionNodes     : 2,
+                topologyConflicts: 2,
+                perSession       : {
+                    sessionId  : 's1',
+                    entityCount: 9
+                }
+            });
+        });
+    });
 });

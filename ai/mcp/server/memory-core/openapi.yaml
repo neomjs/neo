@@ -112,6 +112,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /rem/pipeline-state:
+    post:
+      summary: Get REM Pipeline State
+      operationId: get_rem_pipeline_state
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: >
+        Returns the 5-axis REM pipeline observability snapshot: undigested Chroma summaries,
+        graph-digested Chroma summaries, SQLite SESSION nodes, topology conflicts, and optional
+        per-session entity count.
+      tags: [Health]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                  description: Optional session id for per-session entity-count projection.
+      responses:
+        '200':
+          description: REM pipeline state snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemPipelineStateResponse'
+        '500':
+          description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /memories:
     post:
       summary: Add New Memory
@@ -1438,6 +1474,42 @@ paths:
 
 components:
   schemas:
+    RemPipelineStateResponse:
+      type: object
+      required:
+        - undigested
+        - digested
+        - sessionNodes
+        - topologyConflicts
+      properties:
+        undigested:
+          type: integer
+          description: Chroma session summaries without graphDigested true in the current batch window.
+          example: 8
+        digested:
+          type: integer
+          description: Chroma session summaries with graphDigested true in the current batch window.
+          example: 109
+        sessionNodes:
+          type: integer
+          description: Deployment-wide SQLite SESSION node count.
+          example: 109
+        topologyConflicts:
+          type: integer
+          description: Conflict entries currently present in the Sandman handoff file.
+          example: 2
+        perSession:
+          type: object
+          nullable: true
+          properties:
+            sessionId:
+              type: string
+              description: Session id supplied by the caller.
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            entityCount:
+              type: integer
+              description: Inbound graph entity/provenance edge count for the session.
+              example: 17
     HealthCheckResponse:
       type: object
       properties:
