@@ -185,12 +185,20 @@ export function buildLmsContextLengthsMap({
     embeddingContextLength
 } = {}) {
     const map = {};
-    if (chatModel && typeof chatContextLength === 'number' && Number.isFinite(chatContextLength)) {
-        map[chatModel] = chatContextLength;
-    }
-    if (embeddingModel && typeof embeddingContextLength === 'number' && Number.isFinite(embeddingContextLength)) {
-        map[embeddingModel] = embeddingContextLength;
-    }
+    const setMax = (modelId, value) => {
+        if (!modelId || typeof value !== 'number' || !Number.isFinite(value)) {
+            return;
+        }
+        // Same-model chat+embedding edge: when both roles share a model id (operator
+        // points chat + embedding at the same identifier), keep the LARGER cap so
+        // the role with the bigger context-window envelope is not silently capped
+        // by the smaller role's threshold.
+        if (map[modelId] === undefined || value > map[modelId]) {
+            map[modelId] = value;
+        }
+    };
+    setMax(chatModel, chatContextLength);
+    setMax(embeddingModel, embeddingContextLength);
     return map;
 }
 
@@ -267,10 +275,25 @@ export async function ensureLmsModelsLoaded({
     };
 
     let {availableModels} = await probeModels('initial /v1/models probe');
-    let missingModels   = getMissing(availableModels);
-    const loadedModels  = [...missingModels];
+    const initialMissing  = getMissing(availableModels);
 
-    if (missingModels.length === 0) {
+    // Force-include context-configured models in the load set even when already
+    // resident in /v1/models. `/v1/models` reports presence only — it does NOT
+    // expose the loaded context window, so model-id presence is insufficient to
+    // confirm the loaded cap matches the operator-declared threshold. Without
+    // this re-load, the exact #12117 regression survives orchestrator restarts:
+    // a model loaded with the modelfile-default context window (~4K-8K) would
+    // be accepted as ready while every chat invocation silently overflows.
+    // Force-include each context-configured model in the load set even if resident,
+    // BUT preserve the declared requiredModels input order (filter rather than concat-dedupe).
+    const modelsToLoad = requiredModels.filter(model => {
+        if (initialMissing.includes(model)) return true;
+        const cap = contextLengths?.[model];
+        return typeof cap === 'number' && Number.isFinite(cap);
+    });
+    const loadedModels = [...modelsToLoad];
+
+    if (modelsToLoad.length === 0) {
         return {
             ready       : true,
             loadedModels: [],
@@ -280,14 +303,19 @@ export async function ensureLmsModelsLoaded({
         };
     }
 
-    for (const model of missingModels) {
+    for (const model of modelsToLoad) {
         const contextLength = contextLengths?.[model];
         const contextSuffix = typeof contextLength === 'number' && Number.isFinite(contextLength)
             ? ` --context-length ${contextLength}`
             : '';
-        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix}.`);
+        const reason = initialMissing.includes(model)
+            ? 'missing from /v1/models'
+            : 'context-length enforcement on resident model';
+        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix} (${reason}).`);
         await loadModel(model, {contextLength});
     }
+
+    let missingModels = initialMissing;
 
     const startedAt = Date.now();
     for (let attempt = 1; attempt <= attempts; attempt++) {

@@ -282,7 +282,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
     });
 
-    test('ensureLmsModelsLoaded skips lms load when both models are already resident', async () => {
+    test('ensureLmsModelsLoaded skips lms load when both models are already resident AND no contextLengths configured', async () => {
         const loads = [];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
@@ -301,6 +301,61 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             loadedModels: [],
             attempts    : 1
         });
+    });
+
+    test('ensureLmsModelsLoaded force-reloads context-configured models even when already resident (#12117 RA1 — closes silent wrong-context regression)', async () => {
+        const loadCalls = [];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host          : 'http://127.0.0.1:1234',
+            models        : ['chat-model', 'embedding-model'],
+            contextLengths: {'chat-model': 262144, 'embedding-model': 8192},
+            attempts      : 1,
+            delayMs       : 0,
+            timeoutMs     : 50,
+            // Both models ALREADY resident — without the RA1 fix, this scenario returned
+            // ready with zero loadModel calls, leaving any modelfile-default loaded
+            // context window in place. With the fix, context-configured models are
+            // force-included in the load set.
+            fetchModelIds : async () => ['chat-model', 'embedding-model'],
+            loadModel     : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
+            log           : {info: () => {}}
+        });
+
+        expect(loadCalls).toEqual([
+            {model: 'chat-model',      contextLength: 262144},
+            {model: 'embedding-model', contextLength: 8192}
+        ]);
+        expect(result.ready).toBe(true);
+        expect(result.loadedModels).toEqual(['chat-model', 'embedding-model']);
+    });
+
+    test('ensureLmsModelsLoaded mixes missing + context-configured force-reload paths correctly (#12117 RA1)', async () => {
+        const loadCalls = [];
+        const modelSnapshots = [
+            ['chat-model'],                      // chat resident, embedding missing
+            ['chat-model', 'embedding-model']    // post-load: both present
+        ];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host          : 'http://127.0.0.1:1234',
+            models        : ['chat-model', 'embedding-model'],
+            // Only chat has a configured context-length; embedding must still load as missing
+            contextLengths: {'chat-model': 262144},
+            attempts      : 2,
+            delayMs       : 0,
+            timeoutMs     : 50,
+            fetchModelIds : async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
+            loadModel     : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
+            log           : {info: () => {}}
+        });
+
+        // Both models should load: embedding because missing, chat because context-configured
+        expect(loadCalls).toEqual([
+            {model: 'chat-model',      contextLength: 262144},
+            {model: 'embedding-model', contextLength: undefined}
+        ]);
+        expect(result.ready).toBe(true);
     });
 
     test('ensureLmsModelsLoaded fails loud when readiness config is incomplete', async () => {
@@ -403,6 +458,34 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 chatContextLength: bad
             })).toEqual({});
         }
+    });
+
+    test('buildLmsContextLengthsMap preserves max cap when chat and embedding share a model id (#12117 RA2)', () => {
+        // Same model id for both roles — must not let smaller embedding cap overwrite
+        // the larger chat cap (would silently break chat invocations).
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            chatModel             : 'shared-model',
+            embeddingModel        : 'shared-model',
+            chatContextLength     : 262144,
+            embeddingContextLength: 8192
+        })).toEqual({'shared-model': 262144});
+
+        // Order independence: same result if smaller declared first (already handled
+        // because the setMax helper compares both directions)
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            chatModel             : 'shared-model',
+            embeddingModel        : 'shared-model',
+            chatContextLength     : 8192,
+            embeddingContextLength: 262144
+        })).toEqual({'shared-model': 262144});
+
+        // Same value both roles: idempotent
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            chatModel             : 'shared-model',
+            embeddingModel        : 'shared-model',
+            chatContextLength     : 99999,
+            embeddingContextLength: 99999
+        })).toEqual({'shared-model': 99999});
     });
 
     test('buildLmsContextLengthsMap returns partial map when only one role is configured (#12117)', () => {
