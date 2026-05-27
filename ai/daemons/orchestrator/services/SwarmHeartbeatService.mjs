@@ -7,6 +7,7 @@ import fs              from 'fs/promises';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import Base            from '../../../../src/core/Base.mjs';
+import AiConfig        from '../../../config.mjs';
 import {
     Memory_GraphService     as GraphService,
     Memory_LifecycleService as LifecycleService
@@ -57,7 +58,7 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  * @see ai/services/memory-core/HealthService.mjs
  */
 function heartbeatAlivePath() {
-    return process.env.NEO_HEARTBEAT_ALIVE_PATH || path.resolve(__dirname, '../../../../.neo-ai-data/wake-daemon/heartbeat.alive')
+    return AiConfig.wakeDaemonHeartbeatAlivePath;
 }
 
 /**
