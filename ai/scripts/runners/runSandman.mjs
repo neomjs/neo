@@ -18,18 +18,16 @@ import {pathToFileURL} from 'url';
  * @module ai/scripts/runners/runSandman
  */
 
-const DEFAULT_OPENAI_COMPATIBLE_HOST = 'http://127.0.0.1:8000';
-const DEFAULT_OLLAMA_HOST            = 'http://127.0.0.1:11434';
-const PROVIDER_READY_ATTEMPTS        = 30;
-const PROVIDER_READY_RETRY_MS        = 1000;
+const PROVIDER_READY_ATTEMPTS = 30;
+const PROVIDER_READY_RETRY_MS = 1000;
 
 /**
  * @summary Resolves the OpenAI-compatible host used by one Sandman graph-provider option.
  * @param {Object} config
- * @returns {String}
+ * @returns {String|undefined}
  */
 export function getOpenAiCompatibleHost(config = Memory_Config.data) {
-    return config.openAiCompatible?.host || DEFAULT_OPENAI_COMPATIBLE_HOST;
+    return config.openAiCompatible?.host;
 }
 
 /**
@@ -55,14 +53,14 @@ export function getGraphProviderReadinessTarget(config = Memory_Config.data) {
 
     const isOllama = provider === 'ollama';
     const host     = isOllama
-        ? config.ollama?.host || DEFAULT_OLLAMA_HOST
+        ? config.ollama?.host
         : getOpenAiCompatibleHost(config);
     const endpoint = isOllama ? '/api/tags' : '/v1/models';
-    const model    = isOllama ? config.ollama?.model || null : config.openAiCompatible?.model || null;
+    const model    = isOllama ? config.ollama?.model : config.openAiCompatible?.model;
     const embeddingModel = isOllama
-        ? config.ollama?.embeddingModel || null
-        : config.openAiCompatible?.embeddingModel || null;
-    const url      = `${host.replace(/\/+$/, '')}${endpoint}`;
+        ? config.ollama?.embeddingModel
+        : config.openAiCompatible?.embeddingModel;
+    const url      = host ? `${host.replace(/\/+$/, '')}${endpoint}` : null;
 
     return {
         provider,
@@ -172,7 +170,7 @@ export function createProviderFailureDiagnostic({
         reason,
         provider       : target.provider,
         graphProvider  : target.provider,
-        modelProvider  : config.modelProvider || null,
+        modelProvider  : config.modelProvider,
         host           : target.host,
         endpoint       : target.endpoint,
         url            : target.url,

@@ -93,13 +93,12 @@ class Config extends BaseConfig {
          *
          * Graph extraction deliberately does not use the generic chat provider axis:
          * chat/summarization may use Gemini, while graph-generation dispatch only
-         * supports native Ollama or OpenAI-compatible endpoints. The `auto` policy
-         * derives native Ollama when `modelProvider` is `ollama`; otherwise it uses
-         * the OpenAI-compatible graph route. Set `NEO_GRAPH_PROVIDER` only for an
-         * explicit graph-lane override.
-         * @type {'auto'|'ollama'|'openAiCompatible'}
+         * supports native Ollama or OpenAI-compatible endpoints. Defaults to the
+         * OpenAI-compatible graph route; set `NEO_GRAPH_PROVIDER=ollama` for
+         * deployments that run graph extraction against native Ollama.
+         * @type {'ollama'|'openAiCompatible'}
          */
-        graphProvider: 'auto',
+        graphProvider: 'openAiCompatible',
         /**
          * @summary Deployment-wide embedding provider selector.
          *

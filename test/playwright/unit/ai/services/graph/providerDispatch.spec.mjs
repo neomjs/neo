@@ -27,14 +27,10 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
         resolveGraphModelProvider = mod.resolveGraphModelProvider;
     });
 
-    test('resolves graph provider independently from generic Gemini modelProvider (#12059)', () => {
-        expect(resolveGraphModelProvider({
-            modelProvider: 'gemini'
-        })).toBe('openAiCompatible');
-
+    test('returns configured graph provider without generic modelProvider fallback (#12059)', () => {
         expect(resolveGraphModelProvider({
             modelProvider : 'gemini',
-            graphProvider : 'auto'
+            graphProvider : 'openAiCompatible'
         })).toBe('openAiCompatible');
 
         expect(resolveGraphModelProvider({
@@ -44,8 +40,12 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
 
         expect(resolveGraphModelProvider({
             modelProvider : 'ollama',
-            graphProvider : 'auto'
-        })).toBe('ollama');
+            graphProvider : 'openAiCompatible'
+        })).toBe('openAiCompatible');
+
+        expect(resolveGraphModelProvider({
+            modelProvider: 'ollama'
+        })).toBeUndefined();
 
         expect(resolveGraphModelProvider({
             modelProvider : 'openAiCompatible',

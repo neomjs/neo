@@ -137,8 +137,7 @@ class Config extends BaseConfig {
         modelProvider: AiConfig.modelProvider,
         /**
          * Provider selector for Dream/Sandman graph-generation lanes.
-         * `auto` preserves the Tier-1 resolver's modelProvider-derived fallback.
-         * Supported values: 'auto', 'ollama', 'openAiCompatible'
+         * Supported values: 'ollama', 'openAiCompatible'
          * @type {String}
          */
         graphProvider: AiConfig.graphProvider,

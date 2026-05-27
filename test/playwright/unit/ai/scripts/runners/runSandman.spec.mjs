@@ -83,7 +83,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('resolves readiness target from graphProvider instead of generic modelProvider', () => {
         expect(runSandmanModule.getGraphProviderReadinessTarget({
-            modelProvider: 'gemini',
+            modelProvider : 'gemini',
+            graphProvider : 'openAiCompatible',
             openAiCompatible: {
                 host : 'http://127.0.0.1:13090',
                 model: 'mlx-community/gemma-4'
@@ -115,15 +116,20 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(runSandmanModule.getGraphProviderReadinessTarget({
             modelProvider : 'ollama',
-            graphProvider : null,
+            graphProvider : 'openAiCompatible',
+            openAiCompatible: {
+                host : 'http://127.0.0.1:13091',
+                model: 'mlx-community/gemma-4'
+            },
             ollama        : {
                 host : 'http://127.0.0.1:11434',
                 model: 'gemma4:31b'
             }
         })).toMatchObject({
-            provider : 'ollama',
+            provider : 'openAiCompatible',
             supported: true,
-            endpoint : '/api/tags'
+            endpoint : '/v1/models',
+            host     : 'http://127.0.0.1:13091'
         });
     });
 

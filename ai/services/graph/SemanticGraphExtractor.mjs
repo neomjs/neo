@@ -122,7 +122,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // for accurate telemetry; openAiCompatible's context-limit knobs are kept as the conservative
             // upstream pre-check threshold for both provider families.
             const consumerModel          = aiConfig[graphProvider]?.model;
-            const consumerContextTokens  = aiConfig.openAiCompatible.contextLimitTokens || 32768;
+            const consumerContextTokens  = aiConfig.openAiCompatible.contextLimitTokens;
             const consumerSafeTokens     = aiConfig.openAiCompatible.safeProcessingLimitTokens;
 
             while (attempt < maxRetries && !payload) {
