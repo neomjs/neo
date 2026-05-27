@@ -1,20 +1,19 @@
 /**
- * @summary Bridge daemon for Neo.mjs Phase 3 wake substrate (Shape C delivery).
+ * @summary Bridge daemon for Neo.mjs wake-event delivery.
  *
- * Polls SQLite GraphLog for new SENT_TO_ME edges, coalesces matching events
- * per active WAKE_SUBSCRIPTION, and delivers digests via osascript (macOS) or
- * tmux. Designed to run as a long-lived background process; one instance
- * per `.neo-ai-data/wake-daemon/` directory (singleton-enforced via PID lock
- * per #10422 / #10423).
+ * Polls SQLite GraphLog for new wake-relevant entries, coalesces matching
+ * events per active WAKE_SUBSCRIPTION, and delivers digests through the
+ * configured harness adapter. Designed to run as a long-lived background
+ * process with one instance per `.neo-ai-data/wake-daemon/` directory,
+ * enforced by the daemon PID lock.
  *
  * Scheduled Agent OS maintenance triggers belong to `ai/daemons/orchestrator/daemon.mjs`
- * per #11006. Keep this daemon focused on wake delivery only.
+ * so this daemon stays focused on wake delivery only.
  *
- * **Diagnostic log persistence (per #10419):**
- * All informational + error lines are written to BOTH stdout (live terminal
- * observability) AND `.neo-ai-data/wake-daemon/bridge.log` (persistent audit
- * trail for post-hoc wake-failure investigation, e.g. Bug 2 of #10410, the
- * Leonard demo failure, future osascript silent errors).
+ * **Diagnostic log persistence:**
+ * All informational and error lines are written to both stdout for live
+ * terminal observability and `.neo-ai-data/wake-daemon/bridge.log` for
+ * post-hoc wake-failure investigation.
  *
  * **Rotation:** Daily rotation via `.YYYY-MM-DD` suffix on the previous day's
  * file; archive files older than `LOG_RETENTION_DAYS` are pruned at startup.
@@ -22,10 +21,6 @@
  * **Line format:** `[ISO-timestamp] [PID:NNN] [LEVEL] message` — greppable
  * post-hoc, per-line correlation with daemon process and event chronology.
  *
- * @see #10419 (this PR — diagnostic substrate)
- * @see #10410 Bug 2 (duplicate-wake delivery — original motivation; root-cause
- *      diagnosis depends on persisted log lines surviving terminal scrollback)
- * @see #10423 (PID-lock singleton enforcement; PID transitions are now logged)
  */
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate
 // `globalThis.Neo` so any consumed class file relying on `Neo.setupClass()` works
@@ -336,12 +331,12 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
             if (messageNode && messageNode.label === 'MESSAGE') {
                 if (messageNode.properties?.wakeSuppressed) return null;
 
-                // Suppress same-sender broadcast wakes (#10668). The sender already has the
-                // broadcast in active context, so wake-as-interrupt carries no new information
-                // and inflates unread/no-op load during coordination loops. Audit/outbox
-                // visibility is preserved by MailboxService listings — this gates wake
-                // delivery only, not graph storage. Direct self-DMs (target === agentIdentity
-                // AND from === agentIdentity) remain delivered for deliberate self-handoff flows.
+                // Suppress same-sender broadcast wakes. The sender already has the
+                // broadcast in active context, so wake-as-interrupt carries no new
+                // information and inflates unread/no-op load during coordination loops.
+                // Audit/outbox visibility is preserved by MailboxService listings;
+                // this gates wake delivery only, not graph storage. Direct self-DMs
+                // remain delivered for deliberate self-handoff flows.
                 if (entity.target === 'AGENT:*' && messageNode.properties?.from === agentIdentity) {
                     return null;
                 }
@@ -637,9 +632,8 @@ async function deliverDigest(subscription, digest) {
                 return;
             }
             let tabShortcut = meta.tabShortcut;
-            // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
-            // We default to '3' to automatically switch to the Code tab for agentic tasks.
-            // For Antigravity, Cmd+L was unsafe/toggling for this regression class; Cmd+Shift+I is the verified focus command.
+            // Default tab/focus shortcuts are harness-specific. Claude uses Cmd+3 for
+            // its Code tab; Antigravity uses Cmd+Shift+I for the verified focus route.
             // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
             if (tabShortcut === undefined) {
                 if (appName === 'Claude') tabShortcut = '3';
@@ -647,56 +641,20 @@ async function deliverDigest(subscription, digest) {
             }
             let focusSeedKey      = meta.focusSeedKey;
             let focusSeedSequence = meta.focusSeedSequence;
-            // Claude Desktop's Cmd+3 selects the Code tab but does not always move focus into
-            // the prompt. Space used to be the non-mutating seed (#10660), but the 2026-05-08
-            // Claude Desktop UI made chat-history tool-call summaries focusable; Space can now
-            // expand/collapse those summaries instead of focusing the prompt. Use an explicit
-            // probe-and-undo sequence before the destructive Cmd+A/Cmd+X clear path (#10987).
-            // Keep this per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
+            // Claude tab switching does not always focus the prompt. Use the
+            // probe-and-undo sequence before the destructive Cmd+A/Cmd+X clear path.
+            // Keep this per harness; Antigravity owns an idempotent Cmd+Shift+I route.
             if (focusSeedSequence === undefined && focusSeedKey === undefined && appName === 'Claude') {
                 focusSeedSequence = 'r-undo';
             }
 
-            // [Anchor & Echo] Codex fail-closed (#10664) — empirical disproval 2026-05-03:
-            //
-            // PR #10663 attempted to mirror Claude's #10661 Space-seed primitive for Codex
-            // Desktop, hypothesizing that the same per-harness focusSeedKey: 'space' default
-            // would close the collapsed-sidebar regression (Cmd+A selecting thread history
-            // instead of composer content). Manual matrix validation by @tobiu falsified the
-            // hypothesis: pressing Space when the Codex prompt field is unfocused applies
-            // only a focus outline — it does NOT focus the composer. Enter behaves
-            // identically. Printable keys (e.g. 'r') CAN focus the composer but MUTATE
-            // prompt content; latest `r` observation appended to the existing prompt rather
-            // than fully replacing it, but appending IS mutation — any subsequent
-            // `Cmd+A` / `Cmd+X` clear sequence captures the appended char and the wake
-            // payload pastes over the result. Until an undo sequence passes the 5-row
-            // matrix (focused empty / focused draft / unfocused empty / unfocused draft /
-            // history-or-transcript focused), printable-key seeding remains unsafe pre-clear.
-            //
-            // **Scope distinction load-bearing for future operator opt-in**: the existing
-            // `meta.focusSeedKey` primitive is a SINGLE-KEY non-mutating focus seed (the
-            // bridge emits one keystroke before the destructive clear). A future verified
-            // single-key non-mutating Codex primitive can opt in via `meta.focusSeedKey`.
-            // The `r → Cmd+Z → Cmd+A → Cmd+X` candidate (under @neo-gpt investigation per
-            // #10664) is a MULTI-STEP probe-and-undo SEQUENCE, NOT a single-key seed; if it
-            // proves safe across all 5 matrix rows, it would need a distinct implementation
-            // path (e.g. a `meta.focusSeedSequence` primitive, or routed via the Codex
-            // app-server adapter below) — NOT a `meta.focusSeedKey: 'r'` opt-in, which
-            // would silently re-introduce the mutating-prompt failure mode.
-            //
-            // No empirically-validated non-mutating composer-focus primitive exists for
-            // Codex Desktop today. Until either (a) operator explicitly configures
-            // `meta.focusSeedKey` via subscription metadata with a verified single-key
-            // non-mutating primitive, or (b) the Codex app-server adapter (#10517) ships —
-            // using `turn/start` / `turn/steer` / `thread/inject_items` via
-            // `codex debug app-server send-message-v2` — and supersedes the UI-keystroke
-            // path entirely, the bridge MUST refuse to proceed past the destructive
-            // Cmd+A / Cmd+X clear sequence for Codex.
-            //
-            // Defense-in-depth: even with `@neo-gpt`'s WAKE_SUBSCRIPTION currently set to
-            // `harnessTarget: 'disabled'` (per #10664 immediate operator mitigation), this
-            // bridge-side guard prevents accidental subscription re-enable from triggering
-            // the empirically-disproved focus-seed path.
+            // Codex Desktop fail-closed guard. The bridge must not drive the destructive
+            // Cmd+A/Cmd+X clear path unless subscription metadata provides a verified,
+            // non-mutating composer-focus primitive. Printable-key focus probes can mutate
+            // drafts, so multi-step probe/undo strategies must use an explicit
+            // `focusSeedSequence` implementation rather than masquerading as a single-key
+            // `focusSeedKey` opt-in. The app-server adapter may eventually supersede the
+            // UI-keystroke path entirely.
             if (appName === 'Codex' && !focusSeedKey) {
                 writeLog('WARN',
                     `[Bridge Daemon] Codex UI wake delivery refused for ${subscription.id}: ` +
@@ -759,9 +717,9 @@ async function deliverDigest(subscription, digest) {
                 }
                 osascriptArgs.push('-e', '      delay 0.2');
 
-                // Cleanup: Revert the mutating seed character so it doesn't corrupt the user's draft
-                // Scoped specifically to Codex per #10667 cross-family review feedback to prevent
-                // non-mutating seeds (like Claude's space) from inheriting an unvalidated undo step.
+                // Cleanup: revert Codex's mutating seed character so it does not corrupt
+                // the user's draft. Non-mutating seeds in other harnesses must not inherit
+                // this undo step without validation.
                 if (appName === 'Codex' && focusSeedKey === 'r') {
                     osascriptArgs.push('-e', '      keystroke "z" using command down');
                     osascriptArgs.push('-e', '      delay 0.2');
