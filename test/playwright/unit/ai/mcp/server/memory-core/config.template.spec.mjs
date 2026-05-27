@@ -102,9 +102,9 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/memory-core');
     });
 
-    test('preserves null graphProvider defaults so graph routing derives from modelProvider', () => {
-        expect(TIER1_DEFAULTS.graphProvider).toBe(null);
-        expect(config.graphProvider).toBe(null);
+    test('preserves explicit auto graphProvider defaults so graph routing derives from modelProvider', () => {
+        expect(TIER1_DEFAULTS.graphProvider).toBe('auto');
+        expect(config.graphProvider).toBe('auto');
     });
 
     test('env overrides remain final after Tier-1 default mapping', () => {

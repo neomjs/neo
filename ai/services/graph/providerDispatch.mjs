@@ -1,6 +1,7 @@
 import Ollama           from '../../provider/Ollama.mjs';
 import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
 
+export const GRAPH_PROVIDER_AUTO   = 'auto';
 export const GRAPH_MODEL_PROVIDERS = Object.freeze(['ollama', 'openAiCompatible']);
 
 /**
@@ -8,16 +9,16 @@ export const GRAPH_MODEL_PROVIDERS = Object.freeze(['ollama', 'openAiCompatible'
  *
  * Graph extraction is not the same provider axis as generic Memory Core summarization:
  * summary/chat paths may still use Gemini, while graph-generation dispatch deliberately
- * supports only native Ollama or an OpenAI-compatible local/provider endpoint. When no
- * graph-specific selector is configured, default to OpenAI-compatible unless the deployment
- * explicitly selected native Ollama for the generic model provider.
+ * supports only native Ollama or an OpenAI-compatible local/provider endpoint. The
+ * explicit `auto` selector defaults to OpenAI-compatible unless the deployment
+ * selected native Ollama for the generic model provider.
  *
  * @param {Object} config aiConfig-shaped object.
  * @returns {String} `'ollama'` or `'openAiCompatible'` by default; explicit invalid
  *     `graphProvider` values are returned so {@link buildGraphProvider} can fail loudly.
  */
 export function resolveGraphModelProvider(config = {}) {
-    if (config.graphProvider) {
+    if (config.graphProvider && config.graphProvider !== GRAPH_PROVIDER_AUTO) {
         return config.graphProvider;
     }
 

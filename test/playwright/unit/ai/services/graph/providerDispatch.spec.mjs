@@ -34,12 +34,17 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
 
         expect(resolveGraphModelProvider({
             modelProvider : 'gemini',
+            graphProvider : 'auto'
+        })).toBe('openAiCompatible');
+
+        expect(resolveGraphModelProvider({
+            modelProvider : 'gemini',
             graphProvider : 'ollama'
         })).toBe('ollama');
 
         expect(resolveGraphModelProvider({
             modelProvider : 'ollama',
-            graphProvider : null
+            graphProvider : 'auto'
         })).toBe('ollama');
 
         expect(resolveGraphModelProvider({
