@@ -161,7 +161,8 @@ class ConceptDiscoveryService extends Base {
         try {
             provider = Neo.create(OpenAiCompatible, {
                 modelName: aiConfig.data.openAiCompatible?.model,
-                host     : aiConfig.data.openAiCompatible?.host
+                host     : aiConfig.data.openAiCompatible?.host,
+                keepAlive: aiConfig.data.openAiCompatible?.keep_alive
             });
         } catch (e) {
             logger.warn(`[ConceptDiscoveryService] OpenAiCompatible provider could not be constructed; skipping ${sourceRef}:`, e.message);

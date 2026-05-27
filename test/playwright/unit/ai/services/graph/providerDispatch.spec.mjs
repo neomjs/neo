@@ -69,7 +69,7 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
 
         const provider = buildGraphProvider({
             modelProvider        : 'ollama',
-            ollamaConfig         : {host: 'http://ollama.test', model: 'gemma4', embeddingModel: 'qwen-embed'},
+            ollamaConfig         : {host: 'http://ollama.test', model: 'gemma4', embeddingModel: 'qwen-embed', keep_alive: -1},
             ollamaProviderFactory: (cfg) => {
                 factoryCalls.push(cfg);
                 return fakeProvider;
@@ -80,7 +80,8 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
         expect(factoryCalls).toEqual([{
             modelName     : 'gemma4',
             host          : 'http://ollama.test',
-            embeddingModel: 'qwen-embed'
+            embeddingModel: 'qwen-embed',
+            keepAlive     : -1
         }]);
     });
 
@@ -101,7 +102,7 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
 
         const provider = buildGraphProvider({
             modelProvider                  : 'openAiCompatible',
-            openAiCompatibleConfig         : {host: 'http://oai.test', model: 'gemma-4-31b', apiKey: 'sk-test'},
+            openAiCompatibleConfig         : {host: 'http://oai.test', model: 'gemma-4-31b', apiKey: 'sk-test', keep_alive: -1},
             openAiCompatibleProviderFactory: (cfg) => {
                 factoryCalls.push(cfg);
                 return fakeProvider;
@@ -112,7 +113,8 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
         expect(factoryCalls).toEqual([{
             modelName: 'gemma-4-31b',
             host     : 'http://oai.test',
-            apiKey   : 'sk-test'
+            apiKey   : 'sk-test',
+            keepAlive: -1
         }]);
     });
 

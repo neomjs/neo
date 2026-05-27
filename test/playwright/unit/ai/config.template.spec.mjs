@@ -69,7 +69,8 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.ollama).toMatchObject({
             host          : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
             model         : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
-            embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
+            embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
+            keep_alive    : TIER1_DEFAULTS.ollama.keep_alive
         });
         expect(Config.openAiCompatible).toMatchObject({
             host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
@@ -78,6 +79,7 @@ test.describe('Tier 1 Config Immutability', () => {
             apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
             unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
             unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+            keep_alive              : TIER1_DEFAULTS.openAiCompatible.keep_alive,
             contextLimitTokens      : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS) || 262144,
             safeProcessingLimitTokens: Number(process.env.NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
         });

@@ -5,7 +5,7 @@ import {fileURLToPath} from 'url';
 import Neo from '../../../src/Neo.mjs';
 import '../../../src/core/_export.mjs';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import {buildGraphProvider} from '../../services/graph/providerDispatch.mjs';
+import {buildGraphProvider, resolveGraphModelProvider} from '../../services/graph/providerDispatch.mjs';
 import {summarize} from './helpers/stats.mjs';
 
 /**
@@ -139,7 +139,7 @@ async function main() {
         .option('-i, --iterations <n>', 'Iterations per bucket', '3')
         .option('-w, --warmup <n>', 'Warmup calls per bucket (discarded)', '1')
         .option('-o, --output <path>', 'Output JSON path (default: .neo-ai-data/benchmarks/gemma4-rem-{ts}.json)')
-        .option('--keep-alive <value>', 'Pass-through `keep_alive` provider option (Ollama-native only)', null);
+        .option('--keep-alive <value>', 'Pass-through `keep_alive` provider option', null);
 
     program.parse();
     const opts = program.opts();
@@ -156,12 +156,7 @@ async function main() {
         process.exit(1);
     }
 
-    // Mirror PR #12061's `resolveGraphModelProvider` shape inline. Graph-extraction routing
-    // uses the `graphProvider` axis (chat/summarization may stay on Gemini; graph work uses
-    // Ollama or OpenAI-compat). Inlined because #12061 may not be merged yet on this branch;
-    // once it lands, replace with `import {resolveGraphModelProvider} from '../../services/graph/providerDispatch.mjs'`.
-    const graphProvider = aiConfig.graphProvider
-        || (aiConfig.modelProvider === 'ollama' ? 'ollama' : 'openAiCompatible');
+    const graphProvider = resolveGraphModelProvider(aiConfig);
 
     const providerHost = graphProvider === 'ollama' ? aiConfig.ollama.host : aiConfig.openAiCompatible.host;
     const providerModel = graphProvider === 'ollama' ? aiConfig.ollama.model : aiConfig.openAiCompatible.model;

@@ -24,6 +24,14 @@ class OllamaProvider extends Base {
          */
         modelName: 'gemma4',
         /**
+         * @summary Ollama `/api/chat` keep-alive retention window.
+         *
+         * `-1` keeps the model resident until explicitly unloaded; callers may
+         * override per request with a top-level `keep_alive` option.
+         * @member {Number|String} keepAlive=-1
+         */
+        keepAlive: -1,
+        /**
          * Dedicated embedding model (e.g., `nomic-embed-text`, `mxbai-embed-large`).
          * Distinct from `modelName` which is the chat/generation model.
          * Falls back to `modelName` when unset (some Ollama chat models support
@@ -88,6 +96,9 @@ class OllamaProvider extends Base {
             delete clonedOptions.tools;
         }
 
+        payload.keep_alive = clonedOptions.keep_alive === undefined ? this.keepAlive : clonedOptions.keep_alive;
+        delete clonedOptions.keep_alive;
+
         if (Object.keys(clonedOptions).length > 0) {
             payload.options = clonedOptions;
         }
@@ -104,8 +115,6 @@ class OllamaProvider extends Base {
      */
     async generate(input, options = {}) {
         const payload = this.preparePayload(input, options, false);
-        // Force long keep_alive for heavy tasks
-        if (!payload.keep_alive) payload.keep_alive = "1h";
 
         try {
             const parsedUrl = new URL(`${this.host}/api/chat`);
@@ -266,15 +275,6 @@ class OllamaProvider extends Base {
      */
     async *stream(input, options = {}) {
         const payload = this.preparePayload(input, options, true);
-
-        if (Object.prototype.hasOwnProperty.call(options, 'keep_alive')) {
-            payload.keep_alive = options.keep_alive;
-            delete payload.options?.keep_alive;
-
-            if (payload.options && Object.keys(payload.options).length === 0) {
-                delete payload.options;
-            }
-        }
 
         try {
             const response = await fetch(`${this.host}/api/chat`, {

@@ -145,6 +145,30 @@ const Env = {
     },
 
     /**
+     * Decode provider keep-alive values.
+     *
+     * Numeric tokens stay numeric so `-1` (keep resident) and `0` (unload after
+     * request) survive env binding without becoming opaque strings. Duration-style
+     * tokens such as `10m` or `1h` pass through unchanged for providers that accept
+     * human-readable retention windows.
+     *
+     * @param {String} envVarName
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
+     * @returns {Number|String|undefined}
+     */
+    parseKeepAlive(envVarName, {env = process.env} = {}) {
+        const rawValue = env[envVarName];
+        if (Neo.isEmpty(rawValue)) return;
+
+        const value = String(rawValue).trim();
+        if (!value) return;
+
+        const num = Number(value);
+        return Number.isFinite(num) ? num : value;
+    },
+
+    /**
      * Decode env value as port (integer 1..65535).
      * @param {String} envVarName
      * @param {Object} [opts]

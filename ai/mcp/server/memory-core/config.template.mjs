@@ -157,7 +157,8 @@ class Config extends BaseConfig {
         ollama: {
             host          : AiConfig.ollama.host,
             model         : AiConfig.ollama.model,
-            embeddingModel: AiConfig.ollama.embeddingModel
+            embeddingModel: AiConfig.ollama.embeddingModel,
+            keep_alive    : AiConfig.ollama.keep_alive
         },
         /**
          * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
@@ -170,6 +171,7 @@ class Config extends BaseConfig {
             apiKey                  : AiConfig.openAiCompatible.apiKey,
             unloadRetryCount        : AiConfig.openAiCompatible.unloadRetryCount,
             unloadRetryDelayMs      : AiConfig.openAiCompatible.unloadRetryDelayMs,
+            keep_alive              : AiConfig.openAiCompatible.keep_alive,
             /**
              * Configured context-window capacity of `model` measured in **tokens**.
              * Token-based per the Discussion #11444 / #11447 V1 graduation contract.
@@ -453,7 +455,8 @@ class Config extends BaseConfig {
         ollama            : {
             host          : 'NEO_OLLAMA_HOST',
             model         : 'NEO_OLLAMA_MODEL',
-            embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL'
+            embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL',
+            keep_alive    : { var: 'NEO_OLLAMA_KEEP_ALIVE', parse: Env.parseKeepAlive}
         },
         openAiCompatible: {
             host              : 'NEO_OPENAI_COMPATIBLE_HOST',
@@ -461,7 +464,8 @@ class Config extends BaseConfig {
             embeddingModel    : 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
             apiKey            : 'NEO_OPENAI_COMPATIBLE_API_KEY',
             unloadRetryCount  : { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
-            unloadRetryDelayMs: { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber}
+            unloadRetryDelayMs: { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
+            keep_alive        : { var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive}
         },
         vectorDimension: { var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
         backupPath     : 'NEO_BACKUP_PATH',
