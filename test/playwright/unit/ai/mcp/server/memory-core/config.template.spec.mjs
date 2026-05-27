@@ -85,6 +85,7 @@ test.describe('Memory Core Config (#10010)', () => {
 
     test('maps deployment-wide Tier-1 defaults for provider, auth, and storage groups', () => {
         expect(config.modelProvider).toBe(TIER1_DEFAULTS.modelProvider);
+        expect(config.graphProvider).toBe(TIER1_DEFAULTS.graphProvider);
         expect(config.embeddingProvider).toBe(TIER1_DEFAULTS.embeddingProvider);
         expect(config.ollama).toEqual(TIER1_DEFAULTS.ollama);
         expect(config.openAiCompatible).toEqual(TIER1_DEFAULTS.openAiCompatible);
@@ -101,8 +102,14 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/memory-core');
     });
 
+    test('inherits concrete graphProvider defaults from Tier-1 config', () => {
+        expect(TIER1_DEFAULTS.graphProvider).toBe('openAiCompatible');
+        expect(config.graphProvider).toBe('openAiCompatible');
+    });
+
     test('env overrides remain final after Tier-1 default mapping', () => {
         process.env.NEO_MODEL_PROVIDER = 'openAiCompatible';
+        process.env.NEO_GRAPH_PROVIDER = 'ollama';
         process.env.NEO_EMBEDDING_PROVIDER = 'ollama';
         process.env.NEO_AUTH_REALM = 'tenant-realm';
         process.env.NEO_BACKUP_PATH = '/tmp/neo-memory-backups';
@@ -113,6 +120,7 @@ test.describe('Memory Core Config (#10010)', () => {
         config.applyEnv();
 
         expect(config.modelProvider).toBe('openAiCompatible');
+        expect(config.graphProvider).toBe('ollama');
         expect(config.embeddingProvider).toBe('ollama');
         expect(config.auth.realm).toBe('tenant-realm');
         expect(config.backupPath).toBe('/tmp/neo-memory-backups');

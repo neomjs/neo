@@ -19,10 +19,38 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 
 test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
     let buildGraphProvider;
+    let resolveGraphModelProvider;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/graph/providerDispatch.mjs');
-        buildGraphProvider = mod.buildGraphProvider;
+        buildGraphProvider        = mod.buildGraphProvider;
+        resolveGraphModelProvider = mod.resolveGraphModelProvider;
+    });
+
+    test('returns configured graph provider without generic modelProvider fallback (#12059)', () => {
+        expect(resolveGraphModelProvider({
+            modelProvider : 'gemini',
+            graphProvider : 'openAiCompatible'
+        })).toBe('openAiCompatible');
+
+        expect(resolveGraphModelProvider({
+            modelProvider : 'gemini',
+            graphProvider : 'ollama'
+        })).toBe('ollama');
+
+        expect(resolveGraphModelProvider({
+            modelProvider : 'ollama',
+            graphProvider : 'openAiCompatible'
+        })).toBe('openAiCompatible');
+
+        expect(resolveGraphModelProvider({
+            modelProvider: 'ollama'
+        })).toBeUndefined();
+
+        expect(resolveGraphModelProvider({
+            modelProvider : 'openAiCompatible',
+            graphProvider : 'bogus-provider'
+        })).toBe('bogus-provider');
     });
 
     test('throws for unsupported modelProvider (no silent fallback)', () => {

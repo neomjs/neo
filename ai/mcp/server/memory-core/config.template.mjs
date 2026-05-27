@@ -136,6 +136,12 @@ class Config extends BaseConfig {
          */
         modelProvider: AiConfig.modelProvider,
         /**
+         * Provider selector for Dream/Sandman graph-generation lanes.
+         * Supported values: 'ollama', 'openAiCompatible'
+         * @type {String}
+         */
+        graphProvider: AiConfig.graphProvider,
+        /**
          * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
          * Supported values: 'gemini', 'ollama', 'openAiCompatible'
          * Defaults to the local OpenAI-compatible Qwen3 route so the source tuple matches the
@@ -442,6 +448,7 @@ class Config extends BaseConfig {
             trustProxyIdentity: { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool}
         },
         modelProvider     : 'NEO_MODEL_PROVIDER',
+        graphProvider     : 'NEO_GRAPH_PROVIDER',
         embeddingProvider : 'NEO_EMBEDDING_PROVIDER',
         ollama            : {
             host          : 'NEO_OLLAMA_HOST',
