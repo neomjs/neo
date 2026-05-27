@@ -30,6 +30,11 @@ import CadenceEngine                     from './services/CadenceEngine.mjs';
 import DreamService                      from './services/DreamService.mjs';
 import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
+import {
+    createProviderFailureDiagnostic,
+    getGraphProviderReadinessTarget,
+    waitForProvider
+}                                          from '../../scripts/runners/runSandman.mjs';
 import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
 import {
     DEFAULT_DB_PATH,
@@ -584,6 +589,51 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * Probes the configured graph provider before invoking a graph-heavy maintenance task
+     * (currently: dream / Sandman REM cycle). Mirrors the standalone Sandman CLI runner's
+     * readiness sequence so the orchestrator-owned periodic path and the operator-run
+     * one-shot path share the same gate semantics.
+     *
+     * Probe parameters flow from `aiConfig.orchestrator.providerReadiness` verbatim — the
+     * helper does not synthesize fallbacks for missing config values. Daemon context
+     * suppresses the dot-progress writer used by the CLI runner.
+     *
+     * @returns {Promise<{ready: true} | {ready: false, diagnostic: Object}>}
+     *   `ready: true` — provider answered the probe; caller proceeds.
+     *   `ready: false` — provider unsupported OR readiness loop exhausted; caller MUST
+     *   propagate `diagnostic` through the failure path (e.g. `healthService.recordTaskOutcome`).
+     */
+    async runProviderReadinessGate() {
+        const readinessConfig = AiConfig.orchestrator.providerReadiness;
+        const target          = getGraphProviderReadinessTarget();
+
+        if (!target.supported) {
+            return {
+                ready     : false,
+                diagnostic: createProviderFailureDiagnostic({
+                    reason: 'UNSUPPORTED_GRAPH_PROVIDER'
+                })
+            };
+        }
+
+        const waitResult = await waitForProvider({
+            attempts : readinessConfig.attempts,
+            delayMs  : readinessConfig.delayMs,
+            timeoutMs: readinessConfig.timeoutMs,
+            output   : {write: () => {}}
+        });
+
+        if (!waitResult.running) {
+            return {
+                ready     : false,
+                diagnostic: createProviderFailureDiagnostic({waitResult})
+            };
+        }
+
+        return {ready: true};
+    }
+
+    /**
      * Wraps a task executor with cross-task heavy-maintenance backpressure by delegating
      * to {@link MaintenanceBackpressureService#acquireLeaseAndExecute}. MBS owns the
      * two-tier backpressure (intra-process `activeHeavyTask` tracker + inter-process
@@ -735,6 +785,19 @@ export class Orchestrator extends Base {
             this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
+                const gate = await this.runProviderReadinessGate();
+                if (!gate.ready) {
+                    const state = this.taskStateService.getTaskState(taskName);
+                    if (state) state.lastReason = gate.diagnostic.reason;
+                    this.taskStateService.markFailed(taskName, 1);
+                    this.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                        reason,
+                        failurePhase: 'provider-readiness',
+                        diagnostic  : gate.diagnostic,
+                        failedAt    : new Date().toISOString()
+                    });
+                    return;
+                }
                 await this.dreamService.processUndigestedSessions();
                 this.taskStateService.markCompleted(taskName);
                 this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });

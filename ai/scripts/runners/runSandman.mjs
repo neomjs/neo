@@ -1,6 +1,7 @@
 import Neo from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
+import AiConfig from '../../config.mjs';
 import Memory_Config from '../../mcp/server/memory-core/config.mjs';
 import Memory_Service from '../../services/memory-core/MemoryService.mjs';
 import DreamService from '../../daemons/orchestrator/services/DreamService.mjs';
@@ -17,9 +18,6 @@ import {pathToFileURL} from 'url';
 /**
  * @module ai/scripts/runners/runSandman
  */
-
-const PROVIDER_READY_ATTEMPTS = 30;
-const PROVIDER_READY_RETRY_MS = 1000;
 
 /**
  * @summary Resolves the OpenAI-compatible host used by one Sandman graph-provider option.
@@ -75,11 +73,16 @@ export function getGraphProviderReadinessTarget(config = Memory_Config.data) {
 
 /**
  * @summary Probes the configured graph provider used by the Sandman REM pipeline.
- * @param {Object} config
+ * @param {Object} options
+ * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Number} options.timeoutMs HTTP probe abandon threshold. Required; no module-level default.
  * @returns {Promise<Boolean>}
  */
-export function checkProvider(config = Memory_Config.data) {
-    const target = getGraphProviderReadinessTarget(config);
+export function checkProvider({config, timeoutMs} = {}) {
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('checkProvider: timeoutMs is required (pass from config.orchestrator.providerReadiness.timeoutMs)');
+    }
+    const target = getGraphProviderReadinessTarget(config ?? Memory_Config.data);
 
     if (!target.supported) {
         return Promise.resolve(false);
@@ -99,7 +102,7 @@ export function checkProvider(config = Memory_Config.data) {
             settle(true);
         });
 
-        req.setTimeout(3000, () => {
+        req.setTimeout(timeoutMs, () => {
             req.destroy();
             settle(false);
         });
@@ -109,23 +112,35 @@ export function checkProvider(config = Memory_Config.data) {
 
 /**
  * @summary Waits for the local provider readiness loop while exposing deterministic test seams.
+ *
+ * Probe parameters are required arguments — there are no module-level defaults. Callers
+ * read `aiConfig.orchestrator.providerReadiness` and pass the values explicitly; this
+ * keeps configuration as the single source of truth.
+ *
  * @param {Object} options
- * @param {Function} options.checkProvider
- * @param {Number} options.attempts
- * @param {Number} options.delayMs
- * @param {Object} options.output
+ * @param {Function} [options.checkProvider] Injectable probe (defaults to `checkProvider` bound to the same `timeoutMs`).
+ * @param {Number} options.attempts Retry cap.
+ * @param {Number} options.delayMs Between-probe wait.
+ * @param {Number} options.timeoutMs HTTP probe abandon threshold (also flows into the default `checkProvider` when no override is provided).
+ * @param {Object} [options.output] Writable stream for dot-progress (defaults to `process.stdout`).
  * @returns {Promise<Object>}
  */
 export async function waitForProvider({
-    checkProvider: providerCheck = () => checkProvider(),
-    attempts = PROVIDER_READY_ATTEMPTS,
-    delayMs  = PROVIDER_READY_RETRY_MS,
-    output   = process.stdout
+    checkProvider: providerCheck,
+    attempts,
+    delayMs,
+    timeoutMs,
+    output = process.stdout
 } = {}) {
+    if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
+        throw new TypeError('waitForProvider: attempts, delayMs, and timeoutMs are required (pass from config.orchestrator.providerReadiness)');
+    }
+
+    const probe = providerCheck ?? (() => checkProvider({timeoutMs}));
     const startedAt = Date.now();
 
     for (let i = 0; i < attempts; i++) {
-        if (await providerCheck()) {
+        if (await probe()) {
             return {
                 running  : true,
                 attempts : i + 1,
@@ -148,16 +163,22 @@ export async function waitForProvider({
 
 /**
  * @summary Builds the durable Sandman provider-timeout breadcrumb for the Memory Core log.
+ *
+ * Field values flow from `config` and `waitResult` verbatim. Missing inputs surface as
+ * `undefined` on the returned envelope (fail-loud); consumers MUST tolerate undefined
+ * rather than relying on substitution.
+ *
  * @param {Object} options
- * @param {Object} options.config
- * @param {Object} options.waitResult
- * @param {Object|null} options.lifecycleStatus
+ * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Object} [options.waitResult] Result envelope from `waitForProvider`; omit when emitting on the unsupported-provider path.
+ * @param {Object} [options.lifecycleStatus] Consumer-sourced lifecycle snapshot; surfaces verbatim on the envelope.
+ * @param {String} [options.reason] One of `'PROVIDER_READINESS_TIMEOUT'`, `'UNSUPPORTED_GRAPH_PROVIDER'`.
  * @returns {Object}
  */
 export function createProviderFailureDiagnostic({
     config = Memory_Config.data,
     waitResult,
-    lifecycleStatus = null,
+    lifecycleStatus,
     reason = 'PROVIDER_READINESS_TIMEOUT'
 } = {}) {
     const target = getGraphProviderReadinessTarget(config);
@@ -177,9 +198,9 @@ export function createProviderFailureDiagnostic({
         supported      : target.supported,
         model          : target.model,
         embeddingModel : target.embeddingModel,
-        attempts       : waitResult?.attempts ?? null,
-        elapsedMs      : waitResult?.elapsedMs ?? null,
-        timeoutMs      : waitResult?.timeoutMs ?? null,
+        attempts       : waitResult?.attempts,
+        elapsedMs      : waitResult?.elapsedMs,
+        timeoutMs      : waitResult?.timeoutMs,
         lifecycleStatus,
         nextAction     : target.supported
             ? (
@@ -267,7 +288,12 @@ export async function runSandman() {
                     return {providerReady: false, graphProvider: target.provider};
                 }
 
-                const waitResult = await waitForProvider();
+                const readinessConfig = AiConfig.orchestrator.providerReadiness;
+                const waitResult = await waitForProvider({
+                    attempts : readinessConfig.attempts,
+                    delayMs  : readinessConfig.delayMs,
+                    timeoutMs: readinessConfig.timeoutMs
+                });
 
                 if (!waitResult.running) {
                     const diagnostic = createProviderFailureDiagnostic({
