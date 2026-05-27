@@ -144,6 +144,9 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
                 nodeBin   : '/test/node',
                 lmsEnabled: true,
                 lmsModel  : 'explicit-model',
+                lmsModels : ['chat-model', 'embedding-model'],
+                lmsHost   : 'http://127.0.0.1:4242',
+                providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50},
                 lmsPort   : 4242
             });
 
@@ -151,6 +154,8 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             expect(explicitTasks.lms.args).toEqual(['server', 'start', '--port', '4242']);
             expect(explicitTasks.lms.expectedCommand).toBe('lms server');
             expect(explicitTasks.lms.pidFileName).toBe('lms.pid');
+            expect(explicitTasks.lms.requiredModels).toEqual(['chat-model', 'embedding-model']);
+            expect(typeof explicitTasks.lms.postSpawn).toBe('function');
             expect(explicitTasks.lms.args).not.toContain('99999');
         } finally {
             for (const [key, value] of [

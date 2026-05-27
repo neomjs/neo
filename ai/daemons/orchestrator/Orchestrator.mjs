@@ -428,6 +428,13 @@ export class Orchestrator extends Base {
     get lmsEnabled() { return !!AiConfig.orchestrator.lms?.enabled; }
     get lmsModel()   { return AiConfig.orchestrator.lms?.model;     }
     get lmsPort()    { return AiConfig.orchestrator.lms?.port;      }
+    get lmsHost()    { return AiConfig.openAiCompatible?.host;      }
+    get lmsModels()  {
+        return [...new Set([
+            AiConfig.openAiCompatible?.model,
+            AiConfig.openAiCompatible?.embeddingModel
+        ].filter(Boolean))];
+    }
 
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.
@@ -469,7 +476,10 @@ export class Orchestrator extends Base {
             mlxPort   : this.mlxPort,
             lmsEnabled: this.lmsEnabled,
             lmsModel  : this.lmsModel,
-            lmsPort   : this.lmsPort
+            lmsModels : this.lmsModels,
+            lmsHost   : this.lmsHost,
+            lmsPort   : this.lmsPort,
+            providerReadiness: AiConfig.orchestrator.providerReadiness
         });
 
         // Non-reactive boot-wrapper-provided instance state
@@ -609,7 +619,8 @@ export class Orchestrator extends Base {
         const continuousTasks = [
             ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
-            'mlx'
+            'mlx',
+            'lms'
         ];
         const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {

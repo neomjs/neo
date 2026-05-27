@@ -31,8 +31,11 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
  * @param {Boolean} [options.lmsEnabled=false] Whether to launch an orchestrator-owned LM Studio CLI server.
- * @param {String} [options.lmsModel] LM Studio model identifier (informational; lifecycle currently spawns `lms server start` only — see #11986 AC5 for the model-load probe follow-up).
+ * @param {String} [options.lmsModel] Legacy single LM Studio model identifier.
+ * @param {String[]} [options.lmsModels] LM Studio model identifiers that must be resident after spawn.
+ * @param {String} [options.lmsHost] OpenAI-compatible host exposed by the LM Studio server.
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
+ * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
  * @returns {Object}
  */
 export function buildTaskDefinitions({
@@ -43,7 +46,10 @@ export function buildTaskDefinitions({
     mlxPort,
     lmsEnabled = false,
     lmsModel,
-    lmsPort
+    lmsModels,
+    lmsHost,
+    lmsPort,
+    providerReadiness
 } = {}) {
     const tasks = {
         chroma: {
@@ -124,12 +130,28 @@ export function buildTaskDefinitions({
     }
 
     if (lmsEnabled) {
+        const requiredModels = Array.isArray(lmsModels) && lmsModels.length > 0
+            ? lmsModels
+            : [lmsModel].filter(Boolean);
+
         tasks.lms = {
             label          : 'lms server (LM Studio CLI)',
             command        : 'lms',
             args           : ['server', 'start', '--port', String(lmsPort)],
             pidFileName    : 'lms.pid',
-            expectedCommand: 'lms server'
+            expectedCommand: 'lms server',
+            requiredModels,
+            postSpawn      : async () => {
+                const {ensureLmsModelsLoaded} = await import('../../services/graph/ProviderReadinessHelper.mjs');
+
+                return ensureLmsModelsLoaded({
+                    host     : lmsHost,
+                    models   : requiredModels,
+                    attempts : providerReadiness?.attempts,
+                    delayMs  : providerReadiness?.delayMs,
+                    timeoutMs: providerReadiness?.timeoutMs
+                });
+            }
         };
     }
 

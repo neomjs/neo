@@ -43,7 +43,7 @@ function createTestOrchestrator(config = {}) {
         writeLogFn     : () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
-    ['chroma', 'bridgeDaemon', 'mlx'].forEach(name => {
+    ['chroma', 'bridgeDaemon', 'mlx', 'lms'].forEach(name => {
         if (TaskStateService.taskState[name]) {
             TaskStateService.taskState[name].running = true;
         }
@@ -448,6 +448,39 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
+    test('supervises lms as a continuous provider task when configured (#12090)', () => {
+        const started = [];
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
+            nodeBin   : process.argv[0],
+            lmsEnabled: true,
+            lmsModels : ['chat-model', 'embedding-model'],
+            lmsHost   : 'http://127.0.0.1:1234',
+            lmsPort   : 1234,
+            providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50}
+        });
+        const orchestrator = createTestOrchestrator({
+            taskDefinitions,
+            kbSyncEnabled: false
+        });
+
+        TaskStateService.taskState.lms.running   = false;
+        TaskStateService.taskState.lms.lastRunAt = 0;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toContainEqual({
+            taskName: 'lms',
+            reason  : 'supervisor-restart'
+        });
+    });
+
     test('skips chroma daemon supervision in cloud mode while keeping local default (#12019)', () => {
         const cloudStarted = [];
         const cloudOrchestrator = createTestOrchestrator({
@@ -576,12 +609,16 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin   : process.argv[0],
             lmsEnabled: true,
             lmsModel  : 'qwen3-embedding-8b',
+            lmsModels : ['gemma4-31b', 'qwen3-8b'],
+            lmsHost   : 'http://127.0.0.1:4242',
+            providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50},
             lmsPort   : 4242
         });
 
         expect(orchestrator.taskDefinitions.lms.command).toBe('lms');
         expect(orchestrator.taskDefinitions.lms.args).toEqual(['server', 'start', '--port', '4242']);
         expect(orchestrator.taskDefinitions.lms.pidFileName).toBe('lms.pid');
+        expect(orchestrator.taskDefinitions.lms.requiredModels).toEqual(['gemma4-31b', 'qwen3-8b']);
     });
 
     test('routes primary-dev-sync through its service coordinator', () => {
