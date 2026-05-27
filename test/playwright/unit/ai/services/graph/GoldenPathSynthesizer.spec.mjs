@@ -168,6 +168,16 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('## 📋 Latest Priority Backlog');
     });
 
+    test('synthesizeGoldenPath does not compose KB tenant telemetry into the handoff', () => {
+        const source = fs.readFileSync(
+            path.resolve(process.cwd(), 'ai/services/graph/GoldenPathSynthesizer.mjs'),
+            'utf-8'
+        );
+
+        expect(source).not.toContain('renderKbMultiTenantHealthSection');
+        expect(source).not.toContain('KB Multi-Tenant Health');
+    });
+
     test('synthesizeGoldenPath skips Chroma query when embedding dimension mismatches vectorDimension', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;

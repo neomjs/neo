@@ -18,7 +18,6 @@
  *
  * @see ai/daemons/kb-alerting/KbAlertingService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KBRecorderService.mjs — `getTenantIngestionRollup`, the rollup source.
- * @see ai/services/knowledge-base/helpers/KbTenantHealthHelper.mjs — the sibling pure-helper precedent (#11639).
  */
 
 /**
