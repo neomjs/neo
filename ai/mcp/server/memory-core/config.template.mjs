@@ -136,11 +136,12 @@ class Config extends BaseConfig {
          */
         modelProvider: AiConfig.modelProvider,
         /**
-         * Explicit provider for Dream/Sandman graph-generation lanes.
+         * Optional provider override for Dream/Sandman graph-generation lanes.
+         * Null preserves the Tier-1 resolver's modelProvider-derived fallback.
          * Supported values: 'ollama', 'openAiCompatible'
-         * @type {String}
+         * @type {String|null}
          */
-        graphProvider: AiConfig.graphProvider || 'openAiCompatible',
+        graphProvider: AiConfig.graphProvider ?? null,
         /**
          * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
          * Supported values: 'gemini', 'ollama', 'openAiCompatible'

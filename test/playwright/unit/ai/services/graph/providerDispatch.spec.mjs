@@ -38,6 +38,11 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
         })).toBe('ollama');
 
         expect(resolveGraphModelProvider({
+            modelProvider : 'ollama',
+            graphProvider : null
+        })).toBe('ollama');
+
+        expect(resolveGraphModelProvider({
             modelProvider : 'openAiCompatible',
             graphProvider : 'bogus-provider'
         })).toBe('bogus-provider');

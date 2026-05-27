@@ -89,14 +89,16 @@ class Config extends BaseConfig {
          */
         modelProvider: 'gemini',
         /**
-         * @summary Provider selector for Dream/Sandman graph-generation work.
+         * @summary Optional provider selector for Dream/Sandman graph-generation work.
          *
          * Graph extraction deliberately does not use the generic chat provider axis:
          * chat/summarization may use Gemini, while graph-generation dispatch only
-         * supports native Ollama or OpenAI-compatible endpoints.
-         * @type {String}
+         * supports native Ollama or OpenAI-compatible endpoints. Leave this null to
+         * let `resolveGraphModelProvider()` derive the graph route from the active
+         * deployment model provider; set it only for an explicit graph-lane override.
+         * @type {String|null}
          */
-        graphProvider: 'openAiCompatible',
+        graphProvider: null,
         /**
          * @summary Deployment-wide embedding provider selector.
          *

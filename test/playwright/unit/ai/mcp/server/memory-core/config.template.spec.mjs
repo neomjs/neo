@@ -102,6 +102,11 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/memory-core');
     });
 
+    test('preserves null graphProvider defaults so graph routing derives from modelProvider', () => {
+        expect(TIER1_DEFAULTS.graphProvider).toBe(null);
+        expect(config.graphProvider).toBe(null);
+    });
+
     test('env overrides remain final after Tier-1 default mapping', () => {
         process.env.NEO_MODEL_PROVIDER = 'openAiCompatible';
         process.env.NEO_GRAPH_PROVIDER = 'ollama';

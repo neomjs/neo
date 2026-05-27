@@ -112,6 +112,19 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             model    : 'gemma4:31b',
             url      : 'http://127.0.0.1:11434/api/tags'
         });
+
+        expect(runSandmanModule.getGraphProviderReadinessTarget({
+            modelProvider : 'ollama',
+            graphProvider : null,
+            ollama        : {
+                host : 'http://127.0.0.1:11434',
+                model: 'gemma4:31b'
+            }
+        })).toMatchObject({
+            provider : 'ollama',
+            supported: true,
+            endpoint : '/api/tags'
+        });
     });
 
     test('records a durable provider-timeout breadcrumb without leaking secrets', async () => {
