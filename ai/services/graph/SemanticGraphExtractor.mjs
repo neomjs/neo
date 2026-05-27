@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
-import {invokeWithGuardrail} from '../../services/memory-core/helpers/ConsumerFrictionHelper.mjs';
+import {emitConsumerFriction, invokeWithGuardrail} from '../../services/memory-core/helpers/ConsumerFrictionHelper.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
@@ -147,6 +147,33 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 }
 
                 result = guardrailed.result;
+
+                // #12091: Silent context-overflow detection — the provider can stream-close
+                // immediately with an empty body when its loaded-model context window is
+                // smaller than the prompt (LM Studio loaded-context-cap signature:
+                // ttftMs===ttltMs, outputChars===0, no thrown error). The retry loop below
+                // appends the assistant echo + feedback prompt monotonically; if root cause
+                // is overflow, retries make it strictly worse. Emit the existing deterministic
+                // `'context-overflow'` symptom (auto-surfaces, no 3-emission threshold) and
+                // abort retry to break the amplification.
+                if (!result?.content || result.content.trim() === '') {
+                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Empty response from provider for session ${session.meta.sessionId}; classifying as context-overflow (silent: no thrown error, no body).`);
+
+                    emitConsumerFriction({
+                        symptom                  : 'context-overflow',
+                        consumer                 : 'SemanticGraphExtractor',
+                        model                    : consumerModel,
+                        assetRef                 : session.meta.sessionId,
+                        serviceDomain            : 'dream-pipeline',
+                        emissionPoint            : 'post-invocation-failure',
+                        inputBytes               : Buffer.byteLength(inputPayloadText),
+                        contextLimitTokens       : consumerContextTokens,
+                        safeProcessingLimitTokens: consumerSafeTokens,
+                        note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}. Attempt ${attempt}/${maxRetries}.`
+                    });
+
+                    return null;
+                }
 
                 // Extract using robust Json parser to catch malformed boundaries
                 payload = Json.extract(result.content);

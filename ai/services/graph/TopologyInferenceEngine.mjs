@@ -3,6 +3,7 @@ import { Memory_Config as aiConfig } from '../../services.mjs';
 import Base from '../../../src/core/Base.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
+import {emitConsumerFriction} from '../memory-core/helpers/ConsumerFrictionHelper.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 
 /**
@@ -62,6 +63,29 @@ ${contextText}
             });
 
             const result = await provider.generate(prompt);
+
+            // #12091: Silent context-overflow detection — see SemanticGraphExtractor for the
+            // full rationale; this is the parallel single-attempt path. Empty result.content
+            // with no thrown error is the LM Studio loaded-context-cap signature; emit the
+            // deterministic `'context-overflow'` symptom (auto-surfaces) and return early.
+            if (!result?.content || result.content.trim() === '') {
+                logger.warn(`[TopologyInferenceEngine] Empty response from provider for session ${sessionId}; classifying as context-overflow (silent: no thrown error, no body).`);
+
+                emitConsumerFriction({
+                    symptom                  : 'context-overflow',
+                    consumer                 : 'TopologyInferenceEngine',
+                    model                    : aiConfig[graphProvider]?.model,
+                    assetRef                 : sessionId,
+                    serviceDomain            : 'dream-pipeline',
+                    emissionPoint            : 'post-invocation-failure',
+                    inputBytes               : Buffer.byteLength(prompt),
+                    contextLimitTokens       : aiConfig.openAiCompatible.contextLimitTokens,
+                    safeProcessingLimitTokens: aiConfig.openAiCompatible.safeProcessingLimitTokens,
+                    note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${prompt.length}.`
+                });
+
+                return;
+            }
 
             const payload = Json.extract(result.content);
             if (!payload || !Array.isArray(payload.conflicts) || payload.conflicts.length === 0) {
