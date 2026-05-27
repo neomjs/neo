@@ -43,55 +43,6 @@ const PULSE_TIMEOUT_MS = 30000;
 const SIGTERM_GRACE_MS = 5000;
 
 /**
- * @summary Minimal sqlite schema sufficient for the orchestrator's boot-time open.
- *
- * The orchestrator delegates DB init to
- * `ai/daemons/bridge/queries.mjs::initializeDatabase`, which opens with
- * `fileMustExist: true` and calls `process.exit(1)` when the file is missing. A
- * fresh `npx-neo-app` workspace doesn't ship the file, so a downstream "ensure
- * sqlite exists" bootstrap step is needed before this test can probe behavior
- * past line 476 of Orchestrator.mjs. The schema below is the subset
- * `ai/graph/storage/SQLite.mjs::initSchema()` would create on first boot of the
- * Memory Core MCP server — pre-creating it here keeps the test focused on
- * Neo-team-substrate-dependent degrade-with-log paths rather than the unrelated
- * "missing sqlite" hard-exit (tracked as a separate follow-up ticket).
- */
-function initSqliteSchema(dbPath) {
-    const db = new Database(dbPath);
-    try {
-        db.pragma('journal_mode = WAL');
-        db.exec(`
-            CREATE TABLE IF NOT EXISTS Nodes (
-                id      TEXT PRIMARY KEY,
-                user_id TEXT,
-                data    TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS Edges (
-                id      TEXT PRIMARY KEY,
-                user_id TEXT,
-                source  TEXT NOT NULL,
-                target  TEXT NOT NULL,
-                type    TEXT NOT NULL,
-                data    TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_edges_source ON Edges(source);
-            CREATE INDEX IF NOT EXISTS idx_edges_target ON Edges(target);
-            CREATE TABLE IF NOT EXISTS GraphLog (
-                log_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id       TEXT,
-                operation     TEXT NOT NULL,
-                entity_type   TEXT NOT NULL,
-                entity_id     TEXT NOT NULL,
-                data          TEXT,
-                created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-    } finally {
-        db.close();
-    }
-}
-
-/**
  * @summary Polls a log file until a predicate matches its content or the timeout elapses.
  * @param {String} logPath
  * @param {(content:String)=>Boolean} predicate
@@ -164,10 +115,12 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         dataDir      = path.join(workspaceDir, 'orchestrator-daemon');
         logPath      = path.join(dataDir, 'orchestrator.log');
         dbPath       = path.join(workspaceDir, 'memory-core-graph.sqlite');
-        // Mimic the post-MC-first-boot substrate shape an external user would have
-        // after running their first Memory Core MCP server. AC5 is about Neo-team
-        // identity substrate being absent, not about the sqlite file itself.
-        initSqliteSchema(dbPath);
+        // Per #12012 — orchestrator now self-bootstraps its sqlite + schema on
+        // fresh-workspace boot (via `initializeDatabaseSelfBootstrap` →
+        // `SQLite.mjs::initSchema`). The previous `initSqliteSchema()` fixture
+        // helper that pre-created the schema here is deleted; the integration
+        // test now asserts the orchestrator's own bootstrap creates the file +
+        // schema after boot (see "AC2 — fresh-workspace self-bootstrap" test below).
         daemonProcess = null;
         stdoutBuf = '';
         stderrBuf = '';
@@ -182,7 +135,7 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         }
     });
 
-    test('AC3 — cloud-deployment-mode boot reaches [Orchestrator] Started without uncaught errors', async () => {
+    test('AC1+AC2+AC3+AC4 — fresh-workspace cloud-mode boot self-bootstraps sqlite + reaches [Orchestrator] Started without fatal log surface', async () => {
         // cwd=workspaceDir isolates every cwd-relative side effect the daemon and its
         // supervised children create (chroma's `.neo-ai-data/chroma/knowledge-base`,
         // task PID files, etc.) so the test cannot collide with a concurrently running
@@ -229,6 +182,27 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         // mode, so they neither initialize nor throw. Absence of init-failure log lines IS
         // the graceful-degradation signal in this profile.
         expect(logContent).not.toMatch(/\[Orchestrator\] Swarm heartbeat init failed/i);
+
+        // AC1+AC2 (#12012) — orchestrator self-bootstrapped the sqlite file + schema
+        // even though the beforeEach hook no longer pre-creates them. Replaces the
+        // deleted `initSqliteSchema(dbPath)` workaround fixture.
+        const stats = await fs.stat(dbPath);
+        expect(stats.isFile(), `orchestrator did NOT self-bootstrap sqlite at ${dbPath}`).toBe(true);
+
+        // Probe the schema on disk: open read-only, assert GraphLog table exists
+        // (created by SQLite.mjs::initSchema, the shared substrate orchestrator now
+        // delegates to via initializeDatabaseSelfBootstrap). Same byte-equivalent
+        // schema MC MCP would create on first boot — guarantees schema parity
+        // regardless of which daemon boots first in a fresh workspace.
+        const probeDb = new Database(dbPath, {readonly: true, fileMustExist: true});
+        try {
+            const tables = probeDb.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map(r => r.name);
+            expect(tables, `orchestrator-bootstrapped schema missing GraphLog: ${tables.join(',')}`).toContain('GraphLog');
+            expect(tables).toContain('Nodes');
+            expect(tables).toContain('Edges');
+        } finally {
+            probeDb.close();
+        }
     });
 
     test('AC4 — swarm-heartbeat target resolver degrades-with-log when selfIdentity is missing', async () => {
