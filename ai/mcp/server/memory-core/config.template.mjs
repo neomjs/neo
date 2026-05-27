@@ -141,7 +141,7 @@ class Config extends BaseConfig {
          * Supported values: 'ollama', 'openAiCompatible'
          * @type {String|null}
          */
-        graphProvider: AiConfig.graphProvider ?? null,
+        graphProvider: AiConfig.graphProvider,
         /**
          * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
          * Supported values: 'gemini', 'ollama', 'openAiCompatible'
