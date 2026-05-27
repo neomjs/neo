@@ -383,8 +383,8 @@ class IssueSyncer extends Base {
             if (issue.oldVersion && issue.oldVersion !== version) {
                 // Suppress false-positive WARN volume during archive topology migrations. `oldVersion`
                 // derives from the cached path directory and can contain pre-cut title-derived strings
-                // that fail semver validation. Sealed-chunk enforcement already prevents those legacy
-                // buckets from causing actual moves, so only release-boundary recalculations where both
+                // that fail semver validation. Sealed-chunk enforcement already prevents those
+                // non-semver buckets from causing actual moves, so only release-boundary recalculations where both
                 // sides are valid semver remain WARN-worthy.
                 const oldIsValidTag = semver.valid(semver.clean(issue.oldVersion)) !== null;
                 const newIsValidTag = semver.valid(semver.clean(version))            !== null;

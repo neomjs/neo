@@ -19,13 +19,10 @@ export const DESTRUCTIVE_PRODUCTION_CONFIRMATION = 'CONFIRM_PRODUCTION_DESTRUCTI
  * - `neo-agent-graph`    — Memory Core graph collection (`aiConfig.collections.graph`).
  * - `neo-knowledge-base` — Knowledge Base canonical collection (`aiConfig.collectionName`).
  *
- * Names are hardcoded (not derived from config) so a caller that loads a misconfigured
- * `config.mjs` (e.g., running `npx playwright` without the unit-test config) still gets
- * the canonical name blocked. The empirical anchor is the 2026-05-17 Memory Core wipe,
- * where `aiConfig.collections.memory` returned canonical `'neo-agent-memory'` because
- * `UNIT_TEST_MODE` was absent in the bare-playwright invocation environment.
- *
- * @see https://github.com/neomjs/neo/issues/11652
+ * Names are hardcoded (not derived from config) so a caller that loads runtime config
+ * without the unit-test isolation layer still gets the canonical name blocked. This
+ * keeps test harness mistakes from resolving destructive targets to production
+ * collection names.
  */
 export const GUARDED_CANONICAL_COLLECTION_NAMES = Object.freeze(new Set([
     'neo-agent-memory',
