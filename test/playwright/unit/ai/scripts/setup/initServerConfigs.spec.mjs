@@ -151,6 +151,80 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(logger.entries.warn).toEqual([]);
     });
 
+    test('existing server config with stale Tier-1 template import warns without overwriting', async () => {
+        const templateSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: AiConfig.auth};`,
+            ``
+        ].join('\n');
+        const configSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export const customKey = 'operator-preserved';`,
+            `export default {auth: AiConfig.auth, customKey};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'stale-tier1-import-warn',
+            templateContents: templateSrc,
+            configContents  : configSrc
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({
+            argv       : ['node', 'initServerConfigs.mjs'],
+            logger,
+            serversRoot: root
+        });
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('warn');
+        expect(action.drift.missingImports).toEqual([
+            '../../../config.mjs',
+            '../../../config.mjs:default'
+        ]);
+        expect(logger.entries.warn.some(l => l.includes('+ import: ../../../config.mjs'))).toBe(true);
+
+        const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
+        expect(onDisk).toBe(configSrc);
+    });
+
+    test('--migrate-config materializes stale Tier-1 import without dropping operator edits', async () => {
+        const templateSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: AiConfig.auth};`,
+            ``
+        ].join('\n');
+        const configSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export const customKey = 'operator-preserved';`,
+            `export default {auth: AiConfig.auth, customKey};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'stale-tier1-import-migrate',
+            templateContents: templateSrc,
+            configContents  : configSrc
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({
+            argv       : ['node', 'initServerConfigs.mjs', '--migrate-config'],
+            logger,
+            serversRoot: root
+        });
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('migrate');
+        expect(action.migration).toBe('materialize-import-only');
+        expect(logger.entries.log.some(l => l.includes('preserving operator edits'))).toBe(true);
+
+        const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
+        expect(onDisk).toBe(materializeServerConfigTemplate(configSrc));
+        expect(onDisk).toContain(`from '../../../config.mjs'`);
+        expect(onDisk).toContain(`customKey = 'operator-preserved'`);
+        expect(onDisk).not.toContain('config.template.mjs');
+    });
+
     test('AC2: drifting config.mjs without --migrate-config emits warning, does not overwrite', async () => {
         const templateSrc = [
             `import path from 'path';`,
