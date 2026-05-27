@@ -10,7 +10,6 @@ import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import Env                         from '../../../src/util/Env.mjs';
 import AiConfig                    from '../../config.mjs';
-import GraphService                from '../../services/memory-core/GraphService.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import SQLite                      from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
@@ -31,11 +30,6 @@ import CadenceEngine                     from './services/CadenceEngine.mjs';
 import DreamService                      from './services/DreamService.mjs';
 import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
-import {
-    createProviderFailureDiagnostic,
-    getGraphProviderReadinessTarget,
-    waitForProvider
-}                                          from '../../scripts/runners/runSandman.mjs';
 import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
 import {
     DEFAULT_DB_PATH,
@@ -590,169 +584,6 @@ export class Orchestrator extends Base {
     }
 
     /**
-     * Probes the configured graph provider before invoking a graph-heavy maintenance task
-     * (currently: dream / Sandman REM cycle). Mirrors the standalone Sandman CLI runner's
-     * readiness sequence so the orchestrator-owned periodic path and the operator-run
-     * one-shot path share the same gate semantics.
-     *
-     * Probe parameters flow from `aiConfig.orchestrator.providerReadiness` verbatim — the
-     * helper does not synthesize fallbacks for missing config values. Daemon context
-     * suppresses the dot-progress writer used by the CLI runner.
-     *
-     * @returns {Promise<{ready: true} | {ready: false, diagnostic: Object}>}
-     *   `ready: true` — provider answered the probe; caller proceeds.
-     *   `ready: false` — provider unsupported OR readiness loop exhausted; caller MUST
-     *   propagate `diagnostic` through the failure path (e.g. `healthService.recordTaskOutcome`).
-     */
-    /**
-     * Unified canonical REM (Sandman) cycle entrypoint. Returns a typed cycle outcome
-     * envelope so callers + observability surfaces can distinguish real work from
-     * silent no-ops and structured failures — the keystone fix for the periodic
-     * orchestrator path that previously mapped every non-throwing return to
-     * `completed` regardless of whether sessions were actually processed.
-     *
-     * Outcome status semantics:
-     *
-     * - `completed` — provider was ready, undigested sessions existed, processing finished
-     *   without throw. `sessionsProcessed` carries the pre-call count.
-     * - `skipped`   — ran successfully but did no work (concurrent-invocation guard,
-     *   zero undigested sessions, dry-run, etc). `skipReason` carries the diagnostic.
-     * - `failed`    — provider readiness gate rejected OR in-pipeline throw caught.
-     *   Either `diagnostic` (for provider failure) or `error` (for throws) is populated.
-     *
-     * Lease ownership: this method does NOT acquire `withHeavyMaintenanceLease` on its own.
-     * Callers are responsible for lease management — the orchestrator periodic path runs
-     * inside `MaintenanceBackpressureService`'s lease; the standalone Sandman CLI runner
-     * acquires its own lease via `withHeavyMaintenanceLease`. Re-acquiring here would
-     * double-lease and deadlock.
-     *
-     * @param {Object}  [options]
-     * @param {String}  [options.reason]            Coordination string for logging + state model (e.g. `periodic-dream:3600000`).
-     * @param {String}  [options.mode='periodic']   `'periodic' | 'manual' | 'cli'`.
-     * @param {Boolean} [options.includeGoldenPath=false] Reserved for the Sub 5 refresh helper; periodic path leaves it false.
-     * @param {Boolean} [options.includeDecay=true] When true, runs `GraphService.decayGlobalTopology()` as the cycle-finalization step (24-hour Algorithmic Lock self-skips when not due).
-     * @param {Boolean} [options.dryRun=false]      Probe-only mode; short-circuits to `skipped` after the readiness gate passes.
-     * @returns {Promise<Object>} typed outcome envelope (see status semantics above).
-     */
-    async executeRemCycle({
-        reason,
-        mode             = 'periodic',
-        includeGoldenPath = false,
-        includeDecay     = true,
-        dryRun           = false
-    } = {}) {
-        const startedAt = new Date();
-        const runId     = `rem-${startedAt.toISOString()}-${Math.random().toString(36).slice(2, 8)}`;
-
-        const baseOutcome = {
-            runId,
-            reason,
-            mode,
-            startedAt        : startedAt.toISOString(),
-            completedAt      : null,
-            durationMs       : null,
-            sessionsProcessed: null,
-            diagnostic       : null,
-            skipReason       : null,
-            error            : null
-        };
-
-        const finalize = (status, extras = {}) => ({
-            ...baseOutcome,
-            ...extras,
-            status,
-            completedAt: new Date().toISOString(),
-            durationMs : Date.now() - startedAt.getTime()
-        });
-
-        const gate = await this.runProviderReadinessGate();
-        if (!gate.ready) {
-            return finalize('failed', {diagnostic: gate.diagnostic});
-        }
-
-        if (dryRun) {
-            return finalize('skipped', {skipReason: 'dry-run requested'});
-        }
-
-        if (this.dreamService.isProcessing) {
-            return finalize('skipped', {skipReason: 'dreamService.isProcessing already true (concurrent invocation)'});
-        }
-
-        let sessionCount = 0;
-        try {
-            const undigested = await this.dreamService.findUndigestedSessions();
-            sessionCount = Array.isArray(undigested) ? undigested.length : 0;
-        } catch (e) {
-            return finalize('failed', {
-                error: {message: `findUndigestedSessions threw: ${e?.message || e}`, stack: e?.stack}
-            });
-        }
-
-        if (sessionCount === 0) {
-            if (includeDecay) {
-                try {
-                    await GraphService.decayGlobalTopology();
-                } catch (e) {
-                    return finalize('failed', {
-                        error            : {message: `decayGlobalTopology threw on zero-session path: ${e?.message || e}`, stack: e?.stack},
-                        sessionsProcessed: 0
-                    });
-                }
-            }
-            return finalize('skipped', {sessionsProcessed: 0, skipReason: 'no undigested sessions'});
-        }
-
-        try {
-            await this.dreamService.processUndigestedSessions();
-
-            if (includeDecay) {
-                await GraphService.decayGlobalTopology();
-            }
-
-            if (includeGoldenPath) {
-                this.writeLog('INFO', '[Orchestrator] executeRemCycle: includeGoldenPath flag set but the Sub 5 refresh helper is deferred to its own ticket; periodic-orchestrator path does NOT refresh goldenPath in this cycle');
-            }
-
-            return finalize('completed', {sessionsProcessed: sessionCount});
-        } catch (e) {
-            return finalize('failed', {
-                sessionsProcessed: sessionCount,
-                error            : {message: String(e?.message || e), stack: e?.stack}
-            });
-        }
-    }
-
-    async runProviderReadinessGate() {
-        const readinessConfig = AiConfig.orchestrator.providerReadiness;
-        const target          = getGraphProviderReadinessTarget();
-
-        if (!target.supported) {
-            return {
-                ready     : false,
-                diagnostic: createProviderFailureDiagnostic({
-                    reason: 'UNSUPPORTED_GRAPH_PROVIDER'
-                })
-            };
-        }
-
-        const waitResult = await waitForProvider({
-            attempts : readinessConfig.attempts,
-            delayMs  : readinessConfig.delayMs,
-            timeoutMs: readinessConfig.timeoutMs,
-            output   : {write: () => {}}
-        });
-
-        if (!waitResult.running) {
-            return {
-                ready     : false,
-                diagnostic: createProviderFailureDiagnostic({waitResult})
-            };
-        }
-
-        return {ready: true};
-    }
-
-    /**
      * Wraps a task executor with cross-task heavy-maintenance backpressure by delegating
      * to {@link MaintenanceBackpressureService#acquireLeaseAndExecute}. MBS owns the
      * two-tier backpressure (intra-process `activeHeavyTask` tracker + inter-process
@@ -901,11 +732,11 @@ export class Orchestrator extends Base {
             }
             return null;
         }, executeMaintenanceTask(async (taskName, reason) => {
-            this.taskStateService.markStarted(taskName, reason.reason);
+            this.taskStateService.markStarted(taskName, reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
 
-            const outcome = await this.executeRemCycle({
-                reason          : reason.reason,
+            const outcome = await this.dreamService.executeRemCycle({
+                reason,
                 mode            : 'periodic',
                 includeGoldenPath: false,
                 includeDecay    : true
