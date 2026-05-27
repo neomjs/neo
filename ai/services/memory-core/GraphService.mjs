@@ -529,7 +529,8 @@ class GraphService extends Base {
             systemNode = this.db.nodes.get('_SYSTEM_STATE');
         }
 
-        const lastDecayedAt = systemNode.properties?.lastDecayedAt || 0;
+        const systemProperties = systemNode.isRecord ? systemNode.get('properties') : systemNode.properties;
+        const lastDecayedAt    = systemProperties?.lastDecayedAt || 0;
         const now = Date.now();
         const hoursElapsed = (now - lastDecayedAt) / 3600000;
 
@@ -560,9 +561,10 @@ class GraphService extends Base {
 
         // Commit global clock update
         this.upsertNode({
-            ...systemNode,
+            id        : '_SYSTEM_STATE',
+            type      : systemNode.isRecord ? systemNode.get('label') : systemNode.label,
             properties: {
-                ...(systemNode.properties || {}),
+                ...(systemProperties || {}),
                 lastDecayedAt: now
             }
         });

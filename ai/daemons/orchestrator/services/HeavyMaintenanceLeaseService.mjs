@@ -444,8 +444,8 @@ export async function releaseHeavyMaintenanceLease({
  * GraphService.decayGlobalTopology();
  * ```
  *
- * Canonical consumer reference: `ai/scripts/runners/runSandman.mjs`, where graph
- * decay runs inside the inner `finally` while the lease is still held.
+ * Canonical consumer reference: `ai/scripts/runners/runSandman.mjs`, which
+ * delegates to `DreamService.executeRemCycle()` while the lease is still held.
  *
  * ## Returned shape (what callers of `await withHeavyMaintenanceLease(...)` see)
  *
