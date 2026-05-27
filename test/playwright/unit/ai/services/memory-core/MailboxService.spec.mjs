@@ -133,6 +133,58 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(sentTo).toBe('@bob');
     });
 
+    test('addMessage throws when a required SENT_TO routing edge is culled (#10284)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalLinkNodes = GraphService.linkNodes;
+
+        try {
+            GraphService.linkNodes = function(source, target, relationship, weight, properties) {
+                if (relationship === 'SENT_TO') {
+                    return;
+                }
+
+                return originalLinkNodes.call(GraphService, source, target, relationship, weight, properties);
+            };
+
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                await expect(MailboxService.addMessage({
+                    to     : '@bob',
+                    subject: 'culled route',
+                    body   : 'body'
+                })).rejects.toThrow(/Routing edge creation failed: MESSAGE:.* -\[SENT_TO\]-> @bob/);
+            });
+        } finally {
+            GraphService.linkNodes = originalLinkNodes;
+        }
+    });
+
+    test('addMessage throws when a required broadcast DELIVERED_TO edge is culled (#10284)', async () => {
+        const originalLinkNodes = GraphService.linkNodes;
+
+        try {
+            GraphService.linkNodes = function(source, target, relationship, weight, properties) {
+                if (relationship === 'DELIVERED_TO') {
+                    return;
+                }
+
+                return originalLinkNodes.call(GraphService, source, target, relationship, weight, properties);
+            };
+
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                await expect(MailboxService.addMessage({
+                    to     : 'AGENT:*',
+                    subject: 'culled broadcast',
+                    body   : 'body'
+                })).rejects.toThrow(/Routing edge creation failed: MESSAGE:.* -\[DELIVERED_TO\]-> @bob/);
+            });
+        } finally {
+            GraphService.linkNodes = originalLinkNodes;
+        }
+    });
+
     test('listMessages properly isolates by identity', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
