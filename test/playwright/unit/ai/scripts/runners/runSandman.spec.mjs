@@ -225,6 +225,35 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(warnings[0][0]).toContain('parallel-model capacity probe failed');
     });
 
+    test('warnProviderParallelModelCapacity rejects non-finite requireParallelModels values', async () => {
+        for (const requireParallelModels of [NaN, Infinity, -Infinity]) {
+            const warnings = [];
+            let fetched = false;
+            const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+                config: {
+                    graphProvider: 'openAiCompatible',
+                    openAiCompatible: {
+                        host          : 'http://oai.test',
+                        model         : 'gemma-4-31b-it',
+                        embeddingModel: 'text-embedding-qwen3-embedding-8b',
+                        requireParallelModels
+                    }
+                },
+                timeoutMs                  : 25,
+                fetchOpenAiCompatibleModels: async () => {
+                    fetched = true;
+                    return [];
+                },
+                log: {warn: (...args) => warnings.push(args)}
+            });
+
+            expect(fetched).toBe(false);
+            expect(result.ready).toBe(false);
+            expect(result.error.message).toContain('requireParallelModels');
+            expect(warnings[0][0]).toContain('parallel-model capacity probe failed');
+        }
+    });
+
     test('ensureLmsModelsLoaded invokes lms load for missing chat and embedding models', async () => {
         const loads = [];
         const modelSnapshots = [

@@ -1,5 +1,6 @@
 import http from 'http';
 import {execFile} from 'child_process';
+import Neo from '../../../src/Neo.mjs';
 import {Memory_Config as aiConfig} from '../../services.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
 import {isGraphModelProviderSupported, resolveGraphModelProvider} from './providerDispatch.mjs';
@@ -376,7 +377,7 @@ export async function probeProviderParallelModelCapacity({
     const providerConfig = config[target.provider];
     const requireParallelModels = providerConfig?.requireParallelModels;
 
-    if (typeof requireParallelModels !== 'number') {
+    if (!Neo.isNumber(requireParallelModels)) {
         throw new TypeError(`probeProviderParallelModelCapacity: config.${target.provider}.requireParallelModels must be configured as a number`);
     }
 
