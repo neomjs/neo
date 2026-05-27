@@ -137,6 +137,23 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(() => GraphService.removeNodes(['ValidNode', undefined])).toThrow(/invalid node id/);
     });
 
+    test('decayGlobalTopology updates cached _SYSTEM_STATE records without losing the node id (#12070)', async () => {
+        await GraphService.upsertNode({
+            id        : '_SYSTEM_STATE',
+            type      : 'SYSTEM_CLOCK',
+            properties: {lastDecayedAt: 0}
+        });
+        await GraphService.upsertNode({id: 'DecaySource', type: 'TEST_NODE'});
+        await GraphService.upsertNode({id: 'DecayTarget', type: 'TEST_NODE'});
+        GraphService.linkNodes('DecaySource', 'DecayTarget', 'RELATES_TO', 1);
+
+        expect(() => GraphService.decayGlobalTopology(0.98, 0.2, true)).not.toThrow();
+
+        const systemNode = await GraphService.getNodeRecord({id: '_SYSTEM_STATE'});
+        expect(typeof systemNode.properties.lastDecayedAt).toBe('number');
+        expect(systemNode.properties.lastDecayedAt).toBeGreaterThan(0);
+    });
+
     test('getNodeRecord returns the properties blob that getNode strips (#11637)', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         await GraphService.upsertNode({
