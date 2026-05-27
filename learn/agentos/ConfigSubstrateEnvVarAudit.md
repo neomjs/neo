@@ -76,10 +76,12 @@ Target-tier shorthand:
 | `NEO_MODEL_PROVIDER` | `memory-core/config.template.mjs:138` | Tier 1 | Shared generation provider selector. Tier 1 default plus optional env override. |
 | `NEO_OLLAMA_EMBEDDING_MODEL` | `memory-core/config.template.mjs:154` | Tier 1 | Shared provider block value. Tier 1 default plus optional env override. |
 | `NEO_OLLAMA_HOST` | `memory-core/config.template.mjs:152` | Tier 1 | Shared provider block value. Tier 1 default plus optional env override for host binding. |
+| `NEO_OLLAMA_KEEP_ALIVE` | `memory-core/config.template.mjs:459` | Tier 1 | Shared provider request-retention value. Default `-1`; env override supports shorter windows or `0` unload control. |
 | `NEO_OLLAMA_MODEL` | `memory-core/config.template.mjs:153` | Tier 1 | Shared provider block value. Tier 1 default plus optional env override. |
 | `NEO_OPENAI_COMPATIBLE_API_KEY` | `memory-core/config.template.mjs:164` | Tier 3 | Secret for OpenAI-compatible providers. Keep env-backed. |
 | `NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL` | `memory-core/config.template.mjs:163` | Tier 1 | Shared provider block value. Tier 1 default plus optional env override. |
 | `NEO_OPENAI_COMPATIBLE_HOST` | `memory-core/config.template.mjs:161` | Tier 1 | Shared provider block value; also runtime host binding for local providers. Tier 1 default with env override. |
+| `NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` | `memory-core/config.template.mjs:468` | Tier 1 | Shared provider request-retention value. Default `-1`; env override supports shorter windows or `0` unload control. |
 | `NEO_OPENAI_COMPATIBLE_MODEL` | `memory-core/config.template.mjs:162` | Tier 1 | Shared provider block value. Tier 1 default plus optional env override. |
 | `NEO_PUBLIC_URL` | `shared/helpers/DeploymentConfig.mjs:119`; `memory-core/config.template.mjs:113`; `knowledge-base/config.template.mjs:58` | Tier 3 | Runtime binding for externally advertised MCP URL behind reverse proxies. |
 | `NEO_RLAIF_PATH` | `memory-core/config.template.mjs:269` | Tier 2 | Dataset path. Prefer Memory Core config; env override only if operator path injection is needed. |

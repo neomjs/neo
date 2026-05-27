@@ -161,6 +161,7 @@ NEO_EMBEDDING_PROVIDER=openAiCompatible \
 NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434 \
 NEO_OPENAI_COMPATIBLE_MODEL=<chat-model> \
 NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=<embedding-model> \
+NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=-1 \
 docker compose -f ai/deploy/docker-compose.yml --profile cloud --profile local-model up --build
 ```
 
@@ -203,6 +204,7 @@ Supply these values per service/profile as needed:
 | `NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434` | KB, MC, Orchestrator | Internal compose-network URL for the `local-model` service when the optional profile is enabled. |
 | `NEO_OPENAI_COMPATIBLE_MODEL`, `NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL` | KB, MC, Orchestrator | Chat and embedding model names already present in the local-model runtime. |
 | `NEO_OPENAI_COMPATIBLE_API_KEY` | KB, MC, Orchestrator | Optional bearer token for OpenAI-compatible providers that require one; normally empty for the local compose service. |
+| `NEO_OLLAMA_KEEP_ALIVE`, `NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` | KB, MC, Orchestrator | Provider request keep-alive override. Default `-1` keeps the selected local model resident unless the operator explicitly pins a shorter retention window or `0` unload control. |
 | `NEO_LOCAL_MODEL_IMAGE`, `NEO_LOCAL_MODEL_KEEP_ALIVE`, `NEO_LOCAL_MODEL_MEMORY_LIMIT`, `NEO_LOCAL_MODEL_CPU_LIMIT` | `local-model` | Optional image/runtime/resource overrides for the self-hosted provider container. |
 | `NEO_AUTO_SYNC=false` | KB | Prevents one-shot local KB sync during server startup. |
 | `NEO_KB_AUTO_START_DATABASE=false` | KB | Prevents the KB server from starting a local Chroma process. |

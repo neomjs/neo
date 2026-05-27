@@ -88,10 +88,12 @@ export NEO_MODEL_PROVIDER=gemini
 export NEO_MODEL_PROVIDER=openAiCompatible
 export NEO_OPENAI_COMPATIBLE_HOST=http://127.0.0.1:11434
 export NEO_OPENAI_COMPATIBLE_MODEL=qwen3-8b
+export NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=-1
 export NEO_OPENAI_COMPATIBLE_API_KEY=  # leave empty for local servers
 ```
 
 This path uses the existing `Neo.ai.provider.OpenAiCompatible` chat-completions abstraction. Do not add a model-specific Qwen provider class for shared-deployment installs; local-model selection is an operator config concern.
+`NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` and `NEO_OLLAMA_KEEP_ALIVE` default to `-1` so local providers keep the selected model resident across Agent OS calls unless operators explicitly choose a shorter retention window or `0` unload control.
 
 ## Authentication
 

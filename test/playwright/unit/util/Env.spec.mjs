@@ -57,6 +57,28 @@ test.describe('Neo.util.Env', () => {
         });
     });
 
+    test.describe('parseKeepAlive', () => {
+        test('returns undefined for absent / null / empty', () => {
+            expect(Env.parseKeepAlive('X', opts({}))).toBe(undefined);
+            expect(Env.parseKeepAlive('X', opts({X: null}))).toBe(undefined);
+            expect(Env.parseKeepAlive('X', opts({X: ''}))).toBe(undefined);
+            expect(warns.length).toBe(0);
+        });
+
+        test('decodes numeric retention controls as numbers', () => {
+            expect(Env.parseKeepAlive('X', opts({X: '-1'}))).toBe(-1);
+            expect(Env.parseKeepAlive('X', opts({X: '0'}))).toBe(0);
+            expect(Env.parseKeepAlive('X', opts({X: '60'}))).toBe(60);
+            expect(warns.length).toBe(0);
+        });
+
+        test('keeps duration tokens as strings', () => {
+            expect(Env.parseKeepAlive('X', opts({X: '10m'}))).toBe('10m');
+            expect(Env.parseKeepAlive('X', opts({X: ' 1h '}))).toBe('1h');
+            expect(warns.length).toBe(0);
+        });
+    });
+
     test.describe('parseBool', () => {
         test('returns undefined for absent / null / empty', () => {
             expect(Env.parseBool('X', opts({}))).toBe(undefined);

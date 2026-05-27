@@ -46,8 +46,8 @@ export function isGraphModelProviderSupported(provider) {
  * @param {Object} options
  * @param {String} options.modelProvider One of `'ollama'`, `'openAiCompatible'`.
  *     Unknown values throw explicitly (no silent fallback to a different family).
- * @param {Object} [options.ollamaConfig] `{host, model, embeddingModel}` config block.
- * @param {Object} [options.openAiCompatibleConfig] `{host, model, apiKey, ...}` config block.
+ * @param {Object} [options.ollamaConfig] `{host, model, embeddingModel, keep_alive}` config block.
+ * @param {Object} [options.openAiCompatibleConfig] `{host, model, apiKey, keep_alive, ...}` config block.
  * @param {Function} [options.ollamaProviderFactory] Test seam — defaults to `Neo.create(Ollama, cfg)`.
  * @param {Function} [options.openAiCompatibleProviderFactory] Test seam — defaults to `Neo.create(OpenAiCompatible, cfg)`.
  * @returns {{generate: Function}} Provider instance with `generate(prompt, options)` method.
@@ -62,19 +62,29 @@ export function buildGraphProvider({
     openAiCompatibleProviderFactory = (cfg) => Neo.create(OpenAiCompatible, cfg)
 }) {
     switch (modelProvider) {
-        case 'ollama':
-            return ollamaProviderFactory({
+        case 'ollama': {
+            const ollamaProviderConfig = {
                 modelName     : ollamaConfig?.model,
                 host          : ollamaConfig?.host,
                 embeddingModel: ollamaConfig?.embeddingModel || null
-            });
+            };
+            if (ollamaConfig?.keep_alive !== undefined) {
+                ollamaProviderConfig.keepAlive = ollamaConfig.keep_alive;
+            }
+            return ollamaProviderFactory(ollamaProviderConfig);
+        }
 
-        case 'openAiCompatible':
-            return openAiCompatibleProviderFactory({
+        case 'openAiCompatible': {
+            const openAiCompatibleProviderConfig = {
                 modelName: openAiCompatibleConfig?.model,
                 host     : openAiCompatibleConfig?.host,
                 apiKey   : openAiCompatibleConfig?.apiKey || ''
-            });
+            };
+            if (openAiCompatibleConfig?.keep_alive !== undefined) {
+                openAiCompatibleProviderConfig.keepAlive = openAiCompatibleConfig.keep_alive;
+            }
+            return openAiCompatibleProviderFactory(openAiCompatibleProviderConfig);
+        }
 
         default:
             throw new Error(

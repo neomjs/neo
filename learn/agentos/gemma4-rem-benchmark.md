@@ -19,13 +19,12 @@ Findings from reading the provider substrate on branch `feature-12074-gemma4-ben
 
 | File | Line | Observation |
 |------|------|-------------|
-| `ai/provider/Ollama.mjs` | 108 | `generate()` hardcodes `keep_alive: "1h"` BEFORE serialization — heavy non-streaming graph calls (production `SemanticGraphExtractor.executeTriVectorExtraction` path) get the long lease unconditionally |
-| `ai/provider/Ollama.mjs` | 91-92 (in `preparePayload()`) | Arbitrary remaining `options` are nested under `payload.options`, NOT top-level. Native Ollama `/api/chat` reads `keep_alive` at TOP LEVEL of the request body, so caller-supplied `keep_alive` via `provider.stream(messages, {keep_alive})` is silently ignored by Ollama. **Probe early-exits on native Ollama** per this finding; characterizing native Ollama keep_alive control requires either patching `Ollama.stream()` (separate SDK fix, follow-up ticket) or a raw-fetch path that bypasses the provider |
-| `ai/provider/OpenAiCompatible.mjs` | 146 + `preparePayload()` 91-106 | `stream()` propagates arbitrary remaining `options` into the JSON payload via `Object.assign(payload, clonedOptions)` (line 105) — so caller-supplied `keep_alive` IS top-level in the JSON. **Unverified residual:** whether the OpenAI-compatible server (LM Studio, llama.cpp, vLLM, Ollama's own `/v1/...` surface) HONORS the non-standard `keep_alive` extension. Each backend has different cache-retention semantics; the probe characterizes one specific server at a time |
-| `ai/services/graph/SemanticGraphExtractor.mjs` | 134 | `provider.generate(messages)` — non-streaming; Ollama-native path WILL get `keep_alive=1h` via the hardcoded default in `Ollama.generate()` |
+| `ai/provider/Ollama.mjs` | `preparePayload()` | Native Ollama `/api/chat` reads `keep_alive` at TOP LEVEL of the request body. Post-[#12089](https://github.com/neomjs/neo/issues/12089), `preparePayload()` promotes caller-supplied `keep_alive` to that top-level slot and defaults to the configured provider value (`-1` by default). |
+| `ai/provider/OpenAiCompatible.mjs` | `preparePayload()` | OpenAI-compatible requests now send top-level `keep_alive` by default (`-1`) and preserve caller overrides. **Unverified residual:** whether the server (LM Studio, llama.cpp, vLLM, Ollama's own `/v1/...` surface) HONORS the non-standard `keep_alive` extension. Each backend has different cache-retention semantics; the probe characterizes one specific server at a time. |
+| `ai/services/graph/SemanticGraphExtractor.mjs` | provider dispatch | `provider.generate(messages)` receives the provider configured by `graphProvider`; `buildGraphProvider()` propagates the configured `keep_alive` from `aiConfig.ollama` / `aiConfig.openAiCompatible` into the provider instance. |
 | `ai/services/graph/SemanticGraphExtractor.mjs` | 99 | Provider dispatched via `buildGraphProvider({modelProvider})` (post-#12061: via `resolveGraphModelProvider(aiConfig)` returning the graph-axis provider) — both Ollama and OpenAI-compat routes possible per operator config |
 
-**Implication (narrowed scope):** The probe characterizes server-honor of caller-supplied top-level `keep_alive` on the **OpenAI-compatible path only**. For native Ollama, the probe early-exits because the provider's `preparePayload()` nests options under `payload.options`, making caller-supplied `keep_alive` invisible to Ollama's `/api/chat`. Native Ollama `generate()` callsites (the production `SemanticGraphExtractor` heavy non-streaming path) still benefit from the hardcoded `keep_alive=1h` baked into `Ollama.generate()` at line 108 — but the streaming path used by this benchmark cannot be characterized end-to-end without an SDK fix.
+**Implication (post-#12089):** The probe can characterize native Ollama and OpenAI-compatible routes through the same provider-dispatch path. The remaining question is no longer payload shape; it is whether the selected backend honors `keep_alive=-1` / `keep_alive=0` as cache-retention controls.
 
 ## Scripts
 
@@ -40,7 +39,7 @@ node ai/scripts/benchmark/gemma4-rem-benchmark.mjs
 # Single bucket, 5 iterations
 node ai/scripts/benchmark/gemma4-rem-benchmark.mjs --size large --iterations 5
 
-# Override provider keep_alive (Ollama-native only)
+# Override provider keep_alive
 node ai/scripts/benchmark/gemma4-rem-benchmark.mjs --size medium --keep-alive 1h
 ```
 
@@ -58,7 +57,7 @@ node ai/scripts/benchmark/keep-alive-probe.mjs
 node ai/scripts/benchmark/keep-alive-probe.mjs --mode reuse
 ```
 
-**Interpretation matrix** (OpenAI-compatible path only — see "Substrate V-B-A findings" above for the native Ollama early-exit rationale):
+**Interpretation matrix**:
 
 | keep_alive=1h call-2 TTFT | keep_alive=0 call-2 TTFT | Verdict |
 |---------------------------|--------------------------|---------|
@@ -106,9 +105,9 @@ To be filled after baseline + probe data lands. Decision tree:
 
 ### If reuse is ACTIVE and controlled by keep_alive
 
-- **Sub 3 (`executeRemCycle`)** — set `keep_alive` consistently across the batch (`"1h"` or longer); ensure provider options propagate through `buildGraphProvider` callsites.
+- **Sub 3 (`executeRemCycle`)** — use the configured provider keep-alive consistently across the batch; override per run only when the benchmark shows a better retention window than the default `-1`.
 - **Sub 7 (hierarchical summarization)** — batch all chunks of one session under one keep_alive window; consider one orchestrator-owned long-lived gemma process per cycle.
-- **Provider parity fix** — patch `Ollama.stream()` and `OpenAiCompatible.stream()` to pass `keep_alive` (currently dropped). File as Sub-8 follow-up or as a separate PR.
+- **Provider parity validation** — keep the provider payload tests in place so future transport changes do not regress top-level `keep_alive` propagation.
 
 ### If reuse is INACTIVE
 
@@ -122,4 +121,5 @@ To be filled after baseline + probe data lands. Decision tree:
 - [#12063](https://github.com/neomjs/neo/issues/12063) / PR [#12064](https://github.com/neomjs/neo/pull/12064) — context-limit raise to 256K (enables benchmarking at realistic payload sizes)
 - [#12067](https://github.com/neomjs/neo/issues/12067) — Sub 1: silent-failure root-cause investigation (parallel investigation)
 - [#12073](https://github.com/neomjs/neo/issues/12073) — Sub 7: hierarchical-summarization (consumer of keep_alive-batching finding)
+- [#12089](https://github.com/neomjs/neo/issues/12089) — provider keep_alive symmetry defaults and payload propagation
 - Discussion [#12062](https://github.com/neomjs/neo/discussions/12062) §2.4.1 — cost-asymmetry framing + OQ11 hot-fix lineage

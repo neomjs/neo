@@ -225,7 +225,9 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
                 NEO_OPENAI_COMPATIBLE_HOST             : '${NEO_OPENAI_COMPATIBLE_HOST:-}',
                 NEO_OPENAI_COMPATIBLE_MODEL            : '${NEO_OPENAI_COMPATIBLE_MODEL:-}',
                 NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL  : '${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}',
-                NEO_OPENAI_COMPATIBLE_API_KEY          : '${NEO_OPENAI_COMPATIBLE_API_KEY:-}'
+                NEO_OPENAI_COMPATIBLE_API_KEY          : '${NEO_OPENAI_COMPATIBLE_API_KEY:-}',
+                NEO_OLLAMA_KEEP_ALIVE                  : '${NEO_OLLAMA_KEEP_ALIVE:-}',
+                NEO_OPENAI_COMPATIBLE_KEEP_ALIVE       : '${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}'
             });
         }
 
