@@ -72,6 +72,20 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
         expect(outcome.durationMs).toBeGreaterThanOrEqual(0);
     });
 
+    test('returns failed status when provider-readiness config validation throws', async () => {
+        DreamService.checkProviderReadiness = async () => {
+            throw new TypeError('AiConfig.orchestrator.providerReadiness is required');
+        };
+
+        const outcome = await DreamService.executeRemCycle({reason: 'missing-config-test'});
+
+        expect(outcome.status).toBe('failed');
+        expect(outcome.error?.message).toContain('checkProviderReadiness threw');
+        expect(outcome.error?.message).toContain('providerReadiness is required');
+        expect(outcome.sessionsProcessed).toBeNull();
+        expect(outcome.diagnostic).toBeNull();
+    });
+
     test('returns skipped status when dryRun=true after gate passes', async () => {
         const outcome = await DreamService.executeRemCycle({reason: 'dry-run-test', dryRun: true});
 

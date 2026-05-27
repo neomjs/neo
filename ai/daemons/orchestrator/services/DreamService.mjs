@@ -10,7 +10,6 @@ import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../../se
 import { Memory_GraphService as GraphService } from '../../../services.mjs';
 import Json from '../../../../src/util/Json.mjs';
 import logger from '../../../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible from '../../../provider/OpenAiCompatible.mjs';
 import ConceptDiscoveryService from '../../../services/ingestion/ConceptDiscoveryService.mjs';
 import ConceptIngestor from '../../../services/ingestion/ConceptIngestor.mjs';
 import FileSystemIngestor from '../../../services/memory-core/FileSystemIngestor.mjs';
@@ -23,10 +22,11 @@ import TopologyInferenceEngine from '../../../services/graph/TopologyInferenceEn
 import GoldenPathSynthesizer from '../../../services/graph/GoldenPathSynthesizer.mjs';
 import AiConfig from '../../../config.mjs';
 import {
+    assertProviderReadinessConfig,
     createProviderFailureDiagnostic,
     getGraphProviderReadinessTarget,
     waitForProvider
-} from '../../../scripts/runners/runSandman.mjs';
+} from '../../../services/graph/ProviderReadinessHelper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -327,7 +327,14 @@ class DreamService extends Base {
         // is unsupported or unreachable. Downstream pipeline calls would silently no-op
         // on missing provider; the typed `failed` envelope surfaces the root cause to
         // operator-facing health telemetry instead.
-        const gate = await this.checkProviderReadiness();
+        let gate;
+        try {
+            gate = await this.checkProviderReadiness();
+        } catch (e) {
+            return finalize('failed', {
+                error: {message: `checkProviderReadiness threw: ${e?.message || e}`, stack: e?.stack}
+            });
+        }
         if (!gate.ready) {
             return finalize('failed', {diagnostic: gate.diagnostic});
         }
@@ -410,7 +417,7 @@ class DreamService extends Base {
      * @returns {Promise<{ready: true} | {ready: false, diagnostic: Object}>}
      */
     async checkProviderReadiness() {
-        const readinessConfig = AiConfig.orchestrator.providerReadiness;
+        const readinessConfig = assertProviderReadinessConfig(AiConfig.orchestrator.providerReadiness);
         const target          = getGraphProviderReadinessTarget();
 
         if (!target.supported) {

@@ -89,6 +89,16 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         await expect(runSandmanModule.waitForProvider()).rejects.toThrow(/attempts.*delayMs.*timeoutMs.*required/);
     });
 
+    test('assertProviderReadinessConfig fails loud when the SSOT config block is absent', () => {
+        expect(() => runSandmanModule.assertProviderReadinessConfig()).toThrow(/providerReadiness is required/);
+        expect(() => runSandmanModule.assertProviderReadinessConfig({attempts: 1, delayMs: 0})).toThrow(/timeoutMs.*configured/);
+        expect(runSandmanModule.assertProviderReadinessConfig({attempts: 1, delayMs: 0, timeoutMs: 10})).toEqual({
+            attempts : 1,
+            delayMs  : 0,
+            timeoutMs: 10
+        });
+    });
+
     test('checkProvider throws when timeoutMs is absent (config-as-SSOT contract)', () => {
         expect(() => runSandmanModule.checkProvider()).toThrow(/timeoutMs.*required/);
         expect(() => runSandmanModule.checkProvider({config: {graphProvider: 'openAiCompatible'}})).toThrow(/timeoutMs.*required/);
@@ -236,25 +246,134 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
     });
 
-    test('runRemPipeline propagates REM failures without printing success (#11698)', async () => {
+    test('runSandman delegates exactly one canonical REM cycle inside the lease (#12070)', async () => {
+        const calls     = [];
         const logs = [];
+        const exitCodes = [];
 
-        await expect(runSandmanModule.runRemPipeline({
+        const result = await runSandmanModule.runSandman({
             dreamService: {
+                ready: async () => calls.push('dream.ready'),
+                executeRemCycle: async options => {
+                    calls.push(['executeRemCycle', options]);
+                    return {status: 'completed', sessionsProcessed: 2};
+                },
                 processUndigestedSessions: async () => {
-                    throw new Error('simulated REM failure');
+                    throw new Error('legacy REM path must not run');
                 }
             },
-            goldenPathSynthesizer: {
-                synthesizeGoldenPath: async () => {
-                    throw new Error('Golden Path must not run after REM failure');
-                }
+            lifecycleService: {
+                ready: async () => calls.push('lifecycle.ready')
+            },
+            withLease: async (task, options) => {
+                calls.push(['withLease', options]);
+                return {
+                    status  : 'completed',
+                    acquired: true,
+                    result  : await task({status: 'acquired'})
+                };
             },
             output: {
-                log: message => logs.push(message)
+                log  : message => logs.push(message),
+                error: message => logs.push(message)
+            },
+            exit: code => {
+                exitCodes.push(code);
+                return code;
             }
-        })).rejects.toThrow('simulated REM failure');
+        });
 
-        expect(logs.some(message => message.includes('Sandman cycle complete'))).toBe(false);
+        expect(result).toBe(0);
+        expect(exitCodes).toEqual([0]);
+        expect(calls).toEqual([
+            ['withLease', {
+                owner   : 'sandman',
+                reason  : 'manual-cli',
+                metadata: {script: 'ai/scripts/runners/runSandman.mjs'}
+            }],
+            'lifecycle.ready',
+            'dream.ready',
+            ['executeRemCycle', {
+                reason      : 'manual-cli',
+                mode        : 'cli',
+                includeDecay: true
+            }]
+        ]);
+        expect(logs.some(message => message.includes('Sandman cycle complete (2 session(s) processed)'))).toBe(true);
+    });
+
+    test('runSandman maps canonical REM failures to a failing process code (#12070)', async () => {
+        const logs      = [];
+        const exitCodes = [];
+
+        const result = await runSandmanModule.runSandman({
+            dreamService: {
+                ready: async () => {},
+                executeRemCycle: async () => ({
+                    status: 'failed',
+                    error : {message: 'simulated REM failure'}
+                })
+            },
+            lifecycleService: {
+                ready: async () => {}
+            },
+            withLease: async task => ({
+                status  : 'completed',
+                acquired: true,
+                result  : await task({status: 'acquired'})
+            }),
+            output: {
+                log  : message => logs.push(message),
+                error: (...args) => logs.push(args.join(' '))
+            },
+            exit: code => {
+                exitCodes.push(code);
+                return code;
+            }
+        });
+
+        expect(result).toBe(1);
+        expect(exitCodes).toEqual([1]);
+        expect(logs.some(message => message.includes('simulated REM failure'))).toBe(true);
+    });
+
+    test('runSandman defers without running DreamService when the maintenance lease is held (#12070)', async () => {
+        const logs      = [];
+        const exitCodes = [];
+
+        const result = await runSandmanModule.runSandman({
+            dreamService: {
+                ready: async () => {
+                    throw new Error('DreamService must not initialize when lease is held');
+                }
+            },
+            lifecycleService: {
+                ready: async () => {
+                    throw new Error('LifecycleService must not initialize when lease is held');
+                }
+            },
+            withLease: async () => ({
+                status  : 'held',
+                acquired: false,
+                lease   : {
+                    owner     : 'orchestrator',
+                    reason    : 'periodic-dream',
+                    pid       : 12345,
+                    acquiredAt: '2026-05-27T16:00:00.000Z'
+                }
+            }),
+            output: {
+                log  : message => logs.push(message),
+                error: message => logs.push(message)
+            },
+            exit: code => {
+                exitCodes.push(code);
+                return code;
+            }
+        });
+
+        expect(result).toBe(0);
+        expect(exitCodes).toEqual([0]);
+        expect(logs.some(message => message.includes("Deferred: heavy-maintenance lease held by 'orchestrator'"))).toBe(true);
     });
 });
