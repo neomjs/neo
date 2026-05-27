@@ -368,6 +368,55 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         ]);
     });
 
+    test('buildLmsContextLengthsMap composes full map when all four inputs are finite (#12117)', () => {
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            chatModel             : 'chat-from-config',
+            embeddingModel        : 'embedding-from-config',
+            chatContextLength     : 262144,
+            embeddingContextLength: 8192
+        })).toEqual({
+            'chat-from-config'     : 262144,
+            'embedding-from-config': 8192
+        });
+    });
+
+    test('buildLmsContextLengthsMap returns empty map when inputs are missing or non-finite (#12117)', () => {
+        // All missing
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({})).toEqual({});
+
+        // Models present but context-lengths missing
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            chatModel     : 'chat',
+            embeddingModel: 'embedding'
+        })).toEqual({});
+
+        // Context-lengths present but models missing
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            chatContextLength     : 262144,
+            embeddingContextLength: 8192
+        })).toEqual({});
+
+        // Non-finite context-lengths defensive: NaN, Infinity, non-number all skipped
+        for (const bad of [NaN, Infinity, -Infinity, '262144', null, undefined]) {
+            expect(providerReadinessHelper.buildLmsContextLengthsMap({
+                chatModel        : 'chat',
+                chatContextLength: bad
+            })).toEqual({});
+        }
+    });
+
+    test('buildLmsContextLengthsMap returns partial map when only one role is configured (#12117)', () => {
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            chatModel        : 'chat-only',
+            chatContextLength: 99999
+        })).toEqual({'chat-only': 99999});
+
+        expect(providerReadinessHelper.buildLmsContextLengthsMap({
+            embeddingModel        : 'embedding-only',
+            embeddingContextLength: 8192
+        })).toEqual({'embedding-only': 8192});
+    });
+
     test('loadLmsModel omits --context-length when contextLength is non-finite (defensive)', async () => {
         const execCalls = [];
         const execFileStub = (cmd, args, callback) => {

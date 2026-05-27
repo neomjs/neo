@@ -159,6 +159,42 @@ export function loadLmsModel(model, {execFileFn = execFile, contextLength} = {})
 }
 
 /**
+ * @summary Builds the per-model `--context-length` override map for `ensureLmsModelsLoaded`.
+ *
+ * Composes the resolved chat + embedding model identifiers with their respective
+ * role-keyed context-length thresholds into the `{[modelId]: tokens}` shape the
+ * helper's `contextLengths` parameter consumes. Callers (Orchestrator boot path)
+ * resolve the four inputs from their own config substrate and pass them in —
+ * keeps this helper module decoupled from any specific config-shape source.
+ *
+ * Skips entries when the model id is missing OR the context-length is not a
+ * finite number, so partially-configured deployments produce a partial map
+ * rather than corrupted entries.
+ *
+ * @param {Object} options
+ * @param {String} [options.chatModel] Chat model identifier (e.g. `aiConfig.openAiCompatible.model`).
+ * @param {String} [options.embeddingModel] Embedding model identifier.
+ * @param {Number} [options.chatContextLength] Chat-role context window in tokens.
+ * @param {Number} [options.embeddingContextLength] Embedding-role context window in tokens.
+ * @returns {Object} Map keyed by model id with finite-number context-length values.
+ */
+export function buildLmsContextLengthsMap({
+    chatModel,
+    embeddingModel,
+    chatContextLength,
+    embeddingContextLength
+} = {}) {
+    const map = {};
+    if (chatModel && typeof chatContextLength === 'number' && Number.isFinite(chatContextLength)) {
+        map[chatModel] = chatContextLength;
+    }
+    if (embeddingModel && typeof embeddingContextLength === 'number' && Number.isFinite(embeddingContextLength)) {
+        map[embeddingModel] = embeddingContextLength;
+    }
+    return map;
+}
+
+/**
  * @summary Ensures LM Studio has all configured OpenAI-compatible models loaded.
  *
  * The orchestrator-owned `lms server start` task gets the server process running;
