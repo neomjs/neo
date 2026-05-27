@@ -289,6 +289,56 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         }
     });
 
+    test('detects silent empty-response as context-overflow + aborts retry amplification (#12091)', async () => {
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+        let invocationCount = 0;
+
+        try {
+            clearAggregatedFrictions();
+
+            // Stub provider to return empty content (LM Studio silent-overflow signature:
+            // stream opens and closes immediately with no body, no thrown error).
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                invocationCount++;
+                return {content: ''};
+            };
+
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-empty-response-vector-id',
+                meta    : {sessionId: 'empty-response-overflow-session'},
+                document: 'Mock episodic history for silent empty-response detection.'
+            });
+
+            // AC4: returns null (no retry-loop amplification)
+            expect(result).toBeNull();
+
+            // AC6 (e): retry loop did NOT fire — single invocation only
+            expect(invocationCount).toBe(1);
+
+            const frictions = getAggregatedFrictions();
+            const friction  = frictions.find(item => item.assetRef === 'empty-response-overflow-session');
+
+            // AC2: emits via existing primitive — no new symptom enum entry needed
+            expect(friction).toBeDefined();
+            expect(friction.symptom).toBe('context-overflow');
+
+            // AC3: note carries empty-response-specific diagnostic
+            expect(friction.note).toContain('Silent empty-response from provider');
+            expect(friction.note).toContain('Prompt chars:');
+
+            // AC6 (e): deterministic-symptom auto-surface (no 3-emission threshold)
+            const aggregated = frictions.find(item => item.assetRef === 'empty-response-overflow-session');
+            expect(aggregated).toBeDefined();
+            expect(aggregated.count).toBe(1);
+
+            // Suggestion derived from existing primitive map: context-overflow → compress-payload
+            expect(friction.suggestionKind).toBe('compress-payload');
+        } finally {
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            clearAggregatedFrictions();
+        }
+    });
+
     test('uses configured graph-provider model for consumer friction telemetry (#12059)', async () => {
         const originalGraphProvider                  = aiConfig.graphProvider;
         const originalOllamaModel                    = aiConfig.ollama?.model;
