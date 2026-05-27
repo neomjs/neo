@@ -174,6 +174,53 @@ function getBroadcastDeliveryEdge(messageId, target) {
     return getBroadcastDeliveryEdges(messageId).find(edge => getRecordField(edge, 'target') === target) || null;
 }
 
+/**
+ * @summary Creates a delivery-critical mailbox edge and verifies SQLite persisted it.
+ *
+ * `GraphService.linkNodes()` intentionally culls missing-endpoint edges for broad graph
+ * extraction callers. Mailbox delivery edges have a stricter contract: returning
+ * `{status: 'sent'}` without `SENT_BY`, `SENT_TO`, or broadcast `DELIVERED_TO` rows makes
+ * the MESSAGE structurally unroutable. This helper keeps the hard-fail local to the
+ * mailbox write path instead of changing GraphService's global cull-tolerant semantics.
+ *
+ * @param {String} source Source graph node id.
+ * @param {String} target Target graph node id.
+ * @param {String} type Mailbox delivery edge type.
+ * @param {Number} weight Edge weight.
+ * @param {Object} properties Edge properties.
+ * @param {Object} [diagnostics={}] Additional caller-target diagnostics for error text.
+ * @throws {Error} When the edge does not exist in SQLite after `linkNodes()`.
+ */
+function linkRequiredMailboxEdgeOrThrow(source, target, type, weight, properties, diagnostics = {}) {
+    GraphService.linkNodes(source, target, type, weight, properties);
+
+    const sqlite = GraphService.db?.storage?.db;
+    if (!sqlite) {
+        throw new Error(`[MailboxService] Routing edge creation failed: ${source} -[${type}]-> ${target}. SQLite graph storage is unavailable after GraphService.linkNodes().`);
+    }
+
+    const edgeCount = sqlite.prepare('SELECT count(*) as count FROM Edges WHERE source = ? AND target = ? AND type = ?')
+        .get(source, target, type)
+        .count;
+
+    if (edgeCount !== 1) {
+        const fkVerifyCount = sqlite.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)')
+            .get(source, target)
+            .count;
+
+        const details = diagnostics.preNormalizeTo !== undefined
+            ? ` Caller target: ${JSON.stringify(diagnostics.preNormalizeTo)} -> ${JSON.stringify(diagnostics.postNormalizeTo)}.`
+            : '';
+
+        throw new Error(
+            `[MailboxService] Routing edge creation failed: ${source} -[${type}]-> ${target}. ` +
+            `Expected exactly 1 edge row after GraphService.linkNodes(), found ${edgeCount}. ` +
+            `FK endpoint count: ${fkVerifyCount}. GraphService.mjs linkNodes FK guard may have culled the edge.` +
+            details
+        );
+    }
+}
+
 function hasBroadcastDeliveryEdges(messageId) {
     return getBroadcastDeliveryEdges(messageId).length > 0;
 }
@@ -472,50 +519,26 @@ class MailboxService extends Base {
             properties: messageProperties
         });
 
-        // 2. Map the routing edges
-        GraphService.linkNodes(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
-        GraphService.linkNodes(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
+        // 2. Map the delivery-critical routing edges. These must fail loudly if
+        // GraphService's FK guard culls them; otherwise `addMessage()` can return a
+        // misleading success for an unroutable MESSAGE.
+        const routingDiagnostics = {preNormalizeTo, postNormalizeTo};
+        linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: sentBy, sharedEntity: true }, routingDiagnostics);
+        linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: sentBy, sharedEntity: true }, routingDiagnostics);
         if (to === 'AGENT:*') {
             for (const recipient of getBroadcastAudience(sentBy)) {
-                GraphService.linkNodes(messageId, recipient, 'DELIVERED_TO', 1.0, {
+                linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
                     deliveredAt: timestamp,
                     readAt: null,
                     deliveryKind: 'broadcast',
                     userId: sentBy,
                     sharedEntity: true
-                });
+                }, routingDiagnostics);
             }
         }
 
-        // Make SENT_TO edge-creation failures loud and cross-process readable.
-        try {
-            const edgeCount = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ? AND target = ? AND type = ?').get(messageId, to, 'SENT_TO').count;
-            if (edgeCount === 0) {
-                const fkVerifyCount = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)').get(messageId, to).count;
-
-                const logEntry = {
-                    msg: "[#10347 Phase 1] Intermittent SENT_TO edge cull detected",
-                    timestamp,
-                    caller_passed_to: preNormalizeTo,
-                    pre_normalize_to: preNormalizeTo,
-                    post_normalize_to: postNormalizeTo,
-                    fk_verify_count: fkVerifyCount,
-                    identity_binding_me: sentBy,
-                    edge_type: 'SENT_TO',
-                    message_id: messageId
-                };
-
-                Promise.all([import('fs'), import('path'), import('../../mcp/server/memory-core/logger.mjs')]).then(([{ default: fs }, { default: path }, { default: logger }]) => {
-                    logger.warn(JSON.stringify(logEntry));
-                    const logPath = path.join(path.dirname(aiConfig.storagePaths.graph), 'sent-to-cull.jsonl');
-                    fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
-                });
-            }
-        } catch (e) {
-            // fail silently on observability errors to not break the message send
-        }
-
-        // 3. Map additional graph semantic edges
+        // 3. Map additional graph semantic edges. These remain cull-tolerant:
+        // mailbox delivery does not depend on optional provenance/thread/concept links.
         if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
         if (inReplyTo) GraphService.linkNodes(messageId, inReplyTo, 'IN_REPLY_TO', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
         if (partOfThread) GraphService.linkNodes(messageId, partOfThread, 'PART_OF_THREAD', 1.0, { timestamp, userId: sentBy, sharedEntity: true });

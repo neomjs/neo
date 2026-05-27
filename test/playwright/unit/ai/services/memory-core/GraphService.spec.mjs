@@ -715,7 +715,11 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // Run the boot sequence
         await GraphService.initAsync();
 
-        // Assert all four identities are present with correct types
+        // Assert the system sender plus core identities are present with correct types
+        const system = await GraphService.getNode({id: '@system'});
+        expect(system).toBeTruthy();
+        expect(system.type).toBe('System');
+
         const geminiPro = await GraphService.getNode({id: '@neo-gemini-3-1-pro'});
         expect(geminiPro).toBeTruthy();
         expect(geminiPro.type).toBe('AgentIdentity');
