@@ -447,22 +447,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.warn(`[GoldenPathSynthesizer] ConsumerFriction section render failed: ${err.message}`);
         }
 
-        // --- KB Multi-Tenant Ingestion Health (visibility) ---
-        // Per-tenant KB ingestion telemetry (the `kb_ingestion_metrics` rollup) surfaced as a
-        // handoff section. Composed here — not written by a standalone daemon — because
-        // sandman_handoff.md is regenerated idempotently in full.
-        try {
-            const {renderKbMultiTenantHealthSection} = await import('../../services/knowledge-base/helpers/KbTenantHealthHelper.mjs');
-            const kbHealthSection = await renderKbMultiTenantHealthSection();
-
-            if (kbHealthSection) {
-                handoffContent += kbHealthSection + '\n';
-            }
-        } catch (err) {
-            // Defensive: a KB-telemetry failure must not break handoff rendering.
-            logger.warn(`[GoldenPathSynthesizer] KB Multi-Tenant Health section render failed: ${err.message}`);
-        }
-
         // --- Active PR Cycle State ---
         let prStateAppend = '';
         if (repoEnrichmentEnabled) {
