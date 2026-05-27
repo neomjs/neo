@@ -155,23 +155,25 @@ class Config extends BaseConfig {
          * Settings for the Ollama integration
          */
         ollama: {
-            host          : AiConfig.ollama.host,
-            model         : AiConfig.ollama.model,
-            embeddingModel: AiConfig.ollama.embeddingModel,
-            keep_alive    : AiConfig.ollama.keep_alive
+            host                 : AiConfig.ollama.host,
+            model                : AiConfig.ollama.model,
+            embeddingModel       : AiConfig.ollama.embeddingModel,
+            keep_alive           : AiConfig.ollama.keep_alive,
+            requireParallelModels: AiConfig.ollama.requireParallelModels
         },
         /**
          * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
          * WARNING: Never hardcode API keys here. Always export them via .env or globally.
          */
         openAiCompatible: {
-            host                    : AiConfig.openAiCompatible.host,
-            model                   : AiConfig.openAiCompatible.model,
-            embeddingModel          : AiConfig.openAiCompatible.embeddingModel,
-            apiKey                  : AiConfig.openAiCompatible.apiKey,
-            unloadRetryCount        : AiConfig.openAiCompatible.unloadRetryCount,
-            unloadRetryDelayMs      : AiConfig.openAiCompatible.unloadRetryDelayMs,
-            keep_alive              : AiConfig.openAiCompatible.keep_alive
+            host                 : AiConfig.openAiCompatible.host,
+            model                : AiConfig.openAiCompatible.model,
+            embeddingModel       : AiConfig.openAiCompatible.embeddingModel,
+            apiKey               : AiConfig.openAiCompatible.apiKey,
+            unloadRetryCount     : AiConfig.openAiCompatible.unloadRetryCount,
+            unloadRetryDelayMs   : AiConfig.openAiCompatible.unloadRetryDelayMs,
+            keep_alive           : AiConfig.openAiCompatible.keep_alive,
+            requireParallelModels: AiConfig.openAiCompatible.requireParallelModels
         },
         /**
          * Local-model role-keyed context limits passthrough.
@@ -451,19 +453,21 @@ class Config extends BaseConfig {
         graphProvider     : 'NEO_GRAPH_PROVIDER',
         embeddingProvider : 'NEO_EMBEDDING_PROVIDER',
         ollama            : {
-            host          : 'NEO_OLLAMA_HOST',
-            model         : 'NEO_OLLAMA_MODEL',
-            embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL',
-            keep_alive    : { var: 'NEO_OLLAMA_KEEP_ALIVE', parse: Env.parseKeepAlive}
+            host                 : 'NEO_OLLAMA_HOST',
+            model                : 'NEO_OLLAMA_MODEL',
+            embeddingModel       : 'NEO_OLLAMA_EMBEDDING_MODEL',
+            keep_alive           : { var: 'NEO_OLLAMA_KEEP_ALIVE', parse: Env.parseKeepAlive},
+            requireParallelModels: { var: 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', parse: Env.parseNumber}
         },
         openAiCompatible: {
-            host              : 'NEO_OPENAI_COMPATIBLE_HOST',
-            model             : 'NEO_OPENAI_COMPATIBLE_MODEL',
-            embeddingModel    : 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
-            apiKey            : 'NEO_OPENAI_COMPATIBLE_API_KEY',
-            unloadRetryCount  : { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
-            unloadRetryDelayMs: { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
-            keep_alive        : { var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive}
+            host                 : 'NEO_OPENAI_COMPATIBLE_HOST',
+            model                : 'NEO_OPENAI_COMPATIBLE_MODEL',
+            embeddingModel       : 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
+            apiKey               : 'NEO_OPENAI_COMPATIBLE_API_KEY',
+            unloadRetryCount     : { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
+            unloadRetryDelayMs   : { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
+            keep_alive           : { var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive},
+            requireParallelModels: { var: 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', parse: Env.parseNumber}
         },
         vectorDimension: { var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
         backupPath     : 'NEO_BACKUP_PATH',

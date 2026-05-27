@@ -121,10 +121,11 @@ class Config extends BaseConfig {
          * @type {Object}
          */
         ollama: {
-            host          : 'http://127.0.0.1:11434',
-            model         : 'gemma4:31b',
-            embeddingModel: 'qwen3-embedding',
-            keep_alive    : -1
+            host                 : 'http://127.0.0.1:11434',
+            model                : 'gemma4:31b',
+            embeddingModel       : 'qwen3-embedding',
+            keep_alive           : -1,
+            requireParallelModels: 2
         },
         /**
          * @summary Deployment-wide OpenAI-compatible provider defaults.
@@ -134,13 +135,14 @@ class Config extends BaseConfig {
          * @type {Object}
          */
         openAiCompatible: {
-            host                    : 'http://127.0.0.1:11434',
-            model                   : 'gemma-4-31b-it',
-            embeddingModel          : 'text-embedding-qwen3-embedding-8b',
-            apiKey                  : '',
-            unloadRetryCount        : 3,
-            unloadRetryDelayMs      : 500,
-            keep_alive              : -1
+            host                 : 'http://127.0.0.1:11434',
+            model                : 'gemma-4-31b-it',
+            embeddingModel       : 'text-embedding-qwen3-embedding-8b',
+            apiKey               : '',
+            unloadRetryCount     : 3,
+            unloadRetryDelayMs   : 500,
+            keep_alive           : -1,
+            requireParallelModels: 2
         },
         /**
          * @summary Local-model role-keyed context limits.
@@ -607,19 +609,21 @@ class Config extends BaseConfig {
         graphProvider    : 'NEO_GRAPH_PROVIDER',
         embeddingProvider: 'NEO_EMBEDDING_PROVIDER',
         ollama           : {
-            host          : 'NEO_OLLAMA_HOST',
-            model         : 'NEO_OLLAMA_MODEL',
-            embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL',
-            keep_alive    : {var: 'NEO_OLLAMA_KEEP_ALIVE', parse: Env.parseKeepAlive}
+            host                 : 'NEO_OLLAMA_HOST',
+            model                : 'NEO_OLLAMA_MODEL',
+            embeddingModel       : 'NEO_OLLAMA_EMBEDDING_MODEL',
+            keep_alive           : {var: 'NEO_OLLAMA_KEEP_ALIVE', parse: Env.parseKeepAlive},
+            requireParallelModels: {var: 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', parse: Env.parseNumber}
         },
         openAiCompatible: {
-            host                    : 'NEO_OPENAI_COMPATIBLE_HOST',
-            model                   : 'NEO_OPENAI_COMPATIBLE_MODEL',
-            embeddingModel          : 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
-            apiKey                  : 'NEO_OPENAI_COMPATIBLE_API_KEY',
-            unloadRetryCount        : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
-            unloadRetryDelayMs      : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
-            keep_alive              : {var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive}
+            host                 : 'NEO_OPENAI_COMPATIBLE_HOST',
+            model                : 'NEO_OPENAI_COMPATIBLE_MODEL',
+            embeddingModel       : 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
+            apiKey               : 'NEO_OPENAI_COMPATIBLE_API_KEY',
+            unloadRetryCount     : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
+            unloadRetryDelayMs   : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
+            keep_alive           : {var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive},
+            requireParallelModels: {var: 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', parse: Env.parseNumber}
         },
         localModels: {
             chat: {

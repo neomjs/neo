@@ -25,7 +25,8 @@ import {
     assertProviderReadinessConfig,
     createProviderFailureDiagnostic,
     getGraphProviderReadinessTarget,
-    waitForProvider
+    waitForProvider,
+    warnProviderParallelModelCapacity
 } from '../../../services/graph/ProviderReadinessHelper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -443,7 +444,12 @@ class DreamService extends Base {
             };
         }
 
-        return {ready: true};
+        const capacity = await warnProviderParallelModelCapacity({
+            config   : AiConfig,
+            timeoutMs: readinessConfig.timeoutMs
+        });
+
+        return {ready: true, capacity};
     }
 
     /**

@@ -67,19 +67,21 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.embeddingModel).toBe('gemini-embedding-001');
 
         expect(Config.ollama).toMatchObject({
-            host          : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
-            model         : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
-            embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
-            keep_alive    : TIER1_DEFAULTS.ollama.keep_alive
+            host                 : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
+            model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
+            embeddingModel       : process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
+            keep_alive           : TIER1_DEFAULTS.ollama.keep_alive,
+            requireParallelModels: TIER1_DEFAULTS.ollama.requireParallelModels
         });
         expect(Config.openAiCompatible).toMatchObject({
-            host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-            model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-            embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-            apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
-            unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
-            unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-            keep_alive              : TIER1_DEFAULTS.openAiCompatible.keep_alive
+            host                 : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+            model                : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+            embeddingModel       : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+            apiKey               : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
+            unloadRetryCount     : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
+            unloadRetryDelayMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+            keep_alive           : TIER1_DEFAULTS.openAiCompatible.keep_alive,
+            requireParallelModels: TIER1_DEFAULTS.openAiCompatible.requireParallelModels
         });
         expect(Config.localModels).toMatchObject({
             chat: {

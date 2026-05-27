@@ -95,6 +95,28 @@ export NEO_OPENAI_COMPATIBLE_API_KEY=  # leave empty for local servers
 This path uses the existing `Neo.ai.provider.OpenAiCompatible` chat-completions abstraction. Do not add a model-specific Qwen provider class for shared-deployment installs; local-model selection is an operator config concern.
 `NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` and `NEO_OLLAMA_KEEP_ALIVE` default to `-1` so local providers keep the selected model resident across Agent OS calls unless operators explicitly choose a shorter retention window or `0` unload control.
 
+### Local-provider model residency
+
+REM and Sandman alternate between a chat model and an embedding model. Local
+providers therefore need both models resident at the same time; otherwise each
+chat-to-embedding switch can evict the previous model and reintroduce cold-load
+latency despite `keep_alive=-1`.
+
+Neo declares this requirement with provider-level config:
+
+```bash
+export NEO_OLLAMA_REQUIRE_PARALLEL_MODELS=2
+export NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS=2
+```
+
+The defaults are `2` because the standard local setup uses one chat model and
+one embedding model. The boot-time provider-readiness check warns, but does not
+block startup, when the selected provider cannot observe both configured model
+names as loaded/available. Native Ollama deployments must satisfy the warning by
+starting `ollama serve` with `OLLAMA_MAX_LOADED_MODELS` set to at least the same
+count; OpenAI-compatible servers must use their provider-specific loaded-model
+cap or pre-load setting so the chat and embedding model stay resident together.
+
 ## Authentication
 
 Shared deployments need to know **which agent originated each request** so memories, summaries, and graph edges are attributed correctly. The Memory Core supports two authentication paths:
