@@ -127,6 +127,11 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         }
     },
     orchestrator: {
+        providerReadiness: {
+            attempts : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)   || 30,
+            delayMs  : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)   || 1000,
+            timeoutMs: Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS) || 3000
+        },
         intervals: {
             pollMs           : 3000,
             summarySweepMs   : 10 * 60 * 1000,

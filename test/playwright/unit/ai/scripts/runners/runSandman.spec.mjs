@@ -64,6 +64,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const waitResult = await runSandmanModule.waitForProvider({
             attempts     : 3,
             delayMs      : 0,
+            timeoutMs    : 50,
             checkProvider: async () => false,
             output       : {
                 write: value => {
@@ -79,6 +80,18 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
         expect(waitResult.elapsedMs).toBeGreaterThanOrEqual(0);
         expect(dots).toBe('...');
+    });
+
+    test('waitForProvider throws when required probe parameters are absent (config-as-SSOT contract)', async () => {
+        await expect(runSandmanModule.waitForProvider({attempts: 1, delayMs: 0})).rejects.toThrow(/timeoutMs.*required/);
+        await expect(runSandmanModule.waitForProvider({attempts: 1, timeoutMs: 10})).rejects.toThrow(/delayMs.*required/);
+        await expect(runSandmanModule.waitForProvider({delayMs: 0, timeoutMs: 10})).rejects.toThrow(/attempts.*required/);
+        await expect(runSandmanModule.waitForProvider()).rejects.toThrow(/attempts.*delayMs.*timeoutMs.*required/);
+    });
+
+    test('checkProvider throws when timeoutMs is absent (config-as-SSOT contract)', () => {
+        expect(() => runSandmanModule.checkProvider()).toThrow(/timeoutMs.*required/);
+        expect(() => runSandmanModule.checkProvider({config: {graphProvider: 'openAiCompatible'}})).toThrow(/timeoutMs.*required/);
     });
 
     test('resolves readiness target from graphProvider instead of generic modelProvider', () => {
@@ -176,6 +189,25 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(logLines).toContain('mlx-community/test-model');
         expect(logLines).toContain('Start the configured OpenAI-compatible / MLX provider');
         expect(logLines).not.toContain('must-not-be-logged');
+    });
+
+    test('createProviderFailureDiagnostic surfaces undefined verbatim when waitResult is absent (no null substitution)', () => {
+        const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
+            config: {
+                modelProvider   : 'openAiCompatible',
+                graphProvider   : 'openAiCompatible',
+                openAiCompatible: {
+                    host : 'http://127.0.0.1:11435',
+                    model: 'mlx-community/test-model'
+                }
+            },
+            reason: 'UNSUPPORTED_GRAPH_PROVIDER'
+        });
+
+        expect(diagnostic.attempts).toBeUndefined();
+        expect(diagnostic.elapsedMs).toBeUndefined();
+        expect(diagnostic.timeoutMs).toBeUndefined();
+        expect(diagnostic.lifecycleStatus).toBeUndefined();
     });
 
     test('unsupported graphProvider fails before readiness polling', async () => {
