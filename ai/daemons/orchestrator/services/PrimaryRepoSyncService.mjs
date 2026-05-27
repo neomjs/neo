@@ -7,7 +7,6 @@ const REMOTE_NAME    = 'origin';
 const REMOTE_REF     = `${REMOTE_NAME}/${DEV_BRANCH}`;
 const META_SYNC_PATH = 'resources/content/.sync-metadata.json';
 export const DEV_SYNC_ROOTS_ENV_VAR = 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS';
-export const DEV_SYNC_ROOTS_CONFIG_KEY = 'orchestrator.devSyncRoots';
 
 const KB_RELEVANT_PATH_PREFIXES = Object.freeze([
     '.agents/skills/',
@@ -156,8 +155,7 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} [options.writeLog] Orchestrator logger.
      * @param {String} [options.cwd=process.cwd()] Invocation directory.
      * @param {Function} [options.execFileSyncFn=execFileSync] Test seam.
-     * @param {String[]|String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
-     * @param {String} [options.devSyncRootsSource=NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Config source label.
+     * @param {String[]|String|undefined|null} options.devSyncRootsConfig Configured roots. Callers (Orchestrator) resolve from `AiConfig.orchestrator.devSyncRoots` (env-applied via `envBindings.orchestrator.devSyncRoots → NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`); the service does not read env directly.
      * @returns {Object} Execution result.
      */
     runTask({
@@ -168,8 +166,7 @@ class PrimaryRepoSyncService extends Base {
         writeLog,
         cwd = process.cwd(),
         execFileSyncFn = execFileSync,
-        devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR],
-        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR
+        devSyncRootsConfig
     }) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -183,7 +180,7 @@ class PrimaryRepoSyncService extends Base {
         taskStateService.markStarted(taskName, reason);
 
         try {
-            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig, devSyncRootsSource, taskStateService, healthService});
+            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig, taskStateService, healthService});
             const status = result.status === 'completed' ? 'completed' : result.status === 'failed' ? 'failed' : 'skipped';
 
             if (status === 'completed') {
@@ -212,8 +209,7 @@ class PrimaryRepoSyncService extends Base {
      * @param {String} options.cwd Invocation directory.
      * @param {Function} options.execFileSyncFn Command execution seam.
      * @param {Function} [options.writeLog] Optional logger.
-     * @param {String[]|String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
-     * @param {String} [options.devSyncRootsSource=NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Config source label.
+     * @param {String[]|String|undefined|null} options.devSyncRootsConfig Configured roots. Callers resolve from `AiConfig.orchestrator.devSyncRoots`; service does not read env directly.
      * @param {Object} [options.taskStateService] Optional `TaskStateService` forwarded to the eventual `runKbSync()` cascade so the nested KB sync is observable as a first-class `kbSync` task lifecycle event. Pass-through only; this method does not consume the service directly.
      * @param {Object} [options.healthService] Optional `HealthService` forwarded to the eventual `runKbSync()` cascade for `recordTaskOutcome('kbSync', ..., {parent: 'primary-dev-sync', ...})` observability. Pass-through only; this method does not consume the service directly.
      * @returns {Object}
@@ -222,17 +218,16 @@ class PrimaryRepoSyncService extends Base {
         cwd,
         execFileSyncFn,
         writeLog,
-        devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR],
-        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR,
+        devSyncRootsConfig,
         taskStateService,
         healthService
     }) {
-        const rootsConfig = parseDevSyncRoots(devSyncRootsConfig, devSyncRootsSource);
+        const rootsConfig = parseDevSyncRoots(devSyncRootsConfig, DEV_SYNC_ROOTS_ENV_VAR);
 
         if (rootsConfig.status === 'invalid') {
             return this.skip(rootsConfig.reasonCode, {
                 envVar: DEV_SYNC_ROOTS_ENV_VAR,
-                source: devSyncRootsSource,
+                source: DEV_SYNC_ROOTS_ENV_VAR,
                 error : rootsConfig.error
             }, writeLog);
         }

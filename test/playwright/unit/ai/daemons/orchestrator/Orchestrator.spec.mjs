@@ -3,18 +3,10 @@ import path from 'path';
 import Neo from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 import AiConfig from '../../../../../../ai/config.mjs';
-import {
-    Orchestrator,
-    resolvePrimaryDevSyncRootsConfig,
-    resolvePrimaryDevSyncRootsSource
-} from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {Orchestrator} from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
 import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
-import {
-    DEV_SYNC_ROOTS_CONFIG_KEY,
-    DEV_SYNC_ROOTS_ENV_VAR
-} from '../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
 import {
     buildTaskDefinitions
 } from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
@@ -676,64 +668,36 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(started).toEqual([]);
     });
 
-    test('passes local dev-sync roots to primary-dev-sync while env keeps precedence', () => {
-        const originalEnvValue = process.env[DEV_SYNC_ROOTS_ENV_VAR];
-        delete process.env[DEV_SYNC_ROOTS_ENV_VAR];
-
-        try {
-            const received = [];
-            const orchestrator = createTestOrchestrator({
-                kbSyncIntervalMs          : 0,
-                backupIntervalMs          : 0,
-                primaryDevSyncEnabled     : true,
-                primaryDevSyncIntervalMs  : 600000,
-                primaryDevSyncRootsConfig : ['/config/neo'],
-                primaryDevSyncGetDueTask  : () => ({
-                    taskName: 'primary-dev-sync',
-                    reason  : 'periodic-sweep:600000'
-                }),
-                primaryRepoSyncService    : {
-                    runTask(options) {
-                        received.push({
-                            value : options.devSyncRootsConfig,
-                            source: options.devSyncRootsSource
-                        });
-                    }
+    test('delegates the configured dev-sync roots to PrimaryRepoSyncService via options.devSyncRootsConfig', () => {
+        const received = [];
+        const orchestrator = createTestOrchestrator({
+            kbSyncIntervalMs          : 0,
+            backupIntervalMs          : 0,
+            primaryDevSyncEnabled     : true,
+            primaryDevSyncIntervalMs  : 600000,
+            primaryDevSyncRootsConfig : ['/config/neo'],
+            primaryDevSyncGetDueTask  : () => ({
+                taskName: 'primary-dev-sync',
+                reason  : 'periodic-sweep:600000'
+            }),
+            primaryRepoSyncService    : {
+                runTask(options) {
+                    received.push(options.devSyncRootsConfig);
                 }
-            });
-
-            orchestrator.processSupervisorService = {
-                runTask() {}
-            };
-
-            orchestrator.poll();
-
-            process.env[DEV_SYNC_ROOTS_ENV_VAR] = '["/env/neo"]';
-            orchestrator.poll();
-
-            expect(received).toEqual([{
-                value : ['/config/neo'],
-                source: DEV_SYNC_ROOTS_CONFIG_KEY
-            }, {
-                value : '["/env/neo"]',
-                source: DEV_SYNC_ROOTS_ENV_VAR
-            }]);
-            expect(resolvePrimaryDevSyncRootsConfig({
-                envValue   : '',
-                configValue: ['/config/neo']
-            })).toEqual(['/config/neo']);
-            expect(resolvePrimaryDevSyncRootsConfig({
-                envValue   : '',
-                configValue: []
-            })).toBeNull();
-            expect(resolvePrimaryDevSyncRootsSource({envValue: ''})).toBe(DEV_SYNC_ROOTS_CONFIG_KEY);
-        } finally {
-            if (originalEnvValue === undefined) {
-                delete process.env[DEV_SYNC_ROOTS_ENV_VAR];
-            } else {
-                process.env[DEV_SYNC_ROOTS_ENV_VAR] = originalEnvValue;
             }
-        }
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask() {}
+        };
+
+        orchestrator.poll();
+
+        // Per the SSOT contract, env precedence is owned by `envBindings.orchestrator.devSyncRoots`
+        // at config-load time, not by a runtime resolver. The orchestrator is responsible only for
+        // delegating the resolved value via `options.devSyncRootsConfig`. Env-precedence assertions
+        // belong to the envBindings tier, not this test.
+        expect(received).toEqual([['/config/neo']]);
     });
 
     // ─────────────────────────────────────────────────────────────────────────────

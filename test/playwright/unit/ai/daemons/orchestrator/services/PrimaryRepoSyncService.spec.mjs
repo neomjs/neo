@@ -2,7 +2,6 @@ import {test, expect} from '@playwright/test';
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 import PrimaryRepoSyncService, {
-    DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR,
     isKbRelevantChangePath,
     parseDevSyncRoots
@@ -626,13 +625,12 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(execStub.calls.map(call => call.args[0])).not.toContain('pull');
     });
 
-    test('uses the local config source label for malformed configured roots', () => {
+    test('reports the canonical env-var name for malformed configured roots', () => {
         const result = PrimaryRepoSyncService.syncPrimaryDev({
             cwd               : '/primary/neo',
             execFileSyncFn    : createExecStub([]),
             writeLog          : () => {},
-            devSyncRootsConfig: ['relative/neo'],
-            devSyncRootsSource: DEV_SYNC_ROOTS_CONFIG_KEY
+            devSyncRootsConfig: ['relative/neo']
         });
 
         expect(result).toEqual({
@@ -640,8 +638,8 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             details: {
                 reasonCode: 'invalid-dev-sync-roots',
                 envVar    : DEV_SYNC_ROOTS_ENV_VAR,
-                source    : DEV_SYNC_ROOTS_CONFIG_KEY,
-                error     : 'orchestrator.devSyncRoots entries must be absolute path strings.'
+                source    : DEV_SYNC_ROOTS_ENV_VAR,
+                error     : `${DEV_SYNC_ROOTS_ENV_VAR} entries must be absolute path strings.`
             }
         });
     });
