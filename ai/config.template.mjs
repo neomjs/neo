@@ -133,8 +133,15 @@ class Config extends BaseConfig {
             apiKey                  : '',
             unloadRetryCount        : 3,
             unloadRetryDelayMs      : 500,
-            contextLimitTokens      : 32768,
-            safeProcessingLimitTokens: undefined
+            // gemma-4-31b-it (and gemma-4-26B MoE) native context = 256K (262,144) tokens.
+            // Cap sized for the model's actual capacity; env override
+            // `NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS` preserved for operator re-pinning.
+            contextLimitTokens      : 262144,
+            // Explicit ~76% of cap; ~62K tokens headroom for system-prompt envelope + LLM
+            // response generation. Prior `undefined` default fell back to 0.75 × cap via
+            // ConsumerFrictionHelper.DEFAULT_SAFE_FRACTION — explicit value avoids implicit
+            // drift if the cap moves again.
+            safeProcessingLimitTokens: 200000
         },
         /**
          * @summary Deployment-wide Gemini model defaults.
