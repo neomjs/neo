@@ -21,6 +21,12 @@ import MemorySessionIngestor from '../../../services/ingestion/MemorySessionInge
 import SemanticGraphExtractor from '../../../services/graph/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from '../../../services/graph/TopologyInferenceEngine.mjs';
 import GoldenPathSynthesizer from '../../../services/graph/GoldenPathSynthesizer.mjs';
+import AiConfig from '../../../config.mjs';
+import {
+    createProviderFailureDiagnostic,
+    getGraphProviderReadinessTarget,
+    waitForProvider
+} from '../../../scripts/runners/runSandman.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -255,6 +261,182 @@ class DreamService extends Base {
         } finally {
             this.isProcessing = false;
         }
+    }
+
+    /**
+     * @summary Unified canonical REM (Sandman) cycle entrypoint returning a typed cycle outcome envelope.
+     *
+     * The orchestrator periodic dream path previously mapped every non-throwing return
+     * from `processUndigestedSessions()` to `completed`, hiding zero-session no-ops,
+     * concurrent-invocation guards, and provider-unreachable early returns. This method
+     * returns one of `completed | skipped | failed` so consumers route each path to
+     * the correct task-state / health-telemetry surface.
+     *
+     * **Outcome status semantics:**
+     * - `completed` — provider was ready, undigested sessions existed, processing finished
+     *   without throw. `sessionsProcessed` carries the pre-call count.
+     * - `skipped`   — ran successfully but did no work (concurrent-invocation guard,
+     *   zero undigested sessions, dry-run). `skipReason` carries the diagnostic string.
+     * - `failed`    — provider readiness gate rejected OR an in-pipeline throw was caught.
+     *   Either `diagnostic` (for provider failure) or `error` (for throws) is populated.
+     *
+     * **Lease ownership stays with the caller.** The orchestrator periodic dream path
+     * runs inside `MaintenanceBackpressureService`'s lease; the standalone Sandman CLI
+     * runner acquires its own lease via `withHeavyMaintenanceLease`. Re-acquiring inside
+     * this method would double-lease and deadlock, so this method is intentionally
+     * lease-agnostic.
+     *
+     * @param {Object}  [options]
+     * @param {String}  [options.reason]            Coordination string for logging + state model (e.g. `periodic-dream:3600000`).
+     * @param {String}  [options.mode='periodic']   `'periodic' | 'manual' | 'cli'`.
+     * @param {Boolean} [options.includeDecay=true] When true, runs `GraphService.decayGlobalTopology()` as the cycle-finalization step (24-hour Algorithmic Lock self-skips when not due).
+     * @param {Boolean} [options.dryRun=false]      Probe-only mode; short-circuits to `skipped` after the readiness gate passes.
+     * @returns {Promise<Object>} typed outcome envelope (see status semantics above).
+     */
+    async executeRemCycle({
+        reason,
+        mode         = 'periodic',
+        includeDecay = true,
+        dryRun       = false
+    } = {}) {
+        const startedAt = new Date();
+        const runId     = `rem-${startedAt.toISOString()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        const baseOutcome = {
+            runId,
+            reason,
+            mode,
+            startedAt        : startedAt.toISOString(),
+            completedAt      : null,
+            durationMs       : null,
+            sessionsProcessed: null,
+            diagnostic       : null,
+            skipReason       : null,
+            error            : null
+        };
+
+        const finalize = (status, extras = {}) => ({
+            ...baseOutcome,
+            ...extras,
+            status,
+            completedAt: new Date().toISOString(),
+            durationMs : Date.now() - startedAt.getTime()
+        });
+
+        // Provider gate — abort with rich diagnostic when the configured graph provider
+        // is unsupported or unreachable. Downstream pipeline calls would silently no-op
+        // on missing provider; the typed `failed` envelope surfaces the root cause to
+        // operator-facing health telemetry instead.
+        const gate = await this.checkProviderReadiness();
+        if (!gate.ready) {
+            return finalize('failed', {diagnostic: gate.diagnostic});
+        }
+
+        // Dry-run short-circuit — used by callers that want to verify readiness without
+        // running the pipeline (e.g. operator probes, smoke tests).
+        if (dryRun) {
+            return finalize('skipped', {skipReason: 'dry-run requested'});
+        }
+
+        // Concurrent-invocation guard — exposes the in-flight state as a stage outcome
+        // rather than the prior debug-only log line that hid double-fires from operator
+        // health telemetry.
+        if (this.isProcessing) {
+            return finalize('skipped', {skipReason: 'dreamService.isProcessing already true (concurrent invocation)'});
+        }
+
+        // Pre-count query — distinguishes the no-work `skipped` path from the
+        // work-completed `completed` path without requiring a return-value refactor on
+        // processUndigestedSessions. A pre-call query is cheaper than the alternative
+        // of inspecting graph state after the fact.
+        let sessionCount = 0;
+        try {
+            const undigested = await this.findUndigestedSessions();
+            sessionCount = Array.isArray(undigested) ? undigested.length : 0;
+        } catch (e) {
+            return finalize('failed', {
+                error: {message: `findUndigestedSessions threw: ${e?.message || e}`, stack: e?.stack}
+            });
+        }
+
+        // No-work path — still run decay (it self-skips when the 24-hour Algorithmic
+        // Lock isn't due) so decay cadence is not coupled to session-arrival cadence.
+        if (sessionCount === 0) {
+            if (includeDecay) {
+                try {
+                    await GraphService.decayGlobalTopology();
+                } catch (e) {
+                    return finalize('failed', {
+                        error            : {message: `decayGlobalTopology threw on zero-session path: ${e?.message || e}`, stack: e?.stack},
+                        sessionsProcessed: 0
+                    });
+                }
+            }
+            return finalize('skipped', {sessionsProcessed: 0, skipReason: 'no undigested sessions'});
+        }
+
+        // Work path — process sessions, then run decay as the cycle-finalization step
+        // under the same lease window the caller already holds.
+        try {
+            await this.processUndigestedSessions();
+
+            if (includeDecay) {
+                await GraphService.decayGlobalTopology();
+            }
+
+            return finalize('completed', {sessionsProcessed: sessionCount});
+        } catch (e) {
+            return finalize('failed', {
+                sessionsProcessed: sessionCount,
+                error            : {message: String(e?.message || e), stack: e?.stack}
+            });
+        }
+    }
+
+    /**
+     * @summary Probes the configured graph provider before invoking a graph-heavy REM cycle.
+     *
+     * Returns `{ready: true}` when the configured provider answers the HTTP probe,
+     * `{ready: false, diagnostic}` when the provider is unsupported or the readiness
+     * loop exhausts its retry budget. The diagnostic envelope carries the full
+     * provider-failure context (provider name, host, model, attempts, elapsedMs,
+     * nextAction prose) so callers can surface it through observability telemetry
+     * without the operator tailing logs.
+     *
+     * Probe parameters flow from `aiConfig.orchestrator.providerReadiness` verbatim
+     * (no module-level fallbacks per the config-as-SSOT contract). Daemon-context
+     * invocations suppress the dot-progress writer used by the CLI runner.
+     *
+     * @returns {Promise<{ready: true} | {ready: false, diagnostic: Object}>}
+     */
+    async checkProviderReadiness() {
+        const readinessConfig = AiConfig.orchestrator.providerReadiness;
+        const target          = getGraphProviderReadinessTarget();
+
+        if (!target.supported) {
+            return {
+                ready     : false,
+                diagnostic: createProviderFailureDiagnostic({
+                    reason: 'UNSUPPORTED_GRAPH_PROVIDER'
+                })
+            };
+        }
+
+        const waitResult = await waitForProvider({
+            attempts : readinessConfig.attempts,
+            delayMs  : readinessConfig.delayMs,
+            timeoutMs: readinessConfig.timeoutMs,
+            output   : {write: () => {}}
+        });
+
+        if (!waitResult.running) {
+            return {
+                ready     : false,
+                diagnostic: createProviderFailureDiagnostic({waitResult})
+            };
+        }
+
+        return {ready: true};
     }
 
     /**

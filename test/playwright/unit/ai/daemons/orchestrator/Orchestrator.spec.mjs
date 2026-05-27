@@ -1074,9 +1074,24 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
     });
 
-    test('dream — provider-readiness gate failure short-circuits the pipeline + records failurePhase diagnostic', async () => {
-        const outcomes  = [];
-        let processCalled = false;
+    test('dream — delegates to dreamService.executeRemCycle + maps typed failed outcome to recordTaskOutcome with diagnostic', async () => {
+        const outcomes   = [];
+        const cycleCalls = [];
+        const diagnostic = {
+            reason       : 'PROVIDER_READINESS_TIMEOUT',
+            provider     : 'openAiCompatible',
+            graphProvider: 'openAiCompatible',
+            modelProvider: 'gemini',
+            host         : 'http://127.0.0.1:13090',
+            endpoint     : '/v1/models',
+            url          : 'http://127.0.0.1:13090/v1/models',
+            supported    : true,
+            model        : 'mlx-community/gemma-4',
+            attempts     : 30,
+            elapsedMs    : 30000,
+            timeoutMs    : 30000,
+            nextAction   : 'Start the configured OpenAI-compatible provider, then rerun npm run ai:run-sandman.'
+        };
 
         const orchestrator = createTestOrchestrator({
             dreamIntervalMs: 1,
@@ -1086,28 +1101,22 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 }
             },
             dreamService: {
-                processUndigestedSessions: async () => {
-                    processCalled = true;
+                executeRemCycle: async options => {
+                    cycleCalls.push(options);
+                    return {
+                        status           : 'failed',
+                        runId            : 'rem-test-id',
+                        reason           : options.reason,
+                        mode             : options.mode,
+                        startedAt        : new Date().toISOString(),
+                        completedAt      : new Date().toISOString(),
+                        durationMs       : 12,
+                        sessionsProcessed: null,
+                        diagnostic,
+                        skipReason       : null,
+                        error            : null
+                    };
                 }
-            }
-        });
-
-        orchestrator.runProviderReadinessGate = async () => ({
-            ready     : false,
-            diagnostic: {
-                reason       : 'PROVIDER_READINESS_TIMEOUT',
-                provider     : 'openAiCompatible',
-                graphProvider: 'openAiCompatible',
-                modelProvider: 'gemini',
-                host         : 'http://127.0.0.1:13090',
-                endpoint     : '/v1/models',
-                url          : 'http://127.0.0.1:13090/v1/models',
-                supported    : true,
-                model        : 'mlx-community/gemma-4',
-                attempts     : 30,
-                elapsedMs    : 30000,
-                timeoutMs    : 30000,
-                nextAction   : 'Start the configured OpenAI-compatible provider, then rerun npm run ai:run-sandman.'
             }
         });
 
@@ -1116,7 +1125,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(processCalled).toBe(false);
+        expect(cycleCalls).toHaveLength(1);
+        expect(cycleCalls[0]).toMatchObject({
+            reason      : 'periodic-dream:1',
+            mode        : 'periodic',
+            includeDecay: true
+        });
 
         const failed = outcomes.find(o => o.taskName === 'dream' && o.status === 'failed');
         expect(failed).toBeDefined();
