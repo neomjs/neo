@@ -437,7 +437,8 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
                                 {identity: 'neo-gpt'},          // SENT_TO recipient (direct DM)
                                 {identity: '@neo-opus-4-7'},    // DELIVERED_TO recipient (broadcast fan-out)
                                 {identity: null},
-                                {identity: '@neo-gemini-3-1-pro'} // SENT_BY sender
+                                {identity: '@neo-gemini-3-1-pro'}, // SENT_BY sender
+                                {identity: '@system'}              // lifecycle sender, excluded
                             ];
                         }
                     };
@@ -460,7 +461,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         // MESSAGE label filter on all branches.
         expect(capturedSql).toContain("json_extract(n.data, '$.label') = 'MESSAGE'");
 
-        // Identities normalized + null filtered; dedup via SELECT DISTINCT.
+        // Identities normalized + null/system filtered; dedup via SELECT DISTINCT.
         expect(result).toEqual(['@neo-gpt', '@neo-opus-4-7', '@neo-gemini-3-1-pro']);
 
         // 3 cutoff params (one per UNION branch); identical (same Date.now() snapshot); ISO format.

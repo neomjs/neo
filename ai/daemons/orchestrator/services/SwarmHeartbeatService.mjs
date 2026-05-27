@@ -546,8 +546,8 @@ class SwarmHeartbeatService extends Base {
      * - `SENT_TO` → direct-message recipients (`AGENT:*` sentinel excluded — broadcasts don't
      *   land at a real identity; the per-recipient `DELIVERED_TO` edges are the actual recipients)
      * - `DELIVERED_TO` → per-recipient broadcast targets (the canonical fan-out edge)
-     * - `SENT_BY`  → message senders (so an active sender lands in the candidate set even
-     *   if no one has replied yet within 3h)
+     * - `SENT_BY`  → agent message senders (so an active sender lands in the candidate set even
+     *   if no one has replied yet within 3h; the `@system` lifecycle sender is excluded)
      *
      * @returns {Promise<String[]>} Normalized canonical `@<identity>` strings, deduplicated.
      * @protected
@@ -589,6 +589,7 @@ class SwarmHeartbeatService extends Base {
                 .map(row => row.identity)
                 .filter(Boolean)
                 .map(identity => normalizeAgentIdentityNodeId(identity))
+                .filter(identity => identity !== '@system')
                 .filter(Boolean);
         } catch (err) {
             logger.error('[SwarmHeartbeatService] getActiveA2aParticipants failed:', err);

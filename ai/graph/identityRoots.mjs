@@ -1,5 +1,5 @@
 /**
- * @summary Central definition of AgentIdentity and BroadcastSentinel root nodes for the Memory Core Graph.
+ * @summary Central definition of system, AgentIdentity, and BroadcastSentinel root nodes for the Memory Core Graph.
  *
  * This shared list provides the definitive addressable identity surface for the A2A Mailbox
  * substrate.
@@ -7,8 +7,8 @@
  * Capability fields (`contextWindowInput`, `hosting`, `tier`, etc.) per ADR 0012 Model-Stats
  * Framework. Source-cited values mirror `learn/agentos/ModelStats.md`; the registry is the
  * canonical authority for capability-data drift detection. `trustTier` is the #10292 content
- * provenance taxonomy used by Memory Core consumers to distinguish owner, peer-trusted, external,
- * and unclassified authorship at ingestion/query boundaries.
+ * provenance taxonomy used by Memory Core consumers to distinguish system, owner, peer-trusted,
+ * external, and unclassified authorship at ingestion/query boundaries.
  *
  * It is used for both:
  * 1. Boot-time self-seeding in `GraphService.initAsync`
@@ -54,6 +54,20 @@ export const TRUST_TIER_ORDER = Object.freeze([
 ]);
 
 export const IDENTITIES = [
+    {
+        id: '@system',
+        type: 'System',
+        name: 'System Sender',
+        description: 'Non-human system sender used for lifecycle-generated mailbox messages.',
+        properties: {
+            githubLogin: null,
+            displayName: 'System',
+            modelFamily: null,
+            accountType: 'system',
+            trustTier  : TRUST_TIERS.SYSTEM,
+            createdAt  : new Date().toISOString()
+        }
+    },
     {
         id: '@neo-opus-4-7',
         type: 'AgentIdentity',
