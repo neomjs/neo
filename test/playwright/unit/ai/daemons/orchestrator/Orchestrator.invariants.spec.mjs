@@ -242,6 +242,45 @@ test.describe('Orchestrator config getters delegate to AiConfig (envBindings is 
         expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
     });
 
+    test('lmsContextLengths getter builds per-model map from AiConfig.localModels.{chat,embedding}.contextLimitTokens (#12117)', () => {
+        AiConfig.openAiCompatible = {
+            host          : 'http://127.0.0.1:1234',
+            model         : 'chat-from-config',
+            embeddingModel: 'embedding-from-config'
+        };
+
+        const savedLocalModels = AiConfig.localModels ? {
+            chat     : AiConfig.localModels.chat ? {...AiConfig.localModels.chat} : undefined,
+            embedding: AiConfig.localModels.embedding ? {...AiConfig.localModels.embedding} : undefined
+        } : undefined;
+
+        try {
+            AiConfig.localModels = {
+                chat     : {contextLimitTokens: 262144, safeProcessingLimitTokens: 200000},
+                embedding: {contextLimitTokens: 8192,   safeProcessingLimitTokens: 6144}
+            };
+            const o = createMinimalOrchestrator();
+            expect(o.lmsContextLengths).toEqual({
+                'chat-from-config'     : 262144,
+                'embedding-from-config': 8192
+            });
+
+            // Defensive: missing config keys produce empty map, not undefined/NaN
+            AiConfig.localModels = {chat: {}, embedding: {}};
+            expect(createMinimalOrchestrator().lmsContextLengths).toEqual({});
+
+            // Partial config: only chat present
+            AiConfig.localModels = {chat: {contextLimitTokens: 99999}, embedding: undefined};
+            expect(createMinimalOrchestrator().lmsContextLengths).toEqual({'chat-from-config': 99999});
+        } finally {
+            if (savedLocalModels === undefined) {
+                delete AiConfig.localModels;
+            } else {
+                AiConfig.localModels = savedLocalModels;
+            }
+        }
+    });
+
     test('lms getters undefined-safe when AiConfig.orchestrator.lms is missing', () => {
         delete AiConfig.orchestrator.lms;
 

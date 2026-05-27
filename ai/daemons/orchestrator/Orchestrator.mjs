@@ -435,6 +435,30 @@ export class Orchestrator extends Base {
             AiConfig.openAiCompatible?.embeddingModel
         ].filter(Boolean))];
     }
+    /**
+     * Per-model `--context-length` overrides for the orchestrator-managed `lms load`
+     * invocation. Keyed by model id; values flow from the role-keyed
+     * `aiConfig.localModels.{chat,embedding}.contextLimitTokens` so the loaded-cap
+     * matches the neo-side consumer-friction threshold. Closes the silent
+     * context-mismatch failure mode (loaded modelfile-default cap < prompt-size →
+     * empty downstream body).
+     * @member {Object}
+     */
+    get lmsContextLengths() {
+        const map     = {};
+        const chat    = AiConfig.openAiCompatible?.model;
+        const embed   = AiConfig.openAiCompatible?.embeddingModel;
+        const chatCap = AiConfig.localModels?.chat?.contextLimitTokens;
+        const embCap  = AiConfig.localModels?.embedding?.contextLimitTokens;
+
+        if (chat && typeof chatCap === 'number' && Number.isFinite(chatCap)) {
+            map[chat] = chatCap;
+        }
+        if (embed && typeof embCap === 'number' && Number.isFinite(embCap)) {
+            map[embed] = embCap;
+        }
+        return map;
+    }
 
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.
@@ -479,6 +503,7 @@ export class Orchestrator extends Base {
             lmsModels : this.lmsModels,
             lmsHost   : this.lmsHost,
             lmsPort   : this.lmsPort,
+            lmsContextLengths: this.lmsContextLengths,
             providerReadiness: AiConfig.orchestrator.providerReadiness
         });
 

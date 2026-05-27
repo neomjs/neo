@@ -122,20 +122,32 @@ export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fet
 }
 
 /**
- * @summary Invokes `lms load <model>` for one LM Studio model.
+ * @summary Invokes `lms load <model> [--context-length <N>]` for one LM Studio model.
+ *
+ * When `contextLength` is provided, appends `--context-length <N>` to the `lms`
+ * CLI arguments so the model loads with the operator-declared context window
+ * instead of the modelfile default (typically 4K-8K). Closes the silent
+ * context-mismatch failure mode where downstream chat invocations exceed the
+ * loaded-model cap and return empty bodies.
  *
  * @param {String} model LM Studio model identifier.
  * @param {Object} [options]
  * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
- * @returns {Promise<void>}
+ * @param {Number} [options.contextLength] LM Studio loaded-model context-window override (tokens).
+ * @returns {Promise<{stdout: String, stderr: String}>}
  */
-export function loadLmsModel(model, {execFileFn = execFile} = {}) {
+export function loadLmsModel(model, {execFileFn = execFile, contextLength} = {}) {
     if (!model) {
         return Promise.reject(new TypeError('loadLmsModel: model is required'));
     }
 
+    const args = ['load', model];
+    if (typeof contextLength === 'number' && Number.isFinite(contextLength)) {
+        args.push('--context-length', String(contextLength));
+    }
+
     return new Promise((resolve, reject) => {
-        execFileFn('lms', ['load', model], (error, stdout = '', stderr = '') => {
+        execFileFn('lms', args, (error, stdout = '', stderr = '') => {
             if (error) {
                 reject(new Error(`lms load ${model} failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
                 return;
@@ -155,12 +167,20 @@ export function loadLmsModel(model, {execFileFn = execFile} = {}) {
  * endpoint enumerates both. Parameters come from config-owned callers so the helper
  * has no hidden retry or timeout defaults.
  *
+ * Per-model context-length overrides flow through the optional `contextLengths`
+ * map (`{[modelId]: tokens}`). When present, the helper invokes
+ * `lms load <model> --context-length <N>` for that model so the loaded context
+ * window matches the neo-side `aiConfig.localModels.{chat,embedding}.contextLimitTokens`
+ * threshold. Closes the silent context-mismatch failure mode (loaded-cap <
+ * prompt-size → empty downstream body).
+ *
  * @param {Object} options
  * @param {String} options.host OpenAI-compatible host.
  * @param {String[]} options.models Required resident model ids.
  * @param {Number} options.attempts Probe attempts after load.
  * @param {Number} options.delayMs Delay between probes.
  * @param {Number} options.timeoutMs HTTP probe timeout.
+ * @param {Object} [options.contextLengths] Per-model context-length override map keyed by model id.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Object} [options.log=logger] Logger seam.
@@ -172,8 +192,9 @@ export async function ensureLmsModelsLoaded({
     attempts,
     delayMs,
     timeoutMs,
+    contextLengths = {},
     fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
-    loadModel     = model => loadLmsModel(model),
+    loadModel     = (model, options) => loadLmsModel(model, options),
     log           = logger
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
@@ -224,8 +245,12 @@ export async function ensureLmsModelsLoaded({
     }
 
     for (const model of missingModels) {
-        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load.`);
-        await loadModel(model);
+        const contextLength = contextLengths?.[model];
+        const contextSuffix = typeof contextLength === 'number' && Number.isFinite(contextLength)
+            ? ` --context-length ${contextLength}`
+            : '';
+        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix}.`);
+        await loadModel(model, {contextLength});
     }
 
     const startedAt = Date.now();

@@ -310,6 +310,78 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         })).rejects.toThrow(/attempts.*delayMs.*timeoutMs.*required/);
     });
 
+    test('ensureLmsModelsLoaded threads per-model contextLengths into loadModel invocations (#12117)', async () => {
+        const loadCalls = [];
+        const modelSnapshots = [
+            [],
+            ['chat-model', 'embedding-model']
+        ];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host          : 'http://127.0.0.1:1234',
+            models        : ['chat-model', 'embedding-model'],
+            contextLengths: {'chat-model': 262144, 'embedding-model': 8192},
+            attempts      : 2,
+            delayMs       : 0,
+            timeoutMs     : 50,
+            fetchModelIds : async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
+            loadModel     : async (model, options) => loadCalls.push({model, options}),
+            log           : {info: () => {}}
+        });
+
+        expect(loadCalls).toEqual([
+            {model: 'chat-model',      options: {contextLength: 262144}},
+            {model: 'embedding-model', options: {contextLength: 8192}}
+        ]);
+        expect(result.ready).toBe(true);
+        expect(result.loadedModels).toEqual(['chat-model', 'embedding-model']);
+    });
+
+    test('loadLmsModel appends --context-length to execFile args when provided (#12117)', async () => {
+        const execCalls = [];
+        const execFileStub = (cmd, args, callback) => {
+            execCalls.push({cmd, args});
+            callback(null, '', '');
+        };
+
+        await providerReadinessHelper.loadLmsModel('chat-model', {
+            execFileFn   : execFileStub,
+            contextLength: 262144
+        });
+
+        expect(execCalls).toEqual([
+            {cmd: 'lms', args: ['load', 'chat-model', '--context-length', '262144']}
+        ]);
+    });
+
+    test('loadLmsModel omits --context-length when not provided (backward compat)', async () => {
+        const execCalls = [];
+        const execFileStub = (cmd, args, callback) => {
+            execCalls.push({cmd, args});
+            callback(null, '', '');
+        };
+
+        await providerReadinessHelper.loadLmsModel('legacy-model', {execFileFn: execFileStub});
+
+        expect(execCalls).toEqual([
+            {cmd: 'lms', args: ['load', 'legacy-model']}
+        ]);
+    });
+
+    test('loadLmsModel omits --context-length when contextLength is non-finite (defensive)', async () => {
+        const execCalls = [];
+        const execFileStub = (cmd, args, callback) => {
+            execCalls.push({cmd, args});
+            callback(null, '', '');
+        };
+
+        for (const badValue of [undefined, null, NaN, Infinity, 'big', {}]) {
+            execCalls.length = 0;
+            await providerReadinessHelper.loadLmsModel('m', {execFileFn: execFileStub, contextLength: badValue});
+            expect(execCalls[0].args).toEqual(['load', 'm']);
+        }
+    });
+
     test('resolves readiness target from graphProvider instead of generic modelProvider', () => {
         expect(runSandmanModule.getGraphProviderReadinessTarget({
             modelProvider : 'gemini',
