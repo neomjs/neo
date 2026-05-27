@@ -35,6 +35,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String[]} [options.lmsModels] LM Studio model identifiers that must be resident after spawn.
  * @param {String} [options.lmsHost] OpenAI-compatible host exposed by the LM Studio server.
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
+ * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
  * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
  * @returns {Object}
  */
@@ -49,6 +50,7 @@ export function buildTaskDefinitions({
     lmsModels,
     lmsHost,
     lmsPort,
+    lmsContextLengths,
     providerReadiness
 } = {}) {
     const tasks = {
@@ -145,11 +147,12 @@ export function buildTaskDefinitions({
                 const {ensureLmsModelsLoaded} = await import('../../services/graph/ProviderReadinessHelper.mjs');
 
                 return ensureLmsModelsLoaded({
-                    host     : lmsHost,
-                    models   : requiredModels,
-                    attempts : providerReadiness?.attempts,
-                    delayMs  : providerReadiness?.delayMs,
-                    timeoutMs: providerReadiness?.timeoutMs
+                    host           : lmsHost,
+                    models         : requiredModels,
+                    contextLengths : lmsContextLengths,
+                    attempts       : providerReadiness?.attempts,
+                    delayMs        : providerReadiness?.delayMs,
+                    timeoutMs      : providerReadiness?.timeoutMs
                 });
             }
         };

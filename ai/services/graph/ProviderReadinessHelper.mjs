@@ -1,6 +1,5 @@
 import http from 'http';
 import {execFile} from 'child_process';
-import Neo from '../../../src/Neo.mjs';
 import {Memory_Config as aiConfig} from '../../services.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
 import {isGraphModelProviderSupported, resolveGraphModelProvider} from './providerDispatch.mjs';
@@ -122,20 +121,32 @@ export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fet
 }
 
 /**
- * @summary Invokes `lms load <model>` for one LM Studio model.
+ * @summary Invokes `lms load <model> [--context-length <N>]` for one LM Studio model.
+ *
+ * When `contextLength` is provided, appends `--context-length <N>` to the `lms`
+ * CLI arguments so the model loads with the operator-declared context window
+ * instead of the modelfile default (typically 4K-8K). Closes the silent
+ * context-mismatch failure mode where downstream chat invocations exceed the
+ * loaded-model cap and return empty bodies.
  *
  * @param {String} model LM Studio model identifier.
  * @param {Object} [options]
  * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
- * @returns {Promise<void>}
+ * @param {Number} [options.contextLength] LM Studio loaded-model context-window override (tokens).
+ * @returns {Promise<{stdout: String, stderr: String}>}
  */
-export function loadLmsModel(model, {execFileFn = execFile} = {}) {
+export function loadLmsModel(model, {execFileFn = execFile, contextLength} = {}) {
     if (!model) {
         return Promise.reject(new TypeError('loadLmsModel: model is required'));
     }
 
+    const args = ['load', model];
+    if (Neo.isNumber(contextLength)) {
+        args.push('--context-length', String(contextLength));
+    }
+
     return new Promise((resolve, reject) => {
-        execFileFn('lms', ['load', model], (error, stdout = '', stderr = '') => {
+        execFileFn('lms', args, (error, stdout = '', stderr = '') => {
             if (error) {
                 reject(new Error(`lms load ${model} failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
                 return;
@@ -147,6 +158,50 @@ export function loadLmsModel(model, {execFileFn = execFile} = {}) {
 }
 
 /**
+ * @summary Builds the per-model `--context-length` override map for `ensureLmsModelsLoaded`.
+ *
+ * Composes the resolved chat + embedding model identifiers with their respective
+ * role-keyed context-length thresholds into the `{[modelId]: tokens}` shape the
+ * helper's `contextLengths` parameter consumes. Callers (Orchestrator boot path)
+ * resolve the four inputs from their own config substrate and pass them in —
+ * keeps this helper module decoupled from any specific config-shape source.
+ *
+ * Skips entries when the model id is missing OR the context-length is not a
+ * finite number, so partially-configured deployments produce a partial map
+ * rather than corrupted entries.
+ *
+ * @param {Object} options
+ * @param {String} [options.chatModel] Chat model identifier (e.g. `aiConfig.openAiCompatible.model`).
+ * @param {String} [options.embeddingModel] Embedding model identifier.
+ * @param {Number} [options.chatContextLength] Chat-role context window in tokens.
+ * @param {Number} [options.embeddingContextLength] Embedding-role context window in tokens.
+ * @returns {Object} Map keyed by model id with finite-number context-length values.
+ */
+export function buildLmsContextLengthsMap({
+    chatModel,
+    embeddingModel,
+    chatContextLength,
+    embeddingContextLength
+} = {}) {
+    const map = {};
+    const setMax = (modelId, value) => {
+        if (!modelId || !Neo.isNumber(value)) {
+            return;
+        }
+        // Same-model chat+embedding edge: when both roles share a model id (operator
+        // points chat + embedding at the same identifier), keep the LARGER cap so
+        // the role with the bigger context-window envelope is not silently capped
+        // by the smaller role's threshold.
+        if (map[modelId] === undefined || value > map[modelId]) {
+            map[modelId] = value;
+        }
+    };
+    setMax(chatModel, chatContextLength);
+    setMax(embeddingModel, embeddingContextLength);
+    return map;
+}
+
+/**
  * @summary Ensures LM Studio has all configured OpenAI-compatible models loaded.
  *
  * The orchestrator-owned `lms server start` task gets the server process running;
@@ -155,12 +210,20 @@ export function loadLmsModel(model, {execFileFn = execFile} = {}) {
  * endpoint enumerates both. Parameters come from config-owned callers so the helper
  * has no hidden retry or timeout defaults.
  *
+ * Per-model context-length overrides flow through the optional `contextLengths`
+ * map (`{[modelId]: tokens}`). When present, the helper invokes
+ * `lms load <model> --context-length <N>` for that model so the loaded context
+ * window matches the neo-side `aiConfig.localModels.{chat,embedding}.contextLimitTokens`
+ * threshold. Closes the silent context-mismatch failure mode (loaded-cap <
+ * prompt-size → empty downstream body).
+ *
  * @param {Object} options
  * @param {String} options.host OpenAI-compatible host.
  * @param {String[]} options.models Required resident model ids.
  * @param {Number} options.attempts Probe attempts after load.
  * @param {Number} options.delayMs Delay between probes.
  * @param {Number} options.timeoutMs HTTP probe timeout.
+ * @param {Object} [options.contextLengths] Per-model context-length override map keyed by model id.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Object} [options.log=logger] Logger seam.
@@ -172,8 +235,9 @@ export async function ensureLmsModelsLoaded({
     attempts,
     delayMs,
     timeoutMs,
+    contextLengths = {},
     fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
-    loadModel     = model => loadLmsModel(model),
+    loadModel     = (model, options) => loadLmsModel(model, options),
     log           = logger
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
@@ -210,10 +274,24 @@ export async function ensureLmsModelsLoaded({
     };
 
     let {availableModels} = await probeModels('initial /v1/models probe');
-    let missingModels   = getMissing(availableModels);
-    const loadedModels  = [...missingModels];
+    const initialMissing  = getMissing(availableModels);
 
-    if (missingModels.length === 0) {
+    // Force-include context-configured models in the load set even when already
+    // resident in /v1/models. `/v1/models` reports presence only — it does NOT
+    // expose the loaded context window, so model-id presence is insufficient to
+    // confirm the loaded cap matches the operator-declared threshold. Without
+    // this re-load, the exact #12117 regression survives orchestrator restarts:
+    // a model loaded with the modelfile-default context window (~4K-8K) would
+    // be accepted as ready while every chat invocation silently overflows.
+    // Force-include each context-configured model in the load set even if resident,
+    // BUT preserve the declared requiredModels input order (filter rather than concat-dedupe).
+    const modelsToLoad = requiredModels.filter(model => {
+        if (initialMissing.includes(model)) return true;
+        return Neo.isNumber(contextLengths?.[model]);
+    });
+    const loadedModels = [...modelsToLoad];
+
+    if (modelsToLoad.length === 0) {
         return {
             ready       : true,
             loadedModels: [],
@@ -223,10 +301,19 @@ export async function ensureLmsModelsLoaded({
         };
     }
 
-    for (const model of missingModels) {
-        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load.`);
-        await loadModel(model);
+    for (const model of modelsToLoad) {
+        const contextLength = contextLengths?.[model];
+        const contextSuffix = Neo.isNumber(contextLength)
+            ? ` --context-length ${contextLength}`
+            : '';
+        const reason = initialMissing.includes(model)
+            ? 'missing from /v1/models'
+            : 'context-length enforcement on resident model';
+        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix} (${reason}).`);
+        await loadModel(model, {contextLength});
     }
+
+    let missingModels = initialMissing;
 
     const startedAt = Date.now();
     for (let attempt = 1; attempt <= attempts; attempt++) {
