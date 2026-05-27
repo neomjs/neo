@@ -371,10 +371,10 @@ class Config extends BaseConfig {
              *   child process. Disabled by default; **macOS-only** (LM Studio CLI is not
              *   shipped for Linux containers, so this lane is local-dev substrate, not
              *   cloud-deployment substrate).
-             * - `model`: model identifier the operator intends LM Studio to serve. The
-             *   orchestrator-managed `lms server start` lane currently brings the server up;
-             *   ensuring this model is loaded (via `lms load <model>` or `/v1/models` probe)
-             *   is tracked as #11986 AC5 residual and is NOT performed by this lane today.
+             * - `model`: legacy single-model field kept for existing operator overlays. The
+             *   orchestrator-managed `lms server start` lane pre-warms the configured
+             *   OpenAI-compatible chat + embedding models (`openAiCompatible.model` and
+             *   `openAiCompatible.embeddingModel`) via `lms load <model>` after server spawn.
              *   Distinct from the OpenAI-compatible API payload label (`NEO_OPENAI_COMPATIBLE_MODEL`).
              * - `port`: OpenAI-compatible local-inference port (LM Studio CLI default `1234`).
              * @type {Object}

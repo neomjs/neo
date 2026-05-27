@@ -28,6 +28,7 @@ function createTestService() {
         markSpawned: () => {},
         markFailed: () => {},
         markCompleted: () => {},
+        markReady: () => {},
         clearRecovered: () => true,
         adoptRunning: () => {}
     };
@@ -143,5 +144,64 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
         expect(skipLogs.length).toBe(2);
         expect(skippedOutcomes.length).toBe(3);
+    });
+
+    test('runTask records ready state after a post-spawn hook succeeds', async () => {
+        const { service, taskOutcomes } = createTestService();
+        let readyMarked = false;
+
+        service.taskDefinitions.mockTask.postSpawn = async () => ({models: ['chat', 'embedding']});
+        service.taskStateService.markReady = taskName => {
+            readyMarked = taskName === 'mockTask';
+        };
+        service.spawnFn = () => ({
+            pid   : 9999,
+            stderr: {on: () => {}},
+            on    : () => {}
+        });
+
+        expect(service.runTask('mockTask', 'test-reason')).toBe(true);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(readyMarked).toBe(true);
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'ready',
+            taskName: 'mockTask',
+            details : expect.objectContaining({
+                readiness: {models: ['chat', 'embedding']}
+            })
+        }));
+    });
+
+    test('runTask fails and terminates the child when a post-spawn hook fails', async () => {
+        const { service, taskOutcomes } = createTestService();
+        let killed = false;
+        let failed = false;
+
+        service.taskDefinitions.mockTask.postSpawn = async () => {
+            throw new Error('models missing');
+        };
+        service.taskStateService.markFailed = taskName => {
+            failed = taskName === 'mockTask';
+        };
+        service.spawnFn = () => ({
+            pid   : 9999,
+            stderr: {on: () => {}},
+            kill  : () => { killed = true; },
+            on    : () => {}
+        });
+
+        expect(service.runTask('mockTask', 'test-reason')).toBe(true);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(killed).toBe(true);
+        expect(failed).toBe(true);
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status : 'failed',
+            details: expect.objectContaining({
+                phase: 'post-spawn-readiness',
+                error: 'models missing'
+            })
+        }));
     });
 });

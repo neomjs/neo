@@ -36,6 +36,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     let aiConfig;
     let logger;
     let runSandmanModule;
+    let providerReadinessHelper;
     let tmpLogDir;
     let originalLogPath;
 
@@ -48,6 +49,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         logger           = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         runSandmanModule = await import('../../../../../../ai/scripts/runners/runSandman.mjs');
+        providerReadinessHelper = await import('../../../../../../ai/services/graph/ProviderReadinessHelper.mjs');
     });
 
     test.afterAll(() => {
@@ -102,6 +104,75 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('checkProvider throws when timeoutMs is absent (config-as-SSOT contract)', () => {
         expect(() => runSandmanModule.checkProvider()).toThrow(/timeoutMs.*required/);
         expect(() => runSandmanModule.checkProvider({config: {graphProvider: 'openAiCompatible'}})).toThrow(/timeoutMs.*required/);
+    });
+
+    test('extracts OpenAI-compatible model ids from provider variants', () => {
+        expect(providerReadinessHelper.getOpenAiCompatibleModelIds({
+            data: [
+                {id: 'chat-model'},
+                {model: 'embedding-model'},
+                {name: 'fallback-model'},
+                {}
+            ]
+        })).toEqual(['chat-model', 'embedding-model', 'fallback-model']);
+
+        expect(providerReadinessHelper.getOpenAiCompatibleModelIds({data: null})).toEqual([]);
+    });
+
+    test('ensureLmsModelsLoaded invokes lms load for missing chat and embedding models', async () => {
+        const loads = [];
+        const modelSnapshots = [
+            [],
+            ['chat-model'],
+            ['chat-model', 'embedding-model']
+        ];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host     : 'http://127.0.0.1:1234',
+            models   : ['chat-model', 'embedding-model'],
+            attempts : 3,
+            delayMs  : 0,
+            timeoutMs: 50,
+            fetchModelIds: async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
+            loadModel    : async model => loads.push(model),
+            log          : {info: () => {}}
+        });
+
+        expect(loads).toEqual(['chat-model', 'embedding-model']);
+        expect(result).toMatchObject({
+            ready       : true,
+            loadedModels: ['chat-model', 'embedding-model'],
+            requiredModels: ['chat-model', 'embedding-model'],
+            availableModels: ['chat-model', 'embedding-model']
+        });
+    });
+
+    test('ensureLmsModelsLoaded skips lms load when both models are already resident', async () => {
+        const loads = [];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host     : 'http://127.0.0.1:1234',
+            models   : ['chat-model', 'embedding-model'],
+            attempts : 1,
+            delayMs  : 0,
+            timeoutMs: 50,
+            fetchModelIds: async () => ['chat-model', 'embedding-model'],
+            loadModel    : async model => loads.push(model)
+        });
+
+        expect(loads).toEqual([]);
+        expect(result).toMatchObject({
+            ready       : true,
+            loadedModels: [],
+            attempts    : 1
+        });
+    });
+
+    test('ensureLmsModelsLoaded fails loud when readiness config is incomplete', async () => {
+        await expect(providerReadinessHelper.ensureLmsModelsLoaded({
+            host  : 'http://127.0.0.1:1234',
+            models: ['chat-model']
+        })).rejects.toThrow(/attempts.*delayMs.*timeoutMs.*required/);
     });
 
     test('resolves readiness target from graphProvider instead of generic modelProvider', () => {

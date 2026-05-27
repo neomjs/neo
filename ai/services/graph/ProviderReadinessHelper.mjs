@@ -1,4 +1,5 @@
 import http from 'http';
+import {execFile} from 'child_process';
 import {Memory_Config as aiConfig} from '../../services.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
 import {isGraphModelProviderSupported, resolveGraphModelProvider} from './providerDispatch.mjs';
@@ -14,6 +15,193 @@ import {isGraphModelProviderSupported, resolveGraphModelProvider} from './provid
  */
 export function getOpenAiCompatibleHost(config = aiConfig.data) {
     return config.openAiCompatible?.host;
+}
+
+/**
+ * @summary Extracts model identifiers from an OpenAI-compatible `/v1/models` payload.
+ *
+ * LM Studio, MLX, vLLM, and llama.cpp-compatible servers all expose the OpenAI
+ * `data: [{id}]` shape for this endpoint. The extra `model` / `name` fallbacks
+ * keep the readiness probe tolerant of local-server variants without changing the
+ * public contract.
+ *
+ * @param {Object} payload Parsed `/v1/models` response.
+ * @returns {String[]}
+ */
+export function getOpenAiCompatibleModelIds(payload) {
+    if (!Array.isArray(payload?.data)) {
+        return [];
+    }
+
+    return payload.data
+        .map(item => item?.id || item?.model || item?.name)
+        .filter(Boolean);
+}
+
+/**
+ * @summary Fetches model ids from an OpenAI-compatible provider.
+ *
+ * @param {Object} options
+ * @param {String} options.host Provider host.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @returns {Promise<String[]>}
+ */
+export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = fetch} = {}) {
+    if (!host) {
+        throw new TypeError('fetchOpenAiCompatibleModelIds: host is required');
+    }
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('fetchOpenAiCompatibleModelIds: timeoutMs is required');
+    }
+
+    const url      = new URL('/v1/models', host).toString();
+    const response = await fetchFn(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(timeoutMs)
+    });
+
+    if (!response.ok) {
+        const text = typeof response.text === 'function' ? await response.text() : '';
+        throw new Error(`OpenAI-compatible model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+    }
+
+    return getOpenAiCompatibleModelIds(await response.json());
+}
+
+/**
+ * @summary Invokes `lms load <model>` for one LM Studio model.
+ *
+ * @param {String} model LM Studio model identifier.
+ * @param {Object} [options]
+ * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
+ * @returns {Promise<void>}
+ */
+export function loadLmsModel(model, {execFileFn = execFile} = {}) {
+    if (!model) {
+        return Promise.reject(new TypeError('loadLmsModel: model is required'));
+    }
+
+    return new Promise((resolve, reject) => {
+        execFileFn('lms', ['load', model], (error, stdout = '', stderr = '') => {
+            if (error) {
+                reject(new Error(`lms load ${model} failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
+                return;
+            }
+
+            resolve({stdout, stderr});
+        });
+    });
+}
+
+/**
+ * @summary Ensures LM Studio has all configured OpenAI-compatible models loaded.
+ *
+ * The orchestrator-owned `lms server start` task gets the server process running;
+ * this helper adds the model-residency half by probing `/v1/models`, invoking
+ * `lms load <model>` for missing chat / embedding models, then waiting until the
+ * endpoint enumerates both. Parameters come from config-owned callers so the helper
+ * has no hidden retry or timeout defaults.
+ *
+ * @param {Object} options
+ * @param {String} options.host OpenAI-compatible host.
+ * @param {String[]} options.models Required resident model ids.
+ * @param {Number} options.attempts Probe attempts after load.
+ * @param {Number} options.delayMs Delay between probes.
+ * @param {Number} options.timeoutMs HTTP probe timeout.
+ * @param {Function} [options.fetchModelIds] Injectable model-list probe.
+ * @param {Function} [options.loadModel] Injectable model-load function.
+ * @param {Object} [options.log=logger] Logger seam.
+ * @returns {Promise<Object>}
+ */
+export async function ensureLmsModelsLoaded({
+    host,
+    models,
+    attempts,
+    delayMs,
+    timeoutMs,
+    fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
+    loadModel     = model => loadLmsModel(model),
+    log           = logger
+} = {}) {
+    if (!Array.isArray(models) || models.length === 0) {
+        throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
+    }
+    if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
+        throw new TypeError('ensureLmsModelsLoaded: attempts, delayMs, and timeoutMs are required');
+    }
+
+    const requiredModels = [...new Set(models.filter(Boolean))];
+    if (requiredModels.length === 0) {
+        throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
+    }
+
+    const getMissing = available => requiredModels.filter(model => !available.includes(model));
+    const probeModels = async phase => {
+        let lastError;
+
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return {
+                    attempt,
+                    availableModels: await fetchModelIds({host, timeoutMs})
+                };
+            } catch (error) {
+                lastError = error;
+                if (attempt < attempts) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
+            }
+        }
+
+        throw new Error(`LM Studio model readiness failed during ${phase}: ${lastError?.message || lastError}`);
+    };
+
+    let {availableModels} = await probeModels('initial /v1/models probe');
+    let missingModels   = getMissing(availableModels);
+    const loadedModels  = [...missingModels];
+
+    if (missingModels.length === 0) {
+        return {
+            ready       : true,
+            loadedModels: [],
+            requiredModels,
+            availableModels,
+            attempts    : 1
+        };
+    }
+
+    for (const model of missingModels) {
+        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load.`);
+        await loadModel(model);
+    }
+
+    const startedAt = Date.now();
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        ({availableModels} = await probeModels('post-load /v1/models probe'));
+        missingModels   = getMissing(availableModels);
+
+        if (missingModels.length === 0) {
+            return {
+                ready       : true,
+                loadedModels,
+                requiredModels,
+                availableModels,
+                attempts    : attempt,
+                elapsedMs   : Date.now() - startedAt
+            };
+        }
+
+        if (attempt < attempts) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
+
+    throw new Error(
+        `LM Studio model readiness failed: missing ${missingModels.join(', ')} from ${host}/v1/models after ` +
+        `${attempts} attempt(s). Run ${missingModels.map(model => `lms load ${model}`).join(' && ')} ` +
+        'or raise the LM Studio loaded-model cap so chat and embedding models can stay resident together.'
+    );
 }
 
 /**
