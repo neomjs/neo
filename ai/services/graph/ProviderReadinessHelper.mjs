@@ -142,7 +142,7 @@ export function loadLmsModel(model, {execFileFn = execFile, contextLength} = {})
     }
 
     const args = ['load', model];
-    if (typeof contextLength === 'number' && Number.isFinite(contextLength)) {
+    if (Neo.isNumber(contextLength)) {
         args.push('--context-length', String(contextLength));
     }
 
@@ -186,7 +186,7 @@ export function buildLmsContextLengthsMap({
 } = {}) {
     const map = {};
     const setMax = (modelId, value) => {
-        if (!modelId || typeof value !== 'number' || !Number.isFinite(value)) {
+        if (!modelId || !Neo.isNumber(value)) {
             return;
         }
         // Same-model chat+embedding edge: when both roles share a model id (operator
@@ -288,8 +288,7 @@ export async function ensureLmsModelsLoaded({
     // BUT preserve the declared requiredModels input order (filter rather than concat-dedupe).
     const modelsToLoad = requiredModels.filter(model => {
         if (initialMissing.includes(model)) return true;
-        const cap = contextLengths?.[model];
-        return typeof cap === 'number' && Number.isFinite(cap);
+        return Neo.isNumber(contextLengths?.[model]);
     });
     const loadedModels = [...modelsToLoad];
 
@@ -305,7 +304,7 @@ export async function ensureLmsModelsLoaded({
 
     for (const model of modelsToLoad) {
         const contextLength = contextLengths?.[model];
-        const contextSuffix = typeof contextLength === 'number' && Number.isFinite(contextLength)
+        const contextSuffix = Neo.isNumber(contextLength)
             ? ` --context-length ${contextLength}`
             : '';
         const reason = initialMissing.includes(model)
