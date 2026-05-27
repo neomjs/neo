@@ -1,9 +1,43 @@
 import Ollama           from '../../provider/Ollama.mjs';
 import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
 
+export const GRAPH_MODEL_PROVIDERS = Object.freeze(['ollama', 'openAiCompatible']);
+
+/**
+ * @summary Resolves the provider selector used by Dream/Sandman graph-generation lanes.
+ *
+ * Graph extraction is not the same provider axis as generic Memory Core summarization:
+ * summary/chat paths may still use Gemini, while graph-generation dispatch deliberately
+ * supports only native Ollama or an OpenAI-compatible local/provider endpoint. When no
+ * graph-specific selector is configured, default to OpenAI-compatible unless the deployment
+ * explicitly selected native Ollama for the generic model provider.
+ *
+ * @param {Object} config aiConfig-shaped object.
+ * @returns {String} `'ollama'` or `'openAiCompatible'` by default; explicit invalid
+ *     `graphProvider` values are returned so {@link buildGraphProvider} can fail loudly.
+ */
+export function resolveGraphModelProvider(config = {}) {
+    if (config.graphProvider) {
+        return config.graphProvider;
+    }
+
+    return config.modelProvider === 'ollama'
+        ? 'ollama'
+        : 'openAiCompatible';
+}
+
+/**
+ * @summary Returns true when `provider` is supported by graph-generation dispatch.
+ * @param {String} provider
+ * @returns {Boolean}
+ */
+export function isGraphModelProviderSupported(provider) {
+    return GRAPH_MODEL_PROVIDERS.includes(provider);
+}
+
 /**
  * @summary Resolves a chat-capable provider for graph-generation callsites
- * based on the active `modelProvider` selector.
+ * based on the graph-generation provider selector.
  *
  * Graph-generation services (`SemanticGraphExtractor`, `GoldenPathSynthesizer`,
  * `TopologyInferenceEngine`) all need a `provider.generate(prompt)`-shaped

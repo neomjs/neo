@@ -81,10 +81,44 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(dots).toBe('...');
     });
 
+    test('resolves readiness target from graphProvider instead of generic modelProvider', () => {
+        expect(runSandmanModule.getGraphProviderReadinessTarget({
+            modelProvider: 'gemini',
+            openAiCompatible: {
+                host : 'http://127.0.0.1:13090',
+                model: 'mlx-community/gemma-4'
+            }
+        })).toMatchObject({
+            provider : 'openAiCompatible',
+            supported: true,
+            endpoint : '/v1/models',
+            host     : 'http://127.0.0.1:13090',
+            model    : 'mlx-community/gemma-4',
+            url      : 'http://127.0.0.1:13090/v1/models'
+        });
+
+        expect(runSandmanModule.getGraphProviderReadinessTarget({
+            modelProvider : 'gemini',
+            graphProvider : 'ollama',
+            ollama        : {
+                host : 'http://127.0.0.1:11434/',
+                model: 'gemma4:31b'
+            }
+        })).toMatchObject({
+            provider : 'ollama',
+            supported: true,
+            endpoint : '/api/tags',
+            host     : 'http://127.0.0.1:11434/',
+            model    : 'gemma4:31b',
+            url      : 'http://127.0.0.1:11434/api/tags'
+        });
+    });
+
     test('records a durable provider-timeout breadcrumb without leaking secrets', async () => {
         const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
             config: {
                 modelProvider: 'openAiCompatible',
+                graphProvider: 'openAiCompatible',
                 openAiCompatible: {
                     host          : 'http://127.0.0.1:11435',
                     model         : 'mlx-community/test-model',
@@ -117,10 +151,38 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(result.message).toContain('http://127.0.0.1:11435');
         expect(logLines).toContain('[runSandman] openAiCompatible provider readiness timeout');
         expect(logLines).toContain('PROVIDER_READINESS_TIMEOUT');
+        expect(logLines).toContain('"graphProvider":"openAiCompatible"');
+        expect(logLines).toContain('/v1/models');
         expect(logLines).toContain('http://127.0.0.1:11435');
         expect(logLines).toContain('mlx-community/test-model');
         expect(logLines).toContain('Start the configured OpenAI-compatible / MLX provider');
         expect(logLines).not.toContain('must-not-be-logged');
+    });
+
+    test('unsupported graphProvider fails before readiness polling', async () => {
+        const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
+            config: {
+                modelProvider : 'gemini',
+                graphProvider : 'gemini',
+                openAiCompatible: {
+                    apiKey: 'must-not-be-logged'
+                }
+            },
+            reason: 'UNSUPPORTED_GRAPH_PROVIDER'
+        });
+
+        const result = await runSandmanModule.recordProviderReadinessFailure(diagnostic, {
+            stderr: () => {}
+        });
+
+        expect(result.message).toContain("Unsupported Sandman graph provider 'gemini'");
+        expect(result.diagnostic).toMatchObject({
+            reason        : 'UNSUPPORTED_GRAPH_PROVIDER',
+            graphProvider : 'gemini',
+            supported     : false,
+            host          : null,
+            endpoint      : null
+        });
     });
 
     test('runRemPipeline propagates REM failures without printing success (#11698)', async () => {

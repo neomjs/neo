@@ -9,6 +9,7 @@ import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecyc
 import InferenceLifecycleService from '../../services/memory-core/lifecycle/InferenceLifecycleService.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {isGraphModelProviderSupported, resolveGraphModelProvider} from '../../services/graph/providerDispatch.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
 import http from 'http';
 import {pathToFileURL} from 'url';
@@ -18,11 +19,12 @@ import {pathToFileURL} from 'url';
  */
 
 const DEFAULT_OPENAI_COMPATIBLE_HOST = 'http://127.0.0.1:8000';
+const DEFAULT_OLLAMA_HOST            = 'http://127.0.0.1:11434';
 const PROVIDER_READY_ATTEMPTS        = 30;
 const PROVIDER_READY_RETRY_MS        = 1000;
 
 /**
- * @summary Resolves the OpenAI-compatible host that the Sandman REM pipeline must reach.
+ * @summary Resolves the OpenAI-compatible host used by one Sandman graph-provider option.
  * @param {Object} config
  * @returns {String}
  */
@@ -31,12 +33,59 @@ export function getOpenAiCompatibleHost(config = Memory_Config.data) {
 }
 
 /**
- * @summary Probes the configured OpenAI-compatible provider used by the Sandman REM pipeline.
+ * @summary Builds the provider readiness target for the resolved Sandman graph provider.
+ * @param {Object} config
+ * @returns {Object}
+ */
+export function getGraphProviderReadinessTarget(config = Memory_Config.data) {
+    const provider  = resolveGraphModelProvider(config);
+    const supported = isGraphModelProviderSupported(provider);
+
+    if (!supported) {
+        return {
+            provider,
+            supported,
+            endpoint      : null,
+            host          : null,
+            model         : null,
+            embeddingModel: null,
+            url           : null
+        };
+    }
+
+    const isOllama = provider === 'ollama';
+    const host     = isOllama
+        ? config.ollama?.host || DEFAULT_OLLAMA_HOST
+        : getOpenAiCompatibleHost(config);
+    const endpoint = isOllama ? '/api/tags' : '/v1/models';
+    const model    = isOllama ? config.ollama?.model || null : config.openAiCompatible?.model || null;
+    const embeddingModel = isOllama
+        ? config.ollama?.embeddingModel || null
+        : config.openAiCompatible?.embeddingModel || null;
+    const url      = `${host.replace(/\/+$/, '')}${endpoint}`;
+
+    return {
+        provider,
+        supported,
+        endpoint,
+        host,
+        model,
+        embeddingModel,
+        url
+    };
+}
+
+/**
+ * @summary Probes the configured graph provider used by the Sandman REM pipeline.
  * @param {Object} config
  * @returns {Promise<Boolean>}
  */
 export function checkProvider(config = Memory_Config.data) {
-    const host = getOpenAiCompatibleHost(config);
+    const target = getGraphProviderReadinessTarget(config);
+
+    if (!target.supported) {
+        return Promise.resolve(false);
+    }
 
     return new Promise(resolve => {
         let settled = false;
@@ -47,7 +96,7 @@ export function checkProvider(config = Memory_Config.data) {
             }
         };
 
-        const req = http.get(`${host}/v1/models`, response => {
+        const req = http.get(target.url, response => {
             response.resume();
             settle(true);
         });
@@ -110,21 +159,37 @@ export async function waitForProvider({
 export function createProviderFailureDiagnostic({
     config = Memory_Config.data,
     waitResult,
-    lifecycleStatus = null
+    lifecycleStatus = null,
+    reason = 'PROVIDER_READINESS_TIMEOUT'
 } = {}) {
+    const target = getGraphProviderReadinessTarget(config);
+    const unsupported = reason === 'UNSUPPORTED_GRAPH_PROVIDER';
+
     return {
-        event          : 'runSandman.provider_readiness_timeout',
-        reason         : 'PROVIDER_READINESS_TIMEOUT',
-        provider       : 'openAiCompatible',
+        event          : unsupported
+            ? 'runSandman.unsupported_graph_provider'
+            : 'runSandman.provider_readiness_timeout',
+        reason,
+        provider       : target.provider,
+        graphProvider  : target.provider,
         modelProvider  : config.modelProvider || null,
-        host           : getOpenAiCompatibleHost(config),
-        model          : config.openAiCompatible?.model || null,
-        embeddingModel : config.openAiCompatible?.embeddingModel || null,
+        host           : target.host,
+        endpoint       : target.endpoint,
+        url            : target.url,
+        supported      : target.supported,
+        model          : target.model,
+        embeddingModel : target.embeddingModel,
         attempts       : waitResult?.attempts ?? null,
         elapsedMs      : waitResult?.elapsedMs ?? null,
         timeoutMs      : waitResult?.timeoutMs ?? null,
         lifecycleStatus,
-        nextAction     : 'Start the configured OpenAI-compatible / MLX provider, then rerun npm run ai:run-sandman.'
+        nextAction     : target.supported
+            ? (
+                target.provider === 'openAiCompatible'
+                    ? 'Start the configured OpenAI-compatible / MLX provider, then rerun npm run ai:run-sandman.'
+                    : `Start the configured ${target.provider} provider, then rerun npm run ai:run-sandman.`
+            )
+            : "Set NEO_GRAPH_PROVIDER to 'openAiCompatible' or 'ollama', then rerun npm run ai:run-sandman."
     };
 }
 
@@ -143,10 +208,17 @@ export async function recordProviderReadinessFailure(
         stderr = console.error
     } = {}
 ) {
-    const message = `\n❌ openAiCompatible server is not running on ${diagnostic.host}. Please start your MLX provider manually.`;
+    const message = diagnostic.reason === 'UNSUPPORTED_GRAPH_PROVIDER'
+        ? `\n❌ Unsupported Sandman graph provider '${diagnostic.graphProvider}'. Expected one of: 'ollama', 'openAiCompatible'.`
+        : `\n❌ ${diagnostic.provider} provider is not running on ${diagnostic.host}${diagnostic.endpoint || ''}. Please start the configured provider manually.`;
 
     stderr(message);
-    log.error('[runSandman] openAiCompatible provider readiness timeout', diagnostic);
+    log.error(
+        diagnostic.reason === 'UNSUPPORTED_GRAPH_PROVIDER'
+            ? '[runSandman] unsupported graph provider'
+            : `[runSandman] ${diagnostic.provider} provider readiness timeout`,
+        diagnostic
+    );
 
     if (typeof log.flush === 'function') {
         await log.flush();
@@ -183,7 +255,20 @@ export async function runSandman() {
                 await LifecycleService.ready();
                 console.log('   Lifecycle Service Ready. Database should be running.');
 
-                console.log('   Waiting for MLX provider to warm up load weights into VRAM...');
+                console.log('   Waiting for graph provider to warm up load weights into VRAM...');
+                const target = getGraphProviderReadinessTarget();
+
+                if (!target.supported) {
+                    const diagnostic = createProviderFailureDiagnostic({
+                        reason         : 'UNSUPPORTED_GRAPH_PROVIDER',
+                        lifecycleStatus: InferenceLifecycleService.getStatus()
+                    });
+
+                    await recordProviderReadinessFailure(diagnostic);
+                    process.exitCode = 1;
+                    return {providerReady: false, graphProvider: target.provider};
+                }
+
                 const waitResult = await waitForProvider();
 
                 if (!waitResult.running) {
@@ -197,7 +282,7 @@ export async function runSandman() {
                     return {providerReady: false};
                 }
 
-                console.log('\n   ✅ openAiCompatible server is running (auto-boot successful).');
+                console.log(`\n   ✅ ${target.provider} server is running (auto-boot successful).`);
 
                 console.log('   Waiting for DreamService Initialization...');
                 // We might need to ensure DreamService is fully inited, though it initAsync runs automatically upon Neo.setupClass

@@ -89,6 +89,15 @@ class Config extends BaseConfig {
          */
         modelProvider: 'gemini',
         /**
+         * @summary Provider selector for Dream/Sandman graph-generation work.
+         *
+         * Graph extraction deliberately does not use the generic chat provider axis:
+         * chat/summarization may use Gemini, while graph-generation dispatch only
+         * supports native Ollama or OpenAI-compatible endpoints.
+         * @type {String}
+         */
+        graphProvider: 'openAiCompatible',
+        /**
          * @summary Deployment-wide embedding provider selector.
          *
          * Shared by Memory Core embedding consumers and Knowledge Base ingestion
@@ -506,6 +515,7 @@ class Config extends BaseConfig {
         },
         chatProvider     : 'NEO_MODEL_PROVIDER',
         modelProvider    : 'NEO_MODEL_PROVIDER',
+        graphProvider    : 'NEO_GRAPH_PROVIDER',
         embeddingProvider: 'NEO_EMBEDDING_PROVIDER',
         ollama           : {
             host          : 'NEO_OLLAMA_HOST',
