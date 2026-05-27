@@ -19,7 +19,7 @@ import Base       from '../../../../../src/core/Base.mjs';
  *    who have `gh` installed and authenticated. Matches the `@me` shortcut semantics used
  *    across the Agent OS tooling surface.
  * 3. **`unresolved`** — neither path yielded an identity. Downstream services treat this as
- *    **single-tenant mode** (the legacy unauthenticated transport behavior). Not a startup
+ *    **single-tenant mode** (the unauthenticated local transport fallback). Not a startup
  *    failure — preserves the existing local-agent developer experience.
  *
  * **Intentionally NOT in scope:**

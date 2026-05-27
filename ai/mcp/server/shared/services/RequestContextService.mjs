@@ -2,12 +2,12 @@ import { AsyncLocalStorage } from 'async_hooks';
 import Base from '../../../../../src/core/Base.mjs';
 
 /**
- * @summary Sentinel `userId` value tagging records that belong to the historical commons —
+ * @summary Sentinel `userId` value tagging records that belong to the shared baseline —
  * accessible to all tenants via the additive read filter.
  *
  * Reads in tenant-aware mode use `where: {$or: [{userId: <current>}, {userId: SHARED_USER_ID}]}`,
  * granting every authenticated tenant access to their own data PLUS the shared baseline.
- * The migration runner (`ai/scripts/migrations/backfillChromaSharedUserId.mjs`) tags legacy
+ * The migration runner (`ai/scripts/migrations/backfillChromaSharedUserId.mjs`) tags unscoped
  * ChromaDB records lacking a `userId` key with this sentinel so the additive
  * read filter can return them. New raw-memory writes tag with the resolved per-tenant userId;
  * session summaries involving named core swarm maintainers intentionally use `SHARED_USER_ID`
@@ -134,7 +134,7 @@ export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {
  * any of the primitive leaking into their method signatures.
  *
  * **Module-level exports:**
- * - {@link SHARED_USER_ID} — sentinel value for legacy/commons records
+ * - {@link SHARED_USER_ID} — sentinel value for shared-baseline records
  * - {@link normalizeUserId} — `@`-prefix stripping boundary helper
  * - {@link resolveSummaryVisibilityUserId} — summary visibility resolver for core-swarm artifacts
  *
@@ -162,7 +162,7 @@ export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {
  * 4. **Unresolved-identity fallthrough:** when neither transport resolves a userId (stdio with
  *    neither env-var nor authenticated `gh` CLI, offline daemon contexts), `getUserId()` returns
  *    `undefined` and services fall back to **single-tenant mode** — no tag on writes, no filter
- *    on reads. This preserves the legacy single-tenant behavior.
+ *    on reads. This preserves compatibility with unauthenticated local tool sessions.
  *
  * **Why AsyncLocalStorage and not explicit parameter threading:** userId is a cross-cutting
  * concern that every ChromaDB touch point cares about. Threading it as a parameter through
@@ -292,7 +292,7 @@ class RequestContextService extends Base {
      *
      * Extracted from the `Mcp-Session-Id` header by `TransportService`.
      * This is the primary driver for multi-tenant isolation in the Memory Core.
-     * When present, it completely overrides the legacy process-global fallback
+     * When present, it completely overrides the process-global fallback
      * in `SessionService`.
      *
      * @returns {String|undefined}

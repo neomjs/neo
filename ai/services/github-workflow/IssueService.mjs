@@ -179,7 +179,7 @@ class IssueService extends Base {
      * - `acknowledgedReassign: '<reason>'` — strict-replacement override. Clears existing
      *   assignees, assigns the new set, posts an audit-trail comment on the issue
      *   capturing the reason in a GitHub-visible artifact.
-     * - `requireUnassigned: false` — legacy blind-add (no precondition gate). Provided
+     * - `requireUnassigned: false` — compatibility blind-add (no precondition gate). Provided
      *   for backward-compat; new callers should not rely on this.
      *
      * **Co-owner-add deferral:** V1 supports only

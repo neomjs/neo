@@ -133,7 +133,7 @@ class PullRequestService extends Base {
      * selector to reduce context-fetch cost across review cycles.
      *
      * **Default behavior (no selectors):** returns full conversation — backward compatible
-     * with the legacy full-conversation shape that callers depend on.
+     * with the default full-conversation shape that existing callers depend on.
      *
      * **Selectors (first-match precedence, pick at most one):**
      * - `comment_id` — fetch ONLY the comment whose GitHub node ID matches. Used for A2A
@@ -151,8 +151,8 @@ class PullRequestService extends Base {
      * conversation sizes (up to a few dozen comments) client-side filter is simpler and
      * avoids multi-query cursor choreography.
      *
-     * @param {Object|number} options Either a number (legacy `prNumber` positional form, retained for
-     *                                backward compat) or an object with the shape below.
+     * @param {Object|number} options Either a number (backward-compatible `prNumber` positional form)
+     *                                or an object with the shape below.
      * @param {number}        options.pr_number         The pull request number (required when object form).
      * @param {string}        [options.comment_id]      Return only the matching comment's data; other
      *                                                  comments elided. PR title/body still returned.
@@ -164,7 +164,7 @@ class PullRequestService extends Base {
      * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error.
      */
     async getConversation(options) {
-        // Accept legacy positional `prNumber` form for backward compatibility.
+        // Accept positional `prNumber` form for backward compatibility.
         // New callers use the object form for filter support.
         const {pr_number, comment_id, since_comment_id, last_n} = typeof options === 'number'
             ? {pr_number: options}

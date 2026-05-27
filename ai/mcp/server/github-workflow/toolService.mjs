@@ -101,11 +101,11 @@ const syncAllOnDevOnly = buildDevBranchGuard(SyncService.runFullSync.bind(SyncSe
  * `syncAllOnDevOnly` test-surface precedent below.
  *
  * @param {Object|Number} options `pr_number` XOR `issue_number`, plus optional selectors.
- *                                A bare number is the legacy positional PR form.
+ *                                A bare number is the backward-compatible positional PR form.
  * @returns {Promise<Object>} Conversation data or a structured error.
  */
 async function getConversationRouter(options) {
-    // Legacy positional number form is always a pull request.
+    // Backward-compatible positional number form is always a pull request.
     if (typeof options === 'number') {
         return PullRequestService.getConversation(options);
     }

@@ -77,7 +77,7 @@ class ReleaseNotesSyncer extends Base {
         const cachedReleases     = metadata.releases || {};
         const cachedReleaseArray = Object.values(cachedReleases);
 
-        // Phase 1: Quick check against the cached latest release
+        // Fast-path check against the cached latest release.
         if (cachedReleaseArray.length > 0) {
             try {
                 const latestData = await GraphqlService.query(FETCH_LATEST_RELEASE, {
@@ -86,7 +86,7 @@ class ReleaseNotesSyncer extends Base {
                 });
 
                 const latestRelease = latestData.repository.latestRelease;
-                // Sort by date to find the latest
+                // Sort by date to find the latest cached release.
                 cachedReleaseArray.sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
                 const cachedLatest  = cachedReleaseArray[cachedReleaseArray.length - 1];
 
@@ -108,7 +108,7 @@ class ReleaseNotesSyncer extends Base {
             }
         }
 
-        // Phase 2: Full fetch with early exit
+        // Full paginated fetch with early exit.
         logger.info('Fetching releases from GitHub via GraphQL...');
 
         let allReleases   = [];
