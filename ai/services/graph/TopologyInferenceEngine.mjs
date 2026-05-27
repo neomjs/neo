@@ -80,8 +80,8 @@ ${contextText}
                     serviceDomain            : 'dream-pipeline',
                     emissionPoint            : 'post-invocation-failure',
                     inputBytes               : Buffer.byteLength(prompt),
-                    contextLimitTokens       : aiConfig.openAiCompatible.contextLimitTokens,
-                    safeProcessingLimitTokens: aiConfig.openAiCompatible.safeProcessingLimitTokens,
+                    contextLimitTokens       : aiConfig.localModels.chat.contextLimitTokens,
+                    safeProcessingLimitTokens: aiConfig.localModels.chat.safeProcessingLimitTokens,
                     note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${prompt.length}.`
                 });
 

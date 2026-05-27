@@ -342,16 +342,16 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     test('uses configured graph-provider model for consumer friction telemetry (#12059)', async () => {
         const originalGraphProvider                  = aiConfig.graphProvider;
         const originalOllamaModel                    = aiConfig.ollama?.model;
-        const originalContextLimitTokens             = aiConfig.openAiCompatible.contextLimitTokens;
-        const originalSafeProcessingLimitTokens      = aiConfig.openAiCompatible.safeProcessingLimitTokens;
+        const originalContextLimitTokens             = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens      = aiConfig.localModels.chat.safeProcessingLimitTokens;
 
         try {
             clearAggregatedFrictions();
 
             aiConfig.graphProvider                             = 'ollama';
             aiConfig.ollama.model                              = 'gemma4-real-model';
-            aiConfig.openAiCompatible.contextLimitTokens        = 8;
-            aiConfig.openAiCompatible.safeProcessingLimitTokens = 1;
+            aiConfig.localModels.chat.contextLimitTokens        = 8;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 1;
 
             const result = await SemanticGraphExtractor.executeTriVectorExtraction({
                 id      : 'mock-consumer-model-vector-id',
@@ -370,8 +370,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         } finally {
             aiConfig.graphProvider                             = originalGraphProvider;
             aiConfig.ollama.model                              = originalOllamaModel;
-            aiConfig.openAiCompatible.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.openAiCompatible.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
             clearAggregatedFrictions();
         }
     });

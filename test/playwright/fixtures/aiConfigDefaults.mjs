@@ -113,9 +113,17 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
         unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
         unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-        keep_alive              : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
-        contextLimitTokens      : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS) || 262144,
-        safeProcessingLimitTokens: Number(process.env.NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
+        keep_alive              : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1)
+    },
+    localModels: {
+        chat: {
+            contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 262144,
+            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
+        },
+        embedding: {
+            contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 8192,
+            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 6144
+        }
     },
     vectorDimension: Number(process.env.NEO_VECTOR_DIMENSION) || 4096,
     modelName      : 'gemini-2.5-flash',
