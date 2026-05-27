@@ -79,9 +79,17 @@ test.describe('Tier 1 Config Immutability', () => {
             apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
             unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
             unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-            keep_alive              : TIER1_DEFAULTS.openAiCompatible.keep_alive,
-            contextLimitTokens      : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS) || 262144,
-            safeProcessingLimitTokens: Number(process.env.NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
+            keep_alive              : TIER1_DEFAULTS.openAiCompatible.keep_alive
+        });
+        expect(Config.localModels).toMatchObject({
+            chat: {
+                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 262144,
+                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
+            },
+            embedding: {
+                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 8192,
+                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 6144
+            }
         });
         expect(Config.engines.chroma).toEqual({
             host: process.env.NEO_CHROMA_HOST || 'localhost',
