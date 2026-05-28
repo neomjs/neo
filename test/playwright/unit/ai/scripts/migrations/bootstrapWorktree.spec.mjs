@@ -35,6 +35,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let installDependencies;
     let runBuildAll;
     let resolveMainCheckout;
+    let resolveCliProjectRoot;
     let parseWorktreePorcelain;
     let pruneStaleWorktrees;
     let BOOTSTRAP_CONFIGS;
@@ -59,6 +60,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         installDependencies      = mod.installDependencies;
         runBuildAll              = mod.runBuildAll;
         resolveMainCheckout      = mod.resolveMainCheckout;
+        resolveCliProjectRoot    = mod.resolveCliProjectRoot;
         parseWorktreePorcelain   = mod.parseWorktreePorcelain;
         pruneStaleWorktrees      = mod.pruneStaleWorktrees;
         BOOTSTRAP_CONFIGS        = mod.BOOTSTRAP_CONFIGS;
@@ -87,6 +89,14 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
     test('exports the canonical BOOTSTRAP_CONFIGS list', () => {
         expect(BOOTSTRAP_CONFIGS).toEqual(fixtureConfigs);
+    });
+
+    test('resolveCliProjectRoot climbs migrations/ → scripts/ → ai/ → root (#12147)', () => {
+        // The script lives 3 levels deep at ai/scripts/migrations/; the repo root is 3 `..` up.
+        expect(resolveCliProjectRoot('/repo/ai/scripts/migrations')).toBe('/repo');
+        // Regression guard: the prior 2-level resolve mislanded at <root>/ai, so the CLI copied
+        // BOOTSTRAP_CONFIGS into <root>/ai/ai/ instead of the repo root.
+        expect(path.resolve('/repo/ai/scripts/migrations', '..', '..')).toBe('/repo/ai');
     });
 
     test('copies every missing config.mjs from main checkout into the worktree', async () => {
