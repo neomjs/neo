@@ -210,12 +210,12 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
 });
 
 /**
- * Community-multiplier internal-author resolution (#12130). Replaces the prior hardcoded
+ * Community-multiplier internal-author resolution. Replaces the prior hardcoded
  * `meta.author !== 'tobiu'` check with a set derived from the canonical identity registry
  * (`ai/graph/identityRoots.mjs`). The empty-registry case must degrade safely (multiplier OFF),
  * not invert into boosting every ticket.
  */
-test.describe('Neo.ai.daemons.services.IssueIngestor — community-multiplier internal-author set (#12130)', () => {
+test.describe('Neo.ai.daemons.services.IssueIngestor — community-multiplier internal-author set', () => {
     let IssueIngestorClass;
 
     test.beforeAll(async () => {
