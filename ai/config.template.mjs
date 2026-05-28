@@ -301,6 +301,17 @@ class Config extends BaseConfig {
                 swarmHeartbeatMs      : 15 * 60 * 1000
             },
             /**
+             * Chroma daemon recycle policy (#12138). The orchestrator kills and respawns the
+             * supervised Chroma daemon once its uptime exceeds `maxRuntimeMs`, then runs a
+             * unified-store-safe defrag against the fresh daemon. `0` disables recycling.
+             * Env override: `NEO_CHROMA_MAX_RUNTIME_MS`. The lane is gated by
+             * `localOnly.chromaDaemonEnabled` — a no-op when Chroma is externally managed.
+             * @type {Object}
+             */
+            chroma: {
+                maxRuntimeMs: DAY_MS
+            },
+            /**
              * Swarm-heartbeat target-resolver config. Controls which identity set
              * `SwarmHeartbeatService.pulse()` targets per cycle via the resolver
              * precedence chain. Env override: `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
@@ -665,6 +676,9 @@ class Config extends BaseConfig {
                 dreamOverflowThreshold: {var: 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', parse: Env.parseNumber},
                 goldenPathMs          : {var: 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS',       parse: Env.parseNumber},
                 swarmHeartbeatMs      : {var: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS',   parse: Env.parseNumber}
+            },
+            chroma: {
+                maxRuntimeMs: {var: 'NEO_CHROMA_MAX_RUNTIME_MS', parse: Env.parseNumber}
             },
             tenantRepoSync: {
                 sweepCadenceMs: {var: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', parse: Env.parseNumber},

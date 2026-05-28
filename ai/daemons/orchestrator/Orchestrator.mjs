@@ -417,6 +417,7 @@ export class Orchestrator extends Base {
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get chromaPort()                     { return AiConfig.engines.chroma?.port;                              }
+    get chromaMaxRuntimeMs()             { return AiConfig.orchestrator.chroma?.maxRuntimeMs;                  }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
