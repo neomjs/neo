@@ -7,9 +7,9 @@ import logger from '../../mcp/server/memory-core/logger.mjs';
 /**
  * @summary Service for managing cross-tenant permission edges in the Native Graph.
  *
- * Implements the explicit permission checks required for Phase 3 (#10146).
- * The default policy is strict-isolation (opt-in visibility). Permissions are
- * granted via Graph edges representing the capability.
+ * Implements explicit permission checks for the strict-isolation mailbox and
+ * memory-sharing model. The default policy is opt-in visibility: permissions
+ * are granted via Graph edges representing the capability.
  *
  * Edge Structure:
  * - A permission capability flows from the grantee to the granter.
@@ -40,7 +40,7 @@ class PermissionService extends Base {
      * @member {String[]} validScopes
      * @protected
      * @summary Whitelist of semantic edge types for agent-to-agent permissions.
-     * Includes BLOCKED_BY: A negative-intent primitive ensuring hard isolation overrides (e.g. #10255).
+     * Includes BLOCKED_BY: a negative-intent primitive ensuring hard isolation overrides.
      */
     validScopes = ['CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF', 'CAN_READ_SESSIONS_OF', 'CAN_REPLY_TO', 'BLOCKED_BY']
 
@@ -63,8 +63,8 @@ class PermissionService extends Base {
             throw new Error(`Invalid scope. Must be one of: ${this.validScopes.join(', ')}`);
         }
 
-        // Verify target exists in SQLite directly (not in-memory cache, per sibling ticket's
-        // lazy-load root-cause fix). Identity creation is a privileged operation (seedAgentIdentities.mjs);
+        // Verify target exists in SQLite directly, not in the in-memory cache. Identity
+        // creation is a privileged operation (seedAgentIdentities.mjs);
         // it should NOT be an implicit side-effect of a permission grant. Stubbing with type 'AGENT'
         // + stripped metadata destroys seed data and creates type-inconsistent nodes.
         // Pattern mirrors linkNodes:179-185 (FK-style existence guard).
