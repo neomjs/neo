@@ -19,6 +19,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
+import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.mjs';
 
 /**
  * Contract coverage for KnowledgeBaseIngestionService (#11633).
@@ -672,6 +673,7 @@ test.describe('KnowledgeBaseIngestionService.listConfiguredTenantRepos (#12145)'
     let Service;
     let originals;
     let graphStub;
+    let originalAiConfigRepos;
 
     test.beforeAll(async () => {
         Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
@@ -683,6 +685,7 @@ test.describe('KnowledgeBaseIngestionService.listConfiguredTenantRepos (#12145)'
             graphService         : Service.graphService,
             readKbConfigBootstrap: Service.readKbConfigBootstrap
         };
+        originalAiConfigRepos = aiConfig.tenantRepos;
 
         Service.graphService          = graphStub;
         Service.readKbConfigBootstrap = () => null;
@@ -690,6 +693,7 @@ test.describe('KnowledgeBaseIngestionService.listConfiguredTenantRepos (#12145)'
 
     test.afterEach(() => {
         Object.assign(Service, originals);
+        aiConfig.tenantRepos = originalAiConfigRepos;
     });
 
     function seedGraphConfig(tenantId, tenantRepos) {
@@ -759,6 +763,29 @@ test.describe('KnowledgeBaseIngestionService.listConfiguredTenantRepos (#12145)'
 
     test('returns an empty array when no tenant declares tenantRepos', async () => {
         Service.readKbConfigBootstrap = () => ({tenants: {'tenant-a': {useDefaultSources: false}}});
+
+        const {tenantRepos} = await Service.listConfiguredTenantRepos();
+        expect(tenantRepos).toEqual([]);
+    });
+
+    test('graph-node tier with empty tenantRepos suppresses yaml + default for that tenant (presence-based winner)', async () => {
+        // An existing graph record declaring `tenantRepos: []` intentionally disables pull-mode for
+        // the tenant; it must win wholesale even though the array is empty — selecting on length > 0
+        // would leak the yaml/default repos back in (the cycle-1 fallback bug).
+        seedGraphConfig('tenant-a', []);
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/yaml.git', credentialRef: 'env:Y'}]}}
+        });
+
+        const {tenantRepos} = await Service.listConfiguredTenantRepos();
+        expect(tenantRepos).toEqual([]);
+    });
+
+    test('yaml tier with empty tenantRepos suppresses the aiConfig default tier for that tenant (presence-based winner)', async () => {
+        aiConfig.tenantRepos = [{tenantId: 'tenant-a', cloneUrl: 'https://github.com/neomjs/default.git', credentialRef: 'env:D'}];
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {'tenant-a': {tenantRepos: []}}
+        });
 
         const {tenantRepos} = await Service.listConfiguredTenantRepos();
         expect(tenantRepos).toEqual([]);

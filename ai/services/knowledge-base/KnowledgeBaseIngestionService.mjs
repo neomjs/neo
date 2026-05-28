@@ -915,15 +915,19 @@ class KnowledgeBaseIngestionService extends Base {
         const effective = [];
 
         for (const tenantId of tenantIds) {
-            const graphRepos = this.graphService.getNodeRecord({id: `kb-config:${tenantId}`})?.properties?.tenantRepos,
-                  yamlRepos  = yamlTenants[tenantId]?.tenantRepos;
+            const graphRecord = this.graphService.getNodeRecord({id: `kb-config:${tenantId}`}),
+                  yamlEntry   = yamlTenants[tenantId];
 
+            // Tier winner is chosen by tier PRESENCE (matching getTenantConfig), NOT by a
+            // non-empty array: a graph record / yaml entry that declares `tenantRepos: []`
+            // intentionally means "no repos for this tenant" and MUST suppress lower tiers
+            // wholesale — selecting on `length > 0` would leak lower-tier repos through.
             let repos;
 
-            if (Array.isArray(graphRepos) && graphRepos.length > 0) {
-                repos = graphRepos;
-            } else if (Array.isArray(yamlRepos) && yamlRepos.length > 0) {
-                repos = yamlRepos;
+            if (graphRecord?.properties) {
+                repos = graphRecord.properties.tenantRepos || [];
+            } else if (yamlEntry) {
+                repos = yamlEntry.tenantRepos || [];
             } else {
                 repos = defaultRepos.filter(entry => (normalizeUserId(entry.tenantId) || entry.tenantId) === tenantId);
             }
