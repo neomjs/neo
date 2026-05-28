@@ -7,6 +7,7 @@ import Base from '../../../src/core/Base.mjs';
 import { Memory_StorageRouter as StorageRouter } from '../../services.mjs';
 import { Memory_GraphService as GraphService } from '../../services.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
+import {IDENTITIES} from '../../graph/identityRoots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -50,6 +51,32 @@ class IssueIngestor extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @summary Bare GitHub logins of registered internal authors (human owner + swarm maintainers),
+     * derived from the canonical identity registry. The `@` prefix is stripped to match GitHub
+     * issue-author logins. An empty set disables the community multiplier (safe degrade) instead of
+     * boosting every ticket.
+     * @member {Set<String>} internalAuthorLogins
+     * @static
+     */
+    static internalAuthorLogins = new Set(
+        IDENTITIES.map(identity => identity.properties?.githubLogin).filter(Boolean).map(login => login.replace(/^@/, ''))
+    )
+
+    /**
+     * @summary Whether a ticket author qualifies for the community-multiplier boost: true when the
+     * author exists, the internal-author registry is non-empty, and the author is not a registered
+     * maintainer. The non-empty guard makes an unconfigured deployment degrade safely (multiplier
+     * off) rather than treating every ticket as community-authored.
+     * @param {String} author Ticket GitHub author login (bare form).
+     * @param {Set<String>} [internalAuthorLogins=IssueIngestor.internalAuthorLogins] Injectable internal-author set (test seam).
+     * @returns {Boolean}
+     * @static
+     */
+    static isCommunityAuthor(author, internalAuthorLogins = IssueIngestor.internalAuthorLogins) {
+        return Boolean(author) && internalAuthorLogins.size > 0 && !internalAuthorLogins.has(author)
     }
 
     /**
@@ -190,8 +217,8 @@ class IssueIngestor extends Base {
                             baseWeight = 0.05;
                             logger.debug(`[IssueIngestor] Discounting topological weight for ${issueId} because it is BLOCKED_BY an OPEN issue.`);
                         } else {
-                            // Community Multiplier: Boost if ticket is external and has been triaged
-                            if (meta.author && meta.author !== 'tobiu') {
+                            // Community Multiplier: boost externally-authored (non-maintainer) tickets that have been triaged.
+                            if (IssueIngestor.isCommunityAuthor(meta.author)) {
                                 if (Array.isArray(meta.labels) && meta.labels.length > 0) {
                                     baseWeight += 0.5;
                                 }

@@ -208,3 +208,54 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         });
     });
 });
+
+/**
+ * Community-multiplier internal-author resolution (#12130). Replaces the prior hardcoded
+ * `meta.author !== 'tobiu'` check with a set derived from the canonical identity registry
+ * (`ai/graph/identityRoots.mjs`). The empty-registry case must degrade safely (multiplier OFF),
+ * not invert into boosting every ticket.
+ */
+test.describe('Neo.ai.daemons.services.IssueIngestor — community-multiplier internal-author set (#12130)', () => {
+    let IssueIngestorClass;
+
+    test.beforeAll(async () => {
+        // The default export is the singleton instance; the static set + decision live on its class.
+        IssueIngestorClass = (await import('../../../../../../ai/services/ingestion/IssueIngestor.mjs')).default.constructor;
+    });
+
+    test('internalAuthorLogins is derived from the identity registry as bare logins (no @, no nulls)', () => {
+        const logins = IssueIngestorClass.internalAuthorLogins;
+
+        expect(logins).toBeInstanceOf(Set);
+        expect(logins.size).toBeGreaterThan(0);
+        // Owner + a known agent maintainer, normalized to bare form (matches GitHub issue authors).
+        expect(logins.has('tobiu')).toBe(true);
+        expect(logins.has('neo-opus-4-7')).toBe(true);
+        // The leading-@ registry form and null/empty entries must NOT leak through.
+        expect(logins.has('@tobiu')).toBe(false);
+        expect(logins.has('')).toBe(false);
+        expect([...logins].every(Boolean)).toBe(true);
+    });
+
+    test('isCommunityAuthor: a registered maintainer is NOT a community author (no boost)', () => {
+        expect(IssueIngestorClass.isCommunityAuthor('tobiu')).toBe(false);
+        expect(IssueIngestorClass.isCommunityAuthor('neo-opus-4-7')).toBe(false);
+    });
+
+    test('isCommunityAuthor: an external author IS a community author (boost eligible)', () => {
+        expect(IssueIngestorClass.isCommunityAuthor('some-external-contributor')).toBe(true);
+    });
+
+    test('isCommunityAuthor: a missing author is never a community author', () => {
+        expect(IssueIngestorClass.isCommunityAuthor('')).toBe(false);
+        expect(IssueIngestorClass.isCommunityAuthor(undefined)).toBe(false);
+        expect(IssueIngestorClass.isCommunityAuthor(null)).toBe(false);
+    });
+
+    test('isCommunityAuthor: an empty internal-author registry disables the multiplier (safe degrade, not boost-all)', () => {
+        // Negative-mutation guard: with an empty set, even an "external" author must NOT be boosted —
+        // the `size > 0` clause is what prevents the inverted every-ticket-boosted failure mode.
+        expect(IssueIngestorClass.isCommunityAuthor('some-external-contributor', new Set())).toBe(false);
+        expect(IssueIngestorClass.isCommunityAuthor('tobiu', new Set())).toBe(false);
+    });
+});
