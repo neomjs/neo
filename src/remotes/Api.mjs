@@ -44,14 +44,14 @@ class Api extends Base {
      */
     generateRemoteStream(service, stream, config = {}) {
         let pipeline;
-        
+
         if (config.parser || config.normalizer || config.pipeline) {
             let pipelineConfig = config.pipeline || {
                 parser    : config.parser,
                 normalizer: config.normalizer
             };
-            
-            pipelineConfig.workerExecution = 'app'; 
+
+            pipelineConfig.workerExecution = 'app';
             import('../data/Pipeline.mjs').then(module => {
                 pipeline = Neo.create(module.default, pipelineConfig);
             });
@@ -59,7 +59,7 @@ class Api extends Base {
 
         return function(params, callback) {
             let callbackId = Neo.core.IdGenerator.getId('rpc-stream-');
-            
+
             if (typeof callback !== 'function') {
                 throw new Error('rpc stream proxy requires a callback function as the second parameter');
             }
@@ -83,7 +83,7 @@ class Api extends Base {
                 params: [params],
                 service
             });
-            
+
             return () => {
                 delete Neo.worker.App.rpcStreamCallbacks[callbackId];
                 Neo.currentWorker.sendMessage('data', {
@@ -97,9 +97,23 @@ class Api extends Base {
     }
 
     /**
-     *
+     * Awaits load() so the singleton only reaches `isReady` once the remotes-api JSON is fetched
+     * and the service stubs are registered. Consumers (e.g. an api-backed Store racing the
+     * registration on boot) can `await Neo.remotes.Api.ready()`.
+     * @returns {Promise<void>}
      */
-    load() {
+    async initAsync() {
+        await super.initAsync();
+
+        if (Neo.config.remotesApiUrl) {
+            await this.load()
+        }
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async load() {
         let {config}    = Neo,
             useMjsFiles = config.environment === 'development' || config.environment === 'dist/esm',
             path        = config.remotesApiUrl;
@@ -112,12 +126,11 @@ class Api extends Base {
             path = (useMjsFiles ? '../../' : './') + path
         }
 
-        fetch(path)
-            .then(response => response.json())
-            .then(data => {
-                Neo.currentWorker.sendMessage('data', {action: 'registerApi', data});
-                this.register(data)
-            })
+        const response = await fetch(path),
+              data     = await response.json();
+
+        Neo.currentWorker.sendMessage('data', {action: 'registerApi', data});
+        this.register(data)
     }
 
     /**
@@ -135,7 +148,7 @@ class Api extends Base {
                         parser    : methodValue.parser,
                         normalizer: methodValue.normalizer
                     };
-                    
+
                     pipelineConfig.workerExecution = 'data';
 
                     Promise.all([
@@ -146,9 +159,9 @@ class Api extends Base {
                             module: RpcModule.default,
                             api   : `${api.namespace}.${service}`
                         };
-                        
+
                         let pipeline = Neo.create(PipelineModule.default, pipelineConfig);
-                        
+
                         ns[method] = function(...args) {
                             return pipeline.execute(method, args[0]);
                         }

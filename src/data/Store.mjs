@@ -995,6 +995,13 @@ class Store extends Collection {
                 fn       = apiArray.pop(),
                 service  = Neo.ns(apiArray.join('.'));
 
+            // The remotes-api registers asynchronously (Neo.remotes.Api.initAsync()); if the stub
+            // is not registered yet, wait for it to finish initializing before giving up.
+            if (!service && Neo.config.remotesApiUrl) {
+                await (await import('../remotes/Api.mjs')).default.ready();
+                service = Neo.ns(apiArray.join('.'))
+            }
+
             if (!service) {
                 console.error('Api is not defined', this)
             } else {
