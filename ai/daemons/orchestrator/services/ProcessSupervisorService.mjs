@@ -411,6 +411,49 @@ export class ProcessSupervisorService extends Base {
 
         return true;
     }
+
+    /**
+     * Probe-gated wrapper around {@link ProcessSupervisorService#runTask} for continuous
+     * daemon tasks.
+     *
+     * When a task definition supplies an `alreadyRunningProbe`, this checks whether the
+     * task's endpoint is already served by a process this orchestrator did not spawn (an
+     * operator-run `chroma run`, a pre-unification leftover, or a second orchestrator). If
+     * so, it records a skipped outcome and does NOT spawn — preventing the duplicate-daemon
+     * split that corrupts a shared persist dir (#12136). Otherwise it delegates to the
+     * synchronous `runTask`, whose return contract the heavy-maintenance lease in
+     * `MaintenanceBackpressureService` depends on — which is why the async probe lives here
+     * rather than inside `runTask`.
+     *
+     * @param {String}   taskName    Task key.
+     * @param {String}   reason      Scheduling reason.
+     * @param {Function} [onSuccess] Optional success hook.
+     * @param {Object}   [options]   Optional configuration forwarded to `runTask`.
+     * @returns {Promise<Boolean>} True when a child was started.
+     */
+    async maybeRunTask(taskName, reason, onSuccess, options = {}) {
+        const task  = this.taskDefinitions[taskName];
+        const state = this.taskStateService.getTaskState(taskName);
+
+        if (typeof task?.alreadyRunningProbe === 'function' && !state.running) {
+            let alreadyServing = false;
+            try {
+                alreadyServing = await task.alreadyRunningProbe();
+            } catch (e) {
+                this.writeLog?.('WARN', `[ProcessSupervisor] ${task.label} readiness probe errored (${e.message}); proceeding to spawn.`);
+            }
+
+            if (alreadyServing) {
+                if (this.shouldLogRunningSkip(taskName, reason, 'external')) {
+                    this.writeLog?.('INFO', `[ProcessSupervisor] Skipping ${task.label}; an external instance already serves its endpoint (not orchestrator-spawned).`);
+                }
+                this.recordTaskOutcome(taskName, 'skipped', {reason, reasonCode: 'external-already-running', skippedAt: new Date().toISOString()});
+                return false;
+            }
+        }
+
+        return this.runTask(taskName, reason, onSuccess, options);
+    }
 }
 
 export default Neo.setupClass(ProcessSupervisorService);

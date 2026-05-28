@@ -27,6 +27,9 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {Object} [options]
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
+ * @param {String} [options.chromaHost] Chroma daemon bind host — a single address family (e.g. `127.0.0.1`) so a duplicate `chroma run` fails loudly instead of binding the other family.
+ * @param {String|Number} [options.chromaPort] Chroma daemon port.
+ * @param {Function} [options.chromaAlreadyRunningProbe] Async `() => Promise<boolean>` resolving true when an external chroma already serves the endpoint; gates the orchestrator's spawn (#12136).
  * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
@@ -42,6 +45,9 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
+    chromaHost,
+    chromaPort,
+    chromaAlreadyRunningProbe,
     mlxEnabled = false,
     mlxModel,
     mlxPort,
@@ -55,11 +61,14 @@ export function buildTaskDefinitions({
 } = {}) {
     const tasks = {
         chroma: {
-            label          : 'chroma daemon',
-            command        : 'chroma',
-            args           : ['run', '--path', '.neo-ai-data/chroma/knowledge-base', '--port', '8000'],
-            pidFileName    : 'chroma.pid',
-            expectedCommand: 'chroma'
+            label              : 'chroma daemon',
+            command            : 'chroma',
+            // --host pins a single address family: 'localhost' resolves to both 127.0.0.1 and ::1, so without
+            // it a second `chroma run` silently binds the other family instead of failing loudly (#12136).
+            args               : ['run', '--path', '.neo-ai-data/chroma/knowledge-base', '--host', chromaHost, '--port', String(chromaPort)],
+            pidFileName        : 'chroma.pid',
+            expectedCommand    : 'chroma',
+            alreadyRunningProbe: chromaAlreadyRunningProbe
         },
         bridgeDaemon: {
             label          : 'bridge daemon',

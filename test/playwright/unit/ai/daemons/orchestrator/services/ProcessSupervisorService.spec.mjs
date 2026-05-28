@@ -204,4 +204,79 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
             })
         }));
     });
+
+    test('maybeRunTask skips spawn when the readiness probe reports an external instance', async () => {
+        const { service, taskOutcomes } = createTestService();
+        let spawnCalled = false;
+        let probeCalled = false;
+
+        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => { probeCalled = true; return true; };
+        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+
+        const result = await service.maybeRunTask('mockTask', 'test-reason');
+
+        expect(result).toBe(false);
+        expect(probeCalled).toBe(true);
+        expect(spawnCalled).toBe(false);
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'skipped',
+            taskName: 'mockTask',
+            details : expect.objectContaining({reasonCode: 'external-already-running'})
+        }));
+    });
+
+    test('maybeRunTask spawns when the readiness probe reports nothing serving', async () => {
+        const { service } = createTestService();
+        let spawnCalled = false;
+
+        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => false;
+        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+
+        const result = await service.maybeRunTask('mockTask', 'test-reason');
+
+        expect(result).toBe(true);
+        expect(spawnCalled).toBe(true);
+    });
+
+    test('maybeRunTask falls through to spawn when the readiness probe throws', async () => {
+        const { service, logEntries } = createTestService();
+        let spawnCalled = false;
+
+        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => { throw new Error('probe boom'); };
+        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+
+        const result = await service.maybeRunTask('mockTask', 'test-reason');
+
+        expect(result).toBe(true);
+        expect(spawnCalled).toBe(true);
+        expect(logEntries.some(e => e.level === 'WARN' && e.message.includes('readiness probe errored'))).toBe(true);
+    });
+
+    test('maybeRunTask without a probe delegates straight to runTask', async () => {
+        const { service } = createTestService();
+        let spawnCalled = false;
+
+        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+
+        const result = await service.maybeRunTask('mockTask', 'test-reason');
+
+        expect(result).toBe(true);
+        expect(spawnCalled).toBe(true);
+    });
+
+    test('maybeRunTask does not probe a task already tracked as running', async () => {
+        const { service } = createTestService();
+        let probeCalled = false;
+        let spawnCalled = false;
+
+        service.taskStateService.getTaskState = () => ({running: true, pid: 1234});
+        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => { probeCalled = true; return false; };
+        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+
+        const result = await service.maybeRunTask('mockTask', 'test-reason');
+
+        expect(probeCalled).toBe(false);
+        expect(spawnCalled).toBe(false);
+        expect(result).toBe(false);
+    });
 });
