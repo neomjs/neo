@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------------------
-# Neo source acquisition (#12150). DEFAULT: a pinned git clone — portable (no co-located
+# Neo source acquisition. DEFAULT: a pinned git clone — portable (no co-located
 # local checkout required, so any operator / CI host can build), correct-branch + freshly
 # pulled, reproducible per ref. Dev iteration can opt into the local build context with
 # `--build-arg NEO_SOURCE=local` (the build context must then be the neo repo root). A
