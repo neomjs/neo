@@ -500,6 +500,24 @@ export class ProcessSupervisorService extends Base {
         }
         process.kill(pid, 'SIGKILL');
     }
+
+    /**
+     * Recycles a supervised task: SIGKILLs its tracked process (no-op under UNIT_TEST_MODE)
+     * and marks it recycled so the poll loop respawns a fresh one. Used by the chroma
+     * max-runtime recycle (#12138). Safe when no pid is currently tracked (e.g. already exited).
+     * @param {String} taskName
+     * @param {String} reason
+     * @returns {void}
+     */
+    killTask(taskName, reason) {
+        const pid = this.taskStateService.getTaskState(taskName)?.pid;
+        if (pid) {
+            this.killProcess(pid);
+        }
+        this.taskStateService.markRecycled(taskName);
+        this.recordTaskOutcome(taskName, 'recycled', {reason, pid: pid ?? null, recycledAt: new Date().toISOString()});
+        this.writeLog?.('INFO', `[ProcessSupervisor] Recycled ${this.taskDefinitions[taskName]?.label || taskName} (PID: ${pid ?? 'none'}); reason: ${reason}.`);
+    }
 }
 
 export default Neo.setupClass(ProcessSupervisorService);
