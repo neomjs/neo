@@ -209,11 +209,12 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         expect(localModel.environment).toEqual(expect.arrayContaining([
             'OLLAMA_HOST=0.0.0.0:11434',
             'OLLAMA_MODELS=/root/.ollama',
-            'OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:-5m}'
+            'OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:--1}',
+            'OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-262144}'
         ]));
         expect(localModel.healthcheck.test).toEqual(['CMD', 'ollama', 'list']);
         expect(localModel.deploy.resources.limits).toEqual({
-            memory: '${NEO_LOCAL_MODEL_MEMORY_LIMIT:-8g}',
+            memory: '${NEO_LOCAL_MODEL_MEMORY_LIMIT:-32g}',
             cpus  : '${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}'
         });
         expect(compose.volumes).toHaveProperty('local-model-data');

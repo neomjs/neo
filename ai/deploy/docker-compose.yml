@@ -243,7 +243,8 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
       - OLLAMA_MODELS=/root/.ollama
-      - OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:-5m}
+      - OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:--1}
+      - OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-262144}
     volumes:
       - local-model-data:/root/.ollama
     networks:
@@ -261,7 +262,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-8g}"
+          memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-32g}"
           cpus: "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
 
 # kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
