@@ -97,6 +97,36 @@ The YAML is bootstrap-only — the graph node is canonical once written. A malfo
 
 The default-resolved tier means a single-repo deployment needs no tenant config at all: `getTenantConfig` falls through to tier 3 (`aiConfig`), which carries Neo's defaults. Divergence is opt-in and granular — a tenant overrides only the keys its topology requires. See [Migration Path](./MigrationPath.md) for the full zero-config upgrade story.
 
+## Model-provider runtime + orchestrator-readiness
+
+Beyond KB ingestion, a cloud deployment tunes the model-provider request behaviour and the orchestrator's provider-readiness probe through five env vars. All carry resident-friendly defaults — a zero-config deployment keeps local models warm across REM/Sandman cycles and probes patiently on cold start.
+
+### Provider request `keep_alive`
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NEO_OLLAMA_KEEP_ALIVE` | `-1` (resident) | Per-request `keep_alive` value Neo sends on every Ollama generation/stream call. `-1` keeps the model resident across cycles; a duration string (e.g. `5m`) or `0` (unload after request) overrides it. |
+| `NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` | `-1` (resident) | Per-request `keep_alive` field for OpenAI-compatible servers that honour the Ollama extension (e.g. LM Studio, Ollama's `/v1/...` surface). Same `-1` / duration / `0` semantics. |
+
+**Native server var vs Neo per-request override.** A self-hosted Ollama server also reads a *native* `OLLAMA_KEEP_ALIVE` env var that controls the server's default cache retention for requests arriving *without* a per-request `keep_alive`. These are distinct surfaces, and the interaction matters:
+
+- Native `OLLAMA_KEEP_ALIVE` is the server default for requests that omit `keep_alive`.
+- Neo's `NEO_OLLAMA_KEEP_ALIVE` (default `-1`) is sent on *every* Neo-issued request and **overrides** the server default for that request.
+- So with Neo's `-1` default, the model stays resident regardless of the native `OLLAMA_KEEP_ALIVE` value.
+- An operator who shortens native `OLLAMA_KEEP_ALIVE` to reclaim host memory must **also** set `NEO_OLLAMA_KEEP_ALIVE` to a matching shorter window — otherwise Neo's per-request `-1` keeps the model pinned and the native shortening has no effect on Neo traffic.
+
+### Orchestrator provider-readiness probe
+
+Before the orchestrator runs a model-dependent task (e.g. the REM/Sandman dream cycle), it probes the configured provider until the provider answers or the retry budget is exhausted. Tuning is useful on cold-start-slow or capacity-constrained hosts.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS` | `30` | Maximum readiness-probe attempts before the orchestrator gives up on the provider for that cycle. |
+| `NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS` | `1000` | Wait between probe attempts (ms). |
+| `NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS` | `3000` | Per-probe HTTP timeout (ms). |
+
+These three are orchestrator-config-scoped (`ai/config.template.mjs` `orchestrator.providerReadiness`) and are not read by the MCP server processes, so — unlike the two `keep_alive` vars above — they do not appear in the MCP-server-scoped [Config Substrate Env-Var Audit](../ConfigSubstrateEnvVarAudit.md).
+
 ## Related
 
 - [Overview](./Overview.md) — the contract split + default-source inheritance.
