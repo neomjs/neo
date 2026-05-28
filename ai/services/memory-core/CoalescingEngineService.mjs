@@ -4,7 +4,7 @@ import WebhookDeliveryService  from './WebhookDeliveryService.mjs';
 import logger                  from '../../mcp/server/memory-core/logger.mjs';
 
 /**
- * @summary Token-economy throttle / coalescing engine for the Phase 3 cross-harness
+ * @summary Token-economy throttle / coalescing engine for the cross-harness
  * autonomous wake substrate (ADR 0002 §6.4).
  *
  * Wake events MUST NOT be 1:1 with the underlying event stream at high velocity. This
@@ -18,7 +18,7 @@ import logger                  from '../../mcp/server/memory-core/logger.mjs';
  * subscription's trigger+filter spec. The engine maintains a per-subscription timer; at
  * timer fire, it builds a structured digest payload and dispatches to the channel
  * appropriate for `subscription.harnessTarget`:
- * - `mcp-notifications` → Shape A's MCP notification emit-point (wired by #10358)
+ * - `mcp-notifications` → raw MCP notification emit-point for direct MCP clients
  * - `a2a-webhook` → `WebhookDeliveryService.deliver` (Shape B, already wired)
  * - `bridge-daemon` → no-op (Shape C handles its own coalescing in-process per ADR §6.3)
  * - `disabled` / `none` → no-op (subscription opted out of push)
@@ -31,7 +31,6 @@ import logger                  from '../../mcp/server/memory-core/logger.mjs';
  * @extends Neo.core.Base
  * @singleton
  * @see learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md §6.4
- * @see #10357 (parent Epic) #10362 (this sub) #10358 (Shape A consumer)
  */
 class CoalescingEngineService extends Base {
     static config = {
@@ -128,9 +127,7 @@ class CoalescingEngineService extends Base {
         const target = subscription.harnessTarget;
 
         if (target === 'mcp-notifications') {
-            // TRACKING: #10400 - Bypass coalescing and emit raw events to mcp-notifications.
-            // External harnesses (like Antigravity IDE) expect raw event payloads directly,
-            // not the 'wake/digest' envelope.
+            // Direct MCP clients expect raw event payloads, not the `wake/digest` envelope.
             this._dispatchRaw(subscription, event).catch(e => {
                 logger.error(`[CoalescingEngine] _dispatchRaw failed: ${e.message}`);
             });
@@ -338,7 +335,7 @@ class CoalescingEngineService extends Base {
 
     /**
      * Dispatches a raw event envelope via the channel matching `subscription.harnessTarget`.
-     * Used exclusively for the `rawDelivery` bypass (Tracking: #10400).
+     * Used exclusively for the `rawDelivery` bypass.
      *
      * @protected
      * @param {Object} subscription
@@ -371,8 +368,7 @@ class CoalescingEngineService extends Base {
 
             for (const server of this.mcpServers) {
                 try {
-                    // TRACKING: #10400 Fix
-                    // The Antigravity IDE harness specifically expects raw events over MCP.
+                    // Direct MCP consumers expect raw events over MCP.
                     // We deliberately bypass the ADR 0002 `wake/digest` wire-contract here.
                     await server.notification({
                         method: 'notifications/message',
