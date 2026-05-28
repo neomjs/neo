@@ -212,6 +212,22 @@ export async function resolveMainCheckout(cwd, {explicitRoot} = {}) {
 }
 
 /**
+ * @summary Resolves the repo root from this CLI module's directory.
+ *
+ * The script lives at `ai/scripts/migrations/bootstrapWorktree.mjs` — three levels below the
+ * repo root (`migrations/` → `scripts/` → `ai/` → root). Extracted + exported so the CLI
+ * `projectRoot` computation is unit-testable: the `isMain` block itself is not exercised by
+ * the spec, which is how the prior 2-level `'..', '..'` miss (→ `<root>/ai`, copying configs
+ * into `<root>/ai/ai/`) escaped coverage.
+ *
+ * @param {string} moduleDir Absolute directory of this module (the CLI `__dirname`).
+ * @returns {string} Absolute repo root.
+ */
+export function resolveCliProjectRoot(moduleDir) {
+    return path.resolve(moduleDir, '..', '..', '..');
+}
+
+/**
  * @summary Copies missing config.mjs files from the main checkout into the target project root.
  * Per-server configs are materialized after copy so their Tier-1 import points at the
  * copied operator overlay (`ai/config.mjs`) instead of `ai/config.template.mjs`.
@@ -898,7 +914,7 @@ const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolv
 if (isMain) {
     const __filename  = fileURLToPath(import.meta.url);
     const __dirname   = path.dirname(__filename);
-    const projectRoot = path.resolve(__dirname, '..', '..'); // ai/scripts/ → ai/ → root
+    const projectRoot = resolveCliProjectRoot(__dirname); // ai/scripts/migrations/ → scripts/ → ai/ → root
 
     const argv     = process.argv.slice(2);
     const args     = new Set(argv);
