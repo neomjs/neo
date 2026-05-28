@@ -14,6 +14,7 @@ import {
     hasCoreSwarmParticipant,
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {readRecentRemRunStates} from './helpers/RemRunStateStore.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -619,7 +620,24 @@ async function resolveRemAxis(label, fn) {
 }
 
 /**
- * @summary Builds the operator-facing 5-axis REM pipeline state projection.
+ * @summary Runs one REM observability block probe with a typed fallback.
+ *
+ * @param {String} label Human-readable block label for warning logs
+ * @param {Function} fn Probe function returning the block value
+ * @param {*} fallback Fallback value when the probe throws
+ * @returns {Promise<*>} Block value or fallback on failure
+ */
+async function resolveRemBlock(label, fn, fallback) {
+    try {
+        return await fn();
+    } catch (e) {
+        logger.warn(`[HealthService] get_rem_pipeline_state block ${label} failed:`, e?.message ?? e);
+        return fallback;
+    }
+}
+
+/**
+ * @summary Builds the operator-facing REM pipeline state projection.
  *
  * This composes the Phase 1a axis helpers from Epic #12065 Sub 2 into a single
  * MCP-safe read envelope without mutating the Dream Pipeline. The helper remains
@@ -628,7 +646,7 @@ async function resolveRemAxis(label, fn) {
  *
  * @param {Object} [options]
  * @param {String} [options.sessionId] Optional session id for per-session entity yield
- * @returns {Promise<Object>} 5-axis REM pipeline state projection
+ * @returns {Promise<Object>} REM pipeline state projection
  * @see ChromaManager#getUndigestedSessionCount
  * @see ChromaManager#getGraphDigestedCount
  * @see Neo.ai.services.memory-core.GraphService#getSessionNodeCount
@@ -656,11 +674,27 @@ export async function buildRemPipelineState({sessionId} = {}) {
         resolveRemAxis('topologyConflicts', () => TopologyInferenceEngine.getTopologyConflictCount())
     ]);
 
+    const recentCycles = await resolveRemBlock('recentCycles', async () => {
+        const entries = await readRecentRemRunStates({
+            dir  : aiConfig.remRunStateDir,
+            limit: aiConfig.remRunRecentLimit
+        });
+
+        return entries.map(entry => ({
+            runId              : entry.runId,
+            wallClockMs        : entry.wallClockMs,
+            cycleOverflowSignal: entry.cycleOverflowSignal,
+            cycleOverflowRatio : entry.cycleOverflowRatio,
+            outcome            : entry.outcome
+        }));
+    }, []);
+
     const state = {
         undigested,
         digested,
         sessionNodes,
-        topologyConflicts
+        topologyConflicts,
+        recentCycles
     };
 
     if (sessionId) {

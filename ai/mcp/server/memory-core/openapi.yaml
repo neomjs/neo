@@ -122,7 +122,7 @@ paths:
       description: >
         Returns the 5-axis REM pipeline observability snapshot: undigested Chroma summaries,
         graph-digested Chroma summaries, SQLite SESSION nodes, topology conflicts, and optional
-        per-session entity count.
+        per-session entity count, plus recent REM cycle state projected from the JSONL run store.
       tags: [Health]
       requestBody:
         required: false
@@ -1481,6 +1481,7 @@ components:
         - digested
         - sessionNodes
         - topologyConflicts
+        - recentCycles
       properties:
         undigested:
           type: integer
@@ -1498,6 +1499,39 @@ components:
           type: integer
           description: Conflict entries currently present in the Sandman handoff file.
           example: 2
+        recentCycles:
+          type: array
+          description: Recent REM cycle summaries read from the gitignored JSONL run-state store.
+          items:
+            type: object
+            required:
+              - runId
+              - wallClockMs
+              - cycleOverflowSignal
+              - cycleOverflowRatio
+              - outcome
+            properties:
+              runId:
+                type: string
+                description: Durable REM cycle id.
+                example: "rem-550e8400-e29b-41d4-a716-446655440000"
+              wallClockMs:
+                type: integer
+                description: Cycle wall-clock duration in milliseconds.
+                example: 42000
+              cycleOverflowSignal:
+                type: boolean
+                description: Whether wall-clock duration exceeded the configured cadence threshold.
+                example: false
+              cycleOverflowRatio:
+                type: number
+                description: Cycle duration divided by configured cadence.
+                example: 0.42
+              outcome:
+                type: string
+                description: Typed cycle outcome.
+                enum: [completed, skipped, failed]
+                example: "completed"
         perSession:
           type: object
           nullable: true

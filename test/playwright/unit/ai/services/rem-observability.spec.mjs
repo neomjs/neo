@@ -21,6 +21,10 @@ import path               from 'path';
 import {fileURLToPath}    from 'url';
 import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
+import {
+    appendRemRunState,
+    createRemRunStateEntry
+} from '../../../../../ai/services/memory-core/helpers/RemRunStateStore.mjs';
 
 /**
  * @summary Cross-service unit coverage for the 5-axis REM observability primitive
@@ -105,7 +109,7 @@ function makeFakeGraphDb(prepareImpl) {
 
 test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)', () => {
     let ChromaManager, GraphService, TopologyInferenceEngine;
-    let originalGetSummaryCollection, originalGraphDb, originalHandoffPath;
+    let originalGetSummaryCollection, originalGraphDb, originalHandoffPath, originalRemRunStateDir, originalRemRunRecentLimit;
     let aiConfig;
 
     test.beforeAll(async () => {
@@ -126,12 +130,19 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
         originalGetSummaryCollection = ChromaManager.getSummaryCollection;
         originalGraphDb              = GraphService.db;
         originalHandoffPath          = aiConfig.data.handoffFilePath;
+        originalRemRunStateDir       = aiConfig.remRunStateDir;
+        originalRemRunRecentLimit    = aiConfig.remRunRecentLimit;
+
+        aiConfig.remRunStateDir      = path.join(tmpRoot, `rem-runs-${crypto.randomUUID()}`);
+        aiConfig.remRunRecentLimit   = 5;
     });
 
     test.afterEach(() => {
         ChromaManager.getSummaryCollection = originalGetSummaryCollection;
         GraphService.db                    = originalGraphDb;
         aiConfig.data.handoffFilePath      = originalHandoffPath;
+        aiConfig.remRunStateDir            = originalRemRunStateDir;
+        aiConfig.remRunRecentLimit         = originalRemRunRecentLimit;
     });
 
     test.describe('ChromaManager.getUndigestedSessionCount', () => {
@@ -409,11 +420,57 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 digested         : 2,
                 sessionNodes     : 2,
                 topologyConflicts: 2,
+                recentCycles     : [],
                 perSession       : {
                     sessionId  : 's1',
                     entityCount: 9
                 }
             });
+        });
+
+        test('projects recent JSONL cycle state through the MCP tool', async () => {
+            ChromaManager.getSummaryCollection = async () => makeFakeSummaryCollection([]);
+            GraphService.db = makeFakeGraphDb((sql) => {
+                if (sql.includes('FROM Nodes')) {
+                    return {get: () => ({c: 0})};
+                }
+
+                return {get: () => ({count: 0})};
+            });
+            aiConfig.remRunRecentLimit = 1;
+
+            await appendRemRunState(createRemRunStateEntry({
+                runId              : 'rem-old',
+                reason             : 'manual',
+                startedAt          : 1000,
+                completedAt        : 1100,
+                configuredCadenceMs: 1000,
+                overflowThreshold  : 0.8,
+                outcome            : 'completed',
+                reasonCode         : 'ok'
+            }), {dir: aiConfig.remRunStateDir});
+
+            await appendRemRunState(createRemRunStateEntry({
+                runId              : 'rem-new',
+                reason             : 'manual',
+                startedAt          : 2000,
+                completedAt        : 2900,
+                configuredCadenceMs: 1000,
+                overflowThreshold  : 0.8,
+                outcome            : 'skipped',
+                reasonCode         : 'no-undigested-sessions'
+            }), {dir: aiConfig.remRunStateDir});
+
+            const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
+            const state = await callTool('get_rem_pipeline_state', {});
+
+            expect(state.recentCycles).toEqual([{
+                runId              : 'rem-new',
+                wallClockMs        : 900,
+                cycleOverflowSignal: true,
+                cycleOverflowRatio : 0.9,
+                outcome            : 'skipped'
+            }]);
         });
     });
 });
