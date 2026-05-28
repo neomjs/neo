@@ -137,7 +137,25 @@ class QueryService extends Base {
             delete queryOptions.where;
         }
 
-        const results = await collection.query(queryOptions);
+        let postFilterWhere = null,
+            results;
+
+        try {
+            results = await collection.query(queryOptions)
+        } catch (error) {
+            // ChromaDB can throw "Error finding id" from its HNSW index on metadata-filtered
+            // queries (see ai/scripts/maintenance/defragChromaDB.mjs). Retry unfiltered and
+            // post-filter below, so a stale index segment cannot take down typed queries;
+            // `npm run ai:defrag-kb` rebuilds the index as the durable remedy.
+            if (queryOptions.where && /finding id/i.test(error?.message)) {
+                postFilterWhere       = queryOptions.where;
+                queryOptions.nResults = aiConfig.nResults * 4;
+                delete queryOptions.where;
+                results = await collection.query(queryOptions)
+            } else {
+                throw error
+            }
+        }
 
         if (!results.metadatas || results.metadatas.length === 0 || results.metadatas[0].length === 0) {
             return {message: 'No results found for your query and type.'};
@@ -149,6 +167,14 @@ class QueryService extends Base {
 
         results.metadatas[0].forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
+
+            // Post-filter for the HNSW fallback above (the query ran without its where filter).
+            if (postFilterWhere) {
+                if (postFilterWhere.type && metadata.type !== postFilterWhere.type) return;
+
+                const tenantIn = postFilterWhere.tenantId?.$in;
+                if (tenantIn && !tenantIn.includes(metadata.tenantId)) return
+            }
 
             let score             = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
             const sourcePath      = metadata.source;
