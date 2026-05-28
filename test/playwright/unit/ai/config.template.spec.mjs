@@ -94,7 +94,7 @@ test.describe('Tier 1 Config Immutability', () => {
             }
         });
         expect(Config.engines.chroma).toEqual({
-            host: process.env.NEO_CHROMA_HOST || 'localhost',
+            host: process.env.NEO_CHROMA_HOST || '127.0.0.1',
             port: Number(process.env.NEO_CHROMA_PORT) || 8000
         });
     });

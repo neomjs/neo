@@ -132,7 +132,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     embeddingModel : 'gemini-embedding-001',
     engines: {
         chroma: {
-            host: process.env.NEO_CHROMA_HOST || 'localhost',
+            host: process.env.NEO_CHROMA_HOST || '127.0.0.1',
             port: Number(process.env.NEO_CHROMA_PORT) || 8000
         }
     },
