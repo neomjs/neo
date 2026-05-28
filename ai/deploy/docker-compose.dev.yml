@@ -20,6 +20,7 @@ services:
       context: ../..
       dockerfile: ai/deploy/Dockerfile
       args:
+        NEO_SOURCE: local  # build the local checkout for dev iteration, not a remote clone
         TARGET_SERVER: knowledge-base
     environment:
       - NEO_TRANSPORT=sse
@@ -45,6 +46,7 @@ services:
       context: ../..
       dockerfile: ai/deploy/Dockerfile
       args:
+        NEO_SOURCE: local  # build the local checkout for dev iteration, not a remote clone
         TARGET_SERVER: memory-core
     environment:
       - NEO_TRANSPORT=sse
