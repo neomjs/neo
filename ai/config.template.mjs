@@ -295,9 +295,10 @@ class Config extends BaseConfig {
                 backupMs         : DAY_MS,
                 primaryDevSyncMs : 10 * 60 * 1000,
                 tenantRepoSyncMs : 30 * 60 * 1000,
-                dreamMs          : HOUR_MS,
-                goldenPathMs     : HOUR_MS,
-                swarmHeartbeatMs : 15 * 60 * 1000
+                dreamMs               : HOUR_MS,
+                dreamOverflowThreshold: 0.8,
+                goldenPathMs          : HOUR_MS,
+                swarmHeartbeatMs      : 15 * 60 * 1000
             },
             /**
              * Swarm-heartbeat target-resolver config. Controls which identity set
@@ -660,9 +661,10 @@ class Config extends BaseConfig {
                 backupMs         : {var: 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS',            parse: Env.parseNumber},
                 primaryDevSyncMs : {var: 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS',  parse: Env.parseNumber},
                 tenantRepoSyncMs : {var: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS',  parse: Env.parseNumber},
-                dreamMs          : {var: 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS',             parse: Env.parseNumber},
-                goldenPathMs     : {var: 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS',       parse: Env.parseNumber},
-                swarmHeartbeatMs : {var: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS',   parse: Env.parseNumber}
+                dreamMs               : {var: 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS',             parse: Env.parseNumber},
+                dreamOverflowThreshold: {var: 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', parse: Env.parseNumber},
+                goldenPathMs          : {var: 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS',       parse: Env.parseNumber},
+                swarmHeartbeatMs      : {var: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS',   parse: Env.parseNumber}
             },
             tenantRepoSync: {
                 sweepCadenceMs: {var: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', parse: Env.parseNumber},

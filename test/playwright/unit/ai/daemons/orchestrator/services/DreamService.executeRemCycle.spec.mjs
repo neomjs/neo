@@ -2,6 +2,12 @@ import {test, expect} from '@playwright/test';
 import Neo from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 import DreamService from '../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs';
+import AiConfig from '../../../../../../../ai/config.mjs';
+import {Memory_Config as MemoryConfig} from '../../../../../../../ai/services.mjs';
+import logger from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
+import {mkdtemp, readdir, readFile, rm} from 'fs/promises';
+import os from 'os';
+import path from 'path';
 
 /**
  * @summary Focused coverage for the typed-outcome contract of `DreamService.executeRemCycle()`.
@@ -28,9 +34,23 @@ const ORIGINAL_KEYS = [
 ];
 
 let originals;
+let configOriginals;
+let tmpDir;
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
     originals = Object.fromEntries(ORIGINAL_KEYS.map(key => [key, DreamService[key]]));
+    configOriginals = {
+        dreamMs               : AiConfig.orchestrator.intervals.dreamMs,
+        dreamOverflowThreshold: AiConfig.orchestrator.intervals.dreamOverflowThreshold,
+        remRunStateDir        : MemoryConfig.remRunStateDir,
+        remRunRecentLimit     : MemoryConfig.remRunRecentLimit
+    };
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'neo-dream-cycle-state-'));
+
+    AiConfig.orchestrator.intervals.dreamMs                = 1000;
+    AiConfig.orchestrator.intervals.dreamOverflowThreshold = 0.8;
+    MemoryConfig.remRunStateDir                            = tmpDir;
+    MemoryConfig.remRunRecentLimit                         = 3;
 
     DreamService.isProcessing              = false;
     DreamService.findUndigestedSessions    = async () => [];
@@ -38,10 +58,17 @@ test.beforeEach(() => {
     DreamService.checkProviderReadiness    = async () => ({ready: true});
 });
 
-test.afterEach(() => {
+test.afterEach(async () => {
     for (const key of ORIGINAL_KEYS) {
         DreamService[key] = originals[key];
     }
+
+    AiConfig.orchestrator.intervals.dreamMs                = configOriginals.dreamMs;
+    AiConfig.orchestrator.intervals.dreamOverflowThreshold = configOriginals.dreamOverflowThreshold;
+    MemoryConfig.remRunStateDir                            = configOriginals.remRunStateDir;
+    MemoryConfig.remRunRecentLimit                         = configOriginals.remRunRecentLimit;
+
+    await rm(tmpDir, {recursive: true, force: true});
 });
 
 test.describe('DreamService.executeRemCycle typed outcome contract', () => {
@@ -182,5 +209,64 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
 
         expect(outcome.reason).toBe('periodic-dream:3600000');
         expect(outcome.mode).toBe('periodic');
+    });
+
+    test('writes durable REM run-state JSONL with phase telemetry', async () => {
+        const outcome = await DreamService.executeRemCycle({
+            reason: 'state-write-test',
+            dryRun: true
+        });
+
+        const files = await readdir(tmpDir);
+        expect(files).toHaveLength(1);
+        expect(files[0]).toMatch(/^rem-.*\.jsonl$/);
+
+        const lines = (await readFile(path.join(tmpDir, files[0]), 'utf8')).trim().split('\n');
+        const entry = JSON.parse(lines[0]);
+
+        expect(outcome.stateWriteError).toBeUndefined();
+        expect(entry.runId).toBe(outcome.runId);
+        expect(entry.reason).toBe('state-write-test');
+        expect(entry.outcome).toBe('skipped');
+        expect(entry.reasonCode).toBe('dry-run');
+        expect(entry.configuredCadenceMs).toBe(1000);
+        expect(entry.cycleOverflowSignal).toBe(false);
+        expect(entry.cycleScopePhases).toEqual(['providerReady', 'dryRun']);
+        expect(entry.perPhaseStates.map(phase => phase.phase)).toEqual(['providerReady', 'dryRun']);
+        expect(entry.perSessionStates).toEqual([]);
+    });
+
+    test('logs a warning when cycle wall-clock exceeds the cadence threshold', async () => {
+        const originalNow  = Date.now;
+        const originalWarn = logger.warn;
+        const warnings     = [];
+        const ticks        = [1000, 1000, 1100, 1700, 1800, 2100];
+
+        Date.now = () => ticks.length > 0 ? ticks.shift() : 2100;
+        logger.warn = (...args) => warnings.push(args.join(' '));
+
+        try {
+            await DreamService.executeRemCycle({
+                reason: 'overflow-warning-test',
+                dryRun: true
+            });
+        } finally {
+            Date.now    = originalNow;
+            logger.warn = originalWarn;
+        }
+
+        expect(warnings.some(message => message.includes('back-to-back overlap risk'))).toBe(true);
+    });
+
+    test('surfaces stale config overlay errors without hiding the typed outcome', async () => {
+        AiConfig.orchestrator.intervals.dreamOverflowThreshold = undefined;
+
+        const outcome = await DreamService.executeRemCycle({
+            reason: 'stale-config-test',
+            dryRun: true
+        });
+
+        expect(outcome.status).toBe('skipped');
+        expect(outcome.stateWriteError).toContain('overflowThreshold must be a positive number');
     });
 });

@@ -12,6 +12,13 @@ Phase 1a helpers; it does not write graph nodes or mutate Sandman state.
     digested         : Number, // Chroma summaries with graphDigested true
     sessionNodes     : Number, // SQLite SESSION nodes
     topologyConflicts: Number, // handoff conflict entries
+    recentCycles     : [{
+        runId              : String,
+        wallClockMs        : Number,
+        cycleOverflowSignal: Boolean,
+        cycleOverflowRatio : Number,
+        outcome            : String
+    }],
     perSession       : {
         sessionId  : String,
         entityCount: Number // inbound graph entity/provenance edges
@@ -65,16 +72,47 @@ the Sandman handoff.
 
 Use `topologyConflicts` as the handoff-conflict count only. A zero value does not
 prove topology extraction succeeded; it can also mean the provider/error path
-returned no durable conflict entries. Phase 2 will add per-cycle stage outcomes to
-disambiguate no-conflict from extraction-failed.
+returned no durable conflict entries. Use `recentCycles` for the cycle-level
+outcome and overflow signal before treating zero conflicts as a clean run.
 
 Use `perSession.entityCount` to inspect extraction yield for a single session. A
 digested session with zero inbound entity/provenance edges is suspicious when the
 payload clearly contained entities.
 
-## Phase 2 Pointer
+## Durable Cycle State
 
-Phase 2 extends this scaffold with append-only JSONL cycle state, per-phase
-wall-clock timings, and cadence-overflow detection. That state belongs off-graph
-so a broken REM run does not mutate the active control plane while diagnosing
-itself.
+`DreamService.executeRemCycle()` writes one append-only JSONL artifact per run
+under the gitignored `NEO_REM_RUN_STATE_DIR` directory
+(`.neo-ai-data/rem-runs` by default). The file name is the sanitized `runId`, and
+each line is a complete cycle snapshot:
+
+```js
+{
+    runId,
+    reason,
+    startedAt,
+    completedAt,
+    wallClockMs,
+    configuredCadenceMs,
+    cycleOverflowSignal,
+    cycleOverflowRatio,
+    outcome,
+    reasonCode,
+    failurePhase,
+    failureReason,
+    lastSuccessfulPhase,
+    cycleScopePhases,
+    perPhaseStates,
+    perSessionStates
+}
+```
+
+The JSONL store is deliberately off-graph. A broken REM run can diagnose itself
+without mutating the Native Edge Graph control plane. `get_rem_pipeline_state`
+projects only the recent cycle summary fields so operator dashboards stay small;
+inspect the JSONL artifact directly when phase-level or per-session failure
+reasons are needed.
+
+Set `NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD` to tune the overflow warning
+ratio against the configured dream cadence. The default is `0.8`, meaning a
+cycle that consumes more than 80% of its cadence is flagged as an overlap risk.

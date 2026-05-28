@@ -269,6 +269,16 @@ class Config extends BaseConfig {
             }
         },
         /**
+         * Directory for per-cycle REM run/stage JSONL state artifacts.
+         * @type {string}
+         */
+        remRunStateDir: path.resolve(cwd, '.neo-ai-data/rem-runs'),
+        /**
+         * Number of recent REM cycles projected by `get_rem_pipeline_state`.
+         * @type {number}
+         */
+        remRunRecentLimit: 5,
+        /**
          * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
          * @type {string}
          */
@@ -470,8 +480,10 @@ class Config extends BaseConfig {
             requireParallelModels: { var: 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', parse: Env.parseNumber}
         },
         vectorDimension: { var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
-        backupPath     : 'NEO_BACKUP_PATH',
-        engines        : {
+        backupPath       : 'NEO_BACKUP_PATH',
+        remRunStateDir   : 'NEO_REM_RUN_STATE_DIR',
+        remRunRecentLimit: {var: 'NEO_REM_RUN_RECENT_LIMIT', parse: Env.parseNumber},
+        engines          : {
             chroma: {
                 host: 'NEO_CHROMA_HOST',
                 port: { var: 'NEO_CHROMA_PORT', parse: Env.parsePort}
