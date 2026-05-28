@@ -99,7 +99,10 @@ test.describe('Memory Core Config (#10010)', () => {
             host: TIER1_DEFAULTS.engines.chroma.host,
             port: TIER1_DEFAULTS.engines.chroma.port
         });
-        expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/memory-core');
+        // #12142: MC reads the unified persist-dir SSOT (`AiConfig.engines.chroma.dataDir`),
+        // not a server-local dir. Was the stale `.neo-ai-data/chroma/memory-core` — the bug.
+        expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDir);
+        expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/knowledge-base');
     });
 
     test('inherits concrete graphProvider defaults from Tier-1 config', () => {

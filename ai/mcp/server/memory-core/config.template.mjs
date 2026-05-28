@@ -239,7 +239,10 @@ class Config extends BaseConfig {
          */
         engines: {
             chroma: {
-                dataDir: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
+                // #12142: read the unified persist dir from the SSOT. Was the stale
+                // '.neo-ai-data/chroma/memory-core' — MC is a CLIENT of the one unified store
+                // (ADR 0003), so its physical dir must be the shared dir, not a server-local one.
+                dataDir: AiConfig.engines.chroma.dataDir,
                 host   : AiConfig.engines.chroma.host,
                 port   : AiConfig.engines.chroma.port
             }

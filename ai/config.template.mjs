@@ -233,14 +233,19 @@ class Config extends BaseConfig {
         /**
          * @summary Deployment-wide storage engine coordinates.
          *
-         * `engines.chroma` is the unified Chroma topology from ADR 0003. Collection
-         * names and local persistence directories remain server-local.
+         * `engines.chroma` is the unified Chroma topology from ADR 0003: ONE daemon, ONE persist
+         * dir, shared by Knowledge Base + Memory Core. `dataDir` is the single source of truth for
+         * that persist dir — the orchestrator launches the daemon against it, and both server
+         * configs + the `defragChromaDB` maintenance script read it. Collection NAMES remain
+         * server-local; the persist DIR does not (it is unified — #12142). Env override:
+         * `NEO_CHROMA_DATA_DIR`.
          * @type {Object}
          */
         engines: {
             chroma: {
-                host: 'localhost',
-                port: 8000
+                dataDir: path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base'),
+                host   : 'localhost',
+                port   : 8000
             }
         },
         /**
@@ -654,8 +659,9 @@ class Config extends BaseConfig {
         wakeDaemonHeartbeatAlivePath: 'NEO_HEARTBEAT_ALIVE_PATH',
         engines        : {
             chroma: {
-                host: 'NEO_CHROMA_HOST',
-                port: {var: 'NEO_CHROMA_PORT', parse: Env.parsePort}
+                dataDir: 'NEO_CHROMA_DATA_DIR',
+                host   : 'NEO_CHROMA_HOST',
+                port   : {var: 'NEO_CHROMA_PORT', parse: Env.parsePort}
             }
         },
         orchestrator: {
