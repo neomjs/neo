@@ -572,10 +572,10 @@ The substrate that powers pull mode shipped via Epic [#11731](https://github.com
 
 **Skip this milestone if push covers your tenant content.** Pull is additive, not a prerequisite for the Day-0 operator handoff.
 
-If pull mode applies to your deployment, configure one tenant repo as a smoke:
+If pull mode applies to your deployment, configure one tenant repo as a smoke. The pull-mode polling config resolves through the same three tiers as the rest of tenant config: the `kb-config:<tenantId>` graph node → the `kb-config.yaml` bootstrap (`tenants.<id>.tenantRepos`) → the local `config.mjs` `aiConfig.tenantRepos[]` default. `kb-config.yaml` is the canonical bootstrap tier; the `config.mjs` overlay below remains the Tier-3 default fallback.
 
 ```js
-// In <NEO_SOURCE_DIR>/ai/mcp/server/knowledge-base/config.mjs (operator overlay):
+// In <NEO_SOURCE_DIR>/ai/mcp/server/knowledge-base/config.mjs (operator overlay — Tier-3 default):
 tenantRepos: [
     {
         tenantId      : 'client-org',

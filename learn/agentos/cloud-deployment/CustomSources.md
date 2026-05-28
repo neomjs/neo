@@ -101,7 +101,7 @@ A Source class is registered in the `SourceRegistry` singleton under a stable na
 
 ## Built-in Raw Repo Fallback
 
-Use `rawRepoSource: true` when a tenant needs day-0 ingestion before its repository shape is known well enough to justify a custom Source. This registers `RawRepoSource`, which walks `aiConfig.sourcePaths.RawRepoSource.root` and emits one raw-text parsed chunk per included file. It is not part of Neo's 10 curated default Sources, so zero-config Neo syncs never walk the full repository implicitly.
+Use `rawRepoSource: true` when a tenant needs day-0 ingestion before its repository shape is known well enough to justify a custom Source. This registers `RawRepoSource`, which walks `aiConfig.sourcePaths.RawRepoSource.root` and emits one raw-text parsed chunk per included file. It is not part of Neo's 10 curated default Sources, so zero-config Neo syncs never walk the full repository implicitly. This is the full-corpus Source-build path (`kbSync` lane / `npm run ai:sync-kb`) — **not** pull mode: server-side pull-mode ingestion takes the whole git tree from the deployment mirror regardless of `sourcePaths`.
 
 ```js
 rawRepoSource: true,

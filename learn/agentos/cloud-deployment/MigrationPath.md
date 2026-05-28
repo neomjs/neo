@@ -40,7 +40,7 @@ The new config keys (`useDefaultSources`, `rawRepoSource`, `useDefaultParsers`, 
 
 ## Tenant-config persistence
 
-How a multi-tenant deployment *stores* its per-tenant configuration — the `KnowledgeBaseTenantConfig` graph-node shape, the `kb-config.yaml` bootstrap-vs-canonical semantics, config-version metadata — is defined by #11637 and documented in **[Configuration](./Configuration.md)**. A deployment's tenant config resolves through three tiers: the `kb-config:<tenantId>` graph node → the `kb-config.yaml` bootstrap → the local `config.mjs` defaults.
+How a multi-tenant deployment *stores* its per-tenant configuration — the `KnowledgeBaseTenantConfig` graph-node shape, the `kb-config.yaml` bootstrap-vs-canonical semantics, config-version metadata — is defined by #11637 and documented in **[Configuration](./Configuration.md)**. A deployment's tenant config resolves through three tiers: the `kb-config:<tenantId>` graph node → the `kb-config.yaml` bootstrap → the local `config.mjs` defaults. This tiering now also covers `tenantRepos` (the pull-mode polling config), resolved via `listConfiguredTenantRepos`.
 
 ## Breaking-change inventory
 
