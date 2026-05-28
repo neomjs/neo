@@ -127,7 +127,7 @@ class Config extends BaseConfig {
         port: AiConfig.engines.chroma.port,
         /**
          * The unified Chroma persist directory, read from the single source of truth
-         * `AiConfig.engines.chroma.dataDir` (#12142). MUST equal the orchestrator daemon's
+         * `AiConfig.engines.chroma.dataDir`. MUST equal the orchestrator daemon's
          * `--path` (kept literal there for daemon-launch resilience against a stale config.mjs).
          * @type {string}
          */

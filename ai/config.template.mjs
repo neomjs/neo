@@ -237,7 +237,7 @@ class Config extends BaseConfig {
          * dir, shared by Knowledge Base + Memory Core. `dataDir` is the single source of truth for
          * that persist dir — the orchestrator launches the daemon against it, and both server
          * configs + the `defragChromaDB` maintenance script read it. Collection NAMES remain
-         * server-local; the persist DIR does not (it is unified — #12142). Env override:
+         * server-local; the persist DIR does not (it is unified). Env override:
          * `NEO_CHROMA_DATA_DIR`.
          * @type {Object}
          */
