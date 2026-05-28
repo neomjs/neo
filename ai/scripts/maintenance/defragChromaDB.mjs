@@ -40,8 +40,10 @@ import AiConfig        from '../../config.mjs';
  *     marking the underlying index files as obsolete.
  * 4.  **Load (Restoration)**: The collections are recreated, and the buffered data is re-inserted in batches.
  *     This forces ChromaDB to rebuild the HNSW indices from scratch, resulting in a compact, defragmented state.
- * 5.  **Cleanup (Physical)**: The filesystem is scanned for orphaned UUID directories (leftover from previous
- *     fragmented states) that do not match the active collection IDs. These orphans are physically deleted.
+ * 5.  **Cleanup (Physical)**: The filesystem is scanned for orphaned segment directories — UUID dirs absent
+ *     from the live segment registry (`chroma.sqlite3` `segments` table) — which are physically deleted. The
+ *     keep-set is the *segment* registry (on-disk dirs are segment-named), spanning the whole shared store,
+ *     never a single target's collection ids.
  *
  * Usage:
  * `node buildScripts/defragChromaDB.mjs --target knowledge-base`
@@ -232,6 +234,71 @@ function vacuumSqlite(dbDir) {
 }
 
 /**
+ * Resolves the set of live Chroma segment ids registered in a persist dir's
+ * `chroma.sqlite3`. On-disk UUID directories are named by *segment* id (VECTOR /
+ * METADATA), which is a disjoint UUID space from *collection* id — so the segment
+ * registry, not recreated collection ids, is the authoritative keep-set for physical
+ * orphan cleanup. In the unified topology a single persist dir is shared across all
+ * subsystems, so the keep-set must span the whole instance, never one target.
+ *
+ * @param {Object} options
+ * @param {String} options.dbPath Persist dir containing `chroma.sqlite3`.
+ * @param {Function} [options.execFn=execSync] `child_process.execSync` seam (testing).
+ * @returns {Set<String>} Live segment ids; empty when no sqlite is present.
+ */
+export function resolveLiveSegmentIds({dbPath, execFn = execSync} = {}) {
+    const sqlitePath = path.join(dbPath, 'chroma.sqlite3');
+
+    if (!fs.existsSync(sqlitePath)) {
+        return new Set();
+    }
+
+    const raw = execFn(`sqlite3 "${sqlitePath}" "SELECT id FROM segments;"`, {
+        encoding : 'utf8',
+        maxBuffer: 64 * 1024 * 1024
+    });
+
+    return new Set(raw.split('\n').map(line => line.trim()).filter(Boolean));
+}
+
+/**
+ * Removes orphaned segment directories: on-disk UUID dirs whose name is not a live
+ * segment id. Preserves every live segment dir (across all collections) and any
+ * non-UUID entry. This is the unified-store-safe keep-set; the prior collection-id
+ * keep-set matched zero segment dirs and deleted live HNSW indices on next restart.
+ *
+ * @param {Object} options
+ * @param {String} options.dbPath Persist dir to scan.
+ * @param {Set<String>} options.liveSegmentIds Authoritative keep-set of live segment ids.
+ * @param {Object} [options.fsModule=fs] `fs-extra` seam (testing).
+ * @param {Function} [options.log=console.log] Log seam (testing).
+ * @returns {Promise<{kept: String[], removed: String[]}>}
+ */
+export async function cleanOrphanedSegmentDirs({dbPath, liveSegmentIds, fsModule = fs, log = console.log}) {
+    const kept    = [];
+    const removed = [];
+    const entries = await fsModule.readdir(dbPath, {withFileTypes: true});
+
+    for (const entry of entries) {
+        // UUIDv4 heuristic (36 chars, contains hyphen) guards non-segment system entries.
+        if (!entry.isDirectory() || entry.name.length !== 36 || !entry.name.includes('-')) {
+            continue;
+        }
+
+        if (liveSegmentIds.has(entry.name)) {
+            kept.push(entry.name);
+            log(`   ✨ Keeping live segment: ${entry.name}`);
+        } else {
+            removed.push(entry.name);
+            log(`   🗑️  Deleting orphan: ${entry.name}`);
+            await fsModule.remove(path.join(dbPath, entry.name));
+        }
+    }
+
+    return {kept, removed};
+}
+
+/**
  * Main execution function for the defragmentation process.
  *
  * It orchestrates the Backup -> Extract -> Nuke -> Load -> Cleanup pipeline.
@@ -413,8 +480,7 @@ async function defragChromaDB() {
         // 5. Load (Restore)
         // Re-creating the collection triggers a clean build of the HNSW index.
         console.log(`\n5️⃣  Restoring Data...`);
-        const newCollectionIds = [];
-        let hasRestoreErrors   = false;
+        let hasRestoreErrors = false;
 
         for (const colName of config.collections) {
             try {
@@ -431,7 +497,6 @@ async function defragChromaDB() {
                     metadata         : {"hnsw:space": "cosine"}
                 });
 
-                newCollectionIds.push(newCollection.id);
                 console.log(`     New ID: ${newCollection.id}`);
 
                 const total     = data.ids.length;
@@ -464,26 +529,16 @@ async function defragChromaDB() {
         }
 
         // 6. Cleanup (Physical)
-        // Scan the directory for UUID folders that are NOT in our list of active collection IDs.
-        console.log(`\n6️⃣  Cleaning up orphaned index folders...`);
-        console.log(`   Active IDs: ${newCollectionIds.join(', ')}`);
+        // Keep-set is the authoritative live-SEGMENT-id registry, not the recreated
+        // collection ids: on-disk UUID dirs are segment-named (disjoint from collection
+        // ids), and the unified store shares one persist dir across subsystems, so a
+        // collection-id / single-target keep-set deletes live data.
+        console.log(`\n6️⃣  Cleaning up orphaned segment directories...`);
+        const liveSegmentIds = resolveLiveSegmentIds({dbPath: DB_PATH});
+        console.log(`   Live segments: ${liveSegmentIds.size}`);
 
-        const entries = await fs.readdir(DB_PATH, {withFileTypes: true});
-        for (const entry of entries) {
-            if (entry.isDirectory()) {
-                // Heuristic: UUIDv4 Check (36 chars, contains hyphen)
-                // This prevents accidental deletion of system folders (e.g., 'chroma.sqlite3' directory if it existed)
-                if (entry.name.length === 36 && entry.name.includes('-')) {
-                    if (!newCollectionIds.includes(entry.name)) {
-                        const orphanPath = path.join(DB_PATH, entry.name);
-                        console.log(`   🗑️  Deleting orphan: ${entry.name}`);
-                        await fs.remove(orphanPath);
-                    } else {
-                        console.log(`   ✨ Keeping active: ${entry.name}`);
-                    }
-                }
-            }
-        }
+        const {kept, removed} = await cleanOrphanedSegmentDirs({dbPath: DB_PATH, liveSegmentIds});
+        console.log(`   Kept ${kept.length} live segment dirs; removed ${removed.length} orphans.`);
 
         // 7. Vacuum (SQLite)
         console.log(`\n7️⃣  Vacuuming SQLite Database...`);
