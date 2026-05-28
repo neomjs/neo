@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * @summary One-shot migration script that normalizes graph identity state by merging
- * pre-#10144 alias `AgentIdentity` nodes into their canonical counterparts and
+ * legacy alias `AgentIdentity` nodes into their canonical counterparts and
  * purging test-fixture nodes that leaked into the production SQLite graph.
  *
- * Context: #10259. The `#10144` convention established `@neo-opus-4-7`,
- * `@neo-gemini-3-1-pro`, `@tobiu` as canonical `AgentIdentity` nodes with full
- * metadata (`githubLogin`, `modelFamily`, `accountType`). Pre-#10144 seeding left
- * behind `@opus` and `@gemini` as orphan alias nodes with null metadata. Additionally,
- * test-fixture nodes `AGENT:alice` and `AGENT:bob` from unit-test pollution (pre-#10229
- * isolation fix) persist in the live SQLite. This script consolidates them.
+ * Canonical swarm identities use `@neo-opus-4-7`, `@neo-gemini-3-1-pro`,
+ * and `@tobiu` nodes with full metadata (`githubLogin`, `modelFamily`,
+ * `accountType`). Earlier seeding left behind `@opus` and `@gemini` as
+ * orphan alias nodes with null metadata. Additionally, historical unit-test
+ * fixture nodes such as `AGENT:alice` and `AGENT:bob` can persist in the live
+ * SQLite graph. This script consolidates them.
  *
  * **Usage**:
  *   node ai/scripts/migrations/normalizeGraphIdentities.mjs             # dry-run (default)
@@ -61,10 +61,10 @@ const ALIAS_MAP = {
 };
 
 /**
- * Test-fixture nodes that leaked into production SQLite from unit test runs prior to
- * #10229's isolation refactor. These represent no real agent and should not exist in
- * the live graph. Purging them cascades to any remaining orphan edges via the
- * SQLite FK constraint (`ON DELETE CASCADE`).
+ * Test-fixture nodes that leaked into production SQLite from unit test runs
+ * before the isolation boundary was hardened. These represent no real agent
+ * and should not exist in the live graph. Purging them cascades to any
+ * remaining orphan edges via the SQLite FK constraint (`ON DELETE CASCADE`).
  */
 const PURGE_NODES = ['AGENT:alice', 'AGENT:bob', 'AGENT:charlie'];
 

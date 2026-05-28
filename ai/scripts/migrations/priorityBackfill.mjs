@@ -1,12 +1,12 @@
 /**
  * @summary Eager batch back-fill for high-activity sessions into the Native Edge Graph.
  *
- * Ticket #10153 — complement to the lazy back-fill path shipped in the same PR. Where the
- * lazy path is reactive (back-fill-on-demand when `linkNodesAsync` encounters a missing
- * endpoint), this CLI is proactive: pre-warms the graph with sessions and memories from a
- * configurable recent window (default: last 30 days). Opt-in — run before mass cross-tenant
- * operations (e.g. post-#10146 permission grant rollouts, or demonstrations of #10139 mailbox
- * traffic across historical sessions) to avoid latency spikes from lazy back-fills during the
+ * Complements the lazy back-fill path. Where the lazy path is reactive
+ * (back-fill-on-demand when `linkNodesAsync` encounters a missing endpoint),
+ * this CLI is proactive: pre-warms the graph with sessions and memories from a
+ * configurable recent window (default: last 30 days). Opt-in — run before mass
+ * cross-tenant permission rollouts or mailbox traffic demonstrations across
+ * historical sessions to avoid latency spikes from lazy back-fills during the
  * workload.
  *
  * **Usage:**
@@ -23,8 +23,8 @@
  *    the Chroma summary collection; for each, invokes `MemorySessionIngestor.syncSessionToGraph`
  *    which upserts the SESSION node plus all MEMORY children + `ORIGINATES_IN` edges.
  * 2. **Drain phase** (skippable): runs `LazyEdgeDrainer.drainQueue` to retry any queued
- *    provenance edges (`MENTIONED_IN`/`DISCUSSED_IN`/`REFERENCED_BY` from Gemini's #10165 producer)
- *    whose endpoints may now exist in the graph after phase 1.
+ *    provenance edges (`MENTIONED_IN`/`DISCUSSED_IN`/`REFERENCED_BY`) whose
+ *    endpoints may now exist in the graph after the ingest phase.
  */
 import 'dotenv/config';
 import {
