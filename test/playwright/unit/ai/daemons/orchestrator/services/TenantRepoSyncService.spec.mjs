@@ -1210,16 +1210,16 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
      */
 
     test('absent per-repo mirrorRoot inherits Tier-1 default; explicit per-repo override wins', async () => {
-        const aiConfigStub = {
-            tenantRepos: [
+        const ingestionStub = {
+            listConfiguredTenantRepos: async () => ({tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/inherits', cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:T'},
                 {tenantId: 't1', repoSlug: 'org/overrides', cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:T', mirrorRoot: '/custom/root'}
-            ]
+            ]})
         };
 
         const result = await TenantRepoSyncService.resolveTenantReposConfig({
-            aiConfig       : aiConfigStub,
-            tier1MirrorRoot: '/app/.neo-ai-data'
+            ingestionService: ingestionStub,
+            tier1MirrorRoot : '/app/.neo-ai-data'
         });
 
         const inherits  = result.tenantRepos.find(r => r.repoSlug === 'org/inherits');
@@ -1230,15 +1230,15 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
     });
 
     test('Tier-1 default + deriveTenantRepoMirrorPath produces canonical no-double-segment path', async () => {
-        const aiConfigStub = {
-            tenantRepos: [
+        const ingestionStub = {
+            listConfiguredTenantRepos: async () => ({tenantRepos: [
                 {tenantId: 'tenant-a', repoSlug: 'repo-a', cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:T'}
-            ]
+            ]})
         };
 
         const result      = await TenantRepoSyncService.resolveTenantReposConfig({
-            aiConfig       : aiConfigStub,
-            tier1MirrorRoot: '/app/.neo-ai-data'
+            ingestionService: ingestionStub,
+            tier1MirrorRoot : '/app/.neo-ai-data'
         });
         const resolvedRepo = result.tenantRepos[0];
         const mirrorPath   = deriveTenantRepoMirrorPath({
@@ -1252,14 +1252,14 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
     });
 
     test('stale-overlay defense: missing orchestratorConfig.tenantRepoMirrorRoot falls back to env var (#12036 cycle-2 RA1)', async () => {
-        const aiConfigStub = {
-            tenantRepos: [
+        const ingestionStub = {
+            listConfiguredTenantRepos: async () => ({tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
-            ]
+            ]})
         };
 
         const result = await TenantRepoSyncService.resolveTenantReposConfig({
-            aiConfig          : aiConfigStub,
+            ingestionService  : ingestionStub,
             orchestratorConfig: {},  // simulate stale operator overlay (no tenantRepoMirrorRoot key)
             env               : {NEO_TENANT_REPO_MIRROR_ROOT: '/env-bound/root'}
         });
@@ -1268,14 +1268,14 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
     });
 
     test('stale-overlay defense: missing orchestratorConfig AND no env var → hardcoded /app/.neo-ai-data (#12036 cycle-2 RA1)', async () => {
-        const aiConfigStub = {
-            tenantRepos: [
+        const ingestionStub = {
+            listConfiguredTenantRepos: async () => ({tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
-            ]
+            ]})
         };
 
         const result = await TenantRepoSyncService.resolveTenantReposConfig({
-            aiConfig          : aiConfigStub,
+            ingestionService  : ingestionStub,
             orchestratorConfig: {},
             env               : {}
         });

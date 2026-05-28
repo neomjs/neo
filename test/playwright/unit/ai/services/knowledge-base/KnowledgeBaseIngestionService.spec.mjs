@@ -667,3 +667,100 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
         expect((await Service.getTenantConfig({tenantId: 'tenant-z'})).source).toBe('default');
     });
 });
+
+test.describe('KnowledgeBaseIngestionService.listConfiguredTenantRepos (#12145)', () => {
+    let Service;
+    let originals;
+    let graphStub;
+
+    test.beforeAll(async () => {
+        Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        graphStub = createGraphStub();
+        originals = {
+            graphService         : Service.graphService,
+            readKbConfigBootstrap: Service.readKbConfigBootstrap
+        };
+
+        Service.graphService          = graphStub;
+        Service.readKbConfigBootstrap = () => null;
+    });
+
+    test.afterEach(() => {
+        Object.assign(Service, originals);
+    });
+
+    function seedGraphConfig(tenantId, tenantRepos) {
+        graphStub.store.set(`kb-config:${tenantId}`, {
+            id        : `kb-config:${tenantId}`,
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {tenantId, tenantRepos, visibility: 'team'}
+        });
+    }
+
+    test('flattens per-tenant yaml-tier tenantRepos across tenants and stamps tenantId', async () => {
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {
+                'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A'}]},
+                'tenant-b': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:B'}]}
+            }
+        });
+
+        const {tenantRepos} = await Service.listConfiguredTenantRepos();
+
+        expect(tenantRepos).toHaveLength(2);
+        expect(tenantRepos.find(r => r.tenantId === 'tenant-a')).toMatchObject({
+            cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A', repoSlug: 'github.com/neomjs/a'
+        });
+        expect(tenantRepos.find(r => r.tenantId === 'tenant-b')).toMatchObject({
+            cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:B'
+        });
+    });
+
+    test('graph-node tier wins WHOLESALE over yaml for the same tenant (no within-tenant merge)', async () => {
+        seedGraphConfig('tenant-a', [{cloneUrl: 'https://github.com/neomjs/graph.git', credentialRef: 'env:G'}]);
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/yaml.git', credentialRef: 'env:Y'}]}}
+        });
+
+        const {tenantRepos} = await Service.listConfiguredTenantRepos();
+
+        expect(tenantRepos).toHaveLength(1);
+        expect(tenantRepos[0]).toMatchObject({
+            tenantId: 'tenant-a', cloneUrl: 'https://github.com/neomjs/graph.git', credentialRef: 'env:G'
+        });
+    });
+
+    test('derives the tenant set from keyed tiers only — a graph-only tenant is not enumerated (no raw node scan)', async () => {
+        // A graph-only tenant (no yaml/aiConfig entry) is out of scope until a setTenantConfig
+        // operator tool exists. The resolver reads graph nodes per-tenant via getNodeRecord for
+        // tenants in the keyed set; it must NOT discover a node by scanning all graph rows.
+        seedGraphConfig('graph-only-tenant', [{cloneUrl: 'https://github.com/neomjs/x.git', credentialRef: 'env:X'}]);
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A'}]}}
+        });
+
+        const {tenantRepos} = await Service.listConfiguredTenantRepos();
+
+        expect(tenantRepos).toHaveLength(1);
+        expect(tenantRepos[0].tenantId).toBe('tenant-a');
+        expect(tenantRepos.some(r => r.cloneUrl.includes('/x.git'))).toBe(false);
+    });
+
+    test('propagates the access-contract rejection for a yaml entry missing credentialRef', async () => {
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/a.git'}]}}
+        });
+
+        await expect(Service.listConfiguredTenantRepos()).rejects.toThrow();
+    });
+
+    test('returns an empty array when no tenant declares tenantRepos', async () => {
+        Service.readKbConfigBootstrap = () => ({tenants: {'tenant-a': {useDefaultSources: false}}});
+
+        const {tenantRepos} = await Service.listConfiguredTenantRepos();
+        expect(tenantRepos).toEqual([]);
+    });
+});
