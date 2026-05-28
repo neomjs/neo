@@ -1,4 +1,5 @@
 import fs from 'fs';
+import matter from 'gray-matter';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import { Memory_Config as aiConfig } from '../../services.mjs';
@@ -8,10 +9,14 @@ import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../servi
 import { Memory_GraphService as GraphService } from '../../services.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
+import {IDENTITIES} from '../../graph/identityRoots.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+const DAY_MS     = 24 * 60 * 60 * 1000;
+
+const MAINTAINER_PROGRESS_PATTERN = /\b(?:in[-\s]?progress|picking up|taking|claim(?:ed|ing)?|lane-claim|lane-state:\s*next-lane|working|implement(?:ing)?|opened\s+(?:PR|pull request)|PR\s*#\d+)\b/i;
 
 /**
  * @summary Returns the vector length emitted by an embedding provider.
@@ -88,6 +93,343 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Derives the core swarm login-to-family map from the AgentIdentity registry.
+     *
+     * `identityRoots.mjs` is the canonical handle indirection seam for named Neo maintainers.
+     * Golden Path renders must consume that registry instead of duplicating agent handles in
+     * daemon code.
+     *
+     * @returns {Object<String,String>} GitHub login to model-family map.
+     */
+    static getCoreSwarmAgentFamilies() {
+        return Object.fromEntries(
+            IDENTITIES
+                .filter(identity =>
+                    identity.type === 'AgentIdentity' &&
+                    identity.properties?.accountType === 'agent' &&
+                    identity.properties?.githubLogin &&
+                    identity.properties?.modelFamily
+                )
+                .map(identity => [
+                    identity.properties.githubLogin.replace(/^@/, ''),
+                    identity.properties.modelFamily
+                ])
+        )
+    }
+
+    /**
+     * @summary Returns canonical Neo agent GitHub logins from `identityRoots.mjs`.
+     *
+     * @returns {String[]} Agent logins without leading `@`.
+     */
+    static getAgentLogins() {
+        return Object.keys(this.getCoreSwarmAgentFamilies())
+    }
+
+    /**
+     * @summary Returns maintainer logins eligible for stale-assignment progress acknowledgements.
+     *
+     * #10219 intentionally keys this active detector to named agent maintainers only. Human-owner
+     * activity still appears as issue events, but the maintainer progress-ack set is derived from
+     * registry AgentIdentity logins.
+     *
+     * @returns {String[]} Agent maintainer logins without leading `@`.
+     */
+    static getStaleAssignmentMaintainers() {
+        return this.getAgentLogins()
+    }
+
+    /**
+     * @summary Collects local issue markdown files from the ordinal content tree.
+     *
+     * The GitHub content sync stores active issues in chunk directories under
+     * `resources/content/issues/`. This recursive helper keeps Golden Path
+     * enrichment compatible with the ordinal-100 content architecture without
+     * coupling stale-assignment logic to a single chunk layout.
+     *
+     * @param {String} rootDir Directory containing synced issue markdown files.
+     * @returns {String[]} Absolute markdown file paths sorted lexically for deterministic output.
+     */
+    static collectIssueMarkdownFiles(rootDir) {
+        const files = [];
+
+        function visit(dir) {
+            for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+                const entryPath = path.join(dir, entry.name);
+
+                if (entry.isDirectory()) {
+                    visit(entryPath);
+                } else if (entry.isFile() && entry.name.endsWith('.md')) {
+                    files.push(entryPath);
+                }
+            }
+        }
+
+        visit(rootDir);
+
+        return files.sort()
+    }
+
+    /**
+     * @summary Extracts GitHub issue comment blocks from synced issue markdown.
+     *
+     * IssueSyncer renders comments as `### @user - timestamp` blocks. Regex is
+     * intentionally scoped to that stable serialized timeline shape; frontmatter is
+     * parsed separately through `gray-matter`.
+     *
+     * @param {String} content Markdown body without frontmatter.
+     * @returns {Array<{author: String, createdAt: String, body: String}>}
+     */
+    static extractIssueCommentBlocks(content) {
+        const comments = [];
+        const commentRegex = /^### @([^\s]+) - ([^\n]+)\n\n([\s\S]*?)(?=^### @|^- \d{4}-\d{2}-\d{2}T|\n## |\s*$)/gm;
+        let match;
+
+        while ((match = commentRegex.exec(content)) !== null) {
+            comments.push({
+                author   : match[1],
+                createdAt: match[2].trim(),
+                body     : match[3].trim()
+            });
+        }
+
+        return comments
+    }
+
+    /**
+     * @summary Extracts assignment events for the currently assigned issue owners.
+     *
+     * Assignment events provide the conservative clock-start when no assignee or
+     * maintainer comment exists yet. They are not a substitute for the 7-day
+     * qualifying-activity rule; they only prevent missing-comment timelines from
+     * producing `unknown` last-activity rows.
+     *
+     * @param {String} content Markdown body without frontmatter.
+     * @param {String[]} assignees Current assignee logins.
+     * @returns {Array<{author: String, createdAt: String, assignee: String}>}
+     */
+    static extractAssignmentEvents(content, assignees = []) {
+        const assigneeSet = new Set(assignees);
+        const events = [];
+        const assignmentRegex = /^- (\d{4}-\d{2}-\d{2}T[^\s]+) @([^\s]+) assigned to @([^\s]+)/gm;
+        let match;
+
+        while ((match = assignmentRegex.exec(content)) !== null) {
+            if (assigneeSet.has(match[3])) {
+                events.push({
+                    createdAt: match[1],
+                    author   : match[2],
+                    assignee : match[3]
+                });
+            }
+        }
+
+        return events
+    }
+
+    /**
+     * @summary Finds the last activity that satisfies the ticket-intake 7-day reassignment rule.
+     *
+     * Qualifying activity is an assignee comment or a maintainer progress
+     * acknowledgement. Assignment events and issue creation are conservative
+     * fallbacks for otherwise silent issues.
+     *
+     * @param {Object} issue Parsed issue record.
+     * @param {String[]} issue.assignees Current assignee logins.
+     * @param {String} issue.createdAt Issue creation timestamp.
+     * @param {String} issue.content Markdown body without frontmatter.
+     * @param {String[]} [maintainers=this.getStaleAssignmentMaintainers()] Maintainer logins.
+     * @returns {{createdAt: Date, author: String, reason: String}}
+     */
+    static findLastQualifyingAssignmentActivity(issue, maintainers = this.getStaleAssignmentMaintainers()) {
+        const assigneeSet  = new Set(issue.assignees || []);
+        const maintainerSet = new Set(maintainers);
+        const candidates   = [];
+
+        for (const comment of this.extractIssueCommentBlocks(issue.content || '')) {
+            const createdAt = new Date(comment.createdAt);
+            if (Number.isNaN(createdAt.getTime())) continue;
+
+            if (assigneeSet.has(comment.author)) {
+                candidates.push({createdAt, author: comment.author, reason: 'assignee-comment'});
+            } else if (maintainerSet.has(comment.author) && MAINTAINER_PROGRESS_PATTERN.test(comment.body)) {
+                candidates.push({createdAt, author: comment.author, reason: 'maintainer-progress-ack'});
+            }
+        }
+
+        for (const event of this.extractAssignmentEvents(issue.content || '', issue.assignees || [])) {
+            const createdAt = new Date(event.createdAt);
+            if (!Number.isNaN(createdAt.getTime())) {
+                candidates.push({createdAt, author: event.author, reason: `assignment:${event.assignee}`});
+            }
+        }
+
+        const createdAt = new Date(issue.createdAt);
+        if (!Number.isNaN(createdAt.getTime())) {
+            candidates.push({createdAt, author: issue.author || 'unknown', reason: 'issue-created'});
+        }
+
+        candidates.sort((a, b) => b.createdAt - a.createdAt);
+
+        return candidates[0] || null
+    }
+
+    /**
+     * @summary Builds stale-assignment candidates from local synced issue markdown.
+     *
+     * @param {Object} options
+     * @param {String} options.issuesDir Local synced issue directory.
+     * @param {Date} [options.now=new Date()] Current clock for deterministic tests.
+     * @param {Number} [options.thresholdMs=aiConfig.goldenPathStaleAssignmentThresholdMs] Stale threshold.
+     * @param {String[]} [options.maintainers=this.getStaleAssignmentMaintainers()] Maintainer logins.
+     * @returns {Array<Object>} Stale candidates sorted by oldest qualifying activity first.
+     */
+    static buildStaleAssignmentCandidates({
+        issuesDir,
+        now = new Date(),
+        thresholdMs = aiConfig.goldenPathStaleAssignmentThresholdMs,
+        maintainers = this.getStaleAssignmentMaintainers()
+    }) {
+        const candidates = [];
+        const nowDate    = now instanceof Date ? now : new Date(now);
+
+        for (const filePath of this.collectIssueMarkdownFiles(issuesDir)) {
+            let parsed;
+            try {
+                parsed = matter(fs.readFileSync(filePath, 'utf-8'));
+            } catch (error) {
+                logger.warn(`[GoldenPathSynthesizer] Failed to parse issue markdown for stale-assignment detector: ${filePath}`, error);
+                continue;
+            }
+
+            const meta      = parsed.data || {};
+            const labels    = Array.isArray(meta.labels) ? meta.labels : [];
+            const assignees = Array.isArray(meta.assignees) ? meta.assignees.filter(Boolean) : [];
+
+            if (meta.state !== 'OPEN' ||
+                assignees.length === 0 ||
+                labels.includes('needs-re-triage')) {
+                continue;
+            }
+
+            const lastActivity = this.findLastQualifyingAssignmentActivity({
+                assignees,
+                author   : meta.author,
+                content  : parsed.content,
+                createdAt: meta.createdAt
+            }, maintainers);
+
+            if (!lastActivity) continue;
+
+            const idleMs = nowDate - lastActivity.createdAt;
+            if (idleMs >= thresholdMs) {
+                candidates.push({
+                    assignees,
+                    daysIdle      : Math.floor(idleMs / DAY_MS),
+                    filePath,
+                    lastActivityAt: lastActivity.createdAt.toISOString(),
+                    lastActivityBy: lastActivity.author,
+                    number        : meta.id,
+                    reason        : lastActivity.reason,
+                    title         : meta.title || '(no title)',
+                    url           : meta.githubUrl
+                });
+            }
+        }
+
+        candidates.sort((a, b) => new Date(a.lastActivityAt) - new Date(b.lastActivityAt));
+
+        return candidates
+    }
+
+    /**
+     * @summary Renders the Sandman handoff stale-assignment section.
+     *
+     * @param {Array<Object>} candidates Stale assignment candidates.
+     * @param {Object} options
+     * @param {Date} [options.capturedAt=new Date()] Capture timestamp.
+     * @param {Number} [options.limit=aiConfig.goldenPathStaleAssignmentRenderLimit] Maximum candidates to render.
+     * @returns {String}
+     */
+    static renderStaleAssignmentCandidatesSection(candidates, {
+        capturedAt = new Date(),
+        limit = aiConfig.goldenPathStaleAssignmentRenderLimit
+    } = {}) {
+        let section = `\n## Stale Assignment Candidates\n\n`;
+        section += `*Captured at: ${capturedAt.toISOString()} (Source: local issue sync)*\n\n`;
+
+        if (candidates.length === 0) {
+            section += `No stale assignment candidates detected.\n`;
+            return section
+        }
+
+        const visibleCandidates = candidates.slice(0, limit);
+
+        if (candidates.length > visibleCandidates.length) {
+            section += `Showing ${visibleCandidates.length} of ${candidates.length} candidates, sorted oldest qualifying activity first.\n\n`;
+        }
+
+        for (const candidate of visibleCandidates) {
+            const assignees = candidate.assignees.map(assignee => `@${assignee}`).join(', ');
+            const issueRef  = candidate.url ? `[#${candidate.number}](${candidate.url})` : `#${candidate.number}`;
+            section += `- **${issueRef}** — ${candidate.title} — assignee ${assignees} — last qualifying activity ${candidate.lastActivityAt} by @${candidate.lastActivityBy} (${candidate.daysIdle} days ago; ${candidate.reason})\n`;
+        }
+
+        return section
+    }
+
+    /**
+     * @summary Determines whether a PR has cross-family review coverage.
+     *
+     * @param {Object} pr GitHub PR payload from `gh pr list`.
+     * @param {Object} [agentFamilies=this.getCoreSwarmAgentFamilies()] Login-to-family map.
+     * @returns {Boolean}
+     */
+    static hasCrossFamilyReview(pr, agentFamilies = this.getCoreSwarmAgentFamilies()) {
+        const authorLogin  = pr.author?.login;
+        const authorFamily = agentFamilies[authorLogin];
+        const reviews      = Array.isArray(pr.reviews) ? pr.reviews : [];
+
+        return reviews.some(review => {
+            const reviewerLogin = review.author?.login || review.author?.name || review.author?.login;
+            const reviewerFamily = agentFamilies[reviewerLogin];
+
+            if (!reviewerFamily) return false;
+            if (!authorFamily) return true;
+
+            return reviewerFamily !== authorFamily
+        })
+    }
+
+    /**
+     * @summary Renders a capped recent-open-PR list inside the existing Active PR Cycle section.
+     *
+     * @param {Object[]} prs GitHub PR payloads.
+     * @param {Object} options
+     * @param {Number} [options.limit=aiConfig.goldenPathRecentOpenPrRenderLimit] Maximum PRs to render.
+     * @returns {String}
+     */
+    static renderRecentOpenPrSummary(prs, {limit = aiConfig.goldenPathRecentOpenPrRenderLimit} = {}) {
+        const recent = [...prs]
+            .filter(pr => pr.createdAt)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, limit);
+
+        if (recent.length === 0) return '';
+
+        let section = `### Recent Open PRs\n`;
+
+        for (const pr of recent) {
+            const author = pr.author?.login || 'unknown';
+            section += `- **PR #${pr.number}**: [${pr.title}](${pr.url}) — author @${author} — opened ${pr.createdAt} — cross-family reviewed: ${this.hasCrossFamilyReview(pr) ? 'yes' : 'no'}\n`;
+        }
+
+        section += `\n`;
+
+        return section
+    }
+
+    /**
      * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology
      * combined with Vector Similarity (Hybrid GraphRAG).
      *
@@ -98,12 +440,14 @@ class GoldenPathSynthesizer extends Base {
      */
     async fetchOpenPRs() {
         const { execSync } = await import('child_process');
-        const rawPrData = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const rawPrData = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
         return JSON.parse(rawPrData);
     }
 
     async synthesizeGoldenPath({
-        repoEnrichmentEnabled = true
+        repoEnrichmentEnabled = true,
+        issuesDir = path.resolve(__dirname, '../../../resources/content/issues'),
+        now = new Date()
     } = {}) {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
 
@@ -326,7 +670,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         handoffContent += `The Native Edge Graph has audited the codebase structurally. The following architectural coverage gaps currently exist natively within the SQLite matrix.\n\n`;
 
         const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days TTL (Time-to-Live)
-        const now = Date.now();
+        const gapNow = Date.now();
         let gapElementsCount = 0;
         let prunedGaps = 0;
 
@@ -339,7 +683,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
-                const age = now - (node.properties.lastGapCheck || now);
+                const age = gapNow - (node.properties.lastGapCheck || gapNow);
                 if (age > TTL_MS) {
                     // Stale, prune it!
                     delete node.properties.capabilityGap;
@@ -447,18 +791,36 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.warn(`[GoldenPathSynthesizer] ConsumerFriction section render failed: ${err.message}`);
         }
 
+        // --- Stale Assignment Candidates ---
+        let staleAssignmentAppend = '';
+        if (repoEnrichmentEnabled) {
+            try {
+                const Synthesizer = this.constructor;
+                const staleCandidates = Synthesizer.buildStaleAssignmentCandidates({
+                    issuesDir,
+                    now
+                });
+
+                staleAssignmentAppend = Synthesizer.renderStaleAssignmentCandidatesSection(staleCandidates, {capturedAt: now instanceof Date ? now : new Date(now)});
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Stale Assignment Candidates', e);
+            }
+        }
+
         // --- Active PR Cycle State ---
         let prStateAppend = '';
         if (repoEnrichmentEnabled) {
             try {
+                const Synthesizer = this.constructor;
                 const prs = await this.fetchOpenPRs();
 
-                const agentLogins = ['neo-opus-4-7', 'neo-gemini-3-1-pro', 'neo-gpt'];
+                const agentLogins = Synthesizer.getAgentLogins();
                 const agentPrs = prs.filter(pr => pr.author && agentLogins.includes(pr.author.login));
 
-                if (agentPrs.length > 0) {
+                if (prs.length > 0) {
                     prStateAppend += `\n## Active PR Cycle State\n\n`;
                     prStateAppend += `*Captured at: ${new Date().toISOString()} (Source: GitHub Live)*\n\n`;
+                    prStateAppend += Synthesizer.renderRecentOpenPrSummary(prs);
 
                     // Group by agent
                     agentLogins.forEach(agent => {
@@ -574,7 +936,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${prStateAppend}${backlogAppend}${markdownAppend}`;
+        handoffContent += `${staleAssignmentAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');
