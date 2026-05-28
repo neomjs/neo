@@ -94,7 +94,7 @@ test.describe('Tier 1 Config Immutability', () => {
             }
         });
         expect(Config.engines.chroma).toEqual({
-            dataDir: process.env.NEO_CHROMA_DATA_DIR || expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]knowledge-base$/),
+            dataDir: expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]knowledge-base$/),
             host   : process.env.NEO_CHROMA_HOST || 'localhost',
             port   : Number(process.env.NEO_CHROMA_PORT) || 8000
         });

@@ -132,7 +132,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     embeddingModel : 'gemini-embedding-001',
     engines: {
         chroma: {
-            dataDir: process.env.NEO_CHROMA_DATA_DIR || path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base'),
+            dataDir: path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base'),
             host   : process.env.NEO_CHROMA_HOST || 'localhost',
             port   : Number(process.env.NEO_CHROMA_PORT) || 8000
         }
