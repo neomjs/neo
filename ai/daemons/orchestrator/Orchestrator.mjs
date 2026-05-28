@@ -502,9 +502,14 @@ export class Orchestrator extends Base {
             ? options.primaryDevSyncRootsConfig
             : AiConfig.orchestrator.devSyncRoots;
         this.maintenanceDeferralLogKeys = new Set();
-        // #12138 chroma max-runtime recycle: in-memory flags (not persisted — re-derived from
-        // uptime if the orchestrator restarts mid-recycle). `_chromaDefragPending` gates the
-        // post-restart defrag; `_chromaDefragInFlight` prevents poll re-entry during the probe.
+        // #12138 chroma max-runtime recycle: process-local (non-persisted) flags.
+        // `_chromaDefragPending` gates the post-restart defrag; `_chromaDefragInFlight` prevents
+        // poll re-entry during the readiness probe. The defrag is BEST-EFFORT: if the orchestrator
+        // restarts after killTask but before the defrag fires, the flag is lost and the defrag is
+        // skipped for that cycle — the next max-runtime recycle compacts the store. This is sound
+        // for an idempotent compaction step (persisting the intent would instead introduce a
+        // pending-forever / endless-retry failure mode); the kill→restart, the primary recycle
+        // value, is unaffected by an orchestrator restart.
         this._chromaDefragPending  = false;
         this._chromaDefragInFlight = false;
 
