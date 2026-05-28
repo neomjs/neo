@@ -364,6 +364,40 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(result.friction.note).toBe('Switch to qwen3-8b for stricter JSON output.');
     });
 
+    test('invokeWithGuardrail loud-fails on non-positive-finite contextLimitTokens (#12116)', async () => {
+        const {invokeWithGuardrail, getAggregatedFrictions} = helper;
+
+        // Pre-#12116 the NaN-silent-skip hole let undefined/null/NaN bypass the
+        // Angle-2 pre-check (Math.floor(undefined * 0.75) === NaN; `n > NaN`
+        // === false), then the invocation proceeded unguarded and the friction
+        // record stored undefined for contextLimitTokens — silently corrupting
+        // the friction feed. Loud-fail at entry forbids the silent-skip path
+        // entirely; mirrors emitConsumerFriction's TypeError validation
+        // discipline at lines 198-212.
+        const baseInput = {
+            invocationFn : async () => 'should not reach here',
+            inputPayload : 'small',
+            model        : 'gemma4-31b',
+            assetRef     : 'session:loud-fail',
+            consumer     : 'SemanticGraphExtractor',
+            serviceDomain: 'dream-pipeline'
+        };
+
+        for (const badValue of [undefined, null, 0, -1, NaN, Infinity, -Infinity, '10000']) {
+            let invoked = false;
+            await expect(invokeWithGuardrail({
+                ...baseInput,
+                invocationFn      : async () => { invoked = true; return 'reached'; },
+                contextLimitTokens: badValue
+            })).rejects.toThrow(/contextLimitTokens must be a positive finite number/);
+            expect(invoked).toBe(false);
+        }
+
+        // Aggregator must remain untouched — the throw fires BEFORE
+        // emitConsumerFriction could record anything against the bad-input run.
+        expect(getAggregatedFrictions()).toHaveLength(0);
+    });
+
     test('renderConsumerFrictionSection returns empty string when no frictions surface', () => {
         const {renderConsumerFrictionSection} = helper;
         expect(renderConsumerFrictionSection()).toBe('');

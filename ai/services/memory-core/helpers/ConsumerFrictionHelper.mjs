@@ -312,12 +312,13 @@ export function clearAggregatedFrictions() {
  * @param {String} options.model Consumer model identifier.
  * @param {String} options.assetRef Origin identifier (sessionId, documentId, etc.) — first tuple member.
  * @param {String} options.consumer Service name emitting the friction (e.g. 'SemanticGraphExtractor') — second tuple member.
- * @param {Number} options.contextLimitTokens Consumer context limit (tokens).
+ * @param {Number} options.contextLimitTokens Consumer context limit (tokens). **Required, positive, finite.** Loud-fails with `TypeError` at entry — the operator-codified contract bans hidden default fallbacks: config is the source of truth, missing values surface loudly. See #12116 for the NaN-silent-skip hole this guards against.
  * @param {Number} [options.safeProcessingLimitTokens] Optional safer threshold (tokens); defaults to 75% of contextLimitTokens.
  * @param {'dream-pipeline' | 'memory-core' | 'concept-extraction' | 'other'} options.serviceDomain Provenance domain.
  * @param {String} [options.suggestionKind] Optional caller-provided enum override; defaults to symptom-derived.
  * @param {String} [options.note] Optional bounded prose context.
  * @returns {Promise<{result: *, friction: ConsumerFriction | null}>}
+ * @throws {TypeError} If `contextLimitTokens` is not a positive finite number.
  */
 export async function invokeWithGuardrail({
     invocationFn,
@@ -331,6 +332,10 @@ export async function invokeWithGuardrail({
     suggestionKind,
     note
 }) {
+    if (!Number.isFinite(contextLimitTokens) || contextLimitTokens <= 0) {
+        throw new TypeError(`invokeWithGuardrail: contextLimitTokens must be a positive finite number, got ${contextLimitTokens}`);
+    }
+
     const inputBytes              = Buffer.byteLength(inputPayload || '', 'utf8');
     const inputTokensEstimate     = bytesToTokens(inputBytes);
     const effectiveSafeTokens     = Number.isFinite(safeProcessingLimitTokens)
