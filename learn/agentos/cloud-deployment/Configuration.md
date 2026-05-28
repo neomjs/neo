@@ -68,7 +68,7 @@ The token is a KB MCP authorization credential, not a Git credential. Store it i
 
 A multi-tenant deployment cannot express every tenant's source/parser config as static `aiConfig` keys — each tenant needs its own, mutable at runtime, durable across restarts. Phase 2E ([#11637](https://github.com/neomjs/neo/issues/11637)) stores it as a graph node.
 
-**The node.** One `KnowledgeBaseTenantConfig` node per tenant, id `kb-config:<tenantId>`, in the Native Edge Graph. Its `properties` carry the tenant's config payload — `{useDefaultSources, rawRepoSource, useDefaultParsers, customSources, customParsers, sourcePaths, version, userId}`. `version` increments on every mutation; `userId` is the [#10011](https://github.com/neomjs/neo/issues/10011) RLS ownership stamp — a tenant cannot read or mutate another tenant's config node.
+**The node.** One `KnowledgeBaseTenantConfig` node per tenant, id `kb-config:<tenantId>`, in the Native Edge Graph. Its `properties` carry the tenant's config payload — `{useDefaultSources, rawRepoSource, useDefaultParsers, customSources, customParsers, sourcePaths, tenantRepos, version, userId}`. `version` increments on every mutation; `userId` is the [#10011](https://github.com/neomjs/neo/issues/10011) RLS ownership stamp — a tenant cannot read or mutate another tenant's config node.
 
 **Resolution.** `KnowledgeBaseIngestionService.getTenantConfig({tenantId})` resolves a tenant's effective config through three tiers, first hit wins:
 
@@ -87,7 +87,13 @@ tenants:
     rawRepoSource: true
     customParsers: [...]
     sourcePaths: {...}
+    tenantRepos:
+      - cloneUrl: https://github.com/neomjs/create-app.git  # clean URL; no userinfo@
+        credentialRef: env:GIT_TOKEN                          # reference-only pointer; token lives outside the repo
+        branchRef: dev                                        # optional; defaults to 'HEAD' = remote default branch
 ```
+
+The `tenantRepos:` block is the bootstrap tier for the pull-mode polling config — `listConfiguredTenantRepos()` resolves it under the graph node → `kb-config.yaml` → `aiConfig` tiering.
 
 The YAML is bootstrap-only — the graph node is canonical once written. A malformed or absent file is fail-soft (logged, treated as absent → tier 3).
 
