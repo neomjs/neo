@@ -35,8 +35,6 @@ import {
     DEFAULT_SCRIPT_DIR,
     buildTaskDefinitions
 } from './TaskDefinitions.mjs';
-import {ChromaClient}              from 'chromadb';
-import {chromaConnect}             from '../../services/shared/vector/chromaClientPrimitives.mjs';
 
 /**
  * Resolves the dev-sync roots config while preserving env-var precedence.
@@ -418,7 +416,6 @@ export class Orchestrator extends Base {
     get primaryDevSyncEnabled()          { return resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
-    get chromaHost()                     { return AiConfig.engines.chroma?.host;                              }
     get chromaPort()                     { return AiConfig.engines.chroma?.port;                              }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
@@ -476,12 +473,7 @@ export class Orchestrator extends Base {
         this.taskDefinitions = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
-            chromaHost: this.chromaHost,
             chromaPort: this.chromaPort,
-            // Endpoint-readiness probe: lets the supervisor detect a chroma the orchestrator did NOT
-            // spawn (operator `ai:server`, pre-unification leftover, second orchestrator) and skip a
-            // duplicate spawn that would corrupt the shared persist dir (#12136).
-            chromaAlreadyRunningProbe: () => chromaConnect({client: new ChromaClient({host: this.chromaHost, port: this.chromaPort, ssl: false})}),
             mlxEnabled: this.mlxEnabled,
             mlxModel  : this.mlxModel,
             mlxPort   : this.mlxPort,
@@ -628,7 +620,6 @@ export class Orchestrator extends Base {
     poll() {
         const now = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
-        const maybeExecuteTask = this.processSupervisorService.maybeRunTask.bind(this.processSupervisorService);
         const context = {
             writeLog     : this.writeLog.bind(this),
             healthService: this.healthService
@@ -642,11 +633,15 @@ export class Orchestrator extends Base {
         ];
         const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {
+            // Singularity guard: reap any duplicate listeners on a singleton-port task's
+            // port (chroma) before the spawn check, so exactly one daemon stays alive.
+            this.processSupervisorService.reapDuplicateListeners(taskName);
+
             const state = this.taskStateService.getTaskState(taskName);
             if (state && !state.running) {
                 const lastRunAt = state.lastRunAt || 0;
                 if (now - lastRunAt > RESTART_COOLDOWN_MS) {
-                    maybeExecuteTask(taskName, 'supervisor-restart');
+                    executeTask(taskName, 'supervisor-restart');
                 }
             }
         }

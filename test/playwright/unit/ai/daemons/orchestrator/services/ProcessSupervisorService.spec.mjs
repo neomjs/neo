@@ -205,78 +205,58 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         }));
     });
 
-    test('maybeRunTask skips spawn when the readiness probe reports an external instance', async () => {
+    test('reapDuplicateListeners SIGKILLs extra listeners but keeps the canonical pid', () => {
         const { service, taskOutcomes } = createTestService();
-        let spawnCalled = false;
-        let probeCalled = false;
+        const killed = [];
 
-        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => { probeCalled = true; return true; };
-        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskStateService.getTaskState = () => ({running: true, pid: 100});
+        service.listPortListeners = () => [100, 200, 300];
+        service.processCommand    = () => 'echo serving';
+        service.killProcess       = pid => killed.push(pid);
 
-        const result = await service.maybeRunTask('mockTask', 'test-reason');
+        const reaped = service.reapDuplicateListeners('mockTask');
 
-        expect(result).toBe(false);
-        expect(probeCalled).toBe(true);
-        expect(spawnCalled).toBe(false);
-        expect(taskOutcomes).toContainEqual(expect.objectContaining({
-            status  : 'skipped',
-            taskName: 'mockTask',
-            details : expect.objectContaining({reasonCode: 'external-already-running'})
-        }));
+        expect(reaped).toBe(2);
+        expect(killed).toEqual([200, 300]);
+        expect(taskOutcomes.filter(o => o.status === 'reaped-duplicate').length).toBe(2);
     });
 
-    test('maybeRunTask spawns when the readiness probe reports nothing serving', async () => {
+    test('reapDuplicateListeners leaves a process whose command is not the task command', () => {
         const { service } = createTestService();
-        let spawnCalled = false;
+        const killed = [];
 
-        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => false;
-        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskStateService.getTaskState = () => ({running: true, pid: 100});
+        service.listPortListeners = () => [200];
+        service.processCommand    = () => 'unrelated-process';
+        service.killProcess       = pid => killed.push(pid);
 
-        const result = await service.maybeRunTask('mockTask', 'test-reason');
-
-        expect(result).toBe(true);
-        expect(spawnCalled).toBe(true);
+        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
+        expect(killed).toEqual([]);
     });
 
-    test('maybeRunTask falls through to spawn when the readiness probe throws', async () => {
-        const { service, logEntries } = createTestService();
-        let spawnCalled = false;
-
-        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => { throw new Error('probe boom'); };
-        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
-
-        const result = await service.maybeRunTask('mockTask', 'test-reason');
-
-        expect(result).toBe(true);
-        expect(spawnCalled).toBe(true);
-        expect(logEntries.some(e => e.level === 'WARN' && e.message.includes('readiness probe errored'))).toBe(true);
-    });
-
-    test('maybeRunTask without a probe delegates straight to runTask', async () => {
+    test('reapDuplicateListeners is a no-op for tasks without a singletonPort', () => {
         const { service } = createTestService();
-        let spawnCalled = false;
+        let probed = false;
 
-        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+        service.listPortListeners = () => { probed = true; return [200]; };
 
-        const result = await service.maybeRunTask('mockTask', 'test-reason');
-
-        expect(result).toBe(true);
-        expect(spawnCalled).toBe(true);
+        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
+        expect(probed).toBe(false);
     });
 
-    test('maybeRunTask does not probe a task already tracked as running', async () => {
+    test('reapDuplicateListeners reaps every matching listener when no canonical pid is tracked', () => {
         const { service } = createTestService();
-        let probeCalled = false;
-        let spawnCalled = false;
+        const killed = [];
 
-        service.taskStateService.getTaskState = () => ({running: true, pid: 1234});
-        service.taskDefinitions.mockTask.alreadyRunningProbe = async () => { probeCalled = true; return false; };
-        service.spawnFn = () => { spawnCalled = true; return {pid: 9999, on: () => {}}; };
+        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskStateService.getTaskState = () => ({running: false, pid: null});
+        service.listPortListeners = () => [200, 300];
+        service.processCommand    = () => 'echo';
+        service.killProcess       = pid => killed.push(pid);
 
-        const result = await service.maybeRunTask('mockTask', 'test-reason');
-
-        expect(probeCalled).toBe(false);
-        expect(spawnCalled).toBe(false);
-        expect(result).toBe(false);
+        expect(service.reapDuplicateListeners('mockTask')).toBe(2);
+        expect(killed).toEqual([200, 300]);
     });
 });

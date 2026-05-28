@@ -239,9 +239,7 @@ class Config extends BaseConfig {
          */
         engines: {
             chroma: {
-                // 127.0.0.1 (not 'localhost'): 'localhost' resolves to BOTH 127.0.0.1 and ::1, so a
-                // second `chroma run` can silently bind the other family instead of failing loudly (#12136).
-                host: '127.0.0.1',
+                host: 'localhost',
                 port: 8000
             }
         },
