@@ -3,10 +3,10 @@
  * @summary One-shot migration script that patches legacy bridge-daemon wake subscriptions
  * to eliminate hardcoded fallbacks and adopt the identity template-based metadata.
  *
- * Context: #10402. Prior to this fix, subscriptions relying on `bridge-daemon` were
- * susceptible to hardcoded `appName` fallbacks (e.g. 'Claude') if the metadata was not
- * properly seeded. This script updates existing `WAKE_SUBSCRIPTION` nodes by pulling
- * the canonical `appName` from their owner's `AgentIdentity` template.
+ * Legacy `bridge-daemon` wake subscriptions can contain hardcoded `appName`
+ * fallbacks when their metadata was not seeded from the owning identity. This
+ * script updates existing `WAKE_SUBSCRIPTION` nodes by pulling the canonical
+ * `appName` from their owner's `AgentIdentity` template.
  *
  * **Usage**:
  *   node ai/scripts/migrations/migrateWakeSubscriptions.mjs             # dry-run (default)
