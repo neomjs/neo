@@ -259,4 +259,47 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(service.reapDuplicateListeners('mockTask')).toBe(2);
         expect(killed).toEqual([200, 300]);
     });
+
+    test('killTask SIGKILLs the tracked pid, marks the task recycled, and records the outcome (#12138)', () => {
+        const {service, taskOutcomes} = createTestService();
+        const killed   = [];
+        const recycled = [];
+
+        service.taskStateService.getTaskState = () => ({running: true, pid: 4242});
+        service.taskStateService.markRecycled = name => recycled.push(name);
+        service.killProcess                   = pid => killed.push(pid);
+
+        service.killTask('mockTask', 'max-runtime:test');
+
+        expect(killed).toEqual([4242]);
+        expect(recycled).toEqual(['mockTask']);
+        expect(taskOutcomes).toContainEqual(
+            expect.objectContaining({taskName: 'mockTask', status: 'recycled'})
+        );
+    });
+
+    test('killTask is safe when no pid is tracked: no kill attempted, still marks recycled (#12138)', () => {
+        const {service, taskOutcomes} = createTestService();
+        const killed   = [];
+        const recycled = [];
+
+        service.taskStateService.getTaskState = () => ({running: false, pid: null});
+        service.taskStateService.markRecycled = name => recycled.push(name);
+        service.killProcess                   = pid => killed.push(pid);
+
+        service.killTask('mockTask', 'max-runtime:test');
+
+        expect(killed).toEqual([]);
+        expect(recycled).toEqual(['mockTask']);
+        expect(taskOutcomes).toContainEqual(
+            expect.objectContaining({taskName: 'mockTask', status: 'recycled'})
+        );
+    });
+
+    test('killProcess is a no-op under UNIT_TEST_MODE — no real process is touched (#12138 AC)', () => {
+        const {service} = createTestService();
+        // Unit tests run with UNIT_TEST_MODE=true; killProcess must return before any process.kill.
+        expect(process.env.UNIT_TEST_MODE).toBe('true');
+        expect(() => service.killProcess(999999999)).not.toThrow();
+    });
 });

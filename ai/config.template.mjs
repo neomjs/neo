@@ -472,8 +472,10 @@ class Config extends BaseConfig {
                 }
             },
             /**
-             * Chroma defrag policy. V1 exposes cadence as operator policy only; no daemon
-             * auto-spawns defrag from this value.
+             * Chroma defrag policy. Cadence here is operator policy only — no daemon
+             * auto-spawns defrag from THIS value. (The one orchestrator path that auto-spawns
+             * `ai:defrag-kb` is the #12138 max-runtime recycle, driven by
+             * `orchestrator.chroma.maxRuntimeMs` — a distinct config, not this cadence.)
              * @type {Object}
              */
             defrag: {
