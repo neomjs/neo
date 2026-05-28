@@ -1,3 +1,31 @@
+# ---------------------------------------------------------------------------------------
+# Neo source acquisition (#12150). DEFAULT: a pinned git clone — portable (no co-located
+# local checkout required, so any operator / CI host can build), correct-branch + freshly
+# pulled, reproducible per ref. Dev iteration can opt into the local build context with
+# `--build-arg NEO_SOURCE=local` (the build context must then be the neo repo root). A
+# published npm package supersedes this after the v13 release.
+#   NEO_SOURCE   : 'git' (default) | 'local'
+#   NEO_REF      : git ref to clone (default 'dev'; pin to a tag/SHA for full reproducibility)
+#   NEO_REPO_URL : neo repository (MIT-licensed) to clone from
+# ---------------------------------------------------------------------------------------
+ARG NEO_SOURCE=git
+ARG NEO_REF=dev
+ARG NEO_REPO_URL=https://github.com/neomjs/neo.git
+
+FROM alpine/git AS source-git
+ARG NEO_REF
+ARG NEO_REPO_URL
+WORKDIR /src
+RUN git clone --depth 1 --branch "${NEO_REF}" "${NEO_REPO_URL}" .
+
+FROM node:24-alpine AS source-local
+WORKDIR /src
+COPY . .
+
+# Select the source stage from the NEO_SOURCE build arg. In 'git' mode the source-local
+# stage is never built, so no local build context is required (the portability fix).
+FROM source-${NEO_SOURCE} AS source
+
 FROM node:24-alpine AS builder
 
 WORKDIR /app
@@ -6,13 +34,13 @@ WORKDIR /app
 # when installing on Alpine. The tools stay in this build stage.
 RUN apk add --no-cache python3 make g++
 
-COPY package*.json ./
+COPY --from=source /src/package*.json ./
 # --ignore-scripts skips the root `prepare` lifecycle hook before buildScripts/
 # is copied. Neo's Agent OS runtime packages currently live in devDependencies;
 # installing them here keeps that cost inside this Right-Hemisphere image.
 RUN npm ci --ignore-scripts
 
-COPY . .
+COPY --from=source /src ./
 
 # Path A for #10964: generate gitignored per-server config.mjs files inside the
 # image so clean external checkouts do not need manual template copies.

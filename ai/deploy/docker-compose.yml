@@ -36,8 +36,8 @@ services:
 
   kb-server:
     build:
-      context: ../..
-      dockerfile: ai/deploy/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       args:
         TARGET_SERVER: knowledge-base
     environment:
@@ -79,8 +79,8 @@ services:
 
   mc-server:
     build:
-      context: ../..
-      dockerfile: ai/deploy/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       args:
         TARGET_SERVER: memory-core
     environment:
@@ -135,8 +135,8 @@ services:
   # `cloud` profile — started by `docker compose --profile cloud up`.
   orchestrator:
     build:
-      context: ../..
-      dockerfile: ai/deploy/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       args:
         SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
     environment:
