@@ -5,6 +5,7 @@
 // class were ever loaded outside its entry-point's chain.
 import fs                          from 'fs-extra';
 import {spawn}                     from 'child_process';
+import net                         from 'net';
 import path                        from 'path';
 import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
@@ -417,6 +418,7 @@ export class Orchestrator extends Base {
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get chromaPort()                     { return AiConfig.engines.chroma?.port;                              }
+    get chromaMaxRuntimeMs()             { return AiConfig.orchestrator.chroma?.maxRuntimeMs;                  }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -500,6 +502,16 @@ export class Orchestrator extends Base {
             ? options.primaryDevSyncRootsConfig
             : AiConfig.orchestrator.devSyncRoots;
         this.maintenanceDeferralLogKeys = new Set();
+        // #12138 chroma max-runtime recycle: process-local (non-persisted) flags.
+        // `_chromaDefragPending` gates the post-restart defrag; `_chromaDefragInFlight` prevents
+        // poll re-entry during the readiness probe. The defrag is BEST-EFFORT: if the orchestrator
+        // restarts after killTask but before the defrag fires, the flag is lost and the defrag is
+        // skipped for that cycle — the next max-runtime recycle compacts the store. This is sound
+        // for an idempotent compaction step (persisting the intent would instead introduce a
+        // pending-forever / endless-retry failure mode); the kill→restart, the primary recycle
+        // value, is unaffected by an orchestrator restart.
+        this._chromaDefragPending  = false;
+        this._chromaDefragInFlight = false;
 
         fs.ensureDirSync(this.dataDir);
 
@@ -614,6 +626,42 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * Whether the supervised Chroma daemon's uptime has exceeded the configured recycle
+     * ceiling. Pure predicate over task state + `chromaMaxRuntimeMs`; a `0`/absent ceiling
+     * disables recycling.
+     * @param {Object} state Chroma task state ({running, lastRunAt}).
+     * @param {Number} now Epoch ms.
+     * @returns {Boolean}
+     */
+    isChromaRecycleDue(state, now) {
+        const maxRuntimeMs = this.chromaMaxRuntimeMs;
+        const lastRunAt    = state?.lastRunAt || 0;
+        // lastRunAt === 0 means no recorded spawn (uninitialized / never started): uptime is
+        // undefined, so never recycle. A genuinely running daemon always carries a real start
+        // stamp (markStarted), so this only excludes inconsistent/uninitialized state.
+        return Boolean(state?.running) && maxRuntimeMs > 0 && lastRunAt > 0 && (now - lastRunAt) > maxRuntimeMs;
+    }
+
+    /**
+     * Resolves true once a TCP connection to the local Chroma port succeeds — a
+     * connection-ready proxy mirroring the integration stack's `/dev/tcp` healthcheck.
+     * Overridable in tests; never rejects.
+     * @param {Object} [options]
+     * @param {Number} [options.timeoutMs=2000] Probe timeout.
+     * @returns {Promise<Boolean>}
+     */
+    probeChromaReady({timeoutMs = 2000} = {}) {
+        return new Promise(resolve => {
+            const socket = net.connect({host: 'localhost', port: this.chromaPort});
+            const finish = result => { socket.destroy(); resolve(result); };
+            socket.setTimeout(timeoutMs);
+            socket.once('connect', () => finish(true));
+            socket.once('timeout', () => finish(false));
+            socket.once('error',   () => finish(false));
+        });
+    }
+
+    /**
      * Executes a sweep and schedules the next poll when the daemon remains active.
      * @returns {void}
      */
@@ -638,11 +686,39 @@ export class Orchestrator extends Base {
             this.processSupervisorService.reapDuplicateListeners(taskName);
 
             const state = this.taskStateService.getTaskState(taskName);
+
+            // Max-runtime recycle (#12138): kill an over-age chroma daemon (SIGKILL — chroma
+            // ignores SIGTERM) so the restart branch below respawns it; the KB defrag fires
+            // once the fresh daemon is connection-ready. Implicitly gated by chromaDaemonEnabled
+            // (chroma is only a continuousTask when that lane is enabled).
+            if (taskName === 'chroma' && this.isChromaRecycleDue(state, now)) {
+                this.processSupervisorService.killTask('chroma', `max-runtime:${now - (state.lastRunAt || 0)}ms>${this.chromaMaxRuntimeMs}ms`);
+                this._chromaDefragPending = true;
+                continue;
+            }
+
             if (state && !state.running) {
                 const lastRunAt = state.lastRunAt || 0;
                 if (now - lastRunAt > RESTART_COOLDOWN_MS) {
                     executeTask(taskName, 'supervisor-restart');
                 }
+            }
+
+            // Post-recycle defrag (#12138): once the restarted chroma is connection-ready, run
+            // the unified-store-safe KB defrag against the fresh daemon. MC defrag is deferred
+            // (no rebuild-from-source fallback) to #12142. The in-flight guard prevents poll
+            // re-entry while the async readiness probe is pending.
+            if (taskName === 'chroma' && state?.running && this._chromaDefragPending && !this._chromaDefragInFlight) {
+                this._chromaDefragInFlight = true;
+                this.probeChromaReady()
+                    .then(ready => {
+                        if (ready && this._chromaDefragPending) {
+                            this._chromaDefragPending = false;
+                            executeTask('chromaDefrag', 'chroma-recycle-defrag');
+                        }
+                    })
+                    .catch(() => {})
+                    .finally(() => { this._chromaDefragInFlight = false; });
             }
         }
 
