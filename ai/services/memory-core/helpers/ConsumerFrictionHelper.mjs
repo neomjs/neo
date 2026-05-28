@@ -187,12 +187,15 @@ export function deriveSuggestionKind(symptom, assetRef) {
  * when their count reaches `PROBABILISTIC_EMIT_THRESHOLD`.
  *
  * Validates enum membership of `symptom`, `suggestionKind`, `emissionPoint`, `serviceDomain`
- * and throws on invalid input. Pure aside from the module-singleton aggregator mutation.
+ * and the positive-finite-number contract on `contextLimitTokens` (the durable-contract field
+ * per #12116 — silent `undefined` would corrupt the friction record downstream). Throws
+ * `TypeError` on invalid input. Pure aside from the module-singleton aggregator mutation.
  *
  * @param {Partial<ConsumerFriction>} input Friction fields. `assetRef`, `consumer`, `model`,
  *   `symptom`, `emissionPoint`, `serviceDomain`, `inputBytes`, `contextLimitTokens` are required.
  *   `count` / `firstSeenAt` / `lastSeenAt` are managed by the aggregator and may be omitted.
  * @returns {Object} The aggregator entry: `{count, firstSeenAt, lastSeenAt, latestFriction, surfaced}`.
+ * @throws {TypeError} If `contextLimitTokens` is not a positive finite number.
  */
 export function emitConsumerFriction(input) {
     if (!input || typeof input !== 'object') {
@@ -209,6 +212,9 @@ export function emitConsumerFriction(input) {
     }
     if (input.serviceDomain && !VALID_SERVICE_DOMAINS.has(input.serviceDomain)) {
         throw new TypeError(`emitConsumerFriction: invalid serviceDomain '${input.serviceDomain}'`);
+    }
+    if (!Number.isFinite(input.contextLimitTokens) || input.contextLimitTokens <= 0) {
+        throw new TypeError(`emitConsumerFriction: contextLimitTokens must be a positive finite number, got ${input.contextLimitTokens}`);
     }
 
     const consumer = input.consumer || input.model;
