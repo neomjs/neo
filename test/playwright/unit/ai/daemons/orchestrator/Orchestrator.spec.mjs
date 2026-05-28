@@ -1173,6 +1173,26 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
         expect(orchestrator.isChromaRecycleDue({running: true,  lastRunAt: now - 5000}, now)).toBe(true);
         expect(orchestrator.isChromaRecycleDue({running: true,  lastRunAt: now - 500},  now)).toBe(false);
         expect(orchestrator.isChromaRecycleDue({running: false, lastRunAt: now - 5000}, now)).toBe(false);
+        // lastRunAt === 0 (uninitialized / harness default) must NOT read as huge uptime.
+        expect(orchestrator.isChromaRecycleDue({running: true,  lastRunAt: 0},          now)).toBe(false);
+    });
+
+    test('does not recycle a running chroma with an uninitialized start stamp (lastRunAt=0)', () => {
+        // Regression for the CI-only failure: the harness sets chroma.running=true with the
+        // default lastRunAt=0; with a real maxRuntimeMs this previously read as now-0 = huge
+        // uptime and spuriously recycled, polluting unrelated poll() tests.
+        AiConfig.orchestrator.chroma = {maxRuntimeMs: 1000};
+        const sink         = {killed: [], started: []};
+        const orchestrator = createTestOrchestrator();
+
+        TaskStateService.taskState.chroma.running   = true;
+        TaskStateService.taskState.chroma.lastRunAt = 0;
+        orchestrator.processSupervisorService = recycleMock(sink);
+
+        orchestrator.poll();
+
+        expect(sink.killed).toEqual([]);
+        expect(orchestrator._chromaDefragPending).toBeFalsy();
     });
 
     test('isChromaRecycleDue: false when the ceiling is 0 or absent (recycling disabled)', () => {

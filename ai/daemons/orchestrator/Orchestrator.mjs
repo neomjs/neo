@@ -630,7 +630,11 @@ export class Orchestrator extends Base {
      */
     isChromaRecycleDue(state, now) {
         const maxRuntimeMs = this.chromaMaxRuntimeMs;
-        return Boolean(state?.running) && maxRuntimeMs > 0 && (now - (state.lastRunAt || 0)) > maxRuntimeMs;
+        const lastRunAt    = state?.lastRunAt || 0;
+        // lastRunAt === 0 means no recorded spawn (uninitialized / never started): uptime is
+        // undefined, so never recycle. A genuinely running daemon always carries a real start
+        // stamp (markStarted), so this only excludes inconsistent/uninitialized state.
+        return Boolean(state?.running) && maxRuntimeMs > 0 && lastRunAt > 0 && (now - lastRunAt) > maxRuntimeMs;
     }
 
     /**
