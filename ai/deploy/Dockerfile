@@ -16,7 +16,11 @@ FROM alpine/git AS source-git
 ARG NEO_REF
 ARG NEO_REPO_URL
 WORKDIR /neo
-RUN git clone --depth 1 --branch "${NEO_REF}" "${NEO_REPO_URL}" .
+# fetch + checkout (NOT `clone --branch`, which rejects raw SHAs) so NEO_REF accepts a
+# branch, a tag, OR a full commit SHA (the reproducible pin). GitHub serves reachable SHAs.
+RUN git init -q && git remote add origin "${NEO_REPO_URL}" \
+    && git fetch --depth 1 origin "${NEO_REF}" \
+    && git checkout -q --detach FETCH_HEAD
 
 FROM node:24-alpine AS source-local
 WORKDIR /neo
