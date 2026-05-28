@@ -27,6 +27,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {Object} [options]
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
+ * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
  * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
@@ -42,6 +43,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
+    chromaPort,
     mlxEnabled = false,
     mlxModel,
     mlxPort,
@@ -57,9 +59,10 @@ export function buildTaskDefinitions({
         chroma: {
             label          : 'chroma daemon',
             command        : 'chroma',
-            args           : ['run', '--path', '.neo-ai-data/chroma/knowledge-base', '--port', '8000'],
+            args           : ['run', '--path', '.neo-ai-data/chroma/knowledge-base', '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',
-            expectedCommand: 'chroma'
+            expectedCommand: 'chroma',
+            singletonPort  : chromaPort
         },
         bridgeDaemon: {
             label          : 'bridge daemon',

@@ -411,6 +411,95 @@ export class ProcessSupervisorService extends Base {
 
         return true;
     }
+
+    /**
+     * @summary Enforces a single live process for a port-owning ("singleton") task by
+     * SIGKILLing any extra listeners on its port.
+     *
+     * The orchestrator is the sole authority for these daemons (chroma). When more than one
+     * process binds the task's `singletonPort` — an externally-started instance, a
+     * pre-unification leftover, or a second orchestrator — the duplicates corrupt a shared
+     * persist dir. This keeps the orchestrator-tracked pid and SIGKILLs the rest. SIGTERM is
+     * deliberately not attempted: chroma does not honor it, so a graceful signal only delays
+     * the unavoidable SIGKILL. Each candidate's command is verified against `expectedCommand`
+     * first, so an unrelated process that merely happens to hold the port is never touched.
+     *
+     * @param {String} taskName Task key.
+     * @returns {Number} Count of duplicate processes reaped.
+     */
+    reapDuplicateListeners(taskName) {
+        const task = this.taskDefinitions[taskName];
+        if (!task?.singletonPort) {
+            return 0;
+        }
+
+        const listenerPids = this.listPortListeners(task.singletonPort);
+        const canonicalPid = this.taskStateService.getTaskState(taskName)?.pid;
+        let   reaped       = 0;
+
+        for (const pid of listenerPids) {
+            if (!Number.isInteger(pid) || pid === canonicalPid) {
+                continue;
+            }
+
+            let command;
+            try {
+                command = this.processCommand(pid);
+            } catch (e) {
+                continue;
+            }
+
+            if (!command.includes(task.expectedCommand)) {
+                continue;
+            }
+
+            try {
+                this.killProcess(pid);
+                reaped++;
+                this.writeLog?.('WARN', `[ProcessSupervisor] Reaped duplicate ${task.label} (PID: ${pid}); canonical is ${canonicalPid ?? 'none'}.`);
+                this.recordTaskOutcome(taskName, 'reaped-duplicate', {pid, canonicalPid: canonicalPid ?? null, reapedAt: new Date().toISOString()});
+            } catch (e) {
+                this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to reap duplicate ${task.label} (PID: ${pid}): ${e.message}`);
+            }
+        }
+
+        return reaped;
+    }
+
+    /**
+     * Lists PIDs holding a LISTEN socket on the given TCP port. A no-op in unit-test mode so
+     * the supervision loop never touches real sockets while specs run; the reap unit tests
+     * override this seam to exercise the logic.
+     * @param {Number} port
+     * @returns {Number[]}
+     */
+    listPortListeners(port) {
+        if (process.env.UNIT_TEST_MODE === 'true') {
+            return [];
+        }
+
+        try {
+            const out = execSync(`lsof -nP -ti tcp:${port} -sTCP:LISTEN`, {stdio: ['ignore', 'pipe', 'ignore']}).toString().trim();
+            return out ? out.split('\n').map(line => parseInt(line, 10)).filter(Number.isInteger) : [];
+        } catch (e) {
+            // lsof exits non-zero when nothing is listening (or it is unavailable) — nothing to reap.
+            return [];
+        }
+    }
+
+    /**
+     * Sends SIGKILL to a process. SIGTERM is intentionally skipped (chroma ignores it). A
+     * no-op in unit-test mode so the supervision loop never kills a real process during specs;
+     * the reap unit tests override this seam.
+     * @param {Number} pid
+     * @returns {void}
+     */
+    killProcess(pid) {
+        if (process.env.UNIT_TEST_MODE === 'true') {
+            return;
+        }
+        process.kill(pid, 'SIGKILL');
+    }
 }
 
 export default Neo.setupClass(ProcessSupervisorService);

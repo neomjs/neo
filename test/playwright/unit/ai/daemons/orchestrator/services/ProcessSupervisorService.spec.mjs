@@ -204,4 +204,59 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
             })
         }));
     });
+
+    test('reapDuplicateListeners SIGKILLs extra listeners but keeps the canonical pid', () => {
+        const { service, taskOutcomes } = createTestService();
+        const killed = [];
+
+        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskStateService.getTaskState = () => ({running: true, pid: 100});
+        service.listPortListeners = () => [100, 200, 300];
+        service.processCommand    = () => 'echo serving';
+        service.killProcess       = pid => killed.push(pid);
+
+        const reaped = service.reapDuplicateListeners('mockTask');
+
+        expect(reaped).toBe(2);
+        expect(killed).toEqual([200, 300]);
+        expect(taskOutcomes.filter(o => o.status === 'reaped-duplicate').length).toBe(2);
+    });
+
+    test('reapDuplicateListeners leaves a process whose command is not the task command', () => {
+        const { service } = createTestService();
+        const killed = [];
+
+        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskStateService.getTaskState = () => ({running: true, pid: 100});
+        service.listPortListeners = () => [200];
+        service.processCommand    = () => 'unrelated-process';
+        service.killProcess       = pid => killed.push(pid);
+
+        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
+        expect(killed).toEqual([]);
+    });
+
+    test('reapDuplicateListeners is a no-op for tasks without a singletonPort', () => {
+        const { service } = createTestService();
+        let probed = false;
+
+        service.listPortListeners = () => { probed = true; return [200]; };
+
+        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
+        expect(probed).toBe(false);
+    });
+
+    test('reapDuplicateListeners reaps every matching listener when no canonical pid is tracked', () => {
+        const { service } = createTestService();
+        const killed = [];
+
+        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskStateService.getTaskState = () => ({running: false, pid: null});
+        service.listPortListeners = () => [200, 300];
+        service.processCommand    = () => 'echo';
+        service.killProcess       = pid => killed.push(pid);
+
+        expect(service.reapDuplicateListeners('mockTask')).toBe(2);
+        expect(killed).toEqual([200, 300]);
+    });
 });

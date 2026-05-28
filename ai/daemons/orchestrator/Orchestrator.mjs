@@ -416,6 +416,7 @@ export class Orchestrator extends Base {
     get primaryDevSyncEnabled()          { return resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
+    get chromaPort()                     { return AiConfig.engines.chroma?.port;                              }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -472,6 +473,7 @@ export class Orchestrator extends Base {
         this.taskDefinitions = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
+            chromaPort: this.chromaPort,
             mlxEnabled: this.mlxEnabled,
             mlxModel  : this.mlxModel,
             mlxPort   : this.mlxPort,
@@ -631,6 +633,10 @@ export class Orchestrator extends Base {
         ];
         const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {
+            // Singularity guard: reap any duplicate listeners on a singleton-port task's
+            // port (chroma) before the spawn check, so exactly one daemon stays alive.
+            this.processSupervisorService.reapDuplicateListeners(taskName);
+
             const state = this.taskStateService.getTaskState(taskName);
             if (state && !state.running) {
                 const lastRunAt = state.lastRunAt || 0;
