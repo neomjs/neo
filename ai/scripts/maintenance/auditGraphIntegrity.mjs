@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import {Command}       from 'commander';
 import fsExtra         from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -22,44 +23,66 @@ const SEVERITY_RANK = {
 };
 
 /**
- * @summary Parse CLI arguments for the graph-integrity audit runner.
+ * @summary Creates the Commander parser for the graph-integrity audit runner.
  *
  * The default threshold follows #10462: any non-zero divergence up to 5% is
  * `soft`; divergence above 5% is `hard`. Operators can override it via
  * `--hard-threshold` or `GRAPH_INTEGRITY_HARD_THRESHOLD`.
  *
+ * @param {Object} env Environment source.
+ * @returns {Command}
+ */
+function createArgParser(env = process.env) {
+    const program = new Command();
+
+    program
+        .name('ai:audit-integrity')
+        .description('Run the read-only Memory Core graph-integrity audit.')
+        .exitOverride()
+        .configureOutput({
+            writeErr: () => {},
+            writeOut: () => {}
+        })
+        .helpOption(false)
+        .allowExcessArguments(false)
+        .option('--output-dir <path>', 'Report directory.', env.GRAPH_INTEGRITY_AUDIT_DIR || DEFAULT_AUDIT_ROOT)
+        .option(
+            '--page-size <n>',
+            'Chroma pagination size.',
+            value => parsePositiveInt(value, 1000),
+            parsePositiveInt(env.GRAPH_INTEGRITY_PAGE_SIZE, 1000)
+        )
+        .option(
+            '--hard-threshold <ratio>',
+            'Hard severity threshold ratio.',
+            value => parseRatio(value, 0.05),
+            parseRatio(env.GRAPH_INTEGRITY_HARD_THRESHOLD, 0.05)
+        )
+        .option('-h, --help', 'Show help');
+
+    return program;
+}
+
+/**
+ * @summary Parse CLI arguments for the graph-integrity audit runner.
  * @param {String[]} argv CLI argv slice.
  * @param {Object} env Environment source.
  * @returns {Object}
  */
 export function parseArgs(argv, env = process.env) {
+    const program = createArgParser(env);
+
+    program.parse(argv, {from: 'user'});
+
+    const options = program.opts();
+
     const args = {
-        outputDir    : env.GRAPH_INTEGRITY_AUDIT_DIR || DEFAULT_AUDIT_ROOT,
-        pageSize     : parsePositiveInt(env.GRAPH_INTEGRITY_PAGE_SIZE, 1000),
-        hardThreshold: parseRatio(env.GRAPH_INTEGRITY_HARD_THRESHOLD, 0.05)
+        outputDir    : options.outputDir,
+        pageSize     : options.pageSize,
+        hardThreshold: options.hardThreshold
     };
 
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-
-        if (arg === '--output-dir') {
-            args.outputDir = argv[++i];
-        } else if (arg.startsWith('--output-dir=')) {
-            args.outputDir = arg.slice('--output-dir='.length);
-        } else if (arg === '--page-size') {
-            args.pageSize = parsePositiveInt(argv[++i], args.pageSize);
-        } else if (arg.startsWith('--page-size=')) {
-            args.pageSize = parsePositiveInt(arg.slice('--page-size='.length), args.pageSize);
-        } else if (arg === '--hard-threshold') {
-            args.hardThreshold = parseRatio(argv[++i], args.hardThreshold);
-        } else if (arg.startsWith('--hard-threshold=')) {
-            args.hardThreshold = parseRatio(arg.slice('--hard-threshold='.length), args.hardThreshold);
-        } else if (arg === '--help' || arg === '-h') {
-            args.help = true;
-        } else {
-            throw new Error(`Unknown flag: ${arg}`);
-        }
-    }
+    if (options.help) args.help = true;
 
     return args;
 }
@@ -433,15 +456,7 @@ function normalizeSessionNodeId(graphService, sessionId) {
 }
 
 function printHelp() {
-    console.log([
-        'Usage: npm run ai:audit-integrity -- [options]',
-        '',
-        'Options:',
-        '  --output-dir <path>       Report directory (default: .neo-ai-data/audits)',
-        '  --page-size <n>           Chroma pagination size (default: 1000)',
-        '  --hard-threshold <ratio>  Hard severity threshold (default: 0.05)',
-        '  -h, --help                Show this help'
-    ].join('\n'));
+    console.log(createArgParser().helpInformation().trimEnd());
 }
 
 async function main() {
