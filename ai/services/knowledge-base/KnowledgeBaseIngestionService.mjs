@@ -881,6 +881,60 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
+     * @summary Enumerates every configured tenant's effective `tenantRepos`, flattened across tenants.
+     *
+     * The pull-mode sync lane (`TenantRepoSyncService`) needs the union of all tenants' polling
+     * configs. Resolution is per-tenant single-winner across the same tiers as `getTenantConfig` —
+     * graph node (`kb-config:<tenantId>`) > `kb-config.yaml` bootstrap > `aiConfig.tenantRepos[]`
+     * default — then flattened. A tenant's highest present tier wins WHOLESALE; tiers are never
+     * merged within a tenant (that would be a deliberate `getTenantConfig` semantics change).
+     *
+     * RLS: graph-tier reads go through `GraphService.getNodeRecord` — the same RLS-respecting path
+     * `getTenantConfig` uses, never a raw node scan. `kb-config:*` nodes carry `visibility:'team'`,
+     * so the context-less orchestrator resolves them while per-tenant ownership isolation is preserved.
+     *
+     * The tenant set is derived from the keyed tiers: `kb-config.yaml` `tenants.*` keys plus the
+     * distinct `tenantId`s in `aiConfig.tenantRepos[]`. A tenant configured ONLY via a graph node
+     * (no yaml / aiConfig entry) is out of scope until a `setTenantConfig` operator tool exists.
+     * @returns {Promise<{tenantRepos: Array<Object>}>} Contract-normalized; throws on a malformed entry.
+     */
+    async listConfiguredTenantRepos() {
+        await this.graphService.initAsync();
+
+        const bootstrap    = this.readKbConfigBootstrap(),
+              yamlTenants  = (bootstrap && bootstrap.tenants) || {},
+              defaultRepos = Array.isArray(aiConfig.tenantRepos) ? aiConfig.tenantRepos : [],
+              tenantIds    = new Set();
+
+        Object.keys(yamlTenants).forEach(key => tenantIds.add(key));
+        defaultRepos.forEach(entry => {
+            const id = entry && entry.tenantId;
+            if (id) tenantIds.add(normalizeUserId(id) || id);
+        });
+
+        const effective = [];
+
+        for (const tenantId of tenantIds) {
+            const graphRepos = this.graphService.getNodeRecord({id: `kb-config:${tenantId}`})?.properties?.tenantRepos,
+                  yamlRepos  = yamlTenants[tenantId]?.tenantRepos;
+
+            let repos;
+
+            if (Array.isArray(graphRepos) && graphRepos.length > 0) {
+                repos = graphRepos;
+            } else if (Array.isArray(yamlRepos) && yamlRepos.length > 0) {
+                repos = yamlRepos;
+            } else {
+                repos = defaultRepos.filter(entry => (normalizeUserId(entry.tenantId) || entry.tenantId) === tenantId);
+            }
+
+            repos.forEach(repo => effective.push(repo.tenantId ? repo : {...repo, tenantId}));
+        }
+
+        return normalizeTenantRepoConfig({tenantRepos: effective});
+    }
+
+    /**
      * @summary Persists a tenant's Knowledge Base ingestion config as a versioned graph node.
      *
      * Writes the `KnowledgeBaseTenantConfig` node (`kb-config:<tenantId>`); `version` increments on
