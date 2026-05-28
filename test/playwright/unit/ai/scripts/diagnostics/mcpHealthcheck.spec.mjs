@@ -214,7 +214,7 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         ]));
         expect(localModel.healthcheck.test).toEqual(['CMD', 'ollama', 'list']);
         expect(localModel.deploy.resources.limits).toEqual({
-            memory: '${NEO_LOCAL_MODEL_MEMORY_LIMIT:-24g}',
+            memory: '${NEO_LOCAL_MODEL_MEMORY_LIMIT:-32g}',
             cpus  : '${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}'
         });
         expect(compose.volumes).toHaveProperty('local-model-data');

@@ -262,7 +262,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-24g}"
+          memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-32g}"
           cpus: "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
 
 # kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
