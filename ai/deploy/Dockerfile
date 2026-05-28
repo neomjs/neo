@@ -15,11 +15,11 @@ ARG NEO_REPO_URL=https://github.com/neomjs/neo.git
 FROM alpine/git AS source-git
 ARG NEO_REF
 ARG NEO_REPO_URL
-WORKDIR /src
+WORKDIR /neo
 RUN git clone --depth 1 --branch "${NEO_REF}" "${NEO_REPO_URL}" .
 
 FROM node:24-alpine AS source-local
-WORKDIR /src
+WORKDIR /neo
 COPY . .
 
 # Select the source stage from the NEO_SOURCE build arg. In 'git' mode the source-local
@@ -34,13 +34,13 @@ WORKDIR /app
 # when installing on Alpine. The tools stay in this build stage.
 RUN apk add --no-cache python3 make g++
 
-COPY --from=source /src/package*.json ./
+COPY --from=source /neo/package*.json ./
 # --ignore-scripts skips the root `prepare` lifecycle hook before buildScripts/
 # is copied. Neo's Agent OS runtime packages currently live in devDependencies;
 # installing them here keeps that cost inside this Right-Hemisphere image.
 RUN npm ci --ignore-scripts
 
-COPY --from=source /src ./
+COPY --from=source /neo ./
 
 # Path A for #10964: generate gitignored per-server config.mjs files inside the
 # image so clean external checkouts do not need manual template copies.
