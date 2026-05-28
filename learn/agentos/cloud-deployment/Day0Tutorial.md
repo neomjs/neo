@@ -39,6 +39,13 @@ cd neo
 npm install
 ```
 
+> **Deploy images source neo independently.** The `ai/deploy` images build by
+> cloning neo at a pinned ref (`NEO_REF`, default `dev`), so they do **not** require a
+> co-located checkout — any operator or CI host can build them. This local checkout is for
+> running the tutorial's commands and for dev iteration (`--build-arg NEO_SOURCE=local`,
+> with the neo repo root as the build context). Pin `NEO_REF` to a tag/SHA for a fully
+> reproducible deployment.
+
 Required local tools:
 
 | Tool | Check | Expected output |
