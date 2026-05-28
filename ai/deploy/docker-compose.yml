@@ -166,6 +166,14 @@ services:
       # scheduler lane writes bundles here. A host bind-mount keeps them across
       # container rebuilds and host-accessible for off-site copy / inspection.
       - ./.neo-ai-data/backups:/app/.neo-ai-data/backups
+      # kb-config.yaml bootstrap tier (#12145): deployments that provide a kb-config.yaml
+      # (per-tenant Source/Parser registration + pull-mode `tenantRepos`) MUST mount it
+      # read-only here AND on kb-server. The pull-mode sync's tiered resolver
+      # (TenantRepoSyncService -> KnowledgeBaseIngestionService.listConfiguredTenantRepos)
+      # reads it from `<neoRootDir>/kb-config.yaml` the same way kb-server resolves it at
+      # query time; without the mount the orchestrator silently falls back to the
+      # aiConfig.tenantRepos[] default tier only. Example:
+      #   - ./kb-config.yaml:/app/kb-config.yaml:ro
     depends_on:
       chroma:
         condition: service_healthy

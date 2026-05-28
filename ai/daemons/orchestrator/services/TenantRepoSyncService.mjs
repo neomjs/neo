@@ -5,7 +5,6 @@ import AiConfig from '../../../config.mjs';
 import {DEFAULT_DATA_DIR} from '../TaskDefinitions.mjs';
 import GitMirror from '../../../services/knowledge-base/helpers/GitMirror.mjs';
 import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs';
-import {normalizeTenantRepoConfig} from '../../../services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
 import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
@@ -201,8 +200,7 @@ class TenantRepoSyncService extends Base {
      * @param {Object} options.taskStateService Orchestrator task-state service.
      * @param {Object} [options.healthService] HealthService-compatible sink.
      * @param {Function} [options.writeLog] Orchestrator logger.
-     * @param {Object} [options.tenantReposConfig] Pre-normalized tenantRepos config. If omitted, resolved from `aiConfig` via `normalizeTenantRepos`.
-     * @param {Object} [options.aiConfig] AI config object (test seam). Defaults to live import.
+     * @param {Object} [options.tenantReposConfig] Pre-normalized tenantRepos config. If omitted, resolved across config tiers via `KnowledgeBaseIngestionService.listConfiguredTenantRepos`.
      * @param {Object} [options.gitMirror=GitMirror] Injectable mirror primitive (test seam).
      * @param {Object} [options.knowledgeBaseIngestionService] KB ingestion service singleton (test seam). Resolved from `ai/services.mjs` if omitted.
      * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. Empty filter result against non-empty list surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
@@ -217,7 +215,6 @@ class TenantRepoSyncService extends Base {
         healthService,
         writeLog,
         tenantReposConfig,
-        aiConfig,
         gitMirror = GitMirror,
         knowledgeBaseIngestionService,
         onlyRepoSlugs,
@@ -240,7 +237,7 @@ class TenantRepoSyncService extends Base {
 
         try {
             const result = await this.syncTenantRepos({
-                writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
+                writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
                 taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
                 globalCadenceMs, jitterRatio, seedBootstrap
             });
@@ -284,13 +281,13 @@ class TenantRepoSyncService extends Base {
      * @returns {Promise<Object>} `{status, details: {repoCount, completedCount, failedCount, results}}`.
      */
     async syncTenantRepos({
-        writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
+        writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
         taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
         globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         seedBootstrap   = true
     }) {
-        const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({aiConfig});
+        const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({ingestionService: knowledgeBaseIngestionService});
         const allRepos       = resolvedConfig.tenantRepos || [];
         const repos          = onlyRepoSlugs
             ? allRepos.filter(r => onlyRepoSlugs.includes(r.repoSlug))
@@ -545,8 +542,13 @@ class TenantRepoSyncService extends Base {
     }
 
     /**
-     * Resolves the tenantRepos config from `aiConfig` via `TenantRepoAccessContract.normalizeTenantRepos`.
-     * Materializes per-repo `mirrorRoot` via a defensive fallback chain when the per-repo
+     * Resolves the effective `tenantRepos` across all tenants via the tiered resolver
+     * `KnowledgeBaseIngestionService.listConfiguredTenantRepos` (graph node > `kb-config.yaml`
+     * bootstrap > `aiConfig.tenantRepos[]` default, per-tenant single-winner, flattened). Replaces
+     * the prior direct `aiConfig.tenantRepos` read so the documented bootstrap / graph tiers are
+     * actually honored on the pull path (#12145).
+     *
+     * Then materializes per-repo `mirrorRoot` via a defensive fallback chain when the per-repo
      * override is absent:
      *
      *   1. `tier1MirrorRoot` (test seam — full short-circuit)
@@ -562,24 +564,24 @@ class TenantRepoSyncService extends Base {
      * `tenantRepoMirrorRoot` key — but the env var is still injected via compose, so
      * a direct `process.env` read keeps the resolver behavior correct regardless.
      *
-     * Test seams: `aiConfig` bypasses live import; `tier1MirrorRoot` short-circuits the
-     * chain; `orchestratorConfig` stubs the AiConfig.orchestrator section; `env` stubs
-     * `process.env` for fallback-chain testing.
+     * Test seams: `ingestionService` injects a stub KB service (bypasses the live singleton
+     * lookup); `tier1MirrorRoot` short-circuits the mirrorRoot chain; `orchestratorConfig`
+     * stubs the AiConfig.orchestrator section; `env` stubs `process.env`.
      *
-     * @param {Object} options
-     * @param {Object} [options.aiConfig] Pre-resolved config object.
+     * @param {Object} [options]
      * @param {String} [options.tier1MirrorRoot] Pre-resolved Tier-1 mirrorRoot default (test seam).
      * @param {Object} [options.orchestratorConfig=AiConfig.orchestrator] Stub for the AiConfig.orchestrator section (test seam).
      * @param {Object} [options.env=process.env] Stub for the env-var lookup (test seam).
+     * @param {Object} [options.ingestionService] Stub KB ingestion service (test seam); defaults to the live singleton.
      * @returns {Promise<{tenantRepos: Array<Object>}>}
      */
-    async resolveTenantReposConfig({aiConfig, tier1MirrorRoot, orchestratorConfig = AiConfig.orchestrator, env = process.env}) {
-        const cfg              = aiConfig || (await import('../../../mcp/server/knowledge-base/config.mjs')).default;
-        const tier1Default     = tier1MirrorRoot
+    async resolveTenantReposConfig({tier1MirrorRoot, orchestratorConfig = AiConfig.orchestrator, env = process.env, ingestionService} = {}) {
+        const tier1Default = tier1MirrorRoot
             ?? orchestratorConfig?.tenantRepoMirrorRoot
             ?? env.NEO_TENANT_REPO_MIRROR_ROOT
             ?? '/app/.neo-ai-data';
-        const normalized       = normalizeTenantRepoConfig({tenantRepos: cfg.tenantRepos || []});
+        const kbService    = ingestionService || await this.resolveIngestionService();
+        const normalized   = await kbService.listConfiguredTenantRepos();
 
         normalized.tenantRepos = normalized.tenantRepos.map(entry =>
             entry.mirrorRoot ? entry : {...entry, mirrorRoot: tier1Default}
