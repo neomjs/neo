@@ -36,6 +36,15 @@ test.describe('Memory Core Config (#10010)', () => {
         }
 
         config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
+
+        // Deterministic realm root: MC declares no realm leaves locally and inherits them
+        // up the getParent() chain, so these tests need Neo.ai.Config present. The MC template's
+        // side-effect import only registers it on FIRST module-eval — in a reused Playwright worker
+        // (cached module) that's a no-op — so install a fresh Tier-1 root built from the canonical
+        // template tree, making inheritance deterministic across workers.
+        const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
+        Neo.ai = Neo.ai || {};
+        Neo.ai.Config = Neo.create(BaseConfig, {data: tier1Template._data});
     });
 
     test.afterAll(() => {
@@ -80,24 +89,35 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.memorySharing.defaultPolicy).toBe('legacy');
     });
 
-    test('maps deployment-wide Tier-1 defaults for provider, auth, and storage groups', () => {
+    test('inherits deployment-wide Tier-1 defaults (provider, auth, ollama, openAiCompatible, storage) via the realm chain', () => {
+        // MC declares none of these locally — they resolve UP the getParent() chain to the
+        // Tier-1 realm root. Read KEYED, never whole-namespace: `toEqual(config.ollama)` would
+        // enumerate, and namespace enumeration is the deferred getTopLevelDataKeys local-only edge.
         expect(config.modelProvider).toBe(TIER1_DEFAULTS.modelProvider);
         expect(config.graphProvider).toBe(TIER1_DEFAULTS.graphProvider);
         expect(config.embeddingProvider).toBe(TIER1_DEFAULTS.embeddingProvider);
-        expect(config.ollama).toEqual(TIER1_DEFAULTS.ollama);
-        expect(config.openAiCompatible).toEqual(TIER1_DEFAULTS.openAiCompatible);
         expect(config.vectorDimension).toBe(TIER1_DEFAULTS.vectorDimension);
         expect(config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
         expect(config.modelName).toBe(TIER1_DEFAULTS.modelName);
         expect(config.embeddingModel).toBe(TIER1_DEFAULTS.embeddingModel);
 
-        expect(config.auth).toEqual(TIER1_DEFAULTS.auth);
-        expect(config.engines.chroma).toMatchObject({
-            host: TIER1_DEFAULTS.engines.chroma.host,
-            port: TIER1_DEFAULTS.engines.chroma.port
-        });
-        // MC reads the unified persist-dir SSOT (`AiConfig.engines.chroma.dataDir`),
-        // not a server-local dir. Was the stale `.neo-ai-data/chroma/memory-core` — the bug.
+        expect(config.auth.host).toBe(TIER1_DEFAULTS.auth.host);
+        expect(config.auth.port).toBe(TIER1_DEFAULTS.auth.port);
+        expect(config.auth.realm).toBe(TIER1_DEFAULTS.auth.realm);
+        expect(config.auth.trustProxyIdentity).toBe(TIER1_DEFAULTS.auth.trustProxyIdentity);
+
+        expect(config.ollama.host).toBe(TIER1_DEFAULTS.ollama.host);
+        expect(config.ollama.model).toBe(TIER1_DEFAULTS.ollama.model);
+        expect(config.ollama.embeddingModel).toBe(TIER1_DEFAULTS.ollama.embeddingModel);
+
+        expect(config.openAiCompatible.host).toBe(TIER1_DEFAULTS.openAiCompatible.host);
+        expect(config.openAiCompatible.model).toBe(TIER1_DEFAULTS.openAiCompatible.model);
+        expect(config.openAiCompatible.embeddingModel).toBe(TIER1_DEFAULTS.openAiCompatible.embeddingModel);
+
+        expect(config.engines.chroma.host).toBe(TIER1_DEFAULTS.engines.chroma.host);
+        expect(config.engines.chroma.port).toBe(TIER1_DEFAULTS.engines.chroma.port);
+        // MC reads the unified persist-dir SSOT, not a server-local dir.
+        // Was the stale `.neo-ai-data/chroma/memory-core` — the bug.
         expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDir);
         expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/knowledge-base');
     });
@@ -120,27 +140,32 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
-        // Env is decoded at construction via #applyEnvLayer. Build a FRESH isolated
-        // instance (env set above) instead of re-constructing the shared module-cached
-        // singleton, whose reactive state is contaminated by sibling specs in the parallel
-        // suite. config._data carries the raw Tier-1 meta-leaf tree.
-        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+        // Post-split, MC declares none of these locally — they are Tier-1-owned, so env
+        // precedence lives at the OWNER. Build a fresh realm root WITH the env set, register it, and
+        // a fresh MC child inherits the overrides up the getParent() chain. (config._data is the raw
+        // MC meta-leaf tree; Neo.ai.Config._data is the Tier-1 realm tree, loaded via MC's import.)
+        const prevRoot  = Neo.ai?.Config;
+        const freshRoot = Neo.create(BaseConfig, {data: Neo.ai.Config._data});
+        Neo.ai.Config   = freshRoot;
+        const freshMC   = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
 
-        expect(freshCfg.modelProvider).toBe('openAiCompatible');
-        expect(freshCfg.graphProvider).toBe('ollama');
-        expect(freshCfg.embeddingProvider).toBe('ollama');
-        expect(freshCfg.auth.realm).toBe('tenant-realm');
-        expect(freshCfg.backupPath).toBe('/tmp/neo-memory-backups');
-        expect(freshCfg.ollama.keep_alive).toBe(0);
-        expect(freshCfg.ollama.requireParallelModels).toBe(3);
-        expect(freshCfg.openAiCompatible.keep_alive).toBe('10m');
-        expect(freshCfg.openAiCompatible.requireParallelModels).toBe(4);
-        expect(freshCfg.engines.chroma).toMatchObject({
-            host: 'chroma',
-            port: 8010
-        });
-
-        freshCfg.destroy();
+        try {
+            expect(freshMC.modelProvider).toBe('openAiCompatible');
+            expect(freshMC.graphProvider).toBe('ollama');
+            expect(freshMC.embeddingProvider).toBe('ollama');
+            expect(freshMC.auth.realm).toBe('tenant-realm');
+            expect(freshMC.backupPath).toBe('/tmp/neo-memory-backups');
+            expect(freshMC.ollama.keep_alive).toBe(0);
+            expect(freshMC.ollama.requireParallelModels).toBe(3);
+            expect(freshMC.openAiCompatible.keep_alive).toBe('10m');
+            expect(freshMC.openAiCompatible.requireParallelModels).toBe(4);
+            expect(freshMC.engines.chroma.host).toBe('chroma');
+            expect(freshMC.engines.chroma.port).toBe(8010);
+        } finally {
+            if (prevRoot === undefined) {delete Neo.ai.Config} else {Neo.ai.Config = prevRoot}
+            freshMC.destroy();
+            freshRoot.destroy()
+        }
     });
 
     test('NEO_MEMORY_SHARING_DEFAULT_POLICY env override parses correctly', () => {

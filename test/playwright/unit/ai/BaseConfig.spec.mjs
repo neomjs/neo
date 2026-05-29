@@ -277,4 +277,56 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
 
         config.destroy()
     });
+
+    test('getParent() resolves the Tier-1 root; root self-parents to null; bare instance resolves locally', () => {
+        const root     = Neo.create(BaseConfig, {data: {sharedRealmLeaf: leaf('root-owned')}}),
+              child    = Neo.create(BaseConfig, {data: {own: leaf('child-owned')}}),
+              prevRoot = Neo.ai?.Config;
+
+        Neo.ai = Neo.ai || {};
+        delete Neo.ai.Config;
+
+        try {
+            // No root registered → getParent is null → the child resolves only its own leaves.
+            expect(child.getParent()).toBe(null);
+            expect(child.getOwnerOfDataProperty('sharedRealmLeaf')).toBe(null);
+
+            // Register the RAW root instance (mirrors applyToGlobalNs placing the singleton).
+            Neo.ai.Config = root;
+
+            // The child now inherits up the chain; the root self-parents to null (identity guard).
+            expect(child.getParent()).toBe(root);
+            expect(root.getParent()).toBe(null);
+            expect(child.getOwnerOfDataProperty('own').owner).toBe(child);            // local still wins
+            expect(child.getOwnerOfDataProperty('sharedRealmLeaf').owner).toBe(root); // resolved via chain
+        } finally {
+            if (prevRoot === undefined) {delete Neo.ai.Config} else {Neo.ai.Config = prevRoot}
+            root.destroy();
+            child.destroy()
+        }
+    });
+
+    test('cross-tier write validates against the OWNER registry', () => {
+        const root     = Neo.create(BaseConfig, {data: {sharedPort: leaf(3000, null, 'port')}}),
+              child    = Neo.create(BaseConfig, {data: {own: leaf('x')}}),
+              warnings = [],
+              origWarn = console.warn,
+              prevRoot = Neo.ai?.Config;
+
+        Neo.ai = Neo.ai || {};
+        Neo.ai.Config = root;
+        console.warn   = msg => warnings.push(String(msg));
+
+        try {
+            // The child does not own `sharedPort`; the write resolves the owner (root) up the chain
+            // and validates against the root's 'port' registry entry → warns (was silently bypassed).
+            child.setData('sharedPort', 'not-a-port');
+            expect(warnings.some(w => w.includes('sharedPort'))).toBe(true)
+        } finally {
+            console.warn = origWarn;
+            if (prevRoot === undefined) {delete Neo.ai.Config} else {Neo.ai.Config = prevRoot}
+            root.destroy();
+            child.destroy()
+        }
+    });
 });
