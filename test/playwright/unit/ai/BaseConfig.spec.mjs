@@ -173,6 +173,37 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         config.destroy();
     });
 
+    test('destroy() releases observeData subscriptions (no manual cleanup needed)', () => {
+        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+
+        let calls = 0;
+        config.observeData('name', () => {calls++}); // intentionally not cleaned up manually
+
+        config.setData('name', 'x');
+        expect(calls).toBeGreaterThan(0);
+
+        // destroy must tear down the tracked subscription without throwing
+        expect(() => config.destroy()).not.toThrow();
+    });
+
+    test('observeData resolves leaves via getOwnerOfDataProperty (hierarchy-aware)', () => {
+        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+
+        // The resolved Config must be the exact instance getOwnerOfDataProperty points at —
+        // i.e. resolution goes through the owner, not a direct this.#dataConfigs reach-in.
+        const {owner, propertyName} = config.getOwnerOfDataProperty('server.host');
+        expect(owner).toBe(config);
+        expect(owner.getDataConfig(propertyName)).toBe(config.getDataConfig('server.host'));
+
+        let observed;
+        const cleanup = config.observeData('server.host', value => {observed = value});
+        config.setData('server.host', 'remote-host');
+        expect(observed).toBe('remote-host');
+
+        cleanup();
+        config.destroy();
+    });
+
     test('does not shadow core.Base set() / observeConfig()', () => {
         const config = Neo.create(BaseConfig, {metaTree: buildTree()});
 

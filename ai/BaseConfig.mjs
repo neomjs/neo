@@ -52,10 +52,18 @@ class BaseConfig extends Provider {
      */
     #runtimeEnvOverrides = new Map()
     /**
-     * Monotonic counter for unique per-subscription ids in {@link observeConfig}.
+     * Monotonic counter for unique per-subscription ids in {@link observeData}.
      * @member {Number} #observerSeq=0
      */
     #observerSeq = 0
+    /**
+     * Cleanup fns for active {@link observeData} subscriptions, released on {@link destroy}.
+     * Mirrors `core.Base#observeConfig`'s `#configSubscriptionCleanups` contract: a leaf may
+     * be owned by a parent provider whose Config outlives this instance, so the subscription
+     * must be torn down explicitly on destroy rather than leaking.
+     * @member {Function[]} #dataObserveCleanups=[]
+     */
+    #dataObserveCleanups = []
 
     /**
      * Compiles a meta-leaf tree into a plain defaults object and a leaf-metadata
@@ -186,23 +194,46 @@ class BaseConfig extends Provider {
     }
 
     /**
-     * Path-scoped reactive subscription to a data leaf. Invokes `fn` on changes to the leaf
-     * at `leafPath`; returns a cleanup fn. Named `observeData` (NOT `observeConfig`) to avoid
-     * shadowing `Neo.core.Base#observeConfig(publisher, configName, fn)` — a different,
-     * cross-instance API that `Neo.state.Provider#createBinding` itself relies on.
+     * Path-scoped reactive subscription to a data leaf. Resolves the owning provider via
+     * `getOwnerOfDataProperty` — the same hierarchy-aware resolution `Provider#getData` and the
+     * hierarchical data proxy use — so a leaf owned by a parent provider is observed correctly
+     * (reaching into `this.getDataConfig` directly would miss the parent chain). The cleanup is
+     * tracked and released on {@link destroy}, mirroring `core.Base#observeConfig`.
+     *
+     * Named `observeData` (NOT `observeConfig`) to avoid shadowing
+     * `core.Base#observeConfig(publisher, configName, fn)`, which `Provider#createBinding` uses.
      * @param {String} leafPath Full dotted leaf path.
-     * @param {Function} fn
+     * @param {Function} fn Invoked as `(value, oldValue)` when the leaf changes.
      * @returns {Function} Cleanup function that removes the subscription.
      */
     observeData(leafPath, fn) {
-        const config = this.getDataConfig(leafPath);
+        const ownerDetails = this.getOwnerOfDataProperty(leafPath);
 
-        if (!config) {
-            console.warn(`[Neo.ai.BaseConfig] observeData: no leaf at "${leafPath}".`);
+        if (!ownerDetails) {
+            console.warn(`[Neo.ai.BaseConfig] observeData: no data leaf at "${leafPath}".`);
             return () => {};
         }
 
-        return config.subscribe({id: `${this.id}-observe-${++this.#observerSeq}`, fn});
+        const
+            {owner, propertyName} = ownerDetails,
+            cleanup               = owner.getDataConfig(propertyName).subscribe({
+                id: `${this.id}-observe-${++this.#observerSeq}`,
+                fn
+            });
+
+        this.#dataObserveCleanups.push(cleanup);
+
+        return cleanup
+    }
+
+    /**
+     * Releases active {@link observeData} subscriptions, then runs the standard Provider/Base
+     * teardown (formula + binding effects, config subscriptions, instance unregister).
+     */
+    destroy() {
+        this.#dataObserveCleanups.forEach(cleanup => cleanup());
+        this.#dataObserveCleanups = [];
+        super.destroy()
     }
 
     /**
