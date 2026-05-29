@@ -125,9 +125,12 @@ test.describe('Tier 1 Config Immutability', () => {
         // #12003: swarm-heartbeat candidate-discovery default is the activity-derived
         // source per Discussion #11992 §5.1.1 "activity-derived signals" framing.
         // Per-MC-instance derived; no team-registry coupling; tenant-safe for external
-        // workspaces (each deployment's MC has its own A2A activity).
+        // workspaces (each deployment's MC has its own A2A activity). `targets` is the
+        // optional explicit-handle-list override (highest resolver precedence) — null by
+        // default so the resolver falls through to `targetSource` semantics.
         expect(Config.orchestrator.swarmHeartbeat).toEqual({
-            targetSource: 'active-a2a-participants'
+            targetSource: 'active-a2a-participants',
+            targets     : null
         });
 
         // Provider-readiness probe parameters consumed by the orchestrator dream task
@@ -168,9 +171,13 @@ test.describe('Tier 1 Config Immutability', () => {
         for (const templateUrl of templateUrls) {
             const source = await fs.readFile(new URL(templateUrl, import.meta.url), 'utf8');
 
-            expect(source).not.toMatch(/^const\s+(defaultConfig|envBindings)\s*=/m);
-            expect(source).toMatch(/static\s+defaultConfig\s*=/);
-            expect(source).toMatch(/static\s+envBindings\s*=/);
+            // The ledger lives inside the config class as a single `static config` block
+            // whose `metaTree` holds the `{env?, default, parse?}` leaves — never as a
+            // module-level `const` (the old parallel defaultConfig/envBindings shape, and
+            // its meta-leaf successor, would both leak the ledger out of the class).
+            expect(source).not.toMatch(/^const\s+(defaultConfig|envBindings|metaTree)\s*=/m);
+            expect(source).toMatch(/static\s+config\s*=/);
+            expect(source).toMatch(/metaTree\s*:/);
         }
     });
 });

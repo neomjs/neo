@@ -1,5 +1,6 @@
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../../src/Neo.mjs';
+import BaseConfig, {createConfigProxy} from '../../../../../../../ai/BaseConfig.mjs';
 import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
@@ -68,9 +69,6 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
                 process.env[key] = originalEnv[key];
             }
         });
-
-        config.data = Neo.clone(config.defaultConfig, true);
-        config.applyEnv();
     });
 
     test('maps deployment-wide Tier-1 auth and unified Chroma defaults', () => {
@@ -89,12 +87,16 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
-        config.data = Neo.clone(config.defaultConfig, true);
-        config.applyEnv();
+        // Build a FRESH isolated instance (env set above) instead of re-constructing the
+        // shared module-cached singleton, whose reactive state is contaminated by sibling
+        // specs in the parallel suite. config.metaTree carries the resolved Tier-1 defaults.
+        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {metaTree: config.metaTree}));
 
-        expect(config.auth.realm).toBe('tenant-realm');
-        expect(config.backupPath).toBe('/tmp/neo-kb-backups');
-        expect(config.host).toBe('chroma');
-        expect(config.port).toBe(8010);
+        expect(freshCfg.auth.realm).toBe('tenant-realm');
+        expect(freshCfg.backupPath).toBe('/tmp/neo-kb-backups');
+        expect(freshCfg.host).toBe('chroma');
+        expect(freshCfg.port).toBe(8010);
+
+        freshCfg.destroy();
     });
 });
