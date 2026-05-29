@@ -1238,6 +1238,123 @@ class Store extends Collection {
     }
 
     /**
+     * Backend-first create over the remotes-api.
+     *
+     * If `api.create` is configured, the record is persisted to the backend **first** and only inserted
+     * into the store on success — using the server-authoritative response, so backend-assigned fields
+     * (e.g. an `id`) are reflected. `add()` re-sorts when a sorter is present, so position is correct.
+     * Without an `api.create`, falls back to a local {@link #add}.
+     *
+     * Rejects and fires the `mutationFailed` event on a backend error, leaving the store unchanged.
+     * @param {Object} data The new record's field values
+     * @returns {Promise<Neo.data.Record[]>} The added record(s)
+     */
+    async remoteCreate(data) {
+        let me = this;
+
+        if (!Neo.isObject(me.api) || !me.api.create) {
+            return me.add(data)
+        }
+
+        let response = await me.remoteRpc('create', data);
+
+        if (response?.success) {
+            return me.add(Neo.ns(me.responseRoot, false, response) ?? data)
+        }
+
+        me.fire('mutationFailed', {action: 'create', data, response});
+        throw new Error(response?.message || 'Neo.data.Store: remoteCreate() failed')
+    }
+
+    /**
+     * Backend-first destroy over the remotes-api.
+     *
+     * If `api.destroy` is configured, the record is deleted on the backend **first** and only removed
+     * from the store on success. Without an `api.destroy`, falls back to a local remove.
+     *
+     * Rejects and fires the `mutationFailed` event on a backend error, leaving the store unchanged.
+     * @param {Neo.data.Record} record
+     * @returns {Promise<void>}
+     */
+    async remoteDestroy(record) {
+        let me  = this,
+            key = me.getKey(record);
+
+        if (!Neo.isObject(me.api) || !me.api.destroy) {
+            me.remove(key);
+            return
+        }
+
+        let response = await me.remoteRpc('destroy', {[me.getKeyProperty()]: key});
+
+        if (response?.success) {
+            me.remove(key);
+            return
+        }
+
+        me.fire('mutationFailed', {action: 'destroy', record, response});
+        throw new Error(response?.message || 'Neo.data.Store: remoteDestroy() failed')
+    }
+
+    /**
+     * Resolves the `api[verb]` remote stub — awaiting the remotes-api registration if it is still racing
+     * the call, mirroring {@link #load} — and invokes it with the given payload.
+     * @param {String} verb One of 'create', 'update' or 'destroy'
+     * @param {Object} payload
+     * @returns {Promise<Object>} The raw backend response (expected shape: `{success, data}`)
+     * @protected
+     */
+    async remoteRpc(verb, payload) {
+        let me       = this,
+            apiArray = me.api[verb].split('.'),
+            fn       = apiArray.pop(),
+            service  = Neo.ns(apiArray.join('.'));
+
+        if (!service && Neo.config.remotesApiUrl) {
+            await (await import('../remotes/Api.mjs')).default.ready();
+            service = Neo.ns(apiArray.join('.'))
+        }
+
+        if (!service?.[fn]) {
+            throw new Error(`Neo.data.Store: api.${verb} is not defined (${me.api[verb]})`)
+        }
+
+        return me.trap(service[fn](payload))
+    }
+
+    /**
+     * Backend-first update over the remotes-api.
+     *
+     * If `api.update` is configured, the changed `data` (keyed by the record's `keyProperty`) is persisted
+     * to the backend **first** and the server-authoritative result is applied to the record only on success.
+     * Without an `api.update`, falls back to a local `record.set(data)`.
+     *
+     * Rejects and fires the `mutationFailed` event on a backend error, leaving the record unchanged.
+     * @param {Neo.data.Record} record
+     * @param {Object} data The changed field values to persist
+     * @returns {Promise<Neo.data.Record>} The updated record
+     */
+    async remoteUpdate(record, data) {
+        let me = this;
+
+        if (!Neo.isObject(me.api) || !me.api.update) {
+            record.set(data);
+            return record
+        }
+
+        let payload  = {...data, [me.getKeyProperty()]: me.getKey(record)},
+            response = await me.remoteRpc('update', payload);
+
+        if (response?.success) {
+            record.set(Neo.ns(me.responseRoot, false, response) ?? data);
+            return record
+        }
+
+        me.fire('mutationFailed', {action: 'update', record, data, response});
+        throw new Error(response?.message || 'Neo.data.Store: remoteUpdate() failed')
+    }
+
+    /**
      * @param {Object} opts={}
      * @param {String} opts.direction
      * @param {String} opts.property
