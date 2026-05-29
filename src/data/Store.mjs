@@ -432,6 +432,9 @@ class Store extends Collection {
     }
 
     /**
+     * api-configured stores load via the remotes-api RPC path inside load(), not via a pipeline.
+     * We therefore never auto-create a default Pipeline for them: otherwise load()'s `if (me.pipeline)`
+     * branch would shadow the `else if (me.api)` branch and an autoLoad store would never fire its RPC.
      * @param {Object|Neo.data.Pipeline|null} value
      * @param {Object|Neo.data.Pipeline|null} oldValue
      * @protected
@@ -440,9 +443,14 @@ class Store extends Collection {
     beforeSetPipeline(value, oldValue) {
         let me = this;
 
+        // api stores load via remotes-api, never a default pipeline
+        if (me.api) {
+            return null
+        }
+
         oldValue?.destroy();
 
-        if (!value && me.url && !me.api) {
+        if (!value && me.url) {
             // We store the promise so that load() can await it to prevent race conditions
             // e.g., when autoLoad: true triggers immediately after construction
             me.urlPipelinePromise = import('./connection/Xhr.mjs').then(() => {
