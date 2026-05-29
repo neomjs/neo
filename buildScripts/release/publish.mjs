@@ -241,13 +241,10 @@ async function main() {
 
     // Commit Archived Tickets
     //
-    // Per Epic #11187 7-bucket fan-out: `GH_SyncService.runFullSync()` above writes
-    // archived items to the new lazy-ordinal-chunked shape via `archivePath()` helper
-    // (canonical: `resources/content/archive/{type}/v*/{flat|chunk-N}/`). Legacy paths
-    // (`resources/content/issue-archive/`, `resources/content/pr-archive/`) remain
-    // tracked during the migration transition until the data corpus fully migrates
-    // (B1/AC8/B5 lanes). The `git add .` below is intentionally broad to capture both
-    // new archive/ moves AND any residual legacy-path moves during transition.
+    // `GH_SyncService.runFullSync()` above writes archived items to the universal
+    // ordinal-100 chunked shape (`resources/content/archive/{type}/v*/chunk-N/`).
+    // The `git add .` below is intentionally broad to capture the archive/ moves plus
+    // the `_index.json` / `.sync-metadata.json` updates produced by the sync.
     console.log('💾 Committing archived tickets...');
     const status = runCommandWithOutput('git status --porcelain');
 

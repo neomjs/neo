@@ -83,8 +83,6 @@ test.describe('check-chore-sync.mjs', () => {
             'resources/content/pulls/chunk-1/pr-1.md',
             'resources/content/release-notes/chunk-1/v1.0.0.md',
             'resources/content/archive/issues/v1.0.0/chunk-1/issue-2.md',
-            'resources/content/issue-archive/chunk-1/issue-3.md',
-            'resources/content/pr-archive/chunk-1/pr-2.md',
             'resources/content/_index.json',
             'resources/content/.sync-metadata.json'
         ].forEach(stageFile);
