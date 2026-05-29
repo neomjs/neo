@@ -79,8 +79,15 @@ export function leaf(defaultValue, env = null, type = null) {
  * Env precedence is **bounded** (re-resolved at construct / {@link setEnvOverride} / {@link load} /
  * {@link refreshEnv}), NOT live-per-read — see {@link #applyEnvLayer} for the rationale.
  *
+ * Configs compose into a **hierarchical realm**: the Tier-1 singleton `Neo.ai.Config` is the root
+ * and every per-server config is its child via the {@link getParent} override. Each layer declares
+ * only the leaves it owns and inherits the rest up the chain — so an operator overlay is a *thin
+ * child* of its template, never a clone, and bringing it up to a newer template is inheritance, not
+ * a source-level merge.
+ *
  * @class Neo.ai.BaseConfig
  * @extends Neo.state.Provider
+ * @see learn/agentos/AiConfigModel.md — the hierarchical-nested-data model + its rationale
  */
 class BaseConfig extends Provider {
     static config = {
