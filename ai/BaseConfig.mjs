@@ -4,19 +4,77 @@ import Provider from '../src/state/Provider.mjs';
 import Env      from '../src/util/Env.mjs';
 
 /**
+ * Maps a {@link leaf} `type` token to the name-based `Neo.util.Env` parser that decodes its env
+ * var. Reuses the Tier-1 Env primitive (Epic #12101 AC-Epic-1: extend, don't reinvent — no
+ * parallel parser set).
+ * @type {Object<String,Function>}
+ */
+const typeParsers = {
+    boolean  : Env.parseBool,
+    keepAlive: Env.parseKeepAlive,
+    number   : Env.parseNumber,
+    port     : Env.parsePort,
+    string   : Env.parseString,
+    url      : Env.parseUrl
+};
+
+/**
+ * Maps a {@link leaf} `type` token to a value validator used at the `internalSetData` write
+ * choke point. A type without an entry here (e.g. `object`, `array`, or an unknown token)
+ * validates as `true`, so non-scalar leaves pass through.
+ * @type {Object<String,Function>}
+ */
+const typeValidators = {
+    boolean: value => typeof value === 'boolean',
+    number : value => typeof value === 'number' && !Number.isNaN(value),
+    port   : value => Number.isInteger(value) && value >= 0 && value <= 65535,
+    string : value => typeof value === 'string',
+    url    : value => typeof value === 'string'
+};
+
+/**
+ * @summary Declares a single configuration leaf with an explicit type.
+ *
+ * Replaces the raw `{env, default, parse}` literal. The `type` token selects both the name-based
+ * `Env` parser (for env decoding) and the validator (at the write choke point). Unlike inferring
+ * the type from the default value, an explicit `type` survives a `null`/`undefined` default —
+ * e.g. `leaf(null, 'NEO_PUBLIC_URL', 'url')` stays validatable. Object/array leaves omit `env`
+ * and may pass `type: 'object'` for documentation; they carry no parser.
+ *
+ * @param {*} defaultValue The default value.
+ * @param {String|null} [env=null] Env var name, or null for a non-env leaf.
+ * @param {String|null} [type=null] One of `typeParsers` / `typeValidators` keys. Inferred from
+ *        `defaultValue` via `Neo.typeOf` (lower-cased) when omitted and the default is non-null.
+ * @returns {{default:*, env:(String|null), type:(String|null), parse:(Function|null)}}
+ */
+export function leaf(defaultValue, env = null, type = null) {
+    const resolvedType = type ?? (defaultValue === null || defaultValue === undefined
+        ? null
+        : Neo.typeOf(defaultValue).toLowerCase());
+
+    return {
+        default: defaultValue,
+        env,
+        type   : resolvedType,
+        parse  : env ? (typeParsers[resolvedType] ?? Env.parseString) : null
+    }
+}
+
+/**
  * @summary Reactive base configuration manager for Neo MCP servers.
  *
- * Extends the Body-tier reactive state Provider. A subclass supplies a single
- * meta-leaf `metaTree` config — each leaf is `{env?, default, parse?}` — which is
- * compiled at construction into the reactive `data` tree plus a separate
- * leaf-metadata registry. Consumers read values directly (`config.namespace.leaf`)
- * via the proxy returned by {@link createConfigProxy}; the inherited hierarchical
- * data proxy resolves nested paths and routes assignments back through `setData`.
+ * Extends the Body-tier reactive state Provider. A subclass assigns its meta-leaf tree to the
+ * inherited `data` config — each leaf is `{env?, default, parse?, type?}`, typically produced by
+ * the {@link leaf} factory. The {@link afterSetData} override compiles that tree into the reactive
+ * `data` tree (via the Provider's canonical `processDataObject` seam) plus a separate
+ * leaf-metadata registry, then applies the env layer.
  *
- * Environment variables and runtime overrides take precedence over leaf defaults
- * and are re-asserted after any overlay file load. Per-leaf parser metadata is kept
- * in a registry independent of the Provider's reactive config map, so set-time
- * validation can resolve a leaf by its full dotted path.
+ * Consumers read values directly (`config.namespace.leaf`) via the proxy returned by
+ * {@link createConfigProxy}; the inherited hierarchical data proxy resolves nested paths and
+ * routes assignments back through `setData`.
+ *
+ * Env precedence is **bounded** (re-resolved at construct / {@link setEnvOverride} / {@link load} /
+ * {@link refreshEnv}), NOT live-per-read — see {@link #applyEnvLayer} for the rationale.
  *
  * @class Neo.ai.BaseConfig
  * @extends Neo.state.Provider
@@ -27,27 +85,18 @@ class BaseConfig extends Provider {
          * @member {String} className='Neo.ai.BaseConfig'
          * @protected
          */
-        className: 'Neo.ai.BaseConfig',
-        /**
-         * The meta-leaf source tree; subclasses override it. Each leaf is an object
-         * owning a `default` value plus optional `env` (variable name) and `parse`
-         * (decoder). Compiled into reactive `data` + the leaf-metadata registry at
-         * construction. The reactive `data` config is inherited from the Provider.
-         * @member {Object} metaTree={}
-         */
-        metaTree: {}
+        className: 'Neo.ai.BaseConfig'
     }
 
     /**
-     * Leaf metadata keyed by full dotted path (`{env, parse, type}`). Kept independent
-     * of the Provider's reactive config map so set-time validation can resolve a leaf
-     * by path without coupling to reactivity state.
+     * Leaf metadata keyed by full dotted path (`{env, parse, type}`). Kept independent of the
+     * Provider's reactive config map so set-time validation can resolve a leaf by path.
      * @member {Map<String,Object>} #leafMetadataRegistry
      */
     #leafMetadataRegistry = new Map()
     /**
-     * Runtime env-layer overrides keyed by full dotted path; re-asserted over defaults
-     * and overlay files so explicit overrides always win.
+     * Runtime env-layer overrides keyed by ENV VAR NAME (one var may feed multiple leaves);
+     * re-asserted over `process.env` and overlay files so explicit overrides always win.
      * @member {Map<String,*>} #runtimeEnvOverrides
      */
     #runtimeEnvOverrides = new Map()
@@ -58,97 +107,115 @@ class BaseConfig extends Provider {
     #observerSeq = 0
     /**
      * Cleanup fns for active {@link observeData} subscriptions, released on {@link destroy}.
-     * Mirrors `core.Base#observeConfig`'s `#configSubscriptionCleanups` contract: a leaf may
-     * be owned by a parent provider whose Config outlives this instance, so the subscription
-     * must be torn down explicitly on destroy rather than leaking.
+     * Mirrors `core.Base#observeConfig`'s `#configSubscriptionCleanups` contract.
      * @member {Function[]} #dataObserveCleanups=[]
      */
     #dataObserveCleanups = []
 
     /**
-     * Compiles a meta-leaf tree into a plain defaults object and a leaf-metadata
-     * registry. A leaf is any object owning a `default` key; every other object is a
-     * namespace and is walked recursively. Does not apply env values — see
-     * `#applyEnvLayer`.
+     * Compiles a meta-leaf tree into plain data plus a leaf-metadata registry. A leaf is any
+     * object owning a `default` key; every other object is a namespace, walked recursively.
+     * Does not apply env values — see {@link #applyEnvLayer}.
      * @param {Object} tree
-     * @returns {{defaults: Object, registry: Map<String,Object>}}
+     * @returns {{plainData: Object, registry: Map<String,Object>}}
      */
     static compileMetaLeaves(tree) {
-        const defaults = {},
-              registry = new Map();
+        const plainData = {},
+              registry  = new Map();
 
         const walk = (node, pathParts) => {
             for (const [key, value] of Object.entries(node)) {
                 const path = [...pathParts, key];
 
                 if (Neo.isObject(value) && Object.prototype.hasOwnProperty.call(value, 'default')) {
-                    const dotted     = path.join('.'),
-                          defaultVal = value.default;
-
-                    Neo.assignToNs(path, defaultVal, defaults);
-                    registry.set(dotted, {
+                    Neo.assignToNs(path, value.default, plainData);
+                    registry.set(path.join('.'), {
                         env  : value.env   ?? null,
                         parse: value.parse ?? null,
-                        type : defaultVal === null || defaultVal === undefined ? null : Neo.typeOf(defaultVal)
-                    });
+                        type : value.type  ?? (value.default === null || value.default === undefined
+                            ? null
+                            : Neo.typeOf(value.default).toLowerCase())
+                    })
                 } else if (Neo.isObject(value)) {
-                    walk(value, path);
+                    walk(value, path)
                 }
             }
         };
 
         walk(tree, []);
-        return {defaults, registry};
+        return {plainData, registry}
     }
 
     /**
-     * Seeds the reactive data tree from the compiled meta-leaf tree, then applies the
-     * env layer. Runs through the canonical Provider pipeline; data is reactive and
-     * readable synchronously afterwards.
-     * @param {Object} config
+     * The compile seam. A subclass assigns its meta-leaf tree to `data`; this override compiles it
+     * into plain data + the leaf-metadata registry, forwards the plain data to the Provider's
+     * reactive pipeline (`processDataObject`), then applies the env layer. Fires at construction
+     * (when the `data` config is applied) and on any later `data` reassignment.
+     * @param {Object|null} value    The assigned meta-leaf tree.
+     * @param {Object|null} oldValue
      */
-    construct(config) {
-        super.construct(config);
+    afterSetData(value, oldValue) {
+        if (!value) {
+            return
+        }
 
-        const {defaults, registry} = BaseConfig.compileMetaLeaves(this.metaTree);
+        const {plainData, registry} = BaseConfig.compileMetaLeaves(value);
 
         this.#leafMetadataRegistry = registry;
-        this.setData(defaults);
-        this.#applyEnvLayer();
+        super.afterSetData(plainData, oldValue);
+        this.#applyEnvLayer()
     }
 
     /**
-     * Re-asserts env precedence: for each registered leaf with an env binding, decodes
-     * the env var and writes it over the current value, then re-applies any runtime
-     * overrides. Idempotent — safe to call after construction and after each overlay load.
+     * Re-asserts env precedence: for each registered env-bound leaf, the value is the runtime
+     * override (keyed by env var name) if present, else the decoded `process.env` value; it is
+     * written over the current value. Runtime overrides win. Idempotent.
+     *
+     * **Bounded, not live-per-read (deliberate).** Env is re-resolved only at construct (via
+     * {@link afterSetData}), {@link setEnvOverride}, {@link load}, and {@link refreshEnv} — never on
+     * every property read. A live env value decoupled from the running side it configures is
+     * dangerous: e.g. a changed `NEO_CHROMA_PORT` would make new reads target a port the Chroma DB
+     * is not actually listening on (the DB only moves on a coordinated restart). Live env that
+     * drives coordinated restart/reconnection is a separate Body-tier concern, out of scope here.
      * @param {Object} [env=process.env]
      * @param {Function} [warn=console.warn]
      */
     #applyEnvLayer(env = process.env, warn = console.warn) {
         for (const [leafPath, meta] of this.#leafMetadataRegistry) {
             if (!meta.env) {
-                continue;
+                continue
             }
 
-            const decode = meta.parse ?? Env.parseString,
-                  value  = decode(meta.env, {env, warn});
+            let value;
+
+            if (this.#runtimeEnvOverrides.has(meta.env)) {
+                value = this.#runtimeEnvOverrides.get(meta.env)
+            } else {
+                const decode = meta.parse ?? Env.parseString;
+                value = decode(meta.env, {env, warn})
+            }
 
             if (value !== undefined) {
-                this.setData(leafPath, value);
+                this.setData(leafPath, value)
             }
-        }
-
-        for (const [leafPath, value] of this.#runtimeEnvOverrides) {
-            this.setData(leafPath, value);
         }
     }
 
     /**
-     * Validates a value against its leaf metadata. Metadata-path-first: only values
-     * written to a known leaf path are checked; namespace-recursion intermediates pass
-     * through. Lenient — warns on a type mismatch but keeps the value (coercion is
-     * deferred; see the Stage 1 PR notes).
-     * @param {String} leafPath Full dotted leaf path.
+     * Re-reads env vars + re-applies runtime overrides on demand — the explicit bounded "refresh"
+     * handle. Call after a deliberate env change the configured side can tolerate without a
+     * coordinated restart (see {@link #applyEnvLayer} for why this is not automatic per read).
+     */
+    refreshEnv() {
+        this.#applyEnvLayer()
+    }
+
+    /**
+     * Validates a value against its leaf metadata at the write choke point. Metadata-path-first:
+     * ANY value written to a known leaf path is validated (object/JSON leaves included); namespace
+     * recursion intermediates have no registry entry and pass through. Lenient — warns on a type
+     * mismatch but keeps the value.
+     * @param {String} leafPath
      * @param {*} value
      * @returns {*}
      */
@@ -156,53 +223,59 @@ class BaseConfig extends Provider {
         const meta = this.#leafMetadataRegistry.get(leafPath);
 
         if (meta?.type && value !== null && value !== undefined) {
-            const actual = Neo.typeOf(value);
+            const validator = typeValidators[meta.type];
 
-            if (actual !== meta.type) {
-                console.warn(`[Neo.ai.BaseConfig] "${leafPath}" expected ${meta.type}, got ${actual}; keeping value.`);
+            if (validator && !validator(value)) {
+                console.warn(`[Neo.ai.BaseConfig] "${leafPath}" expected ${meta.type}, got ${Neo.typeOf(value)}; keeping value.`)
             }
         }
 
-        return value;
+        return value
     }
 
     /**
-     * The single write funnel. Applies leaf validation for non-object values written to
-     * a known leaf path, then delegates to the Provider pipeline (reactivity bubbling,
+     * The single write funnel. Validates any value written to a known leaf path
+     * (metadata-path-first), then delegates to the Provider pipeline (reactivity bubbling,
      * config-map updates).
      * @param {String|Object} key
      * @param {*} value
      * @param {Neo.state.Provider} [originStateProvider]
      */
     internalSetData(key, value, originStateProvider) {
-        if (typeof key === 'string' && Neo.typeOf(value) !== 'Object' && this.#leafMetadataRegistry.has(key)) {
-            value = this.#validateLeafValue(key, value);
+        if (typeof key === 'string' && this.#leafMetadataRegistry.has(key)) {
+            value = this.#validateLeafValue(key, value)
         }
 
-        super.internalSetData(key, value, originStateProvider);
+        super.internalSetData(key, value, originStateProvider)
     }
 
     /**
-     * Records and applies a runtime env-layer override. The override is re-asserted by
-     * `#applyEnvLayer` so it survives subsequent overlay loads.
-     * @param {String} leafPath
+     * Records and applies a runtime env-layer override, keyed by ENV VAR NAME (one var may feed
+     * multiple leaves). The override wins over `process.env` and is re-asserted by
+     * {@link #applyEnvLayer} so it survives subsequent overlay loads.
+     * @param {String} envName
      * @param {*} value
      */
-    setEnvOverride(leafPath, value) {
-        this.#runtimeEnvOverrides.set(leafPath, value);
-        this.setData(leafPath, value);
+    setEnvOverride(envName, value) {
+        for (const [leafPath, meta] of this.#leafMetadataRegistry) {
+            if (meta.env === envName) {
+                this.#validateLeafValue(leafPath, value)
+            }
+        }
+
+        this.#runtimeEnvOverrides.set(envName, value);
+        this.#applyEnvLayer()
     }
 
     /**
      * Path-scoped reactive subscription to a data leaf. Resolves the owning provider via
-     * `getOwnerOfDataProperty` — the same hierarchy-aware resolution `Provider#getData` and the
-     * hierarchical data proxy use — so a leaf owned by a parent provider is observed correctly
-     * (reaching into `this.getDataConfig` directly would miss the parent chain). The cleanup is
-     * tracked and released on {@link destroy}, mirroring `core.Base#observeConfig`.
+     * `getOwnerOfDataProperty` (the same hierarchy-aware resolution `Provider#getData` and the
+     * hierarchical data proxy use), so a leaf owned by a parent provider is observed correctly.
+     * The cleanup is tracked and released on {@link destroy}.
      *
      * Named `observeData` (NOT `observeConfig`) to avoid shadowing
      * `core.Base#observeConfig(publisher, configName, fn)`, which `Provider#createBinding` uses.
-     * @param {String} leafPath Full dotted leaf path.
+     * @param {String} leafPath
      * @param {Function} fn Invoked as `(value, oldValue)` when the leaf changes.
      * @returns {Function} Cleanup function that removes the subscription.
      */
@@ -211,7 +284,7 @@ class BaseConfig extends Provider {
 
         if (!ownerDetails) {
             console.warn(`[Neo.ai.BaseConfig] observeData: no data leaf at "${leafPath}".`);
-            return () => {};
+            return () => {}
         }
 
         const
@@ -237,47 +310,45 @@ class BaseConfig extends Provider {
     }
 
     /**
-     * Loads an overlay configuration file, deep-merges it into the reactive data tree,
-     * then re-asserts the env layer so env vars and runtime overrides keep precedence.
+     * Loads an overlay configuration file, then re-asserts the env layer so env vars and runtime
+     * overrides keep precedence.
      * @param {String} filePath
      * @returns {Promise<void>}
      */
     async load(filePath) {
         if (!filePath) {
-            return;
+            return
         }
 
         try {
             const absolutePath = path.resolve(filePath),
                   ext          = path.extname(absolutePath);
-            let overlay;
 
             // A `.mjs` overlay default-exports the already-compiled config singleton
-            // (createConfigProxy); its data + env layer are applied at construction, so there
-            // is nothing to merge here (the legacy `Neo.merge(data, proxy)` was a no-op too —
-            // the proxy does not enumerate data leaves). The import validates the file exists.
-            // A JSON overlay carries partial operator overrides that merge into reactive data.
+            // (createConfigProxy); its data + env layer are applied at construction, so there is
+            // nothing to merge here. The import validates the file exists. A JSON overlay carries
+            // partial operator overrides that merge into reactive data.
             if (ext === '.mjs' || ext === '.js') {
-                await import(absolutePath);
+                await import(absolutePath)
             } else {
-                this.setData(JSON.parse(await fs.readFile(absolutePath, 'utf-8')));
+                this.setData(JSON.parse(await fs.readFile(absolutePath, 'utf-8')))
             }
 
             this.#applyEnvLayer();
 
-            console.error(`[Neo.ai.BaseConfig] Loaded overlay configuration from ${absolutePath}`);
+            console.error(`[Neo.ai.BaseConfig] Loaded overlay configuration from ${absolutePath}`)
         } catch (error) {
             console.error(`[Neo.ai.BaseConfig] Failed to load configuration from ${filePath}:`, error.message);
-            throw error;
+            throw error
         }
     }
 }
 
 /**
  * Wraps a BaseConfig instance in a Proxy so consumers read leaf values directly
- * (`config.namespace.leaf`) and assign top-level keys (`config.key = value`). Instance
- * members win; unknown keys delegate to the reactive data tree, whose own hierarchical
- * proxy resolves nested paths and routes nested assignments through `setData`.
+ * (`config.namespace.leaf`) and assign top-level keys (`config.key = value`). Instance members
+ * win; unknown keys delegate to the reactive data tree, whose own hierarchical proxy resolves
+ * nested paths and routes nested assignments through `setData`.
  * @param {Neo.ai.BaseConfig} instance
  * @returns {Proxy}
  */
@@ -286,22 +357,22 @@ export function createConfigProxy(instance) {
         get(target, prop) {
             // Unknown keys delegate to the reactive data tree (enables `config.namespace.leaf`).
             if (typeof prop !== 'symbol' && !Reflect.has(target, prop)) {
-                return target.data?.[prop];
+                return target.data?.[prop]
             }
             // Resolve via the target (NOT the outer proxy) so reactive-config getters and
             // private-field methods run with `this` bound to the real instance.
             const value = target[prop];
-            return typeof value === 'function' ? value.bind(target) : value;
+            return typeof value === 'function' ? value.bind(target) : value
         },
         set(target, prop, value) {
             if (typeof prop !== 'symbol' && !Reflect.has(target, prop)) {
-                target.setData(prop, value);
+                target.setData(prop, value)
             } else {
-                target[prop] = value;
+                target[prop] = value
             }
-            return true;
+            return true
         }
-    });
+    })
 }
 
 export default Neo.setupClass(BaseConfig);
