@@ -19,8 +19,6 @@ const generatedSyncPaths = [
     'resources/content/pulls/',
     'resources/content/release-notes/',
     'resources/content/archive/',
-    'resources/content/issue-archive/',
-    'resources/content/pr-archive/',
     'resources/content/_index.json',
     'resources/content/.sync-metadata.json'
 ];
