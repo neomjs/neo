@@ -1,110 +1,227 @@
-import fs          from 'fs-extra';
-import path        from 'path';
-import {exec}      from 'child_process';
-import {promisify} from 'util';
-import packageJson from '../../../package.json' with {type: 'json'};
+import {execFile}       from 'child_process';
+import fs               from 'fs-extra';
+import os               from 'os';
+import path             from 'path';
+import readline         from 'readline';
+import {promisify}      from 'util';
+import {fileURLToPath}  from 'url';
 
-const execAsync = promisify(exec);
-const cwd       = process.cwd();
+// Neo namespace bootstrap (entry-point invariant). `Neo` + `core/_export` populate
+// `globalThis.Neo` so that `ai/services.mjs` → Compare.mjs `Neo.gatekeep` resolves.
+import Neo              from '../../../src/Neo.mjs';
+import * as core        from '../../../src/core/_export.mjs';
+
+import AiConfig         from '../../config.mjs';
+import kbConfig         from '../../mcp/server/knowledge-base/config.mjs';
+
+import {
+    KB_DatabaseService,
+    KB_LifecycleService
+} from '../../services.mjs';
+
+import {
+    ARTIFACT_BASENAME,
+    KB_BACKUP_FILE_PREFIX,
+    ARTIFACT_META_FILENAME,
+    MEMORY_CORE_COLLECTION_PREFIXES,
+    assertCollectionScopedArtifact
+} from './knowledgeBaseArtifact.mjs';
+
+const execFileAsync = promisify(execFile);
 
 /**
- * @summary Automates the packaging and uploading of the AI Knowledge Base to GitHub Releases.
+ * @module ai/scripts/maintenance/uploadKnowledgeBase
+ * @summary Packages the Knowledge Base ChromaDB collection into a collection-scoped release
+ * artifact and uploads it to the matching GitHub Release.
  *
- * This script is a critical part of the release pipeline. It ensures that the ChromaDB knowledge base
- * is properly optimized (defragmented), packaged (zipped), and attached to the current GitHub release.
+ * ## Why collection-scoped
  *
- * Key Steps:
- * 1.  **Defragmentation**: Triggers `npm run ai:defrag-kb` to ensure the uploaded artifact is compact.
- * 2.  **Verification**: Checks that the corresponding GitHub release tag exists.
- * 3.  **Packaging**: Compresses the `chroma-neo-knowledge-base` directory.
- * 4.  **Upload**: Uses the GitHub CLI (`gh`) to upload the zip file to the release assets.
- * 5.  **Cleanup**: Removes the temporary zip file to keep the workspace clean.
+ * The release artifact carries ONLY the public `neo-knowledge-base` ChromaDB collection,
+ * exported as portable JSONL via the canonical `ai/services.mjs` SDK boundary
+ * (`KB_DatabaseService.manageDatabaseBackup({action: 'export'})` — the same path
+ * `ai/scripts/maintenance/backup.mjs` uses). It never bundles the `.neo-ai-data` data
+ * directory, which holds private Memory Core memories, the graph SQLite, and the A2A
+ * mailbox. A defense-in-depth assertion (`assertCollectionScopedArtifact`) fails the upload
+ * if any Memory Core collection or a `sqlite/` payload leaks into the staged artifact.
  *
- * @module buildScripts/uploadKnowledgeBase
- * @see buildScripts/defragChromaDB.mjs
- * @see buildScripts/publishRelease.mjs
+ * ## Artifact shape
+ *
+ * The artifact is a zip of a staging directory containing exactly two entries:
+ * - `knowledge-base-backup-<ISO-timestamp>.jsonl` — the collection export (raw vectors round-trip).
+ * - `kb-artifact-meta.json` — `embeddingProvider` + `dimension` provenance so a download-side
+ *   recall mismatch (model/dimension drift against the shipped raw vectors) is detectable.
+ *
+ * ## Pipeline position
+ *
+ * Invoked by `buildScripts/release/publish.mjs` after the GitHub Release is created. The
+ * canonical artifact basename is shared with `downloadKnowledgeBase.mjs` and the publish
+ * pipeline via `knowledgeBaseArtifact.mjs`.
+ *
+ * @see ai/scripts/maintenance/downloadKnowledgeBase.mjs
+ * @see ai/scripts/maintenance/backup.mjs
+ * @see ai/services/knowledge-base/DatabaseService.mjs
  */
+
+const __filename   = fileURLToPath(import.meta.url);
+const __dirname    = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 /**
- * Executes the knowledge base upload workflow.
+ * Reads `package.json` for the release tag. Best-effort `npm_package_version` first so the
+ * value matches the invoking npm context, then a direct read of the repo `package.json`.
  *
- * This function handles the entire process from optimization to upload. It includes robustness checks
- * to ensure that the database exists and that the release tag is valid before proceeding.
- * It uses a `try...finally` block to guarantee that the large temporary zip file is deleted
- * even if the upload fails.
- *
- * @async
- * @returns {Promise<void>}
- * @keywords knowledge base, release, github, upload, automation, chromadb, deployment
+ * @returns {Promise<String>} The semver version string.
  */
-async function uploadKnowledgeBase() {
-    const {version} = packageJson;
-    const tagName   = version;
-    const sourceDir = '.neo-ai-data';
-    const zipName   = 'neo-ai-data.zip';
-    const zipPath   = path.resolve(cwd, zipName);
-    let exitCode    = 0;
-
-    // 1. Check if DB exists
-    if (!await fs.pathExists(sourceDir)) {
-        console.error(`❌ Error: ${sourceDir} not found. Run 'npm run ai:sync-kb' first.`);
-        process.exit(1);
+async function resolveVersion() {
+    const fromEnv = process.env.npm_package_version;
+    if (fromEnv) {
+        return fromEnv;
     }
+    const pkg = await fs.readJson(path.join(PROJECT_ROOT, 'package.json'));
+    return pkg.version;
+}
 
-    // 2. Defragment Database (Ensure clean artifact)
-    // We enforce defragmentation before upload to prevent distributing bloated, fragmented index files
-    // to users. This keeps the download size manageable and the database performant.
-    console.log(`🧹 Running Defragmentation (npm run ai:defrag-kb)...`);
-    try {
-        const { stdout } = await execAsync('npm run ai:defrag-kb');
-        console.log(stdout);
-    } catch (e) {
-        console.error(`❌ Defragmentation failed: ${e.message}`);
-        console.error('Ensure the AI server is running (npm run ai:server) if required by the defrag script.');
-        process.exit(1);
-    }
-
-    // 3. Check if release exists (Fail fast)
-    // We verify the release tag exists on GitHub before attempting strictly local operations (zipping),
-    // to save time and resources in case of a configuration error.
-    console.log(`🔍 Checking for GitHub Release ${tagName}...`);
-    try {
-        await execAsync(`gh release view ${tagName}`);
-    } catch {
-        console.error(`❌ Release ${tagName} not found on GitHub.`);
-        console.log('Ensure you have pushed the tag or created the draft release.');
-        process.exit(1);
-    }
-
-    // 4. Zip and Upload (Try/Finally for cleanup)
-    try {
-        // Zip
-        console.log(`📦 Zipping ${sourceDir}...`);
-        await execAsync(`zip -r -q "${zipName}" "${sourceDir}"`);
-        const stats = await fs.stat(zipPath);
-        console.log(`✅ Zipped: ${zipName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
-
-        // Upload
-        console.log(`⬆️  Uploading to GitHub Release ${tagName}...`);
-        await execAsync(`gh release upload ${tagName} "${zipName}" --clobber`);
-        console.log(`✅ Upload complete!`);
-        console.log(`   https://github.com/neomjs/neo/releases/download/${tagName}/${zipName}`);
-
-    } catch (e) {
-        console.error('❌ Operation failed:', e.message);
-        exitCode = 1;
-    } finally {
-        // 5. Cleanup
-        // Always remove the temporary zip file, regardless of success or failure.
-        if (await fs.pathExists(zipPath)) {
-            await fs.remove(zipPath);
-            console.log(`🧹 Cleaned up ${zipName}`);
+/**
+ * Counts non-empty JSONL lines in a file (one record per line). Used both for the metadata
+ * `recordCount` stamp and as a guard against shipping an empty artifact.
+ *
+ * @param {String} filePath Absolute path to a `.jsonl` file.
+ * @returns {Promise<Number>}
+ */
+async function countJsonlRecords(filePath) {
+    const rl = readline.createInterface({
+        input    : fs.createReadStream(filePath),
+        crlfDelay: Infinity
+    });
+    let count = 0;
+    for await (const line of rl) {
+        if (line.trim()) {
+            count++;
         }
     }
+    return count;
+}
 
-    if (exitCode !== 0) {
-        process.exit(exitCode);
+/**
+ * Executes the collection-scoped Knowledge Base upload workflow.
+ *
+ * @param {Object}  [options]
+ * @param {String}  [options.tagName]            Override the resolved release tag (tests).
+ * @param {Object}  [options.databaseService]    KB database SDK seam (tests).
+ * @param {Object}  [options.lifecycleService]   KB lifecycle SDK seam (tests).
+ * @param {Object}  [options.embeddingConfig]    Tier-1 AI config seam exposing `embeddingProvider` + `vectorDimension`.
+ * @param {Object}  [options.knowledgeBaseConfig] KB server config seam exposing `collectionName`.
+ * @param {Function}[options.runGh]              Async `(args[]) => Promise` seam for `gh` invocations (tests).
+ * @param {Boolean} [options.skipReleaseCheck]   Skip the `gh release view` pre-flight (tests).
+ * @param {Boolean} [options.skipUpload]         Stage + assert + meta only; do not invoke `gh release upload` (tests).
+ * @param {String}  [options.stageRoot]          Override the staging-dir parent (tests). Defaults to OS tempdir.
+ * @param {Object}  [options.logger=console]     Log sink.
+ * @returns {Promise<{tagName: String, artifactName: String, recordCount: Number, embeddingProvider: String, dimension: Number, artifactPath: String}>}
+ */
+export async function uploadKnowledgeBase({
+    tagName,
+    databaseService     = KB_DatabaseService,
+    lifecycleService    = KB_LifecycleService,
+    embeddingConfig     = AiConfig,
+    knowledgeBaseConfig = kbConfig,
+    runGh               = (args) => execFileAsync('gh', args),
+    skipReleaseCheck    = false,
+    skipUpload          = false,
+    stageRoot           = os.tmpdir(),
+    logger              = console
+} = {}) {
+    const resolvedTag       = tagName ?? await resolveVersion();
+    const collectionName    = knowledgeBaseConfig.collectionName;
+    const embeddingProvider = embeddingConfig.embeddingProvider;
+    const dimension         = embeddingConfig.vectorDimension;
+    const artifactName      = ARTIFACT_BASENAME;
+
+    const stageDir    = path.join(stageRoot, `neo-kb-artifact-${process.pid}-${Date.now()}`);
+    const artifactDir = path.dirname(path.resolve(PROJECT_ROOT, artifactName));
+    const artifactPath = path.resolve(PROJECT_ROOT, artifactName);
+
+    await fs.ensureDir(stageDir);
+
+    try {
+        // 1. Verify the release tag exists before doing local work (fail fast).
+        if (!skipReleaseCheck) {
+            logger.log(`🔍 Checking for GitHub Release ${resolvedTag}...`);
+            try {
+                await runGh(['release', 'view', resolvedTag]);
+            } catch {
+                throw new Error(`Release ${resolvedTag} not found on GitHub. Push the tag or create the draft release first.`);
+            }
+        }
+
+        // 2. Export ONLY the neo-knowledge-base collection to JSONL via the canonical SDK.
+        await lifecycleService.ready();
+        logger.log(`📤 Exporting collection '${collectionName}' to JSONL...`);
+        await databaseService.manageDatabaseBackup({action: 'export', backupPath: stageDir});
+
+        const stagedJsonl = (await fs.readdir(stageDir))
+            .filter(name => name.startsWith(KB_BACKUP_FILE_PREFIX) && name.endsWith('.jsonl'));
+
+        if (stagedJsonl.length !== 1) {
+            throw new Error(
+                `Expected exactly one '${KB_BACKUP_FILE_PREFIX}*.jsonl' export in the staging dir, found ${stagedJsonl.length}. ` +
+                `Refusing to build an ambiguous artifact.`
+            );
+        }
+
+        const jsonlPath    = path.join(stageDir, stagedJsonl[0]);
+        const recordCount  = await countJsonlRecords(jsonlPath);
+
+        if (recordCount === 0) {
+            throw new Error(`Knowledge Base collection '${collectionName}' exported 0 records. Run 'npm run ai:sync-kb' before releasing.`);
+        }
+
+        // 3. Stamp embedding provenance so a download-side model/dimension drift is detectable.
+        const meta = {
+            artifactVersion  : 1,
+            collection       : collectionName,
+            embeddingProvider,
+            dimension,
+            recordCount,
+            neoVersion       : resolvedTag,
+            createdAt        : new Date().toISOString()
+        };
+        await fs.writeJson(path.join(stageDir, ARTIFACT_META_FILENAME), meta, {spaces: 2});
+
+        // 4. Defense-in-depth: prove the staged artifact is collection-scoped (no MC, no sqlite/).
+        await assertCollectionScopedArtifact({artifactDir: stageDir});
+        logger.log(`✅ Artifact is collection-scoped: ${recordCount} '${collectionName}' chunks, no Memory Core collections, no sqlite/.`);
+
+        // 5. Zip the staging dir CONTENTS (flat) into the canonical artifact, then upload.
+        await fs.ensureDir(artifactDir);
+        await fs.remove(artifactPath);
+        logger.log(`📦 Packaging ${artifactName}...`);
+        // `-j` flattens — the zip holds the JSONL + meta at its root, never a `.neo-ai-data` tree.
+        await execFileAsync('zip', ['-j', '-q', artifactPath, jsonlPath, path.join(stageDir, ARTIFACT_META_FILENAME)]);
+
+        const stats = await fs.stat(artifactPath);
+        logger.log(`✅ Packaged: ${artifactName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+
+        if (!skipUpload) {
+            logger.log(`⬆️  Uploading to GitHub Release ${resolvedTag}...`);
+            await runGh(['release', 'upload', resolvedTag, artifactPath, '--clobber']);
+            logger.log(`✅ Upload complete: https://github.com/neomjs/neo/releases/download/${resolvedTag}/${artifactName}`);
+        }
+
+        return {tagName: resolvedTag, artifactName, recordCount, embeddingProvider, dimension, artifactPath};
+    } finally {
+        await fs.remove(stageDir);
+        if (!skipUpload && await fs.pathExists(artifactPath)) {
+            await fs.remove(artifactPath);
+            logger.log(`🧹 Cleaned up ${artifactName}`);
+        }
     }
 }
 
-uploadKnowledgeBase();
+if (import.meta.url === `file://${process.argv[1]}`) {
+    uploadKnowledgeBase()
+        .then(() => process.exit(0))
+        .catch(error => {
+            console.error('❌ Knowledge Base upload failed:', error.message);
+            process.exit(1);
+        });
+}
