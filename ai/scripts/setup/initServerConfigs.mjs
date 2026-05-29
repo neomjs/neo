@@ -135,6 +135,10 @@ export function materializeServerConfigTemplate(src) {
     return src
         .replaceAll("from '../../../config.template.mjs'", "from '../../../config.mjs'")
         .replaceAll('from "../../../config.template.mjs"', 'from "../../../config.mjs"')
+        // Side-effect imports of the Tier-1 template (a server config that loads it only to register
+        // the realm root) must also point at the operator overlay in the generated runtime config.
+        .replaceAll("import '../../../config.template.mjs'", "import '../../../config.mjs'")
+        .replaceAll('import "../../../config.template.mjs"', 'import "../../../config.mjs"')
 }
 
 /**

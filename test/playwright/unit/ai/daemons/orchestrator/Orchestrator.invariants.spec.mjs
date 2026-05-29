@@ -216,30 +216,35 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
     });
 
     // Post-#12101 the AiConfig singleton is a reactive `Neo.state.Provider`, so its
-    // `orchestrator.mlx`/`.lms` leaves are seeded from the data tree at construction and
-    // ALWAYS exist on the singleton (defaults: enabled=false, model+port set). `delete`
-    // on the hierarchical data proxy is a silent no-op (the throwaway nested-proxy target
-    // is deleted, not the underlying reactive Config), and nulling the parent leaf is a
-    // one-way door (the leaf-bubble breaks on a non-object parent, so the singleton can't
-    // be restored for sibling tests). The faithful, reachable "config missing" state is a
-    // fresh BaseConfig instance whose data tree omits the namespace — the canonical pattern
-    // from BaseConfig.spec.mjs — exercising the same undefined-safe `?.` delegation the
-    // Orchestrator `mlx*`/`lms*` getters use against `AiConfig.orchestrator.{mlx,lms}`.
+    // `orchestrator.mlx`/`.lms` leaves are seeded from the data tree at construction and ALWAYS
+    // exist on the singleton. A fresh BaseConfig instance whose data tree omits the namespace is the
+    // faithful "config missing" state — BUT `BaseConfig.getParent()` makes every instance
+    // inherit the registered realm root (`Neo.ai.Config`), so the fresh instance would otherwise
+    // resolve the namespace UP the chain. Detach the root for the duration so it resolves in
+    // isolation, exercising the same undefined-safe `?.` delegation the Orchestrator `mlx*`/`lms*`
+    // getters use against `AiConfig.orchestrator.{mlx,lms}`.
     test('mlx getter delegation is undefined-safe when AiConfig.orchestrator.mlx is missing', () => {
-        const config = Neo.create(BaseConfig, {data: {
-                  orchestrator: {intervals: {pollMs: {default: 3000}}}
-              }}),
-              cfg    = createConfigProxy(config);
+        const prevRoot = Neo.ai?.Config;
+        if (Neo.ai) {delete Neo.ai.Config}
 
-        // mlx namespace entirely absent → the parent resolves undefined, not a stale default.
-        expect(cfg.orchestrator.mlx).toBeUndefined();
+        try {
+            const config = Neo.create(BaseConfig, {data: {
+                      orchestrator: {intervals: {pollMs: {default: 3000}}}
+                  }}),
+                  cfg    = createConfigProxy(config);
 
-        // Mirror of `Orchestrator#mlxEnabled` / `#mlxModel` / `#mlxPort`.
-        expect(!!cfg.orchestrator.mlx?.enabled).toBe(false);
-        expect(cfg.orchestrator.mlx?.model).toBeUndefined();
-        expect(cfg.orchestrator.mlx?.port).toBeUndefined();
+            // mlx absent locally + no realm root → resolves undefined, not a stale default.
+            expect(cfg.orchestrator.mlx).toBeUndefined();
 
-        config.destroy();
+            // Mirror of `Orchestrator#mlxEnabled` / `#mlxModel` / `#mlxPort`.
+            expect(!!cfg.orchestrator.mlx?.enabled).toBe(false);
+            expect(cfg.orchestrator.mlx?.model).toBeUndefined();
+            expect(cfg.orchestrator.mlx?.port).toBeUndefined();
+
+            config.destroy();
+        } finally {
+            if (prevRoot !== undefined) {Neo.ai.Config = prevRoot}
+        }
     });
 
     test('lmsEnabled / lmsModel / lmsPort getters read AiConfig.orchestrator.lms verbatim', () => {
@@ -262,23 +267,30 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
     });
 
 
-    // See the mlx-missing test above for why "config missing" is simulated via a fresh
-    // data-omitted BaseConfig instance rather than `delete`/null on the singleton.
+    // See the mlx-missing test above: a fresh instance inherits the realm root via
+    // getParent(), so the root is detached here to simulate a genuinely-missing namespace.
     test('lms getter delegation is undefined-safe when AiConfig.orchestrator.lms is missing', () => {
-        const config = Neo.create(BaseConfig, {data: {
-                  orchestrator: {intervals: {pollMs: {default: 3000}}}
-              }}),
-              cfg    = createConfigProxy(config);
+        const prevRoot = Neo.ai?.Config;
+        if (Neo.ai) {delete Neo.ai.Config}
 
-        // lms namespace entirely absent → the parent resolves undefined, not a stale default.
-        expect(cfg.orchestrator.lms).toBeUndefined();
+        try {
+            const config = Neo.create(BaseConfig, {data: {
+                      orchestrator: {intervals: {pollMs: {default: 3000}}}
+                  }}),
+                  cfg    = createConfigProxy(config);
 
-        // Mirror of `Orchestrator#lmsEnabled` / `#lmsModel` / `#lmsPort`.
-        expect(!!cfg.orchestrator.lms?.enabled).toBe(false);
-        expect(cfg.orchestrator.lms?.model).toBeUndefined();
-        expect(cfg.orchestrator.lms?.port).toBeUndefined();
+            // lms absent locally + no realm root → resolves undefined, not a stale default.
+            expect(cfg.orchestrator.lms).toBeUndefined();
 
-        config.destroy();
+            // Mirror of `Orchestrator#lmsEnabled` / `#lmsModel` / `#lmsPort`.
+            expect(!!cfg.orchestrator.lms?.enabled).toBe(false);
+            expect(cfg.orchestrator.lms?.model).toBeUndefined();
+            expect(cfg.orchestrator.lms?.port).toBeUndefined();
+
+            config.destroy();
+        } finally {
+            if (prevRoot !== undefined) {Neo.ai.Config = prevRoot}
+        }
     });
 });
 
