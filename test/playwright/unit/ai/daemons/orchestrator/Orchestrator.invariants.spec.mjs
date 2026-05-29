@@ -144,14 +144,6 @@ function restoreConfigObject(target, prior) {
 }
 
 test.describe('Orchestrator config getters delegate to AiConfig (data env/parse layer is the env-precedence SSOT)', () => {
-    test('interval getter reads AiConfig.orchestrator.intervals verbatim', () => {
-        AiConfig.orchestrator.intervals.kbSyncMs = 60_000;
-        expect(createMinimalOrchestrator().kbSyncIntervalMs).toBe(60_000);
-
-        AiConfig.orchestrator.intervals.kbSyncMs = 12345;
-        expect(createMinimalOrchestrator().kbSyncIntervalMs).toBe(12345);
-    });
-
     test('boolean enable getter reads AiConfig.orchestrator.localOnly verbatim when value is explicit', () => {
         AiConfig.orchestrator.localOnly.kbSyncEnabled = false;
         expect(createMinimalOrchestrator().kbSyncEnabled).toBe(false);
@@ -203,13 +195,9 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
     // env vars are saved/restored by the file-level beforeEach/afterEach hooks above —
     // individual tests can mutate freely without leak risk.
 
-    test('mlxEnabled / mlxModel / mlxPort getters read AiConfig.orchestrator.mlx verbatim', () => {
+    test('mlxEnabled getter coerces AiConfig.orchestrator.mlx.enabled to boolean (model/port are inlined at call sites)', () => {
         AiConfig.orchestrator.mlx = {enabled: true, model: 'mlx-from-config', port: '11999'};
-
-        const o = createMinimalOrchestrator();
-        expect(o.mlxEnabled).toBe(true);
-        expect(o.mlxModel).toBe('mlx-from-config');
-        expect(o.mlxPort).toBe('11999');
+        expect(createMinimalOrchestrator().mlxEnabled).toBe(true);
 
         AiConfig.orchestrator.mlx = {enabled: false, model: 'm', port: '11435'};
         expect(createMinimalOrchestrator().mlxEnabled).toBe(false);
@@ -236,7 +224,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             // mlx absent locally + no realm root → resolves undefined, not a stale default.
             expect(cfg.orchestrator.mlx).toBeUndefined();
 
-            // Mirror of `Orchestrator#mlxEnabled` / `#mlxModel` / `#mlxPort`.
+            // Mirror of the keeper mlxEnabled getter + the inline AiConfig.orchestrator.mlx?.{model,port} reads.
             expect(!!cfg.orchestrator.mlx?.enabled).toBe(false);
             expect(cfg.orchestrator.mlx?.model).toBeUndefined();
             expect(cfg.orchestrator.mlx?.port).toBeUndefined();
@@ -247,7 +235,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         }
     });
 
-    test('lmsEnabled / lmsModel / lmsPort getters read AiConfig.orchestrator.lms verbatim', () => {
+    test('lmsEnabled coerces to boolean + lmsModels parses AiConfig.openAiCompatible models (model/port/host inlined at call sites)', () => {
         AiConfig.orchestrator.lms = {enabled: true, model: 'lms-from-config', port: '4242'};
         AiConfig.openAiCompatible = {
             host          : 'http://127.0.0.1:4242',
@@ -257,9 +245,6 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
 
         const o = createMinimalOrchestrator();
         expect(o.lmsEnabled).toBe(true);
-        expect(o.lmsModel).toBe('lms-from-config');
-        expect(o.lmsPort).toBe('4242');
-        expect(o.lmsHost).toBe('http://127.0.0.1:4242');
         expect(o.lmsModels).toEqual(['chat-from-config', 'embedding-from-config']);
 
         AiConfig.orchestrator.lms = {enabled: false, model: 'qwen', port: '1234'};
@@ -282,7 +267,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             // lms absent locally + no realm root → resolves undefined, not a stale default.
             expect(cfg.orchestrator.lms).toBeUndefined();
 
-            // Mirror of `Orchestrator#lmsEnabled` / `#lmsModel` / `#lmsPort`.
+            // Mirror of the keeper lmsEnabled getter + the inline AiConfig.orchestrator.lms?.{model,port} reads.
             expect(!!cfg.orchestrator.lms?.enabled).toBe(false);
             expect(cfg.orchestrator.lms?.model).toBeUndefined();
             expect(cfg.orchestrator.lms?.port).toBeUndefined();

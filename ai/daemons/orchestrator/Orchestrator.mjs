@@ -370,34 +370,12 @@ export class Orchestrator extends Base {
     }
 
     // === Operator policy values — config-template + envBindings is the SSOT ===
-    // Env vars are declared on `ai/config.template.mjs::envBindings.orchestrator.*` and
-    // applied at config-load time. Consumers read `AiConfig.orchestrator.X.Y` directly;
-    // there is no per-access env probe here. The previous per-getter env reads were
-    // architectural drift relative to the post-M6 service-decomposition pattern.
-    get pollIntervalMs()              { return AiConfig.orchestrator.intervals.pollMs;            }
-    get summarySweepIntervalMs()      { return AiConfig.orchestrator.intervals.summarySweepMs;    }
-    get kbSyncIntervalMs()            { return AiConfig.orchestrator.intervals.kbSyncMs;          }
-    get backupIntervalMs()            { return AiConfig.orchestrator.intervals.backupMs;          }
-    get primaryDevSyncIntervalMs()    { return AiConfig.orchestrator.intervals.primaryDevSyncMs;  }
-    /**
-     * Per-repo global cadence — the default time between sync attempts for a single
-     * configured tenant repo. Decoupled from the orchestrator-level sweep cadence so
-     * deterministic jitter can spread per-repo work across the jitter window.
-     */
-    get tenantRepoSyncIntervalMs()    { return AiConfig.orchestrator.intervals.tenantRepoSyncMs;  }
-    /**
-     * Orchestrator-level sweep cadence — how often `tenant-repo-sync` is invoked.
-     * Short by design (default 1min) so per-repo deterministic jitter spreads actual
-     * sync attempts across the jitter window instead of synchronizing them onto the
-     * sweep boundary.
-     */
-    get tenantRepoSyncSweepCadenceMs(){ return AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs; }
-    get tenantRepoSyncJitterRatio()   { return AiConfig.orchestrator.tenantRepoSync.jitterRatio;    }
-    get dreamIntervalMs()             { return AiConfig.orchestrator.intervals.dreamMs;             }
-    get goldenPathIntervalMs()        { return AiConfig.orchestrator.intervals.goldenPathMs;        }
-    get swarmHeartbeatIntervalMs()    { return AiConfig.orchestrator.intervals.swarmHeartbeatMs;    }
-    get swarmHeartbeatIdentity()      { return Env.parseString('NEO_AGENT_IDENTITY');               }
-    get swarmHeartbeatTargetSource()  { return AiConfig.orchestrator.swarmHeartbeat?.targetSource ?? null; }
+    // Pure config values (intervals, ports, model/host, cadence/jitter) are read inline as
+    // `AiConfig.<path>` at their call sites — no delegation getters re-expose them. Env vars are
+    // declared on `ai/config.template.mjs::envBindings.orchestrator.*` and applied at config-load
+    // time; there is no per-access env probe. The getters below carry real logic
+    // (deployment-mode resolution, coercion, env reads, list-parsing), so they remain.
+    get swarmHeartbeatIdentity()      { return Env.parseString('NEO_AGENT_IDENTITY'); }
     /**
      * Explicit env-driven target list for the swarm-heartbeat resolver. Comma-separated
      * `@handle` form via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS`. Empty or absent →
@@ -417,8 +395,6 @@ export class Orchestrator extends Base {
     get primaryDevSyncEnabled()          { return resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
-    get chromaPort()                     { return AiConfig.engines.chroma?.port;                              }
-    get chromaMaxRuntimeMs()             { return AiConfig.orchestrator.chroma?.maxRuntimeMs;                  }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -426,13 +402,7 @@ export class Orchestrator extends Base {
     // MLX + LM Studio CLI inference-server lane config. Canonical defaults + env overrides
     // live in `ai/config.template.mjs::orchestrator.{mlx,lms}` + `envBindings.orchestrator.{mlx,lms}`.
     get mlxEnabled() { return !!AiConfig.orchestrator.mlx?.enabled; }
-    get mlxModel()   { return AiConfig.orchestrator.mlx?.model;     }
-    get mlxPort()    { return AiConfig.orchestrator.mlx?.port;      }
-
     get lmsEnabled() { return !!AiConfig.orchestrator.lms?.enabled; }
-    get lmsModel()   { return AiConfig.orchestrator.lms?.model;     }
-    get lmsPort()    { return AiConfig.orchestrator.lms?.port;      }
-    get lmsHost()    { return AiConfig.openAiCompatible?.host;      }
     get lmsModels()  {
         return [...new Set([
             AiConfig.openAiCompatible?.model,
@@ -475,15 +445,15 @@ export class Orchestrator extends Base {
         this.taskDefinitions = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
-            chromaPort: this.chromaPort,
+            chromaPort: AiConfig.engines.chroma?.port,
             mlxEnabled: this.mlxEnabled,
-            mlxModel  : this.mlxModel,
-            mlxPort   : this.mlxPort,
+            mlxModel  : AiConfig.orchestrator.mlx?.model,
+            mlxPort   : AiConfig.orchestrator.mlx?.port,
             lmsEnabled: this.lmsEnabled,
-            lmsModel  : this.lmsModel,
+            lmsModel  : AiConfig.orchestrator.lms?.model,
             lmsModels : this.lmsModels,
-            lmsHost   : this.lmsHost,
-            lmsPort   : this.lmsPort,
+            lmsHost   : AiConfig.openAiCompatible?.host,
+            lmsPort   : AiConfig.orchestrator.lms?.port,
             lmsContextLengths: buildLmsContextLengthsMap({
                 chatModel             : AiConfig.openAiCompatible?.model,
                 embeddingModel        : AiConfig.openAiCompatible?.embeddingModel,
@@ -542,8 +512,8 @@ export class Orchestrator extends Base {
                 // and pollIntervalMs are read by pulse() per tick, so post-init assignment
                 // is sufficient. Order matches the JSDoc contract on the service class.
                 this.swarmHeartbeatService.identity        = this.swarmHeartbeatIdentity;
-                this.swarmHeartbeatService.pollIntervalMs  = this.swarmHeartbeatIntervalMs;
-                this.swarmHeartbeatService.targetSource    = this.swarmHeartbeatTargetSource;
+                this.swarmHeartbeatService.pollIntervalMs  = AiConfig.orchestrator.intervals.swarmHeartbeatMs;
+                this.swarmHeartbeatService.targetSource    = AiConfig.orchestrator.swarmHeartbeat?.targetSource ?? null;
                 this.swarmHeartbeatService.explicitTargets = this.swarmHeartbeatExplicitTargets;
                 await this.swarmHeartbeatService.ready();
             } catch (e) {
@@ -553,7 +523,7 @@ export class Orchestrator extends Base {
         }
 
         this.isPolling = true;
-        this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${this.summarySweepIntervalMs}ms kbSyncInterval=${this.kbSyncIntervalMs}ms poll=${this.pollIntervalMs}ms.`);
+        this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
         this.poll();
     }
 
@@ -634,7 +604,7 @@ export class Orchestrator extends Base {
      * @returns {Boolean}
      */
     isChromaRecycleDue(state, now) {
-        const maxRuntimeMs = this.chromaMaxRuntimeMs;
+        const maxRuntimeMs = AiConfig.orchestrator.chroma?.maxRuntimeMs;
         const lastRunAt    = state?.lastRunAt || 0;
         // lastRunAt === 0 means no recorded spawn (uninitialized / never started): uptime is
         // undefined, so never recycle. A genuinely running daemon always carries a real start
@@ -652,7 +622,7 @@ export class Orchestrator extends Base {
      */
     probeChromaReady({timeoutMs = 2000} = {}) {
         return new Promise(resolve => {
-            const socket = net.connect({host: 'localhost', port: this.chromaPort});
+            const socket = net.connect({host: 'localhost', port: AiConfig.engines.chroma?.port});
             const finish = result => { socket.destroy(); resolve(result); };
             socket.setTimeout(timeoutMs);
             socket.once('connect', () => finish(true));
@@ -692,7 +662,7 @@ export class Orchestrator extends Base {
             // once the fresh daemon is connection-ready. Implicitly gated by chromaDaemonEnabled
             // (chroma is only a continuousTask when that lane is enabled).
             if (taskName === 'chroma' && this.isChromaRecycleDue(state, now)) {
-                this.processSupervisorService.killTask('chroma', `max-runtime:${now - (state.lastRunAt || 0)}ms>${this.chromaMaxRuntimeMs}ms`);
+                this.processSupervisorService.killTask('chroma', `max-runtime:${now - (state.lastRunAt || 0)}ms>${AiConfig.orchestrator.chroma?.maxRuntimeMs}ms`);
                 this._chromaDefragPending = true;
                 continue;
             }
@@ -730,7 +700,7 @@ export class Orchestrator extends Base {
                 db                    : this.db,
                 state                 : this.taskStateService.getState(),
                 now,
-                summarySweepIntervalMs: this.summarySweepIntervalMs,
+                summarySweepIntervalMs: AiConfig.orchestrator.intervals.summarySweepMs,
                 log                   : this.writeLog.bind(this)
             });
         }, executeMaintenanceTask(executeTask), context);
@@ -743,9 +713,9 @@ export class Orchestrator extends Base {
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
                 lastRunAt : this.taskStateService.getTaskState('kbSync').lastRunAt,
-                intervalMs: this.kbSyncIntervalMs
+                intervalMs: AiConfig.orchestrator.intervals.kbSyncMs
             })) {
-                return { reason: `periodic-sync:${this.kbSyncIntervalMs}` };
+                return { reason: `periodic-sync:${AiConfig.orchestrator.intervals.kbSyncMs}` };
             }
             return null;
         }, executeMaintenanceTask(executeTask), context);
@@ -754,7 +724,7 @@ export class Orchestrator extends Base {
             return this.backupGetDueTask({
                 state           : this.taskStateService.getState(),
                 now,
-                backupIntervalMs: this.backupIntervalMs
+                backupIntervalMs: AiConfig.orchestrator.intervals.backupMs
             });
         }, executeMaintenanceTask(executeTask), context);
 
@@ -762,7 +732,7 @@ export class Orchestrator extends Base {
             return this.primaryDevSyncGetDueTask({
                 state     : this.taskStateService.getState(),
                 now,
-                intervalMs: this.primaryDevSyncIntervalMs,
+                intervalMs: AiConfig.orchestrator.intervals.primaryDevSyncMs,
                 enabled   : this.primaryDevSyncEnabled
             });
         }, executeMaintenanceTask((taskName, reason) => {
@@ -776,11 +746,15 @@ export class Orchestrator extends Base {
             });
         }), context);
 
+        // Two distinct cadences: the SWEEP cadence (`tenantRepoSync.sweepCadenceMs`, short by
+        // design) is how often the sweep is invoked; the per-repo `intervals.tenantRepoSyncMs` is
+        // the actual interval between a single repo's sync attempts, with `jitterRatio` spreading
+        // per-repo work across the window instead of synchronizing it onto the sweep boundary.
         this.cadenceEngine.runIfDue('tenant-repo-sync', () => {
             return this.tenantRepoSyncGetDueTask({
                 state     : this.taskStateService.getState(),
                 now,
-                intervalMs: this.tenantRepoSyncSweepCadenceMs,
+                intervalMs: AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs,
                 enabled   : this.tenantRepoSyncEnabled
             });
         }, executeMaintenanceTask((taskName, reason) => {
@@ -790,8 +764,8 @@ export class Orchestrator extends Base {
                 taskStateService: this.taskStateService,
                 healthService   : this.healthService,
                 writeLog        : this.writeLog.bind(this),
-                globalCadenceMs : this.tenantRepoSyncIntervalMs,
-                jitterRatio     : this.tenantRepoSyncJitterRatio
+                globalCadenceMs : AiConfig.orchestrator.intervals.tenantRepoSyncMs,
+                jitterRatio     : AiConfig.orchestrator.tenantRepoSync.jitterRatio
             });
         }), context);
 
@@ -799,9 +773,9 @@ export class Orchestrator extends Base {
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
                 lastRunAt : this.taskStateService.getTaskState('dream')?.lastRunAt,
-                intervalMs: this.dreamIntervalMs
+                intervalMs: AiConfig.orchestrator.intervals.dreamMs
             })) {
-                return { reason: `periodic-dream:${this.dreamIntervalMs}` };
+                return { reason: `periodic-dream:${AiConfig.orchestrator.intervals.dreamMs}` };
             }
             return null;
         }, executeMaintenanceTask(async (taskName, reason) => {
@@ -856,9 +830,9 @@ export class Orchestrator extends Base {
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
                 lastRunAt : this.taskStateService.getTaskState('golden-path')?.lastRunAt,
-                intervalMs: this.goldenPathIntervalMs
+                intervalMs: AiConfig.orchestrator.intervals.goldenPathMs
             })) {
-                return { reason: `periodic-golden-path:${this.goldenPathIntervalMs}` };
+                return { reason: `periodic-golden-path:${AiConfig.orchestrator.intervals.goldenPathMs}` };
             }
             return null;
         }, this.createGoldenPathExecutor(async (taskName, reason) => {
@@ -894,9 +868,9 @@ export class Orchestrator extends Base {
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
                 lastRunAt : this.taskStateService.getTaskState('swarm-heartbeat')?.lastRunAt,
-                intervalMs: this.swarmHeartbeatIntervalMs
+                intervalMs: AiConfig.orchestrator.intervals.swarmHeartbeatMs
             })) {
-                return { reason: `periodic-heartbeat:${this.swarmHeartbeatIntervalMs}` };
+                return { reason: `periodic-heartbeat:${AiConfig.orchestrator.intervals.swarmHeartbeatMs}` };
             }
             return null;
         }, async (taskName, reason) => {
@@ -915,7 +889,7 @@ export class Orchestrator extends Base {
         }, context);
 
         if (this.isPolling) {
-            this.pollHandle = setTimeout(() => this.poll(), this.pollIntervalMs);
+            this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);
         }
     }
 }
