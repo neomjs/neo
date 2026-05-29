@@ -76,10 +76,10 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         config.destroy();
     });
 
-    test('set() writes a value through the reactive pipeline', () => {
+    test('setData() writes a value through the reactive pipeline', () => {
         const config = Neo.create(BaseConfig, {metaTree: buildTree()});
 
-        config.set('server.timeout', 9999);
+        config.setData('server.timeout', 9999);
         expect(config.getDataConfig('server.timeout').get()).toBe(9999);
 
         config.destroy();
@@ -113,18 +113,18 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         config.destroy();
     });
 
-    test('observeConfig fires on change and stops after cleanup', () => {
+    test('observeData fires on change and stops after cleanup', () => {
         const config = Neo.create(BaseConfig, {metaTree: buildTree()});
 
         let calls   = 0;
-        const cleanup = config.observeConfig('name', () => {calls++});
+        const cleanup = config.observeData('name', () => {calls++});
 
-        config.set('name', 'a');
+        config.setData('name', 'a');
         const afterFirstChange = calls;
         expect(afterFirstChange).toBeGreaterThan(0);
 
         cleanup();
-        config.set('name', 'b');
+        config.setData('name', 'b');
         expect(calls).toBe(afterFirstChange);
 
         config.destroy();
@@ -138,7 +138,7 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         console.warn = msg => warnings.push(String(msg));
 
         try {
-            config.set('port', 'not-a-number');
+            config.setData('port', 'not-a-number');
             expect(config.getDataConfig('port').get()).toBe('not-a-number');
             expect(warnings.some(w => w.includes('port'))).toBe(true);
         } finally {
@@ -167,8 +167,25 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         expect(proxy.data.name).toBe('neo');
 
         // a method invoked through the proxy must run with `this` = the real instance
-        proxy.set('name', 'viaMethod');
+        proxy.setData('name', 'viaMethod');
         expect(config.getDataConfig('name').get()).toBe('viaMethod');
+
+        config.destroy();
+    });
+
+    test('does not shadow core.Base set() / observeConfig()', () => {
+        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+
+        // core.Base#observeConfig(publisher, configName, fn) is a cross-instance subscription
+        // returning a cleanup fn — and Provider#createBinding depends on it. BaseConfig must
+        // NOT shadow it with a path-scoped override (that surface is `observeData`).
+        let calls     = 0;
+        const cleanup = config.observeConfig(config, 'data', () => {calls++});
+        expect(typeof cleanup).toBe('function');
+        cleanup();
+
+        // core.Base#set(values) is the batch config setter — must accept an object, not a path.
+        expect(() => config.set({})).not.toThrow();
 
         config.destroy();
     });

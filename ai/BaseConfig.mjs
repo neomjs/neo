@@ -175,15 +175,6 @@ class BaseConfig extends Provider {
     }
 
     /**
-     * Explicit mutation API — writes a value at a dotted path through the reactive pipeline.
-     * @param {String} leafPath
-     * @param {*} value
-     */
-    set(leafPath, value) {
-        this.setData(leafPath, value);
-    }
-
-    /**
      * Records and applies a runtime env-layer override. The override is re-asserted by
      * `#applyEnvLayer` so it survives subsequent overlay loads.
      * @param {String} leafPath
@@ -195,16 +186,19 @@ class BaseConfig extends Provider {
     }
 
     /**
-     * Path-scoped reactive subscription. Invokes `fn` on changes to the leaf at `leafPath`.
+     * Path-scoped reactive subscription to a data leaf. Invokes `fn` on changes to the leaf
+     * at `leafPath`; returns a cleanup fn. Named `observeData` (NOT `observeConfig`) to avoid
+     * shadowing `Neo.core.Base#observeConfig(publisher, configName, fn)` — a different,
+     * cross-instance API that `Neo.state.Provider#createBinding` itself relies on.
      * @param {String} leafPath Full dotted leaf path.
      * @param {Function} fn
      * @returns {Function} Cleanup function that removes the subscription.
      */
-    observeConfig(leafPath, fn) {
+    observeData(leafPath, fn) {
         const config = this.getDataConfig(leafPath);
 
         if (!config) {
-            console.warn(`[Neo.ai.BaseConfig] observeConfig: no leaf at "${leafPath}".`);
+            console.warn(`[Neo.ai.BaseConfig] observeData: no leaf at "${leafPath}".`);
             return () => {};
         }
 
