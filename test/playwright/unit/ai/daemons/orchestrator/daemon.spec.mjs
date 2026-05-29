@@ -97,13 +97,16 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         }
     });
 
-    test('AiConfig.orchestrator.mlx ships canonical MLX launch defaults', async () => {
+    test('AiConfig.orchestrator.mlx ships canonical MLX launch defaults', () => {
+        // The Tier-1 template (NOT the gitignored config.mjs overlay) is the stable
+        // source of truth for MLX defaults. Read it as text and assert the metaTree
+        // leaf defaults: importing the template here would register Neo.ai.Config a
+        // second time alongside the config.mjs singleton daemon.mjs loads, tripping
+        // the unitTestMode namespace-collision gatekeeper.
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
 
-        // AiConfig template is the single source of truth for MLX defaults
-        // post-#11075 migration. TaskDefinitions.mjs no longer carries them.
         expect(templateSource).toMatch(
-            /mlx:\s*\{[\s\S]*enabled:\s*false[\s\S]*model\s*:\s*'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*port\s*:\s*'11435'[\s\S]*\}/
+            /mlx:\s*\{[\s\S]*?default:\s*false[\s\S]*?'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*?'11435'/
         );
     });
 
@@ -172,13 +175,13 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         }
     });
 
-    test('AiConfig.orchestrator.lms ships canonical LM Studio launch defaults', async () => {
+    test('AiConfig.orchestrator.lms ships canonical LM Studio launch defaults', () => {
+        // Tier-1 template is the stable source of truth; read as text (see the MLX test
+        // for why importing the template collides with daemon.mjs's config.mjs singleton).
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
 
-        // AiConfig template is the single source of truth for LM Studio defaults.
-        // TaskDefinitions.mjs is a pure function that consumes these via caller-resolved values.
         expect(templateSource).toMatch(
-            /lms:\s*\{[\s\S]*enabled:\s*false[\s\S]*model\s*:\s*'qwen3-embedding-8b'[\s\S]*port\s*:\s*'1234'[\s\S]*\}/
+            /lms:\s*\{[\s\S]*?default:\s*false[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
         );
     });
 

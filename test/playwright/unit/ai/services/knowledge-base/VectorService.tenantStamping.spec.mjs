@@ -147,6 +147,14 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
     });
 
     test.beforeEach(() => {
+        // KB_Config now extends Neo.state.Provider: `data` is a reactive proxy. The flat
+        // tenant keys below are registered leaves, so re-assigning them resets cleanly.
+        // `knowledgeBase` is deliberately NOT reset here: it is an unregistered nested
+        // namespace, and writing `undefined`/`null` through the reactive pipeline creates a
+        // sticky falsy parent config that blocks the nested-shape test from rebuilding the
+        // object. Leaving it untouched keeps the parent unregistered (falsy → the consumer's
+        // `aiConfig.knowledgeBase ?? aiConfig` falls back to the flat keys); the one nested
+        // test installs and tears down its own override.
         Object.assign(KB_Config.data, {
             batchSize         : 50,
             batchDelay        : 0,
@@ -155,7 +163,6 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
             defaultRepoSlug   : 'neo',
             defaultVisibility : 'team',
             spoofRejectionMode: 'overwrite',
-            knowledgeBase     : undefined,
             mcpSyncMaxChunks  : 50
         });
 
@@ -311,29 +318,40 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
     test('honors nested knowledgeBase isolation config shape', async () => {
         const spy = createSpyCollection();
         KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
-        KB_Config.data.knowledgeBase = {
-            defaultTenantId   : 'nested-tenant',
-            defaultRepoSlug   : 'nested-repo',
-            defaultVisibility : 'private',
-            spoofRejectionMode: 'overwrite'
-        };
 
-        writeFixtureJsonl(fixturePath, [{
-            hash       : 'raw-hash-4',
-            type       : 'guide',
-            name       : 'NestedConfigDoc',
-            className  : '',
-            description: 'nested config',
-            content    : 'body'
-        }]);
+        // VectorService.getTenantIsolationConfig() reads `aiConfig.knowledgeBase ?? aiConfig`,
+        // so a truthy nested `knowledgeBase` object takes precedence over the flat tenant keys.
+        // Under the reactive Provider, assigning an object to the (currently unregistered)
+        // `knowledgeBase` namespace registers + populates the nested leaves the consumer reads.
+        try {
+            KB_Config.data.knowledgeBase = {
+                defaultTenantId   : 'nested-tenant',
+                defaultRepoSlug   : 'nested-repo',
+                defaultVisibility : 'private',
+                spoofRejectionMode: 'overwrite'
+            };
 
-        await KB_VectorService.embed(fixturePath);
+            writeFixtureJsonl(fixturePath, [{
+                hash       : 'raw-hash-4',
+                type       : 'guide',
+                name       : 'NestedConfigDoc',
+                className  : '',
+                description: 'nested config',
+                content    : 'body'
+            }]);
 
-        const row = getOnlyRow(spy);
+            await KB_VectorService.embed(fixturePath);
 
-        expect(row.metadata.tenantId).toBe('nested-tenant');
-        expect(row.metadata.repoSlug).toBe('nested-repo');
-        expect(row.metadata.visibility).toBe('private');
+            const row = getOnlyRow(spy);
+
+            expect(row.metadata.tenantId).toBe('nested-tenant');
+            expect(row.metadata.repoSlug).toBe('nested-repo');
+            expect(row.metadata.visibility).toBe('private');
+        } finally {
+            // Reset to a clean falsy parent so subsequent serial tests fall back to the flat
+            // tenant keys. `null` (not `undefined`) reliably clears the reactive leaf value.
+            KB_Config.setData('knowledgeBase', null);
+        }
     });
 
     test('content hashes include tenant and repository identity', () => {
