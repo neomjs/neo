@@ -172,12 +172,12 @@ test.describe('Tier 1 Config Immutability', () => {
             const source = await fs.readFile(new URL(templateUrl, import.meta.url), 'utf8');
 
             // The ledger lives inside the config class as a single `static config` block
-            // whose `metaTree` holds the `{env?, default, parse?}` leaves — never as a
+            // whose `data` config holds the `{env?, default, parse?}` leaves — never as a
             // module-level `const` (the old parallel defaultConfig/envBindings shape, and
             // its meta-leaf successor, would both leak the ledger out of the class).
             expect(source).not.toMatch(/^const\s+(defaultConfig|envBindings|metaTree)\s*=/m);
             expect(source).toMatch(/static\s+config\s*=/);
-            expect(source).toMatch(/metaTree\s*:/);
+            expect(source).toMatch(/data\s*:/);
         }
     });
 });

@@ -15,108 +15,161 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 
-let BaseConfig, createConfigProxy, Env, originalEnv;
+let BaseConfig, createConfigProxy, leaf, Env, originalEnv;
 
 /**
- * Fresh prototype meta-leaf tree per test (must run after Env is imported in beforeAll).
- * Mixes env-bound + env-free leaves, multiple parser types, and a nested namespace.
+ * Fresh meta-leaf tree per test, assigned to the `data` config (the new #12168 shape).
+ * Mixes env-bound + env-free leaves, multiple `leaf()` types, a null-default-with-type leaf,
+ * a nested namespace, and an object leaf whose value carries an own `constructor` key
+ * (the dummy-EF duck-type that breaks `Neo.typeOf` inference — guarded by `leaf()`).
  */
 function buildTree() {
     return {
-        debug: {env: 'NEO_TEST_DEBUG', default: false, parse: Env.parseBool},
-        port : {env: 'NEO_TEST_PORT',  default: 3000,  parse: Env.parsePort},
-        name : {default: 'neo'},
-        server: {
-            host   : {default: 'localhost'},
-            timeout: {env: 'NEO_TEST_TIMEOUT', default: 5000, parse: Env.parseNumber}
-        }
-    };
+        debug    : leaf(false, 'NEO_TEST_DEBUG'),
+        port     : leaf(3000, 'NEO_TEST_PORT', 'port'),
+        name     : leaf('neo'),
+        publicUrl: leaf(null, 'NEO_TEST_URL', 'url'),
+        server   : {
+            host   : leaf('localhost'),
+            timeout: leaf(5000, 'NEO_TEST_TIMEOUT', 'number')
+        },
+        ef: leaf({
+            name       : 'dummy_embedding_function',
+            generate   : () => null,
+            getConfig  : () => ({}),
+            constructor: {buildFromConfig: () => ({generate: () => null})}
+        }, null, 'object')
+    }
 }
 
-test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
+test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', () => {
     test.beforeAll(async () => {
-        ({default: BaseConfig, createConfigProxy} = await import('../../../../ai/BaseConfig.mjs'));
+        ({default: BaseConfig, createConfigProxy, leaf} = await import('../../../../ai/BaseConfig.mjs'));
         Env         = (await import('../../../../src/util/Env.mjs')).default;
-        originalEnv = {...process.env};
+        originalEnv = {...process.env}
     });
 
     test.afterEach(() => {
         Object.keys(process.env).forEach(key => {
             if (!(key in originalEnv)) {
-                delete process.env[key];
+                delete process.env[key]
             } else {
-                process.env[key] = originalEnv[key];
+                process.env[key] = originalEnv[key]
             }
-        });
+        })
     });
 
-    test('compileMetaLeaves seeds reactive data from leaf defaults', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+    test('leaf() factory: parser by type, inference, null-default type, object-no-env', () => {
+        const portLeaf = leaf(3000, 'NEO_X', 'port');
+        expect(portLeaf.type).toBe('port');
+        expect(portLeaf.parse).toBe(Env.parsePort);
+        expect(portLeaf.default).toBe(3000);
+
+        // type inferred from a non-null default
+        expect(leaf(false, 'NEO_X').type).toBe('boolean');
+        expect(leaf(false, 'NEO_X').parse).toBe(Env.parseBool);
+
+        // explicit type survives a null default (stays validatable)
+        const urlLeaf = leaf(null, 'NEO_X', 'url');
+        expect(urlLeaf.type).toBe('url');
+        expect(urlLeaf.parse).toBe(Env.parseUrl);
+
+        // env-free leaf carries no parser
+        expect(leaf('x').parse).toBe(null);
+        // object value with an own `constructor` key must not throw during inference
+        const efLeaf = leaf({constructor: {buildFromConfig: () => ({})}}, null, 'object');
+        expect(efLeaf.type).toBe('object');
+        expect(efLeaf.parse).toBe(null)
+    });
+
+    test('afterSetData compiles reactive data from leaf defaults', () => {
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
         expect(config.getDataConfig('debug').get()).toBe(false);
         expect(config.getDataConfig('port').get()).toBe(3000);
         expect(config.getDataConfig('name').get()).toBe('neo');
+        expect(config.getDataConfig('publicUrl').get()).toBe(null);
         expect(config.getDataConfig('server.host').get()).toBe('localhost');
         expect(config.getDataConfig('server.timeout').get()).toBe(5000);
 
-        config.destroy();
+        config.destroy()
     });
 
-    test('env vars override leaf defaults (parsed to typed values)', () => {
+    test('object leaf with an own constructor key survives compile (typeOf guard)', () => {
+        const config = Neo.create(BaseConfig, {data: buildTree()}),
+              ef     = config.getDataConfig('ef').get();
+
+        expect(ef.name).toBe('dummy_embedding_function');
+        expect(typeof ef.generate).toBe('function');
+        expect(typeof ef.constructor.buildFromConfig).toBe('function');
+
+        config.destroy()
+    });
+
+    test('env vars override leaf defaults (bounded, parsed to typed values)', () => {
         process.env.NEO_TEST_PORT  = '8080';
         process.env.NEO_TEST_DEBUG = 'true';
 
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
         expect(config.getDataConfig('port').get()).toBe(8080);
         expect(config.getDataConfig('debug').get()).toBe(true);
-        // env-free leaf keeps its default
-        expect(config.getDataConfig('name').get()).toBe('neo');
+        expect(config.getDataConfig('name').get()).toBe('neo'); // env-free keeps default
 
-        config.destroy();
+        config.destroy()
     });
 
     test('setData() writes a value through the reactive pipeline', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
         config.setData('server.timeout', 9999);
         expect(config.getDataConfig('server.timeout').get()).toBe(9999);
 
-        config.destroy();
+        config.destroy()
     });
 
-    test('setEnvOverride() applies and wins over the default', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+    test('setEnvOverride() is keyed by env var name and wins over the default', () => {
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
-        config.setEnvOverride('debug', true);
+        config.setEnvOverride('NEO_TEST_DEBUG', true);
         expect(config.getDataConfig('debug').get()).toBe(true);
 
-        config.destroy();
+        config.destroy()
+    });
+
+    test('refreshEnv() re-resolves env; runtime override persists', () => {
+        const config = Neo.create(BaseConfig, {data: buildTree()});
+
+        config.setEnvOverride('NEO_TEST_DEBUG', true);
+        process.env.NEO_TEST_PORT = '9090';
+        config.refreshEnv();
+
+        expect(config.getDataConfig('port').get()).toBe(9090);  // re-read from env
+        expect(config.getDataConfig('debug').get()).toBe(true); // override survives
+
+        config.destroy()
     });
 
     test('direct assignment via createConfigProxy routes through setData', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()}),
+        const config = Neo.create(BaseConfig, {data: buildTree()}),
               proxy  = createConfigProxy(config);
 
-        // read-through
         expect(proxy.name).toBe('neo');
         expect(proxy.server.host).toBe('localhost');
 
-        // top-level assignment (proxy set trap)
         proxy.name = 'changed';
         expect(config.getDataConfig('name').get()).toBe('changed');
 
-        // nested assignment (Provider hierarchical proxy set trap)
         proxy.server.host = 'remote';
         expect(config.getDataConfig('server.host').get()).toBe('remote');
 
-        config.destroy();
+        config.destroy()
     });
 
     test('observeData fires on change and stops after cleanup', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
-        let calls   = 0;
+        let calls     = 0;
         const cleanup = config.observeData('name', () => {calls++});
 
         config.setData('name', 'a');
@@ -127,54 +180,57 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         config.setData('name', 'b');
         expect(calls).toBe(afterFirstChange);
 
-        config.destroy();
+        config.destroy()
     });
 
-    test('internalSetData warns on a leaf type mismatch but keeps the value', () => {
-        const config   = Neo.create(BaseConfig, {metaTree: buildTree()}),
+    test('internalSetData validates ANY value at a known leaf path (object leaves included)', () => {
+        const config   = Neo.create(BaseConfig, {data: buildTree()}),
               warnings = [],
               origWarn = console.warn;
 
         console.warn = msg => warnings.push(String(msg));
 
         try {
+            // object leaf is validated (no `!== 'Object'` bypass) and kept without warning
+            config.setData('ef', {name: 'x', generate: () => null});
+            expect(config.getDataConfig('ef').get().name).toBe('x');
+
+            // scalar type mismatch warns but keeps the value
             config.setData('port', 'not-a-number');
             expect(config.getDataConfig('port').get()).toBe('not-a-number');
-            expect(warnings.some(w => w.includes('port'))).toBe(true);
+            expect(warnings.some(w => w.includes('port'))).toBe(true)
         } finally {
-            console.warn = origWarn;
+            console.warn = origWarn
         }
 
-        config.destroy();
+        config.destroy()
     });
 
     test('nested namespaces are preserved as a deep structure', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
         expect(config.data.server.host).toBe('localhost');
         expect(config.data.server.timeout).toBe(5000);
         expect(config.data.name).toBe('neo');
 
-        config.destroy();
+        config.destroy()
     });
 
     test('createConfigProxy: .data getter + method calls bind to the real instance', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()}),
+        const config = Neo.create(BaseConfig, {data: buildTree()}),
               proxy  = createConfigProxy(config);
 
-        // `.data` access must NOT run the reactive getter with `this` = outer proxy
         expect(proxy.data.server.host).toBe('localhost');
         expect(proxy.data.name).toBe('neo');
 
-        // a method invoked through the proxy must run with `this` = the real instance
         proxy.setData('name', 'viaMethod');
         expect(config.getDataConfig('name').get()).toBe('viaMethod');
 
-        config.destroy();
+        config.destroy()
     });
 
     test('destroy() releases observeData subscriptions (no manual cleanup needed)', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
         let calls = 0;
         config.observeData('name', () => {calls++}); // intentionally not cleaned up manually
@@ -182,15 +238,12 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         config.setData('name', 'x');
         expect(calls).toBeGreaterThan(0);
 
-        // destroy must tear down the tracked subscription without throwing
-        expect(() => config.destroy()).not.toThrow();
+        expect(() => config.destroy()).not.toThrow()
     });
 
     test('observeData resolves leaves via getOwnerOfDataProperty (hierarchy-aware)', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
-        // The resolved Config must be the exact instance getOwnerOfDataProperty points at —
-        // i.e. resolution goes through the owner, not a direct this.#dataConfigs reach-in.
         const {owner, propertyName} = config.getOwnerOfDataProperty('server.host');
         expect(owner).toBe(config);
         expect(owner.getDataConfig(propertyName)).toBe(config.getDataConfig('server.host'));
@@ -201,23 +254,21 @@ test.describe('Neo.ai.BaseConfig (meta-leaf tree + Provider extension)', () => {
         expect(observed).toBe('remote-host');
 
         cleanup();
-        config.destroy();
+        config.destroy()
     });
 
     test('does not shadow core.Base set() / observeConfig()', () => {
-        const config = Neo.create(BaseConfig, {metaTree: buildTree()});
+        const config = Neo.create(BaseConfig, {data: buildTree()});
 
-        // core.Base#observeConfig(publisher, configName, fn) is a cross-instance subscription
-        // returning a cleanup fn — and Provider#createBinding depends on it. BaseConfig must
-        // NOT shadow it with a path-scoped override (that surface is `observeData`).
+        // core.Base#observeConfig(publisher, configName, fn) — Provider#createBinding depends on it.
         let calls     = 0;
         const cleanup = config.observeConfig(config, 'data', () => {calls++});
         expect(typeof cleanup).toBe('function');
         cleanup();
 
-        // core.Base#set(values) is the batch config setter — must accept an object, not a path.
+        // core.Base#set(values) — batch config setter, must accept an object.
         expect(() => config.set({})).not.toThrow();
 
-        config.destroy();
+        config.destroy()
     });
 });
