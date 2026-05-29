@@ -243,16 +243,62 @@ class BaseConfig extends Provider {
     }
 
     /**
-     * The single write funnel. Validates any value written to a known leaf path
-     * (metadata-path-first), then delegates to the Provider pipeline (reactivity bubbling,
-     * config-map updates).
+     * Resolves the parent provider for hierarchical (chain) data resolution. The Brain has no
+     * component tree, so the Provider's component-tree fallback never applies; instead the Tier-1
+     * singleton `Neo.ai.Config` is the realm root and every other config is its child.
+     *
+     * Returns the **raw** Tier-1 instance (`globalThis.Neo.ai.Config`, placed by `applyToGlobalNs`)
+     * — never the {@link createConfigProxy} export — because `getOwnerOfDataProperty` reads the
+     * parent's private `#dataConfigs`, which a Proxy cannot expose. The `root !== this` identity
+     * guard stops the root from parenting itself (infinite recursion); a not-yet-loaded root yields
+     * `null`, so a child resolves locally until the root module is imported (lazy: the root need
+     * only exist before the first realm-leaf *read*, not before a child constructs).
+     * @returns {Neo.state.Provider|null}
+     * @override
+     */
+    getParent() {
+        const root = Neo.ai?.Config;
+
+        return root && root !== this ? root : null
+    }
+
+    /**
+     * Validates a value against the registry of whichever provider in the chain OWNS the leaf:
+     * local first (fast path), else the owner resolved up the parent chain via
+     * {@link Neo.state.Provider#getOwnerOfDataProperty}. A cross-tier write — a child writing a
+     * Tier-1-owned leaf — is therefore validated against the parent's metadata instead of bypassing
+     * validation on both tiers (facet-8). The `#leafMetadataRegistry in owner` brand check guards
+     * the cross-instance private access (every chain member is a BaseConfig).
+     * @param {String} key
+     * @param {*} value
+     * @returns {*}
+     */
+    #validateAgainstOwner(key, value) {
+        if (this.#leafMetadataRegistry.has(key)) {
+            return this.#validateLeafValue(key, value)
+        }
+
+        const owner = this.getOwnerOfDataProperty(key)?.owner;
+
+        if (owner && owner !== this && #leafMetadataRegistry in owner && owner.#leafMetadataRegistry.has(key)) {
+            return owner.#validateLeafValue(key, value)
+        }
+
+        return value
+    }
+
+    /**
+     * The single write funnel. Validates any string-keyed write against the leaf registry of the
+     * provider that OWNS the key — local or resolved up the parent chain (see
+     * {@link #validateAgainstOwner}) — then delegates to the Provider pipeline (reactivity
+     * bubbling, config-map updates).
      * @param {String|Object} key
      * @param {*} value
      * @param {Neo.state.Provider} [originStateProvider]
      */
     internalSetData(key, value, originStateProvider) {
-        if (typeof key === 'string' && this.#leafMetadataRegistry.has(key)) {
-            value = this.#validateLeafValue(key, value)
+        if (typeof key === 'string') {
+            value = this.#validateAgainstOwner(key, value)
         }
 
         super.internalSetData(key, value, originStateProvider)
