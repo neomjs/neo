@@ -84,7 +84,7 @@ The cloud profile asserts the **absence** of local-only behavior. From the lane 
 ### 2.5 Stale-ADR sweep — 0003 / 0009
 
 Per the Epic, D0 sweeps the two existing daemon-relevant ADRs:
-- **ADR 0003 (Chroma Topology — Unified Only)** — **not stale.** It already anticipates an "independently hosted ChromaDB instance"; the cloud `chroma` container *is* that unified instance. Cross-referenced here as the authority for the `chroma` = shared-primitive classification. No amendment.
+- **ADR 0003 (Chroma Topology — Unified Only)** — **not stale.** It already anticipates an "independently hosted ChromaDB instance"; the cloud `chroma` container *is* that unified instance. Cross-referenced here as the authority for the `chroma` = shared-primitive classification. No amendment. *(Update 2026-05-29: ADR 0003 is subsequently amended by ADR 0017 — single flat `unified` store + dev/prod parity — refining the store's on-disk layout + persist-path config. The `chroma` = shared-primitive / one-container classification recorded here is unaffected.)*
 - **ADR 0009 (Cross-Daemon Heavy-Maintenance Lease Inheritance)** — **not stale.** The file-lease serializes the heavy lanes (`summary` / `kbSync` / `backup` / `primary-dev-sync` / `dream`) across processes; in a single-`orchestrator`-container cloud deployment it is a degenerate-but-correct safety net. No amendment.
 
 Broader deployment-doc / ADR reconciliation beyond 0003 / 0009 is tracked by the #11720 owner map and its follow-up tickets; #11729 was closed after D0 owner-map narrowing.

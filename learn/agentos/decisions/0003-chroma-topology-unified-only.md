@@ -10,6 +10,7 @@
 | **Resolves** | #11011 |
 | **Unblocks** | v13 Substrate Migration |
 | **Informs** | #10449, #11009 |
+| **Amended by** | ADR 0017 — single flat `unified` store + dev/prod parity (Epic #12153) |
 
 ---
 
