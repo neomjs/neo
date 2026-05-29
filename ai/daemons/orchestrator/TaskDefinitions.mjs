@@ -59,6 +59,11 @@ export function buildTaskDefinitions({
         chroma: {
             label          : 'chroma daemon',
             command        : 'chroma',
+            // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir
+            // — the SSOT that KB/MC configs + defragChromaDB read — under the standard
+            // cwd==repoRoot. Kept as a relative literal here (not SSOT-sourced) for daemon-launch
+            // resilience: a stale config.mjs lacking the SSOT key would otherwise launch the daemon
+            // with `--path undefined`. Keep this value in sync with engines.chroma.dataDir.
             args           : ['run', '--path', '.neo-ai-data/chroma/knowledge-base', '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma',

@@ -126,10 +126,12 @@ class Config extends BaseConfig {
          */
         port: AiConfig.engines.chroma.port,
         /**
-         * The local persistence path for the agent knowledge-base server.
+         * The unified Chroma persist directory, read from the single source of truth
+         * `AiConfig.engines.chroma.dataDir`. MUST equal the orchestrator daemon's
+         * `--path` (kept literal there for daemon-launch resilience against a stale config.mjs).
          * @type {string}
          */
-        path: path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base'),
+        path: AiConfig.engines.chroma.dataDir,
         /**
          * @summary Shared SQLite destination for Knowledge Base query telemetry.
          *
