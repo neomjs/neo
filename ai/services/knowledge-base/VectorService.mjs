@@ -107,7 +107,19 @@ class VectorService extends Base {
      * @returns {Object} Tenant-isolation configuration object.
      */
     getTenantIsolationConfig() {
-        return aiConfig.knowledgeBase ?? aiConfig;
+        const nested = aiConfig.knowledgeBase;
+        // The portable nested tenant-shape carries tenant fields. Post-#12166, Tier-1's
+        // `knowledgeBase` leaf (KB OPS config: alerting / reconciliation / GC) is inherited here via
+        // the realm chain and is NOT a tenant-shape — so a naked `?? aiConfig` would wrongly select
+        // it (security regression: tenant fields read as undefined). Prefer the nested object only
+        // when it actually exposes a tenant field; otherwise fall through to the flat top-level config.
+        const hasTenantShape = nested != null && (
+            nested.defaultTenantId    !== undefined ||
+            nested.defaultRepoSlug    !== undefined ||
+            nested.defaultVisibility  !== undefined ||
+            nested.spoofRejectionMode !== undefined
+        );
+        return hasTenantShape ? nested : aiConfig;
     }
 
     /**
