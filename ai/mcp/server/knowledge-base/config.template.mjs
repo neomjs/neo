@@ -38,11 +38,9 @@ class Config extends BaseConfig {
          */
         data: {
             neoRootDir: leaf(neoRootDir),
-            /**
-             * Universal JSONL backup/export directory inherited from Tier-1 config.
-             * @type {string}
-             */
-            backupPath: leaf(AiConfig.backupPath, 'NEO_BACKUP_PATH', 'string'),
+            // backupPath is inherited from the Tier-1 realm (Neo.ai.Config) via the
+            // BaseConfig.getParent() chain (#12166): declared once at Tier-1, resolved up the chain
+            // at read time, no local snapshot.
             /**
              * Automatically synchronize the knowledge base on startup.
              * @type {boolean}
@@ -85,43 +83,13 @@ class Config extends BaseConfig {
              * @type {Function|null}
              */
             authMiddleware: leaf(null),
-            /**
-             * Authentication configuration for the server (OAuth 2.1 / OIDC).
-             * Only used when transport is 'sse'.
-             * @type {Object}
-             */
-            auth: {
-                host              : leaf(AiConfig.auth.host, 'NEO_AUTH_HOST', 'string'),
-                port              : leaf(AiConfig.auth.port, 'NEO_AUTH_PORT', 'port'),
-                realm             : leaf(AiConfig.auth.realm, 'NEO_AUTH_REALM', 'string'),
-                issuerUrl         : leaf(AiConfig.auth.issuerUrl, 'NEO_AUTH_ISSUER_URL', 'string'),
-                clientId          : leaf(AiConfig.auth.clientId, 'NEO_OAUTH_CLIENT_ID', 'string'),
-                clientSecret      : leaf(AiConfig.auth.clientSecret, 'NEO_OAUTH_CLIENT_SECRET', 'string'),
-                trustProxyIdentity: leaf(AiConfig.auth.trustProxyIdentity, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean')
-            },
-            /**
-             * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
-             *
-             * NOTE: This verbose structure is strictly required to prevent the ChromaDB client from
-             * flagging this as a "legacy" function, which triggers a persistent console warning:
-             * "No embedding function configuration found for collection..."
-             *
-             * The `chromadb` library checks for the presence of `name`, `getConfig`, and `buildFromConfig`.
-             * If any are missing, it defaults to legacy mode.
-             * @returns {Object} The dummy embedding function satisfying IEmbeddingFunction
-             */
-            dummyEmbeddingFunction: leaf({
-                generate   : () => null,
-                name       : 'dummy_embedding_function',
-                getConfig  : () => ({}),
-                constructor: {
-                    buildFromConfig: () => ({
-                        generate : () => null,
-                        name     : 'dummy_embedding_function',
-                        getConfig: () => ({})
-                    })
-                }
-            }, null, 'object'),
+            // auth.* (OAuth 2.1 / OIDC; used only when transport === 'sse') is inherited from the
+            // Tier-1 realm (Neo.ai.Config) via the getParent() chain (#12166): same dotted paths +
+            // env vars, declared once at Tier-1, no local snapshot.
+            // dummyEmbeddingFunction is inherited from the Tier-1 realm (Neo.ai.Config) via the
+            // getParent() chain (#12166) — resolving the child-snapshot anti-pattern: the verbose
+            // chromadb legacy-guard structure (name/getConfig/buildFromConfig) is declared once at
+            // Tier-1, never re-copied per child.
             /**
              * The hostname of the ChromaDB server for the knowledge base.
              *

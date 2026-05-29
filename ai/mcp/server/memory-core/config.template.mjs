@@ -1,5 +1,9 @@
 import path                                    from 'path';
-import AiConfig                                from '../../../config.template.mjs';
+// Side-effect import: load the Tier-1 realm root (Neo.ai.Config) so the getParent() chain resolves
+// in this MC process (#12166). MC declares no realm leaves locally (all inherited), so there is no
+// value binding or value-snapshot of any parent-realm leaf. `materializeServerConfigTemplate` rewrites this to
+// the operator overlay (config.mjs) for the generated runtime config.
+import '../../../config.template.mjs';
 import BaseConfig, {createConfigProxy, leaf}   from '../../../BaseConfig.mjs';
 import {fileURLToPath}                          from 'url';
 
@@ -124,103 +128,15 @@ class Config extends BaseConfig {
              * @type {Function|null}
              */
             authMiddleware: leaf(null),
-            /**
-             * Authentication configuration for the server (OAuth 2.1 / OIDC).
-             * Only used when transport is 'sse'.
-             * @type {Object}
-             */
-            auth: {
-                host              : leaf(AiConfig.auth.host, 'NEO_AUTH_HOST', 'string'),
-                port              : leaf(AiConfig.auth.port, 'NEO_AUTH_PORT', 'port'),
-                realm             : leaf(AiConfig.auth.realm, 'NEO_AUTH_REALM', 'string'),
-                issuerUrl         : leaf(AiConfig.auth.issuerUrl, 'NEO_AUTH_ISSUER_URL', 'string'),
-                clientId          : leaf(AiConfig.auth.clientId, 'NEO_OAUTH_CLIENT_ID', 'string'),
-                clientSecret      : leaf(AiConfig.auth.clientSecret, 'NEO_OAUTH_CLIENT_SECRET', 'string'),
-                trustProxyIdentity: leaf(AiConfig.auth.trustProxyIdentity, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean')
-            },
-            /**
-             * Explicit override provider for the core LLM Engine (e.g. summarization).
-             * Supported values: 'gemini', 'ollama', 'openAiCompatible'
-             * @type {String}
-             */
-            modelProvider: leaf(AiConfig.modelProvider, 'NEO_MODEL_PROVIDER', 'string'),
-            /**
-             * Provider selector for Dream/Sandman graph-generation lanes.
-             * Supported values: 'ollama', 'openAiCompatible'
-             * @type {String}
-             */
-            graphProvider: leaf(AiConfig.graphProvider, 'NEO_GRAPH_PROVIDER', 'string'),
-            /**
-             * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
-             * Supported values: 'gemini', 'ollama', 'openAiCompatible'
-             * Defaults to the local OpenAI-compatible Qwen3 route so the source tuple matches the
-             * unified 4096-dimension Chroma collection invariant. Gemini remains available as an
-             * explicit operator override and must be paired with `vectorDimension: 3072`.
-             *
-             * @type {String}
-             */
-            embeddingProvider: leaf(AiConfig.embeddingProvider, 'NEO_EMBEDDING_PROVIDER', 'string'),
-            /**
-             * Settings for the Ollama integration
-             */
-            ollama: {
-                host                 : leaf(AiConfig.ollama.host, 'NEO_OLLAMA_HOST', 'string'),
-                model                : leaf(AiConfig.ollama.model, 'NEO_OLLAMA_MODEL', 'string'),
-                embeddingModel       : leaf(AiConfig.ollama.embeddingModel, 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
-                keep_alive           : leaf(AiConfig.ollama.keep_alive, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
-                requireParallelModels: leaf(AiConfig.ollama.requireParallelModels, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')
-            },
-            /**
-             * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
-             * WARNING: Never hardcode API keys here. Always export them via .env or globally.
-             */
-            openAiCompatible: {
-                host                 : leaf(AiConfig.openAiCompatible.host, 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
-                model                : leaf(AiConfig.openAiCompatible.model, 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
-                embeddingModel       : leaf(AiConfig.openAiCompatible.embeddingModel, 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
-                apiKey               : leaf(AiConfig.openAiCompatible.apiKey, 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
-                unloadRetryCount     : leaf(AiConfig.openAiCompatible.unloadRetryCount, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
-                unloadRetryDelayMs   : leaf(AiConfig.openAiCompatible.unloadRetryDelayMs, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', 'number'),
-                keep_alive           : leaf(AiConfig.openAiCompatible.keep_alive, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
-                requireParallelModels: leaf(AiConfig.openAiCompatible.requireParallelModels, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')
-            },
-            /**
-             * Local-model role-keyed context limits passthrough.
-             *
-             * Mirrors `AiConfig.localModels` into the Memory_Config surface so consumers
-             * importing the MC overlay (chat-path: SemanticGraphExtractor + TopologyInferenceEngine
-             * + SessionService summarizer; embedding-path: future TextEmbeddingService consumer
-             * surface) can read the role-keyed context-limit knobs directly. The context-window
-             * axis is model-role (chat vs embedding), not provider-namespace — local providers
-             * share these caps because the practical limit comes from the loaded model.
-             * @type {Object}
-             */
-            localModels: leaf({
-                chat: {
-                    contextLimitTokens      : AiConfig.localModels.chat.contextLimitTokens,
-                    safeProcessingLimitTokens: AiConfig.localModels.chat.safeProcessingLimitTokens
-                },
-                embedding: {
-                    contextLimitTokens      : AiConfig.localModels.embedding.contextLimitTokens,
-                    safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
-                }
-            }),
-            /**
-             * The enforced vector dimension across all SQLite collections.
-             * Hard-configured here to prevent catastrophic schema wipes due to dynamic model changes.
-             * @type {number}
-             */
-            vectorDimension: leaf(AiConfig.vectorDimension, 'NEO_VECTOR_DIMENSION', 'number'),
-            /**
-             * The name of the Google Generative AI model for content generation.
-             * @type {string}
-             */
-            modelName: leaf(AiConfig.modelName),
-            /**
-             * The name of the Google Generative AI model for text embeddings.
-             * @type {string}
-             */
-            embeddingModel: leaf(AiConfig.embeddingModel),
+            // auth.* (OAuth 2.1 / OIDC; used only when transport === 'sse') is inherited from the
+            // Tier-1 realm (Neo.ai.Config) via the getParent() chain (#12166): same dotted paths +
+            // env vars, declared once at Tier-1, no local snapshot.
+            // The deployment-wide model realm — modelProvider, graphProvider, embeddingProvider, the
+            // ollama + openAiCompatible provider blocks, localModels (role-keyed context limits),
+            // vectorDimension, modelName, embeddingModel — is inherited from the Tier-1 realm
+            // (Neo.ai.Config) via the getParent() chain (#12166): same dotted paths + env vars,
+            // declared once at Tier-1, no local snapshots. localModels resolves keyed (e.g.
+            // localModels.chat.contextLimitTokens — every consumer reads it dotted, never whole-object).
             /**
              * Pagination limit for fetching records during session summarization scans.
              * Controls the batch size for memory and summary retrieval.
@@ -240,22 +156,9 @@ class Config extends BaseConfig {
              * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
              */
             engine: leaf('hybrid'),
-            /**
-             * Database Engine Definitions
-             * This defines WHERE data is stored physically (for engines MC owns) and WHERE MC reaches
-             * into other services' engines. The flat `engines.chroma` path specifies the unified
-             * ChromaDB instance shared with the Knowledge Base.
-             */
-            engines: {
-                chroma: {
-                    // Read the unified persist dir from the SSOT. Was the stale
-                    // '.neo-ai-data/chroma/memory-core' — MC is a CLIENT of the one unified store
-                    // (ADR 0003), so its physical dir must be the shared dir, not a server-local one.
-                    dataDir: leaf(AiConfig.engines.chroma.dataDir),
-                    host   : leaf(AiConfig.engines.chroma.host, 'NEO_CHROMA_HOST', 'string'),
-                    port   : leaf(AiConfig.engines.chroma.port, 'NEO_CHROMA_PORT', 'port')
-                }
-            },
+            // engines.chroma.* (the unified Chroma persist dir + host/port shared with the KB, ADR
+            // 0003) is inherited from the Tier-1 realm (Neo.ai.Config) via the getParent() chain
+            // (#12166): same nested dotted paths + env vars, declared once at Tier-1, no local snapshot.
             /**
              * Physical file paths for embedded/local datasets.
              */
@@ -333,11 +236,8 @@ class Config extends BaseConfig {
                 prScanLimit    : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
                 minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
             },
-            /**
-             * Universal JSONL backup/export directory for all databases.
-             * @type {string}
-             */
-            backupPath: leaf(AiConfig.backupPath, 'NEO_BACKUP_PATH', 'string'),
+            // backupPath is inherited from the Tier-1 realm (Neo.ai.Config) via the getParent()
+            // chain (#12166): declared once at Tier-1, resolved up the chain, no local snapshot.
             /**
              * Phase 4 (#11663): bundle retention policy for `ai/scripts/maintenance/backup.mjs`.
              * Bundles older than `maxDays` are eligible for deletion, but the newest

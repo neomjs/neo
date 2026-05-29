@@ -135,6 +135,11 @@ export function materializeServerConfigTemplate(src) {
     return src
         .replaceAll("from '../../../config.template.mjs'", "from '../../../config.mjs'")
         .replaceAll('from "../../../config.template.mjs"', 'from "../../../config.mjs"')
+        // Side-effect imports (no `from`) — e.g. a server config that loads the Tier-1 realm root
+        // purely to register `Neo.ai.Config` for the getParent() chain (#12166) — must also point at
+        // the operator overlay in the generated runtime config.
+        .replaceAll("import '../../../config.template.mjs'", "import '../../../config.mjs'")
+        .replaceAll('import "../../../config.template.mjs"', 'import "../../../config.mjs"')
 }
 
 /**
