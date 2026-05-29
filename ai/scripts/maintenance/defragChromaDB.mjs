@@ -373,14 +373,9 @@ async function defragChromaDB() {
             port: config.port
         });
 
-        // Dummy embedding function required by Chroma client to handle raw embeddings
-        // without attempting to re-generate them via an external provider.
-        const dummyEf = {
-            generate   : () => null,
-            name       : 'dummy',
-            getConfig  : () => ({}),
-            constructor: {buildFromConfig: () => ({generate: () => null})}
-        };
+        // Dummy embedding function — single source of truth: Tier-1 AiConfig.dummyEmbeddingFunction (#12165).
+        // Satisfies the Chroma client for raw embeddings without re-generating via a provider.
+        const dummyEf = AiConfig.dummyEmbeddingFunction;
 
         // 3. Extract All Data (Multi-Collection)
         console.log(`\n3️⃣  Fetching data from all collections...`);

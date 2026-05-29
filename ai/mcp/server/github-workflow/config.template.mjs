@@ -78,13 +78,6 @@ class Config extends BaseConfig {
                 stderrMode  : 'threshold'
             }},
             /**
-             * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
-             * @returns {null}
-             */
-            dummyEmbeddingFunction: {default: {
-                generate: () => null
-            }},
-            /**
              * Cache duration for healthy health checks (in milliseconds).
              * Unhealthy results are never cached.
              * @type {number}
