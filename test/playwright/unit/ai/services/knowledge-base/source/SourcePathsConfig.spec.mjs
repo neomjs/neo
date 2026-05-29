@@ -256,13 +256,39 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
         });
 
         test('override sourceMap takes precedence over fallback', () => {
+            // Reactive-config semantics (epic #12101: BaseConfig extends Neo.state.Provider):
+            // assigning an OBJECT to a config leaf routes through the Provider's `setData`, which
+            // drills into the supplied nested keys and MERGES them onto the existing sub-keys —
+            // override values WIN on a conflicting key; keys the override omits keep their default.
+            // This is NOT the pre-migration wholesale object replace. The override-precedence
+            // contract this test guards is therefore "operator-supplied values win", asserted
+            // against the live merged map rather than exact-equality of the whole object.
+            //
+            // The override deliberately re-targets EXISTING keys only (no net-new key). Under
+            // reactive-merge a brand-new key cannot be removed again by reassignment, so it would
+            // leak onto this serial-mode shared singleton and contaminate the sibling missing-key
+            // test below. Re-targeting existing keys keeps the key SET stable, so the `finally`
+            // restore returns the singleton exactly to its byte-equivalent default. ApiSource.extract()
+            // iterates Object.entries(sourceMap) and indexes whatever directories the resolved map
+            // names, so an operator re-pointing 'src' → a tenant directory is honored at scan time.
             const sourcePaths = aiConfig.sourcePaths;
-            const original    = sourcePaths.ApiSource;
+            const original    = {...sourcePaths.ApiSource};
             try {
-                sourcePaths.ApiSource = {'tenant-src': 'src', 'tenant-modules': 'app'};
+                // Re-target two existing path-keys to tenant directories with distinct types.
+                sourcePaths.ApiSource = {'src': 'tenant-app', 'apps': 'tenant-example'};
                 const resolved = aiConfig.sourcePaths?.ApiSource ?? apiSourceFallback;
-                expect(resolved).toEqual({'tenant-src': 'src', 'tenant-modules': 'app'});
+
+                // Override-precedence: operator values win on the keys they target.
+                expect(resolved.src).toBe('tenant-app');
+                expect(resolved.apps).toBe('tenant-example');
+                // Sanity: the override values genuinely displaced the curated defaults.
+                expect(resolved.src).not.toBe(apiSourceFallback.src);
+                expect(resolved.apps).not.toBe(apiSourceFallback.apps);
+                // Keys the override omitted retain their default (reactive-merge, not replace).
+                expect(resolved.examples).toBe(apiSourceFallback.examples);
             } finally {
+                // Re-assert the canonical default values; since no new key was introduced, this
+                // returns the shared singleton to its baseline for the sibling tests.
                 sourcePaths.ApiSource = original;
             }
         });

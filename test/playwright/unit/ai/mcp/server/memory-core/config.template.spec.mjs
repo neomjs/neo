@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 import Neo from '../../../../../../../src/Neo.mjs';
+import BaseConfig, {createConfigProxy} from '../../../../../../../ai/BaseConfig.mjs';
 import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
@@ -73,10 +74,6 @@ test.describe('Memory Core Config (#10010)', () => {
                 process.env[key] = originalEnv[key];
             }
         });
-
-        // Restore config to default by reloading without test env overrides
-        config.data = Neo.clone(config.defaultConfig, true);
-        config.applyEnv();
     });
 
     test('defaultPolicy initializes to legacy', () => {
@@ -123,38 +120,47 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
-        config.data = Neo.clone(config.defaultConfig, true);
-        config.applyEnv();
+        // Env is decoded at construction via #applyEnvLayer. Build a FRESH isolated
+        // instance (env set above) instead of re-constructing the shared module-cached
+        // singleton, whose reactive state is contaminated by sibling specs in the parallel
+        // suite. config.metaTree carries the resolved Tier-1 leaf defaults.
+        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {metaTree: config.metaTree}));
 
-        expect(config.modelProvider).toBe('openAiCompatible');
-        expect(config.graphProvider).toBe('ollama');
-        expect(config.embeddingProvider).toBe('ollama');
-        expect(config.auth.realm).toBe('tenant-realm');
-        expect(config.backupPath).toBe('/tmp/neo-memory-backups');
-        expect(config.ollama.keep_alive).toBe(0);
-        expect(config.ollama.requireParallelModels).toBe(3);
-        expect(config.openAiCompatible.keep_alive).toBe('10m');
-        expect(config.openAiCompatible.requireParallelModels).toBe(4);
-        expect(config.engines.chroma).toMatchObject({
+        expect(freshCfg.modelProvider).toBe('openAiCompatible');
+        expect(freshCfg.graphProvider).toBe('ollama');
+        expect(freshCfg.embeddingProvider).toBe('ollama');
+        expect(freshCfg.auth.realm).toBe('tenant-realm');
+        expect(freshCfg.backupPath).toBe('/tmp/neo-memory-backups');
+        expect(freshCfg.ollama.keep_alive).toBe(0);
+        expect(freshCfg.ollama.requireParallelModels).toBe(3);
+        expect(freshCfg.openAiCompatible.keep_alive).toBe('10m');
+        expect(freshCfg.openAiCompatible.requireParallelModels).toBe(4);
+        expect(freshCfg.engines.chroma).toMatchObject({
             host: 'chroma',
             port: 8010
         });
+
+        freshCfg.destroy();
     });
 
     test('NEO_MEMORY_SHARING_DEFAULT_POLICY env override parses correctly', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'team';
 
-        // Re-load the config to pick up env vars
-        config.applyEnv();
+        // Fresh isolated instance picks up the env via #applyEnvLayer at construction.
+        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {metaTree: config.metaTree}));
 
-        expect(config.memorySharing.defaultPolicy).toBe('team');
+        expect(freshCfg.memorySharing.defaultPolicy).toBe('team');
+
+        freshCfg.destroy();
     });
 
     test('invalid NEO_MEMORY_SHARING_DEFAULT_POLICY throws Error', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'public';
 
-        expect(() => {
-            config.applyEnv();
-        }).toThrow(/\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/);
+        // The leaf `parse` fn (parseMemorySharingPolicy) runs inside #applyEnvLayer at
+        // construction; a throwing parser propagates out of Neo.create.
+        expect(() => Neo.create(BaseConfig, {metaTree: config.metaTree})).toThrow(
+            /\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/
+        );
     });
 });

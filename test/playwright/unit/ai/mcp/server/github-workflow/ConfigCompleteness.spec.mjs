@@ -50,6 +50,24 @@ async function importTemplateConfig() {
 }
 
 test.describe('GitHub Workflow MCP Server Config Completeness', () => {
+    let BaseConfig, originalEnv;
+
+    test.beforeAll(async () => {
+        BaseConfig  = (await import('../../../../../../../ai/BaseConfig.mjs')).default;
+        originalEnv = {...process.env};
+    });
+
+    test.afterEach(() => {
+        // Restore process.env to its pre-test snapshot so env-mutating tests stay isolated.
+        Object.keys(process.env).forEach(key => {
+            if (!(key in originalEnv)) {
+                delete process.env[key];
+            } else {
+                process.env[key] = originalEnv[key];
+            }
+        });
+    });
+
     test('config.template.mjs contains all dynamically consumed keys', async () => {
         const configModule = await importTemplateConfig();
         const config = configModule.default;
@@ -91,55 +109,59 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
     });
 
     test('NEO_MCP_GITHUB_ARCHIVE_ROOT overrides config.issueSync.archiveRoot', async () => {
-        const configModule = await importTemplateConfig();
-        const config = configModule.default;
+        // The env layer is applied AT CONSTRUCTION from each leaf's `env` var, so the
+        // override must be present before the instance is built. The template singleton is
+        // constructed (and env-bound) at import time, so we build a fresh raw instance from
+        // the template's meta-leaf tree to exercise boot-time env binding deterministically.
+        const {metaTree} = (await importTemplateConfig()).default;
 
-        const originalEnv = process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT;
         process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT = '/custom/archive/path';
 
+        const config = Neo.create(BaseConfig, {metaTree});
+
         try {
-            // Re-apply environment variables to simulate boot-time binding
-            config.applyEnv();
-            expect(config.issueSync.archiveRoot).toBe('/custom/archive/path');
+            expect(config.getDataConfig('issueSync.archiveRoot').get()).toBe('/custom/archive/path');
         } finally {
-            if (originalEnv !== undefined) {
-                process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT = originalEnv;
-            } else {
-                delete process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT;
-            }
-            // Reset to defaults so other tests aren't affected
-            config.data.issueSync.archiveRoot = config.defaultConfig.issueSync.archiveRoot;
+            config.destroy();
         }
     });
 
     test('NEO_LOG_LEVEL overrides config.logLevel with validation', async () => {
-        const configModule = await importTemplateConfig();
-        const config = configModule.default;
+        // Env binding + its parser-based validation run at construction, so each case uses a
+        // fresh instance built from the template's meta-leaf tree (the singleton is already
+        // env-bound at import). The leaf default is the SSOT for the fallback expectation.
+        const {metaTree} = (await importTemplateConfig()).default;
+        const defaultLogLevel = metaTree.logLevel.default;
 
-        const originalEnv = process.env.NEO_LOG_LEVEL;
+        // Valid value: parsed + normalized to lower-case.
+        process.env.NEO_LOG_LEVEL = 'DEBUG';
+        const validConfig = Neo.create(BaseConfig, {metaTree});
+
+        try {
+            expect(validConfig.getDataConfig('logLevel').get()).toBe('debug');
+        } finally {
+            validConfig.destroy();
+        }
+
+        // Invalid value: parser warns and returns undefined, so the leaf keeps its default.
+        process.env.NEO_LOG_LEVEL = 'noisy';
         const originalWarn = console.warn;
-        const warnings = [];
+        const warnings     = [];
 
         console.warn = (...args) => warnings.push(args.join(' '));
 
+        let invalidConfig;
         try {
-            process.env.NEO_LOG_LEVEL = 'DEBUG';
-            config.applyEnv();
-            expect(config.logLevel).toBe('debug');
-
-            process.env.NEO_LOG_LEVEL = 'noisy';
-            config.data.logLevel = config.defaultConfig.logLevel;
-            config.applyEnv();
-            expect(config.logLevel).toBe(config.defaultConfig.logLevel);
-            expect(warnings.join('\n')).toContain('Invalid NEO_LOG_LEVEL value: "noisy"');
+            invalidConfig = Neo.create(BaseConfig, {metaTree});
         } finally {
             console.warn = originalWarn;
-            if (originalEnv !== undefined) {
-                process.env.NEO_LOG_LEVEL = originalEnv;
-            } else {
-                delete process.env.NEO_LOG_LEVEL;
-            }
-            config.data.logLevel = config.defaultConfig.logLevel;
+        }
+
+        try {
+            expect(invalidConfig.getDataConfig('logLevel').get()).toBe(defaultLogLevel);
+            expect(warnings.join('\n')).toContain('Invalid NEO_LOG_LEVEL value: "noisy"');
+        } finally {
+            invalidConfig.destroy();
         }
     });
 
