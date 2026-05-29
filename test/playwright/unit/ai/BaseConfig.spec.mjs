@@ -306,7 +306,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
         }
     });
 
-    test('cross-tier write validates against the OWNER registry (facet-8 bypass closed)', () => {
+    test('cross-tier write validates against the OWNER registry', () => {
         const root     = Neo.create(BaseConfig, {data: {sharedPort: leaf(3000, null, 'port')}}),
               child    = Neo.create(BaseConfig, {data: {own: leaf('x')}}),
               warnings = [],

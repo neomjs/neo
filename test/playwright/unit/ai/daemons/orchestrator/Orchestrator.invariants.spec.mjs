@@ -218,7 +218,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
     // Post-#12101 the AiConfig singleton is a reactive `Neo.state.Provider`, so its
     // `orchestrator.mlx`/`.lms` leaves are seeded from the data tree at construction and ALWAYS
     // exist on the singleton. A fresh BaseConfig instance whose data tree omits the namespace is the
-    // faithful "config missing" state — BUT post-#12166 `BaseConfig.getParent()` makes every instance
+    // faithful "config missing" state — BUT `BaseConfig.getParent()` makes every instance
     // inherit the registered realm root (`Neo.ai.Config`), so the fresh instance would otherwise
     // resolve the namespace UP the chain. Detach the root for the duration so it resolves in
     // isolation, exercising the same undefined-safe `?.` delegation the Orchestrator `mlx*`/`lms*`
@@ -267,7 +267,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
     });
 
 
-    // See the mlx-missing test above: post-#12166 a fresh instance inherits the realm root via
+    // See the mlx-missing test above: a fresh instance inherits the realm root via
     // getParent(), so the root is detached here to simulate a genuinely-missing namespace.
     test('lms getter delegation is undefined-safe when AiConfig.orchestrator.lms is missing', () => {
         const prevRoot = Neo.ai?.Config;

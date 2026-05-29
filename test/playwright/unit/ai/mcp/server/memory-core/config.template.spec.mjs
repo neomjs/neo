@@ -37,7 +37,7 @@ test.describe('Memory Core Config (#10010)', () => {
 
         config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
-        // Deterministic realm root: MC declares no realm leaves locally (#12166) and inherits them
+        // Deterministic realm root: MC declares no realm leaves locally and inherits them
         // up the getParent() chain, so these tests need Neo.ai.Config present. The MC template's
         // side-effect import only registers it on FIRST module-eval — in a reused Playwright worker
         // (cached module) that's a no-op — so install a fresh Tier-1 root built from the canonical
@@ -90,7 +90,7 @@ test.describe('Memory Core Config (#10010)', () => {
     });
 
     test('inherits deployment-wide Tier-1 defaults (provider, auth, ollama, openAiCompatible, storage) via the realm chain', () => {
-        // #12166: MC declares none of these locally — they resolve UP the getParent() chain to the
+        // MC declares none of these locally — they resolve UP the getParent() chain to the
         // Tier-1 realm root. Read KEYED, never whole-namespace: `toEqual(config.ollama)` would
         // enumerate, and namespace enumeration is the deferred getTopLevelDataKeys local-only edge.
         expect(config.modelProvider).toBe(TIER1_DEFAULTS.modelProvider);
@@ -140,7 +140,7 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
-        // Post-split (#12166) MC declares none of these locally — they are Tier-1-owned, so env
+        // Post-split, MC declares none of these locally — they are Tier-1-owned, so env
         // precedence lives at the OWNER. Build a fresh realm root WITH the env set, register it, and
         // a fresh MC child inherits the overrides up the getParent() chain. (config._data is the raw
         // MC meta-leaf tree; Neo.ai.Config._data is the Tier-1 realm tree, loaded via MC's import.)

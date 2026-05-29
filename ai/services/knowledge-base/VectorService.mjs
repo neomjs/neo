@@ -108,7 +108,7 @@ class VectorService extends Base {
      */
     getTenantIsolationConfig() {
         const nested = aiConfig.knowledgeBase;
-        // The portable nested tenant-shape carries tenant fields. Post-#12166, Tier-1's
+        // The portable nested tenant-shape carries tenant fields. Tier-1's
         // `knowledgeBase` leaf (KB OPS config: alerting / reconciliation / GC) is inherited here via
         // the realm chain and is NOT a tenant-shape — so a naked `?? aiConfig` would wrongly select
         // it (security regression: tenant fields read as undefined). Prefer the nested object only

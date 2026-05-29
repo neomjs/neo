@@ -38,9 +38,6 @@ class Config extends BaseConfig {
          */
         data: {
             neoRootDir: leaf(neoRootDir),
-            // backupPath is inherited from the Tier-1 realm (Neo.ai.Config) via the
-            // BaseConfig.getParent() chain (#12166): declared once at Tier-1, resolved up the chain
-            // at read time, no local snapshot.
             /**
              * Automatically synchronize the knowledge base on startup.
              * @type {boolean}
@@ -83,13 +80,6 @@ class Config extends BaseConfig {
              * @type {Function|null}
              */
             authMiddleware: leaf(null),
-            // auth.* (OAuth 2.1 / OIDC; used only when transport === 'sse') is inherited from the
-            // Tier-1 realm (Neo.ai.Config) via the getParent() chain (#12166): same dotted paths +
-            // env vars, declared once at Tier-1, no local snapshot.
-            // dummyEmbeddingFunction is inherited from the Tier-1 realm (Neo.ai.Config) via the
-            // getParent() chain (#12166) — resolving the child-snapshot anti-pattern: the verbose
-            // chromadb legacy-guard structure (name/getConfig/buildFromConfig) is declared once at
-            // Tier-1, never re-copied per child.
             /**
              * The hostname of the ChromaDB server for the knowledge base.
              *

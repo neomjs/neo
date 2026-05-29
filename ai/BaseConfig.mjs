@@ -267,7 +267,7 @@ class BaseConfig extends Provider {
      * local first (fast path), else the owner resolved up the parent chain via
      * {@link Neo.state.Provider#getOwnerOfDataProperty}. A cross-tier write — a child writing a
      * Tier-1-owned leaf — is therefore validated against the parent's metadata instead of bypassing
-     * validation on both tiers (facet-8). The `#leafMetadataRegistry in owner` brand check guards
+     * validation on both tiers. The `#leafMetadataRegistry in owner` brand check guards
      * the cross-instance private access (every chain member is a BaseConfig).
      * @param {String} key
      * @param {*} value

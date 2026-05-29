@@ -1,8 +1,6 @@
 import path                                    from 'path';
-// Side-effect import: load the Tier-1 realm root (Neo.ai.Config) so the getParent() chain resolves
-// in this MC process (#12166). MC declares no realm leaves locally (all inherited), so there is no
-// value binding or value-snapshot of any parent-realm leaf. `materializeServerConfigTemplate` rewrites this to
-// the operator overlay (config.mjs) for the generated runtime config.
+// Loads the Tier-1 realm root (Neo.ai.Config) so getParent() inheritance resolves in this process;
+// MC reads no AiConfig values directly — they resolve via the chain, not a binding.
 import '../../../config.template.mjs';
 import BaseConfig, {createConfigProxy, leaf}   from '../../../BaseConfig.mjs';
 import {fileURLToPath}                          from 'url';
@@ -128,15 +126,6 @@ class Config extends BaseConfig {
              * @type {Function|null}
              */
             authMiddleware: leaf(null),
-            // auth.* (OAuth 2.1 / OIDC; used only when transport === 'sse') is inherited from the
-            // Tier-1 realm (Neo.ai.Config) via the getParent() chain (#12166): same dotted paths +
-            // env vars, declared once at Tier-1, no local snapshot.
-            // The deployment-wide model realm — modelProvider, graphProvider, embeddingProvider, the
-            // ollama + openAiCompatible provider blocks, localModels (role-keyed context limits),
-            // vectorDimension, modelName, embeddingModel — is inherited from the Tier-1 realm
-            // (Neo.ai.Config) via the getParent() chain (#12166): same dotted paths + env vars,
-            // declared once at Tier-1, no local snapshots. localModels resolves keyed (e.g.
-            // localModels.chat.contextLimitTokens — every consumer reads it dotted, never whole-object).
             /**
              * Pagination limit for fetching records during session summarization scans.
              * Controls the batch size for memory and summary retrieval.
@@ -156,9 +145,6 @@ class Config extends BaseConfig {
              * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
              */
             engine: leaf('hybrid'),
-            // engines.chroma.* (the unified Chroma persist dir + host/port shared with the KB, ADR
-            // 0003) is inherited from the Tier-1 realm (Neo.ai.Config) via the getParent() chain
-            // (#12166): same nested dotted paths + env vars, declared once at Tier-1, no local snapshot.
             /**
              * Physical file paths for embedded/local datasets.
              */
@@ -236,8 +222,6 @@ class Config extends BaseConfig {
                 prScanLimit    : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
                 minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
             },
-            // backupPath is inherited from the Tier-1 realm (Neo.ai.Config) via the getParent()
-            // chain (#12166): declared once at Tier-1, resolved up the chain, no local snapshot.
             /**
              * Phase 4 (#11663): bundle retention policy for `ai/scripts/maintenance/backup.mjs`.
              * Bundles older than `maxDays` are eligible for deletion, but the newest

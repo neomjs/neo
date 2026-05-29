@@ -34,7 +34,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
 
         config = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
 
-        // Deterministic realm root (#12166): KB now inherits backupPath / auth.* /
+        // Deterministic realm root: KB now inherits backupPath / auth.* /
         // dummyEmbeddingFunction from Tier-1 via the getParent() chain. The template import registers
         // Neo.ai.Config only on first module-eval, so install a fresh Tier-1 root to keep inheritance
         // deterministic across reused Playwright workers.
@@ -80,7 +80,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     });
 
     test('inherits Tier-1 auth + backupPath via the realm chain; keeps KB-local Chroma + collection', () => {
-        // #12166: auth.* and backupPath are no longer declared locally — they resolve UP the
+        // auth.* and backupPath are no longer declared locally — they resolve UP the
         // getParent() chain to the Tier-1 realm root. Read them KEYED, never as a whole namespace:
         // `toEqual(config.auth)` would enumerate, and namespace enumeration is the deferred
         // getTopLevelDataKeys local-only edge → inherited keys are invisible to it.

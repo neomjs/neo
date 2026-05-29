@@ -78,7 +78,7 @@ class DatabaseService extends Base {
      */
     createContentHash(chunk) {
         // Prefer the nested tenant-shape only when it exposes a tenant field; Tier-1's inherited
-        // `knowledgeBase` ops leaf (#12166) is not one (see VectorService.getTenantIsolationConfig).
+        // `knowledgeBase` ops leaf is not one (see VectorService.getTenantIsolationConfig).
         // A wrong surface here would corrupt content-hash tenant collision-safety.
         const nestedKb = aiConfig.knowledgeBase;
         const kbConfig = (nestedKb != null && (
