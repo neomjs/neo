@@ -48,9 +48,12 @@ const typeValidators = {
  * @returns {{default:*, env:(String|null), type:(String|null), parse:(Function|null)}}
  */
 export function leaf(defaultValue, env = null, type = null) {
-    const resolvedType = type ?? (defaultValue === null || defaultValue === undefined
+    // Neo.typeOf returns undefined for objects carrying an own `constructor` key (e.g. the
+    // dummy embedding fn's anti-legacy duck-type), so guard the inference. Such object leaves
+    // simply resolve to a null type (no validator) — pass an explicit `type` to override.
+    const resolvedType = type ?? (defaultValue == null
         ? null
-        : Neo.typeOf(defaultValue).toLowerCase());
+        : (Neo.typeOf(defaultValue)?.toLowerCase() ?? null));
 
     return {
         default: defaultValue,
@@ -132,9 +135,10 @@ class BaseConfig extends Provider {
                     registry.set(path.join('.'), {
                         env  : value.env   ?? null,
                         parse: value.parse ?? null,
-                        type : value.type  ?? (value.default === null || value.default === undefined
+                        // Guard inference: Neo.typeOf is undefined for objects with an own `constructor` key.
+                        type : value.type  ?? (value.default == null
                             ? null
-                            : Neo.typeOf(value.default).toLowerCase())
+                            : (Neo.typeOf(value.default)?.toLowerCase() ?? null))
                     })
                 } else if (Neo.isObject(value)) {
                     walk(value, path)

@@ -1,8 +1,7 @@
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import BaseConfig, { createConfigProxy } from '../../../BaseConfig.mjs';
-import Env from '../../../../src/util/Env.mjs';
+import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -33,9 +32,9 @@ class Config extends BaseConfig {
          */
         singleton: true,
         /**
-         * @member {Object} metaTree
+         * @member {Object} data
          */
-        metaTree: {
+        data: {
             /**
              * Repo root, computed from this module's path. Exported for symmetry with the
              * KB and Memory Core configs (#10584) so consumers (loggers, services, future)
@@ -43,32 +42,32 @@ class Config extends BaseConfig {
              * locally. Module path is stable; the resolution is deterministic at boot.
              * @type {string}
              */
-            neoRootDir: {default: neoRootDir},
+            neoRootDir: leaf(neoRootDir),
             /**
              * Automatically connect to the bridge on startup.
              * @type {boolean}
              */
-            autoConnect: {env: 'NEO_NL_AUTO_CONNECT', default: true, parse: Env.parseBool},
+            autoConnect: leaf(true, 'NEO_NL_AUTO_CONNECT', 'boolean'),
             /**
              * Global debug flag.
              * @type {boolean}
              */
-            debug: {env: 'NEO_DEBUG', default: false, parse: Env.parseBool},
+            debug: leaf(false, 'NEO_DEBUG', 'boolean'),
             /**
              * The port the WebSocket server is listening on.
              * @type {number}
              */
-            port: {env: 'NEO_NL_PORT', default: 8081, parse: Env.parsePort},
+            port: leaf(8081, 'NEO_NL_PORT', 'port'),
             /**
              * Timeout for RPC calls in milliseconds.
              * @type {number}
              */
-            rpcTimeout: {env: 'NEO_NL_RPC_TIMEOUT', default: 10000, parse: Env.parseNumber},
+            rpcTimeout: leaf(10000, 'NEO_NL_RPC_TIMEOUT', 'number'),
             /**
              * Path to the memory core SQLite database for action logging.
              * @type {string}
              */
-            memoryCoreDbPath: {env: 'NEO_MEMORY_DB_PATH', default: path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'), parse: Env.parseString},
+            memoryCoreDbPath: leaf(path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
             /**
              * Directory for the always-on Neural Link diagnostic log files (#10582). The NL
              * server's `logger.mjs` writes daily-rotated entries here regardless of `debug`,
@@ -79,7 +78,7 @@ class Config extends BaseConfig {
              * Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: {default: path.resolve(neoRootDir, '.neo-ai-data/logs')},
+            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
             /**
              * @summary Shared MCP logger policy for Neural Link.
              *
@@ -87,17 +86,17 @@ class Config extends BaseConfig {
              * debug, while debug stays gated by `debug: true`.
              * @type {Object}
              */
-            logger: {default: {
+            logger: leaf({
                 filePrefix    : 'nl-server',
                 fileSink      : true,
                 stderrMode    : 'tiered',
                 timestampStyle: 'bracketed'
-            }},
+            }),
             /**
              * Number of days to retain Action logs in the Neural Link Database.
              * @type {number}
              */
-            pruneLogsAfterDays: {env: 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', default: 14, parse: Env.parseNumber}
+            pruneLogsAfterDays: leaf(14, 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', 'number')
         }
     }
 }

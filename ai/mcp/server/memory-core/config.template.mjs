@@ -1,8 +1,7 @@
-import path                              from 'path';
-import AiConfig                          from '../../../config.template.mjs';
-import BaseConfig, {createConfigProxy}   from '../../../BaseConfig.mjs';
-import {fileURLToPath}                   from 'url';
-import Env                               from '../../../../src/util/Env.mjs';
+import path                                    from 'path';
+import AiConfig                                from '../../../config.template.mjs';
+import BaseConfig, {createConfigProxy, leaf}   from '../../../BaseConfig.mjs';
+import {fileURLToPath}                          from 'url';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
@@ -41,9 +40,9 @@ class Config extends BaseConfig {
          */
         singleton: true,
         /**
-         * @member {Object} metaTree
+         * @member {Object} data
          */
-        metaTree: {
+        data: {
             /**
              * Repo root, computed from this module's path. Exported for symmetry with the
              * KB and Neural Link configs (#10584) so consumers (loggers, services, future)
@@ -51,27 +50,27 @@ class Config extends BaseConfig {
              * locally. Module path is stable; the resolution is deterministic at boot.
              * @type {string}
              */
-            neoRootDir: {default: neoRootDir},
+            neoRootDir: leaf(neoRootDir),
             /**
              * Automatically trigger session summarization on startup.
              * @type {boolean}
              */
-            autoSummarize: {env: 'NEO_AUTO_SUMMARIZE', default: false, parse: Env.parseBool},
+            autoSummarize: leaf(false, 'NEO_AUTO_SUMMARIZE', 'boolean'),
             /**
              * Automatically start the local database process (Chroma/SQLite) on startup.
              * @type {boolean}
              */
-            autoStartDatabase: {env: 'NEO_MEM_AUTO_START_DATABASE', default: false, parse: Env.parseBool},
+            autoStartDatabase: leaf(false, 'NEO_MEM_AUTO_START_DATABASE', 'boolean'),
             /**
              * Automatically start the local inference server on startup.
              * @type {boolean}
              */
-            autoStartInference: {env: 'NEO_MEM_AUTO_START_INFERENCE', default: false, parse: Env.parseBool},
+            autoStartInference: leaf(false, 'NEO_MEM_AUTO_START_INFERENCE', 'boolean'),
             /**
              * Automatically trigger GraphRAG extraction on startup.
              * @type {boolean}
              */
-            autoDream: {env: 'NEO_AUTO_DREAM', default: false, parse: Env.parseBool},
+            autoDream: leaf(false, 'NEO_AUTO_DREAM', 'boolean'),
             /**
              * @deprecated since PR #11101. Golden Path synthesis is now dynamically event-driven
              * (triggered via MemoryService#mutateFrontier) rather than bound to MCP boot sequence.
@@ -82,34 +81,34 @@ class Config extends BaseConfig {
              * Crucial for headless swarm nodes (Mac 2) to physically generate sandman_handoff.md.
              * @type {boolean}
              */
-            autoGoldenPath: {env: 'NEO_AUTO_GOLDEN_PATH', default: false, parse: Env.parseBool},
+            autoGoldenPath: leaf(false, 'NEO_AUTO_GOLDEN_PATH', 'boolean'),
             /**
              * Immediately parse each incoming memory turn (add_memory) for Graph Injection.
              * @type {boolean}
              */
-            realTimeMemoryParsing: {env: 'NEO_REAL_TIME_MEMORY_PARSING', default: false, parse: Env.parseBool},
+            realTimeMemoryParsing: leaf(false, 'NEO_REAL_TIME_MEMORY_PARSING', 'boolean'),
             /**
              * Automatically trigger FileSystem ingestion (Differential Graph Sync) on MCP server startup.
              * @type {boolean}
              */
-            autoIngestFileSystem: {env: 'NEO_AUTO_INGEST_FS', default: false, parse: Env.parseBool},
+            autoIngestFileSystem: leaf(false, 'NEO_AUTO_INGEST_FS', 'boolean'),
             /**
              * Global debug flag for all MCP servers.
              * @type {boolean}
              */
-            debug: {env: 'NEO_DEBUG', default: false, parse: Env.parseBool},
+            debug: leaf(false, 'NEO_DEBUG', 'boolean'),
             /**
              * Transport protocol for the MCP server ('stdio' or 'sse').
              * @type {string}
              */
-            transport: {env: 'NEO_TRANSPORT', default: 'stdio', parse: Env.parseString},
+            transport: leaf('stdio', 'NEO_TRANSPORT', 'string'),
             /**
              * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
              *
              * Operator env var: `MCP_HTTP_PORT`.
              * @type {number}
              */
-            mcpHttpPort: {env: 'MCP_HTTP_PORT', default: 3001, parse: Env.parsePort},
+            mcpHttpPort: leaf(3001, 'MCP_HTTP_PORT', 'port'),
             /**
              * Optional public canonical URL for this MCP server.
              * When configured, this URL is explicitly used as the resource indicator
@@ -119,38 +118,38 @@ class Config extends BaseConfig {
              * Example: 'https://mcp.neo.mjs.com/memory-core'
              * @type {string|null}
              */
-            publicUrl: {env: 'NEO_PUBLIC_URL', default: null, parse: Env.parseUrl},
+            publicUrl: leaf(null, 'NEO_PUBLIC_URL', 'url'),
             /**
              * Optional Express middleware function for authentication (only used if transport is 'sse').
              * @type {Function|null}
              */
-            authMiddleware: {default: null},
+            authMiddleware: leaf(null),
             /**
              * Authentication configuration for the server (OAuth 2.1 / OIDC).
              * Only used when transport is 'sse'.
              * @type {Object}
              */
             auth: {
-                host              : {env: 'NEO_AUTH_HOST', default: AiConfig.auth.host, parse: Env.parseString},
-                port              : {env: 'NEO_AUTH_PORT', default: AiConfig.auth.port, parse: Env.parsePort},
-                realm             : {env: 'NEO_AUTH_REALM', default: AiConfig.auth.realm, parse: Env.parseString},
-                issuerUrl         : {env: 'NEO_AUTH_ISSUER_URL', default: AiConfig.auth.issuerUrl, parse: Env.parseString},
-                clientId          : {env: 'NEO_OAUTH_CLIENT_ID', default: AiConfig.auth.clientId, parse: Env.parseString},
-                clientSecret      : {env: 'NEO_OAUTH_CLIENT_SECRET', default: AiConfig.auth.clientSecret, parse: Env.parseString},
-                trustProxyIdentity: {env: 'NEO_AUTH_TRUST_PROXY_IDENTITY', default: AiConfig.auth.trustProxyIdentity, parse: Env.parseBool}
+                host              : leaf(AiConfig.auth.host, 'NEO_AUTH_HOST', 'string'),
+                port              : leaf(AiConfig.auth.port, 'NEO_AUTH_PORT', 'port'),
+                realm             : leaf(AiConfig.auth.realm, 'NEO_AUTH_REALM', 'string'),
+                issuerUrl         : leaf(AiConfig.auth.issuerUrl, 'NEO_AUTH_ISSUER_URL', 'string'),
+                clientId          : leaf(AiConfig.auth.clientId, 'NEO_OAUTH_CLIENT_ID', 'string'),
+                clientSecret      : leaf(AiConfig.auth.clientSecret, 'NEO_OAUTH_CLIENT_SECRET', 'string'),
+                trustProxyIdentity: leaf(AiConfig.auth.trustProxyIdentity, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean')
             },
             /**
              * Explicit override provider for the core LLM Engine (e.g. summarization).
              * Supported values: 'gemini', 'ollama', 'openAiCompatible'
              * @type {String}
              */
-            modelProvider: {env: 'NEO_MODEL_PROVIDER', default: AiConfig.modelProvider, parse: Env.parseString},
+            modelProvider: leaf(AiConfig.modelProvider, 'NEO_MODEL_PROVIDER', 'string'),
             /**
              * Provider selector for Dream/Sandman graph-generation lanes.
              * Supported values: 'ollama', 'openAiCompatible'
              * @type {String}
              */
-            graphProvider: {env: 'NEO_GRAPH_PROVIDER', default: AiConfig.graphProvider, parse: Env.parseString},
+            graphProvider: leaf(AiConfig.graphProvider, 'NEO_GRAPH_PROVIDER', 'string'),
             /**
              * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
              * Supported values: 'gemini', 'ollama', 'openAiCompatible'
@@ -160,30 +159,30 @@ class Config extends BaseConfig {
              *
              * @type {String}
              */
-            embeddingProvider: {env: 'NEO_EMBEDDING_PROVIDER', default: AiConfig.embeddingProvider, parse: Env.parseString},
+            embeddingProvider: leaf(AiConfig.embeddingProvider, 'NEO_EMBEDDING_PROVIDER', 'string'),
             /**
              * Settings for the Ollama integration
              */
             ollama: {
-                host                 : {env: 'NEO_OLLAMA_HOST', default: AiConfig.ollama.host, parse: Env.parseString},
-                model                : {env: 'NEO_OLLAMA_MODEL', default: AiConfig.ollama.model, parse: Env.parseString},
-                embeddingModel       : {env: 'NEO_OLLAMA_EMBEDDING_MODEL', default: AiConfig.ollama.embeddingModel, parse: Env.parseString},
-                keep_alive           : {env: 'NEO_OLLAMA_KEEP_ALIVE', default: AiConfig.ollama.keep_alive, parse: Env.parseKeepAlive},
-                requireParallelModels: {env: 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', default: AiConfig.ollama.requireParallelModels, parse: Env.parseNumber}
+                host                 : leaf(AiConfig.ollama.host, 'NEO_OLLAMA_HOST', 'string'),
+                model                : leaf(AiConfig.ollama.model, 'NEO_OLLAMA_MODEL', 'string'),
+                embeddingModel       : leaf(AiConfig.ollama.embeddingModel, 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
+                keep_alive           : leaf(AiConfig.ollama.keep_alive, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
+                requireParallelModels: leaf(AiConfig.ollama.requireParallelModels, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
              * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
              * WARNING: Never hardcode API keys here. Always export them via .env or globally.
              */
             openAiCompatible: {
-                host                 : {env: 'NEO_OPENAI_COMPATIBLE_HOST', default: AiConfig.openAiCompatible.host, parse: Env.parseString},
-                model                : {env: 'NEO_OPENAI_COMPATIBLE_MODEL', default: AiConfig.openAiCompatible.model, parse: Env.parseString},
-                embeddingModel       : {env: 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', default: AiConfig.openAiCompatible.embeddingModel, parse: Env.parseString},
-                apiKey               : {env: 'NEO_OPENAI_COMPATIBLE_API_KEY', default: AiConfig.openAiCompatible.apiKey, parse: Env.parseString},
-                unloadRetryCount     : {env: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', default: AiConfig.openAiCompatible.unloadRetryCount, parse: Env.parseNumber},
-                unloadRetryDelayMs   : {env: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', default: AiConfig.openAiCompatible.unloadRetryDelayMs, parse: Env.parseNumber},
-                keep_alive           : {env: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', default: AiConfig.openAiCompatible.keep_alive, parse: Env.parseKeepAlive},
-                requireParallelModels: {env: 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', default: AiConfig.openAiCompatible.requireParallelModels, parse: Env.parseNumber}
+                host                 : leaf(AiConfig.openAiCompatible.host, 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
+                model                : leaf(AiConfig.openAiCompatible.model, 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
+                embeddingModel       : leaf(AiConfig.openAiCompatible.embeddingModel, 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
+                apiKey               : leaf(AiConfig.openAiCompatible.apiKey, 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
+                unloadRetryCount     : leaf(AiConfig.openAiCompatible.unloadRetryCount, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
+                unloadRetryDelayMs   : leaf(AiConfig.openAiCompatible.unloadRetryDelayMs, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', 'number'),
+                keep_alive           : leaf(AiConfig.openAiCompatible.keep_alive, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
+                requireParallelModels: leaf(AiConfig.openAiCompatible.requireParallelModels, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
              * Local-model role-keyed context limits passthrough.
@@ -196,53 +195,51 @@ class Config extends BaseConfig {
              * share these caps because the practical limit comes from the loaded model.
              * @type {Object}
              */
-            localModels: {
-                default: {
-                    chat: {
-                        contextLimitTokens      : AiConfig.localModels.chat.contextLimitTokens,
-                        safeProcessingLimitTokens: AiConfig.localModels.chat.safeProcessingLimitTokens
-                    },
-                    embedding: {
-                        contextLimitTokens      : AiConfig.localModels.embedding.contextLimitTokens,
-                        safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
-                    }
+            localModels: leaf({
+                chat: {
+                    contextLimitTokens      : AiConfig.localModels.chat.contextLimitTokens,
+                    safeProcessingLimitTokens: AiConfig.localModels.chat.safeProcessingLimitTokens
+                },
+                embedding: {
+                    contextLimitTokens      : AiConfig.localModels.embedding.contextLimitTokens,
+                    safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
                 }
-            },
+            }),
             /**
              * The enforced vector dimension across all SQLite collections.
              * Hard-configured here to prevent catastrophic schema wipes due to dynamic model changes.
              * @type {number}
              */
-            vectorDimension: {env: 'NEO_VECTOR_DIMENSION', default: AiConfig.vectorDimension, parse: Env.parseNumber},
+            vectorDimension: leaf(AiConfig.vectorDimension, 'NEO_VECTOR_DIMENSION', 'number'),
             /**
              * The name of the Google Generative AI model for content generation.
              * @type {string}
              */
-            modelName: {default: AiConfig.modelName},
+            modelName: leaf(AiConfig.modelName),
             /**
              * The name of the Google Generative AI model for text embeddings.
              * @type {string}
              */
-            embeddingModel: {default: AiConfig.embeddingModel},
+            embeddingModel: leaf(AiConfig.embeddingModel),
             /**
              * Pagination limit for fetching records during session summarization scans.
              * Controls the batch size for memory and summary retrieval.
              * @type {number}
              */
-            summarizationBatchLimit: {default: 2000},
+            summarizationBatchLimit: leaf(2000),
             /**
              * Maximum number of concurrent session summarization requests.
              * Prevents hitting LLM/Embedding API rate limits during bulk operations.
              * @type {number}
              */
-            summarizationConcurrency: {default: 5},
+            summarizationConcurrency: leaf(5),
             /**
              * The target Storage Architecture to use.
              * Note: Chroma is the only supported Vector DB.
              * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Chroma vectors only).
              * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
              */
-            engine: {default: 'hybrid'},
+            engine: leaf('hybrid'),
             /**
              * Database Engine Definitions
              * This defines WHERE data is stored physically (for engines MC owns) and WHERE MC reaches
@@ -254,25 +251,25 @@ class Config extends BaseConfig {
                     // Read the unified persist dir from the SSOT. Was the stale
                     // '.neo-ai-data/chroma/memory-core' — MC is a CLIENT of the one unified store
                     // (ADR 0003), so its physical dir must be the shared dir, not a server-local one.
-                    dataDir: {default: AiConfig.engines.chroma.dataDir},
-                    host   : {env: 'NEO_CHROMA_HOST', default: AiConfig.engines.chroma.host, parse: Env.parseString},
-                    port   : {env: 'NEO_CHROMA_PORT', default: AiConfig.engines.chroma.port, parse: Env.parsePort}
+                    dataDir: leaf(AiConfig.engines.chroma.dataDir),
+                    host   : leaf(AiConfig.engines.chroma.host, 'NEO_CHROMA_HOST', 'string'),
+                    port   : leaf(AiConfig.engines.chroma.port, 'NEO_CHROMA_PORT', 'port')
                 }
             },
             /**
              * Physical file paths for embedded/local datasets.
              */
             storagePaths: {
-                graph: {env: 'NEO_MEMORY_DB_PATH', default: process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), parse: Env.parseString}
+                graph: leaf(process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string')
             },
             /**
              * Data Schema/Table Names
              * This defines WHAT the tables/collections are called logically.
              */
             collections: {
-                memory : {env: 'NEO_MEMORY_COLLECTION_NAME', default: process.env.UNIT_TEST_MODE === 'true' ? `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-memory', parse: Env.parseString},
-                session: {env: 'NEO_SESSION_COLLECTION_NAME', default: process.env.UNIT_TEST_MODE === 'true' ? `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-sessions', parse: Env.parseString},
-                graph  : {env: 'NEO_GRAPH_COLLECTION_NAME', default: 'neo-native-graph', parse: Env.parseString}
+                memory : leaf(process.env.UNIT_TEST_MODE === 'true' ? `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-memory', 'NEO_MEMORY_COLLECTION_NAME', 'string'),
+                session: leaf(process.env.UNIT_TEST_MODE === 'true' ? `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-sessions', 'NEO_SESSION_COLLECTION_NAME', 'string'),
+                graph  : leaf('neo-native-graph', 'NEO_GRAPH_COLLECTION_NAME', 'string')
             },
             /**
              * Datasets Schema/Paths
@@ -280,29 +277,29 @@ class Config extends BaseConfig {
              */
             datasets: {
                 rlaif: {
-                    trajectories: {env: 'NEO_RLAIF_PATH', default: path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl'), parse: Env.parseString}
+                    trajectories: leaf(path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string')
                 }
             },
             /**
              * Directory for per-cycle REM run/stage JSONL state artifacts.
              * @type {string}
              */
-            remRunStateDir: {env: 'NEO_REM_RUN_STATE_DIR', default: path.resolve(cwd, '.neo-ai-data/rem-runs'), parse: Env.parseString},
+            remRunStateDir: leaf(path.resolve(cwd, '.neo-ai-data/rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
             /**
              * Number of recent REM cycles projected by `get_rem_pipeline_state`.
              * @type {number}
              */
-            remRunRecentLimit: {env: 'NEO_REM_RUN_RECENT_LIMIT', default: 5, parse: Env.parseNumber},
+            remRunRecentLimit: leaf(5, 'NEO_REM_RUN_RECENT_LIMIT', 'number'),
             /**
              * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
              * @type {string}
              */
-            handoffFilePath: {default: path.resolve(cwd, 'resources/content/sandman_handoff.md')},
+            handoffFilePath: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md')),
             /**
              * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
              * @type {number}
              */
-            decayFactor: {env: 'NEO_GRAPH_DECAY_FACTOR', default: 0.98, parse: Env.parseNumber},
+            decayFactor: leaf(0.98, 'NEO_GRAPH_DECAY_FACTOR', 'number'),
             /**
              * Minimum weight threshold for emitting `[GUIDE_GAP]`, `[EXAMPLE_GAP]`, and `[ORPHAN_CONCEPT]`
              * signals on CONCEPT nodes during `GapInferenceEngine.inferConceptGraphGaps`.
@@ -317,7 +314,7 @@ class Config extends BaseConfig {
              * surface lower-priority concepts in the handoff.
              * @type {number}
              */
-            guideGapWeightThreshold: {env: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', default: 0.8, parse: Env.parseNumber},
+            guideGapWeightThreshold: leaf(0.8, 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', 'number'),
             /**
              * Operator-tuning knobs for `ConceptDiscoveryService` (#10036). Both values are read live
              * at method-call time (not captured at module load) so tests + runtime overrides are honored.
@@ -333,14 +330,14 @@ class Config extends BaseConfig {
              * @type {Object}
              */
             conceptDiscovery: {
-                prScanLimit    : {env: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', default: 20, parse: Env.parseNumber},
-                minSourceLength: {env: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', default: 200, parse: Env.parseNumber}
+                prScanLimit    : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
+                minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
             },
             /**
              * Universal JSONL backup/export directory for all databases.
              * @type {string}
              */
-            backupPath: {env: 'NEO_BACKUP_PATH', default: AiConfig.backupPath, parse: Env.parseString},
+            backupPath: leaf(AiConfig.backupPath, 'NEO_BACKUP_PATH', 'string'),
             /**
              * Phase 4 (#11663): bundle retention policy for `ai/scripts/maintenance/backup.mjs`.
              * Bundles older than `maxDays` are eligible for deletion, but the newest
@@ -349,12 +346,10 @@ class Config extends BaseConfig {
              * existing deployments are unaffected without operator action.
              * @type {{keepMinimum: number, maxDays: number}}
              */
-            backupRetention: {
-                default: {
-                    keepMinimum: 3,
-                    maxDays    : 30
-                }
-            },
+            backupRetention: leaf({
+                keepMinimum: 3,
+                maxDays    : 30
+            }),
             /**
              * Directory for the always-on Memory Core diagnostic log files (#10582). The MC
              * server's `logger.mjs` writes daily-rotated entries here regardless of `debug`,
@@ -365,7 +360,7 @@ class Config extends BaseConfig {
              * `nl-server-`). Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: {default: path.resolve(cwd, '.neo-ai-data/logs')},
+            logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs')),
             /**
              * @summary Shared MCP logger policy for Memory Core.
              *
@@ -373,15 +368,13 @@ class Config extends BaseConfig {
              * short-lived script contract used by Sandman and other immediate-exit paths.
              * @type {Object}
              */
-            logger: {
-                default: {
-                    filePrefix    : 'mc-server',
-                    fileSink      : true,
-                    flush         : true,
-                    stderrMode    : 'debug',
-                    timestampStyle: 'plain'
-                }
-            },
+            logger: leaf({
+                filePrefix    : 'mc-server',
+                fileSink      : true,
+                flush         : true,
+                stderrMode    : 'debug',
+                timestampStyle: 'plain'
+            }),
             /**
              * Mailbox substrate behavior configuration (#10252).
              *
@@ -425,7 +418,7 @@ class Config extends BaseConfig {
                  *
                  * @type {'blocked'|'open'}
                  */
-                defaultReplyPolicy: {env: 'NEO_MAILBOX_DEFAULT_REPLY_POLICY', default: 'open', parse: Env.parseString}
+                defaultReplyPolicy: leaf('open', 'NEO_MAILBOX_DEFAULT_REPLY_POLICY', 'string')
             },
             /**
              * Memory sharing policy for multi-tenant isolation (#10010).
@@ -450,7 +443,7 @@ class Config extends BaseConfig {
              * Target file path for the lazy backfill queue of unresolved provenance edges.
              * @type {string}
              */
-            lazyEdgesQueuePath: {env: 'NEO_LAZY_EDGES_QUEUE_PATH', default: path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), parse: Env.parseString}
+            lazyEdgesQueuePath: leaf(path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
         }
     }
 }
