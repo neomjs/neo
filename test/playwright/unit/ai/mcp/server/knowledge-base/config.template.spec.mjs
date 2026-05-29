@@ -89,8 +89,8 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
 
         // Build a FRESH isolated instance (env set above) instead of re-constructing the
         // shared module-cached singleton, whose reactive state is contaminated by sibling
-        // specs in the parallel suite. config.metaTree carries the resolved Tier-1 defaults.
-        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {metaTree: config.metaTree}));
+        // specs in the parallel suite. config._data carries the raw Tier-1 meta-leaf tree.
+        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
 
         expect(freshCfg.auth.realm).toBe('tenant-realm');
         expect(freshCfg.backupPath).toBe('/tmp/neo-kb-backups');

@@ -97,7 +97,7 @@ test.afterEach(() => {
     AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
 
     // Restore the full mlx/lms objects (overwrites every leaf on the still-healthy parent).
-    // Post-#12101 these leaves are metaTree-seeded and always present on the singleton, so
+    // Post-#12101 these leaves are data-seeded and always present on the singleton, so
     // there is no `delete`-to-absent branch — the verbatim tests above only swap object
     // values, never null the parent.
     if (savedMlxConfig !== undefined) {
@@ -143,7 +143,7 @@ function restoreConfigObject(target, prior) {
     Object.assign(target, prior);
 }
 
-test.describe('Orchestrator config getters delegate to AiConfig (metaTree env/parse layer is the env-precedence SSOT)', () => {
+test.describe('Orchestrator config getters delegate to AiConfig (data env/parse layer is the env-precedence SSOT)', () => {
     test('interval getter reads AiConfig.orchestrator.intervals verbatim', () => {
         AiConfig.orchestrator.intervals.kbSyncMs = 60_000;
         expect(createMinimalOrchestrator().kbSyncIntervalMs).toBe(60_000);
@@ -216,17 +216,17 @@ test.describe('Orchestrator config getters delegate to AiConfig (metaTree env/pa
     });
 
     // Post-#12101 the AiConfig singleton is a reactive `Neo.state.Provider`, so its
-    // `orchestrator.mlx`/`.lms` leaves are seeded from the metaTree at construction and
+    // `orchestrator.mlx`/`.lms` leaves are seeded from the data tree at construction and
     // ALWAYS exist on the singleton (defaults: enabled=false, model+port set). `delete`
     // on the hierarchical data proxy is a silent no-op (the throwaway nested-proxy target
     // is deleted, not the underlying reactive Config), and nulling the parent leaf is a
     // one-way door (the leaf-bubble breaks on a non-object parent, so the singleton can't
     // be restored for sibling tests). The faithful, reachable "config missing" state is a
-    // fresh BaseConfig instance whose metaTree omits the namespace — the canonical pattern
+    // fresh BaseConfig instance whose data tree omits the namespace — the canonical pattern
     // from BaseConfig.spec.mjs — exercising the same undefined-safe `?.` delegation the
     // Orchestrator `mlx*`/`lms*` getters use against `AiConfig.orchestrator.{mlx,lms}`.
     test('mlx getter delegation is undefined-safe when AiConfig.orchestrator.mlx is missing', () => {
-        const config = Neo.create(BaseConfig, {metaTree: {
+        const config = Neo.create(BaseConfig, {data: {
                   orchestrator: {intervals: {pollMs: {default: 3000}}}
               }}),
               cfg    = createConfigProxy(config);
@@ -263,9 +263,9 @@ test.describe('Orchestrator config getters delegate to AiConfig (metaTree env/pa
 
 
     // See the mlx-missing test above for why "config missing" is simulated via a fresh
-    // metaTree-omitted BaseConfig instance rather than `delete`/null on the singleton.
+    // data-omitted BaseConfig instance rather than `delete`/null on the singleton.
     test('lms getter delegation is undefined-safe when AiConfig.orchestrator.lms is missing', () => {
-        const config = Neo.create(BaseConfig, {metaTree: {
+        const config = Neo.create(BaseConfig, {data: {
                   orchestrator: {intervals: {pollMs: {default: 3000}}}
               }}),
               cfg    = createConfigProxy(config);

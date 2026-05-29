@@ -1,6 +1,6 @@
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import BaseConfig, { createConfigProxy } from '../../../BaseConfig.mjs';
+import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
 
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
@@ -47,19 +47,19 @@ class Config extends BaseConfig {
          */
         singleton: true,
         /**
-         * @member {Object} metaTree
+         * @member {Object} data
          */
-        metaTree: {
+        data: {
             /**
              * The root directory of the project.
              * @type {string}
              */
-            projectRoot: {default: projectRoot},
+            projectRoot: leaf(projectRoot),
             /**
              * Global debug flag for all MCP servers.
              * @type {boolean}
              */
-            debug: {default: false},
+            debug: leaf(false),
             /**
              * Minimum stderr log level for the GitHub workflow logger.
              * @type {string}
@@ -72,43 +72,43 @@ class Config extends BaseConfig {
              * threshold to `debug`; no file sink is used for this workflow server.
              * @type {Object}
              */
-            logger: {default: {
+            logger: leaf({
                 defaultLevel: 'warn',
                 fileSink    : false,
                 stderrMode  : 'threshold'
-            }},
+            }),
             /**
              * Cache duration for healthy health checks (in milliseconds).
              * Unhealthy results are never cached.
              * @type {number}
              */
-            healthCheckCacheDuration: {default: 5 * 60 * 1000}, // 5 minutes
+            healthCheckCacheDuration: leaf(5 * 60 * 1000), // 5 minutes
             /**
              * The minimum required version of the GitHub CLI (`gh`).
              * @type {string}
              */
-            minGhVersion: {default: '2.0.0'},
+            minGhVersion: leaf('2.0.0'),
             /**
              * The owner of the GitHub repository.
              * @type {string}
              */
-            owner: {default: 'neomjs'},
+            owner: leaf('neomjs'),
             /**
              * The name of the GitHub repository.
              * @type {string}
              */
-            repo: {default: 'neo'},
+            repo: leaf('neo'),
             /**
              * Whether to automatically trigger a full sync when the server starts.
              * @type {boolean}
              */
-            syncOnStartup: {default: false},
+            syncOnStartup: leaf(false),
             /**
              * Whether to automatically commit and push changes after a sync.
              * Only executes if the user has write permissions and there are non-metadata changes.
              * @type {boolean}
              */
-            pushToRepoAfterSync: {default: true},
+            pushToRepoAfterSync: leaf(true),
             /**
              * Configuration for the issue synchronization service.
              */
@@ -117,77 +117,77 @@ class Config extends BaseConfig {
                  * The root directory for synced content.
                  * @type {string}
                  */
-                contentRoot: {default: path.resolve(projectRoot, 'resources/content')},
+                contentRoot: leaf(path.resolve(projectRoot, 'resources/content')),
                 /**
                  * The path to the directory for active issues.
                  * @type {string}
                  */
-                issuesDir: {default: path.resolve(projectRoot, 'resources/content/issues')},
+                issuesDir: leaf(path.resolve(projectRoot, 'resources/content/issues')),
                 /**
                  * The root directory for version-based archives across all entities.
                  * @type {string}
                  */
-                archiveRoot: {env: 'NEO_MCP_GITHUB_ARCHIVE_ROOT', default: path.resolve(projectRoot, 'resources/content/archive')},
+                archiveRoot: leaf(path.resolve(projectRoot, 'resources/content/archive'), 'NEO_MCP_GITHUB_ARCHIVE_ROOT'),
                 /**
                  * The path to the directory for discussions.
                  * @type {string}
                  */
-                discussionsDir: {default: path.resolve(projectRoot, 'resources/content/discussions')},
+                discussionsDir: leaf(path.resolve(projectRoot, 'resources/content/discussions')),
                 /**
                  * The path to the directory for pull requests.
                  * @type {string}
                  */
-                pullsDir: {default: path.resolve(projectRoot, 'resources/content/pulls')},
+                pullsDir: leaf(path.resolve(projectRoot, 'resources/content/pulls')),
                 /**
                  * The path to the synchronization metadata file.
                  * @type {string}
                  */
-                metadataFile: {default: path.resolve(projectRoot, 'resources/content/.sync-metadata.json')},
+                metadataFile: leaf(path.resolve(projectRoot, 'resources/content/.sync-metadata.json')),
                 /**
                  * Labels that, when present on an issue, will cause it to be ignored and deleted locally.
                  * @type {string[]}
                  */
-                droppedLabels: {default: ['dropped', 'wontfix', 'duplicate']},
+                droppedLabels: leaf(['dropped', 'wontfix', 'duplicate']),
                 /**
                  * The date from which to start synchronizing issues and releases.
                  * @type {string}
                  */
-                syncStartDate: {default: '2025-01-01T00:00:00Z'},
+                syncStartDate: leaf('2025-01-01T00:00:00Z'),
                 /**
                  * The path to the directory for release notes.
                  * @type {string}
                  */
-                releaseNotesDir: {default: path.resolve(projectRoot, 'resources/content/release-notes')},
+                releaseNotesDir: leaf(path.resolve(projectRoot, 'resources/content/release-notes')),
                 /**
                  * A prefix for issue filenames to prevent them from starting with a number (e.g., 'issue-').
                  * @type {string}
                  */
-                issueFilenamePrefix: {default: 'issue-'},
+                issueFilenamePrefix: leaf('issue-'),
                 /**
                  * @member {String} discussionFilenamePrefix='discussion-'
                  */
-                discussionFilenamePrefix: {default: 'discussion-'},
+                discussionFilenamePrefix: leaf('discussion-'),
                 /**
                  * A prefix for version-based archive directories (e.g., 'v' for 'v1.2.3').
                  * Applies to both milestone titles and release tags.
                  * @type {string}
                  */
-                versionDirectoryPrefix: {default: 'v'},
+                versionDirectoryPrefix: leaf('v'),
                 /**
                  * The maximum number of items per chunk directory in the archive.
                  * @type {number}
                  */
-                archiveChunkThreshold: {default: 100},
+                archiveChunkThreshold: leaf(100),
                 /**
                  * A prefix for archive chunk directories (e.g., 'chunk-').
                  * @type {string}
                  */
-                archiveChunkPrefix: {default: 'chunk-'},
+                archiveChunkPrefix: leaf('chunk-'),
                 /**
                  * A prefix for release note filenames (e.g., 'v').
                  * @type {string}
                  */
-                releaseFilenamePrefix: {default: 'v'},
+                releaseFilenamePrefix: leaf('v'),
                 /**
                  * The maximum number of issues to fetch from the GitHub API in a single sync.
                  * Defensive ceiling against runaway pagination on a misconfigured GraphQL pageInfo while
@@ -195,52 +195,52 @@ class Config extends BaseConfig {
                  * droppedLabels filter further trims the actual processed set.
                  * @type {number}
                  */
-                maxIssues: {default: 20000},
+                maxIssues: leaf(20000),
                 /**
                  * The maximum number of releases to fetch from the GitHub API.
                  * @type {number}
                  */
-                maxReleases: {default: 1000},
+                maxReleases: leaf(1000),
                 /**
                  * The number of releases to fetch per page in GraphQL queries.
                  * @type {number}
                  */
-                releaseQueryLimit: {default: 50},
+                releaseQueryLimit: leaf(50),
                 /**
                  * The maximum buffer size for the `gh` CLI command output.
                  * @type {number}
                  */
-                maxGhOutputBuffer: {default: 10 * 1024 * 1024}, // 10 MB
+                maxGhOutputBuffer: leaf(10 * 1024 * 1024), // 10 MB
                 /**
                  * The markdown delimiter used to separate the issue body from the comments section.
                  * @type {string}
                  */
-                commentSectionDelimiter: {default: '## Comments'},
+                commentSectionDelimiter: leaf('## Comments'),
                 /**
                  * Maximum number of labels to fetch per issue in GraphQL queries.
                  * @type {number}
                  */
-                maxLabelsPerIssue: {default: 20},
+                maxLabelsPerIssue: leaf(20),
                 /**
                  * Maximum number of labels to fetch for the entire repository in GraphQL queries.
                  * @type {number}
                  */
-                maxRepoLabels: {default: 100},
+                maxRepoLabels: leaf(100),
                 /**
                  * Maximum number of assignees to fetch per issue in GraphQL queries.
                  * @type {number}
                  */
-                maxAssigneesPerIssue: {default: 10},
+                maxAssigneesPerIssue: leaf(10),
                 /**
                  * Maximum number of sub-issues to fetch per issue in GraphQL queries.
                  * @type {number}
                  */
-                maxSubIssuesPerIssue: {default: 100},
+                maxSubIssuesPerIssue: leaf(100),
                 /**
                  * Maximum number of timeline items to fetch per issue in GraphQL queries.
                  * @type {number}
                  */
-                maxTimelineItemsPerIssue: {default: 50}
+                maxTimelineItemsPerIssue: leaf(50)
             },
             /**
              * Configuration for pull request queries.
@@ -254,23 +254,23 @@ class Config extends BaseConfig {
                      * The default number of pull requests to return.
                      * @type {number}
                      */
-                    limit: {default: 30},
+                    limit: leaf(30),
                     /**
                      * The default state of pull requests to list.
                      * @type {string}
                      */
-                    state: {default: 'open'}
+                    state: leaf('open')
                 },
                 /**
                  * The maximum number of pull requests that can be fetched in a single API call.
                  * @type {number}
                  */
-                maxLimit: {default: 100},
+                maxLimit: leaf(100),
                 /**
                  * Maximum number of comments to fetch per pull request in GraphQL queries.
                  * @type {number}
                  */
-                maxCommentsPerPullRequest: {default: 100}
+                maxCommentsPerPullRequest: leaf(100)
             }
         }
     }

@@ -113,11 +113,11 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         // override must be present before the instance is built. The template singleton is
         // constructed (and env-bound) at import time, so we build a fresh raw instance from
         // the template's meta-leaf tree to exercise boot-time env binding deterministically.
-        const {metaTree} = (await importTemplateConfig()).default;
+        const {_data} = (await importTemplateConfig()).default;
 
         process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT = '/custom/archive/path';
 
-        const config = Neo.create(BaseConfig, {metaTree});
+        const config = Neo.create(BaseConfig, {data: _data});
 
         try {
             expect(config.getDataConfig('issueSync.archiveRoot').get()).toBe('/custom/archive/path');
@@ -130,12 +130,12 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         // Env binding + its parser-based validation run at construction, so each case uses a
         // fresh instance built from the template's meta-leaf tree (the singleton is already
         // env-bound at import). The leaf default is the SSOT for the fallback expectation.
-        const {metaTree} = (await importTemplateConfig()).default;
-        const defaultLogLevel = metaTree.logLevel.default;
+        const {_data} = (await importTemplateConfig()).default;
+        const defaultLogLevel = _data.logLevel.default;
 
         // Valid value: parsed + normalized to lower-case.
         process.env.NEO_LOG_LEVEL = 'DEBUG';
-        const validConfig = Neo.create(BaseConfig, {metaTree});
+        const validConfig = Neo.create(BaseConfig, {data: _data});
 
         try {
             expect(validConfig.getDataConfig('logLevel').get()).toBe('debug');
@@ -152,7 +152,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
 
         let invalidConfig;
         try {
-            invalidConfig = Neo.create(BaseConfig, {metaTree});
+            invalidConfig = Neo.create(BaseConfig, {data: _data});
         } finally {
             console.warn = originalWarn;
         }

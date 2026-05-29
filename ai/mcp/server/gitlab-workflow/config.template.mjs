@@ -1,7 +1,6 @@
 import path                                       from 'path';
 import {fileURLToPath}                            from 'url';
-import BaseConfig, {createConfigProxy}            from '../../../BaseConfig.mjs';
-import Env from '../../../../src/util/Env.mjs';
+import BaseConfig, {createConfigProxy, leaf}      from '../../../BaseConfig.mjs';
 
 const __filename     = fileURLToPath(import.meta.url);
 const __dirname      = path.dirname(__filename);
@@ -52,17 +51,17 @@ class Config extends BaseConfig {
          *
          * Keeps client-project GitLab host / PAT configuration out of tracked files.
          * The real GitLabClient subtask consumes the same keys when API calls land.
-         * @member {Object} metaTree
+         * @member {Object} data
          */
-        metaTree: {
+        data: {
             /**
              * @member {String} projectRoot
              */
-            projectRoot: {default: projectRoot},
+            projectRoot: leaf(projectRoot),
             /**
              * @member {Boolean} debug=false
              */
-            debug: {env: 'NEO_GITLAB_WORKFLOW_DEBUG', default: false, parse: Env.parseBool},
+            debug: leaf(false, 'NEO_GITLAB_WORKFLOW_DEBUG', 'boolean'),
             /**
              * @member {String} logLevel='warn'
              */
@@ -74,15 +73,15 @@ class Config extends BaseConfig {
              * threshold to `debug`; no file sink is used for this workflow server.
              * @member {Object} logger
              */
-            logger: {default: {
+            logger: leaf({
                 defaultLevel: 'warn',
                 fileSink    : false,
                 stderrMode  : 'threshold'
-            }},
+            }),
             /**
              * @member {String} transport='stdio'
              */
-            transport: {env: 'NEO_GITLAB_WORKFLOW_TRANSPORT', default: 'stdio', parse: Env.parseString},
+            transport: leaf('stdio', 'NEO_GITLAB_WORKFLOW_TRANSPORT', 'string'),
             /**
              * @member {Object} gitlab
              */
@@ -91,12 +90,12 @@ class Config extends BaseConfig {
                  * GitLab instance base URL.
                  * @member {String} hostUrl='https://gitlab.com'
                  */
-                hostUrl: {env: 'NEO_GITLAB_HOST', default: 'https://gitlab.com', parse: Env.parseUrl},
+                hostUrl: leaf('https://gitlab.com', 'NEO_GITLAB_HOST', 'url'),
                 /**
                  * GitLab Personal Access Token. Empty in the tracked template.
                  * @member {String} token=''
                  */
-                token: {env: 'NEO_GITLAB_PAT', default: '', parse: Env.parseString}
+                token: leaf('', 'NEO_GITLAB_PAT', 'string')
             }
         }
     }
