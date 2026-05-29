@@ -123,8 +123,8 @@ test.describe('Memory Core Config (#10010)', () => {
         // Env is decoded at construction via #applyEnvLayer. Build a FRESH isolated
         // instance (env set above) instead of re-constructing the shared module-cached
         // singleton, whose reactive state is contaminated by sibling specs in the parallel
-        // suite. config.metaTree carries the resolved Tier-1 leaf defaults.
-        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {metaTree: config.metaTree}));
+        // suite. config._data carries the raw Tier-1 meta-leaf tree.
+        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
 
         expect(freshCfg.modelProvider).toBe('openAiCompatible');
         expect(freshCfg.graphProvider).toBe('ollama');
@@ -147,7 +147,7 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'team';
 
         // Fresh isolated instance picks up the env via #applyEnvLayer at construction.
-        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {metaTree: config.metaTree}));
+        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
 
         expect(freshCfg.memorySharing.defaultPolicy).toBe('team');
 
@@ -159,7 +159,7 @@ test.describe('Memory Core Config (#10010)', () => {
 
         // The leaf `parse` fn (parseMemorySharingPolicy) runs inside #applyEnvLayer at
         // construction; a throwing parser propagates out of Neo.create.
-        expect(() => Neo.create(BaseConfig, {metaTree: config.metaTree})).toThrow(
+        expect(() => Neo.create(BaseConfig, {data: config._data})).toThrow(
             /\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/
         );
     });

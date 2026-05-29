@@ -1,7 +1,6 @@
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import BaseConfig, {createConfigProxy} from './BaseConfig.mjs';
-import Env             from '../src/util/Env.mjs';
+import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -32,61 +31,61 @@ class Config extends BaseConfig {
         /**
          * Top-level meta-leaf configuration tree (Tier 1).
          * Defines the core immutable plain-data structures applied universally across all AI/MCP infrastructure.
-         * Each leaf owns a `default` plus optional `env` (variable name) and `parse` (decoder).
-         * @member {Object} metaTree
+         * Each leaf owns a `default` plus optional `env` (variable name) and `type` (selecting the env decoder + validator).
+         * @member {Object} data
          */
-        metaTree: {
-            neoRootDir : {default: neoRootDir},
-            projectRoot: {default: projectRoot},
+        data: {
+            neoRootDir : leaf(neoRootDir),
+            projectRoot: leaf(projectRoot),
             /**
              * Universal JSONL backup/export directory for Agent OS databases.
              * @type {string}
              */
-            backupPath: {env: 'NEO_BACKUP_PATH', default: path.resolve(neoRootDir, '.neo-ai-data/backups'), parse: Env.parseString},
+            backupPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/backups'), 'NEO_BACKUP_PATH', 'string'),
             /**
              * Path to the wake-daemon liveness sentinel touched on every swarm-heartbeat
              * pulse. Operators / tests can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`.
              * @type {string}
              */
-            wakeDaemonHeartbeatAlivePath: {env: 'NEO_HEARTBEAT_ALIVE_PATH', default: path.resolve(neoRootDir, '.neo-ai-data/wake-daemon/heartbeat.alive'), parse: Env.parseString},
+            wakeDaemonHeartbeatAlivePath: leaf(path.resolve(neoRootDir, '.neo-ai-data/wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
             /**
              * Global debug flag for all AI processes.
              * @type {boolean}
              */
-            debug: {env: 'NEO_DEBUG', default: false, parse: Env.parseBool},
+            debug: leaf(false, 'NEO_DEBUG', 'boolean'),
             /**
              * Transport protocol ('stdio' or 'sse').
              * @type {string}
              */
-            transport: {env: 'NEO_TRANSPORT', default: 'stdio', parse: Env.parseString},
+            transport: leaf('stdio', 'NEO_TRANSPORT', 'string'),
             /**
              * Optional public canonical URL.
              * @type {string|null}
              */
-            publicUrl: {env: 'NEO_PUBLIC_URL', default: null, parse: Env.parseUrl},
+            publicUrl: leaf(null, 'NEO_PUBLIC_URL', 'url'),
             /**
              * Port the MCP server's HTTP/SSE transport listens on.
              * Sub-servers will typically override this with their own defaultPort.
              * @type {number}
              */
-            mcpHttpPort: {env: 'MCP_HTTP_PORT', default: 3000, parse: Env.parsePort},
+            mcpHttpPort: leaf(3000, 'MCP_HTTP_PORT', 'port'),
             /**
              * Optional Express middleware function for authentication.
              * @type {Function|null}
              */
-            authMiddleware: {default: null},
+            authMiddleware: leaf(null),
             /**
              * Base authentication configuration.
              * @type {Object}
              */
             auth: {
-                host              : {env: 'NEO_AUTH_HOST', default: null, parse: Env.parseString},
-                port              : {env: 'NEO_AUTH_PORT', default: 8080, parse: Env.parsePort},
-                realm             : {env: 'NEO_AUTH_REALM', default: 'master', parse: Env.parseString},
-                issuerUrl         : {env: 'NEO_AUTH_ISSUER_URL', default: null, parse: Env.parseString},
-                clientId          : {env: 'NEO_OAUTH_CLIENT_ID', default: null, parse: Env.parseString},
-                clientSecret      : {env: 'NEO_OAUTH_CLIENT_SECRET', default: '', parse: Env.parseString},
-                trustProxyIdentity: {env: 'NEO_AUTH_TRUST_PROXY_IDENTITY', default: false, parse: Env.parseBool}
+                host              : leaf(null, 'NEO_AUTH_HOST', 'string'),
+                port              : leaf(8080, 'NEO_AUTH_PORT', 'port'),
+                realm             : leaf('master', 'NEO_AUTH_REALM', 'string'),
+                issuerUrl         : leaf(null, 'NEO_AUTH_ISSUER_URL', 'string'),
+                clientId          : leaf(null, 'NEO_OAUTH_CLIENT_ID', 'string'),
+                clientSecret      : leaf('', 'NEO_OAUTH_CLIENT_SECRET', 'string'),
+                trustProxyIdentity: leaf(false, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean')
             },
             /**
              * @summary Deployment-wide chat / generation model provider.
@@ -97,7 +96,7 @@ class Config extends BaseConfig {
              * `openAiCompatible`.
              * @type {String}
              */
-            chatProvider: {env: 'NEO_MODEL_PROVIDER', default: 'gemini', parse: Env.parseString},
+            chatProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string'),
             /**
              * @summary Runtime alias for the active chat provider.
              *
@@ -106,7 +105,7 @@ class Config extends BaseConfig {
              * one canonical key.
              * @type {String}
              */
-            modelProvider: {env: 'NEO_MODEL_PROVIDER', default: 'gemini', parse: Env.parseString},
+            modelProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string'),
             /**
              * @summary Provider selector for Dream/Sandman graph-generation work.
              *
@@ -117,7 +116,7 @@ class Config extends BaseConfig {
              * deployments that run graph extraction against native Ollama.
              * @type {'ollama'|'openAiCompatible'}
              */
-            graphProvider: {env: 'NEO_GRAPH_PROVIDER', default: 'openAiCompatible', parse: Env.parseString},
+            graphProvider: leaf('openAiCompatible', 'NEO_GRAPH_PROVIDER', 'string'),
             /**
              * @summary Deployment-wide embedding provider selector.
              *
@@ -125,7 +124,7 @@ class Config extends BaseConfig {
              * paths.
              * @type {String}
              */
-            embeddingProvider: {env: 'NEO_EMBEDDING_PROVIDER', default: 'openAiCompatible', parse: Env.parseString},
+            embeddingProvider: leaf('openAiCompatible', 'NEO_EMBEDDING_PROVIDER', 'string'),
             /**
              * @summary Deployment-wide Ollama provider defaults.
              *
@@ -134,11 +133,11 @@ class Config extends BaseConfig {
              * @type {Object}
              */
             ollama: {
-                host                 : {env: 'NEO_OLLAMA_HOST', default: 'http://127.0.0.1:11434', parse: Env.parseString},
-                model                : {env: 'NEO_OLLAMA_MODEL', default: 'gemma4:31b', parse: Env.parseString},
-                embeddingModel       : {env: 'NEO_OLLAMA_EMBEDDING_MODEL', default: 'qwen3-embedding', parse: Env.parseString},
-                keep_alive           : {env: 'NEO_OLLAMA_KEEP_ALIVE', default: -1, parse: Env.parseKeepAlive},
-                requireParallelModels: {env: 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', default: 2, parse: Env.parseNumber}
+                host                 : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
+                model                : leaf('gemma4:31b', 'NEO_OLLAMA_MODEL', 'string'),
+                embeddingModel       : leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
+                keep_alive           : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
+                requireParallelModels: leaf(2, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
              * @summary Deployment-wide OpenAI-compatible provider defaults.
@@ -148,14 +147,14 @@ class Config extends BaseConfig {
              * @type {Object}
              */
             openAiCompatible: {
-                host                 : {env: 'NEO_OPENAI_COMPATIBLE_HOST', default: 'http://127.0.0.1:11434', parse: Env.parseString},
-                model                : {env: 'NEO_OPENAI_COMPATIBLE_MODEL', default: 'gemma-4-31b-it', parse: Env.parseString},
-                embeddingModel       : {env: 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', default: 'text-embedding-qwen3-embedding-8b', parse: Env.parseString},
-                apiKey               : {env: 'NEO_OPENAI_COMPATIBLE_API_KEY', default: '', parse: Env.parseString},
-                unloadRetryCount     : {env: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', default: 3, parse: Env.parseNumber},
-                unloadRetryDelayMs   : {env: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', default: 500, parse: Env.parseNumber},
-                keep_alive           : {env: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', default: -1, parse: Env.parseKeepAlive},
-                requireParallelModels: {env: 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', default: 2, parse: Env.parseNumber}
+                host                 : leaf('http://127.0.0.1:11434', 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
+                model                : leaf('gemma-4-31b-it', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
+                embeddingModel       : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
+                apiKey               : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
+                unloadRetryCount     : leaf(3, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
+                unloadRetryDelayMs   : leaf(500, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', 'number'),
+                keep_alive           : leaf(-1, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
+                requireParallelModels: leaf(2, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
              * @summary Local-model role-keyed context limits.
@@ -195,8 +194,8 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 chat: {
-                    contextLimitTokens      : {env: 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', default: 262144, parse: Env.parseNumber},
-                    safeProcessingLimitTokens: {env: 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', default: 200000, parse: Env.parseNumber}
+                    contextLimitTokens      : leaf(262144, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(200000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 },
                 /**
                  * @summary Embedding-model context limits in tokens.
@@ -217,8 +216,8 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 embedding: {
-                    contextLimitTokens      : {env: 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', default: 8192, parse: Env.parseNumber},
-                    safeProcessingLimitTokens: {env: 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', default: 6144, parse: Env.parseNumber}
+                    contextLimitTokens      : leaf(8192, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(6144, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 }
             },
             /**
@@ -228,12 +227,12 @@ class Config extends BaseConfig {
              * summary and embedding paths; Tier-1 owns the default tuple.
              * @type {String}
              */
-            modelName: {default: 'gemini-2.5-flash'},
+            modelName: leaf('gemini-2.5-flash'),
             /**
              * @summary Deployment-wide Gemini embedding model default.
              * @type {String}
              */
-            embeddingModel: {default: 'gemini-embedding-001'},
+            embeddingModel: leaf('gemini-embedding-001'),
             /**
              * @summary Enforced vector dimension across shared vector collections.
              *
@@ -242,7 +241,7 @@ class Config extends BaseConfig {
              * overrides.
              * @type {Number}
              */
-            vectorDimension: {env: 'NEO_VECTOR_DIMENSION', default: 4096, parse: Env.parseNumber},
+            vectorDimension: leaf(4096, 'NEO_VECTOR_DIMENSION', 'number'),
             /**
              * @summary Deployment-wide storage engine coordinates.
              *
@@ -255,9 +254,9 @@ class Config extends BaseConfig {
              */
             engines: {
                 chroma: {
-                    dataDir: {default: path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base')},
-                    host   : {env: 'NEO_CHROMA_HOST', default: 'localhost', parse: Env.parseString},
-                    port   : {env: 'NEO_CHROMA_PORT', default: 8000, parse: Env.parsePort}
+                    dataDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base')),
+                    host   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
+                    port   : leaf(8000, 'NEO_CHROMA_PORT', 'port')
                 }
             },
             /**
@@ -271,7 +270,7 @@ class Config extends BaseConfig {
                  * maintenance lanes unless a narrower localOnly override opts them back in.
                  * @type {'local'|'cloud'}
                  */
-                deploymentMode: {env: 'NEO_AI_DEPLOYMENT_MODE', default: 'local', parse: Env.parseString},
+                deploymentMode: leaf('local', 'NEO_AI_DEPLOYMENT_MODE', 'string'),
                 /**
                  * Filesystem root under which tenant-repo mirrors are stored. The
                  * `deriveTenantRepoMirrorPath` helper appends `tenant-repos/<tenant>/<repo>`,
@@ -282,7 +281,7 @@ class Config extends BaseConfig {
                  * `NEO_TENANT_REPO_MIRROR_ROOT`.
                  * @type {String}
                  */
-                tenantRepoMirrorRoot: {env: 'NEO_TENANT_REPO_MIRROR_ROOT', default: '/app/.neo-ai-data', parse: Env.parseString},
+                tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT', 'string'),
                 /**
                  * Provider-readiness probe parameters consumed by the orchestrator dream task
                  * and the standalone Sandman CLI runner. The probe issues an HTTP GET against
@@ -296,9 +295,9 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 providerReadiness: {
-                    attempts : {env: 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', default: 30, parse: Env.parseNumber},
-                    delayMs  : {env: 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', default: 1000, parse: Env.parseNumber},
-                    timeoutMs: {env: 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', default: 3000, parse: Env.parseNumber}
+                    attempts : leaf(30, 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', 'number'),
+                    delayMs  : leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', 'number'),
+                    timeoutMs: leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number')
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
@@ -306,16 +305,16 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 intervals: {
-                    pollMs           : {env: 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS',              default: 3000, parse: Env.parseNumber},
-                    summarySweepMs   : {env: 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS',     default: 10 * 60 * 1000, parse: Env.parseNumber},
-                    kbSyncMs         : {env: 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS',           default: 30 * 60 * 1000, parse: Env.parseNumber},
-                    backupMs         : {env: 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS',            default: DAY_MS, parse: Env.parseNumber},
-                    primaryDevSyncMs : {env: 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS',  default: 10 * 60 * 1000, parse: Env.parseNumber},
-                    tenantRepoSyncMs : {env: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS',  default: 30 * 60 * 1000, parse: Env.parseNumber},
-                    dreamMs               : {env: 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS',             default: HOUR_MS, parse: Env.parseNumber},
-                    dreamOverflowThreshold: {env: 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', default: 0.8, parse: Env.parseNumber},
-                    goldenPathMs          : {env: 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS',       default: HOUR_MS, parse: Env.parseNumber},
-                    swarmHeartbeatMs      : {env: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS',   default: 15 * 60 * 1000, parse: Env.parseNumber}
+                    pollMs           : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
+                    summarySweepMs   : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
+                    kbSyncMs         : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
+                    backupMs         : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    primaryDevSyncMs : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
+                    tenantRepoSyncMs : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
+                    dreamMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
+                    dreamOverflowThreshold: leaf(0.8, 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', 'number'),
+                    goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
+                    swarmHeartbeatMs      : leaf(15 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number')
                 },
                 /**
                  * Chroma daemon recycle policy (#12138). The orchestrator kills and respawns the
@@ -326,7 +325,7 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 chroma: {
-                    maxRuntimeMs: {env: 'NEO_CHROMA_MAX_RUNTIME_MS', default: DAY_MS, parse: Env.parseNumber}
+                    maxRuntimeMs: leaf(DAY_MS, 'NEO_CHROMA_MAX_RUNTIME_MS', 'number')
                 },
                 /**
                  * Swarm-heartbeat target-resolver config. Controls which identity set
@@ -358,14 +357,14 @@ class Config extends BaseConfig {
                      *
                      * @type {'self'|'active-local-team'|'active-subscribers'|'active-a2a-participants'|'disabled'|null}
                      */
-                    targetSource: {env: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE', default: 'active-a2a-participants', parse: Env.parseString},
+                    targetSource: leaf('active-a2a-participants', 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE', 'string'),
                     /**
                      * Explicit comma-separated handle list override (highest resolver precedence).
                      * Raw string; the consumer (`Orchestrator.swarmHeartbeatExplicitTargets`) splits
                      * and trims. `null`/absent → resolver falls through to `targetSource` semantics.
                      * @type {String|null}
                      */
-                    targets: {env: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS', default: null, parse: Env.parseString}
+                    targets: leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS', 'string')
                 },
                 /**
                  * Local-only maintenance lane switches. Cloud deployments can disable these
@@ -375,19 +374,19 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 localOnly: {
-                    primaryDevSyncEnabled: {env: 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', default: null, parse: Env.parseBool},
-                    kbSyncEnabled        : {env: 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', default: null, parse: Env.parseBool},
+                    primaryDevSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
+                    kbSyncEnabled        : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead (#12019).
-                    chromaDaemonEnabled  : {env: 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', default: null, parse: Env.parseBool},
-                    bridgeDaemonEnabled  : {env: 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', default: null, parse: Env.parseBool},
-                    goldenPathRepoEnrichmentEnabled: {env: 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', default: null, parse: Env.parseBool},
+                    chromaDaemonEnabled  : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
+                    bridgeDaemonEnabled  : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    goldenPathRepoEnrichmentEnabled: leaf(null, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', 'boolean'),
                     // `null` = use the deployment-profile default (local enables, cloud disables);
                     // the swarm-heartbeat lane is the folded-in wake-substrate pulse (#11766).
-                    swarmHeartbeatEnabled: {env: 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', default: null, parse: Env.parseBool},
+                    swarmHeartbeatEnabled: leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
                     // Reserved policy placeholder: no runtime consumer yet.
                     // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
-                    wakeDispatchEnabled  : {default: null}
+                    wakeDispatchEnabled  : leaf(null)
                 },
                 /**
                  * Cloud-only maintenance lane switches (mirror of `localOnly` with inverted
@@ -401,7 +400,7 @@ class Config extends BaseConfig {
                     // tenant-repo-sync: cloud-deployable per ADR 0014 + #11740. Cloud
                     // profile defaults enabled when tenant repos are configured; local
                     // Neo-maintainer profile defaults disabled unless explicitly opted in.
-                    tenantRepoSyncEnabled: {env: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', default: null, parse: Env.parseBool}
+                    tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
                 },
                 /**
                  * Optional local Neo repo roots for the primary-dev-sync lane.
@@ -409,7 +408,7 @@ class Config extends BaseConfig {
                  * `ai/config.mjs` or via `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`.
                  * @type {String[]}
                  */
-                devSyncRoots: {env: 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS', default: [], parse: Env.parseString},
+                devSyncRoots: leaf([], 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS', 'string'),
                 /**
                  * Tenant-repo-sync per-repo scheduling parameters (#11942 AC1).
                  *
@@ -430,8 +429,8 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 tenantRepoSync: {
-                    jitterRatio   : {env: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', default: 0.20, parse: Env.parseNumber},
-                    sweepCadenceMs: {env: 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', default: 60 * 1000, parse: Env.parseNumber}
+                    jitterRatio   : leaf(0.20, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', 'number'),
+                    sweepCadenceMs: leaf(60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', 'number')
                 },
                 /**
                  * Orchestrator-owned MLX inference server config. Operators tune via gitignored
@@ -448,9 +447,9 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 mlx: {
-                    enabled: {env: 'NEO_ORCHESTRATOR_MLX_ENABLED', default: false, parse: Env.parseBool},
-                    model  : {env: 'NEO_ORCHESTRATOR_MLX_MODEL', default: 'mlx-community/gemma-4-31b-it-bf16', parse: Env.parseString},
-                    port   : {env: 'NEO_ORCHESTRATOR_MLX_PORT', default: '11435', parse: Env.parseString}
+                    enabled: leaf(false, 'NEO_ORCHESTRATOR_MLX_ENABLED', 'boolean'),
+                    model  : leaf('mlx-community/gemma-4-31b-it-bf16', 'NEO_ORCHESTRATOR_MLX_MODEL', 'string'),
+                    port   : leaf('11435', 'NEO_ORCHESTRATOR_MLX_PORT', 'string')
                 },
                 /**
                  * Orchestrator-owned LM Studio CLI (`lms`) inference server config. Operators
@@ -473,16 +472,16 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 lms: {
-                    enabled: {env: 'NEO_ORCHESTRATOR_LMS_ENABLED', default: false, parse: Env.parseBool},
-                    model  : {env: 'NEO_ORCHESTRATOR_LMS_MODEL', default: 'qwen3-embedding-8b', parse: Env.parseString},
-                    port   : {env: 'NEO_ORCHESTRATOR_LMS_PORT', default: '1234', parse: Env.parseString}
+                    enabled: leaf(false, 'NEO_ORCHESTRATOR_LMS_ENABLED', 'boolean'),
+                    model  : leaf('qwen3-embedding-8b', 'NEO_ORCHESTRATOR_LMS_MODEL', 'string'),
+                    port   : leaf('1234', 'NEO_ORCHESTRATOR_LMS_PORT', 'string')
                 }
             },
             /**
              * Agent OS maintenance policy shared by operator scripts and daemons.
              * @type {Object}
              */
-            maintenance: {default: {
+            maintenance: leaf({
                 /**
                  * Canonical atomic-bundle backup policy. Bundles remain atomic; per-substrate
                  * retention is intentionally not represented here.
@@ -509,12 +508,12 @@ class Config extends BaseConfig {
                         maxDays    : 7
                     }
                 }
-            }},
+            }),
             /**
              * Knowledge Base operations configuration (Cloud-Native KB Ingestion, Epic #11624).
              * @type {Object}
              */
-            knowledgeBase: {default: {
+            knowledgeBase: leaf({
                 /**
                  * Phase 4D (#11642) — operator alert rules. Each entry is
                  * `{metric, threshold, severity, channels, deliveryMode?}`; see the #11642
@@ -604,12 +603,12 @@ class Config extends BaseConfig {
                  * @type {Number}
                  */
                 gcDefragThreshold: 0.10
-            }},
+            }),
             /**
              * A dummy embedding function to satisfy ChromaDB when embeddings are provided manually.
              * @returns {Object}
              */
-            dummyEmbeddingFunction: {default: {
+            dummyEmbeddingFunction: leaf({
                 generate   : () => null,
                 name       : 'dummy_embedding_function',
                 getConfig  : () => ({}),
@@ -620,7 +619,7 @@ class Config extends BaseConfig {
                         getConfig: () => ({})
                     })
                 }
-            }}
+            })
         }
     }
 }

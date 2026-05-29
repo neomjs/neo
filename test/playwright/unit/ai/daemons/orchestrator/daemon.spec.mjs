@@ -99,14 +99,14 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
 
     test('AiConfig.orchestrator.mlx ships canonical MLX launch defaults', () => {
         // The Tier-1 template (NOT the gitignored config.mjs overlay) is the stable
-        // source of truth for MLX defaults. Read it as text and assert the metaTree
+        // source of truth for MLX defaults. Read it as text and assert the `data`
         // leaf defaults: importing the template here would register Neo.ai.Config a
         // second time alongside the config.mjs singleton daemon.mjs loads, tripping
         // the unitTestMode namespace-collision gatekeeper.
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
 
         expect(templateSource).toMatch(
-            /mlx:\s*\{[\s\S]*?default:\s*false[\s\S]*?'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*?'11435'/
+            /mlx:\s*\{[\s\S]*?leaf\(false[\s\S]*?'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*?'11435'/
         );
     });
 
@@ -181,7 +181,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
 
         expect(templateSource).toMatch(
-            /lms:\s*\{[\s\S]*?default:\s*false[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
+            /lms:\s*\{[\s\S]*?leaf\(false[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
         );
     });
 

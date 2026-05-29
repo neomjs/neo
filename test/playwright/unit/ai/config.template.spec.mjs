@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'fs/promises';
 import Neo from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
+import BaseConfig from '../../../../ai/BaseConfig.mjs';
 import {TIER1_DEFAULTS} from '../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
@@ -37,19 +38,18 @@ test.describe('Tier 1 Config Immutability', () => {
         }
     });
 
-    test('defaultConfig remains unmutated across singleton instantiations', async () => {
+    test('leaf defaults are not mutated by instance writes (fresh instances get clean defaults)', async () => {
         const initialPort = Config.mcpHttpPort;
 
-        // Modify through the singleton instance
+        // Mutate the runtime value through the singleton instance
         Config.data.mcpHttpPort = 9999;
         expect(Config.mcpHttpPort).toBe(9999);
 
-        // Re-run construct to re-clone from defaultConfig using the unwrapped instance
-        Neo.ns('Neo.ai.Config').construct({});
-
-        // The re-cloned instance should not inherit the mutated port
-        expect(Neo.ns('Neo.ai.Config').data.mcpHttpPort).not.toBe(9999);
-        expect(Neo.ns('Neo.ai.Config').data.mcpHttpPort).toBe(initialPort);
+        // A fresh instance built from the same meta-leaf tree (`_data`) gets the clean default —
+        // the instance write touched the reactive Config value, not the leaf `default`.
+        const fresh = Neo.create(BaseConfig, {data: Config._data});
+        expect(fresh.getDataConfig('mcpHttpPort').get()).not.toBe(9999);
+        expect(fresh.getDataConfig('mcpHttpPort').get()).toBe(initialPort);
     });
 
     test('ships a machine-neutral orchestrator dev-sync root default', async () => {
@@ -172,12 +172,12 @@ test.describe('Tier 1 Config Immutability', () => {
             const source = await fs.readFile(new URL(templateUrl, import.meta.url), 'utf8');
 
             // The ledger lives inside the config class as a single `static config` block
-            // whose `metaTree` holds the `{env?, default, parse?}` leaves — never as a
+            // whose `data` config holds the `{env?, default, parse?}` leaves — never as a
             // module-level `const` (the old parallel defaultConfig/envBindings shape, and
             // its meta-leaf successor, would both leak the ledger out of the class).
             expect(source).not.toMatch(/^const\s+(defaultConfig|envBindings|metaTree)\s*=/m);
             expect(source).toMatch(/static\s+config\s*=/);
-            expect(source).toMatch(/metaTree\s*:/);
+            expect(source).toMatch(/data\s*:/);
         }
     });
 });
