@@ -131,8 +131,13 @@ class BaseConfig extends Provider {
                 const path = [...pathParts, key];
 
                 if (Neo.isObject(value) && Object.prototype.hasOwnProperty.call(value, 'default')) {
+                    // Capture the dotted path BEFORE assignToNs — it mutates its `path` arg via
+                    // `path.pop()`, which would otherwise collapse a nested leaf onto its parent
+                    // namespace key (dropping env metadata for every nested leaf).
+                    const dotted = path.join('.');
+
                     Neo.assignToNs(path, value.default, plainData);
-                    registry.set(path.join('.'), {
+                    registry.set(dotted, {
                         env  : value.env   ?? null,
                         parse: value.parse ?? null,
                         // Guard inference: Neo.typeOf is undefined for objects with an own `constructor` key.

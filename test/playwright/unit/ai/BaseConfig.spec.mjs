@@ -106,14 +106,19 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
         config.destroy()
     });
 
-    test('env vars override leaf defaults (bounded, parsed to typed values)', () => {
-        process.env.NEO_TEST_PORT  = '8080';
-        process.env.NEO_TEST_DEBUG = 'true';
+    test('env vars override leaf defaults — top-level AND nested (bounded, parsed)', () => {
+        process.env.NEO_TEST_PORT    = '8080';
+        process.env.NEO_TEST_DEBUG   = 'true';
+        process.env.NEO_TEST_TIMEOUT = '1234';
 
         const config = Neo.create(BaseConfig, {data: buildTree()});
 
         expect(config.getDataConfig('port').get()).toBe(8080);
         expect(config.getDataConfig('debug').get()).toBe(true);
+        // A NESTED env-bound leaf must also be env-overridden. Regression guard: `assignToNs`
+        // mutates its `path` arg (pops the last segment), which had collapsed every nested leaf
+        // onto its parent namespace key — dropping the nested leaf's env binding entirely.
+        expect(config.getDataConfig('server.timeout').get()).toBe(1234);
         expect(config.getDataConfig('name').get()).toBe('neo'); // env-free keeps default
 
         config.destroy()
@@ -191,11 +196,12 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
         console.warn = msg => warnings.push(String(msg));
 
         try {
-            // object leaf is validated (no `!== 'Object'` bypass) and kept without warning
-            config.setData('ef', {name: 'x', generate: () => null});
-            expect(config.getDataConfig('ef').get().name).toBe('x');
+            // The old `!== 'Object'` gate skipped validation for object values; now an object
+            // written to a known SCALAR leaf path is validated → warns (the bypass is gone).
+            config.setData('name', {unexpected: 1});
+            expect(warnings.some(w => w.includes('name'))).toBe(true);
 
-            // scalar type mismatch warns but keeps the value
+            // a scalar type mismatch also warns but keeps the value
             config.setData('port', 'not-a-number');
             expect(config.getDataConfig('port').get()).toBe('not-a-number');
             expect(warnings.some(w => w.includes('port'))).toBe(true)
