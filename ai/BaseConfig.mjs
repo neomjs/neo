@@ -227,13 +227,17 @@ class BaseConfig extends Provider {
                   ext          = path.extname(absolutePath);
             let overlay;
 
+            // A `.mjs` overlay default-exports the already-compiled config singleton
+            // (createConfigProxy); its data + env layer are applied at construction, so there
+            // is nothing to merge here (the legacy `Neo.merge(data, proxy)` was a no-op too —
+            // the proxy does not enumerate data leaves). The import validates the file exists.
+            // A JSON overlay carries partial operator overrides that merge into reactive data.
             if (ext === '.mjs' || ext === '.js') {
-                overlay = (await import(absolutePath)).default;
+                await import(absolutePath);
             } else {
-                overlay = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+                this.setData(JSON.parse(await fs.readFile(absolutePath, 'utf-8')));
             }
 
-            this.setData(overlay);
             this.#applyEnvLayer();
 
             console.error(`[Neo.ai.BaseConfig] Loaded overlay configuration from ${absolutePath}`);
