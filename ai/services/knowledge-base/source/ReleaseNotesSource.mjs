@@ -36,8 +36,8 @@ class ReleaseNotesSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        // Phase 0/1B-β (#11660): per-source path override; legacy fallback preserves byte-equivalence.
-        const releaseNotesPath = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.ReleaseNotesSource ?? '.github/RELEASE_NOTES');
+        // Per-source path from the `sourcePaths` config (SSOT).
+        const releaseNotesPath = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.ReleaseNotesSource);
 
         if (await fs.pathExists(releaseNotesPath)) {
             const releaseFiles = await fs.readdir(releaseNotesPath);

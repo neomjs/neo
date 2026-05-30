@@ -38,8 +38,8 @@ class SkillSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        // Phase 0/1B-β (#11660): per-source path override; legacy fallback preserves byte-equivalence.
-        const skillsBasePath = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.SkillSource ?? '.agents/skills');
+        // Per-source path from the `sourcePaths` config (SSOT).
+        const skillsBasePath = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.SkillSource);
 
         if (await fs.pathExists(skillsBasePath)) {
             // Using fast-glob to recursively find all .md files in the skills directory

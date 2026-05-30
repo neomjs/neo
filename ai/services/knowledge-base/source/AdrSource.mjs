@@ -35,10 +35,9 @@ class AdrSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        // Phase 0/1B-β (#11660): per-source path override. Falls through to the legacy
-        // hardcoded `learn/agentos/decisions` when `aiConfig.sourcePaths.AdrSource` is unset
-        // — byte-equivalence preserved for pre-#11660 deployments.
-        const adrDir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.AdrSource ?? 'learn/agentos/decisions');
+        // Per-source path from the `sourcePaths` config (SSOT — the leaf in the KB config template
+        // defines every Source's default path).
+        const adrDir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.AdrSource);
 
         if (await fs.pathExists(adrDir)) {
             const files = await fs.readdir(adrDir);

@@ -40,15 +40,8 @@ class ApiSource extends Base {
      * @returns {Promise<Number>} The number of chunks extracted.
      */
     async extract(writeStream, createHashFn) {
-        // Phase 0/1B-β (#11660): per-source sourceMap override (path → type object). Legacy
-        // fallback preserves byte-equivalence with pre-#11660 behavior.
-        const sourceMap = aiConfig.sourcePaths?.ApiSource ?? {
-            'src'     : 'src',
-            'apps'    : 'app',
-            'examples': 'example',
-            'docs/app': 'app',
-            'ai'      : 'ai-infrastructure'
-        };
+        // Per-source sourceMap (path → type object) from the `sourcePaths` config (SSOT).
+        const sourceMap = aiConfig.sourcePaths?.ApiSource;
 
         // Load the authoritative class hierarchy
         let hierarchy = {};
