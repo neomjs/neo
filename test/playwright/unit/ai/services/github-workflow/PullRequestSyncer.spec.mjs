@@ -116,6 +116,39 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         // `archiveVersion` is fully retired (#11364) — it is no longer written to metadata.
         expect(metadata.pulls[prNumber].archiveVersion).toBeUndefined();
     });
+
+    test('non-semver milestone is not a version bucket — PR falls through to closedAt→release (#12184)', async () => {
+        const prNumber = 3287;
+
+        // A descriptive (non-semver) milestone must NOT become a `v<title>` archive folder (mirror of
+        // the IssueSyncer guard). The merged PR falls through to the closedAt→release resolution and
+        // buckets into the real release that shipped after it merged.
+        const pr = buildPullRequest(prNumber);
+        pr.milestone = {title: 'Neo-Material Component Library v0.1'};
+        pr.mergedAt  = '2024-09-15T00:00:00Z';
+        pr.closedAt  = '2024-09-15T00:00:00Z';
+
+        // A real release published AFTER the PR merged → the closedAt→release fallback resolves here.
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v9.0.0', publishedAt: '2024-10-01T00:00:00Z'}];
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [pr],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats       = await PullRequestSyncer.syncPullRequests({pulls: {}});
+        const releasePath = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'v9.0.0', 'chunk-1', `pr-${prNumber}.md`);
+        const garbagePath = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'vNeo-Material Component Library v0.1', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.synced).toEqual([prNumber]);
+        // Bucketed into the real release, NOT a title-derived garbage folder.
+        await expect(fs.pathExists(releasePath)).resolves.toBe(true);
+        await expect(fs.pathExists(garbagePath)).resolves.toBe(false);
+    });
 });
 
 function buildPullRequest(number) {

@@ -353,7 +353,10 @@ class IssueSyncer extends Base {
         for (const issue of combined.values()) {
             let version = null;
             if (issue.state === 'CLOSED') {
-                if (issue.milestone?.title) {
+                // Treat a milestone as a version bucket ONLY when its title is valid semver. A
+                // descriptive milestone (e.g. "neo.d.ts - Typescript definitions") must not become
+                // a version folder; non-semver milestones fall through to closedAt→release resolution.
+                if (issue.milestone?.title && semver.valid(semver.clean(issue.milestone.title))) {
                     version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                         ? issue.milestone.title
                         : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
