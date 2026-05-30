@@ -201,6 +201,16 @@ class PullRequestSyncer extends Base {
         let hasNextPage     = true;
         let cursor          = null;
 
+        // Delta cutoff. The `pullRequests` connection (unlike `issues`) has no server-side `since`
+        // filter, so the query orders UPDATED_AT DESC and we stop paginating once a batch's oldest PR
+        // predates the cached high-water mark. A clean-slate run (lastSync === null) or an empty cache
+        // traverses the full history. Mirrors the issue delta semantics — the dominant rate-limit win.
+        const cachedPrDates = Object.values(metadata.pulls || {})
+            .map(p => Date.parse(p.updatedAt)).filter(t => !isNaN(t));
+        const sinceCutoff = (metadata.lastSync == null || cachedPrDates.length === 0)
+            ? 0
+            : cachedPrDates.reduce((max, t) => t > max ? t : max, 0);
+
         // Ensure directory exists
         await fs.mkdir(issueSyncConfig.pullsDir, { recursive: true });
 
@@ -222,6 +232,11 @@ class PullRequestSyncer extends Base {
             }
 
             allPullRequests.push(...pullRequests.nodes);
+
+            // Stop once the oldest PR in this UPDATED_AT-DESC batch predates the cutoff — everything
+            // beyond is already current (re-processed in-window items no-op via the content-hash skip).
+            const oldestPr = pullRequests.nodes[pullRequests.nodes.length - 1];
+            if (Date.parse(oldestPr.updatedAt) < sinceCutoff) break;
 
             hasNextPage = pullRequests.pageInfo.hasNextPage;
             cursor      = pullRequests.pageInfo.endCursor;
