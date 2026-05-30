@@ -1,26 +1,25 @@
-import Container        from '../../../../../src/container/Base.mjs';
-import ContentComponent from './Component.mjs';
-import TimelineCanvas   from './TimelineCanvas.mjs';
+import Container      from '../../../../../src/container/Base.mjs';
+import TimelineCanvas from './TimelineCanvas.mjs';
 
 /**
- * @class Portal.view.news.tickets.CanvasWrapper
+ * @class Portal.view.content.CanvasWrapper
  * @extends Neo.container.Base
  */
 class CanvasWrapper extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.news.tickets.CanvasWrapper'
+         * @member {String} className='Portal.view.content.CanvasWrapper'
          * @protected
          */
-        className: 'Portal.view.news.tickets.CanvasWrapper',
+        className: 'Portal.view.content.CanvasWrapper',
         /**
          * @member {String[]} cls=['portal-canvas-wrapper']
          */
         cls: ['portal-canvas-wrapper'],
         /**
-         * @member {Neo.component.Base|null} contentComponent=ContentComponent
+         * @member {Neo.component.Base|null} contentComponent=null
          */
-        contentComponent: ContentComponent,
+        contentComponent: null,
         /**
          * @member {Object} layout=null
          */
