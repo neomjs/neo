@@ -1,5 +1,5 @@
 import TicketLabelsStore          from '../../../store/TicketLabels.mjs';
-import TicketTimelineSectionsStore  from '../../../store/TicketTimelineSections.mjs';
+import TimelineSectionsStore  from '../../../store/TimelineSections.mjs';
 import TicketsStore                 from '../../../store/Tickets.mjs';
 import StateProvider                from '../../../../../src/state/Provider.mjs';
 
@@ -51,7 +51,7 @@ class MainContainerStateProvider extends StateProvider {
                 module  : TicketLabelsStore
             },
             sections: {
-                module: TicketTimelineSectionsStore
+                module: TimelineSectionsStore
             },
             tree: {
                 autoLoad: true,

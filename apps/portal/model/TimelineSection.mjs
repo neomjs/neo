@@ -1,16 +1,16 @@
 import ContentSection from './ContentSection.mjs';
 
 /**
- * @class Portal.model.TicketTimelineSection
+ * @class Portal.model.TimelineSection
  * @extends Portal.model.ContentSection
  */
-class TicketTimelineSection extends ContentSection {
+class TimelineSection extends ContentSection {
     static config = {
         /**
-         * @member {String} className='Portal.model.TicketTimelineSection'
+         * @member {String} className='Portal.model.TimelineSection'
          * @protected
          */
-        className: 'Portal.model.TicketTimelineSection',
+        className: 'Portal.model.TimelineSection',
         /**
          * @member {Object[]} fields
          */
@@ -30,4 +30,4 @@ class TicketTimelineSection extends ContentSection {
     }
 }
 
-export default Neo.setupClass(TicketTimelineSection);
+export default Neo.setupClass(TimelineSection);
