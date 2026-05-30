@@ -133,8 +133,6 @@ export const KB_DEFAULTS = deepFreeze(Neo.clone({
     batchDelay        : 10000,
     maxRetries        : 5,
     nResults          : 100,
-    autoSync          : false,
-    autoStartDatabase : false,
     transport         : 'stdio',
     mcpHttpPort       : 3000
 }, true, true));

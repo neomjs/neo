@@ -54,47 +54,6 @@ class Config extends BaseConfig {
              */
             neoRootDir: leaf(neoRootDir),
             /**
-             * Automatically trigger session summarization on startup.
-             * @type {boolean}
-             */
-            autoSummarize: leaf(false, 'NEO_AUTO_SUMMARIZE', 'boolean'),
-            /**
-             * Automatically start the local database process (Chroma/SQLite) on startup.
-             * @type {boolean}
-             */
-            autoStartDatabase: leaf(false, 'NEO_MEM_AUTO_START_DATABASE', 'boolean'),
-            /**
-             * Automatically start the local inference server on startup.
-             * @type {boolean}
-             */
-            autoStartInference: leaf(false, 'NEO_MEM_AUTO_START_INFERENCE', 'boolean'),
-            /**
-             * Automatically trigger GraphRAG extraction on startup.
-             * @type {boolean}
-             */
-            autoDream: leaf(false, 'NEO_AUTO_DREAM', 'boolean'),
-            /**
-             * @deprecated since PR #11101. Golden Path synthesis is now dynamically event-driven
-             * (triggered via MemoryService#mutateFrontier) rather than bound to MCP boot sequence.
-             * This boot-time flag remains for temporary backwards-compatibility but will be
-             * removed in a future release.
-             *
-             * Automatically trigger Golden Path Synthesis into the handoff file on startup.
-             * Crucial for headless swarm nodes (Mac 2) to physically generate sandman_handoff.md.
-             * @type {boolean}
-             */
-            autoGoldenPath: leaf(false, 'NEO_AUTO_GOLDEN_PATH', 'boolean'),
-            /**
-             * Immediately parse each incoming memory turn (add_memory) for Graph Injection.
-             * @type {boolean}
-             */
-            realTimeMemoryParsing: leaf(false, 'NEO_REAL_TIME_MEMORY_PARSING', 'boolean'),
-            /**
-             * Automatically trigger FileSystem ingestion (Differential Graph Sync) on MCP server startup.
-             * @type {boolean}
-             */
-            autoIngestFileSystem: leaf(false, 'NEO_AUTO_INGEST_FS', 'boolean'),
-            /**
              * Global debug flag for all MCP servers.
              * @type {boolean}
              */

@@ -428,34 +428,25 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
 }
 
 /**
- * @summary Projects background daemon feature flags into the healthcheck `features.dream`
- *          observability block.
+ * @summary Projects the orchestrator's last dream / golden-path run timestamps into the
+ *          healthcheck `features.dream` observability block.
  *
- * Pure projection: reads the active boolean status of the background data-processing
- * features and surfaces them so operators can verify boot-time evaluations (env var overrides
- * vs defaults) without having to inspect the `config.mjs` file manually.
+ * Timestamps (`lastDreamRun`, `lastGoldenPathRun`) are `null` until the orchestrator records
+ * run history. Boot-time auto-* feature flags were retired — the orchestrator daemon is the
+ * sole driver of dream / golden-path / summarize / ingest, so there are no server-side flags
+ * left to project.
  *
- * Timestamps (`lastDreamRun`, `lastGoldenPathRun`) are initialized to `null` as placeholders
- * until the orchestrator records run history.
- *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.autoDream`, `cfg.autoGoldenPath`,
- *     `cfg.realTimeMemoryParsing`, and `cfg.autoIngestFileSystem`.
  * @param {Object|Map<String, Object>} [taskOutcomes={}] The orchestrator task outcomes map or object.
- * @returns {{autoDream: Boolean, autoGoldenPath: Boolean, realTimeMemoryParsing: Boolean,
- *     autoIngestFileSystem: Boolean, lastDreamRun: String|null, lastGoldenPathRun: String|null}}
+ * @returns {{lastDreamRun: String|null, lastGoldenPathRun: String|null}}
  */
-export function buildDreamFeaturesBlock(cfg, taskOutcomes = {}) {
+export function buildDreamFeaturesBlock(taskOutcomes = {}) {
     const isMap = taskOutcomes instanceof Map;
     const dreamState = isMap ? taskOutcomes.get('dream') : taskOutcomes['dream'];
     const goldenPathState = isMap ? taskOutcomes.get('golden-path') : taskOutcomes['golden-path'];
 
     return {
-        autoDream            : !!cfg.autoDream,
-        autoGoldenPath       : !!cfg.autoGoldenPath,
-        realTimeMemoryParsing: !!cfg.realTimeMemoryParsing,
-        autoIngestFileSystem : !!cfg.autoIngestFileSystem,
-        lastDreamRun         : dreamState?.details?.completedAt || dreamState?.details?.failedAt || null,
-        lastGoldenPathRun    : goldenPathState?.details?.completedAt || goldenPathState?.details?.failedAt || null
+        lastDreamRun     : dreamState?.details?.completedAt || dreamState?.details?.failedAt || null,
+        lastGoldenPathRun: goldenPathState?.details?.completedAt || goldenPathState?.details?.failedAt || null
     };
 }
 /**
@@ -1093,7 +1084,7 @@ class HealthService extends Base {
             features : {
                 summarization: false,
                 wake         : await buildWakeFeaturesBlock(),
-                dream        : buildDreamFeaturesBlock(aiConfig, this.#taskOutcomes)
+                dream        : buildDreamFeaturesBlock(this.#taskOutcomes)
             },
             startup  : {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',

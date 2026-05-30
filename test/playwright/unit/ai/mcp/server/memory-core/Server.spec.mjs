@@ -29,7 +29,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        
+
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
@@ -41,7 +41,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         Server = (await import('../../../../../../../ai/mcp/server/memory-core/Server.mjs')).default;
         GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        
+
         if (fs.existsSync(testDbPath)) {
             try {
                 fs.unlinkSync(testDbPath);
@@ -118,7 +118,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     test('bindAgentIdentity should recover from stuck vicinityLoadedNodes cache miss', async () => {
 
         await GraphService.initAsync();
-        
+
         GraphService.upsertNode({id: '@neo-opus-4-7', type: 'AgentIdentity', name: 'Identity Node'});
 
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -136,31 +136,9 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
 
         const boundId = await serverInstance.bindAgentIdentity('neo-opus-4-7');
-        
+
         expect(boundId).toBe('@neo-opus-4-7');
-        
+
         serverInstance.destroy();
-    });
-
-    test('onSessionClosed triggers SessionService.queueSummarizationJob', async () => {
-        const SessionService = (await import('../../../../../../../ai/services/memory-core/SessionService.mjs')).default;
-
-        // Mock the SessionService method
-        const originalQueue = SessionService.queueSummarizationJob.bind(SessionService);
-        let queuedSessionId = null;
-
-        SessionService.queueSummarizationJob = function(sessionId) {
-            queuedSessionId = sessionId;
-        };
-
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
-
-        try {
-            serverInstance.onSessionClosed('test-session-123');
-            expect(queuedSessionId).toBe('test-session-123');
-        } finally {
-            SessionService.queueSummarizationJob = originalQueue;
-            serverInstance.destroy();
-        }
     });
 });

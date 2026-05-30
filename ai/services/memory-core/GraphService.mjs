@@ -162,18 +162,6 @@ class GraphService extends Base {
                 logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
             }
 
-            // --- 3. FILE SYSTEM INGESTION (Differential Sync) ---
-            if (aiConfig.autoIngestFileSystem) {
-                try {
-                    logger.log('[GraphService] Bootstrapping FileSystem Ingestion Native Sync...');
-                    const FileSystemIngestor = (await import('./FileSystemIngestor.mjs')).default;
-                    await FileSystemIngestor.syncWorkspaceToGraph();
-                    logger.log('[GraphService] FileSystem topology synced.');
-                } catch (error) {
-                    logger.warn(`[GraphService] Non-fatal error during FileSystem ingestion: ${error.message}`);
-                }
-            }
-
             logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
         })();
 

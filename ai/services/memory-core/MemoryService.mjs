@@ -344,12 +344,7 @@ class MemoryService extends Base {
             // 3. Link this memory dynamically to the active context frontier
             GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
 
-            // 4. Real-Time A2A JSON Parsing (Deprecated)
-            if (aiConfig.realTimeMemoryParsing) {
-                logger.warn(`[MemoryService] Real-Time parsing skipped: DreamService decoupled. Awaiting REM sleep.`);
-            }
-
-            // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
+            // 4. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
             //    so a degraded mailbox query never blocks a successful memory write.
             const mailbox = buildMailboxDelta();

@@ -93,12 +93,6 @@ export async function runSandman({
     // Enable debug logging to see progress
     Memory_Config.data.debug = true;
 
-    // STRICTLY bypass daemon startup auto-queue.
-    // If autoDream fires synchronously inside init(), the await processUndigestedSessions() skips.
-    Memory_Config.data.autoDream = false;
-    Memory_Config.data.autoSummarize = false;
-    Memory_Config.data.autoGoldenPath = false;
-
     output.log('⏳ Initializing Sandman REM Extraction Pipeline...');
 
     // Run the REM cycle under the shared heavy-maintenance lease so this CLI cannot
