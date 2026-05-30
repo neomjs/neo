@@ -293,36 +293,6 @@ class SessionService extends Base {
         // Use StorageRouter
         this.memoryCollection = await StorageRouter.getMemoryCollection();
         this.sessionsCollection = await StorageRouter.getSummaryCollection();
-
-        // Do not proceed with summarization if the API key is missing.
-        if (!this.model) {
-            return;
-        }
-
-        if (aiConfig.autoSummarize) {
-            logger.info('[Startup] Checking for unsummarized sessions...');
-
-            this.summarizeSessions({}).then(result => {
-                if (result.processed > 0) {
-                    logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
-                    result.sessions.forEach(session => {
-                        logger.info(`   - ${session.title} (${session.memoryCount} memories)`);
-                    });
-                    HealthService.recordStartupSummarization('completed', {
-                        processed: result.processed,
-                        sessions: result.sessions.map(s => ({ title: s.title, memoryCount: s.memoryCount }))
-                    });
-                } else {
-                    logger.info('[Startup] No unsummarized sessions found');
-                    HealthService.recordStartupSummarization('completed', { processed: 0 });
-                }
-            }).catch(error => {
-                logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
-                logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
-                HealthService.recordStartupSummarization('failed', { error: error.message });
-            });
-        }
-
     }
 
     /**
@@ -853,60 +823,6 @@ ${aggregatedContent}
         this.currentSessionId = sessionId;
 
         return { success: true, sessionId: this.currentSessionId, replacedSessionId: oldSessionId };
-    }
-
-    /**
-     * Queues a session for summarization by writing a 'pending' marker
-     * to the SummarizationJobs table and triggering the asynchronous detector.
-     * @summary Wires disconnected SSE session state to the summarization pipeline.
-     *
-     * @param {String} sessionId
-     */
-    queueSummarizationJob(sessionId) {
-        if (!aiConfig.autoSummarize) return;
-
-        const db = GraphService.db?.storage?.db;
-        if (!db) return;
-        try {
-            db.prepare(`
-                INSERT INTO SummarizationJobs (session_id, status)
-                VALUES (?, 'pending')
-                ON CONFLICT(session_id) DO UPDATE SET
-                    status = 'pending',
-                    lease_token = NULL,
-                    expires_at = NULL
-                WHERE status != 'completed' AND status != 'in_progress'
-            `).run(sessionId);
-
-            // Asynchronously trigger processing so we don't block the caller (e.g. disconnect lifecycle)
-            setTimeout(() => this.processPendingSummarizations(), 100);
-        } catch (e) {
-            logger.warn(`[SessionService] Error queuing summarization for ${sessionId}: ${e.message}`);
-        }
-    }
-
-    /**
-     * Finds pending summarization jobs and attempts to process them.
-     * @summary Asynchronously resolves pending state markers from disconnected sessions without blocking main loops.
-     */
-    async processPendingSummarizations() {
-        const db = GraphService.db?.storage?.db;
-        if (!db) return;
-
-        try {
-            const pendingJobs = db.prepare(`
-                SELECT session_id FROM SummarizationJobs WHERE status = 'pending'
-            `).all();
-
-            for (const job of pendingJobs) {
-                // Background execution. The inner call uses claimSummarizationJob to get a lease.
-                this.summarizeSessions({ sessionId: job.session_id }).catch(e => {
-                    logger.error(`[SessionService] Background summarization failed for ${job.session_id}:`, e);
-                });
-            }
-        } catch (e) {
-            logger.warn(`[SessionService] Error processing pending summarizations: ${e.message}`);
-        }
     }
 
     /**

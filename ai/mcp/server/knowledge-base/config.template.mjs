@@ -39,16 +39,6 @@ class Config extends BaseConfig {
         data: {
             neoRootDir: leaf(neoRootDir),
             /**
-             * Automatically synchronize the knowledge base on startup.
-             * @type {boolean}
-             */
-            autoSync: leaf(false, 'NEO_AUTO_SYNC', 'boolean'),
-            /**
-             * Automatically start the local Chroma database process on startup.
-             * @type {boolean}
-             */
-            autoStartDatabase: leaf(false, 'NEO_KB_AUTO_START_DATABASE', 'boolean'),
-            /**
              * Global debug flag for all MCP servers.
              * @type {boolean}
              */
