@@ -197,10 +197,13 @@ class Config extends BaseConfig {
                  */
                 maxIssues: leaf(20000),
                 /**
-                 * The maximum number of releases to fetch from the GitHub API.
+                 * Safety cap on releases fetched from the GitHub API. Must exceed the repo's total
+                 * release count: the closed-item bucketing reference (`ReleaseNotesSyncer.sortedReleases`)
+                 * spans the full history, so a cap below the total would drop the oldest releases and
+                 * mis-bucket pre-cap closed items.
                  * @type {number}
                  */
-                maxReleases: leaf(1000),
+                maxReleases: leaf(2000),
                 /**
                  * The number of releases to fetch per page in GraphQL queries.
                  * @type {number}

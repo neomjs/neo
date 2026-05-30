@@ -38,6 +38,7 @@ import path            from 'path';
  */
 test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let IssueSyncer;
+    let ReleaseNotesSyncer;
     let GraphqlService;
     let issueSyncConfig;
     let aiConfig;
@@ -66,6 +67,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         IssueSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/IssueSyncer.mjs')).default;
+        ReleaseNotesSyncer = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseNotesSyncer.mjs')).default;
         logger         = (await import('../../../../../../ai/mcp/server/github-workflow/logger.mjs')).default;
 
         originalQuery = GraphqlService.query.bind(GraphqlService);
@@ -255,6 +257,49 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(relativeToIssuesDir.startsWith('..')).toBe(false); // path is under issuesDir
         expect(targetPath).not.toContain('/archive/');
         expect(targetPath).not.toContain('unversioned');
+    });
+
+    test('non-semver milestone is not a version bucket — falls through to closedAt→release (#12184)', async () => {
+        // A descriptive (non-semver) milestone must NOT become a `v<title>` archive folder. Empirical:
+        // #3286/#3287 carried milestones like "neo.d.ts - Typescript definitions ..." and were archived
+        // as garbage version folders. With the semver guard, such a closed issue falls through to the
+        // closedAt→release resolution and buckets into the real release that shipped after it closed.
+        const mockIssue = buildMockIssue({
+            number       : 3286,
+            title        : 'Mock non-semver-milestone issue',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        mockIssue.state     = 'CLOSED';
+        mockIssue.closedAt  = '2024-09-15T00:00:00Z';
+        mockIssue.milestone = {title: 'neo.d.ts - Typescript definitions for all neo framework classes'};
+
+        // A real release published AFTER the issue closed → the closedAt→release fallback resolves here.
+        const originalSorted = ReleaseNotesSyncer.sortedReleases;
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v9.0.0', publishedAt: '2024-10-01T00:00:00Z'}];
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(mockIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {issues: {}};
+
+        try {
+            const stats = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+            expect(stats.refetched.count).toBe(1);
+            expect(stats.errors).toHaveLength(0);
+
+            const bucketPath = metadata.issues[mockIssue.number].path;
+            // Bucketed into the real release, NOT a title-derived garbage folder.
+            expect(bucketPath).toContain(path.join('archive', 'issues', 'v9.0.0'));
+            expect(bucketPath).not.toContain('neo.d.ts');
+        } finally {
+            ReleaseNotesSyncer.sortedReleases = originalSorted;
+        }
     });
 
     test('pullFromGitHub enforces sealed-chunk archive semantics', async () => {

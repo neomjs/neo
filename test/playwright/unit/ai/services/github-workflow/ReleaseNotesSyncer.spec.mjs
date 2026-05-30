@@ -92,13 +92,15 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
     });
 
     test('syncNotes generates ordinal pathing and updates _index.json correctly', async () => {
+        // Dates must be >= syncStartDate: syncNotes floors release-notes to the configured window
+        // (the bucketing reference `sortedReleases` spans the full history, but on-disk notes do not).
         ReleaseNotesSyncer.releases = {
-            'v1.0.0': { tagName: 'v1.0.0', name: 'Release 1', publishedAt: '2024-01-01T00:00:00Z', description: 'First release' },
-            'v1.1.0': { tagName: 'v1.1.0', name: 'Release 2', publishedAt: '2024-02-01T00:00:00Z', description: 'Second release' }
+            'v1.0.0': { tagName: 'v1.0.0', name: 'Release 1', publishedAt: '2025-02-01T00:00:00Z', description: 'First release' },
+            'v1.1.0': { tagName: 'v1.1.0', name: 'Release 2', publishedAt: '2025-03-01T00:00:00Z', description: 'Second release' }
         };
         ReleaseNotesSyncer.sortedReleases = [
-            { tagName: 'v1.0.0', publishedAt: '2024-01-01T00:00:00Z' },
-            { tagName: 'v1.1.0', publishedAt: '2024-02-01T00:00:00Z' }
+            { tagName: 'v1.0.0', publishedAt: '2025-02-01T00:00:00Z' },
+            { tagName: 'v1.1.0', publishedAt: '2025-03-01T00:00:00Z' }
         ];
 
         // Ensure the directory is clean
@@ -123,5 +125,73 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
         const indexData = await fs.readJson(indexPath);
         expect(indexData.items['v1.0.0']).toEqual({ itemIndex: 0, chunk: 1, chunkDir: 'chunk-1' });
         expect(indexData.items['v1.1.0']).toEqual({ itemIndex: 1, chunk: 1, chunkDir: 'chunk-1' });
+    });
+
+    test('cold fetch spans the full release history — no syncStartDate early-exit or filter on sortedReleases', async () => {
+        // syncStartDate floors release-NOTES (downstream in syncNotes), but the bucketing reference
+        // sortedReleases must span the ENTIRE history; otherwise closed items predating the oldest
+        // in-window release collapse into it (the catch-all bucket). Three pages: page 2 + 3 are
+        // before the floor — the pre-fix early-exit would stop after page 2 and the filter would drop them.
+        const start    = new Date(issueSyncConfig.syncStartDate).getTime();
+        const inWindow = new Date(start + 86400000).toISOString();
+        const preA     = new Date(start - 86400000).toISOString();
+        const preB     = new Date(start - 2 * 86400000).toISOString();
+
+        let page = 0;
+        GraphqlService.query = async () => {
+            page++;
+            if (page === 1) return {repository: {releases: {
+                nodes   : [{tagName: 'vIn', publishedAt: inWindow}],
+                pageInfo: {hasNextPage: true, endCursor: 'c1'}
+            }}};
+            if (page === 2) return {repository: {releases: {
+                nodes   : [{tagName: 'vOldA', publishedAt: preA}],
+                pageInfo: {hasNextPage: true, endCursor: 'c2'}
+            }}};
+            return {repository: {releases: {
+                nodes   : [{tagName: 'vOldB', publishedAt: preB}],
+                pageInfo: {hasNextPage: false, endCursor: null}
+            }}};
+        };
+
+        // Empty cache → fast-path skipped → full cold fetch.
+        await ReleaseNotesSyncer.fetchAndCacheReleases({releases: {}});
+
+        // Pagination did not early-exit at the floor boundary (would be 2 pre-fix).
+        expect(page).toBe(3);
+        // sortedReleases spans the full history, ascending — including the two pre-floor releases.
+        expect(ReleaseNotesSyncer.sortedReleases.map(r => r.tagName)).toEqual(['vOldB', 'vOldA', 'vIn']);
+    });
+
+    test('syncNotes floors release-notes to syncStartDate while sortedReleases stays full', async () => {
+        const start    = new Date(issueSyncConfig.syncStartDate).getTime();
+        const inWindow = new Date(start + 86400000).toISOString();
+        const preFloor = new Date(start - 86400000).toISOString();
+
+        // Full bucketing reference (pre-floor + in-window); the release map mirrors it.
+        ReleaseNotesSyncer.sortedReleases = [
+            {tagName: 'vOld', publishedAt: preFloor},
+            {tagName: 'vNew', publishedAt: inWindow}
+        ];
+        ReleaseNotesSyncer.releases = {
+            vOld: {tagName: 'vOld', name: 'Old', publishedAt: preFloor, description: 'old'},
+            vNew: {tagName: 'vNew', name: 'New', publishedAt: inWindow, description: 'new'}
+        };
+
+        const releaseDir = path.join(tmpRoot, 'release-notes');
+        await fs.emptyDir(releaseDir);
+
+        const stats = await ReleaseNotesSyncer.syncNotes({});
+
+        // Only the in-window release is written; the pre-floor one is skipped.
+        expect(stats.count).toBe(1);
+        expect(stats.synced).toEqual(['vNew']);
+
+        // vNew indexes at 0 WITHIN the floored notes set — not its index (1) in the full sortedReleases.
+        const indexData = await fs.readJson(path.join(releaseDir, '_index.json'));
+        expect(indexData.items['vNew']).toEqual({itemIndex: 0, chunk: 1, chunkDir: 'chunk-1'});
+        expect(indexData.items['vOld']).toBeUndefined();
+        expect(await fs.pathExists(path.join(releaseDir, 'chunk-1', 'vNew.md'))).toBe(true);
+        expect(await fs.pathExists(path.join(releaseDir, 'chunk-1', 'vOld.md'))).toBe(false);
     });
 });

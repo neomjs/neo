@@ -59,14 +59,16 @@ class ReleaseNotesSyncer extends Base {
     }
 
     /**
-     * Fetches releases from GitHub using an optimized two-phase approach.
+     * Fetches the full release history from GitHub using a two-phase approach.
      *
-     * This optimization is necessary because the GitHub GraphQL `releases` endpoint does not
+     * The two phases are necessary because the GitHub GraphQL `releases` endpoint does not
      * support a `since` parameter, making simple delta-based fetching impossible.
      *
-     * First, it performs a quick check to see if the latest release is already cached.
-     * If not, it performs a full, paginated fetch with an early-exit optimization that
-     * stops querying when it reaches releases older than the `syncStartDate`.
+     * First, a quick check sees whether the latest release is already cached (fast-path no-op).
+     * If not, it performs a full paginated fetch of the COMPLETE release history (bounded only by
+     * the `maxReleases` safety cap). The full set populates `sortedReleases`, the bucketing
+     * reference for closed Issues/PRs/Discussions; release-NOTES are floored to `syncStartDate`
+     * downstream in `syncNotes`.
      *
      * @param {object} metadata The sync metadata containing the cached releases.
      * @returns {Promise<void>}
@@ -108,14 +110,16 @@ class ReleaseNotesSyncer extends Base {
             }
         }
 
-        // Full paginated fetch with early exit.
-        logger.info('Fetching releases from GitHub via GraphQL...');
+        // Full paginated fetch of the COMPLETE release history. The bucketing reference
+        // (`sortedReleases`, consumed by Issue/PR/Discussion closedAt→release resolution) must span
+        // every release; otherwise closed items predating the oldest fetched release all collapse
+        // into it (a catch-all bucket). Release-NOTES are floored separately in syncNotes.
+        logger.info('Fetching the full release history from GitHub via GraphQL...');
 
         let allReleases   = [];
         let hasNextPage   = true;
         let cursor        = null;
         const maxReleases = issueSyncConfig.maxReleases;
-        const startDate   = new Date(issueSyncConfig.syncStartDate);
 
         while (hasNextPage && allReleases.length < maxReleases) {
             const data = await GraphqlService.query(FETCH_RELEASES, {
@@ -132,34 +136,29 @@ class ReleaseNotesSyncer extends Base {
                 break;
             }
 
-            // Check if oldest release in this batch is before our cutoff
-            const oldestInBatch = releases.nodes[releases.nodes.length - 1];
-            const oldestDate    = new Date(oldestInBatch.publishedAt);
-
-            // Add all releases from the batch for now; we will filter after the loop
             allReleases.push(...releases.nodes);
 
-            logger.debug(`Fetched ${releases.nodes.length} releases (total raw: ${allReleases.length})`);
-
-            // Early exit if oldest release in batch is before our cutoff
-            if (oldestDate < startDate) {
-                logger.info(`Reached releases published before ${issueSyncConfig.syncStartDate}, stopping pagination.`);
-                break;
-            }
+            logger.debug(`Fetched ${releases.nodes.length} releases (total: ${allReleases.length})`);
 
             hasNextPage = releases.pageInfo.hasNextPage;
             cursor      = releases.pageInfo.endCursor;
         }
 
-        // Now, filter and sort the collected releases
-        const filteredAndSortedReleases = allReleases
-            .filter(release => new Date(release.publishedAt) >= startDate)
+        // No silent truncation: warn if the safety cap was hit before history was exhausted.
+        if (hasNextPage && allReleases.length >= maxReleases) {
+            logger.warn(`⚠️ Hit maxReleases cap (${maxReleases}) before exhausting the release history; the oldest releases are missing from the bucketing reference. Raise issueSyncConfig.maxReleases.`);
+        }
+
+        // Sort the COMPLETE set ascending. Both the release map and the bucketing reference span the
+        // full history; release-NOTES are floored by syncStartDate in syncNotes, so this wide set
+        // never reaches disk as extra notes or SSR routes.
+        const allSorted = allReleases
             .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
 
         this.releases       = {};
         this.sortedReleases = [];
 
-        filteredAndSortedReleases.forEach(release => {
+        allSorted.forEach(release => {
             this.releases[release.tagName] = release;
             this.sortedReleases.push({
                 tagName    : release.tagName,
@@ -168,9 +167,9 @@ class ReleaseNotesSyncer extends Base {
         });
 
         if (Object.keys(this.releases).length === 0) {
-            logger.warn(`⚠️ No releases found since syncStartDate (${issueSyncConfig.syncStartDate}). Archiving may fall back to default.`);
+            logger.warn('⚠️ No releases found. Archiving will fall back to active/Backlog.');
         } else {
-            logger.info(`Found and cached ${Object.keys(this.releases).length} releases since ${issueSyncConfig.syncStartDate}.`);
+            logger.info(`Found and cached ${Object.keys(this.releases).length} releases (full history).`);
         }
     }
 
@@ -205,10 +204,18 @@ class ReleaseNotesSyncer extends Base {
         };
 
         const cachedReleases = metadata.releases || {};
+        const startDate      = new Date(issueSyncConfig.syncStartDate);
+
+        // Release-notes content is floored to syncStartDate even though the bucketing reference
+        // (`sortedReleases`) now spans the full history: we only write notes for in-window releases,
+        // keeping the on-disk notes set and its chunk layout stable. Index within the floored set so
+        // chunk numbers match the notes actually written.
+        const notesReleases = this.sortedReleases.filter(r => new Date(r.publishedAt) >= startDate);
 
         for (const release of Object.values(this.releases)) {
+            if (new Date(release.publishedAt) < startDate) continue;
             try {
-                const itemIndex = this.sortedReleases.findIndex(r => r.tagName === release.tagName);
+                const itemIndex = notesReleases.findIndex(r => r.tagName === release.tagName);
                 const chunkNumber = chunkNumberFor(itemIndex);
 
                 const filename = release.tagName.startsWith(issueSyncConfig.releaseFilenamePrefix)
