@@ -40,10 +40,9 @@ class LearningSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        // Phase 0/1B-β (#11660): per-source path override. The config value points at the
-        // tree.json file; the base directory containing the .md files is derived as the
-        // path's containing directory. Legacy fallback preserves byte-equivalence.
-        const learnTreeRelative = aiConfig.sourcePaths?.LearningSource ?? 'learn/tree.json';
+        // Per-source path from the `sourcePaths` config (SSOT). The value points at the tree.json
+        // file; the base directory containing the .md files is its containing directory.
+        const learnTreeRelative = aiConfig.sourcePaths?.LearningSource;
         const learnTreePath     = path.resolve(aiConfig.neoRootDir, learnTreeRelative);
         const learnBaseRelative = path.dirname(learnTreeRelative);
 

@@ -61,11 +61,8 @@ class TicketSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        // Phase 0/1B-β (#11660): per-source path override (array of paths). Legacy fallback preserves byte-equivalence.
-        const ticketPaths = aiConfig.sourcePaths?.TicketSource ?? [
-            'resources/content/issues',
-            'resources/content/archive/issues'
-        ];
+        // Per-source paths (array) from the `sourcePaths` config (SSOT).
+        const ticketPaths = aiConfig.sourcePaths?.TicketSource;
         const targetPaths = ticketPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
         const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'issues');
