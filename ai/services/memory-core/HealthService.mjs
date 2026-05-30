@@ -1156,16 +1156,10 @@ class HealthService extends Base {
 
         // If we made it here with no errors, report success
         if (payload.status === 'healthy') {
-            if (payload.database.process.managed) {
-                payload.details.push('Connected to a server-managed ChromaDB instance');
-            } else {
-                payload.details.push('Connected to an externally managed ChromaDB instance');
-            }
+            // Unified topology: ChromaDB is orchestrator-owned; Memory Core is always an external client.
+            payload.details.push('Connected to the orchestrator-managed ChromaDB instance');
             payload.details.push('All features are operational');
         }
-
-        // Add strategy for clarity
-        payload.database.process.strategy = payload.database.process.managed ? 'managed' : 'external';
 
         return payload;
     }
