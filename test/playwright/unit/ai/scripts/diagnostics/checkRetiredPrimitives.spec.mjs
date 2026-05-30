@@ -1,159 +1,111 @@
-import {setup} from '../../../../setup.mjs';
-
-const appName = 'CheckRetiredPrimitivesTest';
-
-setup({
-    neoConfig: {
-        unitTestMode: true
-    },
-    appConfig: {
-        name             : appName,
-        isMounted        : () => true,
-        vnodeInitialising: false
-    }
-});
-
 import {test, expect} from '@playwright/test';
-import {execFileSync} from 'child_process';
-import path           from 'path';
-import fs             from 'fs/promises';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {execFileSync}  from 'node:child_process';
+import fs             from 'node:fs';
+import path            from 'node:path';
+
+// The Playwright unit runner executes with cwd = repo root, so resolve against it rather than
+// __dirname arithmetic — the latter is brittle across nesting depth and git-worktree layouts.
+const
+    repoRoot   = process.cwd(),
+    scriptPath = path.join(repoRoot, 'ai/scripts/diagnostics/check-retired-primitives.mjs');
 
 /**
- * @summary Coverage for `ai/scripts/diagnostics/check-retired-primitives.mjs` — the mechanical-enforcement
- * layer that complements ADR 0004's discipline-only §1.3/§2.6/§5.6 substrate-evolution-guard.
+ * Runs the guard with a throwaway fixture file written under the real SEARCH_ROOT (`ai/`), then
+ * cleans up. Returns the script's exit code + combined stdout/stderr. The fixture lives in a
+ * dedicated directory so cleanup is a single recursive remove even if the assertion throws.
  *
- * Test axes (matching ticket #11406 ACs):
- *
- * 1. **AC3 — clean substrate**: running the script against the current working tree (substrate
- *    is post-PR-#11403-clean-cut, no retired-primitive imports remain) must exit 0 and emit the
- *    PASS narrative naming the ADR 0004 §2.6 reference.
- *
- * 2. **AC4 — canary regression**: planting a deliberate retired-primitive import in a non-spec
- *    source file under `ai/` must cause the script to exit 1 and emit the FAIL narrative
- *    naming the offending file:line and the ADR 0004 §2.6 cross-reference.
- *
- * The canary is created/torn-down inside the test scope so cross-suite parallel runs cannot
- * see a transient retired-primitive import that would mask other failures. Test placement
- * deliberately uses `__retired_test_canary_*` prefix to make grep-discovery / cleanup unambiguous.
+ * @param {string} relFile Path (relative to repo root, under `ai/`) of the fixture file to write.
+ * @param {string} content File contents that should trip exactly one guard category.
+ * @returns {{exitCode:number, output:string}}
  */
-// `describe.serial` is REQUIRED: tests plant on-disk canary files under `ai/` whose visibility
-// would otherwise leak across Playwright's parallel workers (fullyParallel default). With serial
-// execution, the AC3 clean-substrate test runs first against a verified-clean tree, and each
-// canary-planting test cleans up before the next runs (`feedback_symmetric_spec_cleanup.md`).
-test.describe.serial('ai/scripts/check-retired-primitives', () => {
-    const scriptPath = path.resolve(process.cwd(), 'ai/scripts/diagnostics/check-retired-primitives.mjs');
+function runWithFixture(relFile, content) {
+    const
+        fixtureFile = path.join(repoRoot, relFile),
+        fixtureDir  = path.dirname(fixtureFile);
 
-    test('AC3: exits 0 with PASS narrative on a clean substrate', async () => {
-        const output = execFileSync('node', [scriptPath], {encoding: 'utf-8'});
+    let exitCode = 0,
+        output   = '';
 
-        expect(output).toContain('PASS');
-        expect(output).toContain('no retired-primitive imports found');
-        expect(output).toContain('ADR 0004 §2.6');
+    try {
+        fs.mkdirSync(fixtureDir, {recursive: true});
+        fs.writeFileSync(fixtureFile, content);
+
+        execFileSync('node', [scriptPath], {cwd: repoRoot, encoding: 'utf8'});
+    } catch (err) {
+        exitCode = err.status;
+        output   = (err.stdout || '') + (err.stderr || '');
+    } finally {
+        fs.rmSync(fixtureDir, {recursive: true, force: true});
+    }
+
+    return {exitCode, output};
+}
+
+/**
+ * @summary CI guard test for `check-retired-primitives.mjs`.
+ *
+ * Verifies the guard distinguishes a clean tree from each re-introduction category: retired module
+ * import, retired per-MCP-server config flag (#12139), and retired MCP tool (#12139). Each negative
+ * case writes a throwaway fixture under `ai/`, runs the guard as a subprocess, asserts the failure,
+ * then cleans up — covering the falsifying input, not just the happy path.
+ *
+ * @see ai/scripts/diagnostics/check-retired-primitives.mjs
+ */
+// `describe.serial` is REQUIRED: the negative-case tests plant on-disk fixture files under `ai/`
+// whose visibility would otherwise leak across Playwright's parallel workers (fullyParallel default).
+// Without serial execution, the clean-tree PASS test + the JSDoc non-false-match test would race
+// against another worker's planted fixture and see a transient retired primitive that isn't theirs.
+test.describe.serial('check-retired-primitives CI guard', () => {
+    test('exits 0 (PASS) on the current clean tree', () => {
+        // The committed tree must be free of retired primitives, config flags, and MCP tools.
+        const result = execFileSync('node', [scriptPath], {cwd: repoRoot, encoding: 'utf8'});
+        expect(result).toContain('PASS');
     });
 
-    test('AC4: exits 1 with FAIL narrative when a non-spec source imports a retired primitive', async () => {
-        // Plant a deliberate canary under ai/services/github-workflow/sync/ (a path that lies
-        // INSIDE the script's SEARCH_ROOT and OUTSIDE its excluded *.spec.mjs / *.test.mjs glob).
-        const canaryPath = path.resolve(
-            process.cwd(),
-            'ai/services/github-workflow/sync/__retired_test_canary_check_retired_primitives.mjs'
+    test('exits 1 (FAIL) on a re-added retired-primitive import', () => {
+        const {exitCode, output} = runWithFixture(
+            'ai/__retired_primitive_fixture__/probe.mjs',
+            "import {chunkPath} from '../shared/chunkPath.mjs';\n"
         );
-
-        const canaryContent = [
-            '// Auto-generated test canary for check-retired-primitives.mjs AC4.',
-            "// This file deliberately imports a retired primitive to verify the CI grep-fail check.",
-            "// The script under test (ai/scripts/diagnostics/check-retired-primitives.mjs) MUST detect this import",
-            "// and exit 1; the test cleanup unlinks this file regardless of pass/fail.",
-            "import chunkPath from '../shared/chunkPath.mjs';",
-            'export default chunkPath;',
-            ''
-        ].join('\n');
-
-        await fs.writeFile(canaryPath, canaryContent, 'utf-8');
-
-        let exitCode = null;
-        let stdout   = '';
-        let stderr   = '';
-
-        try {
-            execFileSync('node', [scriptPath], {encoding: 'utf-8'});
-            // Reaching here means script exited 0 — that's the bug.
-            exitCode = 0;
-        } catch (err) {
-            exitCode = err.status;
-            stdout   = err.stdout || '';
-            stderr   = err.stderr || '';
-        } finally {
-            // Always cleanup so a failing assertion doesn't leak the canary into other tests.
-            await fs.unlink(canaryPath).catch(() => {});
-        }
 
         expect(exitCode).toBe(1);
-        const combined = stdout + stderr;
-        expect(combined).toContain('FAIL');
-        expect(combined).toContain('__retired_test_canary_check_retired_primitives.mjs');
-        expect(combined).toContain('shared/chunkPath.mjs');
-        expect(combined).toContain('ADR 0004 §2.6');
+        expect(output).toContain('FAIL');
+        expect(output).toContain('retired-primitive import');
     });
 
-    test('AC4 (assignees-deletion variant): catches archivePath.mjs imports too', async () => {
-        const canaryPath = path.resolve(
-            process.cwd(),
-            'ai/services/github-workflow/sync/__retired_test_canary_archive_path.mjs'
+    test('exits 1 (FAIL) on a re-added retired config flag in a config.template.mjs', () => {
+        // autoStartInference is the canonical trap: config string-matched, logic never implemented.
+        const {exitCode, output} = runWithFixture(
+            'ai/__retired_config_fixture__/config.template.mjs',
+            '        autoStartInference: leaf(false, "NEO_MEM_AUTO_START_INFERENCE", "boolean"),\n'
         );
-
-        await fs.writeFile(
-            canaryPath,
-            "import archivePath from '../shared/archivePath.mjs';\nexport default archivePath;\n",
-            'utf-8'
-        );
-
-        let exitCode = null;
-        let combined = '';
-
-        try {
-            execFileSync('node', [scriptPath], {encoding: 'utf-8'});
-            exitCode = 0;
-        } catch (err) {
-            exitCode = err.status;
-            combined = (err.stdout || '') + (err.stderr || '');
-        } finally {
-            await fs.unlink(canaryPath).catch(() => {});
-        }
 
         expect(exitCode).toBe(1);
-        expect(combined).toContain('shared/archivePath.mjs');
-        expect(combined).toContain('__retired_test_canary_archive_path.mjs');
+        expect(output).toContain('FAIL');
+        expect(output).toContain('retired config flag');
+        expect(output).toContain('autoStartInference');
     });
 
-    test('script does NOT flag a spec file that imports a retired primitive (excluded glob)', async () => {
-        // Spec files are excluded by design — they may legitimately reference retired primitives
-        // for negative-test fixtures (e.g., regression coverage proving the primitive is gone).
-        const canaryPath = path.resolve(
-            process.cwd(),
-            'ai/services/github-workflow/sync/__retired_test_canary_spec_exclusion.spec.mjs'
+    test('exits 1 (FAIL) on a re-added retired MCP-tool operationId in an openapi.yaml', () => {
+        const {exitCode, output} = runWithFixture(
+            'ai/__retired_tool_fixture__/openapi.yaml',
+            '      operationId: manage_database\n'
         );
 
-        await fs.writeFile(
-            canaryPath,
-            "import chunkPath from '../shared/chunkPath.mjs';\nexport default chunkPath;\n",
-            'utf-8'
+        expect(exitCode).toBe(1);
+        expect(output).toContain('FAIL');
+        expect(output).toContain('retired MCP tool');
+    });
+
+    test('does NOT false-match a config flag named in a JSDoc/comment line', () => {
+        // A documentation mention (not an object-key declaration) must not trip the guard:
+        // the config-flag pattern is anchored to line-start indentation, so ` * autoSync` and
+        // `// autoSync` are ignored. This guards against over-eager removal of explanatory prose.
+        const {exitCode} = runWithFixture(
+            'ai/__retired_comment_fixture__/config.template.mjs',
+            '            // autoSync was removed; the orchestrator owns kbSync now.\n'
         );
 
-        let exitCode = null;
-
-        try {
-            execFileSync('node', [scriptPath], {encoding: 'utf-8'});
-            exitCode = 0;
-        } catch (err) {
-            exitCode = err.status;
-        } finally {
-            await fs.unlink(canaryPath).catch(() => {});
-        }
-
-        // Substrate is still clean from the script's perspective because spec files are excluded.
         expect(exitCode).toBe(0);
     });
 });
