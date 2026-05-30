@@ -3,15 +3,15 @@ import SharedCanvas from '../../../../../src/app/SharedCanvas.mjs';
 /**
  * @summary The "Coordinator" component for the Neural Timeline, bridging the App Worker and Canvas Worker.
  *
- * This component renders a transparent canvas overlay on top of the Ticket List. It is responsible for:
- * 1. **Data Bridge**: Listening to the `sections` store and passing ticket data to the `TimelineCanvas` (SharedWorker).
+ * This component renders a transparent canvas overlay on top of the content list. It is responsible for:
+ * 1. **Data Bridge**: Listening to the `sections` store and passing record data to the `TimelineCanvas` (SharedWorker).
  * 2. **Visual Alignment**: Calculating the precise DOM positions of Ticket Avatars/Badges to ensure the
  *    canvas nodes align perfectly with the HTML content.
  * 3. **Lifecycle Management**: initializing the offscreen canvas transfer and handling resize events.
  *
  * It uses the `Portal.canvas.TimelineCanvas` singleton (via Remote Method Access) to drive the actual animation.
  *
- * @class Portal.view.news.tickets.TimelineCanvas
+ * @class Portal.view.content.TimelineCanvas
  * @extends Neo.app.SharedCanvas
  */
 class TimelineCanvas extends SharedCanvas {
@@ -27,10 +27,10 @@ class TimelineCanvas extends SharedCanvas {
 
     static config = {
         /**
-         * @member {String} className='Portal.view.news.tickets.TimelineCanvas'
+         * @member {String} className='Portal.view.content.TimelineCanvas'
          * @protected
          */
-        className: 'Portal.view.news.tickets.TimelineCanvas',
+        className: 'Portal.view.content.TimelineCanvas',
         /**
          * @member {String} rendererClassName='Portal.canvas.TimelineCanvas'
          */
@@ -43,7 +43,7 @@ class TimelineCanvas extends SharedCanvas {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'div', cls: ['neo-ticket-timeline-wrapper'], style: {width: '100%', height: '100%'}, cn: [
+        {tag: 'div', cls: ['neo-timeline-wrapper'], style: {width: '100%', height: '100%'}, cn: [
             {tag: 'canvas', style: {width: '100%', height: '100%'}}
         ]}
     }
@@ -143,7 +143,7 @@ class TimelineCanvas extends SharedCanvas {
      * This method synchronizes the Canvas nodes with the DOM elements (Avatars/Badges).
      *
      * **Strategy:**
-     * 1. **Targeting**: It uses the `-target` ID suffix to find the specific DOM elements (Avatars) within the ticket list.
+     * 1. **Targeting**: It uses the `-target` ID suffix to find the specific DOM elements (Avatars) within the content list.
      * 2. **Measurement**: It fetches the `DOMRect` for every target to get its exact screen position.
      * 3. **Translation**: It converts these screen coordinates into Canvas-local coordinates.
      * 4. **Handoff**: It packages this geometric data (x, y, radius, color) and sends it to the
