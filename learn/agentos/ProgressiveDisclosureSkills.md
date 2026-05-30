@@ -107,6 +107,7 @@ Beyond lifecycle governance, specialized contexts exist for live action:
 - **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
 - **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue. Also acts as an auto-fire trigger for high-blast-radius proposals.
 - **`lane-intent`:** A narrow, non-authoritative, 2-hour TTL-bound pre-V-B-A signal for collision-prone / high-blast / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A); read before broadcasting `[lane-intent]` to confirm scope-trigger qualifies.
+- **`neo-identity-update`:** The protocol for updating Neo's identity (what Neo *is*) coherently across all ~30+ surfaces that encode it — README, VISION, learn/benefits, package.json, GitHub metadata, portal app, and the build-generated SEO files. Splits FACTS (single-source-derive) from FRAMING (audience-segmented against a canonical apex). Foundation: ADR 0018.
 
 ## The Meta-Skill: Adding New Skills
 
@@ -129,6 +130,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path (sibling-file-lift pattern match) or full Pre-Flight) |
 | `identity-firewall` | Security | The L2 Channel Separation and Prompt Firewall defense mechanisms |
+| `neo-identity-update` | Tactical | Cross-surface Neo-identity coherence (facts-vs-framing; ADR 0018) |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |

@@ -156,6 +156,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "neo-identity-update": {
+      "name": "neo-identity-update",
+      "description": "Repeatable protocol for updating Neo's identity (what Neo IS) coherently across ALL surfaces that encode it — README, VISION, learn/benefits, package.json, GitHub repo metadata, portal app, and the build-generated SEO files. Treats FACTS (version, MCP-server count, Node req, dates) as single-source-derive and FRAMING (taglines, positioning) as audience-segmented against a canonical apex. Triggers: Use when changing Neo's tagline / positioning / description / keywords / pillar story; when a maintainer says 'update the identity / README / branding / how we describe Neo'; when a shipped capability outgrows the current framing; or when a fact (version, server count, requirement) drifts across surfaces. Foundation: ADR 0018.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "neural-link": {
       "name": "neural-link",
       "description": "Expert tactical knowledge on sequencing Neural Link MCP tools to inspect, debug, and manipulate live Neo.mjs applications. Triggers: Use this skill if the user asks you to interact with the browser, inspect the UI natively, patch live code, or use the Neural Link.",
