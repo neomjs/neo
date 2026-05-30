@@ -5,10 +5,11 @@ Framing (taglines, positioning, audience) is **deliberately plural** — differe
 ## The canonical apex
 The `README.md` opening frame is the apex from which all framing derives — the source of authority for "what Neo is." Every other framing is a governed projection of it.
 
-> The apex content itself is an operator-owned decision (ADR 0018 §2.7 OD-1). At time of authoring, the working apex is the **self-evolving digital organism / Four Pillars (Brain / Swarm / Body / Evolution)** frame, with two hard-hitting hemisphere projections:
-> - **RIGHT (Agent OS):** a professional, end-to-end cross-family AI engineering team.
-> - **LEFT (Body):** the high-performance off-main-thread runtime — JSON-first since 2019, App Worker as the main actor, web multi-window.
-> - **Fusion:** the same architecture that makes the runtime best-in-class is what lets an AI team *inhabit* it.
+> The apex is operator-DECIDED (ADR 0018 §2.7 OD-1, 2026-05-30) — the **two-hemisphere institution** frame:
+> *Neo is two hemispheres in one repo — a multi-threaded browser UI runtime (the Body, `/src/`) and a cross-family autonomous AI engineering team that maintains it (the Brain, `/ai/`); three AI model families propose, debate, implement, and review every change, and a human approves at the merge gate.*
+> - **BODY (`/src/`):** the high-performance off-main-thread UI runtime — JSON-first since 2019, App Worker as the main actor, web multi-window. The adoption substrate. (Engine-category mental models apply *here only*.)
+> - **BRAIN (`/ai/`):** the entire Agent OS — the cross-family engineering institution **plus** the MX loop, evolution, swarm, Memory Core, Knowledge Base, A2A, orchestrator. ≈41% of the codebase, **not** a 2% feature. **This is the headline.**
+> - **Neural Link is a supporting demo, NOT the apex** — ~2% of code (1 of 7 MCP servers); never lead with "agents inhabit the running app".
 
 When the operator changes the apex, update this section and ADR 0018 §2.7 in the same PR.
 
@@ -17,11 +18,11 @@ The same product reads differently per audience; these are kept as ONE coupled c
 
 | Cluster | Lives on | Audience |
 |---|---|---|
-| "Application Engine for the AI Era" / Scene Graph | package.json, GitHub description, index.html, hero, llms.txt header | engineers searching npm/GitHub (don't search "organism") |
-| "digital organism / Four Pillars" | README, AGENTS.md anchors | repo readers, researchers, the swarm |
-| "AI engineering team" / Agent OS | learn/benefits RIGHT doc, ROADMAP | AI architects |
+| "Application Engine for the AI Era" / Scene Graph | package.json, GitHub description, index.html, hero, llms.txt header | engineers searching npm/GitHub |
+| "self-maintaining codebase / autonomous AI engineering team" | README top, repo description, ROADMAP | AI-platform / agent-infra builders (the audience that funds the comparison tools) |
+| "self-evolving digital organism / Four Pillars" | VISION.md, AGENTS.md anchors, deeper learn/ docs | researchers, the swarm itself |
 
-Members of a cluster must stay coherent with **each other** (don't let package.json and GitHub description diverge) and **compatible** with the apex (a narrower projection, not a contradiction).
+All three are projections of the **two-hemisphere institution apex** (§ The canonical apex). Members of a cluster must stay coherent with **each other** (don't let package.json and GitHub description diverge) and **compatible** with the apex (a narrower projection, not a contradiction). Note the audience shift the audit flagged: the README top + repo metadata should lead the AI-platform-builder cluster (institution framing), not the npm-engineer cluster — that is the §undersell re-categorization the skill propagates.
 
 ## Drift vs intentional-divergence (the escalation branch)
 When a surface's framing **contradicts** the apex, classify:
