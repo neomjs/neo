@@ -624,7 +624,10 @@ class IssueSyncer extends Base {
             }
 
             const needsUpdate = !oldIssue ||
-                oldIssue.updated !== issue.updatedAt ||
+                // Persisted metadata field is `updatedAt` (see MetadataManager); comparing the
+                // non-existent `oldIssue.updated` made this always true → every issue re-formatted,
+                // re-hashed and re-written every sync, defeating the content-hash short-circuit.
+                oldIssue.updatedAt !== issue.updatedAt ||
                 oldAbsolutePath !== targetPath;
 
             let contentHash = oldIssue?.contentHash;
