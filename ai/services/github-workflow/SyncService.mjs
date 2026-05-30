@@ -282,6 +282,21 @@ class SyncService extends Base {
 
         return stats;
     }
+
+    /**
+     * Facade for the one-time archive re-bucket migration (#12194). Loads metadata, delegates to
+     * `IssueSyncer.migrateArchiveBuckets`, then persists the updated metadata (unless `dryRun`).
+     * Invoked out-of-band by `ai/scripts/migrations/rebucketArchive.mjs` — never the regular sync loop.
+     * @param {object} [opts]
+     * @param {boolean} [opts.dryRun=false] Preview the redistribution without moving files.
+     * @returns {Promise<object>} The migration summary from `IssueSyncer.migrateArchiveBuckets`.
+     */
+    async migrateArchiveBuckets({dryRun = false} = {}) {
+        const metadata = await MetadataManager.load();
+        const result   = await IssueSyncer.migrateArchiveBuckets(metadata, {dryRun});
+        if (!dryRun) await MetadataManager.save(metadata);
+        return result;
+    }
 }
 
 export default Neo.setupClass(SyncService);

@@ -849,6 +849,109 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const after = await fs.readFile(cachedAbs, 'utf8');
         expect(after).toBe('SENTINEL — must not be re-rendered');
     });
+
+    test('migrateArchiveBuckets re-buckets a sealed-pinned issue into its true release (#12194)', async () => {
+        // The v8.1.0 catch-all: a pre-window closed issue archived under the oldest in-window release
+        // (v8.1.0), whose true release (v7.0.0) predates the syncStartDate floor. Sealed-chunk +
+        // oldVersion-precedence keep it pinned during a normal sync; the migration ignores both and,
+        // with the full release history, recomputes closedAt→release and moves it to v7.0.0.
+        const originalSorted = ReleaseNotesSyncer.sortedReleases;
+        const N        = 6001;
+        const wrongAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
+        const wrongRel = path.relative(aiConfig.projectRoot, wrongAbs);
+        await fs.ensureDir(path.dirname(wrongAbs));
+        await fs.writeFile(wrongAbs, 'ISSUE 6001 CONTENT', 'utf8');
+
+        GraphqlService.query = async () => ({
+            repository: {releases: {
+                nodes: [
+                    {tagName: 'v8.1.0', publishedAt: '2025-01-15T00:00:00Z'},
+                    {tagName: 'v7.0.0', publishedAt: '2024-10-01T00:00:00Z'}
+                ],
+                pageInfo: {hasNextPage: false, endCursor: null}
+            }}
+        });
+
+        const metadata = {
+            releases: {},
+            issues: {
+                [N]: {state: 'CLOSED', closedAt: '2024-09-15T00:00:00Z', updatedAt: '2024-09-15T00:00:00Z', milestone: null, path: wrongRel, contentHash: 'h'}
+            }
+        };
+
+        try {
+            const result     = await IssueSyncer.migrateArchiveBuckets(metadata);
+            const correctAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v7.0.0', 'chunk-1', `issue-${N}.md`);
+
+            expect(result.moved).toBe(1);
+            await expect(fs.pathExists(correctAbs)).resolves.toBe(true);
+            expect(await fs.readFile(correctAbs, 'utf8')).toBe('ISSUE 6001 CONTENT'); // content preserved
+            await expect(fs.pathExists(wrongAbs)).resolves.toBe(false);              // old location gone
+            // Emptied source version dir pruned.
+            await expect(fs.pathExists(path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0'))).resolves.toBe(false);
+            expect(metadata.issues[N].path).toBe(path.relative(aiConfig.projectRoot, correctAbs));
+
+            const idx   = await fs.readJson(path.join(tmpRoot, '_index.json'));
+            const entry = idx.find(e => e.type === 'issues' && e.id === N);
+            expect(entry.version).toBe('v7.0.0');
+            expect(entry.chunkNumber).toBe(1);
+        } finally {
+            ReleaseNotesSyncer.sortedReleases = originalSorted;
+        }
+    });
+
+    test('migrateArchiveBuckets dryRun reports the plan without moving any file (#12194)', async () => {
+        const originalSorted = ReleaseNotesSyncer.sortedReleases;
+        const N        = 6002;
+        const wrongAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
+        const wrongRel = path.relative(aiConfig.projectRoot, wrongAbs);
+        await fs.ensureDir(path.dirname(wrongAbs));
+        await fs.writeFile(wrongAbs, 'DRYRUN CONTENT', 'utf8');
+
+        GraphqlService.query = async () => ({
+            repository: {releases: {
+                nodes: [
+                    {tagName: 'v7.0.0', publishedAt: '2024-10-01T00:00:00Z'},
+                    {tagName: 'v8.1.0', publishedAt: '2025-01-15T00:00:00Z'}
+                ],
+                pageInfo: {hasNextPage: false, endCursor: null}
+            }}
+        });
+
+        const metadata = {
+            releases: {},
+            issues: {[N]: {state: 'CLOSED', closedAt: '2024-09-15T00:00:00Z', updatedAt: '2024-09-15T00:00:00Z', milestone: null, path: wrongRel, contentHash: 'h'}}
+        };
+
+        try {
+            const result = await IssueSyncer.migrateArchiveBuckets(metadata, {dryRun: true});
+
+            expect(result.dryRun).toBe(true);
+            expect(result.moved).toBe(0);
+            expect(result.moves).toHaveLength(1);
+            expect(result.moves[0].number).toBe(N);
+            // File NOT moved; metadata path unchanged.
+            await expect(fs.pathExists(wrongAbs)).resolves.toBe(true);
+            expect(await fs.readFile(wrongAbs, 'utf8')).toBe('DRYRUN CONTENT');
+            expect(metadata.issues[N].path).toBe(wrongRel);
+        } finally {
+            ReleaseNotesSyncer.sortedReleases = originalSorted;
+        }
+    });
+
+    test('migrateArchiveBuckets aborts (throws) when no releases are available (#12194)', async () => {
+        const originalSorted = ReleaseNotesSyncer.sortedReleases;
+        GraphqlService.query = async () => ({
+            repository: {releases: {nodes: [], pageInfo: {hasNextPage: false, endCursor: null}}}
+        });
+
+        try {
+            // No releases → re-bucketing would mis-assign everything; the migration must fail loud.
+            await expect(IssueSyncer.migrateArchiveBuckets({releases: {}, issues: {}})).rejects.toThrow(/no releases loaded/);
+        } finally {
+            ReleaseNotesSyncer.sortedReleases = originalSorted;
+        }
+    });
 });
 
 function buildComment(i) {
