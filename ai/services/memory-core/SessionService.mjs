@@ -299,7 +299,7 @@ class SessionService extends Base {
             return;
         }
 
-        if (aiConfig.data.autoSummarize) {
+        if (aiConfig.autoSummarize) {
             logger.info('[Startup] Checking for unsummarized sessions...');
 
             this.summarizeSessions({}).then(result => {

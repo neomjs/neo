@@ -20,7 +20,7 @@ program
 const options = program.opts();
 
 if (options.debug) {
-    aiConfig.data.debug = true;
+    aiConfig.debug = true;
 }
 
 try {

@@ -85,8 +85,8 @@ class SearchService extends Base {
      * @returns {Boolean} True when local filesystem hydration is unsafe for this reference.
      */
     isNonLocalTenantReference(metadata = {}) {
-        const defaultTenantId = aiConfig.defaultTenantId ?? 'neo-shared';
-        const defaultRepoSlug = aiConfig.defaultRepoSlug ?? 'neo';
+        const defaultTenantId = aiConfig.defaultTenantId;
+        const defaultRepoSlug = aiConfig.defaultRepoSlug;
 
         if (metadata.repoSlug && metadata.repoSlug !== defaultRepoSlug) {
             return true;

@@ -163,7 +163,7 @@ class GraphService extends Base {
             }
 
             // --- 3. FILE SYSTEM INGESTION (Differential Sync) ---
-            if (aiConfig.data.autoIngestFileSystem) {
+            if (aiConfig.autoIngestFileSystem) {
                 try {
                     logger.log('[GraphService] Bootstrapping FileSystem Ingestion Native Sync...');
                     const FileSystemIngestor = (await import('./FileSystemIngestor.mjs')).default;

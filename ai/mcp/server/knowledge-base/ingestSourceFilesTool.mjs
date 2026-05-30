@@ -72,7 +72,7 @@ const ingestSourceFilesViaMcp = async args => {
     const
         files     = Array.isArray(args?.files) ? args.files : [],
         batchSize = files.reduce((sum, file) => sum + (Array.isArray(file?.parsedChunks) ? file.parsedChunks.length : 1), 0),
-        threshold = aiConfig.mcpSyncMaxChunks ?? 50;
+        threshold = aiConfig.mcpSyncMaxChunks;
 
     if (batchSize > threshold) {
         return {

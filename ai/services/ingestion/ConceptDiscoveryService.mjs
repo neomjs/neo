@@ -133,7 +133,7 @@ class ConceptDiscoveryService extends Base {
 
     /**
      * Instance-level override for the per-cycle PR cap. Tests mutate this directly for
-     * deterministic cap behavior; production falls back to `aiConfig.data.conceptDiscovery
+     * deterministic cap behavior; production falls back to `aiConfig.conceptDiscovery
      * .prScanLimit` so config is read at call time instead of module load.
      * @member {Number|null} prScanLimit=null
      */
@@ -154,15 +154,15 @@ class ConceptDiscoveryService extends Base {
      * @protected
      */
     async extractConceptsFromSource(sourceRef, text) {
-        const minSourceLength = aiConfig.data.conceptDiscovery?.minSourceLength ?? 200;
+        const minSourceLength = aiConfig.conceptDiscovery?.minSourceLength;
         if (!text || text.trim().length < minSourceLength) return [];
 
         let provider;
         try {
             provider = Neo.create(OpenAiCompatible, {
-                modelName: aiConfig.data.openAiCompatible?.model,
-                host     : aiConfig.data.openAiCompatible?.host,
-                keepAlive: aiConfig.data.openAiCompatible?.keep_alive
+                modelName: aiConfig.openAiCompatible?.model,
+                host     : aiConfig.openAiCompatible?.host,
+                keepAlive: aiConfig.openAiCompatible?.keep_alive
             });
         } catch (e) {
             logger.warn(`[ConceptDiscoveryService] OpenAiCompatible provider could not be constructed; skipping ${sourceRef}:`, e.message);
@@ -286,7 +286,7 @@ class ConceptDiscoveryService extends Base {
             return nb - na;
         });
 
-        const scanLimit   = this.prScanLimit ?? aiConfig.data.conceptDiscovery?.prScanLimit ?? 20;
+        const scanLimit   = this.prScanLimit ?? aiConfig.conceptDiscovery?.prScanLimit;
         const cappedFiles = files.slice(0, scanLimit);
         const sources     = [];
 

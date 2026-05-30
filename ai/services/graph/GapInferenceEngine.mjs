@@ -44,7 +44,7 @@ const ISO_VERIFIED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}\.\d{3}Z
  *      (logger is ephemeral; the graph + handoff is the durable substrate).
  *    - `[KB_DEMAND_GAP]` — repeated agent questions from the Knowledge Base FAQ telemetry
  *      table map to this concept, but the FAQ cluster still lacks strong guide coverage.
- *    The three coverage signals share the `aiConfig.data.guideGapWeightThreshold` gate
+ *    The three coverage signals share the `aiConfig.guideGapWeightThreshold` gate
  *    (config-lifted for curator tuning; defaults to `0.8` = tier-1 baseline).
  *    `[CONCEPT_REVERIFY_DUE]` is not weight-gated because freshness review is a curation
  *    cadence, not a severity claim. Low-priority concepts may need review without becoming
@@ -157,7 +157,7 @@ class GapInferenceEngine extends Base {
      *   to live in `ConceptIngestor` — routing through `capabilityGap` + `sandman_handoff.md`
      *   makes the signal durable and aggregatable.
      *
-     * The three coverage signals share the same `aiConfig.data.guideGapWeightThreshold` weight gate
+     * The three coverage signals share the same `aiConfig.guideGapWeightThreshold` weight gate
      * (default `0.8` = tier-1 baseline; config-lifted for curator tuning). Lower-weight
      * concepts (tier-3 without uniqueness or coverage deficit lift) are considered low-priority —
      * missing guides/examples/implementations for them aren't worth surfacing in the handoff at
@@ -192,7 +192,7 @@ class GapInferenceEngine extends Base {
 
         // Resolved once per cycle (not per concept) — the config value is read at gate time so
         // mid-cycle config mutations in tests / runtime take effect without re-importing.
-        const threshold = aiConfig.data.guideGapWeightThreshold ?? 0.8;
+        const threshold = aiConfig.guideGapWeightThreshold;
 
         for (const concept of conceptNodes) {
             // Unvalidated concepts (candidates from ConceptDiscoveryService awaiting curator
