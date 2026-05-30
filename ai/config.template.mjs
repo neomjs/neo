@@ -1,5 +1,5 @@
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import path                                  from 'path';
+import {fileURLToPath}                       from 'url';
 import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -194,7 +194,7 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 chat: {
-                    contextLimitTokens      : leaf(262144, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
+                    contextLimitTokens       : leaf(262144, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
                     safeProcessingLimitTokens: leaf(200000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 },
                 /**
@@ -216,7 +216,7 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 embedding: {
-                    contextLimitTokens      : leaf(8192, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
+                    contextLimitTokens       : leaf(8192, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
                     safeProcessingLimitTokens: leaf(6144, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 }
             },
@@ -305,12 +305,12 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 intervals: {
-                    pollMs           : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
-                    summarySweepMs   : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
-                    kbSyncMs         : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
-                    backupMs         : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
-                    primaryDevSyncMs : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
-                    tenantRepoSyncMs : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
+                    pollMs                : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
+                    summarySweepMs        : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
+                    kbSyncMs              : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
+                    backupMs              : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    primaryDevSyncMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
+                    tenantRepoSyncMs      : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
                     dreamMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
                     dreamOverflowThreshold: leaf(0.8, 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', 'number'),
                     goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
@@ -374,19 +374,19 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 localOnly: {
-                    primaryDevSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
-                    kbSyncEnabled        : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
+                    primaryDevSyncEnabled          : leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
+                    kbSyncEnabled                  : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead (#12019).
-                    chromaDaemonEnabled  : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
-                    bridgeDaemonEnabled  : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    chromaDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
+                    bridgeDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
                     goldenPathRepoEnrichmentEnabled: leaf(null, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', 'boolean'),
                     // `null` = use the deployment-profile default (local enables, cloud disables);
                     // the swarm-heartbeat lane is the folded-in wake-substrate pulse (#11766).
-                    swarmHeartbeatEnabled: leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
+                    swarmHeartbeatEnabled          : leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
                     // Reserved policy placeholder: no runtime consumer yet.
                     // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
-                    wakeDispatchEnabled  : leaf(null)
+                    wakeDispatchEnabled            : leaf(null)
                 },
                 /**
                  * Cloud-only maintenance lane switches (mirror of `localOnly` with inverted

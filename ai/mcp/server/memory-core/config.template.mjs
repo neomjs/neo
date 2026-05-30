@@ -1,9 +1,9 @@
-import path                                    from 'path';
 // Loads the Tier-1 realm root (Neo.ai.Config) so getParent() inheritance resolves in this process;
 // MC reads no AiConfig values directly — they resolve via the chain, not a binding.
 import '../../../config.template.mjs';
-import BaseConfig, {createConfigProxy, leaf}   from '../../../BaseConfig.mjs';
-import {fileURLToPath}                          from 'url';
+import path                                  from 'path';
+import BaseConfig, {createConfigProxy, leaf} from '../../../BaseConfig.mjs';
+import {fileURLToPath}                       from 'url';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
