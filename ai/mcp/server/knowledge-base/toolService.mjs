@@ -1,7 +1,6 @@
 import path                          from 'path';
 import {fileURLToPath}               from 'url';
 import DatabaseService               from '../../../services/knowledge-base/DatabaseService.mjs';
-import DatabaseLifecycleService      from '../../../services/knowledge-base/DatabaseLifecycleService.mjs';
 import DocumentService               from '../../../services/knowledge-base/DocumentService.mjs';
 import HealthService                 from '../../../services/knowledge-base/HealthService.mjs';
 import KBRecorderService             from '../../../services/knowledge-base/KBRecorderService.mjs';
@@ -58,7 +57,6 @@ const serviceMapping = {
     healthcheck          : HealthService           .healthcheck        .bind(HealthService),
     list_documents       : DocumentService         .listDocuments      .bind(DocumentService),
     list_agent_faqs      : KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
-    manage_database      : DatabaseLifecycleService.manageDatabase     .bind(DatabaseLifecycleService),
     // MCP dispatch marks `viaMcp: true` so VectorService.embed can apply the synchronous
     // work-volume gate. CLI invocations call DatabaseService.syncDatabase directly without
     // `viaMcp`, preserving explicit operator opt-in to long-running work.

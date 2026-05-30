@@ -939,10 +939,12 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
 });
 
 /**
- * @summary Coverage for the #10779 features.dream observability block in the healthcheck payload.
+ * @summary Coverage for the features.dream observability block in the healthcheck payload.
  *
- * Pins the pure-projection contract of `buildDreamFeaturesBlock`. This function surfaces the
- * active boolean status of the background data-processing features based on `aiConfig` evaluation.
+ * Pins the contract of `buildDreamFeaturesBlock` — it projects the orchestrator's last
+ * dream / golden-path run timestamps from `taskOutcomes`. The boot-time auto-* feature flags
+ * were retired (the orchestrator daemon is the sole driver of dream / golden-path / summarize /
+ * ingest), so the block carries only run timestamps.
  *
  * @see Neo.ai.services.memory-core.HealthService#buildDreamFeaturesBlock
  */
@@ -954,65 +956,23 @@ test.describe('HealthService #10779, #11309 — buildDreamFeaturesBlock', () => 
         buildDreamFeaturesBlock = mod.buildDreamFeaturesBlock;
     });
 
-    test('surfaces boolean flags directly from aiConfig and defaults timestamps to null when taskOutcomes is empty', () => {
-        const cfg = {
-            autoDream: true,
-            autoGoldenPath: false,
-            realTimeMemoryParsing: true,
-            autoIngestFileSystem: false
-        };
-
-        const result = buildDreamFeaturesBlock(cfg);
-
-        expect(result).toEqual({
-            autoDream: true,
-            autoGoldenPath: false,
-            realTimeMemoryParsing: true,
-            autoIngestFileSystem: false,
-            lastDreamRun: null,
-            lastGoldenPathRun: null
-        });
-    });
-
-    test('coerces missing or falsy config values to strict booleans', () => {
-        const cfg = {
-            // autoDream missing
-            autoGoldenPath: null,
-            realTimeMemoryParsing: undefined,
-            autoIngestFileSystem: ''
-        };
-
-        const result = buildDreamFeaturesBlock(cfg);
-
-        expect(result).toEqual({
-            autoDream: false,
-            autoGoldenPath: false,
-            realTimeMemoryParsing: false,
-            autoIngestFileSystem: false,
-            lastDreamRun: null,
-            lastGoldenPathRun: null
-        });
-    });
-
     test('surfaces completedAt timestamp from task outcomes', () => {
-        const cfg = { autoDream: true, autoGoldenPath: true };
         const taskOutcomes = new Map();
         taskOutcomes.set('dream', { details: { completedAt: '2026-05-13T20:00:00.000Z' } });
         taskOutcomes.set('golden-path', { details: { completedAt: '2026-05-13T20:05:00.000Z' } });
 
-        const result = buildDreamFeaturesBlock(cfg, taskOutcomes);
+        const result = buildDreamFeaturesBlock(taskOutcomes);
 
         expect(result.lastDreamRun).toBe('2026-05-13T20:00:00.000Z');
         expect(result.lastGoldenPathRun).toBe('2026-05-13T20:05:00.000Z');
     });
 
     test('surfaces failedAt timestamp from task outcomes when completedAt is absent', () => {
-        const cfg = { autoDream: true, autoGoldenPath: true };
         const taskOutcomes = new Map();
         taskOutcomes.set('dream', { details: { failedAt: '2026-05-13T20:01:00.000Z' } });
         taskOutcomes.set('golden-path', { details: { failedAt: '2026-05-13T20:06:00.000Z' } });
 
-        const result = buildDreamFeaturesBlock(cfg, taskOutcomes);
+        const result = buildDreamFeaturesBlock(taskOutcomes);
 
         expect(result.lastDreamRun).toBe('2026-05-13T20:01:00.000Z');
         expect(result.lastGoldenPathRun).toBe('2026-05-13T20:06:00.000Z');

@@ -124,11 +124,6 @@ class DreamService extends Base {
         if (LifecycleService._initPromise) {
             await LifecycleService._initPromise;
         }
-
-        if (aiConfig.autoDream) {
-            logger.info('[Startup] DreamService: Checking for undigested session memories...');
-            this.processUndigestedSessions().catch(e => logger.error('[Startup] DreamService failed:', e));
-        }
     }
 
     /**

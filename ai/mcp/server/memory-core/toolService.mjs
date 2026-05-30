@@ -2,7 +2,6 @@ import path                     from 'path';
 import {fileURLToPath}          from 'url';
 import ToolService              from '../../ToolService.mjs';
 import DatabaseService          from '../../../services/memory-core/DatabaseService.mjs';
-import ChromaLifecycleService   from '../../../services/memory-core/lifecycle/ChromaLifecycleService.mjs';
 import GraphService             from '../../../services/memory-core/GraphService.mjs';
 import HealthService            from '../../../services/memory-core/HealthService.mjs';
 import MemoryService            from '../../../services/memory-core/MemoryService.mjs';
@@ -25,14 +24,12 @@ const serviceMapping = {
     get_node              : GraphService            .getNode             .bind(GraphService),
     get_session_memories  : MemoryService           .listMemories        .bind(MemoryService),
     healthcheck           : HealthService           .healthcheck         .bind(HealthService),
-    manage_database       : ChromaLifecycleService  .manageDatabase      .bind(ChromaLifecycleService),
     mutate_frontier       : MemoryService           .mutateFrontier      .bind(MemoryService),
     pre_brief_session     : MemoryService           .preBriefSession     .bind(MemoryService),
     query_hybrid_graph    : GraphService            .queryNodeTopology   .bind(GraphService),
     query_raw_memories    : MemoryService           .queryMemories       .bind(MemoryService),
     query_summaries       : SummaryService          .querySummaries      .bind(SummaryService),
     search_nodes          : GraphService            .searchNodes         .bind(GraphService),
-    summarize_sessions    : SessionService          .summarizeSessions   .bind(SessionService),
     add_message           : MailboxService          .addMessage          .bind(MailboxService),
     list_messages         : MailboxService          .listMessages        .bind(MailboxService),
     get_message           : MailboxService          .getMessage          .bind(MailboxService),

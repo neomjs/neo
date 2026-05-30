@@ -550,18 +550,6 @@ class DatabaseService extends Base {
 
         // Wait for ChromaManager (which waits for LifecycleService) to be ready
         await ChromaManager.ready();
-
-        logger.info('[Startup] Checking knowledge base status...');
-
-        try {
-            if (aiConfig.autoSync) {
-                logger.info('[Startup] Starting full synchronization (Create + Embed)...');
-                await this.syncDatabase();
-                logger.info('✅ [Startup] Full synchronization complete.');
-            }
-        } catch (error) {
-            logger.warn('⚠️  [Startup] Knowledge base synchronization/embedding failed:', error.message);
-        }
     }
 
     /**
