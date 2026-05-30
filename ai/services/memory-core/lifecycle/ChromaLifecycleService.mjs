@@ -1,33 +1,25 @@
-import { spawn } from 'child_process';
-import aiConfig from '../../../mcp/server/memory-core/config.mjs';
 import logger from '../../../mcp/server/memory-core/logger.mjs';
-import Base from '../../../../src/core/Base.mjs';
-import Observable from '../../../../src/core/Observable.mjs';
+import Base   from '../../../../src/core/Base.mjs';
 
 /**
- * @summary Orchestrates the daemon lifecycle specifically for the ChromaDB backend engine.
+ * @summary Readiness gate for the shared ChromaDB backend, as seen by Memory Core.
  *
- * Following the dismantling of the monolithic database service, this class is now an explicitly isolated orchestrator
- * responsible for managing the local ChromaDB vector database daemon. It handles asynchronous initialization,
- * persistent heartbeat monitoring (`waitForHeartbeat`), and safe termination sequences independently.
+ * **Unified topology (orchestrator-SSOT):** the orchestrator daemon owns the ChromaDB lifecycle.
+ * Memory Core connects as a downstream client via `ChromaManager`; this service neither spawns nor
+ * stops a daemon. It survives only as a readiness/observability gate: `initAsync` participates in the
+ * boot sequence (awaited by `SystemLifecycleService` + `ChromaManager` via `ready()`), and
+ * `getDatabaseStatus` projects an external-only status into the healthcheck (no MC-managed process).
  *
- * **Unified topology:** Memory Core connects as a downstream client via `ChromaManager` to a shared
- * ChromaDB instance. This service no longer attempts to spawn or manage a local daemon.
+ * The managed-mode surface (`startDatabase` / `stopDatabase` / `waitForHeartbeat` / `manageDatabase`)
+ * was removed once the `manage_database` MCP tool was retired and the orchestrator became the sole
+ * Chroma driver — keeping it as dead code invited a future session to wire it back up.
  *
  * @class Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService
  * @extends Neo.core.Base
  * @singleton
- * @see Neo.ai.services.memory-core.lifecycle.InferenceLifecycleService
  * @see Neo.ai.services.memory-core.managers.ChromaManager
  */
 class ChromaLifecycleService extends Base {
-    /**
-     * @member {Boolean} observable=true
-     * @protected
-     * @static
-     */
-    static observable = true;
-
     static config = {
         /**
          * @member {String} className='Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService'
@@ -42,93 +34,24 @@ class ChromaLifecycleService extends Base {
     }
 
     /**
-     * @summary Asynchronously initializes the ChromaLifecycleService.
-     *
-     * In the unified-topology deployment this skips daemon-spawn so MC does not attempt to
-     * manage the shared ChromaDB process.
+     * @summary Asynchronously initializes the service. In unified topology this only logs that MC
+     * does not manage the shared ChromaDB process — boot ordering is owned by `SystemLifecycleService`.
      */
     async initAsync() {
         await super.initAsync();
-        logger.log('[ChromaLifecycleService] Unified topology — skipping own ChromaDB spawn; Memory Core connects to the shared instance.');
+        logger.log('[ChromaLifecycleService] Unified topology — Memory Core connects to the shared ChromaDB; no daemon spawn.');
     }
 
     /**
-     * @summary Actively pings the Chroma backend to confirm topological readiness.
-     * @returns {Promise<Boolean>}
-     */
-    async isDbRunning() {
-        try {
-            const ChromaManager = (await import('../managers/ChromaManager.mjs')).default;
-            await ChromaManager.client.heartbeat();
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    /**
-     * @summary Boots the explicit local ChromaDB daemon.
+     * @summary Projects external-only database status into the healthcheck payload.
      *
-     * In unified topology this returns `{status: 'shared_topology'}` without
-     * attempting any spawn.
-     * @returns {Promise<Object>}
-     */
-    async startDatabase() {
-        return {
-            status: 'shared_topology',
-            detail: 'Memory Core runs as a downstream client of the shared ChromaDB in unified mode. No daemon spawn required.'
-        };
-    }
-
-    /**
-     * @summary Polls the managed ChromaDB daemon backend until the heartbeat API succeeds.
-     * @returns {Promise<void>}
-     */
-    async waitForHeartbeat() {
-        logger.log('Waiting for ChromaDB heartbeat...');
-        for (let i = 0; i < 30; i++) {
-            if (await this.isDbRunning()) {
-                logger.log('ChromaDB heartbeat detected.');
-                return;
-            }
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        throw new Error('ChromaDB failed to start (timeout).');
-    }
-
-    /**
-     * @summary Intentionally drops the ongoing ChromaDB daemon process when transitioning to offline.
-     * @returns {Promise<Object>}
-     */
-    async stopDatabase() {
-        return { status: 'not_running', detail: 'Memory Core does not manage the ChromaDB daemon in unified topology.' };
-    }
-
-    /**
-     * @summary Resolves the current internal status and PID tracking for the ChromaDB backend engine.
-     * @returns {Object}
+     * The Chroma daemon is orchestrator-owned, so there is no MC-managed process or pid to report —
+     * `running` reflects "no MC-managed process" (actual reachability is the separate
+     * `database.connection.connected` field). It is the only field healthcheck consumers read.
+     * @returns {{running: Boolean}}
      */
     getDatabaseStatus() {
-        return { running: false, pid: null, managed: false };
-    }
-
-    /**
-     * @summary High-level router for managing ChromaDB process state (start/stop) from the orchestrator.
-     *
-     * Backs the `manage_database` MCP tool (see `services/toolService.mjs`). In unified topology
-     * the `start` action propagates `startDatabase`'s `{status: 'shared_topology'}` response
-     * rather than spawning; the `stop` action falls through to `stopDatabase`'s existing
-     * `{status: 'not_running'}` path.
-     * @param {Object} args
-     * @returns {Promise<Object>}
-     */
-    async manageDatabase(args) {
-        if (args.action === 'start') {
-            return await this.startDatabase();
-        } else if (args.action === 'stop') {
-            return await this.stopDatabase();
-        }
-        return { error: 'Unknown action' };
+        return {running: false};
     }
 }
 
