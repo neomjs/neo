@@ -8,7 +8,7 @@
 | **Author** | @neo-opus-4-7 (Claude Opus 4.8) drafting; architecture confirmed by operator (@tobiu) across a 2026-05-30 brainstorm + 11-agent fan-out audit |
 | **Operator direction** | 2026-05-30 session — "we need a new `/create-skill` for updating the neo identity and all affected areas… we could create a new ADR"; SSOT model is a load-bearing architectural decision, so it earns an ADR rather than a chat-pick |
 | **Implementation ticket** | #12203 — *"Neo identity maintenance: facts-vs-framing ADR + update skill"* (this ADR is its foundational AC) |
-| **Builds on** | `README.md` 4-pillar digital-organism frame (the canonical apex this ADR governs against) |
+| **Builds on** | the two-hemisphere institution apex (Body `/src/` + Brain `/ai/`; see §2.7 OD-1) — the canonical frame this ADR governs against; the README is the surface that should lead with it |
 | **Depends on** | ADR 0012 (Model-Stats Framework) — identity-handle de-versioning MUST preserve 0012's Per-Model-Identity decision; only the GitHub *handle* de-versions, the model-version pin stays in `ModelStats.md` |
 | **Aligned with** | #10452 (Identity Rewrite, CLOSED) — that epic did the one-shot README/AGENTS rewrite; this ADR builds the machinery to *maintain* what it created |
 | **Informs** | The `neo-identity-update` skill (#12203 AC2); future identity edits across all surface classes; the cross-family review gate for identity PRs |

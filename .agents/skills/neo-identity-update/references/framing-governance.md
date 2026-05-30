@@ -3,7 +3,7 @@
 Framing (taglines, positioning, audience) is **deliberately plural** — different surfaces address different audiences and may legitimately differ. Governance means keeping each surface *compatible with* the canonical apex, NOT identical to it.
 
 ## The canonical apex
-The `README.md` opening frame is the apex from which all framing derives — the source of authority for "what Neo is." Every other framing is a governed projection of it.
+The apex is the operator-DECIDED frame below (ADR 0018 §2.7 OD-1) — the source of authority for "what Neo is." The `README.md` opening is the surface that should *lead* with this apex; every other framing is a governed projection of it. (If the README currently leads with an older frame, that is drift the skill corrects — the apex is the decided frame, not "whatever the README says today".)
 
 > The apex is operator-DECIDED (ADR 0018 §2.7 OD-1, 2026-05-30) — the **two-hemisphere institution** frame:
 > *Neo is two hemispheres in one repo — a multi-threaded browser UI runtime (the Body, `/src/`) and a cross-family autonomous AI engineering team that maintains it (the Brain, `/ai/`); three AI model families propose, debate, implement, and review every change, and a human approves at the merge gate.*
