@@ -292,7 +292,7 @@ class IssueSyncer extends Base {
      * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planBuckets(metadata, fetchedIssues = []) {
+    #planBuckets(metadata, fetchedIssues = [], {ignoreOldVersion = false} = {}) {
         const combined = new Map();
 
         for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
@@ -360,7 +360,7 @@ class IssueSyncer extends Base {
                     version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                         ? issue.milestone.title
                         : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
-                } else if (issue.oldVersion && semver.valid(semver.clean(issue.oldVersion)) !== null) {
+                } else if (!ignoreOldVersion && issue.oldVersion && semver.valid(semver.clean(issue.oldVersion)) !== null) {
                     // Use cached path-derived version when present and valid semver. Unchanged closed
                     // issues seeded from existing serialized metadata may lack milestone data but still
                     // have a known on-disk bucket via oldVersion. Skipping closedAt timestamp inference
@@ -1062,6 +1062,131 @@ class IssueSyncer extends Base {
         }
 
         return stats;
+    }
+
+    /**
+     * One-time, non-destructive re-bucket migration. Recomputes EVERY issue's correct on-disk path
+     * from the current bucketing logic + the full release history, then MOVES mis-bucketed files into
+     * place and rewrites their issues `_index.json` entries.
+     *
+     * The normal sync deliberately PINS archived items to their cached bucket (sealed-chunk +
+     * `oldVersion` precedence) to avoid churn. This migration ignores both, so a historical
+     * mis-bucketing can be corrected — e.g. the v8.1.0 catch-all created before full-release-history
+     * fetching existed, where thousands of pre-window closed issues collapsed into the oldest
+     * in-window release. It NEVER deletes content and NEVER re-fetches from GitHub: it only relocates
+     * existing `.md` files. Moves run in two phases (stage → final) so files swapping chunks within or
+     * between buckets cannot collide mid-move. Scope: issues only (the dominant pile-up); pulls and
+     * discussions, if mis-bucketed, are a sibling follow-up on their own syncers.
+     *
+     * Intended to be invoked ONCE, out-of-band, by an operator-run migration script — not the regular
+     * sync loop. Run with `{dryRun: true}` first to preview the redistribution.
+     *
+     * @param {object} metadata Sync metadata; issue `path`s are updated in place (caller persists).
+     * @param {object} [opts]
+     * @param {boolean} [opts.dryRun=false] Compute and return the plan without moving any file.
+     * @returns {Promise<object>} `{moved, unchanged, byVersion, dryRun, moves: [{number, from, to}]}`
+     */
+    async migrateArchiveBuckets(metadata, {dryRun = false} = {}) {
+        await ReleaseNotesSyncer.fetchAndCacheReleases(metadata);
+
+        if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
+            throw new Error('migrateArchiveBuckets aborted: no releases loaded — refusing to re-bucket without the full release history.');
+        }
+
+        // Recompute from scratch: ignore the cached-path `oldVersion` (which would re-pin the existing
+        // mis-bucketing) so each closed issue resolves via milestone-guard / closedAt→release.
+        const plan = this.#planBuckets(metadata, [], {ignoreOldVersion: true});
+
+        const moves     = [];
+        const upserts   = [];
+        const byVersion = {};
+        let   unchanged = 0;
+
+        for (const idStr of Object.keys(metadata.issues || {})) {
+            const number    = parseInt(idStr, 10);
+            const targetAbs = this.#getIssuePath({number, labels: []}, plan);
+            if (!targetAbs) continue; // dropped — not expected for stored items
+
+            const targetRel  = this.#relativePath(targetAbs);
+            const currentRel = metadata.issues[idStr].path;
+            const planEntry  = plan.get(number) || {};
+            const vkey       = planEntry.version || 'active';
+
+            byVersion[vkey] = (byVersion[vkey] || 0) + 1;
+
+            if (currentRel === targetRel) { unchanged++; continue; }
+
+            moves.push({number, from: currentRel, to: targetRel, targetAbs});
+            upserts.push(createContentIndexEntry({
+                issueSyncConfig,
+                type     : 'issues',
+                id       : number,
+                filePath : targetAbs,
+                itemIndex: planEntry.itemIndex || 0,
+                version  : planEntry.version || null
+            }));
+        }
+
+        const summary = {
+            moved    : dryRun ? 0 : moves.length,
+            unchanged,
+            dryRun,
+            byVersion,
+            moves    : moves.map(({number, from, to}) => ({number, from, to}))
+        };
+
+        if (dryRun) {
+            logger.info(`[REBUCKET dry-run] ${moves.length} would move, ${unchanged} unchanged. Distribution: ${JSON.stringify(byVersion)}`);
+            return summary;
+        }
+
+        // Two-phase move: stage every source out of the tree first, so a target path currently
+        // occupied by another mover is free by the time we place the final file.
+        const stageDir = path.join(issueSyncConfig.contentRoot, '.rebucket-stage');
+        await fs.mkdir(stageDir, {recursive: true});
+
+        for (const m of moves) {
+            await fs.rename(this.#resolvePath(m.from), path.join(stageDir, `issue-${m.number}.md`));
+        }
+        for (const m of moves) {
+            await fs.mkdir(path.dirname(m.targetAbs), {recursive: true});
+            await fs.rename(path.join(stageDir, `issue-${m.number}.md`), m.targetAbs);
+            metadata.issues[String(m.number)].path = m.to;
+        }
+        await fs.rm(stageDir, {recursive: true, force: true});
+
+        await updateContentIndex(issueSyncConfig, {upsert: upserts});
+
+        // Prune chunk/version directories emptied by the relocation.
+        await this.#pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'issues'));
+        await this.#pruneEmptyDirs(issueSyncConfig.issuesDir);
+
+        logger.info(`[REBUCKET] moved ${moves.length} issue(s), ${unchanged} unchanged. Distribution: ${JSON.stringify(byVersion)}`);
+        return summary;
+    }
+
+    /**
+     * Recursively removes now-empty directories under `root` (after a re-bucket relocation leaves
+     * source chunk/version folders empty). Children are pruned before parents; `root` is never removed.
+     * @param {string} root Absolute directory to prune within.
+     * @private
+     */
+    async #pruneEmptyDirs(root) {
+        let entries;
+        try {
+            entries = await fs.readdir(root, {withFileTypes: true});
+        } catch {
+            return; // root absent — nothing to prune
+        }
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const child = path.join(root, entry.name);
+            await this.#pruneEmptyDirs(child);
+            try {
+                if ((await fs.readdir(child)).length === 0) await fs.rmdir(child);
+            } catch { /* race / already removed */ }
+        }
     }
 
     /**
