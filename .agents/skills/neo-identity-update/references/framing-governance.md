@@ -9,7 +9,7 @@ The apex is the operator-DECIDED frame below (ADR 0018 §2.7 OD-1) — the sourc
 > *Neo is two hemispheres in one repo — a multi-threaded browser UI runtime (the Body, `/src/`) and a cross-family autonomous AI engineering team that maintains it (the Brain, `/ai/`); three AI model families propose, debate, implement, and review every change, and a human approves at the merge gate.*
 > - **BODY (`/src/`):** the high-performance off-main-thread UI runtime — JSON-first since 2019, App Worker as the main actor, web multi-window. The adoption substrate. (Engine-category mental models apply *here only*.)
 > - **BRAIN (`/ai/`):** the entire Agent OS — the cross-family engineering institution **plus** the MX loop, evolution, swarm, Memory Core, Knowledge Base, A2A, orchestrator. ≈41% of the codebase, **not** a 2% feature. **This is the headline.**
-> - **Neural Link is a supporting demo, NOT the apex** — ~2% of code (1 of 7 MCP servers); never lead with "agents inhabit the running app".
+> - **Neural Link is a flagship capability, but not the apex** — small in code (~2%, 1 of 7 MCP servers), large in product value: end-user **conversational UIs** (mutate a live app with no code change and no page reload) + **multi-agent, multi-harness collaboration on the same running app** (Claude Desktop / Codex / Antigravity). Present it as a flagship product capability — not as the whole identity, and not as a mere "demo" (see Discussion #10119).
 
 When the operator changes the apex, update this section and ADR 0018 §2.7 in the same PR.
 
