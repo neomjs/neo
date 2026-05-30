@@ -17,7 +17,7 @@ const PHYSICS = {
 };
 
 /**
- * @summary Renders the "Neural Timeline" visualization for the Portal's Ticket view.
+ * @summary Renders the "Neural Timeline" visualization for the Portal's news timeline views (tickets, pull requests, discussions).
  *
  * This class runs inside a SharedWorker (via `CanvasWorker`) to provide a high-performance,
  * main-thread-blocking-free animation. It visualizes the flow of time and activity connecting
@@ -32,11 +32,11 @@ const PHYSICS = {
  * 4. **Chameleon Effect**: The pulse dynamically changes its color to match the semantic color of the
  *    nearest node (e.g., Red for Bugs, Green for Features) as it passes by.
  *
- * @class Portal.canvas.TicketCanvas
+ * @class Portal.canvas.TimelineCanvas
  * @extends Portal.canvas.Base
  * @singleton
  */
-class TicketCanvas extends Base {
+class TimelineCanvas extends Base {
     static colors = {
         dark : {
             spine: ['rgba(62, 99, 221, 0.2)', 'rgba(64, 196, 255, 0.4)', 'rgba(62, 99, 221, 0.2)']
@@ -48,10 +48,10 @@ class TicketCanvas extends Base {
 
     static config = {
         /**
-         * @member {String} className='Portal.canvas.TicketCanvas'
+         * @member {String} className='Portal.canvas.TimelineCanvas'
          * @protected
          */
-        className: 'Portal.canvas.TicketCanvas',
+        className: 'Portal.canvas.TimelineCanvas',
         /**
          * Remote method access
          * @member {Object} remote
@@ -420,4 +420,4 @@ class TicketCanvas extends Base {
     }
 }
 
-export default Neo.setupClass(TicketCanvas);
+export default Neo.setupClass(TimelineCanvas);
