@@ -5,6 +5,7 @@ import fs                         from 'fs/promises';
 import logger                     from '../../../mcp/server/github-workflow/logger.mjs';
 import matter                     from 'gray-matter';
 import path                       from 'path';
+import semver                     from 'semver';
 import GraphqlService             from '../GraphqlService.mjs';
 import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
@@ -108,7 +109,9 @@ class PullRequestSyncer extends Base {
 
         for (const pr of combined.values()) {
             let version = null;
-            if (pr.milestone?.title) {
+            // Treat a milestone as a version bucket ONLY when its title is valid semver — a
+            // descriptive milestone must not become a version folder (mirrors IssueSyncer).
+            if (pr.milestone?.title && semver.valid(semver.clean(pr.milestone.title))) {
                 version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                     ? pr.milestone.title
                     : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
