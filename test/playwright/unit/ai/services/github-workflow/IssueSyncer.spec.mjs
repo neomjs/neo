@@ -806,6 +806,49 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         );
         expect(archiveAnomalyWarns).toHaveLength(0);
     });
+
+    test('needsUpdate compares the persisted updatedAt — an unchanged archived issue is not re-rendered (#12191)', async () => {
+        // Pre-fix, needsUpdate compared oldIssue.updated — a field that is never persisted (the metadata
+        // field is updatedAt) — so it was always true → every issue re-formatted, re-hashed and re-written
+        // every sync. For an ARCHIVED issue, sealed-chunk guarantees targetPath === oldAbsolutePath, so
+        // updatedAt is the sole discriminator: an unchanged archived issue must be left on disk untouched.
+        const N  = 9100;
+        const ts = '2026-05-01T00:00:00Z';
+
+        const cachedAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v12.0.0', 'chunk-1', `issue-${N}.md`);
+        const cachedRel = path.relative(aiConfig.projectRoot, cachedAbs);
+        await fs.ensureDir(path.dirname(cachedAbs));
+        await fs.writeFile(cachedAbs, 'SENTINEL — must not be re-rendered', 'utf8');
+
+        const mockIssue = buildMockIssue({number: N, title: 'Unchanged archived issue', timelineFirst: [], hasNextPage: false, endCursor: null});
+        mockIssue.state     = 'CLOSED';
+        mockIssue.closedAt  = ts;
+        mockIssue.updatedAt = ts;
+        mockIssue.milestone = {title: 'v12.0.0'};
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: ts},
+                    repository: {issues: {pageInfo: {hasNextPage: false, endCursor: null}, nodes: [structuredClone(mockIssue)]}}
+                };
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {
+            lastSync: '2026-01-01T00:00:00Z',
+            issues: {
+                [N]: {state: 'CLOSED', updatedAt: ts, closedAt: ts, milestone: 'v12.0.0', path: cachedRel, contentHash: 'h', commentsTotal: 0}
+            }
+        };
+
+        await IssueSyncer.pullFromGitHub(metadata);
+
+        // Unchanged updatedAt + sealed path → needsUpdate false → file left untouched.
+        const after = await fs.readFile(cachedAbs, 'utf8');
+        expect(after).toBe('SENTINEL — must not be re-rendered');
+    });
 });
 
 function buildComment(i) {
