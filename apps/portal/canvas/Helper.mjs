@@ -22,7 +22,7 @@ class Helper extends Base {
                 'importFooterCanvas',
                 'importHomeCanvas',
                 'importServicesCanvas',
-                'importTicketCanvas'
+                'importTimelineCanvas'
             ]
         },
         /**
@@ -59,8 +59,8 @@ class Helper extends Base {
     /**
      * @returns {Promise<void>}
      */
-    async importTicketCanvas() {
-        let module = await import('./TicketCanvas.mjs');
+    async importTimelineCanvas() {
+        let module = await import('./TimelineCanvas.mjs');
         await module.default.remotesReady()
     }
 }

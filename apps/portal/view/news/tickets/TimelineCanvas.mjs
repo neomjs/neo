@@ -4,12 +4,12 @@ import SharedCanvas from '../../../../../src/app/SharedCanvas.mjs';
  * @summary The "Coordinator" component for the Neural Timeline, bridging the App Worker and Canvas Worker.
  *
  * This component renders a transparent canvas overlay on top of the Ticket List. It is responsible for:
- * 1. **Data Bridge**: Listening to the `sections` store and passing ticket data to the `TicketCanvas` (SharedWorker).
+ * 1. **Data Bridge**: Listening to the `sections` store and passing ticket data to the `TimelineCanvas` (SharedWorker).
  * 2. **Visual Alignment**: Calculating the precise DOM positions of Ticket Avatars/Badges to ensure the
  *    canvas nodes align perfectly with the HTML content.
  * 3. **Lifecycle Management**: initializing the offscreen canvas transfer and handling resize events.
  *
- * It uses the `Portal.canvas.TicketCanvas` singleton (via Remote Method Access) to drive the actual animation.
+ * It uses the `Portal.canvas.TimelineCanvas` singleton (via Remote Method Access) to drive the actual animation.
  *
  * @class Portal.view.news.tickets.TimelineCanvas
  * @extends Neo.app.SharedCanvas
@@ -32,13 +32,13 @@ class TimelineCanvas extends SharedCanvas {
          */
         className: 'Portal.view.news.tickets.TimelineCanvas',
         /**
-         * @member {String} rendererClassName='Portal.canvas.TicketCanvas'
+         * @member {String} rendererClassName='Portal.canvas.TimelineCanvas'
          */
-        rendererClassName: 'Portal.canvas.TicketCanvas',
+        rendererClassName: 'Portal.canvas.TimelineCanvas',
         /**
-         * @member {String} rendererImportPath='apps/portal/canvas/TicketCanvas.mjs'
+         * @member {String} rendererImportPath='apps/portal/canvas/TimelineCanvas.mjs'
          */
-        rendererImportPath: 'apps/portal/canvas/TicketCanvas.mjs',
+        rendererImportPath: 'apps/portal/canvas/TimelineCanvas.mjs',
         /**
          * @member {Object} _vdom
          */
@@ -68,7 +68,7 @@ class TimelineCanvas extends SharedCanvas {
      * Lifecycle hook that runs once the `OffscreenCanvas` has been transferred to the Canvas Worker.
      *
      * This method:
-     * 1. Imports the `TicketCanvas` logic into the Canvas Worker context.
+     * 1. Imports the `TimelineCanvas` logic into the Canvas Worker context.
      * 2. Initializes the graph in the worker via Remote Method Access (`initGraph`).
      * 3. Sets up a `ResizeObserver` to keep the canvas size synced with the DOM.
      * 4. Triggers the initial data load if store data is available.
@@ -147,7 +147,7 @@ class TimelineCanvas extends SharedCanvas {
      * 2. **Measurement**: It fetches the `DOMRect` for every target to get its exact screen position.
      * 3. **Translation**: It converts these screen coordinates into Canvas-local coordinates.
      * 4. **Handoff**: It packages this geometric data (x, y, radius, color) and sends it to the
-     *    `TicketCanvas` worker to update the physics simulation.
+     *    `TimelineCanvas` worker to update the physics simulation.
      *
      * @param {Object[]|Object} records Array of records or Store load event object {items: [...]}
      * @param {Boolean} [isResize=false]
