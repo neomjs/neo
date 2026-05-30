@@ -74,7 +74,6 @@ export const FETCH_PULL_REQUESTS = `
  * - $limit: Int!
  * - $cursor: String
  * - $states: [PullRequestState!]
- * - $since: DateTime
  * - $maxComments: Int!
  * - $maxReviews: Int!
  */

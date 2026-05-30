@@ -149,6 +149,35 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await expect(fs.pathExists(releasePath)).resolves.toBe(true);
         await expect(fs.pathExists(garbagePath)).resolves.toBe(false);
     });
+
+    test('delta cutoff stops PR pagination once a batch predates the cached high-water mark (#12190)', async () => {
+        // The `pullRequests` connection has no server-side `since`, so the syncer orders UPDATED_AT
+        // DESC and stops paginating at the cached high-water mark. Pre-fix it scanned the full corpus.
+        const metadata = {
+            lastSync: '2026-05-01T00:00:00Z',
+            pulls: {
+                9001: {state: 'MERGED', updatedAt: '2026-05-01T00:00:00Z', path: 'resources/content/archive/pulls/v12.0.0/chunk-1/pr-9001.md'}
+            }
+        };
+
+        const prNew    = buildPullRequest(8001); prNew.updatedAt    = '2026-05-03T00:00:00Z'; // after hwm → fetched
+        const prOld    = buildPullRequest(7001); prOld.updatedAt    = '2026-04-29T00:00:00Z'; // before hwm → trips cutoff
+        const prTooOld = buildPullRequest(6001); prTooOld.updatedAt = '2026-04-28T00:00:00Z'; // must never be fetched
+
+        let queryCalls = 0;
+        GraphqlService.query = async () => {
+            queryCalls++;
+            if (queryCalls === 1) return {repository: {pullRequests: {nodes: [prNew],    pageInfo: {hasNextPage: true,  endCursor: 'c1'}}}};
+            if (queryCalls === 2) return {repository: {pullRequests: {nodes: [prOld],    pageInfo: {hasNextPage: true,  endCursor: 'c2'}}}};
+            return                       {repository: {pullRequests: {nodes: [prTooOld], pageInfo: {hasNextPage: false, endCursor: null}}}};
+        };
+
+        await PullRequestSyncer.syncPullRequests(metadata);
+
+        // Stopped at page 2 (its oldest PR predates the high-water mark); page 3 never requested.
+        // Pre-fix (full-corpus scan) this would be 3.
+        expect(queryCalls).toBe(2);
+    });
 });
 
 function buildPullRequest(number) {

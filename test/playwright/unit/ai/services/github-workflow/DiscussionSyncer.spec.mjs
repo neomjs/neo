@@ -136,6 +136,33 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(content).toMatch(/^closed: true$/m);
         expect(content).toMatch(/^closedAt: '2026-05-01T00:00:00Z'$/m);
     });
+
+    test('delta cutoff stops discussion pagination once a batch predates the cached high-water mark (#12190)', async () => {
+        // Mirror of the PR/issue delta: order UPDATED_AT DESC + stop at the cached high-water mark.
+        const metadata = {
+            lastSync: '2026-05-01T00:00:00Z',
+            discussions: {
+                9001: {updatedAt: '2026-05-01T00:00:00Z', path: 'resources/content/discussions/chunk-1/discussion-9001.md'}
+            }
+        };
+
+        const discNew    = buildDiscussion(8001); discNew.updatedAt    = '2026-05-03T00:00:00Z'; // after hwm → fetched
+        const discOld    = buildDiscussion(7001); discOld.updatedAt    = '2026-04-29T00:00:00Z'; // before hwm → trips cutoff
+        const discTooOld = buildDiscussion(6001); discTooOld.updatedAt = '2026-04-28T00:00:00Z'; // must never be fetched
+
+        let queryCalls = 0;
+        GraphqlService.query = async () => {
+            queryCalls++;
+            if (queryCalls === 1) return {repository: {discussions: {nodes: [discNew],    pageInfo: {hasNextPage: true,  endCursor: 'c1'}}}};
+            if (queryCalls === 2) return {repository: {discussions: {nodes: [discOld],    pageInfo: {hasNextPage: true,  endCursor: 'c2'}}}};
+            return                       {repository: {discussions: {nodes: [discTooOld], pageInfo: {hasNextPage: false, endCursor: null}}}};
+        };
+
+        await DiscussionSyncer.syncDiscussions(metadata);
+
+        // Stopped at page 2 (its oldest discussion predates the high-water mark); page 3 never requested.
+        expect(queryCalls).toBe(2);
+    });
 });
 
 function buildDiscussion(number, config = {}) {

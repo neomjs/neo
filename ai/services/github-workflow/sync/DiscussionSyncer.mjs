@@ -199,6 +199,15 @@ class DiscussionSyncer extends Base {
         let hasNextPage    = true;
         let cursor         = null;
 
+        // Delta cutoff. Mirror the PR/issue delta: the query orders UPDATED_AT DESC and we stop
+        // paginating once a batch's oldest discussion predates the cached high-water mark. A
+        // clean-slate run (lastSync === null) or an empty cache traverses the full history.
+        const cachedDiscDates = Object.values(metadata.discussions || {})
+            .map(d => Date.parse(d.updatedAt)).filter(t => !isNaN(t));
+        const sinceCutoff = (metadata.lastSync == null || cachedDiscDates.length === 0)
+            ? 0
+            : cachedDiscDates.reduce((max, t) => t > max ? t : max, 0);
+
         // Ensure directory exists
         await fs.mkdir(issueSyncConfig.discussionsDir, { recursive: true });
 
@@ -219,6 +228,11 @@ class DiscussionSyncer extends Base {
             }
 
             allDiscussions.push(...discussions.nodes);
+
+            // Stop once the oldest discussion in this UPDATED_AT-DESC batch predates the cutoff —
+            // everything beyond is already current (re-processed in-window items no-op via content-hash).
+            const oldestDisc = discussions.nodes[discussions.nodes.length - 1];
+            if (Date.parse(oldestDisc.updatedAt) < sinceCutoff) break;
 
             hasNextPage = discussions.pageInfo.hasNextPage;
             cursor      = discussions.pageInfo.endCursor;
