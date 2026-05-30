@@ -1,22 +1,15 @@
 /**
- * Pure value-decoders for environment-variable substrate.
+ * Internal typed-parser registry for `Neo.ai.BaseConfig`.
  *
- * Substrate-tier landing: env-parser primitive at Neo.util.X namespace (Tier-1 Neo substrate),
- * NOT on domain classes. The canonical home for env-parsing across the agent OS — MCP
- * server config.templates, orchestrator getters, and any other env-var consumer.
+ * Each parser reads `env[envVarName]` and decodes it to a typed value, answering exactly one
+ * question: "env var absent (undefined) / decoded value / invalid (warn + undefined)". The
+ * decoders know NOTHING about specific configs, defaults, or domain consumers.
  *
- * **Single-source-of-name discipline:** every parser takes the `envVarName` as its
- * first argument and reads `env[envVarName]` internally. The canonical 2-value chain
- * is `Env.parseX('NEO_X') ?? AiConfig.X` — the env var name appears ONCE per consumer
- * call site. The earlier `Env.parseX(process.env.NEO_X, 'NEO_X')` shape duplicated the
- * name at every call site (anti-pattern); refactored 2026-05-24 after operator surfaced
- * the regression on Lane A PR #11876.
- *
- * Decoders know NOTHING about specific configs, defaults, or domain consumers — they only
- * answer "env var absent (undefined) / decoded value / invalid (warn + undefined)". Fallback
- * policy lives at the consumer call-site as `Env.parseX('NEO_X') ?? AiConfig.X`. MCP
- * server config templates use the bulk `Env.applyEnvBindings(data, envBindings, env?, warn?)`
- * shape (binding form names each var once).
+ * **Not consumer-facing.** These parsers are the env-decode layer that `BaseConfig` wires into
+ * its meta-leaf registry: a `leaf(default, 'NEO_X', type)` resolves its env override through the
+ * `type`-keyed parser here. Application code does NOT call `Env.parseX` directly — it reads the
+ * resolved value via the Provider-extending aiConfig substrate (`AiConfig.<path>`), which layers
+ * the env override over the config default. See `learn/agentos/AiConfigModel.md`.
  *
  * Uses the gatekeep pattern (lightweight stateless utility — no Base inheritance, no
  * reactive configs, no lifecycle hooks), mirroring `src/core/IdGenerator.mjs` precedent.
@@ -38,64 +31,6 @@ const Env = {
      * @member {String[]} FALSE_TOKENS
      */
     FALSE_TOKENS: ['false', 'no', 'off', '0'],
-
-    /**
-     * Bulk-apply env→config bindings.
-     *
-     * Binding shapes mirror the config object shape:
-     * - `{auth: {host: <envVarName>}}` — implicit `parseString` parser
-     * - `{auth: {port: {var: <envVarName>, parse: <parserFn>}}}` — typed parser
-     *
-     * Bindings whose env var is absent or whose parser returns undefined are skipped
-     * (leaves the existing `data` value untouched). Uses `Neo.assignToNs()` for the
-     * final assignment; warns + skips if an intermediate is not an object.
-     *
-     * Note: binding paths are developer-authored at source level (NOT env-value-derived);
-     * env values become typed leaf values via the parser, never path keys. No prototype-
-     * pollution attack surface from env input.
-     *
-     * @param {Object} data Mutable config object.
-     * @param {Object} envBindings Path → binding map.
-     * @param {Object} [env=process.env]
-     * @param {Function} [warn=console.warn]
-     */
-    applyEnvBindings(data, envBindings, env = process.env, warn = console.warn) {
-        const applyBinding = (path, binding) => {
-            const {var: varName, parse = Env.parseString} = typeof binding === 'string'
-                ? {var: binding, parse: Env.parseString}
-                : binding;
-
-            const result = parse(varName, {env, warn});
-            if (result === undefined) return;
-
-            const parentPath = path.slice(0, -1),
-                  parent     = parentPath.length ? Neo.ns(parentPath, false, data) : data;
-
-            if (Neo.isObject(parent)) {
-                Neo.assignToNs(path, result, data);
-            } else {
-                warn(`[Neo.util.Env] Cannot bind ${varName} to "${path.join('.')}" — intermediate is not an object.`);
-            }
-        };
-
-        const walk = (bindings, path = []) => {
-            for (const [key, binding] of Object.entries(bindings)) {
-                const isBindingDescriptor = Neo.isObject(binding) && Object.prototype.hasOwnProperty.call(binding, 'var');
-
-                if (key.includes('.')) {
-                    throw new Error(`[Neo.util.Env] Dotted envBinding paths are not supported: "${path.concat(key).join('.')}". Use nested binding objects.`);
-                }
-
-                if (typeof binding === 'string' || isBindingDescriptor) {
-                    applyBinding(path.concat(key), binding);
-                } else if (Neo.isObject(binding)) {
-                    walk(binding, path.concat(key));
-                }
-            }
-        };
-
-        walk(envBindings);
-    },
 
     /**
      * Decode env value as boolean.
@@ -125,7 +60,7 @@ const Env = {
      *
      * Note: `Number(undefined)` returns `NaN` (not undefined), and `NaN ?? fallback` does
      * NOT fire `??` (only fires on nullish). The undefined-return for absent input is
-     * load-bearing for the `Env.parseNumber('NEO_X') ?? AiConfig.X` consumer pattern.
+     * load-bearing so a nullish-coalescing env-override fallback fires (a `NaN` would not).
      *
      * @param {String} envVarName
      * @param {Object} [opts]

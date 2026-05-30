@@ -9,7 +9,6 @@ import net                         from 'net';
 import path                        from 'path';
 import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
-import Env                         from '../../../src/util/Env.mjs';
 import AiConfig                    from '../../config.mjs';
 import {buildLmsContextLengthsMap} from '../../services/graph/ProviderReadinessHelper.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
@@ -159,13 +158,12 @@ function resolveCloudOnlyEnabled(key) {
  *   class-system conversion, no parent-child propagation, no lifecycle side effect.
  *   The function-typed fields default to the imported pure functions so tests can
  *   override the seam without touching module-level mocks.
- * - **(D) Operator policy value** — lazy getters with the 2-value chain
- *   `Env.parseNumber('NEO_X') ?? AiConfig.orchestrator.intervals.X` for intervals
- *   + `Env.parseBool('NEO_X') ?? resolveDeploymentEnabled(...)` for booleans.
- *   `Env` is the canonical `Neo.util.Env` substrate primitive (`src/util/Env.mjs`);
- *   single-source-of-name discipline — env var name appears ONCE per call site
- *   (Env reads `process.env[name]` internally, avoiding duplicate env-var names
- *   at each call site).
+ * - **(D) Operator policy value** — pure config values (intervals, ports, model/host,
+ *   cadence/jitter) are read inline as `AiConfig.<path>` at their call sites; the env
+ *   override is layered into the aiConfig substrate at config-load time, so there is no
+ *   per-access env probe and no delegation getter re-exposing them. A few getters remain
+ *   for values carrying real logic (deployment-mode resolution, list-parsing, or a direct
+ *   runtime-identity read — `swarmHeartbeatIdentity` reads `NEO_AGENT_IDENTITY`).
  *
  * No `configure()` shadow-resolver. No `DEFAULT_X_*_MS` constants. No
  * `parseInterval`/`parseEnabledFlag` helpers. No `processSupervisorService.set({...this...})`
@@ -375,7 +373,7 @@ export class Orchestrator extends Base {
     // declared on `ai/config.template.mjs::envBindings.orchestrator.*` and applied at config-load
     // time; there is no per-access env probe. The getters below carry real logic
     // (deployment-mode resolution, coercion, env reads, list-parsing), so they remain.
-    get swarmHeartbeatIdentity()      { return Env.parseString('NEO_AGENT_IDENTITY'); }
+    get swarmHeartbeatIdentity()      { return process.env.NEO_AGENT_IDENTITY?.trim() || undefined; }
     /**
      * Explicit env-driven target list for the swarm-heartbeat resolver. Comma-separated
      * `@handle` form via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS`. Empty or absent →
