@@ -65,53 +65,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/manage:
-    post:
-      summary: Manage Database
-      operationId: manage_database
-      x-pass-as-object: true
-      description: >
-        Manages the lifecycle (start/stop) of the ChromaDB database instance for the Memory Core.
-
-        **Behavior:**
-        This tool provides a lifecycle verification interface for the unified ChromaDB database instance (port 8000). Per ADR 0003, the memory-core MCP server no longer spawns or stops its own database. It only acts as an observability passthrough.
-        - **Start:** Verifies connection to the unified database.
-        - **Stop:** Disconnects the memory-core client. Does NOT stop the external database process.
-
-        **Requirement:**
-        The unified database MUST be started externally via `npm run ai:server` before attempting to use the memory core.
-
-        **When to Use:**
-        - `action: start` if `healthcheck` shows the database connection is lost.
-        - `action: stop` to intentionally sever the connection.
-      tags: ["Database Lifecycle"]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum: [start, stop]
-                  description: The action to perform.
-      responses:
-        '200':
-          description: Operation completed successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DatabaseLifecycleResponse'
-        '500':
-          description: Operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /rem/pipeline-state:
     post:
       summary: Get REM Pipeline State
@@ -510,50 +463,6 @@ paths:
                 $ref: '#/components/schemas/QuerySummariesResponse'
         '400':
           description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: Cannot connect to database
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /sessions/summarize:
-    post:
-      summary: Summarize Sessions
-      operationId: summarize_sessions
-      x-pass-as-object: true
-      description: |
-        Triggers the session summarization process. This is a key step at the beginning of a new session to ensure all prior work is indexed and searchable.
-
-        **When to Use:**
-        - **Batch Mode (no sessionId):** Run at the start of a new session to summarize all previously unsummarized sessions.
-        - **Specific Mode (with sessionId):** Use to re-summarize a specific session if needed, though this is less common.
-      tags: [Sessions]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SummarizeSessionRequest'
-      responses:
-        '200':
-          description: Summarization completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SummarizeSessionResponse'
-        '400':
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Session not found (in specific mode)
           content:
             application/json:
               schema:
