@@ -124,7 +124,7 @@ class QueryService extends Base {
         // / offline daemon) → no tenant filter, byte-equivalent with pre-#11632 behavior.
         const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
         if (requesterTenantId) {
-            whereClause.tenantId = {$in: [requesterTenantId, aiConfig.defaultTenantId ?? 'neo-shared']};
+            whereClause.tenantId = {$in: [requesterTenantId, aiConfig.defaultTenantId]};
         }
 
         const queryOptions = {

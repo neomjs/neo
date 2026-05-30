@@ -13,7 +13,7 @@ import {isGraphModelProviderSupported, resolveGraphModelProvider} from './provid
  * @param {Object} config
  * @returns {String|undefined}
  */
-export function getOpenAiCompatibleHost(config = aiConfig.data) {
+export function getOpenAiCompatibleHost(config = aiConfig) {
     return config.openAiCompatible?.host;
 }
 
@@ -348,7 +348,7 @@ export async function ensureLmsModelsLoaded({
  * @param {Object} config
  * @returns {Object}
  */
-export function getGraphProviderReadinessTarget(config = aiConfig.data) {
+export function getGraphProviderReadinessTarget(config = aiConfig) {
     const provider  = resolveGraphModelProvider(config);
     const supported = isGraphModelProviderSupported(provider);
 
@@ -669,7 +669,7 @@ export function assertProviderReadinessConfig(readinessConfig) {
  * @returns {Object}
  */
 export function createProviderFailureDiagnostic({
-    config = aiConfig.data,
+    config = aiConfig,
     waitResult,
     lifecycleStatus,
     reason = 'PROVIDER_READINESS_TIMEOUT'

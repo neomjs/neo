@@ -554,7 +554,7 @@ class DatabaseService extends Base {
         logger.info('[Startup] Checking knowledge base status...');
 
         try {
-            if (aiConfig.data.autoSync) {
+            if (aiConfig.autoSync) {
                 logger.info('[Startup] Starting full synchronization (Create + Embed)...');
                 await this.syncDatabase();
                 logger.info('✅ [Startup] Full synchronization complete.');

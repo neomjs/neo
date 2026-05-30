@@ -589,7 +589,7 @@ class VectorService extends Base {
         // synchronously"); real latency is provider/tier/retry-state-dependent so
         // the threshold is empirically tunable rather than timing-derived.
         // CLI invocations pass viaMcp: false and bypass.
-        const mcpThreshold = aiConfig.mcpSyncMaxChunks ?? 50;
+        const mcpThreshold = aiConfig.mcpSyncMaxChunks;
         if (viaMcp && workVolume > mcpThreshold) {
             // Defensive log-path resolution mirrors logger.mjs's lazy resolution — keeps
             // the refusal message coherent even on existing gitignored config.mjs deployments

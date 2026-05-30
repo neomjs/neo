@@ -54,7 +54,7 @@ class DocumentService extends Base {
         // QueryService.queryDocuments clause (inline per the memory-core MemoryService pattern).
         const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
         if (requesterTenantId) {
-            getOptions.where = {tenantId: {$in: [requesterTenantId, aiConfig.defaultTenantId ?? 'neo-shared']}};
+            getOptions.where = {tenantId: {$in: [requesterTenantId, aiConfig.defaultTenantId]}};
         }
 
         const results = await collection.get(getOptions);
@@ -94,7 +94,7 @@ class DocumentService extends Base {
         // error leaks no cross-tenant existence signal. Mirrors QueryService.queryDocuments.
         const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
         if (requesterTenantId) {
-            getOptions.where = {tenantId: {$in: [requesterTenantId, aiConfig.defaultTenantId ?? 'neo-shared']}};
+            getOptions.where = {tenantId: {$in: [requesterTenantId, aiConfig.defaultTenantId]}};
         }
 
         const result = await collection.get(getOptions);

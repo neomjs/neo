@@ -22,7 +22,7 @@ const options = program.opts();
 
 // Apply debug flag immediately
 if (options.debug) {
-    aiConfig.data.debug = true;
+    aiConfig.debug = true;
 }
 
 try {
