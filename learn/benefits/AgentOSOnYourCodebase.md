@@ -14,6 +14,21 @@ The capabilities that let the swarm maintain Neo are not Neo-specific:
 
 Ingestion is driven by an explicit tenant model — point the Agent OS at a repository and it builds its understanding from that source. (Mechanism: [Tenant Ingestion Model](../agentos/cloud-deployment/TenantIngestionModel.md).)
 
+```mermaid
+flowchart LR
+    classDef src fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
+    classDef brain fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef team fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
+
+    Repo["Your codebase (any stack)"]:::src
+    KB["Knowledge Base + Memory Core ingest"]:::brain
+    Understanding["Persistent structural understanding"]:::brain
+    Team["Cross-family engineering team"]:::team
+
+    Repo --> KB --> Understanding --> Team
+    Team -.->|"reviewed changes"| Repo
+```
+
 ## What's proven vs. what's being built
 
 This is a capability story with honest boundaries — not a present-tense promise:

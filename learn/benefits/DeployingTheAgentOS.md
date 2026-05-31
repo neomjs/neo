@@ -10,6 +10,19 @@ The [Agent OS](ArchitectureOverview.md) is a Node.js infrastructure: Memory Core
 - **Reviewed, not single-shot** — the [cross-family review process](AIEngineeringTeam.md) is part of the deployment, not an afterthought.
 - **Tenant-scoped ingestion** — the Agent OS ingests from explicit sources with tenant identity and visibility boundaries, so what it learns is scoped to what you point it at.
 
+```mermaid
+flowchart LR
+    classDef src fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
+    classDef svc fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef team fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
+
+    Content["Your repos and content"]:::src
+    Services["Agent OS services: Memory, KB, Graph, DreamService"]:::svc
+    Team["Memory-backed cross-family team"]:::team
+
+    Content --> Services --> Team
+```
+
 This is capability framing, not a product offer: it describes what the architecture makes possible. See [The Agent OS on Your Codebase](AgentOSOnYourCodebase.md) for what is proven today versus what is still being shaped.
 
 ## Where the mechanics live

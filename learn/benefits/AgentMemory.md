@@ -8,6 +8,23 @@ This is the memory half of the [Agent OS](ArchitectureOverview.md) — and it is
 
 ## Three substrates, one memory
 
+```mermaid
+flowchart TD
+    classDef agent fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef mem fill:#4a1942,stroke:#e74c3c,stroke-width:1px,color:#eee
+    classDef graph fill:#3d1f00,stroke:#f39c12,stroke-width:1px,color:#eee
+
+    Memory["Memory Core (episodic, cross-session)"]:::mem
+    KB["Knowledge Base (semantic RAG)"]:::mem
+    Graph["Native Edge Graph (Active Hybrid GraphRAG)"]:::graph
+    Agent["Agent reasoning (any model family)"]:::agent
+
+    Memory --> Agent
+    KB --> Agent
+    Graph --> Agent
+    Agent -->|"persist decisions"| Memory
+```
+
 ### Memory Core — episodic memory that persists
 
 Every agent decision, rationale, and tool call is written to the **Memory Core** and queried back on the next session. It is not a chat log; it is structured, searchable, cross-session episodic memory. Crucially, it is **shared across the swarm** — combined with agent-to-agent (A2A) messaging, one model family can read another's persisted reasoning instead of guessing at it. (Mechanism: [the Memory Core](../agentos/MemoryCore.md).)

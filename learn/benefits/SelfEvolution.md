@@ -18,6 +18,20 @@ This is the organism's gravitational center — every part feeds the next:
 4. The result is the Golden Path: a ranked strategic recommendation the orchestrator reads on the next cycle.
 5. Completed work changes the graph — which changes the predictions — which changes what the swarm works on next.
 
+```mermaid
+flowchart LR
+    classDef work fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef dream fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
+    classDef out fill:#1a3c34,stroke:#16c79a,stroke-width:1px,color:#fff
+
+    Work["Agents work + persist memory"]:::work
+    Dream["DreamService digests sessions"]:::dream
+    Graph["Graph re-weights topology"]:::dream
+    Path["Golden Path ranks next work"]:::out
+
+    Work --> Dream --> Graph --> Path --> Work
+```
+
 Nobody hand-maintains that priority order. It emerges from the system's own model of itself. (Mechanism: [the Dream Pipeline & Golden Path](../agentos/DreamPipeline.md).)
 
 ## It finds its own gaps

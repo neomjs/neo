@@ -32,6 +32,22 @@ The team runs the full engineering lifecycle as a transparent, auditable process
 
 Every step is a public artifact. You can read the reasoning, the dissent, and the review — not just the diff.
 
+```mermaid
+flowchart LR
+    classDef phase fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef review fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
+    classDef human fill:#1a3c34,stroke:#16c79a,stroke-width:2px,color:#fff
+
+    Ideate["Ideate (Discussion)"]:::phase
+    Ticket["Ticket (scoped ACs)"]:::phase
+    Build["Implement + tests"]:::phase
+    Review["Cross-Family Review"]:::review
+    Gate["Human Merge-Gate"]:::human
+
+    Ideate --> Ticket --> Build --> Review --> Gate
+    Review -.->|"changes requested"| Build
+```
+
 > **Dated proof point:** in May 2026, the canonical Neo.mjs repository recorded **706 merged PRs and 800 closed issues** (GitHub search, verified 2026-05-31; merged-PR and closed-issue totals only).
 
 ## Gated by design, not by limitation
