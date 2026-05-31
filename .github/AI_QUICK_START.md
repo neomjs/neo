@@ -155,7 +155,7 @@ See §5 "Core Configuration (Claude Desktop / Claude Code)" for the complete str
 The agent's behavior is controlled by several configuration files depending on your chosen environment:
 
 ### Core Configuration (Gemini CLI)
-The repository provides a `.gemini/settings.json` file which automatically activates all 5 functional Neo MCP servers for the session.
+The repository provides a `.gemini/settings.json` file which automatically activates the four frontier-harness Neo MCP servers for the session: GitHub Workflow, Knowledge Base, Memory Core, and Neural Link.
 
 ### Core Configuration (Antigravity OS)
 Antigravity requires a user-level configuration file located at `~/.gemini/antigravity/mcp_config.json`. You must create this file and configure it with your API keys and local paths. 
@@ -203,15 +203,6 @@ Use the following structure:
       ],
       "env": {
         "GH_TOKEN": "<YOUR_GH_TOKEN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
-    "neo-mjs-file-system": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/file-system/mcp-server.mjs"
-      ],
-      "env": {
         "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
@@ -272,13 +263,6 @@ Use the following structure (replace the placeholders as in the Antigravity sect
         "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
-    "neo-mjs-file-system": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/file-system/mcp-server.mjs"],
-      "env": {
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
     "neo-mjs-neural-link": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
@@ -293,6 +277,8 @@ Use the following structure (replace the placeholders as in the Antigravity sect
   }
 }
 ```
+
+**File System MCP scope:** frontier harnesses such as Codex, Claude Code, Gemini CLI, and Antigravity already provide their own filesystem and command-execution tools. Neo still ships `ai:mcp-server-file-system`, but it is for `Neo.ai.Agent` instances and local harnessless profiles such as Gemma-powered QA/documentation loops that need file access through the Agent OS client.
 
 **Restart gotcha (applies to every GUI-launched harness):** after editing the MCP config, you must **fully quit** the harness for changes to take effect:
 - **macOS**: ⌘Q in the menu bar — simply closing the window leaves the app running in the background

@@ -152,7 +152,7 @@ Neo is split into two complementary layers (engine ↔ toolchain):
 - **Memory Core MCP server** — agent persistent memory (SQLite Native Edge Graph + ChromaDB episodic)
 - **GitHub Workflow MCP server** — autonomous PR review, issue management, bi-directional sync
 - **Neural Link MCP server** — runtime introspection + mutation of the live App Worker heap
-- **File System MCP server** — sandboxed file IO and execution feedback for local agent loops
+- **File System MCP server** — sandboxed file IO for internal `Neo.ai.Agent` local loops; frontier harnesses use their native file tools
 - **DreamService** — REM-cycle daemon that distills sessions into Golden Path topology
 
 **Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md)

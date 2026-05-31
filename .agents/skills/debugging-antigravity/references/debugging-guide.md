@@ -52,10 +52,11 @@ A perpetual loading spinner on the main view is largely cosmetic as long as the 
 **For agents, the most critical verification is that all configured MCP server sets load.**
 To verify, bypass the UI and use your healthcheck tools:
 - `mcp_neo-mjs-github-workflow_healthcheck`
-- `mcp_neo-mjs-file-system_healthcheck`
 - `mcp_neo-mjs-knowledge-base_healthcheck`
 - `mcp_neo-mjs-memory-core_healthcheck`
 - `mcp_neo-mjs-neural-link_healthcheck`
+
+The File System MCP server is an internal `Neo.ai.Agent` / local-model loop server, not a normal frontier-harness healthcheck item unless you explicitly configured that local agent profile.
 
 If the tools pass, the backend is up. To fix the frontend UI crash, follow the playbook below.
 
