@@ -93,6 +93,17 @@ This is the next evolution of conversational UIs: not a chat panel beside the ap
 **Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/ObjectPermanence.md`](./learn/benefits/ObjectPermanence.md), and [`learn/benefits/OffTheMainThread.md`](./learn/benefits/OffTheMainThread.md)
 
 </br></br>
+## v13: The Agent OS, Deployed on Your Codebase
+
+Neo.mjs runs this organism on its own repository in public. **v13 turns it outward — the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
+
+It ships as the canonical topology ([ADR 0014](./learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) + [`ai/deploy/`](./ai/deploy)): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress. Point it at your repositories and the same cross-model swarm — persistent memory, cross-family review, DreamService self-improvement — builds durable, queryable understanding of *your* code, with per-tenant identity and visibility isolation. One Brain, many tenants; onboarding a codebase is a config entry, not a fork.
+
+This is the apex's second clause becoming real: *it maintains its own codebase today; it is being built to inhabit yours.*
+
+**Read**: [Deploying the Agent OS](./learn/benefits/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
+
+</br></br>
 ## The Honest Caveat: A Centralized Brain
 
 The organism runs the full engineering lifecycle today — but it is not yet *resilient*, and that asymmetry is worth naming honestly:
