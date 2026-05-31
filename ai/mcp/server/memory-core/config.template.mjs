@@ -19,6 +19,7 @@ const __dirname  = path.dirname(__filename);
 
 const neoRootDir = path.resolve(__dirname, '../../../../');
 const cwd        = neoRootDir;
+const DAY_MS     = 24 * 60 * 60 * 1000;
 
 /**
  * @summary Configuration manager for the Memory Core MCP server.
@@ -143,6 +144,22 @@ class Config extends BaseConfig {
              * @type {string}
              */
             handoffFilePath: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md')),
+            /**
+             * Stale-assignment idle threshold used by `GoldenPathSynthesizer` when rendering
+             * Sandman handoff candidates. Defaults to the ticket-intake 7-day reassignment rule.
+             * @type {number}
+             */
+            goldenPathStaleAssignmentThresholdMs: leaf(7 * DAY_MS, 'NEO_GOLDEN_PATH_STALE_ASSIGNMENT_THRESHOLD_MS', 'number'),
+            /**
+             * Maximum stale-assignment candidates rendered into the Sandman handoff.
+             * @type {number}
+             */
+            goldenPathStaleAssignmentRenderLimit: leaf(20, 'NEO_GOLDEN_PATH_STALE_ASSIGNMENT_RENDER_LIMIT', 'number'),
+            /**
+             * Maximum recent open PR rows rendered inside `Active PR Cycle State`.
+             * @type {number}
+             */
+            goldenPathRecentOpenPrRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
             /**
              * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
              * @type {number}
