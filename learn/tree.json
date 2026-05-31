@@ -43,7 +43,7 @@
         {"name": "Code Execution (AI SDK)",                            "parentId": "AgentOS",                                             "id": "agentos/CodeExecution"},
         {"name": "Shared KB/MC Team Deployment",                       "parentId": "AgentOS",                                             "id": "agentos/SharedDeployment"},
         {"name": "Deployment Cookbook",                                "parentId": "AgentOS",                                             "id": "agentos/DeploymentCookbook"},
-        {"name": "Cloud Deployment",                                   "parentId": "AgentOS",                            "isLeaf": false, "id": "AgentOS/CloudDeployment", "collapsed": true},
+        {"name": "Deploying the Agent OS",                             "parentId": "AgentOS",                            "isLeaf": false, "id": "AgentOS/CloudDeployment", "collapsed": true},
             {"name": "Why Deploy the Agent OS",                        "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/WhyDeploy"},
             {"name": "Cloud-Native KB Ingestion Overview",             "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Overview"},
             {"name": "Day-0 Tutorial",                                 "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Day0Tutorial"},

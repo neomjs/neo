@@ -6,7 +6,15 @@ Neo's Brain is not only for Neo's own repository. Deployed as a service, the **A
 
 ## Why deploy it
 
-A code-generation assistant gives you output. A deployed Agent OS gives you a **memory-backed, cross-family engineering team** that learns your codebase, retains *why* decisions were made, and reviews its own work across model families. The differentiated value is the [Brain](../../benefits/ArchitectureOverview.md) — not a single agent. What is proven today versus the portable trajectory is an explicit boundary (see the Boundaries section below).
+Most AI coding tools hand you output and forget the context the moment the session ends. **A deployed Agent OS gives you an engineering team instead of an autocomplete** — one that builds durable, queryable understanding of *your* codebase, reviews its own changes across rival model families before they land, and gets better at your system the longer it runs. It is the same Brain that [maintains Neo in public](../../benefits/ArchitectureOverview.md) today, pointed at your repositories.
+
+Concretely, a deployed Brain gives you:
+
+- **Memory that compounds** — decisions, rationale, and prior fixes persist across sessions, so the team stops re-deriving what it already learned.
+- **Cross-family review by default** — a change from one model family is checked by another before it merges, catching the self-authored blind spots a single agent shares with itself.
+- **Self-directed prioritization** — the Dream Pipeline forecasts the highest-ROI work across your repos, so the backlog is ranked by the system, not just hand-fed.
+
+The differentiated value is the [Brain](../../benefits/ArchitectureOverview.md), not a single agent — see [The Agent OS on Your Codebase](../../benefits/AgentOSOnYourCodebase.md) for what is proven today versus the portable trajectory.
 
 ## What gets deployed — the whole Brain, not just KB ingestion
 
@@ -60,6 +68,8 @@ This is capability framing, not a product offer — it describes what the archit
 
 ## Related
 
+- [Deploying the Agent OS](../../benefits/DeployingTheAgentOS.md) — the benefit-altitude entry point
+- [The Agent OS on Your Codebase](../../benefits/AgentOSOnYourCodebase.md) — proven-today vs. portable-trajectory boundaries
 - [Architecture Overview: The Two Hemispheres](../../benefits/ArchitectureOverview.md)
 - [Cloud-Native KB Ingestion Overview](./Overview.md) — the deep ingestion mechanics
 - [ADR 0018 — Neo Identity Source-of-Truth Model](../decisions/0018-neo-identity-source-of-truth-model.md)
