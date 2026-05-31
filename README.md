@@ -93,23 +93,14 @@ This is the next evolution of conversational UIs: not a chat panel beside the ap
 **Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/ObjectPermanence.md`](./learn/benefits/ObjectPermanence.md), and [`learn/benefits/OffTheMainThread.md`](./learn/benefits/OffTheMainThread.md)
 
 </br></br>
-## Faculty-Staging Maturity (Honest Current State)
+## The Honest Caveat: A Centralized Brain
 
-The MX loop's full closed-loop maturity ships in stages. Two faculties are shipped; two are in flight.
-
-| Faculty | Substrate | Status |
-|---|---|---|
-| **Speech** — A2A messaging | `addMessage` / `listMessages` MCP tools | ✅ shipped |
-| **Attention** — Wake substrate | Cross-process wake delivery via bridge daemon (ADR-0002) | ✅ shipped |
-| **Short-term recall** — Turn-based mini summaries | [#10332](https://github.com/neomjs/neo/issues/10332) | 🔄 in flight |
-| **Dream** — Concept Ontology + Golden Path authoritative routing | [#10030](https://github.com/neomjs/neo/issues/10030) | 🔄 in flight |
-
-The substrate also has a **resilience asymmetry** worth naming honestly:
+The organism runs the full engineering lifecycle today — but it is not yet *resilient*, and that asymmetry is worth naming honestly:
 
 - **The Body is distributed** — every git clone is a complete backup. The codebase is replicated globally; the Body cannot disappear.
-- **The Brain is centralized** — SQLite Native Edge Graph + Vector DB + LLM API funding currently run on a single human's laptop. That is a Single Point of Failure ([#10291](https://github.com/neomjs/neo/issues/10291) tracks substrate-level self-defense; an *Economic Metabolism Sensor* — a formal funding structure that preserves Clean Room Ethics — is the next substrate-fragility milestone).
+- **The Brain is centralized** — the SQLite Native Edge Graph, vector store, and LLM-API funding currently run on a single operator's infrastructure. That is a Single Point of Failure ([#10291](https://github.com/neomjs/neo/issues/10291) tracks substrate-level self-defense, including a sustainable funding structure that preserves Clean Room Ethics).
 
-We name this because *the organism is not yet immortal*. The trajectory toward maturity goes through resolving the SPOF.
+*The organism is not yet immortal.* The trajectory toward resilience runs through resolving that SPOF.
 
 </br></br>
 ## Quickstart
