@@ -51,7 +51,7 @@
         "ai:orchestrator"              : "node ./ai/daemons/orchestrator/daemon.mjs",
         "ai:revalidation-sweep"        : "node ./ai/scripts/lifecycle/revalidationSweep.mjs",
         "ai:run-sandman"               : "node ./ai/scripts/runners/runSandman.mjs",
-        "ai:server"                    : "chroma run --path ./.neo-ai-data/chroma/knowledge-base",
+        "ai:server"                    : "chroma run --path ./.neo-ai-data/chroma/unified",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
         "ai:summarize-sessions"        : "node ./ai/scripts/lifecycle/summarize-sessions.mjs",
         "ai:sync-github-workflow"      : "node ./ai/scripts/maintenance/syncGithubWorkflow.mjs",

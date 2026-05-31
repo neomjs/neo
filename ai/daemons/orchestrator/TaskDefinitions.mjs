@@ -64,7 +64,7 @@ export function buildTaskDefinitions({
             // cwd==repoRoot. Kept as a relative literal here (not SSOT-sourced) for daemon-launch
             // resilience: a stale config.mjs lacking the SSOT key would otherwise launch the daemon
             // with `--path undefined`. Keep this value in sync with engines.chroma.dataDir.
-            args           : ['run', '--path', '.neo-ai-data/chroma/knowledge-base', '--port', String(chromaPort)],
+            args           : ['run', '--path', '.neo-ai-data/chroma/unified', '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma',
             singletonPort  : chromaPort

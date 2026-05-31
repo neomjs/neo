@@ -118,7 +118,7 @@ export const KB_DEFAULTS = deepFreeze(Neo.clone({
         }
     },
     collectionName    : 'neo-knowledge-base',
-    path              : path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base'),
+    path              : path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'),
     dataPath          : path.resolve(neoRootDir, 'dist/ai-knowledge-base.jsonl'),
     hierarchyPath     : path.resolve(neoRootDir, 'docs/output/class-hierarchy.json'),
     logPath           : path.resolve(neoRootDir, '.neo-ai-data/logs'),

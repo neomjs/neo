@@ -98,7 +98,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         expect(config.host).toBe(TIER1_DEFAULTS.engines.chroma.host);
         expect(config.port).toBe(TIER1_DEFAULTS.engines.chroma.port);
         expect(config.collectionName).toBe('neo-knowledge-base');
-        expect(config.path).toContain('.neo-ai-data/chroma/knowledge-base');
+        expect(config.path).toContain('.neo-ai-data/chroma/unified');
     });
 
     test('env overrides win — KB-local leaves at the child, Tier-1-owned leaves at the owner (inherited)', () => {

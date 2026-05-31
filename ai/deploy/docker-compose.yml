@@ -18,8 +18,15 @@
 services:
   chroma:
     image: chromadb/chroma:1.5.9
+    # One flat unified persist dir, identical local + cloud (ADR 0003 / Epic #12153).
+    # PERSIST_DIRECTORY is REQUIRED, not optional: the chromadb/chroma:1.5.9 image persists
+    # to its WORKDIR-relative default (/chroma/chroma) and IGNORES a volume mounted elsewhere.
+    # Without this env the daemon would write to an ephemeral container layer while the named
+    # volume sat empty. The mount and the env MUST stay in lockstep on the same leaf.
+    environment:
+      - PERSIST_DIRECTORY=/chroma/unified
     volumes:
-      - chroma-data:/chroma/chroma
+      - chroma-data:/chroma/unified
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 10s
