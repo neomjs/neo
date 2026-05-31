@@ -110,7 +110,7 @@ Three framing-authority calls are genuinely operator-owned (Tier-4). The skill c
   **Governance line** (founder-architect authority, NOT a slop-filter — per @neo-gpt correction `dc-17119184`): *Gated-RSI by design — the swarm can run the engineering lifecycle autonomously; in the canonical repo, final merge authority remains with the founder-architect as an intentional governance choice, preserving product taste, strategic coherence, and accountable ownership while the organism evolves in public.*
 
   **Register split:** "rival labs" + the anti-slop contrast = human-facing copy (README/portal hero) only; machine surfaces (ld+json, keywords, GitHub topics, the literal `<meta name="description">`) use the colder concise form and never the word "slop." Canonical concise meta-description (≤220 chars, package.json `description`): *"Neo.mjs is a self-evolving software organism: a professional end-to-end AI engineering team whose cross-model swarm inhabits live apps via Neural Link, Active Hybrid GraphRAG, DreamService, and self-healing loops."* Proof asset: blog #10074 (cross-family self-healing, first-person, verified-true) — publish + link from the apex's proof anchor. "Application Engine for the AI Era" (npm/SEO discovery) and "self-evolving digital organism" (VISION-doc framing) are retained as deeper/audience-segmented clusters, governed as compatible with — never the lead over — the institution apex.
-- **OD-2 — The canonical heritage home.** V-B-A this turn (grep for the specific anchors across README/ROADMAP/learn/`.github`) found the public-era heritage facts — **GA November 2019; first multi-worker UI engine; app-worker-as-main-actor; native multi-window; JSON-first since 2019; OS-Awards top-5 "most exciting use of technology 2021"** — have **no canonical home in any surface** (grep-empty everywhere). `.github/NEOMJS_HISTORY.md` exists but holds a *different* heritage slice: the pre-public-release origin story (Oct 2015 codename "Neoteric", 3720 pre-release commits, co-founders). So heritage isn't merely under-referenced — most of it is **unwritten**. *Recommendation:* designate `.github/NEOMJS_HISTORY.md` the canonical heritage SSOT and **extend it** with the public-era milestones (it currently stops at the public release), then reference it (do not duplicate) from README + the portal about-us view. This makes "author the public-era heritage facts" an explicit follow-up item, not an assumed-existing reference. *(Heritage facts are append-only once written — the lowest-drift-risk fact class.)*
+- **OD-2 — The canonical heritage home. DECIDED (#12232, 2026-05-31).** V-B-A found `.github/STORY.md` already exists as the story-shaped origin / architecture narrative, while `.github/NEOMJS_HISTORY.md` is a pre-public contributor-credits and acknowledgements archive. Public-era heritage facts therefore live in `.github/STORY.md`; README and the portal About Us surface reference that home instead of duplicating the fact list. `.github/NEOMJS_HISTORY.md` remains untouched unless a future operator ruling deliberately changes its document kind. Heritage facts are append-only once verified. Exact OS-Awards category / placement claims require an acceptable external public source before publication; repo-local blog mentions are context, not enough by themselves.
 - **OD-3 — The structuring metaphor. DECIDED (operator @tobiu, 2026-05-30).** **Two Hemispheres (Body `/src/` ↔ Brain `/ai/`) is the canonical top-level scaffold.** "Four Pillars (Brain / Swarm / Body / Evolution)" is **demoted**: Swarm and Evolution live *inside* the Brain (the MX loop, the cross-family swarm, and cross-model workflows all reside in `/ai/`), so they are not co-equal pillars alongside Body — presenting four peers mis-weights a single Body against three Brain-subsystems. Keep four-pillar language only as a deeper-doc elaboration of what the Brain contains, never as the top-level equal-weight scaffold.
 
 ---
@@ -150,7 +150,7 @@ De-versioning the per-model identity prose would violate ADR 0012's deliberate P
 
 ### Negative
 - **The propagation tooling is partly unbuilt** — `prepare.mjs` must be extended; the MCP-count manifest + lint guard don't exist yet. The ADR decides the model; the build-out is downstream work (skill-run items, out of scope here).
-- **The apex/heritage/metaphor calls (OD-1..3) require operator rulings** before the skill can coherence-check framing deterministically.
+- **New heritage claims still need evidence** — the home is decided, but facts added to it must remain verified and append-only.
 - **Material classification needs judgment at the margin** — a "fact" embedded inside a framing sentence (e.g. "the first multi-worker engine") is both; the skill must handle mixed surfaces.
 
 ---
@@ -162,7 +162,7 @@ De-versioning the per-model identity prose would violate ADR 0012's deliberate P
 - **GitHub account renames** — operator-owned (Tier-4); the skill *propagates* a rename, it doesn't perform it.
 - **The model-lifecycle rotation** (sunset trigger fired) — owned by ADR 0012 registry-update discipline.
 - **Rewriting the framing fossils** (VISION "web applications"; CEO/PM/Drone hierarchy) — content edits via the skill-run, gated by the §2.3 escalation branch.
-- **Authoring heritage content** — OD-2 decides the *home*; writing it is follow-up.
+- **Unverified heritage claims** — OD-2 decides the home, not the truth of every future milestone. New claims still need source verification before publication.
 
 ## 6. Anti-Patterns
 
@@ -205,7 +205,8 @@ Before modifying identity substrate or the `neo-identity-update` skill:
 - `buildScripts/docs/seo/generate.mjs` — the generated-output source (llms.txt + sitemap.xml)
 - `buildScripts/release/prepare.mjs` — the version-bump seam to extend
 - `ai/graph/identityRoots.mjs` — the handle-indirection seam
-- `.github/NEOMJS_HISTORY.md` — heritage-home candidate (OD-2)
+- `.github/STORY.md` — canonical public-era heritage home (OD-2)
+- `.github/NEOMJS_HISTORY.md` — pre-public contributor-credits archive; not the public-era heritage home
 - Brainstorm + fan-out audit: Memory Core session `94a91ebc-d325-4d32-a746-4ff8c26c0342`
 
 ## 9. Status / Lifecycle
