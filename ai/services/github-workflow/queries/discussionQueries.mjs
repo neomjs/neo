@@ -99,6 +99,7 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
               }
               body
               createdAt
+              isAnswer
               replies(first: $maxReplies) {
                 nodes {
                   author {
@@ -106,6 +107,7 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
                   }
                   body
                   createdAt
+                  isAnswer
                 }
               }
             }
