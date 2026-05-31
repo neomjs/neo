@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Custom Sources
 
-> **Status — Phase 3B.** This guide documents how a deployment teaches the Knowledge Base to index a new content territory by authoring a custom `Source` class — the Phase 0/1B `SourceRegistry` substrate of Epic [#11624](https://github.com/neomjs/neo/issues/11624). A runnable custom Source ships alongside this guide under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).
+> **Status — Phase 3B.** This guide documents how a deployment teaches the Knowledge Base to index a new content territory by authoring a custom `Source` class — the Phase 0/1B `SourceRegistry` substrate of Epic [#11624](https://github.com/neomjs/neo/issues/11624). A runnable custom Source ships alongside this guide under [`ai/examples/cloud-deployment/`](../../../ai/examples/cloud-deployment/).
 
 ## Source vs Parser — which do you need?
 

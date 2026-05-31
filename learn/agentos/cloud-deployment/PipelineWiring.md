@@ -1,6 +1,6 @@
 # Cloud Deployment — Downstream Pipeline Wiring
 
-> **Status — Post-MVP residual [#11733](https://github.com/neomjs/neo/issues/11733).** Epic [#11720](https://github.com/neomjs/neo/issues/11720) shipped the in-repo deployment proof: the profile-structured [`ai/deploy/`](../../../ai/deploy/) compose stack, the deployed MCP healthcheck, and the [Day-0 Cloud Deployment Tutorial](./Day0Tutorial.md). This guide is the next phase — wiring that deployment into an external team's downstream CI/CD pipeline so a release can build, deploy, and redeploy the Agent OS stack without a human running `docker compose` by hand. It is a *reference integration*, not a turnkey pipeline: CI systems differ, so the moving parts are documented here and a CI-system-neutral reference script ships under [`examples/cloud-deployment/deploy-pipeline.sh`](../../../examples/cloud-deployment/deploy-pipeline.sh).
+> **Status — Post-MVP residual [#11733](https://github.com/neomjs/neo/issues/11733).** Epic [#11720](https://github.com/neomjs/neo/issues/11720) shipped the in-repo deployment proof: the profile-structured [`ai/deploy/`](../../../ai/deploy/) compose stack, the deployed MCP healthcheck, and the [Day-0 Cloud Deployment Tutorial](./Day0Tutorial.md). This guide is the next phase — wiring that deployment into an external team's downstream CI/CD pipeline so a release can build, deploy, and redeploy the Agent OS stack without a human running `docker compose` by hand. It is a *reference integration*, not a turnkey pipeline: CI systems differ, so the moving parts are documented here and a CI-system-neutral reference script ships under [`ai/examples/cloud-deployment/deploy-pipeline.sh`](../../../ai/examples/cloud-deployment/deploy-pipeline.sh).
 
 ## Deployment-pipeline vs content-pipeline
 
@@ -23,7 +23,7 @@ A downstream deploy job runs on the deployment host (or a runner with Docker acc
 4. **Gate on health** — block until the deployed MCP healthchecks pass; fail the job if they do not.
 5. **Report** — surface the healthcheck result so a failed deploy is visible.
 
-[`examples/cloud-deployment/deploy-pipeline.sh`](../../../examples/cloud-deployment/deploy-pipeline.sh) is a runnable reference for steps 2–5. A CI job (GitHub Actions, GitLab CI, Jenkins, …) calls it; the script is CI-system-neutral so the wiring is not locked to one vendor.
+[`ai/examples/cloud-deployment/deploy-pipeline.sh`](../../../ai/examples/cloud-deployment/deploy-pipeline.sh) is a runnable reference for steps 2–5. A CI job (GitHub Actions, GitLab CI, Jenkins, …) calls it; the script is CI-system-neutral so the wiring is not locked to one vendor.
 
 ## Release-gating
 
@@ -88,5 +88,5 @@ A deploy job that does not gate on health reports success while serving a broken
 - [Deployment Cookbook](../DeploymentCookbook.md) — the deployment authority: topology, profiles, persistence (§5), healthcheck contract (§8).
 - [Day-0 Cloud Deployment Tutorial](./Day0Tutorial.md) — the first-run path; Milestone 7 is the redeploy-survival check this pipeline automates.
 - [Hook Wiring](./HookWiring.md) — the *content* pipeline (tenant repo content into the KB), distinct from this *deployment* pipeline.
-- [`examples/cloud-deployment/deploy-pipeline.sh`](../../../examples/cloud-deployment/deploy-pipeline.sh) — the runnable, CI-neutral reference deploy/redeploy script.
+- [`ai/examples/cloud-deployment/deploy-pipeline.sh`](../../../ai/examples/cloud-deployment/deploy-pipeline.sh) — the runnable, CI-neutral reference deploy/redeploy script.
 - [ADR 0014](../decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) — the cloud topology + scheduler taxonomy this deployment implements.

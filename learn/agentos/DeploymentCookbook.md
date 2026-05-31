@@ -343,7 +343,7 @@ the local `kbSync` scheduler lane. Use the
 - tenant config persistence.
 
 Runnable ingestion examples live in
-[`examples/cloud-deployment/`](../../examples/cloud-deployment/). They are
+[`ai/examples/cloud-deployment/`](../../ai/examples/cloud-deployment/). They are
 ingestion-contract demonstrations, not production deployment profiles.
 The linear first-run operator path is
 [Day-0 Cloud Deployment Tutorial](cloud-deployment/Day0Tutorial.md).

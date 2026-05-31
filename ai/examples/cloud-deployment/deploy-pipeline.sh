@@ -7,8 +7,8 @@
 # deployment host. It is intentionally CI-system-neutral — the wiring is the
 # reference, not the CI vendor.
 #
-# Usage:    examples/cloud-deployment/deploy-pipeline.sh [compose-profile ...]
-#           NEO_DEPLOY_PROFILES="cloud ingress" examples/cloud-deployment/deploy-pipeline.sh
+# Usage:    ai/examples/cloud-deployment/deploy-pipeline.sh [compose-profile ...]
+#           NEO_DEPLOY_PROFILES="cloud ingress" ai/examples/cloud-deployment/deploy-pipeline.sh
 # Contract: learn/agentos/cloud-deployment/PipelineWiring.md
 #
 # Redeploy-safe: recreates containers and KEEPS persistent state. It never runs
