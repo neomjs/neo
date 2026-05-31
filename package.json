@@ -1,7 +1,7 @@
 {
     "name"           : "neo.mjs",
     "version"        : "12.1.0",
-    "description"    : "The Application Engine for the AI Era. A multi-threaded, AI-native runtime with a persistent Scene Graph, enabling AI agents to introspect and mutate the living application structure in real-time.",
+    "description"    : "Neo.mjs is a self-evolving software organism: a professional end-to-end AI engineering team whose cross-model swarm inhabits live apps via Neural Link, Active Hybrid GraphRAG, DreamService, and self-healing loops.",
     "type"           : "module",
     "repository"     : {
         "type": "git",
