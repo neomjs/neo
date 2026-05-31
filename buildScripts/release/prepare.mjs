@@ -12,6 +12,8 @@ import os                          from 'os';
 import path                        from 'path';
 import createLabelIndex            from '../docs/index/labels.mjs';
 import createReleaseIndex          from '../docs/index/release.mjs';
+import createDiscussionIndex       from '../docs/index/discussions.mjs';
+import createPullRequestIndex      from '../docs/index/pulls.mjs';
 import createTicketIndex           from '../docs/index/tickets.mjs';
 import {getLlmsTxt, getSitemapXml} from '../docs/seo/generate.mjs';
 
@@ -135,6 +137,8 @@ if (insideNeo) {
 // Generate the release content JSON before SEO files
 await createLabelIndex();
 await createReleaseIndex();
+await createPullRequestIndex();
+await createDiscussionIndex();
 await createTicketIndex();
 
 // Generate sitemap.xml and llms.txt to ensure SEO files are up-to-date with the latest content and routes.
