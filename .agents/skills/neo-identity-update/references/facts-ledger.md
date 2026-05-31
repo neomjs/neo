@@ -10,7 +10,7 @@ Each identity FACT has ONE canonical source. Every other occurrence derives from
 | **Identity handle** | `ai/graph/identityRoots.mjs` | route references through the seam. Account rename is operator-owned (Tier-4); the skill propagates. Model-version stays in `ModelStats.md` per ADR 0012 — do NOT de-version the prose | ~63 files contain `@neo-opus-4-7` |
 | **Recurring motto** | `learn/agentos/DreamPipeline.md` (origin of "the system evolves by predicting its own evolution") | reference a single quotable constant; don't re-type | DreamPipeline (2×), README, ROADMAP |
 | **Codebase-scale metrics** | `learn/guides/fundamentals/CodebaseOverview.md` | README "Platform at Scale" refreshes in lock-step; carry an explicit as-of date | README |
-| **GA date** | first git commit (`git log --reverse`, = `2019-11-11`) | heritage = append-only; write once into `.github/NEOMJS_HISTORY.md` | currently unwritten |
+| **GA / public repo start date** | first git commit (`git log --reverse`, = `2019-11-11`) | heritage = append-only; write once into `.github/STORY.md` | README / portal should reference the story, not duplicate the date |
 
 ## Propagation mechanism — preference order
 1. **Derive-at-build** — a build step writes the value from the SSOT (best; cannot drift). E.g. extend `prepare.mjs`.
@@ -24,4 +24,5 @@ When the right mechanism doesn't exist yet (e.g. no lint guard for server count)
 - GA / first commit: **November 2019** (`git log --reverse` → `2019-11-11`). "JSON-first since 2019" is correct.
 - Performance: `learn/benefits/Speed.md` — consistent **20,000+** DOM-updates/sec floor, observed peak **over 40,000**. Cite as observed-peak (+ floor), not a guaranteed benchmark.
 - Velocity counts: publish as a **dated-window stat** with the inline range (e.g. "2026-04-30 → 2026-05-30"), regenerated from `git`/GitHub API — never an audited absolute.
+- Heritage home: `.github/STORY.md`. `.github/NEOMJS_HISTORY.md` is pre-public contributor credits / acknowledgements; do not expand it with public-era milestones.
 - OS-Awards 2021: **not repo-verifiable** — confirm exact name/category/placement from an external source before any public citation.
