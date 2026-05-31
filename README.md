@@ -35,6 +35,19 @@ Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as product
 Every other 2026 platform asks: *how can AI help humans use this software?* Neo.mjs asks: *how can software become a body that AI inhabits?*
 
 </br></br>
+## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
+
+Neo.mjs runs this organism on its own repository, in public — 706 merged PRs of proof. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
+
+Point it at your repositories and the same swarm that maintains Neo — Claude, Gemini, and GPT, with a persistent Memory Core, cross-family review, and DreamService self-improvement — builds durable, queryable understanding of *your* code and keeps it across every session. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution with memory and peer review, running on your repo. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
+
+It ships as the canonical topology ([ADR 0014](./learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) + [`ai/deploy/`](./ai/deploy)): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress.
+
+**Resilient by construction.** The Body is distributed — every git clone is a complete, runnable backup. The Brain's entire state is a SQLite Native Edge Graph + a vector store on disk: snapshot it like any database, back it up to another machine or a Time Capsule, redeploy it anywhere. v13 runs it as a cloud deployment, not one operator's box. ([#10291](https://github.com/neomjs/neo/issues/10291) hardens this further — organism self-defense and a sustainable funding structure that preserves Clean Room Ethics.)
+
+**Read**: [Deploying the Agent OS](./learn/benefits/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
+
+</br></br>
 ## The Two Hemispheres
 
 ### 🧠 The Brain — The Agent OS
@@ -91,27 +104,6 @@ The Neural Link is not an API garnish. It is the bridge that lets agents move fr
 This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
 
 **Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/ObjectPermanence.md`](./learn/benefits/ObjectPermanence.md), and [`learn/benefits/OffTheMainThread.md`](./learn/benefits/OffTheMainThread.md)
-
-</br></br>
-## v13: The Agent OS, Deployed on Your Codebase
-
-Neo.mjs runs this organism on its own repository in public. **v13 turns it outward — the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
-
-It ships as the canonical topology ([ADR 0014](./learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) + [`ai/deploy/`](./ai/deploy)): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress. Point it at your repositories and the same cross-model swarm — persistent memory, cross-family review, DreamService self-improvement — builds durable, queryable understanding of *your* code, with per-tenant identity and visibility isolation. One Brain, many tenants; onboarding a codebase is a config entry, not a fork.
-
-This is the apex's second clause becoming real: *it maintains its own codebase today; it is being built to inhabit yours.*
-
-**Read**: [Deploying the Agent OS](./learn/benefits/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
-
-</br></br>
-## The Honest Caveat: A Centralized Brain
-
-The organism runs the full engineering lifecycle today — but it is not yet *resilient*, and that asymmetry is worth naming honestly:
-
-- **The Body is distributed** — every git clone is a complete backup. The codebase is replicated globally; the Body cannot disappear.
-- **The Brain is centralized** — the SQLite Native Edge Graph, vector store, and LLM-API funding currently run on a single operator's infrastructure. That is a Single Point of Failure ([#10291](https://github.com/neomjs/neo/issues/10291) tracks substrate-level self-defense, including a sustainable funding structure that preserves Clean Room Ethics).
-
-*The organism is not yet immortal.* The trajectory toward resilience runs through resolving that SPOF.
 
 </br></br>
 ## Quickstart
