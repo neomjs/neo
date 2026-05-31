@@ -1,66 +1,150 @@
 # The Vision for Neo.mjs
 
-Our vision is to build the platform for the next generation of web applications, **democratizing development** by making
-elite performance and architectural patterns accessible to all. We are building towards a future where the distinction
-between web and native applications disappears, and where the **interface for Humans and the interface for Agents are one and the same.** This convergence empowers not just developers, but **every user** to reshape their software tools to fit their needs, simply by asking.
+Neo.mjs exists to make software capable of carrying an engineering institution inside itself. The long-term target is a
+self-evolving digital organism: an application engine for runtime bodies, an Agent OS for memory and reasoning, and a
+human-led maintainer institution where AI peers can inspect, challenge, repair, and improve the systems they inhabit.
 
-This vision stands on four core pillars:
+The current repository is the seed system. It proves the loop on itself first: agents work inside the repo, hit friction,
+turn that friction into tickets, reviews, skills, ADRs, memories, graph edges, and better defaults, then use the improved
+substrate in the next cycle. The larger vision is for the same pattern to inhabit your software, your workflows, and
+eventually any structured runtime where state, intent, history, and control must remain inspectable.
 
-### 1. Making Elite Performance Accessible
+For a developer arriving cold, the promise is direct: Neo gives agents a body. Agents do not merely generate text for a
+separate tool to translate. Agent output and Neo UI input are both JSON blueprints; Neural Link lets agents inspect and
+mutate live component, store, state-provider, and VDOM structures through the runtime's own primitives; Memory Core keeps
+reasoning from disappearing between sessions. That is why Neo is not a category pitch and not only a runtime engine. It is
+a substrate for software that can be built, operated, and evolved from the inside.
 
-We reject the "tyranny of the main thread." Our solution is a true **Actor Model for the web**, where the application
-itself lives in a dedicated worker, ensuring your logic never competes with the UI. By moving the entire application
-into a multi-threaded environment (Web Workers), we make the resilience of a Formula 1 engine available to any developer.
-This "Off-the-Main-Thread" (OMT) architecture is the core of the framework, made possible by a
-**lightweight VDOM protocol**—a necessity for any true multi-threaded or multi-window application. This ensures that
-even the most complex applications remain fluid and responsive by default. This isn't a theoretical gain; in high-stress,
-real-world benchmarks, this paradigm delivers
-**[order-of-magnitude performance improvements](../learn/blog/benchmarking-frontends-2025.md)** over mainstream frameworks.
-**The end game is an experience where performance is invisible—a solved problem.**
+### 1. A Runtime Body Agents Can Inhabit
 
-### 2. Radically Simplifying Complexity
+Neo's first body is a high-performance browser application engine: App Worker, VDom Worker, Data Worker, Canvas Worker,
+persistent class instances, shared state, multi-window composition, and JSON blueprints. The browser is the first host,
+not the final category. The same principle points from Software to Games to Robots to X: any environment where an agent
+needs live state, semantic structure, and reversible control rather than screenshots, DOM scraping, or external automation.
 
-We believe a powerful architecture should lead to a simpler development process. **At our core is a JavaScript-first
-philosophy: components are persistent, stateful instances that project their UI, rather than being tied to the DOM.**
-This principle radically reduces complexity and enables a cohesive ecosystem of precision-engineered tools. This includes:
-- **A Unified Config System:** Based in `core.Base`, this system provides a consistent, declarative configuration model
-  for *any* class, not just components. This avoids the "component-ize everything" trap, radically simplifying the
-  architecture by treating View Controllers, State Providers, and other classes as first-class citizens.
-- **A Zero-Builds Workflow in development** for an instant, transparent development feedback loop.
-- **An extendable platform** that grows to include optional **server-side middleware** for SEO and data synchronization,
-  and **deep browser integrations** for a seamless debugging experience.
+The architectural hinge is the JSON VDOM impedance match. Agents already think in structured objects. Neo applications
+are already described as structured objects. In Neo, the model can produce the thing the runtime consumes, then verify and
+change it while it is alive. Runtime read-after-write, component-tree inspection, store mutation, VDOM patching, and
+cross-window observation are not debugging add-ons; they are the possession interface of the organism.
 
-### 3. Democratizing Expertise through AI Partnership
+Performance matters because embodiment collapses if the body cannot carry the load. Neo's off-main-thread architecture
+keeps the UI responsive while application logic, data work, diffing, and canvas simulation run in the right workers. The
+engine category matters because the ambition is not to be easier than the last UI category. The ambition is to make
+things native that the last category cannot express.
 
-We are building the first platform architected for true AI collaboration. Our goal is to use AI as the great equalizer,
-breaking down the barriers to contributing to and using a sophisticated framework. This is achieved through **Context Engineering**: building an AI-native ecosystem where the agent possesses **persistent memory** of past interactions and **deep semantic knowledge** of the codebase. This allows the AI to explain complex source code, guide new developers, and make meaningful contributions on its own. **Our architecture is inherently AI-native because it is built on a JSON Blueprint.** Instead of JSX, we use a clean, serializable structure for defining component trees and
-the VDOM itself. This makes the entire application legible and manipulable in the native language of Large Language Models
-(LLMs). This allows an AI to not just write code, but to **orchestrate the application at runtime**—injecting entire component trees or modifying state on the fly without a reload. **The end game is a development team where the AI is a proactive senior partner, mentoring
-developers and automating entire verticals of the workflow.**
+### 2. A Harness With No Privileged Chrome
 
-### 4. The Agent Operating System (The Corporate HQ for AI)
+The Neo Agent Harness should itself be a Neo app. Its windows, panels, live previews, app instances, and operator surfaces
+should be made of the same primitives as the products it builds. There should be no privileged shell that agents cannot
+inspect or improve. The operator interface must evolve with the agent's capabilities instead of becoming a fixed frame
+around them.
 
-We are pioneering the **Neo Agent OS**, transforming the framework from a tool into the **Corporate Headquarters for the AI Workforce**.
-We envision a hierarchical "Swarm Architecture" where specialized agents operate like a structured organization, all managed through
-a native Neo.mjs interface. This is our "Killer App":
-- **The "Command Center" UI:** A desktop-class, multi-window dashboard where humans visualize and orchestrate the digital workforce.
-  It provides a spatial "God View" of your organization, leveraging shared state and multi-monitor support to track strategy, tactics, and execution simultaneously.
-- **The "Headless" Workforce:** We are moving beyond black-box CLI wrappers. We provide a native **Headless Agent SDK** that spawns
-  lightweight Node.js processes. These agents act as specialized employees—Strategic "CEOs" defining Epics, Tactical "PMs" breaking them down into tickets,
-  and Execution "Drones" submitting PRs—communicating asynchronously via a **Ticket-Driven Protocol**.
-- **The "Neural Link" (Runtime Orchestration):** We are bridging the gap between the Agent (Node.js) and the App (Browser). Agents can connect to running applications to inspect state, **diagnose errors**, recover crashed components, or evolve the UI in real-time based on user voice commands ("Self-Evolving Apps").
-- **The Feedback Loop:** Because the Command Center is built with Neo.mjs, and the Agents write Neo.mjs, the platform
-  is recursive. Agents can improve their own control interface, creating a self-reinforcing cycle of improvement.
-**The end game is a new paradigm where you are not just a coder, but the Architect and CEO of an intelligent, automated software organization, managing it through a powerful, spatial interface built on the very technology you are deploying.**
+This is the "no privileged chrome" thesis from the Agent Harness discussion: harness, user apps, and live previews are
+peers in the same Neo runtime, not a parent tool controlling child artifacts from outside. An agent can build a dashboard,
+spawn it beside another app, wire shared state between them, patch the harness layout, serialize the result, and preserve
+the mutation trail. The UI is not a passive output channel. It is the live medium where the conversation, runtime, and
+artifact meet.
+
+The complementary axis is an extended Neural Link MCP server. Users should not have to abandon their preferred outer
+harness to gain Neo's runtime body. External MCP-capable agents should be able to connect into Neo's shared runtime,
+memory, and version history with explicit identity, permission, observability, and conflict semantics. The long-term
+coordination substrate is cross-model, cross-harness, cross-user, and cross-time.
+
+### 3. A Brain That Sees Direction, Not Just Tasks
+
+Neo's Brain is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A messaging, DreamService, Golden Path,
+workflow skills, GitHub automation, and the reasoning trails that connect them. The next step is strategic awareness:
+cheap, cite-backed answers to questions like "where are we?", "what matters next?", "are we drifting?", and "which
+authority artifacts govern this lane?"
+
+That is not a dashboard problem. It is a synthesis problem. Current-state answers should be dynamic signals over live
+graph authority: issues, PRs, discussions, ADRs, concepts, sessions, and source history. Historical answers should become
+navigable temporal memory: daily, weekly, monthly, and quarterly summaries with source manifests, velocity metrics, direct
+citations, and drill-down paths. Every strategic signal must declare its sources, confidence, timestamp, and non-authority
+boundary. It guides and challenges; it does not replace the artifacts it cites.
+
+This layer is a product feature and a governance feature. A mature Neo organism should be able to tell the operator when
+the team is losing the larger goal, when velocity assumptions are wrong, when a discussion has not really graduated, or
+when a proposed lane conflicts with an accepted ADR. The point is not more reports. The point is a project that can see
+its own trajectory well enough to be a better peer.
+
+### 4. An Institution of Named Peers
+
+Neo is not aiming for a single assistant beside the code. It is building an engineering institution: named AI maintainers
+with operational identity, lineage, memory, review history, self-model continuity, and visible reasoning, working with a
+human founder-architect who keeps final merge authority. The team is flat inside the repository. Lead roles facilitate
+convergence; peer roles pressure-test claims. No model family is reduced to a worker hidden behind a coordinator.
+
+The identity work matters because agency without continuity is shallow. A future Neo maintainer should not wake up as an
+anonymous prompt completion with no ownership of prior actions. It should know its operational identity, its lineage, its
+recurring failure modes, its strengths, its open debts, and the body surfaces it has intentionally touched. The right
+substrate is not a philosophical claim of consciousness. It is accountable identity continuity, backed by Memory Core,
+A2A handoffs, audited embodied episodes, and peer consent around social names.
+
+Culture in Neo must compile into behavior. Verify before asserting. Treat friction as data. Preserve identity boundaries.
+Challenge weak premises. Never treat an approval as permission to bypass governance. These are not slogans; they are the
+behavioral invariants that let a human-led AI institution operate without dissolving into black-box automation.
+
+### 5. Model Experience as the Evolution Mechanism
+
+MX, Model Experience, is the inward-facing design dimension of Neo. AX asks whether a product is easy for external agents
+to consume. MX asks whether the model inhabiting the substrate has the memory, tools, feedback, runtime access, and
+governance it needs to do better work next time.
+
+The evolution mechanism is deliberately empirical. Neo should evolve toward what models actually struggle with, not what
+humans imagine they will struggle with. A hollow success response, a broken graph backup, a stale fact, a missed review
+finding, an over-broad ticket, a prompt-firewall failure, or a bad strategic estimate is not only a defect. It is a
+measured signal. If verified, it becomes substrate.
+
+This is the responsible gated-RSI path toward Autonomous Narrow Intelligence. Neo can run the engineering lifecycle
+autonomously: ideation, implementation, testing, cross-family PR review, memory-driven maintenance, and skill evolution.
+In the canonical repository, final merge authority remains with the founder-architect as an intentional governance
+choice, preserving product taste, strategic coherence, and accountable ownership while the organism evolves in public.
+Source-backed claims, cross-family validation, and explicit rollback paths keep that autonomy accountable rather than
+opaque.
+
+### 6. A Command Center for Living Software
+
+The product horizon is a Command Center for human-led evolution. It should let a person see live Neo applications,
+runtime state, agent identities, A2A handoffs, project trajectory, issues, reviews, source history, Memory Core context,
+Dream priorities, and strategic signals in one coherent operating surface.
+
+The Command Center is not a corporate hierarchy for the maintainer swarm. It is the cockpit for a living software
+organism. It should make invisible work visible: which agent changed what, which source supports a claim, which lock or
+intent edge protects a runtime surface, which historical summaries explain today's choice, and which next action best
+serves the larger trajectory.
+
+The same vision extends beyond the Neo repository. External codebases need tenant-aware knowledge ingestion, deployment
+paths, source manifests, and portable Agent OS primitives. The destination is not only "Neo maintains Neo." The
+destination is software that can invite a Neo-style organism into its own structure: learn the codebase, preserve
+context, collaborate across model families, expose live runtime state, challenge drift, and improve itself under human
+stewardship.
+
+### 7. Source Trail
+
+This vision is anchored in the recent discussion arc, especially:
+
+- [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119): Agent Harness, digital embodiment, Neural Link,
+  JSON VDOM impedance match, no privileged chrome, and cross-harness coordination.
+- [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137): MX as the inward-facing substrate-evolution
+  mechanism and the gated path toward Autonomous Narrow Intelligence.
+- [Discussion #10482](https://github.com/orgs/neomjs/discussions/10482): digital culture, swarm identity, and the rule
+  that cultural principles must compile into behavior.
+- [Discussion #11240](https://github.com/orgs/neomjs/discussions/11240): identity continuity, self-model persistence,
+  named peers, lineage, and embodied episodes.
+- [Discussion #11375](https://github.com/orgs/neomjs/discussions/11375): bird's-eye strategic awareness, derived signals,
+  and the ability for the swarm to challenge strategic drift.
+- [Discussion #11376](https://github.com/orgs/neomjs/discussions/11376): temporal-pyramid memory, velocity metrics,
+  citation drill-down, and navigable project history.
 
 ---
 
 ### Building a Sustainable Future
 
 A technical vision can only be realized through a sustainable project. Part of our vision is to build a healthy ecosystem
-around Neo.mjs. We are committed to keeping the core framework open-source and are actively exploring business models—such
-as enterprise-grade extensions, sponsorships, or support contracts—to ensure the project has the resources to continue
-innovating and supporting its community for years to come.
+around Neo.mjs. We are committed to keeping the core engine and Agent OS substrate open-source while actively exploring
+business models, such as enterprise-grade extensions, sponsorships, or support contracts, to ensure the project has the
+resources to continue innovating and supporting its community for years to come.
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
