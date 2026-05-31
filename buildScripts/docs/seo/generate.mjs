@@ -205,7 +205,7 @@ function getChangedGitPaths() {
             let gitPath  = entry.slice(3);
 
             if (STATUS_RENAME_CODES.has(status[0]) || STATUS_RENAME_CODES.has(status[1])) {
-                gitPath = entries[++i] || gitPath;
+                i++;
             }
 
             if (gitPath) {
