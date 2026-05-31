@@ -448,8 +448,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('supervises lms via HTTP liveness probe — (re)start only when the endpoint is down (#12262 / #12090)', async () => {
-        const started = [];
+    test('supervises lms via the supervisor HTTP liveness probe — (re)start only when the endpoint is down (#12262 / #12090)', async () => {
         const taskDefinitions = buildTaskDefinitions({
             scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
             nodeBin   : process.argv[0],
@@ -464,40 +463,31 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         let probeUp = false;
         taskDefinitions.lms.livenessProbe = async () => probeUp;
 
-        const orchestrator = createTestOrchestrator({
-            taskDefinitions,
-            kbSyncEnabled: false
-        });
-        orchestrator.processSupervisorService = {
-            runTask(taskName, reason) {
-                started.push({taskName, reason});
-                return true;
-            }
+        const orchestrator = createTestOrchestrator({taskDefinitions, kbSyncEnabled: false});
+        const flushProbe   = () => new Promise(resolve => setTimeout(resolve, 0));
+
+        // A fresh supervisor per case resets the probe-gate state without the test reaching into
+        // its internals; `runTask` is the restart spy. The supervisor owns the probe decision now.
+        const pollDownLms = async () => {
+            const started = [];
+            orchestrator.processSupervisorService = {
+                runTask(taskName, reason) { started.push({taskName, reason}); return true; }
+            };
+            TaskStateService.taskState.lms.running   = false;
+            TaskStateService.taskState.lms.lastRunAt = 0;
+            orchestrator.poll();
+            await flushProbe();
+            return started;
         };
 
-        const flushProbe = () => new Promise(resolve => setTimeout(resolve, 0));
-
         // Endpoint DOWN → the lane is (re)started.
-        TaskStateService.taskState.lms.running   = false;
-        TaskStateService.taskState.lms.lastRunAt = 0;
-        orchestrator._livenessConfirmedAt   = {};
-        orchestrator._livenessProbeInFlight = {};
         probeUp = false;
-        orchestrator.poll();
-        await flushProbe();
-        expect(started).toContainEqual({taskName: 'lms', reason: 'supervisor-restart'});
+        expect(await pollDownLms()).toContainEqual({taskName: 'lms', reason: 'supervisor-restart'});
 
-        // Endpoint UP → silent no-op, NO restart (the #12262 fix: a healthy fire-and-exit lane
-        // must not re-spawn every cooldown).
-        started.length = 0;
-        TaskStateService.taskState.lms.running   = false;
-        TaskStateService.taskState.lms.lastRunAt = 0;
-        orchestrator._livenessConfirmedAt   = {};
-        orchestrator._livenessProbeInFlight = {};
+        // Endpoint UP → silent no-op, NO restart (a healthy fire-and-exit lane must not re-spawn
+        // every cooldown).
         probeUp = true;
-        orchestrator.poll();
-        await flushProbe();
-        expect(started.find(entry => entry.taskName === 'lms')).toBeUndefined();
+        expect((await pollDownLms()).find(entry => entry.taskName === 'lms')).toBeUndefined();
     });
 
     test('skips chroma daemon supervision in cloud mode while keeping local default (#12019)', () => {

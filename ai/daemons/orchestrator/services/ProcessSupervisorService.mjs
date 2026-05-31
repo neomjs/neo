@@ -413,6 +413,76 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * @summary Liveness-gated (re)start decision for one continuous task, evaluated once per poll.
+     *
+     * The orchestrator stays a thin scheduler: it forwards the poll timestamp and the restart
+     * cooldown and lets the supervisor own the "is this task alive, restart if not" decision.
+     *
+     * Default liveness is process-match — the `running` flag tracks the supervised child, so a
+     * down flag past the cooldown is a real restart. A task may instead expose a `livenessProbe()`:
+     * a fire-and-exit launcher (LM Studio's `lms server start`) wakes a service that then persists
+     * out-of-band, so the supervised child exits and the `running` flag is permanently false. A
+     * process match would re-spawn such a task every cooldown; it is gated on the probe instead.
+     *
+     * @param {String} taskName Task key.
+     * @param {Number} now Epoch ms (poll timestamp).
+     * @param {Number} cooldownMs Minimum gap between (re)start attempts.
+     * @returns {void}
+     */
+    superviseTask(taskName, now, cooldownMs) {
+        const state = this.taskStateService.getTaskState(taskName);
+
+        if (!state || state.running || now - (state.lastRunAt || 0) <= cooldownMs) {
+            return;
+        }
+
+        const task = this.taskDefinitions[taskName];
+
+        if (typeof task?.livenessProbe === 'function') {
+            this.gateRestartOnLivenessProbe(taskName, task, now, cooldownMs);
+        } else {
+            this.runTask(taskName, 'supervisor-restart');
+        }
+    }
+
+    /**
+     * @summary Probe-gated restart for a fire-and-exit lane (see `superviseTask`).
+     *
+     * Stays provider-agnostic: the task owns the actual check via `livenessProbe()` (e.g. an
+     * HTTP poll of an OpenAI-compatible endpoint); this method only schedules and de-dupes it.
+     * The confirmed-at + in-flight guards keep a healthy endpoint silent — after an `up` result
+     * the lane is skipped for a full cooldown (at most one cheap probe per cooldown, no log
+     * storm), and overlapping probes are suppressed. `down` or a throwing probe restarts the lane.
+     *
+     * @param {String} taskName Task key.
+     * @param {Object} task Task definition (carries `livenessProbe`).
+     * @param {Number} now Epoch ms (poll timestamp).
+     * @param {Number} cooldownMs Minimum gap between probes / restart attempts.
+     * @returns {void}
+     */
+    gateRestartOnLivenessProbe(taskName, task, now, cooldownMs) {
+        this._livenessConfirmedAt   ??= {};
+        this._livenessProbeInFlight ??= {};
+
+        if (now - (this._livenessConfirmedAt[taskName] || 0) <= cooldownMs || this._livenessProbeInFlight[taskName]) {
+            return;
+        }
+
+        this._livenessProbeInFlight[taskName] = true;
+
+        task.livenessProbe()
+            .then(up => {
+                if (up) {
+                    this._livenessConfirmedAt[taskName] = Date.now();
+                } else {
+                    this.runTask(taskName, 'supervisor-restart');
+                }
+            })
+            .catch(() => this.runTask(taskName, 'supervisor-restart'))
+            .finally(() => { this._livenessProbeInFlight[taskName] = false; });
+    }
+
+    /**
      * @summary Enforces a single live process for a port-owning ("singleton") task by
      * SIGKILLing any extra listeners on its port.
      *
