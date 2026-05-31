@@ -25,9 +25,13 @@ Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647, #1
 
 The split was deliberate: **contracts before transport**. The schemas and registry stabilized first; the Phase 2 ingestion endpoints were built against that frozen contract surface.
 
-## Topology anchor — unified Chroma
+## Topology anchor — one flat unified Chroma store
 
-Per [ADR 0003 — Chroma Topology Unified Only](../decisions/0003-chroma-topology-unified-only.md), a cloud deployment runs **one** ChromaDB daemon hosting **three** collections — `knowledge-base`, `neo-agent-memory`, `neo-agent-sessions` — reached by **two** MCP servers (KB + Memory Core). Cloud ingestion writes only to the `knowledge-base` collection. There is no per-tenant Chroma instance: tenant isolation is enforced by the identity tuple + write-side stamping + read-side filter, not by physical separation.
+Per [ADR 0017 — Chroma: Single Flat Unified Store + Dev/Prod Parity](../decisions/0017-chroma-single-flat-unified-store.md) (which amends [ADR 0003](../decisions/0003-chroma-topology-unified-only.md)), every deployment runs **one** ChromaDB daemon over **one flat persist store named `unified`** — `.neo-ai-data/chroma/unified` locally, `/chroma/unified` in the cloud container (set via `PERSIST_DIRECTORY`, not just the volume mount). The store shape is identical local and cloud; there are no per-realm persist folders and no second daemon.
+
+That one store holds **four** realms as distinct collections — `neo-knowledge-base`, `neo-agent-memory`, `neo-agent-sessions`, `neo-native-graph` — reached by **two** MCP servers (Knowledge Base + Memory Core). Cloud ingestion writes only to the `neo-knowledge-base` collection.
+
+Realm and tenant separation is enforced at the layers that exist in every deployment, never by directory or daemon split: **collection names + per-chunk metadata** (the identity tuple + write-side stamping + read-side filter) for isolation, **collection-scoped export** of `neo-knowledge-base` for KB shipping, and the **KB-as-cache / MC-as-store** model for recovery. Per-collection HNSW indices mean realm coexistence in one store does not degrade per-collection search. There is no per-tenant Chroma instance: a tenant reads its own content plus `neo-shared`, never another tenant's `private` chunks.
 
 ## Default-source inheritance
 

@@ -16,32 +16,24 @@ Before initiating any restoration, ensure that all AI MCP servers and daemon pro
 ## Restoration Procedures
 
 ### 1. Knowledge Base (KB)
-The Knowledge Base is stored in ChromaDB.
+The Knowledge Base is the `neo-knowledge-base` collection inside the one flat `unified` ChromaDB store ([ADR 0017](../decisions/0017-chroma-single-flat-unified-store.md)) — **a cache, not a store**. Recover it by deterministic rebuild from source, at collection scope. Never delete the store folder: `chroma/unified` also holds the irreplaceable Memory Core collections.
 
 **Procedure:**
-1. Clear the current ChromaDB volume for KB:
-   ```bash
-   rm -rf .neo-ai-data/chroma/knowledge-base/*
-   ```
-2. Re-synchronize the KB from the source files (deterministic rebuild):
+1. Re-synchronize the KB from the source files (deterministic rebuild — clears and repopulates only the `neo-knowledge-base` collection):
    ```bash
    npm run ai:sync-kb
    ```
-   *(Note: Direct JSONL import of the `kb/` bundle is deferred to #10871)*
+   *(Note: Direct JSONL import of the `kb/` bundle is deferred to #10871. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with Memory Core; KB recovery is collection-scoped, handled by the rebuild above.)*
 
 ### 2. Memory Core (MC) - Memories & Summaries
-Memory Core utilizes ChromaDB for storing conversational memories and session summaries.
+Memory Core memories and session summaries live as the `neo-agent-memory` and `neo-agent-sessions` collections inside the same flat `unified` ChromaDB store ([ADR 0017](../decisions/0017-chroma-single-flat-unified-store.md)). Unlike the KB, MC is the **irreplaceable store** — recover it from the backup bundle, at collection scope via the SDK. The pre-unification `chroma/memory-core/` folder is retired.
 
 **Procedure:**
-1. Clear the current ChromaDB volume for MC:
-   ```bash
-   rm -rf .neo-ai-data/chroma/memory-core/*
-   ```
-2. Re-import the MC JSONL from the backup bundle via the SDK:
+1. Re-import the MC JSONL from the backup bundle via the SDK (`mode: 'replace'` clears and repopulates the MC collections at collection scope — no folder deletion):
    ```bash
    node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/mc/memory-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
-   *(Note: A dedicated `restore.mjs` CLI is deferred to #10871)*
+   *(Note: A dedicated `restore.mjs` CLI is deferred to #10871. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
 
 ### 3. Memory Core - Native Edge Graph
 The Memory Core Edge Graph is persisted in SQLite.

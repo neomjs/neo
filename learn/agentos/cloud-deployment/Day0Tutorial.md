@@ -267,7 +267,7 @@ Failure signatures:
 |---|---|---|
 | `401 Unauthorized: Missing proxy identity header` | `NEO_AUTH_TRUST_PROXY_IDENTITY=true` but no trusted identity header reached the MCP server. | Verify ingress header stripping/injection and use the same auth path as real agents. |
 | `database.connected: false` | MC cannot reach Chroma or SQLite graph storage. | Check `NEO_CHROMA_HOST`, `NEO_CHROMA_PORT`, `NEO_MEMORY_DB_PATH`, and container networking. |
-| Missing `database.topology.mode: "unified"` | The deployment is not using the supported unified Chroma topology. | Re-check the compose/profile config against [ADR 0003](../decisions/0003-chroma-topology-unified-only.md). |
+| Missing `database.topology.mode: "unified"` | The deployment is not using the supported unified Chroma topology. | Re-check the compose/profile config against [ADR 0017](../decisions/0017-chroma-single-flat-unified-store.md) (the one flat `unified` store; amends ADR 0003). |
 
 ## Milestone 2 - Knowledge Base Connection Over Neo-Shared Content
 

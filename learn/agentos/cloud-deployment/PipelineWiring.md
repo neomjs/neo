@@ -44,7 +44,7 @@ The deployment's persistent state (`ai/deploy/docker-compose.yml`):
 | State | Mechanism | Lost when... |
 |---|---|---|
 | Memory Core graph + sessions — the **primary store** | `shared-sqlite-data` named volume → `/app/.neo-ai-data/sqlite` | `down -v`, or the Compose project name changes |
-| Chroma vectors | `chroma-data` named volume → `/chroma/chroma` | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
+| Chroma vectors | `chroma-data` named volume → `/chroma/unified` (set via `PERSIST_DIRECTORY`) | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
 | Backup bundles | host bind-mount `./.neo-ai-data/backups` on the `cloud`-profile `orchestrator` | the compose file's host location changes between runs |
 | TLS certs / CA | `caddy-data` / `caddy-config` named volumes (`ingress` profile) | `down -v` (re-issued on next start — watch ACME rate limits) |
 | Local model store — opt-in `local-model` profile | `local-model-data` named volume → `/root/.ollama` | `down -v`, or the project name changes (recoverable — re-pull the models) |
