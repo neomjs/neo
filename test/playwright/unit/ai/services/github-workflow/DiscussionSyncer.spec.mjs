@@ -18,6 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
 import path           from 'path';
+import {FETCH_DISCUSSIONS_FOR_SYNC} from '../../../../../../ai/services/github-workflow/queries/discussionQueries.mjs';
 
 test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     let aiConfig;
@@ -101,6 +102,94 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(content).toMatch(/^closedAt: null$/m);
     });
 
+    test('fetches accepted-answer flags for comments and replies', () => {
+        const answerFlagMatches = FETCH_DISCUSSIONS_FOR_SYNC.match(/\bisAnswer\b/g) || [];
+
+        expect(answerFlagMatches).toHaveLength(2);
+    });
+
+    test('marks accepted Q&A comments with a parseable answer callout', async () => {
+        const discussion = buildDiscussion(24003, {
+            category: 'Q&A',
+            comments: {nodes: [{
+                author: {login: 'neo-answer'},
+                body: 'Accepted answer body.',
+                createdAt: '2026-05-02T01:00:00Z',
+                isAnswer: true,
+                replies: {nodes: []}
+            }, {
+                author: {login: 'neo-thread'},
+                body: 'Regular follow-up.',
+                createdAt: '2026-05-02T02:00:00Z',
+                isAnswer: false,
+                replies: {nodes: [{
+                    author: {login: 'neo-reply-answer'},
+                    body: 'Nested accepted answer.',
+                    createdAt: '2026-05-02T03:00:00Z',
+                    isAnswer: true
+                }]}
+            }]}
+        });
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24003.md');
+        const content = await fs.readFile(targetPath, 'utf8');
+
+        expect(content).toContain([
+            '### `@neo-answer` commented on 2026-05-02T01:00:00Z',
+            '',
+            '> [!ANSWER]',
+            '',
+            'Accepted answer body.'
+        ].join('\n'));
+        expect(content).toContain([
+            '> [!ANSWER]',
+            '>',
+            '> **Reply by `@neo-reply-answer`** on 2026-05-02T03:00:00Z',
+            '>',
+            '> Nested accepted answer.'
+        ].join('\n'));
+    });
+
+    test('does not add answer markers for regular non-Q&A comments', async () => {
+        const discussion = buildDiscussion(24004, {
+            category: 'General',
+            comments: {nodes: [{
+                author: {login: 'neo-comment'},
+                body: 'Regular discussion comment.',
+                createdAt: '2026-05-02T01:00:00Z',
+                replies: {nodes: []}
+            }]}
+        });
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24004.md');
+        const content = await fs.readFile(targetPath, 'utf8');
+
+        expect(content).toContain('Regular discussion comment.');
+        expect(content).not.toContain('> [!ANSWER]');
+    });
+
     test('writes archived discussions through contentPath and maintains _index.json', async () => {
         const discussion = buildDiscussion(24002, {
             closed: true,
@@ -166,7 +255,12 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 });
 
 function buildDiscussion(number, config = {}) {
-    const {closed = false, closedAt = null} = config;
+    const {
+        category = 'General',
+        closed = false,
+        closedAt = null,
+        comments = {nodes: []}
+    } = config;
 
     return {
         number,
@@ -175,9 +269,9 @@ function buildDiscussion(number, config = {}) {
         closed,
         closedAt,
         author: {login: 'neo-test'},
-        category: {name: 'General'},
+        category: {name: category},
         createdAt: '2026-05-01T00:00:00Z',
         updatedAt: '2026-05-02T00:00:00Z',
-        comments: {nodes: []}
+        comments
     };
 }
