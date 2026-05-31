@@ -665,12 +665,10 @@ export class Orchestrator extends Base {
                 continue;
             }
 
-            if (state && !state.running) {
-                const lastRunAt = state.lastRunAt || 0;
-                if (now - lastRunAt > RESTART_COOLDOWN_MS) {
-                    executeTask(taskName, 'supervisor-restart');
-                }
-            }
+            // Liveness-gated (re)start is owned by the supervisor: process-match by default, or a
+            // task-owned liveness probe for a fire-and-exit lane whose served process persists
+            // out-of-band (so the running flag never recovers and a process match would loop).
+            this.processSupervisorService.superviseTask(taskName, now, RESTART_COOLDOWN_MS);
 
             // Post-recycle defrag (#12138): once the restarted chroma is connection-ready, run
             // the unified-store-safe KB defrag against the fresh daemon. MC defrag is deferred

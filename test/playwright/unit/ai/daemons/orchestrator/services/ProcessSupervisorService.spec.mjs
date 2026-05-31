@@ -302,4 +302,67 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(process.env.UNIT_TEST_MODE).toBe('true');
         expect(() => service.killProcess(999999999)).not.toThrow();
     });
+
+    // === superviseTask: liveness-gated (re)start decision (moved out of the orchestrator poll loop) ===
+
+    test('superviseTask restarts a down process-match task once the cooldown elapses', () => {
+        const {service} = createTestService();
+        const calls     = [];
+        service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
+        service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
+
+        service.superviseTask('mockTask', 1_000_000, 15000);
+
+        expect(calls).toEqual([{taskName: 'mockTask', reason: 'supervisor-restart'}]);
+    });
+
+    test('superviseTask leaves a running task alone — no restart', () => {
+        const {service} = createTestService();
+        const calls     = [];
+        service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
+        service.taskStateService.getTaskState = () => ({running: true, lastRunAt: 0, pid: 1234});
+
+        service.superviseTask('mockTask', 1_000_000, 15000);
+
+        expect(calls).toEqual([]);
+    });
+
+    test('superviseTask holds off within the cooldown window', () => {
+        const {service} = createTestService();
+        const calls     = [];
+        service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
+        // lastRunAt only 5s before `now`: still inside the 15s cooldown.
+        service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 995_000});
+
+        service.superviseTask('mockTask', 1_000_000, 15000);
+
+        expect(calls).toEqual([]);
+    });
+
+    test('superviseTask gates a fire-and-exit lane on its liveness probe — UP yields a silent no-op', async () => {
+        const {service} = createTestService();
+        const calls     = [];
+        service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
+        service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
+        service.taskDefinitions = {probeTask: {label: 'Probe Task', livenessProbe: async () => true}};
+
+        service.superviseTask('probeTask', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls).toEqual([]);
+        expect(service._livenessConfirmedAt.probeTask).toBeTruthy();
+    });
+
+    test('superviseTask gates a fire-and-exit lane on its liveness probe — DOWN triggers a restart', async () => {
+        const {service} = createTestService();
+        const calls     = [];
+        service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
+        service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
+        service.taskDefinitions = {probeTask: {label: 'Probe Task', livenessProbe: async () => false}};
+
+        service.superviseTask('probeTask', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls).toEqual([{taskName: 'probeTask', reason: 'supervisor-restart'}]);
+    });
 });
