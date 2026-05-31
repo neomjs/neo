@@ -11,7 +11,8 @@ Markdown a human edits directly. Failure mode: generations drift apart (one doc 
 | `.github/VISION.md` | Long-form vision; **known fossil-prone** (carried "web applications" + CEO/PM/Drone hierarchy contradicting Flat Peer-Team) |
 | `ROADMAP.md` | Forward positioning; "Corporate HQ" framing; skill/velocity counts |
 | `CONTRIBUTING.md`, `.github/GETTING_STARTED.md`, `.github/AI_QUICK_START.md` | Contributor-facing identity; MCP-server count; Node requirement |
-| `.github/NEOMJS_HISTORY.md` | **Heritage SSOT** (pre-release origin). Public-era heritage (GA Nov 2019, OS-Awards 2021, "first multi-worker") is currently **unwritten** here — extend it. |
+| `.github/STORY.md` | **Public-era heritage SSOT**: origin narrative, 2015 worker POC, public GitHub start, JSON-first VDOM, worker-first architecture, multi-window line. |
+| `.github/NEOMJS_HISTORY.md` | Pre-public contributor credits / acknowledgements archive. Do **not** extend it with public-era milestones unless an explicit operator ruling changes its document kind. |
 | `learn/benefits/**` | Engineering-altitude identity (ArchitectureOverview "Two Hemispheres", Introduction, comparisons/NeoVs*); the **RIGHT-hemisphere AI-team doc lives here** |
 | `learn/agentos/*.md` | Mechanism-altitude (DreamPipeline, MX, MemoryCore, NeuralLink); the recurring motto |
 | `.claude/CLAUDE.md` (§neo_identity_anchor, §swarm_topology_anchor), `learn/agentos/AGENTS_ATLAS.md` | Agent-facing identity anchors; maintainer roster; pillar definitions |
@@ -50,6 +51,6 @@ Correct as-of a date; ages silently. Refresh in lock-step.
 | `ROADMAP.md` velocity metrics; `learn/agentos/ModelStats.md` | their own as-of dates |
 
 ## Coverage notes
-- Heritage (GA Nov 2019, OS-Awards top-5 2021, "first multi-worker UI engine") has **no canonical home** — author into `.github/NEOMJS_HISTORY.md` + reference from README + portal about-us.
+- Heritage facts live in `.github/STORY.md`; README + portal About Us reference that home without duplicating milestone lists. OS-Awards claims need an acceptable external public source before publication.
 - Identity handle `@neo-opus-4-7` appears in ~63 files — route through `ai/graph/identityRoots.mjs`; handle de-versioning is operator-owned (account rename), the skill only propagates. Model-version stays in `ModelStats.md` per ADR 0012.
 - Not yet fully swept: `apps/portal/view/about` (`/about-us`), live neomjs.com `<meta>`/ld+json, `learn/comparisons/*`. Re-run a fan-out before claiming total coverage.

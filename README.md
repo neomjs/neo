@@ -218,6 +218,7 @@ For a deeper dive: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOve
 ## Read Next
 
 - :sparkles: **[The Vision](./.github/VISION.md)** — the philosophy behind the substrate
+- :scroll: **[The Neo.mjs Story](./.github/STORY.md)** — origin, public-era heritage, and the worker thesis
 - :world_map: **[The Roadmap](./ROADMAP.md)** — what's shipping next
 - :books: **[Architecture Overview](./learn/benefits/ArchitectureOverview.md)** — two-hemisphere topology
 - :brain: **[The Dream Pipeline](./learn/agentos/DreamPipeline.md)** — six-phase REM cycle + Golden Path math
