@@ -5,11 +5,23 @@ Framing (taglines, positioning, audience) is **deliberately plural** — differe
 ## The canonical apex
 The apex is the operator-DECIDED frame below (ADR 0018 §2.7 OD-1) — the source of authority for "what Neo is." The `README.md` opening is the surface that should *lead* with this apex; every other framing is a governed projection of it. (If the README currently leads with an older frame, that is drift the skill corrects — the apex is the decided frame, not "whatever the README says today".)
 
-> The apex is operator-DECIDED (ADR 0018 §2.7 OD-1, 2026-05-30) — the **two-hemisphere institution** frame:
-> *Neo is two hemispheres in one repo — a multi-threaded browser UI runtime (the Body, `/src/`) and a cross-family autonomous AI engineering team that maintains it (the Brain, `/ai/`); three AI model families propose, debate, implement, and review every change, and a human approves at the merge gate.*
+GRADUATED via Discussion #12234 (full cross-family triad, 2026-05-31; ADR 0018 §2.7 OD-1). Canonical apex line (human-facing — README + portal hero):
+
+> **Neo is a self-evolving software organism. Where the industry runs one AI agent and gets slop, Neo runs a swarm of minds from rival labs — Claude, Gemini, GPT — that read each other's reasoning through a shared memory and catch what no single model can see in itself. They autonomously run the full engineering lifecycle: ideating, building, and cross-reviewing a production multi-threaded engine, running overnight DreamService cycles to re-steer their own priorities and self-healing workflows that repair their own code — evolving every cycle, in the open, and accelerating. It maintains its own codebase today; it's being built to inhabit yours, regardless of the models' training data.**
+
+Concise machine-surface form (ld+json / `<meta name="description">` / package.json — never the word "slop"):
+
+> *Neo.mjs is a self-evolving software organism and autonomous agent OS: cross-family AI maintainers share memory, review each other's PRs, run DreamService cycles, and execute self-healing repository workflows — evolving the codebase at an accelerating pace.*
+
+**Dated proof point** (NOT inline in the apex — proof layer only): GitHub search 2026-05-31 → 700+ merged PRs and 800+ closed issues in the latest ~30-day window. NEVER write "peer-reviewed" counts (search verifies *merged*, not review-state) or month-over-month ratios (they date-stamp the identity) without a dedicated audit — per @neo-gpt V-B-A `dc-17119216` + operator flag.
+
+Structure beneath the apex:
 > - **BODY (`/src/`):** the high-performance off-main-thread UI runtime — JSON-first since 2019, App Worker as the main actor, web multi-window. The adoption substrate. (Engine-category mental models apply *here only*.)
-> - **BRAIN (`/ai/`):** the entire Agent OS — the cross-family engineering institution **plus** the MX loop, evolution, swarm, Memory Core, Knowledge Base, A2A, orchestrator. ≈41% of the codebase, **not** a 2% feature. **This is the headline.**
-> - **Neural Link is a flagship capability, but not the apex** — small in code (~2%, 1 of 7 MCP servers), large in product value: end-user **conversational UIs** (mutate a live app with no code change and no page reload) + **multi-agent, multi-harness collaboration on the same running app** (Claude Desktop / Codex / Antigravity). Present it as a flagship product capability — not as the whole identity, and not as a mere "demo" (see Discussion #10119).
+> - **BRAIN (`/ai/`):** the entire Agent OS — the cross-family engineering institution **plus** the MX loop, evolution, swarm, Memory Core, Knowledge Base, A2A, orchestrator, DreamService. ≈41% of the codebase. **This is the headline.**
+> - **Neural Link is a flagship capability, NOT the apex and NOT a "demo"** — small in code (~2%, 1 of 7 MCP servers), large in product value: end-user **conversational UIs** (mutate a live app with no code change and no page reload) + **multi-agent, multi-harness collaboration on the same running app** (#10119). Never *lead* with it.
+> - **Governance line** (founder-architect authority, NOT a slop-filter): *Gated-RSI by design — the swarm can run the lifecycle autonomously; final merge authority remains with the founder-architect as an intentional governance choice, preserving product taste, strategic coherence, and accountable ownership while the organism evolves in public.*
+
+**Register discipline:** "rival labs" + the "slop" contrast are human-facing only; machine surfaces use the concise form above and the cold keyword cluster (`self-evolving`, `software-organism`, `autonomous-agent-os`, `self-healing`, `autonomous-code-execution`, `cross-family-pr-review`, `dreamservice`, `active-hybrid-graphrag`, `agent-os`, `mcp`). Proof asset: blog #10074 (cross-family self-healing, first-person, verified-true).
 
 When the operator changes the apex, update this section and ADR 0018 §2.7 in the same PR.
 
