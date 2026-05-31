@@ -100,7 +100,7 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#108
             mode     : 'delete',
             target   : {
                 collectionName: 'neo-knowledge-base',
-                path          : path.join(repoRoot, '.neo-ai-data/chroma/knowledge-base'),
+                path          : path.join(repoRoot, '.neo-ai-data/chroma/unified'),
                 repoRoot
             },
             env: {}
@@ -131,7 +131,7 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#108
             subsystem: 'memory-core',
             mode     : 'drop',
             target   : {
-                path: path.join(repoRoot, '.neo-ai-data/chroma/memory-core'),
+                path: path.join(repoRoot, '.neo-ai-data/chroma/unified'),
                 repoRoot
             },
             env: {
@@ -144,7 +144,7 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#108
 
     test('requires both bypass env and explicit confirmation for production targets', async () => {
         const target = {
-            path: path.join(repoRoot, '.neo-ai-data/chroma/memory-core'),
+            path: path.join(repoRoot, '.neo-ai-data/chroma/unified'),
             repoRoot
         };
 

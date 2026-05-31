@@ -137,7 +137,7 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
 
     test('AC1+AC2+AC3+AC4 — fresh-workspace cloud-mode boot self-bootstraps sqlite + reaches [Orchestrator] Started without fatal log surface', async () => {
         // cwd=workspaceDir isolates every cwd-relative side effect the daemon and its
-        // supervised children create (chroma's `.neo-ai-data/chroma/knowledge-base`,
+        // supervised children create (chroma's `.neo-ai-data/chroma/unified`,
         // task PID files, etc.) so the test cannot collide with a concurrently running
         // operator-owned daemon on the same host.
         daemonProcess = spawn('node', [DAEMON_ENTRY], {
