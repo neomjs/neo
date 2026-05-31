@@ -161,6 +161,21 @@ export function buildTaskDefinitions({
             pidFileName    : 'lms.pid',
             expectedCommand: 'lms server',
             requiredModels,
+            // `lms server start` is fire-and-exit: it wakes the LM Studio service and returns, so
+            // the launched server never matches `expectedCommand` for the supervisor's
+            // process-liveness check (`!state.running` stays permanently true). Liveness is the
+            // HTTP endpoint instead — the poll gates the restart on this probe so a healthy server
+            // is a silent no-op rather than a re-spawn loop (#12262).
+            livenessProbe  : async () => {
+                const {fetchOpenAiCompatibleModelIds} = await import('../../services/graph/ProviderReadinessHelper.mjs');
+
+                try {
+                    await fetchOpenAiCompatibleModelIds({host: lmsHost, timeoutMs: providerReadiness?.timeoutMs ?? 2000});
+                    return true;
+                } catch {
+                    return false;
+                }
+            },
             postSpawn      : async () => {
                 const {ensureLmsModelsLoaded} = await import('../../services/graph/ProviderReadinessHelper.mjs');
 

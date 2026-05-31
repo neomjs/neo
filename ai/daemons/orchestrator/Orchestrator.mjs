@@ -668,7 +668,33 @@ export class Orchestrator extends Base {
             if (state && !state.running) {
                 const lastRunAt = state.lastRunAt || 0;
                 if (now - lastRunAt > RESTART_COOLDOWN_MS) {
-                    executeTask(taskName, 'supervisor-restart');
+                    const task = this.taskDefinitions[taskName];
+
+                    if (typeof task?.livenessProbe === 'function') {
+                        // HTTP-liveness-gated lane (#12262): a fire-and-exit launcher (`lms server
+                        // start`) whose served process persists out-of-band, so `!state.running` is
+                        // permanently true and a process-match restart would loop every cooldown.
+                        // Probe the endpoint instead — healthy => silent no-op (re-probed one
+                        // cooldown out), down => (re)start. The confirmed-at + in-flight guards keep
+                        // a healthy server quiet (no per-poll probe/log storm).
+                        const confirmedAt = this._livenessConfirmedAt?.[taskName] || 0;
+
+                        if (now - confirmedAt > RESTART_COOLDOWN_MS && !this._livenessProbeInFlight?.[taskName]) {
+                            (this._livenessProbeInFlight ||= {})[taskName] = true;
+                            task.livenessProbe()
+                                .then(up => {
+                                    if (up) {
+                                        (this._livenessConfirmedAt ||= {})[taskName] = Date.now();
+                                    } else {
+                                        executeTask(taskName, 'supervisor-restart');
+                                    }
+                                })
+                                .catch(() => executeTask(taskName, 'supervisor-restart'))
+                                .finally(() => { this._livenessProbeInFlight[taskName] = false; });
+                        }
+                    } else {
+                        executeTask(taskName, 'supervisor-restart');
+                    }
                 }
             }
 
