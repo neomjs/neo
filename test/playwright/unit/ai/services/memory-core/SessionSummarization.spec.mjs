@@ -77,7 +77,7 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
         SDK.Memory_Config.data.embeddingProvider     = 'openAiCompatible';
         SDK.Memory_Config.data.openAiCompatible.host           = 'http://127.0.0.1:1234';
-        SDK.Memory_Config.data.openAiCompatible.model          = 'qwen3-8b';
+        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma-4-31b-it';
         SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'text-embedding-qwen3-embedding-8b';
         SDK.Memory_Config.data.autoSummarize         = false;
 
@@ -87,14 +87,14 @@ test.describe('Memory Core Offline Summarization', () => {
         // Offline tests cannot hit APIs. Mock TextEmbeddingService for Qwen3-Embedding (4096D)
         TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
 
-        // Check if openAiCompatible daemon and the local-dev chat default are available
+        // Check if openAiCompatible daemon and gemma4 are available
         try {
             const host = SDK.Memory_Config.data.openAiCompatible.host;
             const res  = await fetch(`${host}/v1/models`);
             if (res.ok) {
                 const data      = await res.json();
-                const hasQwen3 = data.data?.some(m => m.id.includes('qwen3-8b'));
-                if (hasQwen3) {
+                const hasGemma4 = data.data?.some(m => m.id.includes('gemma-4'));
+                if (hasGemma4) {
                     localModelActive = true;
                 }
             }
@@ -111,11 +111,11 @@ test.describe('Memory Core Offline Summarization', () => {
         }
     });
 
-    test('SessionService routes to openAiCompatible (qwen3-8b) via SDK and correctly summarizes memories', async () => {
-        test.setTimeout(300000); // 5 minutes to allow a local model to summarize on slow hardware
+    test('SessionService routes to openAiCompatible (gemma4) via SDK and correctly summarizes memories', async () => {
+        test.setTimeout(300000); // 5 minutes to allow Gemma 4 to fully summarize on slow hardware
 
         if (!localModelActive) {
-            test.skip(true, 'Skipping: openAiCompatible or qwen3-8b not found locally');
+            test.skip(true, 'Skipping: openAiCompatible or gemma4 not found locally');
             return;
         }
 
@@ -149,13 +149,13 @@ test.describe('Memory Core Offline Summarization', () => {
             thought : "Check iconCls.",
             response: "Yes, use the iconCls property.",
             agent   : "librarian",
-            model   : "qwen3-8b"
+            model   : "gemma4"
         }, {
             prompt  : "How to handle clicks?",
             thought : "DOM events dispatcher.",
             response: "Bind a click listener via domListeners property.",
             agent   : "librarian",
-            model   : "qwen3-8b"
+            model   : "gemma4"
         }, {
             prompt  : "Can a button float?",
             thought : "Neo components support floating.",
