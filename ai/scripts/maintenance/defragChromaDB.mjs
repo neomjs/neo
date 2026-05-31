@@ -8,11 +8,11 @@ import Neo             from '../../../src/Neo.mjs';
 import AiConfig        from '../../config.mjs';
 
 /**
- * @summary A generic CLI tool to defragment ChromaDB instances (Knowledge Base & Memory Core).
+ * @summary Defragments collection groups inside the unified ChromaDB store.
  *
  * This script implements the "Nuke and Pave" strategy to eliminate HNSW index fragmentation and file bloat
- * within ChromaDB. It is designed to be target-agnostic, capable of processing different database instances
- * (e.g., Knowledge Base, Memory Core) by dynamically loading their specific configurations.
+ * within ChromaDB. It is target-agnostic at the collection-group layer: Knowledge Base and Memory Core
+ * share one unified persist directory, while the target controls which logical collections are rewritten.
  *
  * ## Peer Architecture (#10129)
  *
@@ -34,8 +34,8 @@ import AiConfig        from '../../config.mjs';
  *     restore if the nuke-and-pave ETL fails mid-flight. Snapshots live at `dist/chromadb-backups/<target>/`
  *     and are explicitly NOT the canonical backup — that lives at `.neo-ai-data/backups/backup-<ts>/` via
  *     `ai/scripts/maintenance/backup.mjs`. Automated retention: keep last 3, delete others older than 7 days.
- * 2.  **Extract (ETL)**: All data (IDs, embeddings, metadata, documents) is fetched from *all* target collections
- *     into an in-memory buffer.
+ * 2.  **Extract (ETL)**: All data (IDs, embeddings, metadata, documents) is fetched from every collection in the
+ *     selected collection group into an in-memory buffer.
  * 3.  **Nuke (Logical Reset)**: The collections are deleted via the API. This releases the logical references to the data,
  *     marking the underlying index files as obsolete.
  * 4.  **Load (Restoration)**: The collections are recreated, and the buffered data is re-inserted in batches.
@@ -46,10 +46,10 @@ import AiConfig        from '../../config.mjs';
  *     never a single target's collection ids.
  *
  * Usage:
- * `node buildScripts/defragChromaDB.mjs --target knowledge-base`
- * `node buildScripts/defragChromaDB.mjs --target memory-core`
+ * `node ai/scripts/maintenance/defragChromaDB.mjs --target knowledge-base`
+ * `node ai/scripts/maintenance/defragChromaDB.mjs --target memory-core`
  *
- * @module buildScripts/defragChromaDB
+ * @module ai.scripts.maintenance.defragChromaDB
  * @see ai/scripts/maintenance/backup.mjs   Canonical JSONL bundle backup orchestrator (peer, not dependency)
  * @see Neo.ai.mcp.server.knowledge-base.Config
  * @see Neo.ai.mcp.server.memory-core.Config
@@ -62,9 +62,9 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
 
 // Configuration Mapping
-// Maps CLI target names to their respective config files and adapts the config structure
-// to a unified format used by this script.
-const TARGETS = {
+// Maps CLI target names to their collection-group config files. Both targets resolve
+// to the same unified Chroma persist dir; only the collection set differs.
+export const TARGETS = {
     'knowledge-base': {
         configPath: '../../mcp/server/knowledge-base/config.mjs',
         adapt: (cfg) => ({
@@ -80,7 +80,11 @@ const TARGETS = {
             host       : cfg.engines.chroma.host,
             path       : cfg.engines.chroma.dataDir,
             port       : cfg.engines.chroma.port,
-            collections: [cfg.collections.memory, cfg.collections.session]
+            collections: [
+                cfg.collections.memory,
+                cfg.collections.session,
+                cfg.collections.graph
+            ].filter(Boolean)
         })
     }
 };
