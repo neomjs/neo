@@ -65,11 +65,11 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Check for changes in specific files
-          if [[ -n $(git status -s apps/devindex/resources/data/*.json* apps/portal/resources/data/*.json apps/portal/sitemap.xml apps/portal/llms.txt) ]]; then
+          if [[ -n $(git status -s apps/devindex/resources/data/*.json* apps/portal/resources/data apps/portal/sitemap.xml apps/portal/llms.txt) ]]; then
             echo "Changes detected in data files."
 
             # Stage the files
-            git add apps/devindex/resources/data/*.json* apps/portal/resources/data/*.json apps/portal/sitemap.xml apps/portal/llms.txt
+            git add apps/devindex/resources/data/*.json* apps/portal/resources/data apps/portal/sitemap.xml apps/portal/llms.txt
 
             # Commit
             git commit --no-verify -m "chore(data): Hourly data sync pipeline update [skip ci]"

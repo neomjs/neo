@@ -1,0 +1,1 @@
+[{"id":"6524","parentId":"v8.28.1/archive-v8-28-1-chunk-1","title":"selection.Model: unregister() => not removing view classes properly for grids"},{"id":"6523","parentId":"v8.28.1/archive-v8-28-1-chunk-1","title":"grid.ScrollManager: prevent virtual diagonal scrolling when dragging headers"}]

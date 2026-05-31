@@ -1,0 +1,1 @@
+[{"id":"4561","parentId":"v5.12.1/archive-v5-12-1-chunk-1","title":"form.field.Text: validate() => simplify the inputPattern check"},{"id":"4557","parentId":"v5.12.1/archive-v5-12-1-chunk-1","title":"manager.DomEvent: fire() => data.component not always pointing to the right instance"}]

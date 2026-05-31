@@ -1,0 +1,1 @@
+[{"id":"2096","parentId":"v2.1.4/archive-v2-1-4-chunk-1","title":"manager.Component: down() => pass the new param into child item calls"},{"id":"2095","parentId":"v2.1.4/archive-v2-1-4-chunk-1","title":"manager.Component: down() => use this.find() instead of accessing cmp.items"}]

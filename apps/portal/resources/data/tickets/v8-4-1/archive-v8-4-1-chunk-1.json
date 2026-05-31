@@ -1,0 +1,1 @@
+[{"id":"6229","parentId":"v8.4.1/archive-v8-4-1-chunk-1","title":"data.Store: beforeSetData() => remove the cloning, switch to a for loop => performance"},{"id":"6228","parentId":"v8.4.1/archive-v8-4-1-chunk-1","title":"collection.Base: splice() => performance for adding massive amounts of items in Safari"}]

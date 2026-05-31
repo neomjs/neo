@@ -1,0 +1,1 @@
+[{"id":"1370","parentId":"v1.4.37/archive-v1-4-37-chunk-1","title":"main.addon.DragDrop: remove the getPathBehindDragProxy() logic"},{"id":"1369","parentId":"v1.4.37/archive-v1-4-37-chunk-1","title":"draggable.DragProxyComponent: prevent the proxy el from cancelling mouseenter events"}]
