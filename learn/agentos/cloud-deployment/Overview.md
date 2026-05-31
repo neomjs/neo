@@ -52,4 +52,4 @@ Neo's own guides, ADRs, skills, and API docs remain in the KB under `tenantId: '
 - **[Tenant Ingestion Model](./TenantIngestionModel.md)** — the operator-facing model for tenant repo identity, credential boundaries, parser dispatch, source-family inventory, and push-vs-bulk ingestion choices.
 - **[Configuration](./Configuration.md)** — the `aiConfig` keys and the `KnowledgeBaseTenantConfig` / `kb-config.yaml` tenant-config storage.
 - **[Custom Sources](./CustomSources.md)** / **[Custom Parsers](./CustomParsers.md)** — authoring a Source for the full-corpus build, or a Parser for the push path.
-- **[Hook Wiring](./HookWiring.md)** — the `ingest_source_files` / `ai:ingest-tenant` facades and git-hook patterns; runnable companions live under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).
+- **[Hook Wiring](./HookWiring.md)** — the `ingest_source_files` / `ai:ingest-tenant` facades and git-hook patterns; runnable companions live under [`ai/examples/cloud-deployment/`](../../../ai/examples/cloud-deployment/).

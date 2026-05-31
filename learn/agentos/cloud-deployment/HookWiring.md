@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Hook Wiring
 
-> **Status — Phase 3B + #11743.** This guide documents the shipped ingestion surfaces of Epic [#11624](https://github.com/neomjs/neo/issues/11624) plus the #11743 tenant-side repo-push client: the `ingest_source_files` MCP operation ([#11634](https://github.com/neomjs/neo/issues/11634)), the `npm run ai:kb-push-client` remote MCP wrapper, and the `npm run ai:ingest-tenant` bulk CLI ([#11635](https://github.com/neomjs/neo/issues/11635)). The runnable `pre-push` hook and worked external workspace it references ship under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).
+> **Status — Phase 3B + #11743.** This guide documents the shipped ingestion surfaces of Epic [#11624](https://github.com/neomjs/neo/issues/11624) plus the #11743 tenant-side repo-push client: the `ingest_source_files` MCP operation ([#11634](https://github.com/neomjs/neo/issues/11634)), the `npm run ai:kb-push-client` remote MCP wrapper, and the `npm run ai:ingest-tenant` bulk CLI ([#11635](https://github.com/neomjs/neo/issues/11635)). The runnable `pre-push` hook and worked external workspace it references ship under [`ai/examples/cloud-deployment/`](../../../ai/examples/cloud-deployment/).
 
 ## Three operator surfaces, one ingestion service
 
@@ -140,7 +140,7 @@ Enable `reconciliationAutoTombstone` only when the tenant hook topology sends fu
 
 ## Wiring a `pre-push` git hook
 
-A `pre-push` hook is the recommended trigger: it fires once per `git push`, receives the pushed ref range on stdin, and runs before the remote updates. The reference implementation is [`examples/cloud-deployment/pre-push-hook.sh`](../../../examples/cloud-deployment/pre-push-hook.sh); its shape:
+A `pre-push` hook is the recommended trigger: it fires once per `git push`, receives the pushed ref range on stdin, and runs before the remote updates. The reference implementation is [`ai/examples/cloud-deployment/pre-push-hook.sh`](../../../ai/examples/cloud-deployment/pre-push-hook.sh); its shape:
 
 1. Read the pushed ref range (`<local-ref> <local-sha> <remote-ref> <remote-sha>`) from the hook's stdin.
 2. Enumerate changed files — `git diff --name-only --diff-filter=ACMR <remote-sha> <local-sha>` for adds/modifies, `--diff-filter=D` for deletes.
