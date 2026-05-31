@@ -9,6 +9,7 @@ import {
     acquireHeavyMaintenanceLeaseSync,
     inspectHeavyMaintenanceLease,
     inspectHeavyMaintenanceLeaseSync,
+    isPidAlive,
     isLeaseStale,
     releaseHeavyMaintenanceLease,
     releaseHeavyMaintenanceLeaseSync,
@@ -38,7 +39,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             owner       : 'kbSync',
             reason      : 'periodic-sync:1800000',
             metadata    : {taskName: 'kbSync'},
-            pid         : 1234,
+            pid         : process.pid,
             staleAfterMs: 60000,
             now,
             token       : 'owner-token'
@@ -50,7 +51,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             lease   : {
                 owner       : 'kbSync',
                 reason      : 'periodic-sync:1800000',
-                pid         : 1234,
+                pid         : process.pid,
                 token       : 'owner-token',
                 staleAfterMs: 60000,
                 metadata    : {taskName: 'kbSync'}
@@ -68,6 +69,12 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 token: 'owner-token'
             }
         });
+    });
+
+    test('process liveness detects invalid owner pids', () => {
+        expect(isPidAlive(process.pid)).toBe(true);
+        expect(isPidAlive(-1)).toBe(false);
+        expect(isPidAlive('not-a-pid')).toBe(false);
     });
 
     test('returns held status for active contention without throwing', async () => {
@@ -96,6 +103,52 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             status  : 'held',
             acquired: false,
             lease   : {
+                owner: 'summary',
+                token: 'summary-token'
+            }
+        });
+    });
+
+    test('#12264: dead owner pid makes a wall-clock-active lease stale', async () => {
+        const leasePath = createLeasePath('dead-owner-pid');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'kbSync',
+            reason      : 'periodic-sync:1800000',
+            pid         : 60789,
+            staleAfterMs: 6 * 60 * 60 * 1000,
+            now,
+            token       : 'dead-owner-token'
+        });
+
+        await expect(inspectHeavyMaintenanceLease({
+            leasePath,
+            now,
+            isPidAlive: () => false
+        })).resolves.toMatchObject({
+            status: 'stale',
+            active: false,
+            stale : true,
+            lease : {
+                owner: 'kbSync',
+                pid  : 60789,
+                token: 'dead-owner-token'
+            }
+        });
+
+        await expect(acquireHeavyMaintenanceLease({
+            leasePath,
+            owner     : 'summary',
+            now,
+            token     : 'summary-token',
+            isPidAlive: () => false
+        })).resolves.toMatchObject({
+            status        : 'acquired-after-stale',
+            acquired      : true,
+            previousStatus: 'stale',
+            lease         : {
                 owner: 'summary',
                 token: 'summary-token'
             }
@@ -618,6 +671,45 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
 
         expect(inspectHeavyMaintenanceLeaseSync({leasePath, now})).toMatchObject({
             status: 'missing'
+        });
+    });
+
+    test('#12264: sync acquire replaces dead-owner leases for orchestrator poll callers', () => {
+        const leasePath = createLeasePath('sync-dead-owner');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        expect(acquireHeavyMaintenanceLeaseSync({
+            leasePath,
+            owner       : 'kbSync',
+            pid         : 60789,
+            now,
+            staleAfterMs: 6 * 60 * 60 * 1000,
+            token       : 'dead-owner-token'
+        })).toMatchObject({
+            status: 'acquired',
+            lease : {owner: 'kbSync', pid: 60789}
+        });
+
+        expect(inspectHeavyMaintenanceLeaseSync({
+            leasePath,
+            now,
+            isPidAlive: () => false
+        })).toMatchObject({
+            status: 'stale',
+            stale : true,
+            lease : {owner: 'kbSync', pid: 60789}
+        });
+
+        expect(acquireHeavyMaintenanceLeaseSync({
+            leasePath,
+            owner     : 'dream',
+            now,
+            token     : 'dream-token',
+            isPidAlive: () => false
+        })).toMatchObject({
+            status        : 'acquired-after-stale',
+            previousStatus: 'stale',
+            lease         : {owner: 'dream', token: 'dream-token'}
         });
     });
 

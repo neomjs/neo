@@ -459,10 +459,11 @@ class Config extends BaseConfig {
                  * `NEO_ORCHESTRATOR_LMS_MODEL`, `NEO_ORCHESTRATOR_LMS_PORT`).
                  *
                  * Parallel alternative to `orchestrator.mlx` — both serve OpenAI-compatible HTTP
-                 * for local embedding workloads; pick at most one via the respective `enabled` flag.
+                 * for local chat + embedding workloads; pick at most one via the respective `enabled` flag.
                  *
                  * - `enabled`: whether the orchestrator should supervise an `lms server start`
-                 *   child process. Disabled by default; **macOS-only** (LM Studio CLI is not
+                 *   child process. Enabled by default for local Agent OS chat + embedding roles;
+                 *   **macOS-only** (LM Studio CLI is not
                  *   shipped for Linux containers, so this lane is local-dev substrate, not
                  *   cloud-deployment substrate).
                  * - `model`: legacy single-model field kept for existing operator overlays. The
