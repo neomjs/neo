@@ -598,13 +598,13 @@ class Tree extends Base {
         if (item) {
             if (item.cls?.includes(me.folderCls)) {
                 if (await me.onFolderItemClick(record, item, data) === false) {
-                    return
+                    return false
                 }
 
                 item = me.getVdomChild(vnodeId);
 
                 if (!item) {
-                    return
+                    return false
                 }
 
                 NeoArray.toggle(item.cls, 'neo-folder-open');
