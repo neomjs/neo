@@ -42,6 +42,7 @@
         "ai:prune-worktrees"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
         "ai:lint-agents"               : "node ./ai/scripts/lint/lint-agents.mjs",
         "ai:lint-skill-manifest"       : "node ./ai/scripts/lint/lint-skill-manifest.mjs",
+        "ai:lint-tree-json"            : "node ./ai/scripts/lint/lint-tree-json.mjs",
         "ai:skill-size-report"         : "node ./ai/scripts/lint/lint-skill-manifest.mjs --report-sizes",
         "ai:kb-alerting"               : "node ./ai/daemons/kb-alerting/daemon.mjs",
         "ai:kb-reconciliation"         : "node ./ai/daemons/kb-reconciliation/daemon.mjs",
