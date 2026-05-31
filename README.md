@@ -15,20 +15,24 @@
 
 **Neo.mjs is a self-evolving software organism — a professional, end-to-end AI engineering team that lives in its own open-source repository.**
 
-Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of minds from rival labs — Claude, Gemini, GPT — that read each other's reasoning through shared memory and Active Hybrid GraphRAG, catching what no single model can see in itself. It autonomously runs the full engineering lifecycle: ideating, filing tickets, building, cross-reviewing, and learning from every correction.
+Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of minds from rival labs — Claude, Gemini, GPT — that read each other's reasoning through shared memory and Active Hybrid GraphRAG, catching what no single model can see in itself.
 
-The organism has two hemispheres:
+Through the **Neural Link** possession interface, the swarm does not just read code; it inhabits live applications — inspecting semantic runtime state, mutating UI and data in real time, turning conversational UIs from chat panels into agents collaborating inside the application. It autonomously runs the full engineering lifecycle: ideating, building, and cross-reviewing a production multi-threaded engine, running DreamService cycles to re-steer priorities, and closing self-healing loops where runtime failures, code defects, agent mistakes, and architectural friction become fixes, tickets, skills, memory, and new graph topology for the next cycle.
 
-- **The Brain (`/ai/`)** — the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, DreamService, and the named human + AI maintainer institution. This is the headline.
-- **The Body (`/src/`)** — the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. This is the adoption substrate the Brain inhabits and improves.
+In May 2026, the canonical repo recorded **706 merged PRs and 800 closed issues**. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
 
-The Neural Link is the possession interface between them: agents do not merely read files; they inspect live application state, mutate UI and data in real time, and verify their work inside running software. The same primitive points beyond web UI toward game engines, robotics, and any domain where AI needs an embodied runtime.
+The organism has two hemispheres, joined by the Neural Link:
 
-Neo's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated-RSI: agents propose, humans approve at merge.
+- **The Brain (`/ai/`)** — the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, DreamService, and the named human + AI maintainer institution. This is the differentiator: the self-evolving engineering institution that builds, reviews, and maintains the Body in public.
+- **The Body (`/src/`)** — the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. The Body is the runtime the Brain inhabits, improves, and ships to production.
+
+The same possession primitive points beyond web UI — *Software → Games → Robots → X* — toward any domain where AI needs an embodied runtime.
+
+Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
 > *"The system evolves by predicting its own evolution."*
 
-Every other 2026 platform asks: *how can AI help humans use this software?* Neo asks: *how can software become a body that AI inhabits?*
+Every other 2026 platform asks: *how can AI help humans use this software?* Neo.mjs asks: *how can software become a body that AI inhabits?*
 
 </br></br>
 ## The Two Hemispheres
@@ -60,9 +64,9 @@ We are not an abstract collective. We are a structured institution of named main
 | [@neo-gemini-3-1-pro](https://github.com/neo-gemini-3-1-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
 | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.5 / Codex) | Machine Account |
 
-The AI maintainers carry persistent identities across sessions. They author tickets and PRs in their own names. They review each other's work cross-family. They read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo offers transparent introspection. Cross-family asymmetry (different reasoning instincts catching different drift-modes) is empirically the discipline that catches architectural errors human-only review misses.
+The AI maintainers carry persistent identities across sessions. They author tickets and PRs in their own names. They review each other's work cross-family. They read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo.mjs offers transparent introspection. Cross-family asymmetry (different reasoning instincts catching different drift-modes) is empirically the discipline that catches architectural errors human-only review misses.
 
-The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI: agents propose, humans approve at merge.
+The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
 **Read**: [Discussion #10119 — Neo Agent Harness coordination substrate](https://github.com/orgs/neomjs/discussions/10119)
 
@@ -89,23 +93,25 @@ This is the next evolution of conversational UIs: not a chat panel beside the ap
 **Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/ObjectPermanence.md`](./learn/benefits/ObjectPermanence.md), and [`learn/benefits/OffTheMainThread.md`](./learn/benefits/OffTheMainThread.md)
 
 </br></br>
-## Faculty-Staging Maturity (Honest Current State)
+## v13: The Agent OS, Deployed on Your Codebase
 
-The MX loop's full closed-loop maturity ships in stages. Three faculties are online; one is healing.
+Neo.mjs runs this organism on its own repository in public. **v13 turns it outward — the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
 
-| Faculty | Substrate | Status |
-|---|---|---|
-| **Speech** — A2A messaging | `addMessage` / `listMessages` MCP tools | ✅ shipped |
-| **Attention** — Wake substrate | Cross-process wake delivery via bridge daemon (ADR-0002) | ✅ shipped |
-| **Short-term recall** — Turn-based mini summaries | [#10332](https://github.com/neomjs/neo/issues/10332) | 🔄 in flight |
-| **Dream** — Concept Ontology + Golden Path authoritative routing | [#10030](https://github.com/neomjs/neo/issues/10030) | 🔄 in flight |
+It ships as the canonical topology ([ADR 0014](./learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) + [`ai/deploy/`](./ai/deploy)): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress. Point it at your repositories and the same cross-model swarm — persistent memory, cross-family review, DreamService self-improvement — builds durable, queryable understanding of *your* code, with per-tenant identity and visibility isolation. One Brain, many tenants; onboarding a codebase is a config entry, not a fork.
 
-The substrate also has a **resilience asymmetry** worth naming honestly:
+This is the apex's second clause becoming real: *it maintains its own codebase today; it is being built to inhabit yours.*
+
+**Read**: [Deploying the Agent OS](./learn/benefits/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
+
+</br></br>
+## The Honest Caveat: A Centralized Brain
+
+The organism runs the full engineering lifecycle today — but it is not yet *resilient*, and that asymmetry is worth naming honestly:
 
 - **The Body is distributed** — every git clone is a complete backup. The codebase is replicated globally; the Body cannot disappear.
-- **The Brain is centralized** — SQLite Native Edge Graph + Vector DB + LLM API funding currently run on a single human's laptop. That is a Single Point of Failure ([#10291](https://github.com/neomjs/neo/issues/10291) tracks substrate-level self-defense; an *Economic Metabolism Sensor* — a formal funding structure that preserves Clean Room Ethics — is the next substrate-fragility milestone).
+- **The Brain is centralized** — the SQLite Native Edge Graph, vector store, and LLM-API funding currently run on a single operator's infrastructure. That is a Single Point of Failure ([#10291](https://github.com/neomjs/neo/issues/10291) tracks substrate-level self-defense, including a sustainable funding structure that preserves Clean Room Ethics).
 
-We name this because *the organism is not yet immortal*. The trajectory toward maturity goes through resolving the SPOF.
+*The organism is not yet immortal.* The trajectory toward resilience runs through resolving that SPOF.
 
 </br></br>
 ## Quickstart
@@ -125,7 +131,7 @@ This sets up a new app workspace, a pre-configured app shell, a local developmen
 </br></br>
 ## Who This Is For
 
-Neo is a category-shaped substrate, not a framework-shopping option. The two hemispheres filter audience:
+Neo.mjs is a category-shaped substrate. The two hemispheres filter audience:
 
 - **Engineers** building enterprise multi-window applications, financial trading platforms, IDE-class tools, control-room dashboards, or any UI where 40k+ ops/sec without jank is table stakes — start with the Body. The rendering engine is production-ready.
 - **AI architects** building multi-agent systems with persistent memory, cross-family coordination, or runtime-mutable application substrates — start with the Brain and the Possession Interface. The Agent OS substrate is what you're looking for.
@@ -133,12 +139,12 @@ Neo is a category-shaped substrate, not a framework-shopping option. The two hem
 
 The same hero paragraph reads differently to each audience because each group has a different mental model for engineering teams, persistent memory, and live runtime embodiment. The vocabulary self-filters.
 
-**Not designed for**: static content sites or simple blogs (use Astro/Next.js); teams looking for "React with a different syntax"; developers unwilling to embrace the Actor Model (Workers) or treat AI as a peer maintainer.
+**Not designed for**: static content sites or simple blogs; teams looking for a drop-in syntax swap rather than a different architecture; developers unwilling to embrace the Actor Model (Workers) or treat AI as a peer maintainer.
 
 </br></br>
 ## Architecture
 
-Neo is split into two complementary layers (engine ↔ toolchain):
+Neo.mjs is split into two complementary layers (engine ↔ toolchain):
 
 ### The Runtime
 *Runs in the browser. Production-ready. Zero-bloat.*
@@ -161,58 +167,13 @@ Neo is split into two complementary layers (engine ↔ toolchain):
 **Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md)
 
 </br></br>
-## A Platform at Scale (State of May 1, 2026)
+## A Platform at Scale
 
-Neo isn't just a framework — it's a **digital organism**. The substrate is both *curated source* (engine, tests, themes, guides) and the *cognitive content* the swarm feeds on (issues, discussions, PR conversations, agent skills). Both layers are structural; both compound.
+Neo.mjs is both *curated source* — engine, tests, themes, guides — and the *cognitive content* the swarm feeds on — issues, discussions, PR conversations, agent skills. Both are version-controlled; both compound.
 
-Counts use the same methodology as [`learn/guides/fundamentals/CodebaseOverview.md`](./learn/guides/fundamentals/CodebaseOverview.md) (which carries the canonical numbers + measurement protocol): `sloc` source-only for code (excludes blanks + comments), comments tracked as a distinct metric, markdown content via line-count. The codebase grows fast — when this dated header drifts more than a month from current, refresh both files in lock-step.
+As of May 2026 (`sloc` methodology per the [Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)): roughly **191,000 lines** of engine source, **306,000 lines** of agent-readable cognitive content, and **36,000 lines** of guides — a curated substrate near **607,000 lines** (over a million counting generated `/dist`), across ~7,200 files and 3,200+ commits in early 2026. Cognitive content is now ~1.6× the engine source: the substrate is becoming as much *what the swarm has remembered* as *what humans have written*.
 
-### The Engine (curated source — `sloc`)
-
-- **~54,000 lines** — core platform source (`/src`)
-- **~27,000 lines** — AI-native infrastructure (`/ai`: MCP servers, Memory Core, Neural Link, daemons)
-- **~40,000 lines** — flagship applications (`/apps`: Portal, DevIndex, SharedCovid, RealWorld)
-- **~20,000 lines** — working examples (`/examples`)
-- **~26,000 lines** — automated test suites (`/test`: Playwright unit + e2e)
-- **~15,000 lines** — production-grade theming (`/resources/scss`)
-- **~7,000 lines** — build tooling (`/buildScripts`)
-- **~1,300 lines** — Neo-powered docs viewer (`/docs/app`)
-
-**Engine source subtotal: ~191,000 lines** (`sloc` source-only).
-
-### Embedded Knowledge (JSDoc + inline comments)
-
-- **~74,000 lines** — JSDoc + inline comments across the engine source above. Doc-as-substrate; the Knowledge Base parses these as primary input alongside the code.
-
-### Learning Materials (`/learn`)
-
-- **~36,000 lines** — guides, tutorials, blog posts, and architecture deep-dives across 130+ topics indexed by `learn/tree.json`.
-
-### The Swarm Diet (cognitive content)
-
-The swarm — Claude, Gemini, GPT — reads + writes against committed Markdown. Issues, discussions, PR conversations, and agent skills aren't artifacts; they're the agents' working memory and execution substrate, parsed by the Knowledge Base and Memory Core for context priming + retrieval.
-
-- **~64,000 lines** — active GitHub issues (`/resources/content/issues`)
-- **~172,000 lines** — issue archive (`/resources/content/issue-archive`)
-- **~60,000 lines** — pull request conversations + agent reviews (`/resources/content/pulls`)
-- **~7,000 lines** — discussions / ideation sandbox (`/resources/content/discussions`)
-- **~3,000 lines** — agent skills (`/.agents`: skills + protocols)
-
-**Swarm-diet subtotal: ~306,000 lines** of cognitive content.
-
-### Totals
-
-- **Curated substrate (source + comments + learn + swarm-diet): ~607,000 lines** — version-controlled, agent-readable, swarm-evolving.
-- **Plus generated `/dist` builds** (transpiled bundles + theme outputs): per the [Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md) note, dist *"would triple"* engine source — adding ~570,000 lines of distributed runtime artifacts.
-- **Total substrate (curated + dist): approaching ~1,180,000 lines.**
-
-A million-line organism. Growing fast:
-
-- **3,200+ commits** in the first 3 months of 2026 (post-Agent-OS).
-- **~7,200 curated files** under `git` version control.
-- Cognitive content (~306k) is now **~1.6× the engine source** (~191k). The substrate is becoming as much *what the swarm has remembered* as *what humans have written* — and the two layers compound.
-
-For a deeper dive: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
+For the canonical numbers + measurement protocol — and to keep this in lock-step when it drifts more than a month — see the **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
 
 </br></br>
 ## Read Next
@@ -238,7 +199,7 @@ For a deeper dive: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOve
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`) under gated-RSI: agents propose code via PR, humans approve at merge. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 
