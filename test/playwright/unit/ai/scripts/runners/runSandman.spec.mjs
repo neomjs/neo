@@ -186,13 +186,13 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 modelProvider: 'gemini',
                 openAiCompatible: {
                     host                 : 'http://oai.test',
-                    model                : 'gemma-4-31b-it',
+                    model                : 'qwen3-8b',
                     embeddingModel       : 'text-embedding-qwen3-embedding-8b',
                     requireParallelModels: 2
                 }
             },
             timeoutMs                     : 25,
-            fetchOpenAiCompatibleModels   : async () => ['gemma-4-31b-it', 'text-embedding-qwen3-embedding-8b'],
+            fetchOpenAiCompatibleModels   : async () => ['qwen3-8b', 'text-embedding-qwen3-embedding-8b'],
             log                           : {warn: (...args) => warnings.push(args)}
         });
 
@@ -212,7 +212,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 graphProvider: 'openAiCompatible',
                 openAiCompatible: {
                     host          : 'http://oai.test',
-                    model         : 'gemma-4-31b-it',
+                    model         : 'qwen3-8b',
                     embeddingModel: 'text-embedding-qwen3-embedding-8b'
                 }
             },
@@ -234,7 +234,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                     graphProvider: 'openAiCompatible',
                     openAiCompatible: {
                         host          : 'http://oai.test',
-                        model         : 'gemma-4-31b-it',
+                        model         : 'qwen3-8b',
                         embeddingModel: 'text-embedding-qwen3-embedding-8b',
                         requireParallelModels
                     }

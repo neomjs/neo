@@ -143,12 +143,16 @@ class Config extends BaseConfig {
              * @summary Deployment-wide OpenAI-compatible provider defaults.
              *
              * Covers MLX, LM Studio, Ollama's OpenAI-compatible surface, llama.cpp, and
-             * managed OpenAI-compatible endpoints.
+             * managed OpenAI-compatible endpoints. Local OpenAI-compatible deployments are
+             * a dual-role contract: the chat model and embedding model must both stay
+             * resident with stable context windows. A provider that swaps between the two
+             * roles per call and rebuilds the context window is not serviceable for Agent OS
+             * workloads.
              * @type {Object}
              */
             openAiCompatible: {
                 host                 : leaf('http://127.0.0.1:11434', 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
-                model                : leaf('gemma-4-31b-it', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
+                model                : leaf('qwen3-8b', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
                 embeddingModel       : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
                 apiKey               : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
                 unloadRetryCount     : leaf(3, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
@@ -171,22 +175,28 @@ class Config extends BaseConfig {
              * - Chat-path consumers (graph extraction, session summary) → `localModels.chat.*`
              * - Embedding-path consumers (Memory Core embedding, KB ingestion) → `localModels.embedding.*`
              *
+             * The orchestrator's LM Studio preload path converts these role caps into
+             * per-model `lms load --context-length` values. Keep them model-owned and
+             * stable: local providers must hold chat + embedding resident in parallel,
+             * not unload/reload one role to serve the other.
+             *
              * @type {Object}
              */
             localModels: {
                 /**
                  * @summary Chat-model context limits in tokens.
                  *
-                 * Tuned for `gemma-4-31b-it` (native 256K context). Operators serving
-                 * smaller chat models should pin this to the actual loaded-model capacity;
+                 * Tuned for the local-dev OpenAI-compatible chat default (`qwen3-8b`).
+                 * Operators serving larger or smaller chat models should pin this to the
+                 * actual loaded-model capacity;
                  * `ConsumerFrictionHelper.invokeWithGuardrail` uses these values to fire
                  * the upstream pre-check skip (emits `'context-overflow'` /
                  * `'size-precheck-skip'` friction) when composed input exceeds the safe
                  * processing band.
                  *
-                 * `safeProcessingLimitTokens` is the explicit ~76% headroom band — leaves
-                 * ~62K tokens for system-prompt envelope + LLM response generation. Explicit
-                 * value avoids implicit `0.75 × cap` derivation drift if the cap moves.
+                 * `safeProcessingLimitTokens` is the explicit 75% headroom band — leaves
+                 * ~8K tokens for system-prompt envelope + LLM response generation. Explicit
+                 * value avoids implicit ratio derivation drift if the cap moves.
                  *
                  * Env overrides: `NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS`,
                  * `NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS`.
@@ -194,8 +204,8 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 chat: {
-                    contextLimitTokens       : leaf(262144, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(200000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
+                    contextLimitTokens       : leaf(32768, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(24576, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 },
                 /**
                  * @summary Embedding-model context limits in tokens.

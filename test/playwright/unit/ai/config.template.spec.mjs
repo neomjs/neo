@@ -75,7 +75,7 @@ test.describe('Tier 1 Config Immutability', () => {
         });
         expect(Config.openAiCompatible).toMatchObject({
             host                 : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-            model                : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+            model                : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'qwen3-8b',
             embeddingModel       : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
             apiKey               : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
             unloadRetryCount     : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
@@ -85,14 +85,31 @@ test.describe('Tier 1 Config Immutability', () => {
         });
         expect(Config.localModels).toMatchObject({
             chat: {
-                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 262144,
-                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
+                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 32768,
+                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 24576
             },
             embedding: {
                 contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 8192,
                 safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 6144
             }
         });
+
+        const openAiCompatibleRequiredModels = new Set([
+            Config.openAiCompatible.model,
+            Config.openAiCompatible.embeddingModel
+        ].filter(Boolean));
+        const ollamaRequiredModels = new Set([
+            Config.ollama.model,
+            Config.ollama.embeddingModel
+        ].filter(Boolean));
+
+        expect(Config.openAiCompatible.requireParallelModels).toBeGreaterThanOrEqual(openAiCompatibleRequiredModels.size);
+        expect(Config.ollama.requireParallelModels).toBeGreaterThanOrEqual(ollamaRequiredModels.size);
+        expect(Config.localModels.chat.safeProcessingLimitTokens).toBeLessThanOrEqual(Config.localModels.chat.contextLimitTokens);
+        expect(Config.localModels.embedding.safeProcessingLimitTokens).toBeLessThanOrEqual(Config.localModels.embedding.contextLimitTokens);
+        expect(Config.localModels.chat.contextLimitTokens).toBeLessThanOrEqual(Config.orchestrator.lms.preloadMaxContextLength);
+        expect(Config.localModels.embedding.contextLimitTokens).toBeLessThanOrEqual(Config.orchestrator.lms.preloadMaxContextLength);
+
         expect(Config.engines.chroma).toEqual({
             dataDir: expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]unified$/),
             host   : process.env.NEO_CHROMA_HOST || 'localhost',
