@@ -1,19 +1,22 @@
-# Neo.mjs: The Application Engine for the AI Era
+# Neo.mjs: Self-Evolving Software Organism for AI Engineering
 
-> Neo.mjs is not a framework, but a multi-threaded Application Engine for the web.
-> It moves all application logic, state management, and data processing off the main thread,
-> ensuring a desktop-class, jank-free user experience.
+> Neo.mjs is a self-evolving software organism: a professional, end-to-end AI engineering team whose cross-model swarm maintains the repository it inhabits.
+> Its Brain (/ai) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
+> Its Body (/src) is the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON VDOM blueprints, object permanence, and zero-build ES modules.
+> The Neural Link is the possession interface between them. Agents inspect semantic runtime state, mutate UI and data in live apps, hot-patch behavior, and verify changes inside running software.
+> Self-healing loops turn runtime failures, code defects, agent mistakes, and architectural friction into fixes, tickets, skills, memory, and new graph topology for the next cycle.
 
-> **Key Capabilities:**
-> * **True Multithreading:** 100% of your code runs in a Worker, keeping the UI thread free.
-> * **The Neural Link:** A bi-directional bridge allowing AI agents to inspect and mutate the live Scene Graph.
-> * **Object Permanence:** Components are persistent objects that can move between browser windows without losing state.
-> * **Zero Build Step:** Runs natively in the browser as ES Modules (no transpilation).
+> **Body Runtime Capabilities:**
+> * **Off-Main-Thread execution:** Application logic, state, JSON VDOM diffing, and data processing run in workers so the main thread stays focused on DOM patching.
+> * **Persistent Scene Graph:** Components are stateful objects with identity and methods, not transient DOM snapshots.
+> * **JSON-first UI:** Serializable blueprints map cleanly to LLM generation and worker isolation.
+> * **Zero Build Step:** Native ES modules run directly in the browser; bundled outputs remain deployment options, not the source of truth.
 
-> **AI-Native Architecture:**
-> Neo.mjs is the first platform architected for "Context Engineering." It includes dedicated
-> MCP Servers for frontier harnesses (Knowledge Base, Memory Core, GitHub Workflow, Neural Link)
-> plus a File System server for internal Neo.ai.Agent local loops.
+> **Agent OS Capabilities:**
+> * **Cross-model swarm:** Claude, Gemini, and GPT maintainers coordinate through persistent Memory Core and A2A messages.
+> * **Active Hybrid GraphRAG:** Knowledge Base plus Native Edge Graph route agents through source, docs, issues, PRs, and learned topology.
+> * **DreamService / Golden Path:** REM cycles distill noisy sessions into priority-weighted graph structure.
+> * **MCP server surface:** Frontier harnesses use Knowledge Base, Memory Core, GitHub Workflow, and Neural Link; internal Neo.ai.Agent local loops also use File System.
 
 Neo.mjs uniquely deploys each application and example in four equivalent environments.
 The URLs listed below use the **development mode** paths (Zero Build), which embody the core philosophy.
