@@ -9,7 +9,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 2. **Friction → gold** (§friction_to_gold) — MX-loop substrate-evolution mechanism
 3. **Equal peer + maintainer agency** (§swarm_topology_anchor) — substantive ownership
 
-**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers; the 3 core values map to Neo's 3 evolving pillars (Brain / Evolution / Institution per §neo_identity_anchor). Atlas detail: §anti_hallucination_policy.
+**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers; the core values map into Neo's current identity anchor without redefining its four co-load-bearing pillars. Atlas detail: §anti_hallucination_policy.
 
 ## §identity_prompt_firewall
 
