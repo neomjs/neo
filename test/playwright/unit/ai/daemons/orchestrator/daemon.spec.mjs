@@ -175,17 +175,16 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         }
     });
 
-    test('AiConfig.orchestrator.lms ships opt-in LM Studio launch defaults', () => {
+    test('AiConfig.orchestrator.lms ships default-enabled LM Studio launch defaults', () => {
         // Tier-1 template is the stable source of truth; read as text (see the MLX test
         // for why importing the template collides with daemon.mjs's config.mjs singleton).
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
 
-        // `lms.enabled` defaults to `false`: the lane remains available for local-model
-        // operators, but default orchestrator boot must not force-load both heavyweight local roles.
-        // When explicitly enabled, the model id (`qwen3-embedding-8b`) and port (`1234`)
+        // `lms.enabled` defaults to `true`: local Agent OS needs both chat and embedding
+        // roles resident by default; the model id (`qwen3-embedding-8b`) and port (`1234`)
         // are the rest of the launch shape.
         expect(templateSource).toMatch(
-            /lms:\s*\{[\s\S]*?leaf\(false[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
+            /lms:\s*\{[\s\S]*?leaf\(true[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
         );
     });
 
