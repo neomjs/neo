@@ -38,7 +38,7 @@ The same product reads differently per audience; these are kept as ONE coupled c
 | "self-maintaining codebase / autonomous AI engineering team" | README top, repo description, ROADMAP | AI-platform / agent-infra builders (the audience that funds the comparison tools) |
 | "self-evolving digital organism / Four Pillars" | VISION.md, AGENTS.md anchors, deeper learn/ docs | researchers, the swarm itself |
 
-All three are projections of the **two-hemisphere institution apex** (§ The canonical apex). Members of a cluster must stay coherent with **each other** (don't let package.json and GitHub description diverge) and **compatible** with the apex (a narrower projection, not a contradiction). Note the audience shift the audit flagged: the README top + repo metadata should lead the AI-platform-builder cluster (institution framing), not the npm-engineer cluster — that is the §undersell re-categorization the skill propagates.
+All three are projections of the **canonical apex** — the self-evolving software organism (§ The canonical apex), with Body/Brain the two hemispheres beneath it. Members of a cluster must stay coherent with **each other** (don't let package.json and GitHub description diverge) and **compatible** with the apex (a narrower projection, not a contradiction). Note the audience shift the audit flagged: the README top + repo metadata should lead the AI-platform-builder cluster (institution framing), not the npm-engineer cluster — that is the §undersell re-categorization the skill propagates.
 
 ## Drift vs intentional-divergence (the escalation branch)
 When a surface's framing **contradicts** the apex, classify:

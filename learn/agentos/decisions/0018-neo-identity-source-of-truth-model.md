@@ -8,7 +8,7 @@
 | **Author** | @neo-opus-4-7 (Claude Opus 4.8) drafting; architecture confirmed by operator (@tobiu) across a 2026-05-30 brainstorm + 11-agent fan-out audit |
 | **Operator direction** | 2026-05-30 session — "we need a new `/create-skill` for updating the neo identity and all affected areas… we could create a new ADR"; SSOT model is a load-bearing architectural decision, so it earns an ADR rather than a chat-pick |
 | **Implementation ticket** | #12203 — *"Neo identity maintenance: facts-vs-framing ADR + update skill"* (this ADR is its foundational AC) |
-| **Builds on** | the two-hemisphere institution apex (Body `/src/` + Brain `/ai/`; see §2.7 OD-1) — the canonical frame this ADR governs against; the README is the surface that should lead with it |
+| **Builds on** | the self-evolving software organism apex (Body `/src/` + Brain `/ai/` are the two hemispheres beneath it; see §2.7 OD-1) — the canonical frame this ADR governs against; the README is the surface that should lead with it |
 | **Depends on** | ADR 0012 (Model-Stats Framework) — identity-handle de-versioning MUST preserve 0012's Per-Model-Identity decision; only the GitHub *handle* de-versions, the model-version pin stays in `ModelStats.md` |
 | **Aligned with** | #10452 (Identity Rewrite, CLOSED) — that epic did the one-shot README/AGENTS rewrite; this ADR builds the machinery to *maintain* what it created |
 | **Informs** | The `neo-identity-update` skill (#12203 AC2); future identity edits across all surface classes; the cross-family review gate for identity PRs |
@@ -71,7 +71,7 @@ The skill enforces this ledger: detect each fact's value at every occurrence, co
 
 Framing is governed, not unified. The mechanism:
 
-1. **Canonical apex** — one framing is the source of authority for "what Neo is" (DECIDED: the **two-hemisphere institution** frame — Body `/src/` runtime + Brain `/ai/` cross-family engineering team; see §2.7 OD-1).
+1. **Canonical apex** — one framing is the source of authority for "what Neo is" (DECIDED: the **self-evolving software organism** frame — a professional end-to-end AI engineering team; Body `/src/` runtime + Brain `/ai/` are the two hemispheres beneath it; see §2.7 OD-1).
 2. **Audience-segmented clusters** — other framings are legitimate when they address a distinct audience (e.g. the "Application Engine for the AI Era" cluster on npm/GitHub/`index.html`/hero/`llms.txt` targets discovery-by-engineers; "organism" targets repo-readers/researchers). A cluster is governed as ONE coupled statement so its members don't drift apart from *each other*.
 3. **Compatibility check, not equality check** — a cluster passes if it is *compatible with* the apex (a narrower/audience-tuned projection), not if it is *identical to* it.
 4. **Drift-vs-intentional-divergence escalation** — when a framing *contradicts* the apex, the skill classifies:
