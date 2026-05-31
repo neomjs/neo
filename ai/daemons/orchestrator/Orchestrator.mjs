@@ -452,6 +452,7 @@ export class Orchestrator extends Base {
             lmsModels : this.lmsModels,
             lmsHost   : AiConfig.openAiCompatible?.host,
             lmsPort   : AiConfig.orchestrator.lms?.port,
+            lmsPreloadMaxContextLength: AiConfig.orchestrator.lms?.preloadMaxContextLength,
             lmsContextLengths: buildLmsContextLengthsMap({
                 chatModel             : AiConfig.openAiCompatible?.model,
                 embeddingModel        : AiConfig.openAiCompatible?.embeddingModel,

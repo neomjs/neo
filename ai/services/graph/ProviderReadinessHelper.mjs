@@ -224,6 +224,8 @@ export function buildLmsContextLengthsMap({
  * @param {Number} options.delayMs Delay between probes.
  * @param {Number} options.timeoutMs HTTP probe timeout.
  * @param {Object} [options.contextLengths] Per-model context-length override map keyed by model id.
+ * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one model cannot be loaded.
+ * @param {Number} [options.maxContextLength] Optional max `--context-length` for preload safety; larger requests are skipped.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Object} [options.log=logger] Logger seam.
@@ -236,6 +238,8 @@ export async function ensureLmsModelsLoaded({
     delayMs,
     timeoutMs,
     contextLengths = {},
+    allowPartial   = false,
+    maxContextLength,
     fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
     loadModel     = (model, options) => loadLmsModel(model, options),
     log           = logger
@@ -275,6 +279,9 @@ export async function ensureLmsModelsLoaded({
 
     let {availableModels} = await probeModels('initial /v1/models probe');
     const initialMissing  = getMissing(availableModels);
+    const hasMaxContextLength = Neo.isNumber(maxContextLength) && maxContextLength > 0;
+    const skippedModels = [];
+    const failedModels  = [];
 
     // Force-include context-configured models in the load set even when already
     // resident in /v1/models. `/v1/models` reports presence only — it does NOT
@@ -285,13 +292,43 @@ export async function ensureLmsModelsLoaded({
     // be accepted as ready while every chat invocation silently overflows.
     // Force-include each context-configured model in the load set even if resident,
     // BUT preserve the declared requiredModels input order (filter rather than concat-dedupe).
-    const modelsToLoad = requiredModels.filter(model => {
+    const candidateModelsToLoad = requiredModels.filter(model => {
         if (initialMissing.includes(model)) return true;
         return Neo.isNumber(contextLengths?.[model]);
     });
-    const loadedModels = [...modelsToLoad];
+    const modelsToLoad = candidateModelsToLoad.filter(model => {
+        const contextLength = contextLengths?.[model];
 
-    if (modelsToLoad.length === 0) {
+        if (!hasMaxContextLength || !Neo.isNumber(contextLength) || contextLength <= maxContextLength) {
+            return true;
+        }
+
+        const skipped = {
+            model,
+            contextLength,
+            maxContextLength,
+            reason: 'context-length-exceeds-preload-max'
+        };
+        skippedModels.push(skipped);
+        log.warn?.(
+            `[ProviderReadinessHelper] Skipping LM Studio model '${model}' preload: context-length ` +
+            `${contextLength} exceeds preload max ${maxContextLength}. The model remains required; ` +
+            'readiness will be reported as degraded until the operator raises the cap or retunes the model/context.'
+        );
+
+        if (!allowPartial) {
+            throw new Error(
+                `LM Studio model preload skipped for ${model}: context-length ${contextLength} exceeds ` +
+                `preload max ${maxContextLength}.`
+            );
+        }
+
+        return false;
+    });
+    const attemptedModels = [...modelsToLoad];
+    const loadedModels    = [];
+
+    if (modelsToLoad.length === 0 && skippedModels.length === 0) {
         return {
             ready       : true,
             loadedModels: [],
@@ -310,7 +347,21 @@ export async function ensureLmsModelsLoaded({
             ? 'missing from /v1/models'
             : 'context-length enforcement on resident model';
         log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix} (${reason}).`);
-        await loadModel(model, {contextLength});
+        try {
+            await loadModel(model, {contextLength});
+            loadedModels.push(model);
+        } catch (error) {
+            failedModels.push({
+                model,
+                contextLength,
+                error: error.message
+            });
+            log.warn?.(`[ProviderReadinessHelper] LM Studio model '${model}' preload failed: ${error.message}`);
+
+            if (!allowPartial) {
+                throw error;
+            }
+        }
     }
 
     let missingModels = initialMissing;
@@ -318,12 +369,24 @@ export async function ensureLmsModelsLoaded({
     const startedAt = Date.now();
     for (let attempt = 1; attempt <= attempts; attempt++) {
         ({availableModels} = await probeModels('post-load /v1/models probe'));
-        missingModels   = getMissing(availableModels);
+        missingModels = getMissing(availableModels);
 
-        if (missingModels.length === 0) {
+        const knownUnavailable = new Set([
+            ...skippedModels.map(item => item.model),
+            ...failedModels.map(item => item.model)
+        ]);
+        const serviceableMissing = missingModels.filter(model => !knownUnavailable.has(model));
+
+        if (missingModels.length === 0 || (allowPartial && serviceableMissing.length === 0)) {
+            const ready = missingModels.length === 0 && skippedModels.length === 0 && failedModels.length === 0;
             return {
-                ready       : true,
+                ready,
+                degraded    : !ready,
                 loadedModels,
+                attemptedModels,
+                skippedModels,
+                failedModels,
+                missingModels,
                 requiredModels,
                 availableModels,
                 attempts    : attempt,
@@ -334,6 +397,22 @@ export async function ensureLmsModelsLoaded({
         if (attempt < attempts) {
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
+    }
+
+    if (allowPartial) {
+        return {
+            ready       : false,
+            degraded    : true,
+            loadedModels,
+            attemptedModels,
+            skippedModels,
+            failedModels,
+            missingModels,
+            requiredModels,
+            availableModels,
+            attempts,
+            elapsedMs    : Date.now() - startedAt
+        };
     }
 
     throw new Error(

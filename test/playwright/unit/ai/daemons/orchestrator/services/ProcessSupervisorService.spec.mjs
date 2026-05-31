@@ -173,6 +173,51 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         }));
     });
 
+    test('runTask records degraded state when a post-spawn hook returns partial readiness (#12264)', async () => {
+        const { service, logEntries, taskOutcomes } = createTestService();
+        let readyMarked = false;
+        let closeHandler;
+
+        service.taskDefinitions.mockTask.postSpawn = async () => ({
+            ready        : false,
+            degraded     : true,
+            missingModels: ['chat-model']
+        });
+        service.taskStateService.markReady = () => {
+            readyMarked = true;
+        };
+        service.spawnFn = () => ({
+            pid   : 9999,
+            stderr: {on: () => {}},
+            on    : (eventName, handler) => {
+                if (eventName === 'close') {
+                    closeHandler = handler;
+                }
+            }
+        });
+
+        expect(service.runTask('mockTask', 'test-reason')).toBe(true);
+        closeHandler(0);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(readyMarked).toBe(false);
+        expect(logEntries).toContainEqual(expect.objectContaining({
+            level  : 'WARN',
+            message: expect.stringContaining('degraded readiness')
+        }));
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'degraded',
+            taskName: 'mockTask',
+            details : expect.objectContaining({
+                readiness: expect.objectContaining({
+                    ready        : false,
+                    missingModels: ['chat-model']
+                })
+            })
+        }));
+        expect(taskOutcomes.filter(entry => entry.status === 'completed')).toEqual([]);
+    });
+
     test('runTask fails and terminates the child when a post-spawn hook fails', async () => {
         const { service, taskOutcomes } = createTestService();
         let killed = false;

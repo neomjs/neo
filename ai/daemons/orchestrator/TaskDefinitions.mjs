@@ -37,6 +37,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.lmsHost] OpenAI-compatible host exposed by the LM Studio server.
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
  * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
+ * @param {Number} [options.lmsPreloadMaxContextLength] Max `--context-length` the orchestrator may pass to `lms load` during preload.
  * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
  * @returns {Object}
  */
@@ -53,6 +54,7 @@ export function buildTaskDefinitions({
     lmsHost,
     lmsPort,
     lmsContextLengths,
+    lmsPreloadMaxContextLength,
     providerReadiness
 } = {}) {
     const tasks = {
@@ -183,6 +185,8 @@ export function buildTaskDefinitions({
                     host           : lmsHost,
                     models         : requiredModels,
                     contextLengths : lmsContextLengths,
+                    allowPartial   : true,
+                    maxContextLength: lmsPreloadMaxContextLength,
                     attempts       : providerReadiness?.attempts,
                     delayMs        : providerReadiness?.delayMs,
                     timeoutMs      : providerReadiness?.timeoutMs
