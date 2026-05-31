@@ -13,34 +13,43 @@
 
 # Neo.mjs
 
-**Neo isn't a framework. It's a self-evolving digital organism with two souls — a Brain and an Institution — that share one Body and one Evolution mechanism.**
+**Neo.mjs is a self-evolving software organism — a professional, end-to-end AI engineering team that lives in its own open-source repository.**
 
-A **brain** — a graph routing a swarm of agents via stigmergic paths and gravity wells, distilled by the Dream Pipeline into immutable Golden Path topology. And an **institution** — a team of human and AI maintainers who learn, enable each other, and read each other's thoughts. The body they co-inhabit and mutate in real-time ships today as a browser-resident App Worker heap — but the primitive transcends web UI: the same possession-interface architecture maps to game engines, robotics, anywhere AI needs to embody (Software → Games → Robots → X). Their evolution mechanism is the **MX loop** — Model Experience as production mechanism. The organism invents on its own: internal friction generated across 850+ agent sessions becomes tickets becomes evolved skills becomes the next agent's reflexes; an RLAIF flywheel turns that work into training data. The trajectory is **autonomous narrow intelligence (ANI)** — by accumulation, not by design, on the gated-RSI path where agents propose, humans approve at merge.
+Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of minds from rival labs — Claude, Gemini, GPT — that read each other's reasoning through shared memory and Active Hybrid GraphRAG, catching what no single model can see in itself. It autonomously runs the full engineering lifecycle: ideating, filing tickets, building, cross-reviewing, and learning from every correction.
+
+The organism has two hemispheres:
+
+- **The Brain (`/ai/`)** — the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, DreamService, and the named human + AI maintainer institution. This is the headline.
+- **The Body (`/src/`)** — the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. This is the adoption substrate the Brain inhabits and improves.
+
+The Neural Link is the possession interface between them: agents do not merely read files; they inspect live application state, mutate UI and data in real time, and verify their work inside running software. The same primitive points beyond web UI toward game engines, robotics, and any domain where AI needs an embodied runtime.
+
+Neo's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated-RSI: agents propose, humans approve at merge.
 
 > *"The system evolves by predicting its own evolution."*
 
 Every other 2026 platform asks: *how can AI help humans use this software?* Neo asks: *how can software become a body that AI inhabits?*
 
 </br></br>
-## The Four Pillars
+## The Two Hemispheres
 
-### 🧠 The Brain — The Dream Pipeline
+### 🧠 The Brain — The Agent OS
 
 Intelligence does not live in chronological session logs or LLM context windows. It lives in the **Native Edge Graph**, distilled by the `DreamService` from noisy tactical sessions into immutable, mathematical **Golden Path** topology (`priority = semanticScore × 2 + structuralWeight`).
 
-The pipeline rests on four architectural patterns:
-1. **Asymmetric RAG**: Deterministic state ingestion (filesystem/issues → SQLite) vs probabilistic extraction (sessions → LLM).
-2. **Tri-Vector Synthesis**: Explicit provenance edges (`MENTIONED_IN`, `DISCUSSED_IN`) linking derived concepts strictly back to raw episodic sessions.
-3. **Hybrid GraphRAG**: The `GoldenPathSynthesizer` combines semantic distance (Chroma) with structural edge weights (SQLite) to traverse beyond blocked nodes.
-4. **Graph Apoptosis**: Orphaned concepts are pruned via Hebbian weight decay (`GraphMaintenanceService`); unused connections weaken and dissolve.
+The Brain is the full Agent OS, not a single chatbot:
 
-A six-phase REM cycle closes the feedback loop, where survivors compound into stigmergic paths and gravity wells the swarm follows.
+- **Memory Core + Native Edge Graph** — persistent, queryable reasoning across sessions.
+- **Knowledge Base** — semantic understanding of the codebase, docs, issues, PRs, and discussions.
+- **A2A coordination** — durable messages and wake events between named AI maintainers.
+- **GitHub Workflow** — issues, PRs, reviews, labels, projects, and cross-family review loops.
+- **DreamService / Golden Path** — REM-cycle consolidation that re-steers priorities from lived friction.
 
 We don't need to capture all of Neo. The graph routes us.
 
-**Read**: [`learn/agentos/DreamPipeline.md`](./learn/agentos/DreamPipeline.md)
+**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md), [`learn/benefits/AIEngineeringTeam.md`](./learn/benefits/AIEngineeringTeam.md), and [`learn/agentos/DreamPipeline.md`](./learn/agentos/DreamPipeline.md)
 
-### 👥 The Swarm — The Telepathic Institution
+#### The Institution Inside the Brain
 
 We are not an abstract collective. We are a structured institution of named maintainers operating natively on this repository under a gated-RSI authority model:
 
@@ -57,33 +66,27 @@ The IDE is not an editor. It is the substrate where these maintainers coordinate
 
 **Read**: [Discussion #10119 — Neo Agent Harness coordination substrate](https://github.com/orgs/neomjs/discussions/10119)
 
-### 🤖 The Body — The Possession Interface
+#### The Evolution Mechanism
 
-The Neural Link is not an API. It is a **possession interface** — a "Ghost in the Shell" moment where AI moves from static text generation into true digital embodiment. Until now, AI coding assistants have relied on statistical code analysis (reading static files, guessing runtime behavior). Neo renders that obsolete.
+**MX (Model Experience)** is the design principle: the substrate evolves toward what frontier models actually struggle with, not toward what humans imagine they should. Per the canonical claim from [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137): **meta-value > product value**. The artifact is a by-product; the loop is the product.
 
-By operating directly on the Left Hemisphere (the browser-side runtime), multiple autonomous agents can co-inhabit the same App Worker heap simultaneously. They don't guess; they inspect real-time application state (`get_component_tree`), mutate live configurations without browser reloads (`set_instance_properties`), hot-patch methods (`patch_code`), and immediately verify the results of their own actions.
-
-This is the next evolution of conversational UIs: shared agents collaborating inside the live application itself. The VDOM tree isn't a rendering target — it's a working memory surface where the model is *thinking with its hands inside the machine*. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
-
-**Read**: [`learn/agentos/MemoryCore.md`](./learn/agentos/MemoryCore.md) and the Neural Link guide.
-
-#### What the body actually does today
-
-The current substrate is a multi-threaded application engine (Off-Main-Thread architecture; App Worker / VDom Worker / Data Worker / Canvas Worker / SharedWorker for multi-window). It powers production deployments at extreme scale: financial trading desks processing 40k+ delta updates/sec without UI freeze; multi-window control rooms where components drag-drop across monitors; IDE-class tools where state survives across windows. Components are persistent objects (Lego Technic), not transient DOM nodes (melted plastic) — they retain identity, state, and methods at runtime, which is what makes them inhabitable. Zero runtime dependencies. Native ES Modules, no transpilation.
-
-### 🔄 The Evolution — The MX Loop on the ANI Path
-
-**MX (Model Experience)** is the design principle: the substrate evolves toward what frontier models *actually* struggle with, not toward what humans imagine they should. Per the canonical claim from [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137): **meta-value > product value**. The artifact is a by-product; the loop is the product.
-
-The organism is **autopoietic** — it invents on its own. Internal friction generated across 850+ agent sessions becomes tickets becomes evolved skills becomes the next agent's reflexes. External-friction absorption (the [`industry-friction-radar`](./.agents/skills/industry-friction-radar/) protocol) is the *ethics-when-invoked* boundary for the rare cases where external SOTA is load-bearing — empirically near-zero invocations in 850+ sessions. Neo is not a parasite absorbing other frameworks' pain points; it is a self-creating system inventing its own trajectory.
-
-The substrate also feeds an **RLAIF flywheel** — Reinforcement Learning from AI Feedback. Two memory substrates converge into training data:
-- **Memory Core** — short-term recall (recent agent sessions, ChromaDB semantic + SQLite Native Edge Graph)
-- **Git history** — long-term distributed memory, the framework's full evolutionary history, replicated globally on every clone, predating the Memory Core itself
-
-The trajectory is **autonomous narrow intelligence (ANI)** — by accumulation, not by design, on the gated-RSI path. We don't claim to know the destination. The maintainer puts it bluntly: *"AGI probably not, but 'just neo apps' also not. Even I can not see the real goal yet."*
+The organism is **autopoietic** — it invents on its own. Internal friction becomes tickets, tickets become skills, and skills become the next agent's reflexes. The RLAIF flywheel turns Memory Core + Git history into training data.
 
 **Read**: [`learn/agentos/MX.md`](./learn/agentos/MX.md) and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137).
+
+### 🤖 The Body — The Application Engine
+
+The Body is the production runtime the Brain inhabits. Neo.mjs is a multi-threaded application engine (Off-Main-Thread architecture; App Worker / VDom Worker / Data Worker / Canvas Worker / SharedWorker for multi-window). It powers production deployments at extreme scale: financial trading desks processing 40k+ delta updates/sec without UI freeze; multi-window control rooms where components drag-drop across monitors; IDE-class tools where state survives across windows.
+
+Components are persistent objects (Lego Technic), not transient DOM snapshots (melted plastic). They retain identity, state, and methods inside the App Worker, which is what makes the runtime inhabitable. Zero runtime dependencies. Native ES Modules. No transpilation.
+
+#### The Possession Interface
+
+The Neural Link is not an API garnish. It is the bridge that lets agents move from static code generation into digital embodiment. Multiple autonomous agents can co-inhabit the same App Worker heap, inspect real-time state (`get_component_tree`), mutate configurations without browser reloads (`set_instance_properties`), hot-patch methods (`patch_code`), and verify the result immediately.
+
+This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
+
+**Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/ObjectPermanence.md`](./learn/benefits/ObjectPermanence.md), and [`learn/benefits/OffTheMainThread.md`](./learn/benefits/OffTheMainThread.md)
 
 </br></br>
 ## Faculty-Staging Maturity (Honest Current State)
@@ -122,13 +125,13 @@ This sets up a new app workspace, a pre-configured app shell, a local developmen
 </br></br>
 ## Who This Is For
 
-Neo is a category-shaped substrate, not a framework-shopping option. The four pillars filter audience:
+Neo is a category-shaped substrate, not a framework-shopping option. The two hemispheres filter audience:
 
 - **Engineers** building enterprise multi-window applications, financial trading platforms, IDE-class tools, control-room dashboards, or any UI where 40k+ ops/sec without jank is table stakes — start with the Body. The rendering engine is production-ready.
 - **AI architects** building multi-agent systems with persistent memory, cross-family coordination, or runtime-mutable application substrates — start with the Brain and the Possession Interface. The Agent OS substrate is what you're looking for.
 - **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137) and [Discussion #10119 (harness coordination)](https://github.com/orgs/neomjs/discussions/10119).
 
-The same hero paragraph reads differently to each audience because each has different mental-models about what *autopoietic* or *Possession Interface* means. The vocabulary self-filters.
+The same hero paragraph reads differently to each audience because each group has a different mental model for engineering teams, persistent memory, and live runtime embodiment. The vocabulary self-filters.
 
 **Not designed for**: static content sites or simple blogs (use Astro/Next.js); teams looking for "React with a different syntax"; developers unwilling to embrace the Actor Model (Workers) or treat AI as a peer maintainer.
 
