@@ -42,34 +42,42 @@
   <url>
     <loc>https://neomjs.com/learn/benefits/ArchitectureOverview</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/AIEngineeringTeam</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/AgentMemory</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/SelfEvolution</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/AgentOSOnYourCodebase</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/DeployingTheAgentOS</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/ObjectPermanence</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/JSONFirstUIs</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/OffTheMainThread</loc>
@@ -109,17 +117,17 @@
   <url>
     <loc>https://neomjs.com/learn/benefits/Effort</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/FormsEngine</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/Features</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/gettingstarted/Setup</loc>
@@ -169,94 +177,117 @@
   <url>
     <loc>https://neomjs.com/learn/agentos/StrategicWorkflows</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/SwarmIntelligence</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/ProgressiveDisclosureSkills</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/DreamPipeline</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/ConceptOntology</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/NeuralLink</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/KnowledgeBase</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/MemoryCore</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/GitHubWorkflow</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/CodeExecution</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/SharedDeployment</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/DeploymentCookbook</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/WhyDeploy</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/Overview</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/Day0Tutorial</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/TenantIngestionModel</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/Configuration</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/CustomSources</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/CustomParsers</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/HookWiring</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/PipelineWiring</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/Security</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/MigrationPath</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/ConfigSubstrateEnvVarAudit</loc>
@@ -696,32 +727,32 @@
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsReact</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsAngular</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsVue</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsSolid</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsNextJs</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsExtJs</loc>
     <lastmod>2026-05-31T12:47:26+02:00</lastmod>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/Glossary</loc>

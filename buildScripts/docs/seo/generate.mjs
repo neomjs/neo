@@ -34,22 +34,60 @@ const PRIORITIES = new Map([
     ['/about-us', 0.7],
     ['/services', 0.7],
 
-    // High-value content (Application Engine & AI)
-    ['guides/fundamentals/CodebaseOverview'         , 1.0],
-    ['guides/mcp/Introduction'                      , 1.0], // AI Priority
-    ['guides/mcp/NeuralLink'                        , 1.0], // AI Priority
-
-    ['benefits/ConfigSystem'                        , 0.9],
-    ['benefits/Effort'                              , 0.9],
-    ['benefits/Features'                            , 0.9],
-    ['benefits/FormsEngine'                         , 0.9],
-    ['benefits/FourEnvironments'                    , 0.9],
+    // Identity apex: organism / Agent OS / AI engineering team
     ['benefits/Introduction'                        , 0.9],
-    ['benefits/MultiWindow'                         , 0.9],
+    ['benefits/ArchitectureOverview'                , 1.0],
+    ['benefits/AIEngineeringTeam'                   , 1.0],
+    ['benefits/AgentMemory'                         , 1.0],
+    ['benefits/SelfEvolution'                       , 1.0],
+    ['benefits/AgentOSOnYourCodebase'               , 1.0],
+    ['benefits/DeployingTheAgentOS'                 , 1.0],
+
+    // Agent OS guide cluster
+    ['agentos/StrategicWorkflows'                   , 1.0],
+    ['agentos/SwarmIntelligence'                    , 1.0],
+    ['agentos/ProgressiveDisclosureSkills'          , 0.9],
+    ['agentos/DreamPipeline'                        , 1.0],
+    ['agentos/ConceptOntology'                      , 0.9],
+    ['agentos/NeuralLink'                           , 1.0],
+    ['agentos/KnowledgeBase'                        , 1.0],
+    ['agentos/MemoryCore'                           , 1.0],
+    ['agentos/GitHubWorkflow'                       , 0.8],
+    ['agentos/CodeExecution'                        , 0.8],
+    ['agentos/SharedDeployment'                     , 1.0],
+    ['agentos/DeploymentCookbook'                   , 1.0],
+
+    // Cloud deployment: team-ready operational surface
+    ['agentos/cloud-deployment/WhyDeploy'           , 1.0],
+    ['agentos/cloud-deployment/Overview'            , 1.0],
+    ['agentos/cloud-deployment/Day0Tutorial'        , 0.9],
+    ['agentos/cloud-deployment/TenantIngestionModel', 0.9],
+    ['agentos/cloud-deployment/Security'            , 0.9],
+    ['agentos/cloud-deployment/Configuration'       , 0.8],
+    ['agentos/cloud-deployment/HookWiring'          , 0.8],
+    ['agentos/cloud-deployment/PipelineWiring'      , 0.8],
+    ['agentos/cloud-deployment/CustomSources'       , 0.7],
+    ['agentos/cloud-deployment/CustomParsers'       , 0.7],
+    ['agentos/cloud-deployment/MigrationPath'       , 0.7],
+
+    // Body/runtime benefits
+    ['benefits/ObjectPermanence'                    , 0.9],
+    ['benefits/JSONFirstUIs'                        , 0.9],
     ['benefits/OffTheMainThread'                    , 0.9],
+    ['benefits/FourEnvironments'                    , 0.9],
+    ['benefits/ConfigSystem'                        , 0.9],
     ['benefits/Quick'                               , 0.9],
     ['benefits/RPCLayer'                            , 0.9],
     ['benefits/Speed'                               , 0.9],
+    ['benefits/MultiWindow'                         , 0.9],
+    ['benefits/Effort'                              , 0.8],
+    ['benefits/FormsEngine'                         , 0.8],
+    ['benefits/Features'                            , 0.8],
+
+    // High-value implementation guides
+    ['guides/fundamentals/CodebaseOverview'         , 1.0],
+    ['guides/mcp/Introduction'                      , 1.0], // AI Priority
+    ['guides/mcp/NeuralLink'                        , 1.0], // AI Priority
 
     ['blog/context-engineering-done-right'          , 0.9],
     ['blog/ai-native-platform-answers-questions'    , 0.9],
@@ -61,12 +99,12 @@ const PRIORITIES = new Map([
     ['blog/v10-post1-love-story'                    , 0.9],
     ['blog/json-blueprints-and-shared-workers'      , 0.9],
 
-    ['comparisons/NeoVsAngular'                     , 0.8],
-    ['comparisons/NeoVsExtJs'                       , 0.8],
-    ['comparisons/NeoVsNextJs'                      , 0.8],
-    ['comparisons/NeoVsReact'                       , 0.8],
-    ['comparisons/NeoVsSolid'                       , 0.8],
-    ['comparisons/NeoVsVue'                         , 0.8],
+    ['comparisons/NeoVsAngular'                     , 0.7],
+    ['comparisons/NeoVsExtJs'                       , 0.7],
+    ['comparisons/NeoVsNextJs'                      , 0.7],
+    ['comparisons/NeoVsReact'                       , 0.7],
+    ['comparisons/NeoVsSolid'                       , 0.7],
+    ['comparisons/NeoVsVue'                         , 0.7],
 
     ['gettingstarted/ComponentModels'               , 0.8],
     ['gettingstarted/Config'                        , 0.8],
