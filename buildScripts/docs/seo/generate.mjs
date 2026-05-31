@@ -1,7 +1,7 @@
 import fs              from 'fs-extra';
 import path            from 'path';
 import {Command}       from 'commander/esm.mjs';
-import {execSync}      from 'child_process';
+import {execFileSync}  from 'child_process';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import semver          from 'semver';
@@ -14,6 +14,8 @@ const TREE_FILE_PATH    = path.join(LEARN_DIR, 'tree.json');
 // Location of the JSON index we will generate in the next step
 const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json'); 
 const DEFAULT_BASE_PATH = '/learn';
+const GIT_LOG_CHUNK_SIZE = 200;
+const STATUS_RENAME_CODES = new Set(['R', 'C']);
 
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
@@ -148,27 +150,225 @@ function getPriority(id) {
 }
 
 /**
- * Gets last modified dates for multiple files in a batch (more efficient).
+ * Normalizes an absolute file path into a git pathspec.
+ * @param {String} filePath Absolute file or directory path
+ * @returns {String} Repository-relative POSIX path
+ */
+function getGitPath(filePath) {
+    return path.relative(ROOT_DIR, filePath).split(path.sep).join('/');
+}
+
+/**
+ * Checks whether path-limited git history is reliable for sitemap lastmod data.
+ * Shallow repositories report the shallow root commit for every path, which
+ * turns hourly data-sync commits into site-wide lastmod churn.
+ * @returns {Boolean} True when git path history can be trusted
+ */
+function hasReliableGitHistory() {
+    try {
+        const isShallow = execFileSync(
+            'git',
+            ['rev-parse', '--is-shallow-repository'],
+            {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
+        ).trim();
+
+        return isShallow !== 'true';
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Gets working-tree paths changed relative to HEAD.
+ * @returns {Set<String>} Repository-relative POSIX paths
+ */
+function getChangedGitPaths() {
+    const paths = new Set();
+
+    try {
+        const result = execFileSync(
+            'git',
+            ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+            {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
+        );
+
+        const entries = result.split('\0');
+
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
+
+            if (!entry) {
+                continue;
+            }
+
+            const status = entry.slice(0, 2);
+            let gitPath  = entry.slice(3);
+
+            if (STATUS_RENAME_CODES.has(status[0]) || STATUS_RENAME_CODES.has(status[1])) {
+                i++;
+            }
+
+            if (gitPath) {
+                paths.add(gitPath);
+            }
+        }
+    } catch {
+        // Git status is an optimization for uncommitted CI mutations; ignore if unavailable.
+    }
+
+    return paths;
+}
+
+/**
+ * Formats a date as a sitemap-compatible timestamp.
+ * @param {Date} date The date to format
+ * @returns {String}
+ */
+function formatLastmodDate(date) {
+    return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+/**
+ * Gets the newest mtime for a changed source path.
+ * @param {String} gitPath Repository-relative POSIX path
+ * @param {Set<String>} changedGitPaths Changed path set from git status
+ * @param {Boolean} isDirectory True if gitPath represents a directory
+ * @returns {String|null}
+ */
+function getChangedLastmod(gitPath, changedGitPaths, isDirectory=false) {
+    let lastmod = null;
+
+    function updateLastmod(changedGitPath) {
+        try {
+            const filePath = path.join(ROOT_DIR, ...changedGitPath.split('/'));
+            const mtime    = fs.statSync(filePath).mtime;
+
+            if (!lastmod || mtime > lastmod) {
+                lastmod = mtime;
+            }
+        } catch {
+            // Deleted paths are not emitted as sitemap routes; missing files can be ignored.
+        }
+    }
+
+    if (changedGitPaths.has(gitPath)) {
+        updateLastmod(gitPath);
+    }
+
+    if (isDirectory) {
+        const gitPathWithSlash = gitPath.endsWith('/') ? gitPath : `${gitPath}/`;
+
+        for (const changedGitPath of changedGitPaths) {
+            if (changedGitPath.startsWith(gitPathWithSlash)) {
+                updateLastmod(changedGitPath);
+            }
+        }
+    }
+
+    return lastmod ? formatLastmodDate(lastmod) : null;
+}
+
+/**
+ * Splits an array into chunks that stay below shell argument limits.
+ * @param {Array} items Items to chunk
+ * @param {Number} size Maximum chunk size
+ * @returns {Array<Array>}
+ */
+function chunkArray(items, size) {
+    const chunks = [];
+
+    for (let i = 0; i < items.length; i += size) {
+        chunks.push(items.slice(i, i + size));
+    }
+
+    return chunks;
+}
+
+/**
+ * Gets last modified dates for multiple files in a batch.
  * @param {String[]} filePaths - Array of absolute file paths
  * @returns {Map<String, String>} Map of filePath -> ISO date string
  */
 function getGitLastModifiedBatch(filePaths) {
     const dateMap = new Map();
+    const uniquePaths = Array.from(new Set(filePaths));
 
-    if (filePaths.length === 0) {
+    if (uniquePaths.length === 0) {
         return dateMap;
     }
 
-    try {
-        for (const filePath of filePaths) {
-            try {
-                const result = execSync(
-                    `git log -1 --format=%cI -- "${filePath}"`,
-                    { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-                ).trim();
+    if (!hasReliableGitHistory()) {
+        console.warn('Git history is shallow or unavailable; preserving existing sitemap lastmod values where available.');
+        return dateMap;
+    }
 
-                if (result) {
-                    dateMap.set(filePath, result);
+    const pathDescriptors = uniquePaths.map(filePath => {
+        let isDirectory = false;
+
+        try {
+            isDirectory = fs.statSync(filePath).isDirectory();
+        } catch {
+            isDirectory = false;
+        }
+
+        return {
+            filePath,
+            gitPath: getGitPath(filePath),
+            isDirectory
+        };
+    });
+
+    try {
+        for (const chunk of chunkArray(pathDescriptors, GIT_LOG_CHUNK_SIZE)) {
+            try {
+                const filePathByGitPath = new Map(
+                    chunk
+                        .filter(({isDirectory}) => !isDirectory)
+                        .map(({filePath, gitPath}) => [gitPath, filePath])
+                );
+
+                const directoryDescriptors = chunk
+                    .filter(({isDirectory}) => isDirectory)
+                    .map(descriptor => ({
+                        ...descriptor,
+                        gitPathWithSlash: descriptor.gitPath.endsWith('/') ? descriptor.gitPath : `${descriptor.gitPath}/`
+                    }));
+
+                const result = execFileSync(
+                    'git',
+                    ['log', '--format=__NEO_DATE__%cI', '--name-only', '--', ...chunk.map(({gitPath}) => gitPath)],
+                    {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
+                );
+
+                let currentDate = null;
+
+                for (const rawLine of result.split('\n')) {
+                    const line = rawLine.trim();
+
+                    if (!line) {
+                        continue;
+                    }
+
+                    if (line.startsWith('__NEO_DATE__')) {
+                        currentDate = line.slice('__NEO_DATE__'.length);
+                        continue;
+                    }
+
+                    if (!currentDate) {
+                        continue;
+                    }
+
+                    const filePath = filePathByGitPath.get(line);
+
+                    if (filePath && !dateMap.has(filePath)) {
+                        dateMap.set(filePath, currentDate);
+                    }
+
+                    for (const descriptor of directoryDescriptors) {
+                        if (!dateMap.has(descriptor.filePath) && line.startsWith(descriptor.gitPathWithSlash)) {
+                            dateMap.set(descriptor.filePath, currentDate);
+                        }
+                    }
                 }
             } catch {
                 continue;
@@ -179,6 +379,28 @@ function getGitLastModifiedBatch(filePaths) {
     }
 
     return dateMap;
+}
+
+/**
+ * Reads existing sitemap lastmod values for stable fallback behavior.
+ * @param {String} sitemapPath Absolute path to the existing sitemap.xml
+ * @returns {Promise<Map<String, String>>} Map of loc URL -> ISO date string
+ */
+async function getExistingSitemapLastmodMap(sitemapPath) {
+    const lastmodMap = new Map();
+
+    if (!sitemapPath || !(await fs.pathExists(sitemapPath))) {
+        return lastmodMap;
+    }
+
+    const sitemap = await fs.readFile(sitemapPath, 'utf-8');
+    const urlRegex = /<url>[\s\S]*?<loc>(.*?)<\/loc>[\s\S]*?<lastmod>(.*?)<\/lastmod>[\s\S]*?<\/url>/g;
+
+    for (const match of sitemap.matchAll(urlRegex)) {
+        lastmodMap.set(match[1], match[2]);
+    }
+
+    return lastmodMap;
 }
 
 /**
@@ -483,12 +705,14 @@ export async function getContentUrls(options={}) {
  * @param {String} [options.basePath='/learn'] - Only applies to content routes
  * @param {Boolean} [options.includeLastmod=true] Whether to include <lastmod> from git
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
+ * @param {String} [options.existingSitemapPath] Existing sitemap path for stable lastmod fallback
  * @returns {Promise<String>}
  */
 export async function getSitemapXml(options={}) {
     const {
               baseUrl,
               basePath = DEFAULT_BASE_PATH,
+              existingSitemapPath,
               includeLastmod  = true,
               includeTopLevel = true
           } = options;
@@ -505,7 +729,10 @@ export async function getSitemapXml(options={}) {
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
 
     // Get git lastmod dates for all files in batch
-    let lastModMap = new Map();
+    let changedGitPaths    = new Set();
+    let existingLastmodMap = new Map();
+    let lastModMap         = new Map();
+
     if (includeLastmod) {
         const filePaths = filteredRoutes
             .map(({id, filePath}) => {
@@ -518,7 +745,14 @@ export async function getSitemapXml(options={}) {
                 return filePath;
             })
             .filter(Boolean);
+
+        changedGitPaths = getChangedGitPaths();
         lastModMap = getGitLastModifiedBatch(filePaths);
+
+        if (existingSitemapPath) {
+            existingLastmodMap = await getExistingSitemapLastmodMap(existingSitemapPath);
+            changedGitPaths.delete(getGitPath(existingSitemapPath));
+        }
     }
 
     const xmlEntries = filteredRoutes.map(({category, id, filePath}) => {
@@ -535,8 +769,17 @@ export async function getSitemapXml(options={}) {
 
         let lastmod = null;
         if (filePath) {
-            const key = category === 'file' ? path.dirname(filePath) : filePath;
-            lastmod = lastModMap.get(key);
+            const key         = category === 'file' ? path.dirname(filePath) : filePath;
+            const isDirectory = category === 'file';
+            const gitPath     = getGitPath(key);
+
+            const changedLastmod = getChangedLastmod(gitPath, changedGitPaths, isDirectory);
+
+            if (changedLastmod) {
+                lastmod = changedLastmod;
+            } else {
+                lastmod = existingLastmodMap.get(url) || lastModMap.get(key) || null;
+            }
         }
 
         const priority = getPriority(id);
@@ -754,6 +997,7 @@ async function runCli() {
     const baseUrl         = programOpts.baseUrl;
     const basePath        = programOpts.basePath || DEFAULT_BASE_PATH;
     const output          = programOpts.output;
+    const outputPath      = output ? path.resolve(ROOT_DIR, output) : null;
     const includeLastmod  = programOpts.noLastmod === undefined ? true : !programOpts.noLastmod;
     const includeTopLevel = programOpts.noTopLevel === undefined ? true : !programOpts.noTopLevel;
 
@@ -777,7 +1021,13 @@ async function runCli() {
             break;
         }
         case 'xml': {
-            outputContent = await getSitemapXml({baseUrl, basePath, includeLastmod, includeTopLevel});
+            outputContent = await getSitemapXml({
+                baseUrl,
+                basePath,
+                existingSitemapPath: outputPath,
+                includeLastmod,
+                includeTopLevel
+            });
             break;
         }
         case 'llms':
@@ -790,7 +1040,6 @@ async function runCli() {
     }
 
     if (output) {
-        const outputPath = path.resolve(ROOT_DIR, output);
         await fs.ensureDir(path.dirname(outputPath));
         await fs.writeFile(outputPath, outputContent);
         console.log(`Successfully wrote output to ${output}`);
