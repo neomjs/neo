@@ -255,7 +255,6 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             model         : 'chat-from-config',
             embeddingModel: 'embedding-from-config'
         };
-        AiConfig.chatProvider      = 'gemini';
         AiConfig.modelProvider     = 'gemini';
         AiConfig.graphProvider     = 'openAiCompatible';
         AiConfig.embeddingProvider = 'openAiCompatible';
@@ -276,7 +275,6 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
 
     test('buildLmsPreloadConfig only reads provider-role selectors, not non-null model leaves (#12264)', () => {
         expect(buildLmsPreloadConfig({
-            chatProvider     : 'gemini',
             modelProvider    : 'gemini',
             graphProvider    : 'ollama',
             embeddingProvider: 'openAiCompatible',

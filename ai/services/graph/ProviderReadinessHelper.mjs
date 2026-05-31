@@ -214,7 +214,7 @@ export function buildLmsContextLengthsMap({
  * whose selector explicitly targets the OpenAI-compatible surface that LM Studio serves.
  *
  * Role ownership:
- * - `modelProvider` / `chatProvider`: session-summary chat role.
+ * - `modelProvider`: session-summary chat role.
  * - `graphProvider`: REM graph-generation chat role.
  * - `embeddingProvider`: vector embedding role.
  *
@@ -226,7 +226,7 @@ export function buildLmsPreloadConfig(config = aiConfig) {
           chatContextLength      = config.localModels?.chat?.contextLimitTokens,
           embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
           roles                  = [{
-              provider     : config.modelProvider ?? config.chatProvider,
+              provider     : config.modelProvider,
               model        : openAiCompatibleConfig.model,
               contextLength: chatContextLength
           }, {
