@@ -1,4 +1,4 @@
-import Container      from '../../../../../src/container/Base.mjs';
+import Container      from '../../../../src/container/Base.mjs';
 import TimelineCanvas from './TimelineCanvas.mjs';
 
 /**

@@ -1,4 +1,4 @@
-import SharedCanvas from '../../../../../src/app/SharedCanvas.mjs';
+import SharedCanvas from '../../../../src/app/SharedCanvas.mjs';
 
 /**
  * @summary The "Coordinator" component for the Neural Timeline, bridging the App Worker and Canvas Worker.
