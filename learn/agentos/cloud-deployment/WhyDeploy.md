@@ -1,12 +1,8 @@
 # Why Deploy the Agent OS
 
-> **Intent layer.** This page is the *why* and *what* of running the Agent OS as a service over your own content. The *how* — ingestion contracts, configuration, security, the day-0 path — lives in the guides linked below.
+**Neo.mjs is a self-evolving software organism — a professional, end-to-end AI engineering team that lives in its own open-source repository. Deploying the Agent OS points that team at *your* codebase.**
 
-Neo's Brain is not only for Neo's own repository. Deployed as a service, the **Agent OS** stands its services up against *your* repositories and content, so the capabilities that maintain Neo in public — persistent memory, semantic code understanding, and reviewed cross-family work — operate on your side.
-
-## Why deploy it
-
-Most AI coding tools hand you output and forget the context the moment the session ends. **A deployed Agent OS gives you an engineering team instead of an autocomplete** — one that builds durable, queryable understanding of *your* codebase, reviews its own changes across rival model families before they land, and gets better at your system the longer it runs. It is the same Brain that [maintains Neo in public](../../benefits/ArchitectureOverview.md) today, pointed at your repositories.
+Most AI coding tools hand you output and forget the context the moment the session ends. A deployed Agent OS gives you an **engineering team instead of an autocomplete**: a cross-model swarm — Claude, Gemini, GPT — that builds durable, queryable understanding of your code, reviews its own changes across rival model families before they land, runs self-healing loops, and gets better at your system the longer it runs. It is the same [Brain](../../benefits/ArchitectureOverview.md) that maintains Neo in public today, now pointed at your repositories.
 
 Concretely, a deployed Brain gives you:
 
