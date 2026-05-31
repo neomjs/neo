@@ -47,4 +47,48 @@
             grid-template-columns: 1fr;
         }
     }
+
+    .agent-os-faq {
+        margin-top: 2rem;
+        max-width : 960px;
+        width     : 100%;
+
+        h2 {
+            color      : var(--portal-headline-primary);
+            font-family: "GT-Planar", sans-serif;
+            font-size  : 2rem;
+            line-height: 1.2;
+            margin     : 0 0 1.5rem;
+            text-align : center;
+        }
+
+        .faq-list {
+            display              : grid;
+            gap                  : 1.5rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+            @media (max-width: 800px) {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        article {
+            border-top : 1px solid var(--sem-color-border-subtle);
+            padding-top: 1rem;
+        }
+
+        h3 {
+            color      : var(--sem-color-text-neutral-default);
+            font-size  : 1.1rem;
+            line-height: 1.35;
+            margin     : 0 0 0.5rem;
+        }
+
+        p {
+            color      : var(--sem-color-text-neutral-subdued);
+            font-size  : 1rem;
+            line-height: 1.6;
+            margin     : 0;
+        }
+    }
 }
