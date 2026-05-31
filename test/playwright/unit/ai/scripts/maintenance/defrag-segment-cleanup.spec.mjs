@@ -40,6 +40,7 @@ import path           from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#12140)', () => {
+    let TARGETS;
     let resolveLiveSegmentIds;
     let cleanOrphanedSegmentDirs;
     let tmpRoot;
@@ -48,6 +49,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/scripts/maintenance/defragChromaDB.mjs');
+        TARGETS                  = mod.TARGETS;
         resolveLiveSegmentIds    = mod.resolveLiveSegmentIds;
         cleanOrphanedSegmentDirs = mod.cleanOrphanedSegmentDirs;
 
@@ -123,6 +125,41 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
         // Return contract.
         expect(kept.sort()).toEqual([thisTargetLive, siblingLive].sort());
         expect(removed).toEqual([trueOrphan]);
+    });
+
+    test('target adapters share one unified store path while scoping collections per group', () => {
+        const unifiedPath = path.join(tmpRoot, 'chroma', 'unified');
+
+        const kbConfig = TARGETS['knowledge-base'].adapt({
+            collectionName: 'neo-knowledge-base',
+            host          : 'localhost',
+            path          : unifiedPath,
+            port          : 8000
+        });
+
+        const mcConfig = TARGETS['memory-core'].adapt({
+            collections: {
+                graph  : 'neo-native-graph',
+                memory : 'neo-agent-memory',
+                session: 'neo-agent-sessions'
+            },
+            engines: {
+                chroma: {
+                    dataDir: unifiedPath,
+                    host   : 'localhost',
+                    port   : 8000
+                }
+            }
+        });
+
+        expect(kbConfig.path).toBe(unifiedPath);
+        expect(mcConfig.path).toBe(unifiedPath);
+        expect(kbConfig.collections).toEqual(['neo-knowledge-base']);
+        expect(mcConfig.collections).toEqual([
+            'neo-agent-memory',
+            'neo-agent-sessions',
+            'neo-native-graph'
+        ]);
     });
 
     test('skips UUID-named entries that are files, not directories', async () => {
