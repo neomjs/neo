@@ -954,6 +954,109 @@ ${aggregatedContent}
     }
 
     /**
+     * Queues a low-latency summarization marker for a disconnected session.
+     *
+     * @summary Writes an idempotent `pending` SummarizationJobs row without running
+     * summarization inline. Multiple MCP server instances can race this cheap marker
+     * safely; the orchestrator-owned summary lane remains the only drainer and the
+     * existing lease transition serializes the expensive summarization work.
+     * @param {String} sessionId Session id whose transport disconnected.
+     * @returns {Boolean} true when the marker was written, false otherwise.
+     */
+    queueSummarizationJob(sessionId) {
+        if (!sessionId || typeof sessionId !== 'string') {
+            return false;
+        }
+
+        const db = GraphService.db?.storage?.db;
+        if (!db) {
+            logger.warn(`[SessionService] queueSummarizationJob skipped for ${sessionId}: SQLite graph is not available.`);
+            return false;
+        }
+
+        try {
+            db.prepare(`
+                INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
+                VALUES (?, 'pending', NULL, NULL, 0)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    status      = 'pending',
+                    lease_token = NULL,
+                    expires_at  = NULL
+                WHERE SummarizationJobs.status != 'completed'
+                    AND SummarizationJobs.status != 'in_progress'
+            `).run(sessionId);
+
+            return true;
+        } catch (e) {
+            logger.warn(`[SessionService] Error queueing summarization job for ${sessionId}: ${e.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Reads pending low-latency summarization job ids in insertion order.
+     *
+     * @summary Provides the orchestrator child process with the exact pending lane
+     * payload before it falls back to the broader drift sweep.
+     * @param {Object} [options]
+     * @param {Number} [options.limit=50] Maximum pending rows to drain in one child run.
+     * @returns {String[]}
+     */
+    getPendingSummarizationJobIds({limit = 50} = {}) {
+        const db = GraphService.db?.storage?.db;
+        if (!db) return [];
+
+        const numericLimit = Number.isInteger(limit) && limit > 0 ? limit : 50;
+
+        try {
+            return db.prepare(`
+                SELECT session_id
+                FROM SummarizationJobs
+                WHERE status = 'pending'
+                ORDER BY rowid ASC
+                LIMIT ?
+            `).all(numericLimit).map(row => row.session_id).filter(Boolean);
+        } catch (e) {
+            logger.warn(`[SessionService] Error reading pending summarization jobs: ${e.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Drains pending summarization markers through the existing lease-backed summarizer.
+     *
+     * @summary Reuses {@link summarizeSessions} with explicit session ids so each
+     * `pending` row travels through `claimSummarizationJob()` and cannot be processed
+     * twice by overlapping pending/drift drains.
+     * @param {Object} [options]
+     * @param {Number} [options.limit=50] Maximum pending rows to drain in one child run.
+     * @returns {Promise<{processed: number, sessions: object[], pending: number}>}
+     */
+    async summarizePendingSessions({limit = 50} = {}) {
+        const sessionIds = this.getPendingSummarizationJobIds({limit});
+        const processed  = [];
+
+        for (const sessionId of sessionIds) {
+            const result = await this.summarizeSessions({sessionId});
+
+            if (result?.error) {
+                logger.warn(`[SessionService] Pending summarization failed for ${sessionId}: ${result.message}`);
+                continue;
+            }
+
+            if (Array.isArray(result?.sessions)) {
+                processed.push(...result.sessions);
+            }
+        }
+
+        return {
+            pending  : sessionIds.length,
+            processed: processed.length,
+            sessions : processed
+        };
+    }
+
+    /**
      * Claims an exclusive lease on a summarization job using the SummarizationJobs table.
      * Prevents race conditions across concurrent MCP instances.
      * @summary Provides exclusive lock acquisition for the background summarization coordinator loop.
