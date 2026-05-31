@@ -221,8 +221,9 @@ class Server extends BaseServer {
     /**
      * @summary SSE-only hook fired by `TransportService` on session disconnect. Removes the
      * per-session McpServer from `CoalescingEngineService`'s broadcast set (counterpart to
-     * `createMcpServer`'s `addMcpServer` registration). Summarization is orchestrator-driven
-     * (the `summary` task), not triggered on disconnect.
+     * `createMcpServer`'s `addMcpServer` registration) and writes a cheap idempotent
+     * `SummarizationJobs.pending` marker. The orchestrator `summary` task drains that marker;
+     * this hook never summarizes inline.
      * @param {String} sessionId
      * @param {Object} mcpServerInstance
      */
@@ -230,6 +231,8 @@ class Server extends BaseServer {
         if (mcpServerInstance) {
             CoalescingEngineService.removeMcpServer(mcpServerInstance);
         }
+
+        SessionService.queueSummarizationJob(sessionId);
     }
 
     /**
