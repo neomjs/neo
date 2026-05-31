@@ -145,10 +145,9 @@ test.describe('Tier 1 Config Immutability', () => {
         const lmsDisabled   = ['false', 'no', 'off', '0'].includes(lmsEnabledEnv);
 
         expect(Config.orchestrator.lms).toMatchObject({
-            enabled                : lmsEnabledEnv === undefined ? true : !lmsDisabled,
-            model                  : process.env.NEO_ORCHESTRATOR_LMS_MODEL || 'qwen3-embedding-8b',
-            port                   : process.env.NEO_ORCHESTRATOR_LMS_PORT || '1234',
-            preloadMaxContextLength: Number(process.env.NEO_ORCHESTRATOR_LMS_PRELOAD_MAX_CONTEXT_LENGTH) || 32768
+            enabled: lmsEnabledEnv === undefined ? true : !lmsDisabled,
+            model  : process.env.NEO_ORCHESTRATOR_LMS_MODEL || 'qwen3-embedding-8b',
+            port   : process.env.NEO_ORCHESTRATOR_LMS_PORT || '1234'
         });
 
         expect(Config.maintenance.backup).toEqual({

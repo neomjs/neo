@@ -7,7 +7,8 @@ import * as core from '../../../../../../src/core/_export.mjs';
 import AiConfig from '../../../../../../ai/config.mjs';
 import BaseConfig, {createConfigProxy} from '../../../../../../ai/BaseConfig.mjs';
 import {
-    Orchestrator
+    Orchestrator,
+    buildLmsPreloadConfig
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
 import {
     buildTaskDefinitions
@@ -29,6 +30,10 @@ let savedDeploymentMode  = null;
 let savedMlxConfig                   = undefined;
 let savedLmsConfig                   = undefined;
 let savedOpenAiCompatibleConfig      = undefined;
+let savedChatProvider                = undefined;
+let savedModelProvider               = undefined;
+let savedGraphProvider               = undefined;
+let savedEmbeddingProvider           = undefined;
 let savedEnvKbSyncEnabled            = undefined;
 let savedEnvKbSyncInterval           = undefined;
 let savedEnvTenantRepoSyncEnabled    = undefined;
@@ -74,6 +79,10 @@ test.beforeEach(() => {
     savedMlxConfig      = AiConfig.orchestrator.mlx ? {...AiConfig.orchestrator.mlx} : undefined;
     savedLmsConfig      = AiConfig.orchestrator.lms ? {...AiConfig.orchestrator.lms} : undefined;
     savedOpenAiCompatibleConfig = AiConfig.openAiCompatible ? {...AiConfig.openAiCompatible} : undefined;
+    savedChatProvider           = AiConfig.chatProvider;
+    savedModelProvider          = AiConfig.modelProvider;
+    savedGraphProvider          = AiConfig.graphProvider;
+    savedEmbeddingProvider      = AiConfig.embeddingProvider;
 
     savedEnvKbSyncEnabled          = process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED;
     savedEnvKbSyncInterval         = process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS;
@@ -111,6 +120,10 @@ test.afterEach(() => {
     } else {
         AiConfig.openAiCompatible = savedOpenAiCompatibleConfig;
     }
+    AiConfig.chatProvider      = savedChatProvider;
+    AiConfig.modelProvider     = savedModelProvider;
+    AiConfig.graphProvider     = savedGraphProvider;
+    AiConfig.embeddingProvider = savedEmbeddingProvider;
 
     restoreEnv('NEO_ORCHESTRATOR_KB_SYNC_ENABLED',           savedEnvKbSyncEnabled);
     restoreEnv('NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS',       savedEnvKbSyncInterval);
@@ -235,20 +248,50 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         }
     });
 
-    test('lmsEnabled coerces to boolean + lmsModels parses AiConfig.openAiCompatible models (model/port/host inlined at call sites)', () => {
+    test('lmsEnabled coerces to boolean + lmsModels only preloads OpenAI-compatible roles (model/port/host inlined at call sites)', () => {
         AiConfig.orchestrator.lms = {enabled: true, model: 'lms-from-config', port: '4242'};
         AiConfig.openAiCompatible = {
             host          : 'http://127.0.0.1:4242',
             model         : 'chat-from-config',
             embeddingModel: 'embedding-from-config'
         };
+        AiConfig.chatProvider      = 'gemini';
+        AiConfig.modelProvider     = 'gemini';
+        AiConfig.graphProvider     = 'openAiCompatible';
+        AiConfig.embeddingProvider = 'openAiCompatible';
 
         const o = createMinimalOrchestrator();
         expect(o.lmsEnabled).toBe(true);
         expect(o.lmsModels).toEqual(['chat-from-config', 'embedding-from-config']);
 
+        AiConfig.embeddingProvider = 'gemini';
+        expect(createMinimalOrchestrator().lmsModels).toEqual(['chat-from-config']);
+
+        AiConfig.graphProvider = 'ollama';
+        expect(createMinimalOrchestrator().lmsModels).toEqual([]);
+
         AiConfig.orchestrator.lms = {enabled: false, model: 'qwen', port: '1234'};
         expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
+    });
+
+    test('buildLmsPreloadConfig does not let remote roles inflate same-model local context (#12264)', () => {
+        expect(buildLmsPreloadConfig({
+            chatProvider     : 'gemini',
+            modelProvider    : 'gemini',
+            graphProvider    : 'gemini',
+            embeddingProvider: 'openAiCompatible',
+            openAiCompatible: {
+                model         : 'shared-model',
+                embeddingModel: 'shared-model'
+            },
+            localModels: {
+                chat     : {contextLimitTokens: 262144},
+                embedding: {contextLimitTokens: 8192}
+            }
+        })).toEqual({
+            models        : ['shared-model'],
+            contextLengths: {'shared-model': 8192}
+        });
     });
 
 

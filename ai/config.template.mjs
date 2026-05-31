@@ -456,8 +456,7 @@ class Config extends BaseConfig {
                 /**
                  * Orchestrator-owned LM Studio CLI (`lms`) inference server config. Operators
                  * tune via gitignored `ai/config.mjs` or env vars (`NEO_ORCHESTRATOR_LMS_ENABLED`,
-                 * `NEO_ORCHESTRATOR_LMS_MODEL`, `NEO_ORCHESTRATOR_LMS_PORT`,
-                 * `NEO_ORCHESTRATOR_LMS_PRELOAD_MAX_CONTEXT_LENGTH`).
+                 * `NEO_ORCHESTRATOR_LMS_MODEL`, `NEO_ORCHESTRATOR_LMS_PORT`).
                  *
                  * Parallel alternative to `orchestrator.mlx` — both serve OpenAI-compatible HTTP
                  * for local chat + embedding workloads; pick at most one via the respective `enabled` flag.
@@ -469,21 +468,16 @@ class Config extends BaseConfig {
                  *   cloud-deployment substrate).
                  * - `model`: legacy single-model field kept for existing operator overlays. The
                  *   orchestrator-managed `lms server start` lane pre-warms the configured
-                 *   OpenAI-compatible chat + embedding models (`openAiCompatible.model` and
-                 *   `openAiCompatible.embeddingModel`) via `lms load <model>` after server spawn.
+                 *   OpenAI-compatible models for roles actively routed through the
+                 *   `openAiCompatible` provider via `lms load <model>` after server spawn.
                  *   Distinct from the OpenAI-compatible API payload label (`NEO_OPENAI_COMPATIBLE_MODEL`).
                  * - `port`: OpenAI-compatible local-inference port (LM Studio CLI default `1234`).
-                 * - `preloadMaxContextLength`: guardrail for orchestrator-owned `lms load`
-                 *   calls. Configured chat + embedding roles remain required; a role whose
-                 *   requested context is above this cap is skipped with WARN and reported as
-                 *   degraded instead of killing the lane or starving the other role.
                  * @type {Object}
                  */
                 lms: {
-                    enabled                : leaf(true, 'NEO_ORCHESTRATOR_LMS_ENABLED', 'boolean'),
-                    model                  : leaf('qwen3-embedding-8b', 'NEO_ORCHESTRATOR_LMS_MODEL', 'string'),
-                    port                   : leaf('1234', 'NEO_ORCHESTRATOR_LMS_PORT', 'string'),
-                    preloadMaxContextLength: leaf(32768, 'NEO_ORCHESTRATOR_LMS_PRELOAD_MAX_CONTEXT_LENGTH', 'number')
+                    enabled: leaf(true, 'NEO_ORCHESTRATOR_LMS_ENABLED', 'boolean'),
+                    model  : leaf('qwen3-embedding-8b', 'NEO_ORCHESTRATOR_LMS_MODEL', 'string'),
+                    port   : leaf('1234', 'NEO_ORCHESTRATOR_LMS_PORT', 'string')
                 }
             },
             /**

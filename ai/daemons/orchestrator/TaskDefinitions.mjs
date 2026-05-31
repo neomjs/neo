@@ -37,7 +37,6 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.lmsHost] OpenAI-compatible host exposed by the LM Studio server.
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
  * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
- * @param {Number} [options.lmsPreloadMaxContextLength] Max `--context-length` the orchestrator may pass to `lms load` during preload.
  * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
  * @returns {Object}
  */
@@ -54,7 +53,6 @@ export function buildTaskDefinitions({
     lmsHost,
     lmsPort,
     lmsContextLengths,
-    lmsPreloadMaxContextLength,
     providerReadiness
 } = {}) {
     const tasks = {
@@ -152,8 +150,8 @@ export function buildTaskDefinitions({
     }
 
     if (lmsEnabled) {
-        const requiredModels = Array.isArray(lmsModels) && lmsModels.length > 0
-            ? lmsModels
+        const requiredModels = Array.isArray(lmsModels)
+            ? [...new Set(lmsModels.filter(Boolean))]
             : [lmsModel].filter(Boolean);
 
         tasks.lms = {
@@ -181,12 +179,23 @@ export function buildTaskDefinitions({
             postSpawn      : async () => {
                 const {ensureLmsModelsLoaded} = await import('../../services/graph/ProviderReadinessHelper.mjs');
 
+                if (requiredModels.length === 0) {
+                    return {
+                        ready          : true,
+                        loadedModels   : [],
+                        requiredModels,
+                        availableModels: [],
+                        attempts       : 0,
+                        skipped        : true,
+                        reason         : 'no-openai-compatible-local-roles'
+                    };
+                }
+
                 return ensureLmsModelsLoaded({
                     host           : lmsHost,
                     models         : requiredModels,
                     contextLengths : lmsContextLengths,
                     allowPartial   : true,
-                    maxContextLength: lmsPreloadMaxContextLength,
                     attempts       : providerReadiness?.attempts,
                     delayMs        : providerReadiness?.delayMs,
                     timeoutMs      : providerReadiness?.timeoutMs

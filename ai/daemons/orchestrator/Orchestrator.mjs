@@ -36,6 +36,37 @@ import {
     buildTaskDefinitions
 } from './TaskDefinitions.mjs';
 
+const OPEN_AI_COMPATIBLE_PROVIDER = 'openAiCompatible';
+
+/**
+ * @summary Builds the LM Studio preload set from roles routed through OpenAI-compatible local inference.
+ *
+ * LM Studio owns the `openAiCompatible` local HTTP surface only. Native Ollama is
+ * local too, but it is not preloaded via `lms load`; its residency contract is
+ * handled by the parallel-model capacity probe. Remote providers simply do not
+ * contribute models or context windows to this preload set.
+ *
+ * @param {Object} config aiConfig-shaped provider config.
+ * @returns {{models: String[], contextLengths: Object}} Role-aware LMS preload config.
+ */
+export function buildLmsPreloadConfig(config = AiConfig) {
+    const chatProvider      = config.modelProvider || config.chatProvider;
+    const usesLocalChat     = chatProvider === OPEN_AI_COMPATIBLE_PROVIDER || config.graphProvider === OPEN_AI_COMPATIBLE_PROVIDER;
+    const usesLocalEmbedding = config.embeddingProvider === OPEN_AI_COMPATIBLE_PROVIDER;
+    const chatModel         = usesLocalChat ? config.openAiCompatible?.model : null;
+    const embeddingModel    = usesLocalEmbedding ? config.openAiCompatible?.embeddingModel : null;
+
+    return {
+        models: [...new Set([chatModel, embeddingModel].filter(Boolean))],
+        contextLengths: buildLmsContextLengthsMap({
+            chatModel,
+            embeddingModel,
+            chatContextLength     : config.localModels?.chat?.contextLimitTokens,
+            embeddingContextLength: config.localModels?.embedding?.contextLimitTokens
+        })
+    };
+}
+
 /**
  * Resolves the dev-sync roots config while preserving env-var precedence.
  * @param {Object} options
@@ -401,12 +432,8 @@ export class Orchestrator extends Base {
     // live in `ai/config.template.mjs::orchestrator.{mlx,lms}` + `envBindings.orchestrator.{mlx,lms}`.
     get mlxEnabled() { return !!AiConfig.orchestrator.mlx?.enabled; }
     get lmsEnabled() { return !!AiConfig.orchestrator.lms?.enabled; }
-    get lmsModels()  {
-        return [...new Set([
-            AiConfig.openAiCompatible?.model,
-            AiConfig.openAiCompatible?.embeddingModel
-        ].filter(Boolean))];
-    }
+    get lmsPreloadConfig() { return buildLmsPreloadConfig(AiConfig); }
+    get lmsModels()        { return this.lmsPreloadConfig.models;      }
 
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.
@@ -439,8 +466,9 @@ export class Orchestrator extends Base {
 
         // Set reactive parent props FIRST so afterSet* propagation lands when
         // processSupervisorService gets re-created below.
-        this.dataDir         = dataDir;
-        this.taskDefinitions = options.taskDefinitions || buildTaskDefinitions({
+        this.dataDir           = dataDir;
+        const lmsPreloadConfig = this.lmsPreloadConfig;
+        this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
             chromaPort: AiConfig.engines.chroma?.port,
@@ -449,16 +477,10 @@ export class Orchestrator extends Base {
             mlxPort   : AiConfig.orchestrator.mlx?.port,
             lmsEnabled: this.lmsEnabled,
             lmsModel  : AiConfig.orchestrator.lms?.model,
-            lmsModels : this.lmsModels,
+            lmsModels : lmsPreloadConfig.models,
             lmsHost   : AiConfig.openAiCompatible?.host,
             lmsPort   : AiConfig.orchestrator.lms?.port,
-            lmsPreloadMaxContextLength: AiConfig.orchestrator.lms?.preloadMaxContextLength,
-            lmsContextLengths: buildLmsContextLengthsMap({
-                chatModel             : AiConfig.openAiCompatible?.model,
-                embeddingModel        : AiConfig.openAiCompatible?.embeddingModel,
-                chatContextLength     : AiConfig.localModels?.chat?.contextLimitTokens,
-                embeddingContextLength: AiConfig.localModels?.embedding?.contextLimitTokens
-            }),
+            lmsContextLengths: lmsPreloadConfig.contextLengths,
             providerReadiness: AiConfig.orchestrator.providerReadiness
         });
 

@@ -225,7 +225,6 @@ export function buildLmsContextLengthsMap({
  * @param {Number} options.timeoutMs HTTP probe timeout.
  * @param {Object} [options.contextLengths] Per-model context-length override map keyed by model id.
  * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one model cannot be loaded.
- * @param {Number} [options.maxContextLength] Optional max `--context-length` for preload safety; larger requests are skipped.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Object} [options.log=logger] Logger seam.
@@ -239,7 +238,6 @@ export async function ensureLmsModelsLoaded({
     timeoutMs,
     contextLengths = {},
     allowPartial   = false,
-    maxContextLength,
     fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
     loadModel     = (model, options) => loadLmsModel(model, options),
     log           = logger
@@ -279,9 +277,7 @@ export async function ensureLmsModelsLoaded({
 
     let {availableModels} = await probeModels('initial /v1/models probe');
     const initialMissing  = getMissing(availableModels);
-    const hasMaxContextLength = Neo.isNumber(maxContextLength) && maxContextLength > 0;
-    const skippedModels = [];
-    const failedModels  = [];
+    const failedModels   = [];
 
     // Force-include context-configured models in the load set even when already
     // resident in /v1/models. `/v1/models` reports presence only — it does NOT
@@ -292,43 +288,14 @@ export async function ensureLmsModelsLoaded({
     // be accepted as ready while every chat invocation silently overflows.
     // Force-include each context-configured model in the load set even if resident,
     // BUT preserve the declared requiredModels input order (filter rather than concat-dedupe).
-    const candidateModelsToLoad = requiredModels.filter(model => {
+    const modelsToLoad = requiredModels.filter(model => {
         if (initialMissing.includes(model)) return true;
         return Neo.isNumber(contextLengths?.[model]);
-    });
-    const modelsToLoad = candidateModelsToLoad.filter(model => {
-        const contextLength = contextLengths?.[model];
-
-        if (!hasMaxContextLength || !Neo.isNumber(contextLength) || contextLength <= maxContextLength) {
-            return true;
-        }
-
-        const skipped = {
-            model,
-            contextLength,
-            maxContextLength,
-            reason: 'context-length-exceeds-preload-max'
-        };
-        skippedModels.push(skipped);
-        log.warn?.(
-            `[ProviderReadinessHelper] Skipping LM Studio model '${model}' preload: context-length ` +
-            `${contextLength} exceeds preload max ${maxContextLength}. The model remains required; ` +
-            'readiness will be reported as degraded until the operator raises the cap or retunes the model/context.'
-        );
-
-        if (!allowPartial) {
-            throw new Error(
-                `LM Studio model preload skipped for ${model}: context-length ${contextLength} exceeds ` +
-                `preload max ${maxContextLength}.`
-            );
-        }
-
-        return false;
     });
     const attemptedModels = [...modelsToLoad];
     const loadedModels    = [];
 
-    if (modelsToLoad.length === 0 && skippedModels.length === 0) {
+    if (modelsToLoad.length === 0) {
         return {
             ready       : true,
             loadedModels: [],
@@ -372,19 +339,17 @@ export async function ensureLmsModelsLoaded({
         missingModels = getMissing(availableModels);
 
         const knownUnavailable = new Set([
-            ...skippedModels.map(item => item.model),
             ...failedModels.map(item => item.model)
         ]);
         const serviceableMissing = missingModels.filter(model => !knownUnavailable.has(model));
 
         if (missingModels.length === 0 || (allowPartial && serviceableMissing.length === 0)) {
-            const ready = missingModels.length === 0 && skippedModels.length === 0 && failedModels.length === 0;
+            const ready = missingModels.length === 0 && failedModels.length === 0;
             return {
                 ready,
                 degraded    : !ready,
                 loadedModels,
                 attemptedModels,
-                skippedModels,
                 failedModels,
                 missingModels,
                 requiredModels,
@@ -405,7 +370,6 @@ export async function ensureLmsModelsLoaded({
             degraded    : true,
             loadedModels,
             attemptedModels,
-            skippedModels,
             failedModels,
             missingModels,
             requiredModels,
