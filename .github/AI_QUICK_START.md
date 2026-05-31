@@ -10,7 +10,7 @@ for the Neo.mjs repository.
 Before you begin, ensure you have the following:
 
 1.  **Google Account**: You'll need one to access Google AI Studio for an API key, which is required to build the knowledge base. If you don't have one, you can create it at [accounts.google.com](https://accounts.google.com).
-2.  **Node.js**: Version 20 or later. If you don't have it, you can install it from [nodejs.org](https://nodejs.org).
+2.  **Node.js**: Version 24 or later. If you don't have it, you can install it from [nodejs.org](https://nodejs.org).
 3.  **Project Setup**: Your setup depends on how you are working with Neo.mjs.
 
     **A) For contributions to the Neo.mjs framework itself:**
@@ -155,14 +155,14 @@ See §5 "Core Configuration (Claude Desktop / Claude Code)" for the complete str
 The agent's behavior is controlled by several configuration files depending on your chosen environment:
 
 ### Core Configuration (Gemini CLI)
-The repository provides a `.gemini/settings.json` file which automatically activates all 4 Neo MCP servers for the session.
+The repository provides a `.gemini/settings.json` file which automatically activates all 5 functional Neo MCP servers for the session.
 
 ### Core Configuration (Antigravity OS)
 Antigravity requires a user-level configuration file located at `~/.gemini/antigravity/mcp_config.json`. You must create this file and configure it with your API keys and local paths. 
 
 - **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable.
   - **M-Series Mac Warning (Apple Silicon):** Desktop GUI applications do **not** inherit Homebrew paths like `/opt/homebrew/bin` since macOS strips out `.zshrc` upon GUI Spotlight launch. If your GitHub CLI (`gh`) or `sqlite3` were installed via Homebrew, you **must** manually prepend `/opt/homebrew/bin:` to this `<DEFAULT_PATH>` string (or symlink them into `/usr/local/bin` using `sudo`), otherwise your MCP servers will silently crash claiming binaries are missing!
-- **`<YOUR_NODE_PATH>`**: The absolute path to your Node.js executable (e.g., `/usr/local/bin/node` or `~/.nvm/versions/node/v20.x.x/bin/node`).
+- **`<YOUR_NODE_PATH>`**: The absolute path to your Node.js executable (e.g., `/usr/local/bin/node` or `~/.nvm/versions/node/v24.x.x/bin/node`).
 
 Use the following structure:
 
@@ -203,6 +203,15 @@ Use the following structure:
       ],
       "env": {
         "GH_TOKEN": "<YOUR_GH_TOKEN>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-file-system": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/file-system/mcp-server.mjs"
+      ],
+      "env": {
         "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
@@ -263,6 +272,13 @@ Use the following structure (replace the placeholders as in the Antigravity sect
         "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
+    "neo-mjs-file-system": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/file-system/mcp-server.mjs"],
+      "env": {
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
     "neo-mjs-neural-link": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
@@ -303,7 +319,7 @@ If `identity.bound` is `false` despite `source: 'env-var'`, or if you see any ot
 
 ### Multi-Harness Development (`.neo-ai-data` Symlink Convention)
 
-If you run multiple harnesses against the same repository — e.g., Claude Desktop + Antigravity, or a primary checkout plus parallel worktrees — **all four Neo MCP server processes across every harness share a single SQLite graph database** at `.neo-ai-data/sqlite/memory-core-graph.sqlite`. `better-sqlite3`'s WAL mode makes this safe for concurrent readers and a serialized single writer at a time.
+If you run multiple harnesses against the same repository — e.g., Claude Desktop + Antigravity, or a primary checkout plus parallel worktrees — **the configured Neo MCP server processes across every harness must point at the same repository-local `.neo-ai-data/` directory**. Memory Core stores its SQLite graph database at `.neo-ai-data/sqlite/memory-core-graph.sqlite`; `better-sqlite3`'s WAL mode makes this safe for concurrent readers and a serialized single writer at a time.
 
 Cross-checkout and cross-worktree scenarios need symlinks so every harness points at the same physical `.neo-ai-data/` directory:
 

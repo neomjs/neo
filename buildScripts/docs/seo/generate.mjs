@@ -550,7 +550,8 @@ export async function getLlmsTxt(options={}) {
 
 > **AI-Native Architecture:**
 > Neo.mjs is the first platform architected for "Context Engineering." It includes dedicated
-> MCP Servers (Knowledge Base, Memory Core) that allow AI agents to act as co-developers.
+> MCP Servers (Knowledge Base, Memory Core, GitHub Workflow, Neural Link, File System)
+> that allow AI agents to act as co-developers.
 
 Neo.mjs uniquely deploys each application and example in four equivalent environments.
 The URLs listed below use the **development mode** paths (Zero Build), which embody the core philosophy.

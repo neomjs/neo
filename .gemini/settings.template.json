@@ -8,6 +8,10 @@
             "command": "npm",
             "args"   : ["run", "ai:mcp-server-github-workflow"]
         },
+        "neo-mjs-file-system": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-file-system"]
+        },
         "neo-mjs-knowledge-base": {
             "command": "npm",
             "args"   : ["run", "ai:mcp-server-knowledge-base"]

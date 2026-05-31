@@ -79,7 +79,7 @@ v12.1 released on 2026-03-27. Sustained 10–20 ticket/day velocity delivered th
 *   **Concept Ontology foundation.** Deterministic graph-traversal gap inference replacing regex + per-match LLM verification. Core pillars shipped; remaining scope tracked under v12.2 goal #2.
 *   **Local LLM inference infrastructure.** `OpenAiCompatible`, `Ollama`, and `Gemma-4` provider adapters (#9639) plus the Librarian sub-agent orchestration (#9643) enable fully offline Memory Core operation — DreamService REM extraction, embedding generation, and `[GUIDE_GAP]` verification all run on local hardware (MLX, Ollama). Unlocks cost-bounded swarm operation and air-gapped enterprise deployments.
 *   **Fat Ticket A2A Protocol.** GitHub Issues as durable inter-hardware memory bridge (#9790). Because the swarm runs across disjoint SQLite instances (one Memory Core per hardware node, no cross-network merge), Fat Tickets preserve architectural context, rationale, and avoided pitfalls so sessions can hand off work cleanly across machines and agent harnesses (Claude Code, Antigravity, Gemini CLI).
-*   **Progressive Disclosure Skills.** Thirteen formalized agent skills under `.agents/skills/` (#9672 Anthropic Skills Standard) govern the swarm's execution discipline — `ticket-intake`, `ticket-create`, `pull-request`, `pr-review`, `tech-debt-radar` as lifecycle gates; `neural-link`, `unit-test`, `whitebox-e2e`, `memory-mining`, `self-repair` as tactical workflows. Each skill is loaded on-demand via the Skill tool so agent context stays lean until a workflow fires.
+*   **Progressive Disclosure Skills.** The formalized agent skills under `.agents/skills/` (#9672 Anthropic Skills Standard) govern the swarm's execution discipline — `ticket-intake`, `ticket-create`, `pull-request`, `pr-review`, `tech-debt-radar` as lifecycle gates; `neural-link`, `unit-test`, `whitebox-e2e`, `memory-mining`, `self-repair` as tactical workflows. Each skill is loaded on-demand via the Skill tool so agent context stays lean until a workflow fires.
 
 ### Phase 3: The Command Center (post-v12.2)
 
@@ -112,4 +112,3 @@ We will evolve the **Neural Link** into a bidirectional bridge that allows Agent
 *   **Publish MCP Servers to npm:** The **Memory Core** and **GitHub Sync** MCP servers will be published as independent packages.
 *   **Visual Service:** Evolve the "Sighted Agent" concept into a service that allows agents to programmatically capture screenshots and inspect the A11y tree.
 *   **Hybrid Distribution:** Split AI capabilities into "Core" (logic) and "Server" (MCP wrappers) packages to support both embedded SDK use and external CLI use.
-

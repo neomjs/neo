@@ -35,6 +35,14 @@ startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 
+[mcp_servers."neo-mjs-file-system"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-file-system"]
+env_vars = ["NEO_AGENT_IDENTITY"]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
 [mcp_servers."neo-mjs-knowledge-base"]
 command = "npm"
 args = ["run", "--silent", "ai:mcp-server-knowledge-base"]

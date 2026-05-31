@@ -10,6 +10,9 @@
     "bin"            : {
         "neo-cc": "./buildScripts/create/class.mjs"
     },
+    "engines"        : {
+        "node": ">=24.0.0"
+    },
     "scripts"        : {
         "add-config"                   : "node ./buildScripts/create/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/helpers/addReactiveTags.mjs",
