@@ -95,6 +95,16 @@ if (insideNeo) {
         console.log('Updated apps/portal/index.html datePublished');
     }
 
+    // Keep the Neural Link guide's version proof line in sync with package.json.
+    const neuralLinkPath = path.join(root, 'learn/agentos/NeuralLink.md');
+    if (fs.existsSync(neuralLinkPath)) {
+        const neuralLinkContent = fs.readFileSync(neuralLinkPath, 'utf-8')
+            .replace(/Neo\.mjs v\d+\.\d+\.\d+\./, `Neo.mjs v${packageJson.version}.`);
+
+        fs.writeFileSync(neuralLinkPath, neuralLinkContent);
+        console.log('Updated learn/agentos/NeuralLink.md version');
+    }
+
     // Sync .npmignore with .gitignore
     // This ensures that we don't accidentally publish files that should be ignored,
     // while maintaining the specific npm-only rules.

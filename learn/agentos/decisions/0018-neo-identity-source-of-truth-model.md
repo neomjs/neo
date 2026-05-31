@@ -25,10 +25,10 @@ Epic #10452 ("Identity Rewrite", CLOSED 2026-04-30 via #10453/#10455) rewrote `R
 A 2026-05-30 11-agent fan-out audit (session `94a91ebc-d325-4d32-a746-4ff8c26c0342`) confirmed the drift is already live and substantial — ~25 drift rows, e.g.:
 
 - **MCP-server count understated in 11 surfaces** (correct = 5 functional).
-- `apps/portal/index.html` ld+json: `version: 11.18.0` (package is `12.1.0`), `softwareRequirements: Node.js 18+` (actual `24+`), "three MCP servers".
+- `apps/portal/index.html` ld+json then carried stale package / Node / MCP-server facts (package was `12.1.0`, actual Node floor `24+`, functional MCP-server count `5`).
 - `package.json` has **no `engines` field** → the Node floor is unenforced at install time.
 - The identity handle `@neo-opus-4-7` appears in **63 files**; `ModelStats.md`'s sunset trigger ("Anthropic releases Opus 4.8+") has **already fired** with no rotation recorded.
-- `AGENTS.md` self-contradicts (one line "3 evolving pillars", another "four co-load-bearing pillars").
+- `AGENTS.md` had self-contradictory pillar wording (an older 3-pillar mapping beside the four co-load-bearing pillar anchor).
 - `.github/VISION.md` carries the oldest framing ("platform for the next generation of web applications") and a "Corporate HQ / CEOs / PMs / Drones" hierarchy that contradicts the canonical Flat Peer-Team (`AGENTS.md §swarm_topology_anchor`).
 
 The root problem: **identity is two different materials, and they need opposite update mechanics.** No substrate decision says which. This ADR makes that decision.
@@ -58,9 +58,9 @@ Each fact gets ONE canonical source. Facts subdivide by **volatility** — *heri
 
 | Propagation target | Volatility | Canonical SSOT | Propagation mechanism | Fan-out drift |
 |---|---|---|---|---|
-| Package version | frontier | `package.json` `version` | extend `buildScripts/release/prepare.mjs` to ALSO derive the `index.html` ld+json `version`/`releaseNotes` + `learn/agentos/NeuralLink.md` version line (it currently bumps only DefaultConfig/ServiceWorker/Footer + ld+json `datePublished`); lint coherence-check the rest | `index.html:100` 11.18.0; `NeuralLink.md:387` v11.18.0 |
-| MCP-server count | frontier | a small **functional-server manifest** (NOT a naive `ls ai/mcp/server/` — that returns 7: it must exclude `shared/` infra **and** `gitlab-workflow/` PoC, yielding 5) | derive into prose/JSON via build or lint coherence-check; the manifest is the single place the exclusion rule lives | 11 surfaces understate to 4/3/2 |
-| Node requirement | frontier | `package.json` `engines.node` (**to be added** — currently absent) | add the field as install-time SSOT; derive doc mentions; lint | `AI_QUICK_START:13` "20+"; `index.html:133` "18+" |
+| Package version | frontier | `package.json` `version` | extend `buildScripts/release/prepare.mjs` to derive version-bearing structured surfaces + `learn/agentos/NeuralLink.md` version line; lint coherence-check the rest | former `NeuralLink.md` stale version line |
+| MCP-server count / audience split | frontier | `package.json` scripts matching `ai:mcp-server-*` (NOT a naive `ls ai/mcp/server/` — that returns 7: it must exclude `shared/` infra **and** `gitlab-workflow/` PoC, yielding 5). Frontier harness defaults expose 4 because Codex, Claude, Gemini CLI, and Antigravity already provide native filesystem/tools; file-system is for `Neo.ai.Agent` / local harnessless loops. | derive into prose/JSON via build or lint coherence-check; the script manifest plus audience split is the single place the exclusion rule lives | 11 surfaces understate to 4/3/2 or conflate frontier-harness defaults with internal agent loops |
+| Node requirement | frontier | `package.json` `engines.node` | add the field as install-time SSOT; derive doc mentions; lint | `AI_QUICK_START:13` "20+" |
 | Identity handle | identity | `ai/graph/identityRoots.mjs` | route handle references through the seam; model-version stays in `ModelStats.md` per ADR 0012 (see §2.5) | `@neo-opus-4-7` in 63 files |
 | Recurring motto | framing-constant | `learn/agentos/DreamPipeline.md` (origin) | a single quotable constant referenced, not re-typed | DreamPipeline 2×, README, ROADMAP |
 | Codebase-scale metrics | dated-snapshot | `learn/guides/fundamentals/CodebaseOverview.md` (canonical numbers) | README "Platform at Scale" refreshes in lock-step; carry an explicit as-of date | README "State of May 1, 2026" |

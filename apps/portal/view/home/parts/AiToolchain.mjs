@@ -116,7 +116,7 @@ class AiToolchain extends BaseContainer {
                             text: 'What is Context Engineering?'
                         }, {
                             tag : 'p',
-                            text: 'Context Engineering shapes the information and tool environment around AI agents. Neo.mjs implements it through Knowledge Base, Memory Core, GitHub Workflow, and Neural Link MCP servers plus code-execution workflows.'
+                            text: 'Context Engineering shapes the information and tool environment around AI agents. Neo.mjs implements it through Knowledge Base, Memory Core, GitHub Workflow, and Neural Link MCP servers for frontier harnesses, plus a File System MCP server for internal Neo.ai.Agent local loops.'
                         }]
                     }, {
                         tag: 'article',
