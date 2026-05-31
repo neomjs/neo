@@ -93,6 +93,22 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Normalizes an `identityRoots.mjs` GitHub login for local GitHub payload matching.
+     *
+     * AgentIdentity roots store canonical handles with a leading `@`, while GitHub API
+     * payloads expose bare login strings. Keeping the conversion in one helper prevents
+     * repo-enrichment projections from reintroducing hardcoded handle lists.
+     *
+     * @param {Object} identity AgentIdentity root entry.
+     * @returns {String|null} Bare GitHub login, or `null` when unavailable.
+     */
+    static getIdentityGithubLogin(identity) {
+        const login = identity.properties?.githubLogin;
+
+        return typeof login === 'string' && login ? login.replace(/^@/, '') : null
+    }
+
+    /**
      * @summary Derives the core swarm login-to-family map from the AgentIdentity registry.
      *
      * `identityRoots.mjs` is the canonical handle indirection seam for named Neo maintainers.
@@ -111,7 +127,7 @@ class GoldenPathSynthesizer extends Base {
                     identity.properties?.modelFamily
                 )
                 .map(identity => [
-                    identity.properties.githubLogin.replace(/^@/, ''),
+                    this.getIdentityGithubLogin(identity),
                     identity.properties.modelFamily
                 ])
         )
@@ -129,14 +145,23 @@ class GoldenPathSynthesizer extends Base {
     /**
      * @summary Returns maintainer logins eligible for stale-assignment progress acknowledgements.
      *
-     * #10219 intentionally keys this active detector to named agent maintainers only. Human-owner
-     * activity still appears as issue events, but the maintainer progress-ack set is derived from
-     * registry AgentIdentity logins.
+     * Stale-assignment acknowledgements consume the same AgentIdentity registry as the
+     * active-PR surface, but include human owner identities as maintainers. Assignee
+     * comments still qualify independently in `findLastQualifyingAssignmentActivity`.
      *
-     * @returns {String[]} Agent maintainer logins without leading `@`.
+     * @returns {String[]} Maintainer logins without leading `@`.
      */
     static getStaleAssignmentMaintainers() {
-        return this.getAgentLogins()
+        return [...new Set(
+            IDENTITIES
+                .filter(identity =>
+                    identity.type === 'AgentIdentity' &&
+                    ['agent', 'human'].includes(identity.properties?.accountType) &&
+                    identity.properties?.githubLogin
+                )
+                .map(identity => this.getIdentityGithubLogin(identity))
+                .filter(Boolean)
+        )]
     }
 
     /**

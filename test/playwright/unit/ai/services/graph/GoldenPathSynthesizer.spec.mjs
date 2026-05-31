@@ -108,6 +108,66 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
     });
 
+    test('derives repo-enrichment identity projections from identityRoots', () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+
+        expect(Synthesizer.getCoreSwarmAgentFamilies()).toMatchObject({
+            'neo-gemini-3-1-pro': 'gemini',
+            'neo-gpt'           : 'gpt',
+            'neo-opus-4-7'      : 'claude'
+        });
+
+        expect(Synthesizer.getAgentLogins()).toEqual(expect.arrayContaining([
+            'neo-gemini-3-1-pro',
+            'neo-gpt',
+            'neo-opus-4-7'
+        ]));
+        expect(Synthesizer.getAgentLogins()).not.toContain('tobiu');
+
+        expect(Synthesizer.getStaleAssignmentMaintainers()).toEqual(expect.arrayContaining([
+            'neo-gemini-3-1-pro',
+            'neo-gpt',
+            'neo-opus-4-7',
+            'tobiu'
+        ]));
+    });
+
+    test('hasCrossFamilyReview accepts injected identity-family maps', () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const pr = {
+            author : {login: 'author-agent'},
+            reviews: [{author: {login: 'reviewer-agent'}}]
+        };
+
+        expect(Synthesizer.hasCrossFamilyReview(pr, {
+            'author-agent'  : 'gpt',
+            'reviewer-agent': 'gpt'
+        })).toBe(false);
+
+        expect(Synthesizer.hasCrossFamilyReview(pr, {
+            'author-agent'  : 'gpt',
+            'reviewer-agent': 'claude'
+        })).toBe(true);
+    });
+
+    test('findLastQualifyingAssignmentActivity treats owner identity comments as maintainer progress acknowledgements', () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const activity = Synthesizer.findLastQualifyingAssignmentActivity({
+            assignees: ['neo-gpt'],
+            author   : 'neo-gpt',
+            createdAt: '2026-05-01T00:00:00Z',
+            content  : [
+                '### @tobiu - 2026-05-27T00:00:00Z',
+                '',
+                'working on this'
+            ].join('\n')
+        });
+
+        expect(activity.author).toBe('tobiu');
+        expect(activity.createdAt.toISOString()).toBe('2026-05-27T00:00:00.000Z');
+        expect(activity.reason).toBe('maintainer-progress-ack');
+    });
+
     test('synthesizeGoldenPath appends Active PR Cycle State from GitHub CLI output', async () => {
         const originalGetGraphCollection = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
