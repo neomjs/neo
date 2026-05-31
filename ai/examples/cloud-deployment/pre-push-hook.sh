@@ -3,7 +3,7 @@
 # pre-push hook — Cloud-Native KB ingestion (Epic #11624).
 # Streams the changed files of a `git push` into the tenant's Knowledge Base.
 #
-# Install:  cp examples/cloud-deployment/pre-push-hook.sh .git/hooks/pre-push
+# Install:  cp ai/examples/cloud-deployment/pre-push-hook.sh .git/hooks/pre-push
 #           chmod +x .git/hooks/pre-push
 # Contract: learn/agentos/cloud-deployment/HookWiring.md
 #

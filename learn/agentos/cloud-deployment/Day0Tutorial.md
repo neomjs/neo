@@ -451,7 +451,7 @@ Client-side parsing is the default for tenant-owned or non-JS formats. Use the
 minimal external workspace as the executable shape:
 
 ```bash
-cd examples/cloud-deployment/minimal-external-workspace
+cd ai/examples/cloud-deployment/minimal-external-workspace
 npm install
 ```
 

@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Custom Parsers
 
-> **Status — Phase 3B.** This guide documents how a cloud tenant turns its own file formats into Knowledge Base chunks — the `parsed-chunk-v1` contract and the parser registration surface shipped across Phase 0/1 and Phase 2 of Epic [#11624](https://github.com/neomjs/neo/issues/11624). A worked custom parser ships alongside this guide under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).
+> **Status — Phase 3B.** This guide documents how a cloud tenant turns its own file formats into Knowledge Base chunks — the `parsed-chunk-v1` contract and the parser registration surface shipped across Phase 0/1 and Phase 2 of Epic [#11624](https://github.com/neomjs/neo/issues/11624). A worked custom parser ships alongside this guide under [`ai/examples/cloud-deployment/`](../../../ai/examples/cloud-deployment/).
 
 ## Source vs Parser
 
