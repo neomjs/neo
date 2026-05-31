@@ -96,10 +96,12 @@ humans imagine they will struggle with. A hollow success response, a broken grap
 finding, an over-broad ticket, a prompt-firewall failure, or a bad strategic estimate is not only a defect. It is a
 measured signal. If verified, it becomes substrate.
 
-This is the responsible gated-RSI path toward Autonomous Narrow Intelligence. The swarm can gradually take on more of the
-engineering lifecycle as Memory Core, DreamService, Golden Path, cross-model review, and runtime embodiment mature. Human
-merge authority, source-backed claims, cross-family validation, and explicit rollback paths keep the loop accountable.
-Autonomy is earned by repeated evidence, not declared by ambition.
+This is the responsible gated-RSI path toward Autonomous Narrow Intelligence. Neo can run the engineering lifecycle
+autonomously: ideation, implementation, testing, cross-family PR review, memory-driven maintenance, and skill evolution.
+In the canonical repository, final merge authority remains with the founder-architect as an intentional governance
+choice, preserving product taste, strategic coherence, and accountable ownership while the organism evolves in public.
+Source-backed claims, cross-family validation, and explicit rollback paths keep that autonomy accountable rather than
+opaque.
 
 ### 6. A Command Center for Living Software
 
