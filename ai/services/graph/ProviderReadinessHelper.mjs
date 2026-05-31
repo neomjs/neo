@@ -222,30 +222,35 @@ export function buildLmsContextLengthsMap({
  * @returns {{models: String[], contextLengths: Object}} Role-aware LMS preload config.
  */
 export function buildLmsPreloadConfig(config = aiConfig) {
-    const openAiCompatibleConfig = config.openAiCompatible || {},
+    const openAiCompatibleConfig = config.openAiCompatible ?? {},
+          chatModel              = openAiCompatibleConfig.model,
+          embeddingModel         = openAiCompatibleConfig.embeddingModel,
           chatContextLength      = config.localModels?.chat?.contextLimitTokens,
           embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
           roles                  = [{
               provider     : config.modelProvider,
-              model        : openAiCompatibleConfig.model,
+              model        : chatModel,
+              contextRole  : 'chat',
               contextLength: chatContextLength
           }, {
               provider     : config.graphProvider,
-              model        : openAiCompatibleConfig.model,
+              model        : chatModel,
+              contextRole  : 'chat',
               contextLength: chatContextLength
           }, {
               provider     : config.embeddingProvider,
-              model        : openAiCompatibleConfig.embeddingModel,
+              model        : embeddingModel,
+              contextRole  : 'embedding',
               contextLength: embeddingContextLength
           }].filter(role => isOpenAiCompatibleProvider(role.provider) && role.model);
 
-    const models         = [...new Set(roles.map(role => role.model))],
-          contextLengths = {};
-
-    roles.forEach(({model, contextLength}) => {
-        if (Neo.isNumber(contextLength) && (contextLengths[model] === undefined || contextLength > contextLengths[model])) {
-            contextLengths[model] = contextLength
-        }
+    const models              = [...new Set(roles.map(role => role.model))],
+          selectedContextRole = role => roles.some(({contextRole}) => contextRole === role),
+          contextLengths      = buildLmsContextLengthsMap({
+              chatModel       : selectedContextRole('chat') ? chatModel : undefined,
+              embeddingModel  : selectedContextRole('embedding') ? embeddingModel : undefined,
+              chatContextLength,
+              embeddingContextLength
     });
 
     return {models, contextLengths}
