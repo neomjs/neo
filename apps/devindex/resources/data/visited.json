@@ -21705,6 +21705,7 @@
   "repo:google-github-actions/auth",
   "repo:google-github-actions/run-gemini-cli",
   "repo:google-github-actions/setup-gcloud",
+  "repo:google-labs-code/design.md",
   "repo:google-labs-code/jules-awesome-list",
   "repo:google-labs-code/stitch-skills",
   "repo:google-map-react/google-map-react",
