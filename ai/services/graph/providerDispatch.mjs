@@ -4,6 +4,15 @@ import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
 export const GRAPH_MODEL_PROVIDERS = Object.freeze(['ollama', 'openAiCompatible']);
 
 /**
+ * @summary Identifies provider selectors that route through an OpenAI-compatible HTTP surface.
+ * @param {String} provider
+ * @returns {Boolean}
+ */
+export function isOpenAiCompatibleProvider(provider) {
+    return provider === 'openAiCompatible'
+}
+
+/**
  * @summary Resolves the provider selector used by Dream/Sandman graph-generation lanes.
  *
  * Graph extraction is not the same provider axis as generic Memory Core summarization:

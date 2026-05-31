@@ -7,9 +7,9 @@ import * as core from '../../../../../../src/core/_export.mjs';
 import AiConfig from '../../../../../../ai/config.mjs';
 import BaseConfig, {createConfigProxy} from '../../../../../../ai/BaseConfig.mjs';
 import {
-    Orchestrator,
-    buildLmsPreloadConfig
+    Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {buildLmsPreloadConfig} from '../../../../../../ai/services/graph/ProviderReadinessHelper.mjs';
 import {
     buildTaskDefinitions
 } from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
@@ -248,7 +248,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         }
     });
 
-    test('lmsEnabled coerces to boolean + lmsModels only preloads OpenAI-compatible roles (model/port/host inlined at call sites)', () => {
+    test('lmsEnabled coerces to boolean + lmsModels follow state-provider role selectors (model/port/host inlined at call sites)', () => {
         AiConfig.orchestrator.lms = {enabled: true, model: 'lms-from-config', port: '4242'};
         AiConfig.openAiCompatible = {
             host          : 'http://127.0.0.1:4242',
@@ -274,11 +274,11 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
     });
 
-    test('buildLmsPreloadConfig does not let remote roles inflate same-model local context (#12264)', () => {
+    test('buildLmsPreloadConfig only reads provider-role selectors, not non-null model leaves (#12264)', () => {
         expect(buildLmsPreloadConfig({
             chatProvider     : 'gemini',
             modelProvider    : 'gemini',
-            graphProvider    : 'gemini',
+            graphProvider    : 'ollama',
             embeddingProvider: 'openAiCompatible',
             openAiCompatible: {
                 model         : 'shared-model',
@@ -292,6 +292,23 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             models        : ['shared-model'],
             contextLengths: {'shared-model': 8192}
         });
+
+        expect(buildLmsPreloadConfig({
+            modelProvider    : 'openAiCompatible',
+            graphProvider    : 'ollama',
+            embeddingProvider: 'gemini',
+            openAiCompatible: {
+                model         : 'chat-model',
+                embeddingModel: 'embedding-model'
+            },
+            localModels: {
+                chat     : {contextLimitTokens: 262144},
+                embedding: {contextLimitTokens: 8192}
+            }
+        })).toEqual({
+            models        : ['chat-model'],
+            contextLengths: {'chat-model': 262144}
+        })
     });
 
 

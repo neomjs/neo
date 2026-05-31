@@ -10,7 +10,7 @@ import path                        from 'path';
 import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import AiConfig                    from '../../config.mjs';
-import {buildLmsContextLengthsMap} from '../../services/graph/ProviderReadinessHelper.mjs';
+import {buildLmsPreloadConfig}     from '../../services/graph/ProviderReadinessHelper.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import SQLite                      from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
@@ -35,37 +35,6 @@ import {
     DEFAULT_SCRIPT_DIR,
     buildTaskDefinitions
 } from './TaskDefinitions.mjs';
-
-const OPEN_AI_COMPATIBLE_PROVIDER = 'openAiCompatible';
-
-/**
- * @summary Builds the LM Studio preload set from roles routed through OpenAI-compatible local inference.
- *
- * LM Studio owns the `openAiCompatible` local HTTP surface only. Native Ollama is
- * local too, but it is not preloaded via `lms load`; its residency contract is
- * handled by the parallel-model capacity probe. Remote providers simply do not
- * contribute models or context windows to this preload set.
- *
- * @param {Object} config aiConfig-shaped provider config.
- * @returns {{models: String[], contextLengths: Object}} Role-aware LMS preload config.
- */
-export function buildLmsPreloadConfig(config = AiConfig) {
-    const chatProvider      = config.modelProvider || config.chatProvider;
-    const usesLocalChat     = chatProvider === OPEN_AI_COMPATIBLE_PROVIDER || config.graphProvider === OPEN_AI_COMPATIBLE_PROVIDER;
-    const usesLocalEmbedding = config.embeddingProvider === OPEN_AI_COMPATIBLE_PROVIDER;
-    const chatModel         = usesLocalChat ? config.openAiCompatible?.model : null;
-    const embeddingModel    = usesLocalEmbedding ? config.openAiCompatible?.embeddingModel : null;
-
-    return {
-        models: [...new Set([chatModel, embeddingModel].filter(Boolean))],
-        contextLengths: buildLmsContextLengthsMap({
-            chatModel,
-            embeddingModel,
-            chatContextLength     : config.localModels?.chat?.contextLimitTokens,
-            embeddingContextLength: config.localModels?.embedding?.contextLimitTokens
-        })
-    };
-}
 
 /**
  * Resolves the dev-sync roots config while preserving env-var precedence.

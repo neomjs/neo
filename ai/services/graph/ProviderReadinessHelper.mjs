@@ -2,7 +2,11 @@ import http from 'http';
 import {execFile} from 'child_process';
 import {Memory_Config as aiConfig} from '../../services.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import {isGraphModelProviderSupported, resolveGraphModelProvider} from './providerDispatch.mjs';
+import {
+    isGraphModelProviderSupported,
+    isOpenAiCompatibleProvider,
+    resolveGraphModelProvider
+} from './providerDispatch.mjs';
 
 /**
  * @module ai/services/graph/ProviderReadinessHelper
@@ -199,6 +203,52 @@ export function buildLmsContextLengthsMap({
     setMax(chatModel, chatContextLength);
     setMax(embeddingModel, embeddingContextLength);
     return map;
+}
+
+/**
+ * @summary Builds the LM Studio preload set from configured provider-role selectors.
+ *
+ * The state-provider config chooses which provider serves each role. The OpenAI-compatible
+ * model defaults remain populated even when a role is routed to Gemini or native Ollama, so
+ * this helper must never infer activity from non-null model leaves. It only includes roles
+ * whose selector explicitly targets the OpenAI-compatible surface that LM Studio serves.
+ *
+ * Role ownership:
+ * - `modelProvider` / `chatProvider`: session-summary chat role.
+ * - `graphProvider`: REM graph-generation chat role.
+ * - `embeddingProvider`: vector embedding role.
+ *
+ * @param {Object} config aiConfig-shaped provider config.
+ * @returns {{models: String[], contextLengths: Object}} Role-aware LMS preload config.
+ */
+export function buildLmsPreloadConfig(config = aiConfig) {
+    const openAiCompatibleConfig = config.openAiCompatible || {},
+          chatContextLength      = config.localModels?.chat?.contextLimitTokens,
+          embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
+          roles                  = [{
+              provider     : config.modelProvider ?? config.chatProvider,
+              model        : openAiCompatibleConfig.model,
+              contextLength: chatContextLength
+          }, {
+              provider     : config.graphProvider,
+              model        : openAiCompatibleConfig.model,
+              contextLength: chatContextLength
+          }, {
+              provider     : config.embeddingProvider,
+              model        : openAiCompatibleConfig.embeddingModel,
+              contextLength: embeddingContextLength
+          }].filter(role => isOpenAiCompatibleProvider(role.provider) && role.model);
+
+    const models         = [...new Set(roles.map(role => role.model))],
+          contextLengths = {};
+
+    roles.forEach(({model, contextLength}) => {
+        if (Neo.isNumber(contextLength) && (contextLengths[model] === undefined || contextLength > contextLengths[model])) {
+            contextLengths[model] = contextLength
+        }
+    });
+
+    return {models, contextLengths}
 }
 
 /**
