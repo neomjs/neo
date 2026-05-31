@@ -248,13 +248,15 @@ class Config extends BaseConfig {
              * `engines.chroma` is the unified Chroma topology from ADR 0003: ONE daemon, ONE persist
              * dir, shared by Knowledge Base + Memory Core. `dataDir` is the fixed canonical persist dir
              * read by both server configs + the `defragChromaDB` maintenance script; the local
-             * orchestrator launches the daemon against the same fixed path. Collection NAMES remain
-             * server-local; the persist DIR is unified.
+             * orchestrator launches the daemon against the same fixed path. The leaf is named `unified`
+             * (identical local + cloud) — it holds every realm (KB + MC + graph + sessions), so a
+             * realm-specific name would misrepresent the store. Collection NAMES remain server-local;
+             * the persist DIR is unified.
              * @type {Object}
              */
             engines: {
                 chroma: {
-                    dataDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base')),
+                    dataDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
                     host   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     port   : leaf(8000, 'NEO_CHROMA_PORT', 'port')
                 }

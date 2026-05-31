@@ -1,9 +1,15 @@
 services:
   chroma:
     image: chromadb/chroma:1.5.9
+    # One flat unified persist dir, identical local + cloud (ADR 0003 / Epic #12153).
+    # PERSIST_DIRECTORY is REQUIRED: the image persists to its WORKDIR-relative default
+    # (/chroma/chroma) and IGNORES a mount elsewhere, so the env must point at the same
+    # leaf as the tmpfs mount or the daemon writes outside the tmpfs.
+    environment:
+      - PERSIST_DIRECTORY=/chroma/unified
     # Tmpfs-mode option for Chroma when used as test fixture (cross-link to #10805)
     tmpfs:
-      - /chroma/chroma
+      - /chroma/unified
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 10s
