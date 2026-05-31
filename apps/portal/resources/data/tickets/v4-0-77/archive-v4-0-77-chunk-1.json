@@ -1,0 +1,1 @@
+[{"id":"3312","parentId":"v4.0.77/archive-v4-0-77-chunk-1","title":"component.Base: set vdom => add a check to only allow updates in case a vnode does exist"},{"id":"3308","parentId":"v4.0.77/archive-v4-0-77-chunk-1","title":"component.Base: syncVnodeTree() => parents update"}]

@@ -1,0 +1,1 @@
+[{"id":"4075","parentId":"v5.1.12/archive-v5-1-12-chunk-1","title":"buildScripts/buildAll: only copy the docs output in case parsedocs is set to 'yes'"}]

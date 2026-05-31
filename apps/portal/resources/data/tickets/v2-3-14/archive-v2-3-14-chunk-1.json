@@ -1,0 +1,1 @@
+[{"id":"2740","parentId":"v2.3.14/archive-v2-3-14-chunk-1","title":"Neo.Main: remove the error message for starting an app in Safari & dev mode"},{"id":"2739","parentId":"v2.3.14/archive-v2-3-14-chunk-1","title":"\"Manager.mjs:384 Uncaught Error: Called sendMessage for a worker that does not exist: canvas\" when trying samples"}]

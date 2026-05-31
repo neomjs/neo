@@ -1,0 +1,1 @@
+[{"id":"2982","parentId":"v4.0.4/archive-v4-0-4-chunk-1","title":"layout.Card: afterSetActiveIndex() => removes inactive cards when removeInactiveCards is set to false"},{"id":"2981","parentId":"v4.0.4/archive-v4-0-4-chunk-1","title":"Neo.Main: getWindowData() => adjust the method for safari"}]
