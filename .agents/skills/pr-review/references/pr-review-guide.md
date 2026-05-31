@@ -1,6 +1,6 @@
 # Pull Request Review Guide
 
-This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project. 
+This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project.
 Whether you are a human reviewer or an autonomous Agent evaluating code, you must adhere to this structure.
 
 This protocol ensures that feedback is:
@@ -9,6 +9,10 @@ This protocol ensures that feedback is:
 3. **Graph-Extractable:** Structured with specific Markdown tags so the background Retrospective Agent (Gemma 4:31B) can mathematically ingest the feedback into the Native Edge Graph.
 
 > **Measurement Trigger:** For review-density or skill-baggage work, use [Loaded-Surface Measurement Methodology](./measurement-methodology.md) and record `wc -c`; ordinary PR reviews do not load it.
+
+## §0 — Understand the intent before the diff
+
+Learn what the change is *for*, and judge whether it fits the current architecture and goals, **before** the diff and the audits below — you can reject a toaster-when-we-need-a-car before reading a line. Build that understanding from the affected files themselves (intent belongs in their JSDoc — `src/core/Base.mjs` is the bar), their neighbors, and their imports; use `memory-mining` / `ask_knowledge_base` when the code is thin. This is slower on purpose — the judgment is the point, not the speed. Intent you can't find anywhere is the finding: ticket the gap. A green checklist over a wrong premise is theater, and nothing below substitutes for this.
 
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
@@ -85,7 +89,7 @@ Cycle 1 / cold-cache reviews score every metric explicitly in the full template.
 - Do not silently omit metrics. The delta form reduces thread bulk; it does not erase the scoring surface.
 
 ## 4. Graph Ingestion Tags
-To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
+To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback.
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 
 *   **`[KB_GAP]`**: Use this to document missing concepts, misunderstandings of framework logic, or areas where the developer (or agent) clearly lacked documentation.
@@ -401,15 +405,7 @@ skill, not a defect-detection skill.
 
 ### 9.0 Cycle-1 Premise Pre-Flight (Decisiveness-Before-Iteration)
 
-Before composing Required Actions on a Cycle-1 review, ask: **"Does this PR have any structural issue that makes Request Changes wrong-shape?"**
-
-If a Cycle-1 structural-invalidity trigger fires, default to **Drop+Supersede framing**: one close/restart Required Action, not a multi-item iteration list. Common triggers: false premise, ungraduated upstream substrate, specific authority bypass, Neo-doctrine anti-pattern instantiation, active roadmap conflict, better existing substrate, or source-ticket stale/currency-risk.
-
-If the PR resolves or materially follows a ticket older than the stale workflow threshold, marked stale, marked `no auto close`, or visibly superseded, the source ticket is review input, not review authority. Matching stale ACs is not enough for approval; current source/docs/tests plus newer tickets, PRs, epics, and Discussions decide whether the source ticket is still authoritative.
-
-ADR conflict trigger: run `ticket-intake/references/adr-successor-risk-audit.md`; block approval unless the PR names the ADR update or pending-authority path.
-
-This is discipline, not a mandatory checkbox. Routine PRs should clear it in under 30 seconds; when it fires, the framing flip is immediate. For trigger definitions and bias rationale, read [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
+When §0 surfaces a Cycle-1 structural invalidity that makes `Request Changes` wrong-shape — false premise, ungraduated upstream substrate, authority bypass, Neo-doctrine anti-pattern, active roadmap conflict, better existing substrate, or a source ticket that is stale / `no auto close` / superseded (review *input*, not authority — matching stale ACs is not approval) — default to **Drop+Supersede**: one close/restart Required Action, not a multi-item iteration list. ADR conflict → run `ticket-intake/references/adr-successor-risk-audit.md`. Triggers + bias rationale: [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
 
 ### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
 
