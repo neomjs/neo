@@ -180,8 +180,10 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         // for why importing the template collides with daemon.mjs's config.mjs singleton).
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
 
+        // `lms.enabled` defaults to `true` (lms lane is the canonical local-inference launcher);
+        // the model id (`qwen3-embedding-8b`) and port (`1234`) are the rest of the launch shape.
         expect(templateSource).toMatch(
-            /lms:\s*\{[\s\S]*?leaf\(false[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
+            /lms:\s*\{[\s\S]*?leaf\(true[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
         );
     });
 
