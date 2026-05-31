@@ -1,6 +1,6 @@
 # Pull Request Review Guide
 
-This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project. 
+This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project.
 Whether you are a human reviewer or an autonomous Agent evaluating code, you must adhere to this structure.
 
 This protocol ensures that feedback is:
@@ -9,6 +9,10 @@ This protocol ensures that feedback is:
 3. **Graph-Extractable:** Structured with specific Markdown tags so the background Retrospective Agent (Gemma 4:31B) can mathematically ingest the feedback into the Native Edge Graph.
 
 > **Measurement Trigger:** For review-density or skill-baggage work, use [Loaded-Surface Measurement Methodology](./measurement-methodology.md) and record `wc -c`; ordinary PR reviews do not load it.
+
+## §0 — Understand the intent before the diff
+
+Learn what the change is *for*, and judge whether it fits the current architecture and goals, **before** the diff and the audits below — you can reject a toaster-when-we-need-a-car before reading a line. Build that understanding from the affected files themselves (intent belongs in their JSDoc — `src/core/Base.mjs` is the bar), their neighbors, and their imports; use `memory-mining` / `ask_knowledge_base` when the code is thin. This is slower on purpose — the judgment is the point, not the speed. Intent you can't find anywhere is the finding: ticket the gap. A green checklist over a wrong premise is theater, and nothing below substitutes for this.
 
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
@@ -85,7 +89,7 @@ Cycle 1 / cold-cache reviews score every metric explicitly in the full template.
 - Do not silently omit metrics. The delta form reduces thread bulk; it does not erase the scoring surface.
 
 ## 4. Graph Ingestion Tags
-To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
+To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback.
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 
 *   **`[KB_GAP]`**: Use this to document missing concepts, misunderstandings of framework logic, or areas where the developer (or agent) clearly lacked documentation.

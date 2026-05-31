@@ -4,6 +4,10 @@ The authoritative protocol for creating Neo.mjs GitHub issues. Enforced before a
 
 Tickets are **A2A (Agent-to-Agent) memory bridges**, not just human tracking artifacts. A poorly-formed ticket loses architectural context the Swarm will re-derive every session. Every rule below exists because an earlier session re-derived the discipline and got it wrong.
 
+## §0 — Understand the intent before you write the ticket
+
+Before the duplicate sweep or the Fat-Ticket body: is this the right work — does it fit the current architecture and goals? Understand what it's *for* (from the affected files and their neighbors / imports — intent belongs in their JSDoc, `src/core/Base.mjs` is the bar — plus `memory-mining` / `ask_knowledge_base`) before you structure it. A perfectly-formed ticket for the wrong work is still the wrong work. If the intent it relies on is documented nowhere, that gap is itself worth a ticket.
+
 ## 1. Pre-Authoring Adjacency Sweeps (Gate 0)
 
 **Before drafting any title or body**, you MUST execute two specific sweeps to ensure swarm synchronicity and architectural discipline:

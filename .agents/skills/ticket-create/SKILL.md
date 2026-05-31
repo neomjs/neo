@@ -5,10 +5,6 @@ description: "Authoritative protocol for creating Neo.mjs GitHub issues. Enforce
 
 # Ticket Create Skill
 
-## §0 — Prio-0 Sanity Gate (judgment before machinery)
-
-Before the duplicate sweep, the Fat-Ticket body, or the six-stage chain, answer from your understanding of the roadmap: **does this ticket make sense, and does it fit the current architecture and goals?** If the proposed work builds a toaster when we need a car, do not file it — reshape or reject the premise. A perfectly-structured ticket for the wrong work is still the wrong work; the machinery below cannot fix a wrong premise.
-
 If you are about to create a new GitHub issue, you MUST NOT compose the title, body, or labels ad-hoc — and you MUST NOT skip the pre-creation duplicate sweep.
 
 You MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/ticket-create/references/ticket-create-workflow.md` before proceeding. Or, if you already have the payload in context, proceed directly to its directives.

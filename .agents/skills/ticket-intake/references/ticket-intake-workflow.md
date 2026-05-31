@@ -4,6 +4,10 @@ This document outlines the authoritative protocol for the **Pre-Execution Reflec
 
 If you blindly accept a ticket's premise, you risk injecting regressions into the Native Edge Graph.
 
+## §0 — Understand the intent before you accept
+
+Before the validation sweep or branching: does this ticket still make sense for the *current* architecture and goals — tickets go stale. Understand what the work is *for* from the affected files (intent belongs in their JSDoc — `src/core/Base.mjs` is the bar), their neighbors, and their imports, plus `memory-mining` / `ask_knowledge_base`, before accepting it. Slower on purpose — the judgment is the point. Intent documented nowhere is the finding: ticket the gap, don't guess.
+
 ## 1. The Validation Sweep
 
 > **⚡ The "Hot Context" Fast-Path (Same-Session Creation)**
@@ -24,7 +28,7 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - **Primary:** Use `ask_knowledge_base` (with `type='ticket'`) first. This acts as an embedded RAG subagent that synthesizes historical context, exposing paradoxes or abandoned branches you are blind to.
    - **Secondary:** Use `query_raw_memories` against the Memory Core to surface isolated Agent iteration loops that never made it to GitHub.
 
-6. **Duplication Check:** Semantic search is significantly more powerful than string matching. 
+6. **Duplication Check:** Semantic search is significantly more powerful than string matching.
    - **Primary:** Prioritize using `ask_knowledge_base` (with `type='ticket'`) to query for overlapping active or archived initiatives. It will mathematically connect semantic concepts (e.g. mapping "payload bloat" to "n_ctx boundaries") that grep would miss.
    - **Fallback:** If you explicitly require exact keyword verification (e.g. a specific UUID or function name constraint), fallback to using `grep_search` targeting `resources/content/issues` (active and archived) and `resources/content/discussions`.
 
@@ -115,7 +119,7 @@ You are **FORBIDDEN** from executing the following tools while on the `dev` or `
 
 ## 4. The Rejection Protocol (Handling Negative ROI)
 
-If you determine the ticket is stale or harmful, you MUST execute the Rejection Protocol instead of attempting to build it. 
+If you determine the ticket is stale or harmful, you MUST execute the Rejection Protocol instead of attempting to build it.
 
 **Close Policy:**
 - **Architecture Exploration / Epic Tickets:** **DO NOT close the ticket.** It must be preserved so the Swarm can formally evaluate the paradox. Apply the `status: needs-re-triage` label.
