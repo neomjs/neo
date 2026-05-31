@@ -474,7 +474,7 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 lms: {
-                    enabled: leaf(true, 'NEO_ORCHESTRATOR_LMS_ENABLED', 'boolean'),
+                    enabled: leaf(false, 'NEO_ORCHESTRATOR_LMS_ENABLED', 'boolean'),
                     model  : leaf('qwen3-embedding-8b', 'NEO_ORCHESTRATOR_LMS_MODEL', 'string'),
                     port   : leaf('1234', 'NEO_ORCHESTRATOR_LMS_PORT', 'string')
                 }

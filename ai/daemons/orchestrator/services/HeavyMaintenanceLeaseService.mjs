@@ -26,6 +26,33 @@ export function toTimestamp(value) {
 }
 
 /**
+ * @summary Checks whether a process id still has a live owner.
+ *
+ * `process.kill(pid, 0)` is the cross-platform Node probe for process existence.
+ * `EPERM` still means a process exists but cannot be signalled by this user; only
+ * `ESRCH` / invalid pid shapes are treated as dead. Used by lease inspection so
+ * crashed orchestrator-owned maintenance tasks do not hold the mutex until the
+ * long wall-clock TTL expires.
+ *
+ * @param {Number|String} pid Process id recorded in a lease payload.
+ * @returns {Boolean}
+ */
+export function isPidAlive(pid) {
+    const numericPid = Number(pid);
+
+    if (!Number.isInteger(numericPid) || numericPid <= 0) {
+        return false;
+    }
+
+    try {
+        process.kill(numericPid, 0);
+        return true;
+    } catch (e) {
+        return e.code === 'EPERM';
+    }
+}
+
+/**
  * @summary Determines whether a persisted heavy-maintenance lease has expired.
  *
  * The stale check is intentionally payload-based instead of file-mtime-based so
@@ -35,9 +62,10 @@ export function toTimestamp(value) {
  * @param {Object|null} lease Persisted lease payload.
  * @param {Object} [options]
  * @param {Date|Number|String} [options.now=new Date()] Current time.
+ * @param {Function} [options.isPidAlive=isPidAlive] Process liveness probe seam.
  * @returns {Boolean}
  */
-export function isLeaseStale(lease, {now = new Date()} = {}) {
+export function isLeaseStale(lease, {now = new Date(), isPidAlive: isPidAliveFn = isPidAlive} = {}) {
     if (!lease || !lease.acquiredAt) {
         return true;
     }
@@ -46,6 +74,10 @@ export function isLeaseStale(lease, {now = new Date()} = {}) {
 
     if (!Number.isFinite(nowMs)) {
         return false;
+    }
+
+    if (lease.pid !== undefined && lease.pid !== null && typeof isPidAliveFn === 'function' && !isPidAliveFn(lease.pid)) {
+        return true;
     }
 
     const expiresAtMs = lease.expiresAt ? toTimestamp(lease.expiresAt) : NaN;
@@ -108,7 +140,8 @@ export function buildLeasePayload({
 export async function inspectHeavyMaintenanceLease({
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
-    now       = new Date()
+    now       = new Date(),
+    isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     let raw;
 
@@ -124,7 +157,7 @@ export async function inspectHeavyMaintenanceLease({
 
     try {
         const lease = JSON.parse(raw);
-        const stale = isLeaseStale(lease, {now});
+        const stale = isLeaseStale(lease, {now, isPidAlive: isPidAliveFn});
 
         return {
             status: stale ? 'stale' : 'active',
@@ -162,7 +195,8 @@ function writeLeaseFileSync(leasePath, lease, fsModule) {
 export function inspectHeavyMaintenanceLeaseSync({
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
-    now       = new Date()
+    now       = new Date(),
+    isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     let raw;
 
@@ -178,7 +212,7 @@ export function inspectHeavyMaintenanceLeaseSync({
 
     try {
         const lease = JSON.parse(raw);
-        const stale = isLeaseStale(lease, {now});
+        const stale = isLeaseStale(lease, {now, isPidAlive: isPidAliveFn});
 
         return {
             status: stale ? 'stale' : 'active',
@@ -211,6 +245,7 @@ export function acquireHeavyMaintenanceLeaseSync({
     now          = new Date(),
     pid          = process.pid,
     staleAfterMs = DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
+    isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {
     if (!owner) {
@@ -228,7 +263,7 @@ export function acquireHeavyMaintenanceLeaseSync({
         }
     }
 
-    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now});
+    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
 
     if (current.active) {
         return {status: 'held', acquired: false, lease: current.lease};
@@ -249,7 +284,7 @@ export function acquireHeavyMaintenanceLeaseSync({
             throw e;
         }
 
-        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now});
+        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
         return {status: 'held', acquired: false, lease: raced.lease};
     }
 }
@@ -264,13 +299,14 @@ export function releaseHeavyMaintenanceLeaseSync({
     token,
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
-    now       = new Date()
+    now       = new Date(),
+    isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
 
-    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now});
+    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
 
     if (current.status === 'missing') {
         return {status: 'missing', released: false};
@@ -312,6 +348,7 @@ export async function acquireHeavyMaintenanceLease({
     now          = new Date(),
     pid          = process.pid,
     staleAfterMs = DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
+    isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {
     if (!owner) {
@@ -329,7 +366,7 @@ export async function acquireHeavyMaintenanceLease({
         }
     }
 
-    const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now});
+    const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
 
     if (current.active) {
         return {status: 'held', acquired: false, lease: current.lease};
@@ -350,7 +387,7 @@ export async function acquireHeavyMaintenanceLease({
             throw e;
         }
 
-        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now});
+        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
         return {status: 'held', acquired: false, lease: raced.lease};
     }
 }
@@ -369,13 +406,14 @@ export async function releaseHeavyMaintenanceLease({
     token,
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
-    now       = new Date()
+    now       = new Date(),
+    isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
 
-    const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now});
+    const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
 
     if (current.status === 'missing') {
         return {status: 'missing', released: false};
@@ -492,7 +530,8 @@ export async function withHeavyMaintenanceLease(task, options = {}) {
         const current = await inspectHeavyMaintenanceLease({
             leasePath: options.leasePath,
             fsModule : options.fsModule,
-            now      : options.now
+            now      : options.now,
+            isPidAlive: options.isPidAlive
         });
 
         if (current.active && current.lease && current.lease.token === inheritedToken) {
@@ -524,7 +563,8 @@ export async function withHeavyMaintenanceLease(task, options = {}) {
             token    : acquisition.lease.token,
             leasePath: options.leasePath,
             fsModule : options.fsModule,
-            now      : options.now
+            now      : options.now,
+            isPidAlive: options.isPidAlive
         });
     }
 }
@@ -582,7 +622,8 @@ export class HeavyMaintenanceLeaseService extends Base {
         return inspectHeavyMaintenanceLease({
             leasePath: options.leasePath ?? this.leasePath,
             fsModule : options.fsModule  ?? this.fsModule,
-            now      : options.now       ?? new Date()
+            now      : options.now       ?? new Date(),
+            isPidAlive: options.isPidAlive
         });
     }
 
