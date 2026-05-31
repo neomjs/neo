@@ -7,7 +7,7 @@ Markdown a human edits directly. Failure mode: generations drift apart (one doc 
 
 | Surface | What identity it encodes |
 |---|---|
-| `README.md` | Should LEAD with the canonical apex (two-hemisphere institution — Body `/src/` + Brain `/ai/`; ADR 0018 §2.7 OD-1); "Who This Is For"; Platform-at-Scale metrics; maintainer roster. (Currently still leads with digital-organism / Four Pillars — a drift the skill's first run corrects.) |
+| `README.md` | Should LEAD with the canonical apex (self-evolving software organism — Body `/src/` + Brain `/ai/` the two hemispheres beneath it; ADR 0018 §2.7 OD-1); "Who This Is For"; Platform-at-Scale metrics; maintainer roster. (Currently still leads with digital-organism / Four Pillars — a drift the skill's first run corrects.) |
 | `.github/VISION.md` | Long-form vision; **known fossil-prone** (carried "web applications" + CEO/PM/Drone hierarchy contradicting Flat Peer-Team) |
 | `ROADMAP.md` | Forward positioning; "Corporate HQ" framing; skill/velocity counts |
 | `CONTRIBUTING.md`, `.github/GETTING_STARTED.md`, `.github/AI_QUICK_START.md` | Contributor-facing identity; MCP-server count; Node requirement |
