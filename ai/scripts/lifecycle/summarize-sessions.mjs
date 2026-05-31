@@ -27,7 +27,17 @@ async function summarize() {
     try {
         await Memory_SessionService.initAsync();
 
-        console.log('[summarize-sessions] Starting session summarization...');
+        console.log('[summarize-sessions] Draining pending session summarization markers...');
+        const pendingResult = await Memory_SessionService.summarizePendingSessions();
+
+        if (pendingResult && pendingResult.error) {
+            console.error(`[summarize-sessions] Pending summarization failed: ${pendingResult.message}`);
+            process.exit(1);
+        }
+
+        console.log(`[summarize-sessions] Pending drain complete. Pending: ${pendingResult?.pending || 0}; processed: ${pendingResult?.processed || 0}`);
+
+        console.log('[summarize-sessions] Starting drift-detection session summarization...');
         // includeAll: false will only summarize sessions from the last 30 days
         const result = await Memory_SessionService.summarizeSessions({ includeAll: false });
 

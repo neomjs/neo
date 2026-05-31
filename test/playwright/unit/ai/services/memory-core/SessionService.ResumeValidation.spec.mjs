@@ -87,6 +87,117 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
         expect(result.sessionId).toBe(sessionId);
     });
 
+    test('#12199: queueSummarizationJob writes an idempotent pending marker', async () => {
+        const sessionId    = `pending-marker-${crypto.randomUUID()}`;
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        try {
+            expect(SDK.Memory_SessionService.queueSummarizationJob(sessionId)).toBe(true);
+            expect(SDK.Memory_SessionService.queueSummarizationJob(sessionId)).toBe(true);
+
+            const row = sqlite.prepare('SELECT status, lease_token, expires_at, retry_count FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
+
+            expect(row.status).toBe('pending');
+            expect(row.lease_token).toBeNull();
+            expect(row.expires_at).toBeNull();
+            expect(row.retry_count).toBe(0);
+        } finally {
+            sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+        }
+    });
+
+    test('#12199: queueSummarizationJob does not steal an active summarization lease', async () => {
+        const sessionId    = `active-lease-${crypto.randomUUID()}`;
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        const futureExpiresAt = Date.now() + 60_000;
+        sqlite.prepare(`
+            INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
+            VALUES (?, 'in_progress', 'active-token', ?, 3)
+        `).run(sessionId, futureExpiresAt);
+
+        try {
+            expect(SDK.Memory_SessionService.queueSummarizationJob(sessionId)).toBe(true);
+
+            const row = sqlite.prepare('SELECT status, lease_token, expires_at, retry_count FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
+
+            expect(row.status).toBe('in_progress');
+            expect(row.lease_token).toBe('active-token');
+            expect(row.expires_at).toBe(futureExpiresAt);
+            expect(row.retry_count).toBe(3);
+        } finally {
+            sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+        }
+    });
+
+    test('#12199: queueSummarizationJob does not reopen a completed summary', async () => {
+        const sessionId    = `completed-summary-${crypto.randomUUID()}`;
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        sqlite.prepare(`
+            INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
+            VALUES (?, 'completed', NULL, NULL, 2)
+        `).run(sessionId);
+
+        try {
+            expect(SDK.Memory_SessionService.queueSummarizationJob(sessionId)).toBe(true);
+
+            const row = sqlite.prepare('SELECT status, lease_token, expires_at, retry_count FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
+
+            expect(row.status).toBe('completed');
+            expect(row.lease_token).toBeNull();
+            expect(row.expires_at).toBeNull();
+            expect(row.retry_count).toBe(2);
+        } finally {
+            sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+        }
+    });
+
+    test('#12199: summarizePendingSessions drains explicit pending ids through summarizeSessions', async () => {
+        const calls = [];
+        const originalGetPending = SDK.Memory_SessionService.getPendingSummarizationJobIds;
+        const originalSummarize = SDK.Memory_SessionService.summarizeSessions;
+
+        SDK.Memory_SessionService.getPendingSummarizationJobIds = ({limit}) => {
+            calls.push({type: 'getPending', limit});
+            return ['pending-session-1', 'pending-session-2'];
+        };
+        SDK.Memory_SessionService.summarizeSessions = async ({sessionId}) => {
+            calls.push({type: 'summarize', sessionId});
+            return {processed: 1, sessions: [{sessionId}]};
+        };
+
+        try {
+            const result = await SDK.Memory_SessionService.summarizePendingSessions({limit: 2});
+
+            expect(result).toEqual({
+                pending  : 2,
+                processed: 2,
+                sessions : [{sessionId: 'pending-session-1'}, {sessionId: 'pending-session-2'}]
+            });
+            expect(calls).toEqual([
+                {type: 'getPending', limit: 2},
+                {type: 'summarize', sessionId: 'pending-session-1'},
+                {type: 'summarize', sessionId: 'pending-session-2'}
+            ]);
+        } finally {
+            SDK.Memory_SessionService.getPendingSummarizationJobIds = originalGetPending;
+            SDK.Memory_SessionService.summarizeSessions = originalSummarize;
+        }
+    });
+
     test('resumable success when memories exist with no SummarizationJobs row', async () => {
         const sessionId = `resumable-memories-${crypto.randomUUID()}`;
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
