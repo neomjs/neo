@@ -405,15 +405,7 @@ skill, not a defect-detection skill.
 
 ### 9.0 Cycle-1 Premise Pre-Flight (Decisiveness-Before-Iteration)
 
-Before composing Required Actions on a Cycle-1 review, ask: **"Does this PR have any structural issue that makes Request Changes wrong-shape?"**
-
-If a Cycle-1 structural-invalidity trigger fires, default to **Drop+Supersede framing**: one close/restart Required Action, not a multi-item iteration list. Common triggers: false premise, ungraduated upstream substrate, specific authority bypass, Neo-doctrine anti-pattern instantiation, active roadmap conflict, better existing substrate, or source-ticket stale/currency-risk.
-
-If the PR resolves or materially follows a ticket older than the stale workflow threshold, marked stale, marked `no auto close`, or visibly superseded, the source ticket is review input, not review authority. Matching stale ACs is not enough for approval; current source/docs/tests plus newer tickets, PRs, epics, and Discussions decide whether the source ticket is still authoritative.
-
-ADR conflict trigger: run `ticket-intake/references/adr-successor-risk-audit.md`; block approval unless the PR names the ADR update or pending-authority path.
-
-This is discipline, not a mandatory checkbox. Routine PRs should clear it in under 30 seconds; when it fires, the framing flip is immediate. For trigger definitions and bias rationale, read [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
+When §0 surfaces a Cycle-1 structural invalidity that makes `Request Changes` wrong-shape — false premise, ungraduated upstream substrate, authority bypass, Neo-doctrine anti-pattern, active roadmap conflict, better existing substrate, or a source ticket that is stale / `no auto close` / superseded (review *input*, not authority — matching stale ACs is not approval) — default to **Drop+Supersede**: one close/restart Required Action, not a multi-item iteration list. ADR conflict → run `ticket-intake/references/adr-successor-risk-audit.md`. Triggers + bias rationale: [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
 
 ### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
 
