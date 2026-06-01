@@ -34,6 +34,7 @@ cannot move.
 | Terminal boundary | PR opened, PR updated, formal review posted, review response posted, issue created, issue closed, blocked state resolved, or human merge gate reached. |
 | Positive-ROI work | Any unblocked lane, review, ticket, or follow-up whose value exceeds its coordination cost. The default assumption is that such work exists unless V-B-A proves otherwise. |
 | Progress evidence | A public artifact or A2A lifecycle event: lane claim, review request, review, implementation update, PR, blocker declaration, or epic-resolution recommendation. |
+| Ignored heartbeat | A delivered heartbeat/watchdog pulse that produces no progress evidence. Repeating the same unchanged no-delta, pause, or halt-state response counts as ignored. |
 
 ## 3. Acquisition And Renewal
 
@@ -78,6 +79,29 @@ The driver must choose exactly one concrete next action:
 Repeated no-progress watchdog cycles are material. Silence plus open work is not
 a no-op state; it consumes the lease TTL and should trigger self-selection or
 handoff before expiry.
+
+### 4.1 Three-Heartbeat Critical Failure Threshold
+
+Three consecutive ignored heartbeats in the same active goal/session are a
+critical failure. The third pulse MUST NOT end as another passive pause, halt,
+or no-delta response.
+
+On the third pulse, the recipient must:
+
+1. Name the missed goal, lane, or lease.
+2. Cite the three heartbeat evidence points and the missing progress evidence.
+3. Choose one concrete recovery action: claim/execute a lane, route a blocker,
+   hand off the lease, run `epic-resolution`, or escalate a wake-substrate
+   incident if delivery itself is suspect.
+4. Broadcast `[critical-failure]` over A2A so peers can see the recovery state.
+
+A verified external blocker with a new next probe is progress evidence. Merely
+restating the same blocker, human gate, FAIR-band excuse, or no-candidate claim
+without a fresh falsifying check does not reset the counter.
+
+This threshold applies after a heartbeat is delivered to a recipient. It does
+not reclassify upstream wake skips caused by `active AND idle AND ready`, safety
+gates, or intentionally disabled heartbeat delivery.
 
 ## 5. Notification Rules
 
@@ -155,4 +179,15 @@ Current status: <verified status>.
 Blocker: <specific live evidence>.
 Next probe: <time/event/tool that will falsify the blocker>.
 Fallback lane: <next candidate or explicit reason none is positive-ROI>.
+```
+
+Critical failure:
+
+```text
+subject: [critical-failure] #LANE - three ignored heartbeats
+body:
+Evidence: <heartbeat ids/timestamps> produced no progress evidence.
+Missed lane/goal: <verified lane or goal>.
+Recovery action: <claim/route/handoff/epic-resolution/incident-escalation>.
+lane-state: next-lane|blocked|handoff (<specific target>)
 ```
