@@ -138,6 +138,55 @@ class TimelineCanvas extends SharedCanvas {
     }
 
     /**
+     * @summary Translates avatar/badge DOM rects into canvas-local node descriptors, skipping unmeasured elements.
+     *
+     * A zero-size rect (`{x:0,y:0,width:0,height:0}`) is returned for any `-target` element that is not
+     * laid out at capture time — a content-visibility-collapsed `<details>` body, a lazy avatar image
+     * not yet loaded, or an element mid route-transition. Such rects MUST be rejected: translated into
+     * canvas-local space (`x = rect.x - canvasRect.x`) a zero rect yields a bogus node at the far-left
+     * edge (`x = -canvasRect.x`), which the renderer draws as a spurious spine segment angling off to
+     * the left / a second spine converging on the last node.
+     *
+     * @param {Object[]} records    The timeline records, parallel to `rects`
+     * @param {Object[]} rects      The fetched DOMRects for each record's `-target` element
+     * @param {Object}   canvasRect The canvas overlay's DOMRect, for screen→canvas-local translation
+     * @returns {Object} `{nodes, startY}`
+     */
+    buildNodes(records, rects, canvasRect) {
+        let nodes  = [],
+            startY = 0;
+
+        rects.forEach((rect, index) => {
+            let record = records[index];
+
+            // Reject zero-size rects — an unmeasured element would translate to a bogus far-left node.
+            if (rect && rect.width > 0 && rect.height > 0) {
+                // PRECISE CENTERING: `rect` is the actual avatar/badge.
+                let offset  = rect.height / 2,
+                    nodeY   = rect.y - canvasRect.y + offset,
+                    nodeX   = rect.x - canvasRect.x + (rect.width / 2),
+                    // Distinct padding for the Orbit effect: avatars (~40px) get more room than badges (~28px)
+                    padding = rect.height > 32 ? 6 : 3;
+
+                nodes.push({
+                    color : record.color, // Hex color (e.g. #ff0000)
+                    id    : record.id,
+                    radius: offset + padding,
+                    y     : nodeY,
+                    x     : nodeX
+                });
+
+                // Anchor startY to the first rendered (measurable) node
+                if (nodes.length === 1) {
+                    startY = nodeY
+                }
+            }
+        });
+
+        return {nodes, startY}
+    }
+
+    /**
      * The core "Alignment Engine" of the timeline.
      *
      * This method synchronizes the Canvas nodes with the DOM elements (Avatars/Badges).
@@ -207,40 +256,19 @@ class TimelineCanvas extends SharedCanvas {
                 await me.updateSize()
             }
 
-            let canvasRect = await me.getDomRect(me.getCanvasId()),
-                nodes      = [],
-                startY     = 0;
+            let canvasRect      = await me.getDomRect(me.getCanvasId()),
+                {nodes, startY} = me.buildNodes(records, rects, canvasRect);
 
-            ids.forEach((targetId, index) => {
-                let rect   = rects[index],
-                    record = records[index];
+            await me.renderer.updateGraphData({nodes, reset, startY});
 
-                if (rect) {
-                    // PRECISE CENTERING
-                    // Now 'rect' is the actual avatar/badge.
-                    let offset = rect.height / 2,
-                        nodeY  = rect.y - canvasRect.y + offset,
-                        nodeX  = rect.x - canvasRect.x + (rect.width / 2),
-                        // Distinct padding for Orbit effect
-                        // Avatars (~40px) get more breathing room than Badges (~28px)
-                        padding = rect.height > 32 ? 6 : 3;
-
-                    nodes.push({
-                        color : record.color, // Pass Hex Color (e.g. #ff0000)
-                        id    : record.id,
-                        radius: offset + padding,
-                        y     : nodeY,
-                        x     : nodeX
-                    });
-
-                    // Set the startY of the line to the first node
-                    if (index === 0) {
-                        startY = nodeY
-                    }
-                }
-            });
-
-            await me.renderer.updateGraphData({nodes, reset, startY})
+            // Some `-target` rects can be zero-sized at first capture — a content-visibility-collapsed
+            // `<details>` body, a lazy avatar image not yet loaded, or a mid-route-transition layout.
+            // `buildNodes` skips those (a zero rect would translate to a bogus far-left node),
+            // so re-run the alignment once layout settles to pick them up. Mirrors the `onResize` path;
+            // guarded on `!isResize` so the `ensureFinalAlignment` re-entry (isResize=true) cannot recurse.
+            if (!isResize) {
+                me.ensureFinalAlignment()
+            }
         } catch (e) {
             console.error('TimelineCanvas update failed', e)
         }
