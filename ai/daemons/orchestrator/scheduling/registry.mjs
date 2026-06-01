@@ -104,9 +104,10 @@ export const TASK_REGISTRY = Object.freeze([
         dependencies    : [],
         getDueTask({state, now, intervals}) {
             return getDreamDueTask({
-                state            : state.dream ?? {},
+                state                 : state.dream ?? {},
                 now,
-                dreamIntervalMs  : intervals.dream
+                dreamIntervalMs       : intervals.dream,
+                dreamOverflowThreshold: intervals.dreamOverflowThreshold
             });
         }
     },

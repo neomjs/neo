@@ -63,6 +63,7 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.intervals.primaryDevSyncMs = config.primaryDevSyncIntervalMs ?? 600000;
     AiConfig.orchestrator.intervals.tenantRepoSyncMs = config.tenantRepoSyncIntervalMs ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.dreamMs          = config.dreamIntervalMs          ?? Number.MAX_SAFE_INTEGER;
+    AiConfig.orchestrator.intervals.dreamOverflowThreshold = config.dreamOverflowThreshold ?? 0.8;
     AiConfig.orchestrator.intervals.goldenPathMs     = config.goldenPathIntervalMs     ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.swarmHeartbeatMs = config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER;
     if (config.pollIntervalMs !== undefined) AiConfig.orchestrator.intervals.pollMs = config.pollIntervalMs;
@@ -97,6 +98,7 @@ function createTestOrchestrator(config = {}) {
     orchestrator.primaryRepoSyncService   = config.primaryRepoSyncService   || {runTask: () => null};
     orchestrator.tenantRepoSyncService    = config.tenantRepoSyncService    || {runTask: () => null};
     orchestrator.tenantRepoSyncGetDueTask = config.tenantRepoSyncGetDueTask || (() => null);
+    orchestrator.dreamGetDueTask          = config.dreamGetDueTask          || orchestrator.dreamGetDueTask;
     orchestrator.dreamService             = config.dreamService             || {processUndigestedSessions: () => Promise.resolve()};
     orchestrator.goldenPathSynthesizer    = config.goldenPathSynthesizer    || {synthesizeGoldenPath: () => Promise.resolve()};
     orchestrator.swarmHeartbeatService    = config.swarmHeartbeatService    || {initAsync: () => Promise.resolve(), pulse: () => Promise.resolve()};
@@ -881,6 +883,54 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 reasonCode      : 'heavy-maintenance-backpressure'
             })
         });
+    });
+
+    test('dream — does not immediately rerun after a cadence-overflowing completed cycle (#12289)', () => {
+        const cycleCalls  = [];
+        const outcomes    = [];
+        const intervalMs  = 3600000;
+        const completedAt = Date.now() - 13000;
+        const runtimeMs   = 5262119;
+
+        const orchestrator = createTestOrchestrator({
+            summarySweepIntervalMs  : Number.MAX_SAFE_INTEGER,
+            kbSyncIntervalMs        : Number.MAX_SAFE_INTEGER,
+            backupIntervalMs        : Number.MAX_SAFE_INTEGER,
+            primaryDevSyncIntervalMs: Number.MAX_SAFE_INTEGER,
+            tenantRepoSyncIntervalMs: Number.MAX_SAFE_INTEGER,
+            dreamIntervalMs         : intervalMs,
+            dreamOverflowThreshold  : 0.8,
+            goldenPathIntervalMs    : Number.MAX_SAFE_INTEGER,
+            swarmHeartbeatIntervalMs: Number.MAX_SAFE_INTEGER,
+            healthService           : {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            dreamService: {
+                executeRemCycle: async options => {
+                    cycleCalls.push(options);
+                    return {
+                        status           : 'completed',
+                        runId            : 'rem-unexpected',
+                        reason           : options.reason,
+                        mode             : options.mode,
+                        startedAt        : new Date().toISOString(),
+                        completedAt      : new Date().toISOString(),
+                        durationMs       : 1,
+                        sessionsProcessed: 0
+                    };
+                }
+            }
+        });
+
+        TaskStateService.taskState.dream.lastRunAt     = completedAt - runtimeMs;
+        TaskStateService.taskState.dream.lastSuccessAt = new Date(completedAt).toISOString();
+
+        orchestrator.poll();
+
+        expect(cycleCalls).toEqual([]);
+        expect(outcomes.filter(o => o.taskName === 'dream')).toEqual([]);
     });
 
     test('defers due primary-dev-sync when another heavy maintenance task is already running (#11513 AC6 — umbrella AC2 gap fill)', () => {

@@ -22,6 +22,7 @@ import TenantRepoSyncService             from './services/TenantRepoSyncService.
 import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary.mjs';
 import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
 import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
+import {getDueTask as dreamGetDueTaskImport}          from './scheduling/dream.mjs';
 import TaskStateService                  from './services/TaskStateService.mjs';
 import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                     from './services/CadenceEngine.mjs';
@@ -153,7 +154,8 @@ function resolveCloudOnlyEnabled(key) {
  * - **(C) Simple imported collaborator** — direct-import instance fields
  *   (`primaryRepoSyncService`, `dreamService`, etc.) for class-shaped execution
  *   collaborators, and function-typed instance fields
- *   (`summaryGetDueTask`, `backupGetDueTask`, `primaryDevSyncGetDueTask`) for
+ *   (`summaryGetDueTask`, `backupGetDueTask`, `primaryDevSyncGetDueTask`,
+ *   `dreamGetDueTask`) for
  *   pure-function scheduling triggers from `./scheduling/<task>.mjs` — no
  *   class-system conversion, no parent-child propagation, no lifecycle side effect.
  *   The function-typed fields default to the imported pure functions so tests can
@@ -255,6 +257,7 @@ export class Orchestrator extends Base {
     backupGetDueTask         = backupGetDueTaskImport
     primaryDevSyncGetDueTask = primaryDevSyncGetDueTaskImport
     tenantRepoSyncGetDueTask = tenantRepoSyncGetDueTaskImport
+    dreamGetDueTask          = dreamGetDueTaskImport
 
     // === Instance state (mutated at runtime; non-reactive) ===
     isPolling                     = false
@@ -758,14 +761,12 @@ export class Orchestrator extends Base {
         }), context);
 
         this.cadenceEngine.runIfDue('dream', () => {
-            if (this.cadenceEngine.shouldRunIntervalTask({
+            return this.dreamGetDueTask({
+                state                 : this.taskStateService.getTaskState('dream') ?? {},
                 now,
-                lastRunAt : this.taskStateService.getTaskState('dream')?.lastRunAt,
-                intervalMs: AiConfig.orchestrator.intervals.dreamMs
-            })) {
-                return { reason: `periodic-dream:${AiConfig.orchestrator.intervals.dreamMs}` };
-            }
-            return null;
+                dreamIntervalMs       : AiConfig.orchestrator.intervals.dreamMs,
+                dreamOverflowThreshold: AiConfig.orchestrator.intervals.dreamOverflowThreshold
+            });
         }, executeMaintenanceTask(async (taskName, reason) => {
             this.taskStateService.markStarted(taskName, reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
