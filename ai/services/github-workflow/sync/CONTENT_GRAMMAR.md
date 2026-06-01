@@ -35,8 +35,9 @@ Verified against the emit code (`PullRequestSyncer.mjs`, `DiscussionSyncer.mjs`,
 - Frontmatter: `number, title, author, category` (`Ideas`|`General`|`Q&A`|…), `createdAt, updatedAt, closed` (boolean), `closedAt`. No `state`, no `labels`.
 - Sections: `## Description`, then `## Comments`.
 - `## Comments` entries: `` ### `@user` commented on <ISO_Z> `` — the backtick form, **like PRs, not** the issue `- <ts> @user` event form.
-- Threaded replies follow their parent comment, each headed `` > **Reply by `@user`** on <ISO_Z> `` with the reply body as `> `-blockquoted lines (flattened; parent→child depth is not yet structured — see #12216).
-- An accepted answer is **not yet emitted** — see #12215 (gate any answer affordance to `category === 'Q&A'`).
+- Threaded replies follow their parent comment, each headed `` #### Reply depth=<N> by `@user` on <ISO_Z> `` with raw reply markdown after the header. Parent association is lexical: a reply belongs to the preceding top-level comment until the next top-level `` ### `@user` commented on <ISO_Z> `` header.
+- Legacy flattened reply blocks headed `` > **Reply by `@user`** on <ISO_Z> `` remain readable as part of the parent comment body; consumers must not split on those legacy blockquotes.
+- Accepted answers are emitted as GitHub-style callouts (`> [!ANSWER]`) before accepted top-level comments or accepted replies.
 
 ## Quick reference — entry header by type
 
@@ -47,6 +48,7 @@ Verified against the emit code (`PullRequestSyncer.mjs`, `DiscussionSyncer.mjs`,
 | PR comment | `## Comments` | `` ### `@user` commented on <ISO_Z> `` |
 | PR review | `## Reviews` | `` ### `@user` (<STATE>) reviewed on <ISO_Z> `` |
 | Discussion comment | `## Comments` | `` ### `@user` commented on <ISO_Z> `` |
+| Discussion reply | Parent discussion comment | `` #### Reply depth=<N> by `@user` on <ISO_Z> `` |
 
 ## Consumers
 
