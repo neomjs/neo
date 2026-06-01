@@ -196,7 +196,7 @@ class Component extends ContentComponent {
 
         me.timelineData.push({
             id   : bodyId,
-            image: me.repoUserUrl + author + '.png',
+            image: me.getAvatarUrl(author),
             name : 'Description',
             tag  : 'body'
         });
@@ -213,7 +213,7 @@ class Component extends ContentComponent {
 
             me.timelineData.push({
                 id,
-                image: me.repoUserUrl + entry.user + '.png',
+                image: me.getAvatarUrl(entry.user),
                 name : isReview ? `Review (${entry.user})` : `Comment (${entry.user})`,
                 tag  : entry.type
             });
@@ -296,7 +296,7 @@ class Component extends ContentComponent {
         return `
             <div id="${id}" class="neo-timeline-item ${extraCls}" data-record-id="${id}">
                 <div id="${id}-target" class="neo-timeline-avatar">
-                    <img src="${me.repoUserUrl}${user}.png" alt="${user}">
+                    ${me.getAvatarHtml(user)}
                 </div>
                 <div class="neo-timeline-content">
                     <div class="neo-timeline-header">

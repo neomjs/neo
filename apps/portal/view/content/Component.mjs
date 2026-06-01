@@ -1,5 +1,10 @@
 import ContentComponent from '../../../../src/app/content/Component.mjs';
 
+// GitHub bot/app actors whose `github.com/<login>.png` avatar 404s — bot avatars live at
+// `avatars.githubusercontent.com/in/<app-id>` (not derivable from the login), so these fall back to a
+// no-network Font Awesome GitHub glyph instead of a broken image request.
+const botActors = new Set(['github-actions', 'dependabot', 'renovate', 'codecov', 'github-advanced-security']);
+
 /**
  * @summary Shared timeline-mode content base for the Portal news views (tickets, pull requests, discussions).
  *
@@ -52,6 +57,36 @@ class Component extends ContentComponent {
     construct(config) {
         super.construct(config);
         this.getStateProvider().setData('contentComponentId', this.id)
+    }
+
+    /**
+     * @summary Resolves the bounded (40px) avatar URL for a GitHub actor.
+     *
+     * Appends `?size=40` so the 40px timeline avatars fetch GitHub's ~1KB sized image instead of the
+     * full-resolution original (~40KB), keeping per-timeline avatar network cost bounded. Shared by every
+     * Portal news timeline view (tickets / discussions / pull requests).
+     * @param {String} user GitHub login.
+     * @returns {String}
+     */
+    getAvatarUrl(user) {
+        return `${this.repoUserUrl}${user}.png?size=40`
+    }
+
+    /**
+     * @summary Renders a bounded avatar for a timeline actor.
+     *
+     * Normal users get the sized `<img>`; bot/app actors (whose `github.com/<login>.png` 404s) fall back
+     * to a no-network Font Awesome GitHub glyph, so CI/bot comment actors render a stable marker instead
+     * of a broken image.
+     * @param {String} user GitHub login.
+     * @returns {String}
+     */
+    getAvatarHtml(user) {
+        if (botActors.has(user) || user.endsWith('[bot]')) {
+            return `<i class="neo-timeline-avatar-icon fa-brands fa-github" role="img" aria-label="${user}"></i>`
+        }
+
+        return `<img src="${this.getAvatarUrl(user)}" alt="${user}" loading="lazy">`
     }
 
     /**

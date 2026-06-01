@@ -166,6 +166,17 @@
                         border-radius: 50%;
                         width        : 100%;
                     }
+
+                    // No-network fallback marker for bot/app actors whose avatar image 404s.
+                    .neo-timeline-avatar-icon {
+                        align-items    : center;
+                        color          : var(--gh-text-secondary);
+                        display        : flex;
+                        font-size      : 28px;
+                        height         : 100%;
+                        justify-content: center;
+                        width          : 100%;
+                    }
                 }
 
                 .neo-timeline-content {
