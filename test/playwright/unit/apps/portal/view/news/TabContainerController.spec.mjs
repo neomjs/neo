@@ -12,25 +12,35 @@ import * as core             from '../../../../../../../src/core/_export.mjs';
 import TabContainerController from '../../../../../../../apps/portal/view/news/TabContainerController.mjs';
 
 /**
- * The news tab routes resolve `activeIndex` by matching `item.header.route` (not a hardcoded position),
- * so the controller stays correct when the `items` array is reordered for the left-docked
- * `column-reverse` header. Pins each route handler against the production (reversed) array order — this
- * is exactly the regression that hardcoded indexes silently break on reorder.
+ * The news tab routes resolve `activeIndex` by matching the tab button's `route` (not a hardcoded
+ * position), so the controller stays correct when the `items` array is reordered for the left-docked
+ * `column-reverse` header.
+ *
+ * The stub mirrors the POST-`createItems` reality: routes live on the header tab buttons
+ * (`getTabBar().items`, carrying the surviving `route` + `index` configs), NOT on `component.items`
+ * (which `Neo.tab.Container.createItems()` transforms into `[HeaderToolbar, Strip, BodyContainer]`).
+ * A lookup against `component.items.header.route` would find nothing here and fail — which is exactly
+ * the production bug this guards against.
  */
 test.describe('Portal.view.news.TabContainerController — route → activeIndex', () => {
-    test('each route handler activates the item whose header.route matches, for any array order', () => {
-        // Production order (reverse of the visual top-to-bottom display, per the column-reverse header).
-        const items = [
-            {header: {route: '/news/pulls'}},
-            {header: {route: '/news/medium'}},
-            {header: {route: '/news/blog'}},
-            {header: {route: '/news/discussions'}},
-            {header: {route: '/news/tickets'}},
-            {header: {route: '/news/releases'}}
+    test('each route handler activates the tab button whose route matches, for any array order', () => {
+        // Header buttons as they exist after createItems: `route` (Neo.button.Base config) + `index`
+        // (original tab index). Order mirrors the production reversed `items` array.
+        const tabButtons = [
+            {route: '/news/pulls',       index: 0},
+            {route: '/news/medium',      index: 1},
+            {route: '/news/blog',        index: 2},
+            {route: '/news/discussions', index: 3},
+            {route: '/news/tickets',     index: 4},
+            {route: '/news/releases',    index: 5}
         ];
 
         const controller = Object.create(TabContainerController.prototype);
-        controller.component = {items, activeIndex: null};
+
+        controller.component = {
+            activeIndex: null,
+            getTabBar  : () => ({items: tabButtons})
+        };
 
         controller.onPullsRoute();
         expect(controller.component.activeIndex).toBe(0);

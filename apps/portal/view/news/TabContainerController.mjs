@@ -31,16 +31,23 @@ class TabContainerController extends Controller {
     }
 
     /**
-     * @summary Activates the tab whose item config carries the given route.
+     * @summary Activates the tab whose header button carries the given route.
      *
-     * Resolves `activeIndex` by matching `item.header.route` rather than hardcoding a position, so the
-     * controller stays correct when the `items` array is reordered — which it is: the left-docked tab
-     * header renders `column-reverse`, so the array is ordered as the reverse of the visual display.
-     * This removes the index-sync footgun between the `items` order and these route handlers.
+     * Resolves `activeIndex` by matching the tab button's `route` rather than hardcoding a position, so
+     * the controller stays correct when the `items` array is reordered — which it is: the left-docked tab
+     * header renders `column-reverse`, so the array is the reverse of the visual display.
+     *
+     * The lookup MUST use `getTabBar().items` (the header buttons), NOT `component.items`:
+     * `Neo.tab.Container.createItems()` transforms the user `items` into `[HeaderToolbar, Strip,
+     * BodyContainer]`, so the original `item.header.route` is gone at route time. The header buttons
+     * survive that transform and carry both `route` (a `Neo.button.Base` config) and `index` (the
+     * original tab index the framework also reads on click).
      * @param {String} route
      */
     activateRoute(route) {
-        this.component.activeIndex = this.component.items.findIndex(item => item.header?.route === route)
+        let tab = this.component.getTabBar().items.find(button => button.route === route);
+
+        tab && (this.component.activeIndex = tab.index)
     }
 
     /**
