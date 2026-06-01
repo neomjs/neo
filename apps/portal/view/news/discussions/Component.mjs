@@ -5,7 +5,8 @@ const
     regexComments      = /\n## Comments\s*\n([\s\S]*)$/,
     regexCommentHeader = /^### `@([^`]+)` commented on ([\dTZ:.-]+)$/,
     regexFrontMatter   = /^---\n([\s\S]*?)\n---\n/,
-    regexH1            = /(<h1[^>]*>.*?<\/h1>)/;
+    regexH1            = /(<h1[^>]*>.*?<\/h1>)/,
+    regexReplyHeader   = /^#### Reply depth=(\d+) by `?@([^`]+)`? on ([\dTZ:.-]+)$/;
 
 /**
  * @summary The Markdown transformer for GitHub Discussions.
@@ -236,18 +237,20 @@ ${fullHtml}
      * @summary Parses the Discussion `## Comments` body into stable comment entries.
      *
      * The synced Discussion grammar uses backtick-wrapped `@user` headings as the durable entry
-     * boundary. Separator rules (`---`) are emitted between comments, but comment bodies can also
-     * contain their own `###` headings and horizontal rules, so this method splits only on the
-     * full comment header and trims just the trailing separator before the next entry.
+     * boundary and `#### Reply depth=N by @user on <timestamp>` headings as lexical children of
+     * the preceding top-level comment. Separator rules (`---`) are emitted between comments, but
+     * comment and reply bodies can also contain their own headings and horizontal rules, so this
+     * method splits only on the full comment/reply headers and trims just the trailing separator.
      * @param {String} content
-     * @returns {Object[]} `[{user, date, body}]`
+     * @returns {Object[]} `[{user, date, body, replies: [{depth, user, date, body}]}]`
      */
     parseComments(content) {
-        let lines   = content.split('\n'),
-            entries = [],
-            current = null,
-            i       = 0,
-            len     = lines.length,
+        let lines        = content.split('\n'),
+            entries      = [],
+            current      = null,
+            currentReply = null,
+            i            = 0,
+            len          = lines.length,
             line, match;
 
         const trimTrailingDelimiter = (rows) => {
@@ -264,20 +267,43 @@ ${fullHtml}
             }
         };
 
+        const flushReply = () => {
+            if (!currentReply) return;
+
+            trimTrailingDelimiter(currentReply.bodyLines);
+
+            let body = currentReply.bodyLines.join('\n').trim();
+
+            if (body) {
+                current.replies.push({
+                    depth: currentReply.depth,
+                    user : currentReply.user,
+                    date : currentReply.date,
+                    body
+                })
+            }
+
+            currentReply = null
+        };
+
         const flushComment = () => {
             if (!current) return;
 
+            flushReply();
             trimTrailingDelimiter(current.bodyLines);
 
             let body = current.bodyLines.join('\n').trim();
 
-            if (body) {
+            if (body || current.replies.length) {
                 entries.push({
-                    user: current.user,
-                    date: current.date,
-                    body
+                    user   : current.user,
+                    date   : current.date,
+                    body,
+                    replies: current.replies
                 })
             }
+
+            current = null
         };
 
         for (; i < len; i++) {
@@ -286,9 +312,18 @@ ${fullHtml}
 
             if (match) {
                 flushComment();
-                current = {user: match[1], date: match[2], bodyLines: []}
+                current = {user: match[1], date: match[2], bodyLines: [], replies: []}
             } else if (current) {
-                current.bodyLines.push(line)
+                match = line.match(regexReplyHeader);
+
+                if (match) {
+                    flushReply();
+                    currentReply = {depth: Number(match[1]), user: match[2], date: match[3], bodyLines: []}
+                } else if (currentReply) {
+                    currentReply.bodyLines.push(line)
+                } else {
+                    current.bodyLines.push(line)
+                }
             }
         }
 
@@ -326,12 +361,41 @@ ${fullHtml}
                                 <a class="neo-timeline-user" href="${repoUserUrl}${comment.user}" target="_blank">${comment.user}</a>
                                 <span class="neo-timeline-date">commented on ${me.formatTimestamp(comment.date)}</span>
                             </div>
-                            <div class="neo-timeline-body">${marked.parse(comment.body)}</div>
+                            <div class="neo-timeline-body">
+                                ${marked.parse(comment.body)}
+                                ${me.renderReplies(comment.replies)}
+                            </div>
                         </div>
                     </div>`
         });
 
         return html
+    }
+
+    /**
+     * @summary Renders structured Discussion replies inside the parent comment bubble.
+     *
+     * Replies intentionally do not add records to `timelineData`: the shared timeline/canvas
+     * contract remains top-level comments plus description, while reply identity stays visible
+     * as nested DOM inside the owning comment.
+     * @param {Object[]} replies
+     * @returns {String}
+     */
+    renderReplies(replies = []) {
+        let {repoUserUrl} = this;
+
+        if (!replies.length) {
+            return ''
+        }
+
+        return `<div class="neo-discussion-replies">${replies.map(reply => `
+            <div class="neo-discussion-reply depth-${reply.depth}">
+                <div class="neo-discussion-reply-header">
+                    <a class="neo-timeline-user" href="${repoUserUrl}${reply.user}" target="_blank">${reply.user}</a>
+                    <span class="neo-timeline-date">replied on ${this.formatTimestamp(reply.date)}</span>
+                </div>
+                <div class="neo-discussion-reply-body">${marked.parse(reply.body)}</div>
+            </div>`).join('')}</div>`
     }
 }
 
