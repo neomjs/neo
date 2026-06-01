@@ -171,12 +171,14 @@ profiles are intentionally distinct:
 | Profile | Selectors | Endpoint shape | Use when |
 |---|---|---|---|
 | Native Ollama | `NEO_MODEL_PROVIDER=ollama`, `NEO_EMBEDDING_PROVIDER=ollama` | Ollama `/api/chat` and `/api/embed` | The deployment exposes a real Ollama service and you want native Ollama request semantics. |
-| OpenAI-compatible fallback | `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_EMBEDDING_PROVIDER=openAiCompatible` | `/v1/chat/completions` and `/v1/embeddings` | The deployment runs MLX, LM Studio, llama.cpp, managed OpenAI-compatible infrastructure, or an Ollama endpoint that intentionally exposes the OpenAI-compatible surface. |
+| OpenAI-compatible fallback | `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_EMBEDDING_PROVIDER=openAiCompatible` | `/v1/chat/completions` and `/v1/embeddings` | The deployment runs MLX, LM Studio, [llama.cpp](./LlamaCppProfile.md), managed OpenAI-compatible infrastructure, or an Ollama endpoint that intentionally exposes the OpenAI-compatible surface. |
 
 Do not mix the selectors accidentally. A native Ollama deployment should prove
 the native routes; an OpenAI-compatible deployment should prove both `/v1`
 routes. Container health or embeddings-only success is not enough to hand a
-cloud deployment to agents.
+cloud deployment to agents. For llama.cpp, run the dedicated
+[llama.cpp profile](./LlamaCppProfile.md) before treating the backend as
+Agent OS-ready.
 
 For the production profile, the same readiness idea is encoded in
 [`ai/deploy/docker-compose.yml`](../../../ai/deploy/docker-compose.yml): Chroma
@@ -707,6 +709,7 @@ only, or intentionally deferred.
 
 - [Deployment Cookbook](../DeploymentCookbook.md) - deployment authority and service topology.
 - [Overview](./Overview.md) - cloud ingestion concepts and tenant/Neo-shared split.
+- [llama.cpp Profile](./LlamaCppProfile.md) - OpenAI-compatible llama.cpp provider profile and dual-residency smoke.
 - [Tenant Ingestion Model](./TenantIngestionModel.md) - repo identity, parser dispatch, and source-family inventory.
 - [Hook Wiring](./HookWiring.md) - `ai:kb-push-client`, `ingest_source_files`, and `ai:ingest-tenant`.
 - [Custom Parsers](./CustomParsers.md) - client-side `parsed-chunk-v1` parser contract.

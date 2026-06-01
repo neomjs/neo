@@ -52,6 +52,7 @@ Neo's own guides, ADRs, skills, and API docs remain in the KB under `tenantId: '
 
 - **[Security](./Security.md)** — tenant-isolation invariants, write-side stamping + spoof-rejection, parser-execution boundary framing, and the KB-as-cache vs MC-as-store recovery model.
 - **[Day-0 Tutorial](./Day0Tutorial.md)** - linear PoC walkthrough for a fresh operator or agent: remote MCP healthcheck, MC/KB connection, tenant ingestion, client-side parsing, bulk path, and backup/redeploy handoff.
+- **[llama.cpp Profile](./LlamaCppProfile.md)** - OpenAI-compatible cloud-provider profile for self-hosted llama.cpp, including chat+embedding residency and handoff smoke.
 - **[Migration Path](./MigrationPath.md)** — how an existing single-repo Neo deployment upgrades to the cloud-ingestion substrate with zero config changes.
 - **[Tenant Ingestion Model](./TenantIngestionModel.md)** — the operator-facing model for tenant repo identity, credential boundaries, parser dispatch, source-family inventory, and push-vs-bulk ingestion choices.
 - **[Configuration](./Configuration.md)** — the `aiConfig` keys and the `KnowledgeBaseTenantConfig` / `kb-config.yaml` tenant-config storage.
