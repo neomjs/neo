@@ -15,9 +15,21 @@ class Ticket extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'childCount',
+            type: 'Integer'
+        }, {
+            name: 'childrenUrl',
+            type: 'String'
+        }, {
             name        : 'collapsed',
             type        : 'Boolean',
             defaultValue: true
+        }, {
+            name: 'contentDir',
+            type: 'String'
+        }, {
+            name: 'filePrefix',
+            type: 'String'
         }, {
             name: 'id',
             type: 'String'

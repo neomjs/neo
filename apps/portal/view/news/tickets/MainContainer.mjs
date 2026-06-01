@@ -43,10 +43,12 @@ class MainContainer extends SharedContainer {
          */
         stateProvider: StateProvider,
         /**
-         * @member {Object} treeConfig={displayField:'treeNodeName'}
+         * @member {Object} treeConfig
          */
         treeConfig: {
-            displayField: 'treeNodeName'
+            displayField       : 'treeNodeName',
+            lazyChildLoad      : true,
+            lazyChildUrlPrefix : '../../apps/portal/resources/data/'
         }
     }
 }
