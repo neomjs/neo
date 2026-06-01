@@ -31,9 +31,20 @@ class NewsTabContainer extends TabContainer {
             cls: ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar']
         },
         /**
+         * NOTE: the news tab header renders this list **inverted** — the LAST entry shows as the
+         * FIRST (leftmost) tab. Items are therefore listed in REVERSE of the intended left-to-right
+         * display order, which is: Release Notes, Tickets, Discussions, Blog, Medium, Pull Requests.
+         * When adding a tab, place it accordingly (append to the end to make it the first/leftmost tab).
          * @member {Object[]} items
          */
         items: [{
+            module: () => import('./pulls/MainContainer.mjs'),
+            header: {
+                iconCls: 'fa fa-code-pull-request',
+                route  : '/news/pulls',
+                text   : 'Pull Requests'
+            }
+        }, {
             module: () => import('./medium/Container.mjs'),
             header: {
                 iconCls: 'fab fa-medium',
@@ -48,6 +59,13 @@ class NewsTabContainer extends TabContainer {
                 text   : 'Blog'
             }
         }, {
+            module: () => import('./discussions/MainContainer.mjs'),
+            header: {
+                iconCls: 'fa fa-comments',
+                route  : '/news/discussions',
+                text   : 'Discussions'
+            }
+        }, {
             module: () => import('./tickets/MainContainer.mjs'),
             header: {
                 iconCls: 'fa fa-clipboard-list',
@@ -60,20 +78,6 @@ class NewsTabContainer extends TabContainer {
                 iconCls: 'fa fa-scroll',
                 route  : '/news/releases',
                 text   : 'Release Notes'
-            }
-        }, {
-            module: () => import('./discussions/MainContainer.mjs'),
-            header: {
-                iconCls: 'fa fa-comments',
-                route  : '/news/discussions',
-                text   : 'Discussions'
-            }
-        }, {
-            module: () => import('./pulls/MainContainer.mjs'),
-            header: {
-                iconCls: 'fa fa-code-pull-request',
-                route  : '/news/pulls',
-                text   : 'Pull Requests'
             }
         }],
         /**
