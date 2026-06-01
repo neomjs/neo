@@ -64,10 +64,10 @@ class PermissionService extends Base {
         }
 
         // Verify target exists in SQLite directly, not in the in-memory cache. Identity
-        // creation is a privileged operation (seedAgentIdentities.mjs);
-        // it should NOT be an implicit side-effect of a permission grant. Stubbing with type 'AGENT'
-        // + stripped metadata destroys seed data and creates type-inconsistent nodes.
-        // Pattern mirrors linkNodes:179-185 (FK-style existence guard).
+        // creation is a privileged operation (seedAgentIdentities.mjs); it should NOT be an
+        // implicit side-effect of a permission grant. Stubbing with type 'AGENT' + stripped
+        // metadata destroys seed data and creates type-inconsistent nodes. Use the same
+        // foreign-key style existence guard as graph-link writes.
         const verifyStmt = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id = ?');
         if (verifyStmt.get(to).count === 0) {
             throw new Error(`Cannot grant ${scope} to ${to}: target does not exist. Identity nodes must be pre-seeded via ai/scripts/setup/seedAgentIdentities.mjs.`);

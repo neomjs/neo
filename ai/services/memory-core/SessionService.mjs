@@ -566,13 +566,12 @@ Unique Tools Utilized: ${Array.from(allToolsUsed).join(', ') || 'none recorded'}
 ${aggregatedContent}
 `;
 
-        // #11447 Brain-Pillar Consumer-Friction Channel V1: wrap the summarization LLM
-        // invocation with bidirectional guardrail per Discussion #11444 graduation contract.
-        // Angle 2 (upstream pre-check) skips invocation when the estimated tokens for
-        // `summaryPrompt` exceed the consumer's safe processing band; Angle 1 (downstream
-        // try/catch) categorizes engine-level failures into friction symptoms. Friction is
-        // emitted with `serviceDomain: 'memory-core'` for handoff rendering by
-        // `GoldenPathSynthesizer.synthesizeGoldenPath`.
+        // Consumer-Friction Channel: wrap the summarization LLM invocation with a
+        // bidirectional guardrail. Angle 2 (upstream pre-check) skips invocation when the
+        // estimated tokens for `summaryPrompt` exceed the consumer's safe processing band;
+        // Angle 1 (downstream try/catch) categorizes engine-level failures into friction
+        // symptoms. Friction is emitted with `serviceDomain: 'memory-core'` for handoff
+        // rendering by `GoldenPathSynthesizer.synthesizeGoldenPath`.
         // Consumer model naming covers all three active providers for
         // guardrail/log surfaces.
         const consumerModel =
@@ -612,9 +611,9 @@ ${aggregatedContent}
         const summaryId = `summary_${sessionId}`;
         const timestamp = new Date(lastActivity).toISOString();
 
-        // Multi-tenant isolation tag (#10000, #11181): private summaries keep the active
-        // request userId; core-swarm summaries use the shared sentinel so every named peer can
-        // observe the compressed navigation artifact after tenant-aware reads are applied.
+        // Multi-tenant isolation tag: private summaries keep the active request userId;
+        // core-swarm summaries use the shared sentinel so every named peer can observe the
+        // compressed navigation artifact after tenant-aware reads are applied.
         const userId = resolveSummaryVisibilityUserId({
             userId: RequestContextService.getUserId(),
             participatingAgents
@@ -729,11 +728,11 @@ ${aggregatedContent}
 
                         // Push into ChromaDB
                         try {
-                            // Tenant tag (#10000): attribute the ingested artifact to the user
-                            // who triggered the summarization cycle. In a multi-tenant cloud
-                            // deploy, concurrent users summarizing overlapping time windows each
-                            // produce their own tenant-tagged copy — cross-tenant isolation
-                            // holds because the ChromaDB id is also conversation-scoped.
+                            // Tenant tag: attribute the ingested artifact to the user who
+                            // triggered the summarization cycle. In a multi-tenant cloud deploy,
+                            // concurrent users summarizing overlapping time windows each produce
+                            // their own tenant-tagged copy; cross-tenant isolation holds because
+                            // the ChromaDB id is also conversation-scoped.
                             const planUserId = RequestContextService.getUserId();
                             const planMetadata = {
                                 sessionId,
@@ -830,7 +829,7 @@ ${aggregatedContent}
      * with that session ID in their `Mcp-Session-Id` header. **Pure read-only query — does NOT
      * modify `RequestContextService` or any server-side session state.**
      *
-     * Per the post-#10692 model, session-id binding is owned by the transport layer
+     * Session-id binding is owned by the transport layer
      * (`Mcp-Session-Id` header → `RequestContextService.getSessionId()`). This method answers the
      * agent's prerequisite question — *"is this session_id safe to use before reconnecting?"* —
      * and returns a structured payload covering memory count, last activity, and current
@@ -853,9 +852,8 @@ ${aggregatedContent}
      * @returns {Promise<Object>} Either a success payload (`{success: true, sessionId, status:
      *     'resumable', memoryCount, lastActivityAt, summarizationStatus}`) OR a structured error
      *     with one of `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED`, `SESSION_BUSY`.
-     * @see #10725 — design rationale (validation-only, not state-changing)
-     * @see #10692 — RequestContextService transport-layer binding model
-     * @see #10693 — SummarizationJobs lease semantics (TTL + status enum)
+     * @see RequestContextService — transport-layer session binding
+     * @see SummarizationJobs — lease semantics (TTL + status enum)
      */
     async validateSessionForResume({sessionId} = {}) {
         if (!sessionId || typeof sessionId !== 'string') {

@@ -45,8 +45,8 @@ class Server extends BaseServer {
     logger   = logger
 
     /**
-     * Resolved agent identity for stdio transport sessions (ticket #10145). Populated by
-     * `boot()` via `StdioIdentityResolver` + AgentIdentity graph-node binding. Null when
+     * Resolved agent identity for stdio transport sessions. Populated by `boot()` via
+     * `StdioIdentityResolver` + AgentIdentity graph-node binding. Null when
      * running under SSE transport (identity flows per-request via `AuthService` /
      * `RequestContextService` instead) or when stdio resolution yielded no identity.
      * @member {Object|null} stdioIdentity=null
@@ -56,7 +56,7 @@ class Server extends BaseServer {
 
     /**
      * @summary MCP server identity for `createMcpServer()`. Includes the experimental
-     * `neo-wake-substrate` capability that surfaces wake events for connected clients (#10437).
+     * `neo-wake-substrate` capability that surfaces wake events for connected clients.
      * @returns {{name: String, version: String, capabilities: Object}}
      */
     getServerMetadata() {
@@ -101,9 +101,9 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary Pre-dispatch identity-spoof guard (#10145). Rejects any tool-call argument
+     * @summary Pre-dispatch identity-spoof guard. Rejects any tool-call argument
      * that would let the client override server-stamped identity. No-op on existing tool
-     * schemas; activates once Mailbox (#10139) adds `from` fields. Throws bubble to the
+     * schemas; activates when a tool exposes sender-owned identity fields. Throws bubble to the
      * outer CallTool try/catch and route to `formatToolError`.
      * @param {{toolName: String, args: Object}} context
      */
@@ -113,7 +113,7 @@ class Server extends BaseServer {
 
     /**
      * @summary Wraps tool dispatch in `RequestContextService.run()` when stdio identity is
-     * resolved (ticket #10145). Establishes the AsyncLocalStorage-scoped context that
+     * resolved. Establishes the AsyncLocalStorage-scoped context that
      * `MemoryService.addMemory`, etc. read via `getUserId()` to tag ChromaDB writes per
      * tenant. SSE mode leaves `stdioIdentity` null because `TransportService` already wraps
      * the `/mcp` request with per-request OIDC identity — re-wrapping here would clobber
@@ -146,16 +146,16 @@ class Server extends BaseServer {
      * 1. `WakeSubscriptionService.init()` must complete BEFORE `createMcpServer()` so the
      *    experimental wake-substrate capability has its substrate ready when clients connect.
      * 2. Stdio identity resolution must complete BEFORE healthcheck, so the boot-time
-     *    healthcheck snapshot reflects the bound identity state (#10249).
+     *    healthcheck snapshot reflects the bound identity state.
      * 3. The wake-subscription auto-bootstrap is fire-and-forget within an async IIFE for
-     *    single-error-boundary discipline (#10438) — must run AFTER stdio identity is bound.
+     *    single-error-boundary discipline; it must run AFTER stdio identity is bound.
      *
      * @returns {Promise<void>}
      */
     async boot() {
         await this.loadCustomConfig();
 
-        // Pre-mcpServer init: WakeSubscriptionService substrate ready (#10437).
+        // Pre-mcpServer init: WakeSubscriptionService substrate ready.
         await WakeSubscriptionService.init();
 
         this.mcpServer = this.createMcpServer();
@@ -164,12 +164,12 @@ class Server extends BaseServer {
         await InferenceLifecycleService.ready();
         await SessionService.ready();
 
-        // Stdio identity resolution BEFORE healthcheck snapshot (#10249).
+        // Stdio identity resolution BEFORE healthcheck snapshot.
         if (aiConfig.transport !== 'sse') {
             this.stdioIdentity = await this.resolveStdioIdentity();
             HealthService.setStdioIdentityState(this.stdioIdentity);
 
-            // Auto-bootstrap wake subscription per #10437 (single-error-boundary IIFE per #10438).
+            // Auto-bootstrap wake subscription with a single-error-boundary IIFE.
             // Fire-and-forget: server boot continues unconditionally; wake-substrate self-heals
             // even if the bootstrap operation hits transient errors.
             if (this.stdioIdentity?.agentIdentityNodeId) {
@@ -239,7 +239,7 @@ class Server extends BaseServer {
      * @summary Resolves the active stdio agent identity and binds it to its AgentIdentity
      * graph node. Composes three steps: (1) `StdioIdentityResolver.resolve()` returns the
      * GitHub identity via the env-var → gh-CLI chain; (2) `GraphService.getNode({id: '@' +
-     * githubLogin})` looks up the matching seeded AgentIdentity node (#10144 convention); (3)
+     * githubLogin})` looks up the matching seeded AgentIdentity node; (3)
      * the composite is shaped for `RequestContextService.run()` consumption.
      *
      * Missing graph node is non-fatal: the identity still flows as `userId` tag, but
@@ -267,7 +267,7 @@ class Server extends BaseServer {
 
     /**
      * @summary Resolves a bare GitHub login to its seeded AgentIdentity graph node ID
-     * (per ticket #10144's `@`-prefixed ID convention). Shared between `resolveStdioIdentity`
+     * using the `@`-prefixed AgentIdentity convention. Shared between `resolveStdioIdentity`
      * (stdio boot) and `buildRequestContext` (per-SSE-request) so both transports reach the
      * same node lookup behavior.
      *
@@ -275,9 +275,8 @@ class Server extends BaseServer {
      * graph edges treat `null` as "skip edge creation for this write" rather than failing the
      * write.
      *
-     * Retries up to 3 times with vicinity-cache eviction between attempts to handle the
-     * #10241 boot-time race where a stuck cache from concurrent boot lock could miss seeded
-     * identity nodes.
+     * Retries up to 3 times with vicinity-cache eviction between attempts so concurrent boot
+     * cache state cannot hide freshly seeded identity nodes.
      *
      * @param {String|undefined|null} userId
      * @returns {Promise<String|null>}
@@ -372,7 +371,7 @@ class Server extends BaseServer {
 
     /**
      * @summary Boot-time diagnostic: invokes `lsof` to detect SQLite file contention from
-     * sibling MCP server processes holding the memory-core SQLite files (ticket #10188).
+     * sibling MCP server processes holding the memory-core SQLite files.
      * Uses the same empirical `lsof` + PID walk pattern established in
      * `ai/scripts/diagnostics/diagnoseMcpConcurrency.mjs`.
      * @protected
