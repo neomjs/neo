@@ -17,12 +17,14 @@ class TabContainerController extends Controller {
         routes: {
             '/news'                   : 'onReleasesRoute',
             '/news/blog'              : 'onBlogRoute',
-            '/news/blog/{*itemId}'    : 'onBlogRoute',
-            '/news/medium'            : 'onMediumRoute',
-            '/news/releases'          : 'onReleasesRoute',
-            '/news/releases/{*itemId}': 'onReleasesRoute',
-            '/news/tickets'           : 'onTicketsRoute',
-            '/news/tickets/{*itemId}' : 'onTicketsRoute'
+            '/news/blog/{*itemId}'       : 'onBlogRoute',
+            '/news/discussions'          : 'onDiscussionsRoute',
+            '/news/discussions/{*itemId}': 'onDiscussionsRoute',
+            '/news/medium'               : 'onMediumRoute',
+            '/news/releases'             : 'onReleasesRoute',
+            '/news/releases/{*itemId}'   : 'onReleasesRoute',
+            '/news/tickets'              : 'onTicketsRoute',
+            '/news/tickets/{*itemId}'    : 'onTicketsRoute'
         }
     }
 
@@ -38,6 +40,13 @@ class TabContainerController extends Controller {
      */
     onBlogPostStoreLoad(records) {
         this.getStateProvider().setData({blogPostCount: records.length})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDiscussionsRoute(data) {
+        this.setActiveIndexByRoute('/news/discussions')
     }
 
     /**
@@ -59,6 +68,17 @@ class TabContainerController extends Controller {
      */
     onTicketsRoute(data) {
         this.component.activeIndex = 2
+    }
+
+    /**
+     * @param {String} route
+     */
+    setActiveIndexByRoute(route) {
+        let index = this.component.items.findIndex(item => item.header?.route === route);
+
+        if (index !== -1) {
+            this.component.activeIndex = index
+        }
     }
 }
 
