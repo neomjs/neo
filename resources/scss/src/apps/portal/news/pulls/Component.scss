@@ -1,3 +1,9 @@
+// Pull in the shared news timeline layout (`.neo-ticket-timeline` / `.neo-timeline-item` / avatar /
+// content rules, scoped to all three news component classes). Neo lazy-loads theme CSS per concrete
+// component, so without this `@use` the pulls view never loads the timeline layout and the timeline
+// renders unstyled (centered, avatars as full-width images). Mirrors `discussions/Component.scss`.
+@use "../tickets/Component";
+
 // Structural styles for Portal.view.news.pulls.Component (PR view). Colors live in the
 // theme-neo-light / theme-neo-dark counterparts, scoped to this component so the PR-specific
 // MERGED/CLOSED + review-state palette never collides with the tickets view's globals.

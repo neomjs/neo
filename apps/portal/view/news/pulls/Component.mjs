@@ -196,13 +196,13 @@ class Component extends ContentComponent {
 
         me.timelineData.push({
             id   : bodyId,
-            image: me.repoUserUrl + author + '.png',
+            image: me.getAvatarUrl(author),
             name : 'Description',
             tag  : 'body'
         });
 
         let timelineHtml = `<div id="pr-timeline-${me.id}" class="neo-ticket-timeline">` +
-            me.renderBubble({id: bodyId, user: author, date: createdAt, bodyHtml: fullHtml, extraCls: 'body-item'});
+            me.renderBubble({id: bodyId, user: author, date: createdAt, bodyHtml: fullHtml, extraCls: 'comment body-item'});
 
         // 6. Merged comment + review entries, in chronological order.
         entries.forEach((entry, index) => {
@@ -213,7 +213,7 @@ class Component extends ContentComponent {
 
             me.timelineData.push({
                 id,
-                image: me.repoUserUrl + entry.user + '.png',
+                image: me.getAvatarUrl(entry.user),
                 name : isReview ? `Review (${entry.user})` : `Comment (${entry.user})`,
                 tag  : entry.type
             });
@@ -223,7 +223,7 @@ class Component extends ContentComponent {
                 user    : entry.user,
                 date    : entry.date,
                 bodyHtml: marked.parse(entry.body),
-                extraCls: isReview ? `review ${stateCls}` : 'comment',
+                extraCls: isReview ? `comment review ${stateCls}` : 'comment',
                 action  : isReview ? `${badge} reviewed` : 'commented',
                 meta    : entry.meta
             })
@@ -296,7 +296,7 @@ class Component extends ContentComponent {
         return `
             <div id="${id}" class="neo-timeline-item ${extraCls}" data-record-id="${id}">
                 <div id="${id}-target" class="neo-timeline-avatar">
-                    <img src="${me.repoUserUrl}${user}.png" alt="${user}">
+                    ${me.getAvatarHtml(user)}
                 </div>
                 <div class="neo-timeline-content">
                     <div class="neo-timeline-header">

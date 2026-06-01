@@ -48,7 +48,7 @@ class TabContainerController extends Controller {
      * @param {Object} data
      */
     onDiscussionsRoute(data) {
-        this.setActiveIndexByRoute('/news/discussions')
+        this.component.activeIndex = 4
     }
 
     /**
@@ -62,7 +62,7 @@ class TabContainerController extends Controller {
      * @param {Object} data
      */
     onPullsRoute(data) {
-        this.setActiveIndexByRoute('/news/pulls')
+        this.component.activeIndex = 5
     }
 
     /**
@@ -77,17 +77,6 @@ class TabContainerController extends Controller {
      */
     onTicketsRoute(data) {
         this.component.activeIndex = 2
-    }
-
-    /**
-     * @param {String} route
-     */
-    setActiveIndexByRoute(route) {
-        let index = this.component.items.findIndex(item => item.header?.route === route);
-
-        if (index !== -1) {
-            this.component.activeIndex = index
-        }
     }
 }
 
