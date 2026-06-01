@@ -133,9 +133,17 @@ Before the orchestrator runs a model-dependent task (e.g. the REM/Sandman dream 
 
 These three are orchestrator-config-scoped (`ai/config.template.mjs` `orchestrator.providerReadiness`) and are not read by the MCP server processes, so — unlike the two `keep_alive` vars above — they do not appear in the MCP-server-scoped [Config Substrate Env-Var Audit](../ConfigSubstrateEnvVarAudit.md).
 
+For llama.cpp deployments, keep the provider selector as `openAiCompatible` and
+follow the dedicated [llama.cpp profile](./LlamaCppProfile.md). It documents the
+extra operator proof required before handoff: `/v1/models` must expose both the
+configured chat and embedding model ids, both role routes must pass, and the
+deployment must not depend on switching hosts or rebuilding model context
+between role calls.
+
 ## Related
 
 - [Overview](./Overview.md) — the contract split + default-source inheritance.
+- [llama.cpp Profile](./LlamaCppProfile.md) — OpenAI-compatible llama.cpp provider profile and dual-residency smoke.
 - [Custom Sources](./CustomSources.md) / [Custom Parsers](./CustomParsers.md) — authoring the classes `customSources` / `customParsers` register.
 - [Hook Wiring](./HookWiring.md) — `mcpSyncMaxChunks` and the ingestion facades.
 - [Security](./Security.md) — `spoofRejectionMode` and the fail-closed posture.
