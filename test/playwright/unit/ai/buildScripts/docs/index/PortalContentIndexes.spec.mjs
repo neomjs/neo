@@ -207,17 +207,20 @@ test.describe('Portal content index generators (#12210)', () => {
             number   : 10,
             title    : 'Active idea',
             category : 'Ideas',
+            closed   : false,
             updatedAt: '2026-05-10T00:00:00Z'
         }));
         await fs.outputFile(path.join(inputDir, 'chunk-1/discussion-12.md'), frontmatter({
             number   : 12,
             title    : 'Active fallback category',
+            closed   : false,
             updatedAt: '2026-05-12T00:00:00Z'
         }));
         await fs.outputFile(path.join(archiveDir, 'v8.30.0/chunk-1/discussion-11.md'), frontmatter({
             number   : 11,
             title    : 'Archived answer',
             category : 'Q&A',
+            closed   : true,
             updatedAt: '2026-05-11T00:00:00Z'
         }));
 
@@ -246,6 +249,7 @@ test.describe('Portal content index generators (#12210)', () => {
         await expect(fs.readJson(path.join(outputDir, 'q-a/archive-v8-30-0-chunk-1.json'))).resolves.toEqual([{
             id      : '11',
             parentId: 'Q&A/archive-v8-30-0-chunk-1',
+            state   : 'closed',
             title   : 'Archived answer'
         }])
     })
