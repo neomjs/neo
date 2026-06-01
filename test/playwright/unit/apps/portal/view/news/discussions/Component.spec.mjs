@@ -6,10 +6,11 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../../src/core/_export.mjs';
-import Component      from '../../../../../../../../apps/portal/view/news/discussions/Component.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../../../../src/Neo.mjs';
+import * as core        from '../../../../../../../../src/core/_export.mjs';
+import Component        from '../../../../../../../../apps/portal/view/news/discussions/Component.mjs';
+import DiscussionsStore from '../../../../../../../../apps/portal/store/Discussions.mjs';
 
 /**
  * Unit coverage for the Discussion-specific parser in `Portal.view.news.discussions.Component`.
@@ -170,5 +171,49 @@ test.describe('Portal.view.news.discussions.Component - Discussion markdown pars
         expect(open).toContain('neo-state-open');
         expect(open).toContain('Open');
         expect(getCategoryBadgeHtml('')).toBe('')
+    })
+});
+
+test.describe('Portal discussions tree state affordance (#12314)', () => {
+    test('discussion leaves render state glyphs sourced from the tree record', () => {
+        const store = Neo.create(DiscussionsStore, {
+            id  : 'portal-discussions-tree-state-store-test',
+            data: [{
+                id       : 'Ideas',
+                isLeaf   : false,
+                parentId : null,
+                collapsed: false
+            }, {
+                id      : '12062',
+                isLeaf  : true,
+                parentId: 'Ideas/active-chunk-2',
+                state   : 'open',
+                title   : 'Orchestrator-as-SSOT for REM'
+            }, {
+                id      : '11024',
+                isLeaf  : true,
+                parentId: 'Ideas/archive-v8-30-0-chunk-1',
+                state   : 'closed',
+                title   : 'Lead role semantics'
+            }, {
+                id      : '11180',
+                isLeaf  : true,
+                parentId: 'Q&A/archive-v8-30-0-chunk-1',
+                state   : 'answered',
+                title   : 'Archive-cutting rule'
+            }]
+        });
+
+        try {
+            expect(store.get('12062').treeNodeName).toContain('discussion-state-badge neo-state-open');
+            expect(store.get('12062').treeNodeName).toContain('title="Open"');
+            expect(store.get('11024').treeNodeName).toContain('discussion-state-badge neo-state-closed');
+            expect(store.get('11024').treeNodeName).toContain('title="Closed"');
+            expect(store.get('11180').treeNodeName).toContain('discussion-state-badge neo-state-answered');
+            expect(store.get('11180').treeNodeName).toContain('title="Answered"');
+            expect(store.get('Ideas').treeNodeName).toBe('Ideas')
+        } finally {
+            store.destroy()
+        }
     })
 });
