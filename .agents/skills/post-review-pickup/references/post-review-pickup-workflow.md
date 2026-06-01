@@ -74,6 +74,30 @@ Night-shift driver handling is a lane-ownership contract, not a generic
 review-pickup variant. The linked wake-substrate document defines the TTL,
 renewal, direct-driver routing, and no-idle obligations for autonomous windows.
 
+## 1.7 Three-Heartbeat Critical Failure Threshold
+
+A delivered heartbeat or watchdog pulse is ignored when the recipient ends the
+turn without progress evidence: lane claim, implementation/review/PR update,
+targeted blocker route, verified handoff, ticket triage/retraction,
+ideation/epic-resolution artifact, or an explicit recovery escalation. A
+freshly verified blocker with a named next probe counts as progress evidence;
+repeating an unchanged pause, halt, or no-delta reason does not.
+
+An ignored heartbeat is already a failure on the first occurrence. The threshold
+does not permit two passive misses; it marks the third consecutive miss as a
+critical recovery event.
+
+Three consecutive ignored pulses in the same active goal/session are a critical
+failure, not a legitimate halt-state. On the third pulse, the agent MUST stop
+repeating no-delta/paused/halt prose, name the missed lane or goal, choose one
+concrete recovery action, and emit a `[critical-failure]` A2A signal with the
+evidence chain. Repeating the same unchanged pause/halt reason does not reset
+the counter.
+
+This threshold governs recipient behavior after a heartbeat is delivered. It is
+separate from upstream wake-decision skips (`active AND idle AND ready`), safety
+gates, or disabled wake substrate paths.
+
 ## 2. Reviewer Pickup Matrix
 
 After completing the reviewer-side handoff, the reviewer MUST choose one of
@@ -213,6 +237,7 @@ for the next prompt. Ticket #10970 is the instance-codification.
 | Declaring halt-state per §5 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
 | Treating operator-suppressed `AGENT:*` broadcast as work-stop | Confuses coordination visibility with implementation authority; use the authorized direct-DM fallback or declare a real blocker. |
 | Watchdog wake -> ack -> nothing to do without broad lane search | Burns wake cycles while positive-ROI backlog lanes exist; repeat wakes must re-check A2A + live repo state + broad backlog and, for night-shift/driver contexts, apply the leased-driver contract before any no-delta response. |
+| Three delivered heartbeats -> repeated unchanged pause/halt/no-delta | Crosses the critical-failure threshold; the third pulse must route recovery and emit `[critical-failure]`, not another passive state. |
 | Ending the turn after `Approved` without checking the next lane | Leaves the swarm idle at the human merge gate even when unrelated work is ready. |
 | Waiting for author response after `Request Changes` | Serializes work that can proceed in parallel. |
 | Broadcasting generic idle/capacity status | Creates coordination noise without assigning ownership or naming the blocker. |
