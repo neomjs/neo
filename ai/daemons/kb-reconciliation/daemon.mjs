@@ -1,6 +1,6 @@
 /**
  * @module ai/daemons/kb-reconciliation/daemon
- * @summary Thin Node-process boot wrapper for the Phase 4B KB reconciliation daemon (#11640).
+ * @summary Thin Node-process boot wrapper for the KB reconciliation daemon.
  *
  * Owns Neo namespace bootstrap + SIGTERM / SIGINT clean-stop signal handling +
  * `KbReconciliationService.start()` invocation. The class definition (poll loop, tenant
@@ -18,7 +18,6 @@
  *
  * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs
  * @see ai/daemons/kb-alerting/daemon.mjs (sibling wrapper precedent)
- * @see #11640 (Phase 4B reconciliation daemon), #11628 (Phase 4 epic)
  */
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate

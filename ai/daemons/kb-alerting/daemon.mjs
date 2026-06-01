@@ -1,6 +1,6 @@
 /**
  * @module ai/daemons/kb-alerting/daemon
- * @summary Thin Node-process boot wrapper for the Phase 4D KB operator-alerting daemon (#11642).
+ * @summary Thin Node-process boot wrapper for the KB operator-alerting daemon.
  *
  * Owns Neo namespace bootstrap + SIGTERM / SIGINT clean-stop signal handling +
  * `KbAlertingService.start()` invocation. The class definition (poll loop, rule
@@ -16,7 +16,6 @@
  *
  * @see ai/daemons/kb-alerting/KbAlertingService.mjs
  * @see ai/daemons/orchestrator/daemon.mjs (sibling entry-point wrapper precedent)
- * @see #11642 (Phase 4D operator alerting), #11628 (Phase 4 epic)
  */
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate

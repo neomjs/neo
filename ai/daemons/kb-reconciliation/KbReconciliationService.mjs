@@ -1,7 +1,7 @@
-// Class-only file (#11058-style split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/daemons/kb-reconciliation/daemon.mjs` per the canonical
-// Orchestrator class+wrapper pattern. `Neo.setupClass(KbReconciliationService)` at file
-// bottom works via `globalThis.Neo`, populated by the entry-point bootstrap chain.
+// Class-only daemon implementation. Entry-point bootstrap (Neo + core/_export +
+// InstanceManager) lives in `ai/daemons/kb-reconciliation/daemon.mjs`, following the
+// canonical Orchestrator class+wrapper pattern. `Neo.setupClass(KbReconciliationService)`
+// at file bottom uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
 import Base                          from '../../../src/core/Base.mjs';
 import {Memory_Config as aiConfig}   from '../../services.mjs';
 import ChromaManager                 from '../../services/knowledge-base/ChromaManager.mjs';
@@ -28,14 +28,14 @@ const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 const ROWS_PAGE_SIZE = 2000;
 
 /**
- * @summary Phase 4B KB reconciliation daemon — config-invalidation drift detection (#11640).
+ * @summary KB reconciliation daemon — config-invalidation drift detection.
  *
- * Closes part of the Phase 4 operability loop: when a tenant mutates its
+ * Provides the config-drift leg of KB operability: when a tenant mutates its
  * `KnowledgeBaseTenantConfig`, `getTenantConfig().version` increments and every chunk
- * ingested under the prior config is now *config-stale* (#11637 stamps each chunk's
- * `tenantConfigVersion`). This daemon periodically diffs each tenant's persisted Chroma
- * chunks against the tenant's current config version, emits Phase 4A reconciliation
- * telemetry, and — opt-in — tombstones the chunks left stale by a config change.
+ * ingested under the prior config is now *config-stale* via its `tenantConfigVersion`
+ * metadata. This daemon periodically diffs each tenant's persisted Chroma chunks against
+ * the tenant's current config version, emits reconciliation telemetry, and — opt-in —
+ * tombstones the chunks left stale by a config change.
  *
  * **Shape** — the canonical poll-loop daemon (the `SwarmHeartbeatService` / `KbAlertingService`
  * precedent): a `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` /
@@ -52,18 +52,18 @@ const ROWS_PAGE_SIZE = 2000;
  * *second* opt-in (`reconciliationAutoTombstone`, default false): with it off, the daemon
  * detects + emits telemetry only and issues no `collection.delete`.
  *
- * **V1.x scope** (#11711): after V1 shipped the config-invalidation signal, ingestion now
- * persists claimed path manifests in `kb-manifest:<tenantId>`. This daemon reads those
- * manifests and runs a second pure diff pass so force-push / partial-push / hook-failure
- * leftovers become manifest orphans. Config-stale and manifest-orphan actionable ids are
- * unioned before the opt-in tombstone call.
+ * **Manifest reconciliation** — ingestion persists claimed path manifests in
+ * `kb-manifest:<tenantId>`. This daemon reads those manifests and runs a second pure diff
+ * pass so force-push, partial-push, or hook-failure leftovers become manifest orphans.
+ * Config-stale and manifest-orphan actionable ids are unioned before the opt-in tombstone
+ * call.
  *
  * @class Neo.ai.daemons.KbReconciliationService
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/kb-reconciliation/daemon.mjs — the entry-point wrapper.
  * @see ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs — the pure diff engine.
- * @see ai/daemons/kb-alerting/KbAlertingService.mjs — the sibling Phase 4D poll-loop daemon precedent (#11642).
+ * @see ai/daemons/kb-alerting/KbAlertingService.mjs — the sibling poll-loop daemon precedent.
  */
 class KbReconciliationService extends Base {
     static config = {
@@ -247,8 +247,8 @@ class KbReconciliationService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` deployment predating #11640 has
-     * no `knowledgeBase` key (or lacks the reconciliation keys), so a naked
+     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may have no
+     * `knowledgeBase` key (or lack the reconciliation keys), so a naked
      * `aiConfig.knowledgeBase.reconciliationEnabled` would throw. Returns `{}` when absent.
      *
      * @returns {Object}
@@ -292,7 +292,7 @@ class KbReconciliationService extends Base {
     }
 
     /**
-     * @summary Test-stubbable seam — resolves a tenant's current config version (#11637).
+     * @summary Test-stubbable seam — resolves a tenant's current config version.
      * @param {String} tenantId
      * @returns {Promise<Number>} `getTenantConfig().version`, or `0` on the yaml/default tier.
      * @protected
@@ -304,7 +304,7 @@ class KbReconciliationService extends Base {
     }
 
     /**
-     * @summary Test-stubbable seam — reads the persisted claimed-state manifests for a tenant (#11711).
+     * @summary Test-stubbable seam — reads the persisted claimed-state manifests for a tenant.
      * @param {String} tenantId
      * @returns {Promise<Object<String, {pathsAfterPush: Array<String>, updatedAt: Number}>>}
      * @protected
@@ -314,7 +314,7 @@ class KbReconciliationService extends Base {
     }
 
     /**
-     * @summary Combines config-stale and manifest-orphan diff axes into one delete/telemetry contract (#11711).
+     * @summary Combines config-stale and manifest-orphan diff axes into one delete/telemetry contract.
      * @param {Object} params
      * @param {Object} params.configDiff Result from `diffTenantChunks`.
      * @param {Object} params.manifestDiff Result from `diffTenantManifest`.
@@ -346,9 +346,8 @@ class KbReconciliationService extends Base {
      * @summary Test-stubbable seam — fetches all of a tenant's Chroma rows, batched.
      *
      * Mirrors the batched `collection.get({where: {tenantId}})` idiom of
-     * `KnowledgeBaseIngestionService.getTenantRows`; kept local (rather than calling that
-     * `@protected` method) so V1 touches zero merged Phase 2 code — the #11640 Contract
-     * Ledger's "purely additive" scope guarantee.
+     * `KnowledgeBaseIngestionService.getTenantRows`; kept local rather than calling that
+     * `@protected` method so reconciliation remains additive to ingestion internals.
      *
      * @param {Object} collection The Chroma `knowledge-base` collection.
      * @param {String} tenantId
@@ -396,12 +395,12 @@ class KbReconciliationService extends Base {
     }
 
     /**
-     * @summary Test-stubbable seam — emits one Phase 4A `reconcile` telemetry event.
+     * @summary Test-stubbable seam — emits one KB `reconcile` telemetry event.
      *
      * `recordIngestionMetric` is best-effort (it never throws into the caller); the
      * `reconcile` event type + the `chunksDeleted` / `reconcileEvents` rollup fields it
      * feeds are already first-class `KBRecorderService` / `KbAlertRuleEngine` surfaces, so
-     * an operator can alert on reconciliation drift via #11642 with no extra wiring.
+     * an operator can alert on reconciliation drift with no extra wiring.
      *
      * @param {Object}  params
      * @param {String}  params.tenantId

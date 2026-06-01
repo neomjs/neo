@@ -1,7 +1,7 @@
-// Class-only file (#11058-style split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/daemons/kb-gc/daemon.mjs` per the canonical Orchestrator
-// class+wrapper pattern. `Neo.setupClass(KbGarbageCollectionService)` at file bottom works
-// via `globalThis.Neo`, populated by the entry-point bootstrap chain.
+// Class-only daemon implementation. Entry-point bootstrap (Neo + core/_export +
+// InstanceManager) lives in `ai/daemons/kb-gc/daemon.mjs`, following the canonical
+// Orchestrator class+wrapper pattern. `Neo.setupClass(KbGarbageCollectionService)`
+// at file bottom uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
 import Base                        from '../../../src/core/Base.mjs';
 import {Memory_Config as aiConfig} from '../../services.mjs';
 import ChromaManager               from '../../services/knowledge-base/ChromaManager.mjs';
@@ -25,14 +25,14 @@ const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const ROWS_PAGE_SIZE = 2000;
 
 /**
- * @summary Phase 4C KB garbage-collection daemon — retention-policy chunk expiry (#11641).
+ * @summary KB garbage-collection daemon — retention-policy chunk expiry.
  *
- * Closes part of the Phase 4 operability loop: a cloud KB accretes chunks indefinitely
+ * Provides the retention leg of KB operability: a cloud KB accretes chunks indefinitely
  * unless a retention policy bounds them. This daemon periodically evaluates each tenant's
  * persisted Chroma chunks against an operator retention policy (time- and/or count-based,
- * keyed on the #11712 `ingestedAt` chunk stamp), emits Phase 4A telemetry, and — opt-in —
- * deletes the retention-expired chunks; when a tick's cumulative deletion is large it emits
- * a `defrag-recommended` signal.
+ * keyed on the chunk `ingestedAt` metadata stamp), emits KB ingestion telemetry, and —
+ * opt-in — deletes the retention-expired chunks; when a tick's cumulative deletion is large
+ * it emits a `defrag-recommended` signal.
  *
  * **Shape** — the canonical poll-loop daemon (the `KbReconciliationService` / `KbAlertingService`
  * precedent): a `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` /
@@ -48,18 +48,18 @@ const ROWS_PAGE_SIZE = 2000;
  * daemon detects retention-expired chunks + emits telemetry only and issues no
  * `collection.delete`.
  *
- * **V1 scope** (per the #11641 Contract Ledger, ticket body): V1 = retention-policy chunk
- * expiration + a `defrag-recommended` signal. Config-orphan detection is #11640's domain;
- * a per-tenant retention override and the automated `ai:defrag-kb` spawn are V1.x-deferred.
- * V1 is purely additive — it touches no merged Phase 2 code (it reuses only the documented
- * `where: {tenantId}` Chroma read idiom).
+ * **Scope boundary** — this daemon owns retention-policy chunk expiration plus
+ * `defrag-recommended` telemetry. Config-orphan detection belongs to
+ * `KbReconciliationService`; per-tenant retention overrides and automatic `ai:defrag-kb`
+ * spawning are intentionally outside this daemon's current contract. The implementation is
+ * additive and reuses the documented `where: {tenantId}` Chroma read idiom.
  *
  * @class Neo.ai.daemons.KbGarbageCollectionService
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/kb-gc/daemon.mjs — the entry-point wrapper.
  * @see ai/services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs — the pure retention engine.
- * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the sibling Phase 4B poll-loop daemon precedent (#11640).
+ * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the sibling poll-loop daemon precedent.
  */
 class KbGarbageCollectionService extends Base {
     static config = {
@@ -263,9 +263,9 @@ class KbGarbageCollectionService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` predating #11641 lacks the `gc*`
-     * keys, so a naked `aiConfig.knowledgeBase.gcEnabled` would throw. Returns `{}` when the
-     * `knowledgeBase` key is absent.
+     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may lack the `gc*`
+     * keys, so a naked `aiConfig.knowledgeBase.gcEnabled` would throw. Returns `{}` when
+     * the `knowledgeBase` key is absent.
      *
      * @returns {Object}
      * @protected
@@ -322,8 +322,8 @@ class KbGarbageCollectionService extends Base {
      * @summary Test-stubbable seam — fetches all of a tenant's Chroma rows, batched.
      *
      * Mirrors the batched `collection.get({where: {tenantId}})` idiom of
-     * `KnowledgeBaseIngestionService.getTenantRows`; kept local (rather than calling that
-     * `@protected` method) so V1 touches zero merged Phase 2 code.
+     * `KnowledgeBaseIngestionService.getTenantRows`; kept local rather than calling that
+     * `@protected` method so garbage collection remains additive to ingestion internals.
      *
      * @param {Object} collection The Chroma `knowledge-base` collection.
      * @param {String} tenantId
@@ -371,7 +371,7 @@ class KbGarbageCollectionService extends Base {
     }
 
     /**
-     * @summary Test-stubbable seam — emits one Phase 4A `tombstone` telemetry event.
+     * @summary Test-stubbable seam — emits one KB `tombstone` telemetry event.
      *
      * `recordIngestionMetric` is best-effort (never throws into the caller). A GC delete is
      * a `'tombstone'`-class event — the telemetry taxonomy has no dedicated `'gc'` type, so
