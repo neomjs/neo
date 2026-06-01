@@ -30,7 +30,7 @@ function toolText(result) {
 
 // Cross-tenant isolation is enforced by the read-side tenant filter (`tenantId $in [requester, shared]`),
 // which is independent of the per-chunk visibility tier. This spec exercises the OIDC/proxy transport,
-// which populates a tenant but no agent-identity node id, so per-chunk `private` owner-scoping (#12163)
+// which populates a tenant but no agent-identity node id, so per-chunk `private` owner-scoping
 // is inert here and is unit-covered (`KnowledgeBase.TenantIsolation.spec.mjs`); a `team`-tier chunk is
 // the right fixture for proving a foreign tenant's content never crosses the tenant boundary.
 function kbRecord({id, tenantId, source, name, content}) {

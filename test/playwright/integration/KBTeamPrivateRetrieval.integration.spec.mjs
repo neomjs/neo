@@ -22,7 +22,7 @@ function documentsById(result) {
 
 // These integration specs run against the dockerized MCP server over the OIDC/proxy transport, which
 // resolves a `userId`/tenant from the identity header but does NOT populate an agent-identity node id.
-// Per-chunk `private` owner-scoping (#12163) keys on `originAgentIdentity`, which is therefore absent
+// Per-chunk `private` owner-scoping keys on `originAgentIdentity`, which is therefore absent
 // here — so the owner axis cannot be exercised end-to-end in this transport and is covered by the unit
 // suite (`KnowledgeBase.TenantIsolation.spec.mjs`). These dockerized specs validate the TENANT axis:
 // `team`-scoped chunks are visible to same-tenant requesters and isolated across tenants.
