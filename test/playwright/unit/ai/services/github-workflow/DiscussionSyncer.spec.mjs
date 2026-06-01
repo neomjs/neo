@@ -153,11 +153,56 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
             'Accepted answer body.'
         ].join('\n'));
         expect(content).toContain([
+            '#### Reply depth=1 by `@neo-reply-answer` on 2026-05-02T03:00:00Z',
+            '',
             '> [!ANSWER]',
-            '>',
-            '> **Reply by `@neo-reply-answer`** on 2026-05-02T03:00:00Z',
-            '>',
-            '> Nested accepted answer.'
+            '',
+            'Nested accepted answer.'
+        ].join('\n'));
+    });
+
+    test('emits structured reply markers that preserve parent comment identity', async () => {
+        const discussion = buildDiscussion(24005, {
+            comments: {nodes: [{
+                author: {login: 'neo-parent'},
+                body: 'Parent comment body.',
+                createdAt: '2026-05-02T01:00:00Z',
+                replies: {nodes: [{
+                    author: {login: 'neo-child'},
+                    body: [
+                        'Reply body.',
+                        '',
+                        '### Inner heading remains reply markdown.'
+                    ].join('\n'),
+                    createdAt: '2026-05-02T02:00:00Z'
+                }]}
+            }]}
+        });
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24005.md');
+        const content = await fs.readFile(targetPath, 'utf8');
+
+        expect(content).toContain([
+            '### `@neo-parent` commented on 2026-05-02T01:00:00Z',
+            '',
+            'Parent comment body.',
+            '',
+            '#### Reply depth=1 by `@neo-child` on 2026-05-02T02:00:00Z',
+            '',
+            'Reply body.',
+            '',
+            '### Inner heading remains reply markdown.'
         ].join('\n'));
     });
 

@@ -277,12 +277,11 @@ class DiscussionSyncer extends Base {
                         // Parse replies if any
                         if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
                             for (const reply of comment.replies.nodes) {
+                                body += `#### Reply depth=1 by \`@${reply.author?.login || 'unknown'}\` on ${reply.createdAt}\n\n`;
                                 if (reply.isAnswer) {
-                                    body += '> [!ANSWER]\n>\n';
+                                    body += '> [!ANSWER]\n\n';
                                 }
-                                body += `> **Reply by \`@${reply.author?.login || 'unknown'}\`** on ${reply.createdAt}\n>\n`;
-                                const blockquotedReply = reply.body.split('\n').map(l => `> ${l}`).join('\n');
-                                body += `${blockquotedReply}\n\n`;
+                                body += `${reply.body}\n\n`;
                             }
                         }
                         body += '---\n\n';

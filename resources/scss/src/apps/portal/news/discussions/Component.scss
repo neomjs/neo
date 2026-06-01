@@ -18,4 +18,26 @@
             padding-left: 12px;
         }
     }
+
+    .neo-discussion-replies {
+        border-left : 2px solid var(--gh-timeline-border);
+        margin-top  : 12px;
+        padding-left: 14px;
+    }
+
+    .neo-discussion-reply {
+        margin-top: 12px;
+
+        .neo-discussion-reply-header {
+            align-items: baseline;
+            display    : flex;
+            flex-wrap  : wrap;
+            gap        : 8px;
+            margin     : 0 0 6px;
+        }
+
+        .neo-discussion-reply-body > :last-child {
+            margin-bottom: 0;
+        }
+    }
 }
