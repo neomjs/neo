@@ -33,7 +33,9 @@ A cloud-deployment operator running mutually-untrusting tenants should consider 
 Write-side stamping puts the `tenantId` and `visibility` fields *into* the index. Read-side enforcement then builds a Chroma `where` clause from the authenticated requester's identity, with two layers:
 
 - **Tenant filter** — you see your own tenant's content plus the shared `neo-shared` corpus, never another tenant's content.
-- **Visibility filter** — a `private` chunk is returned only to the user who wrote it (matched on the writer's identity, not the tenant — this matters when several users share one tenant, such as a shared default-tenant tier), while `team` content stays visible to everyone in the tenant. A `private` chunk with no recorded owner is returned to nobody.
+- **Visibility filter** — a `private` chunk is owner-scoped: returned only to the identity that wrote it (matched on the writer's identity, not the tenant — which matters when several users share one tenant, such as a shared default-tenant tier), while `team` content stays visible to everyone in the tenant.
+
+> **Cloud limitation today — owner read-back of `private` is not yet available over OIDC/proxy.** Owner matching uses an *agent identity* that is currently populated only for local (stdio) agents. A cloud deployment behind OIDC/proxy resolves a per-user `userId` but not that agent identity, so on read a `private` chunk has **no resolvable owner and fails safe — it is hidden from everyone, including its writer**. This still closes the cross-user leak (no other user sees it), but a user cannot yet read their own `private` content back in a cloud deployment. `team` and `neo-shared` content are unaffected. Restoring owner read-back requires keying ownership on the transport-populated `userId` — tracked as the owner-key follow-up.
 
 With no authenticated request context (a single-tenant / offline daemon) no filter is applied. The fail-closed coverage lives in `KnowledgeBase.TenantIsolation.spec.mjs`.
 

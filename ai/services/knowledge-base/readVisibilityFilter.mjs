@@ -8,26 +8,31 @@ import aiConfig                                   from '../../mcp/server/knowled
  * path (`QueryService.queryDocuments`, `DocumentService` getters) builds its filter here so the two
  * isolation layers can never drift apart between call sites:
  *
- * 1. **Tenant isolation (#11632):** a requester only sees its own tenant's chunks plus Neo's curated
+ * 1. **Tenant isolation:** a requester only sees its own tenant's chunks plus Neo's curated
  *    `neo-shared` corpus. The tenant is derived server-side from the authenticated context — never
  *    from a client-supplied argument, so a forged `tenantId` query parameter is ignored.
- * 2. **Per-chunk visibility (#12163):** a `visibility: 'private'` chunk is returned ONLY to its
- *    owner; `team` (and any non-private) chunks stay visible to every same-tenant requester. This
- *    mirrors Memory Core's read-side RLS predicate (`GraphService.isRlsVisible`).
+ * 2. **Per-chunk visibility:** a `visibility: 'private'` chunk is returned ONLY to its owner; `team`
+ *    (and any non-private) chunks stay visible to every same-tenant requester.
  *
- * **Why ownership is matched on `originAgentIdentity`, not the tenant id:** `VectorService` stamps a
- * private chunk's owner as the writer's **agent-identity node id** (`getAgentIdentityNodeId()`), not
- * the tenant. In a *shared* tenant (e.g. the cloud `defaultTenantId` tier) many users resolve to one
- * tenant but keep distinct agent identities — so matching on the tenant would leak every private
- * chunk to every member. The ownership check therefore uses `getAgentIdentityNodeId()`.
+ * **Owner identity — and its current transport limit:** a private chunk's owner is the writer's
+ * agent-identity node id (`getAgentIdentityNodeId()`, stamped by `VectorService`), matched against the
+ * requester's. Matching on the agent identity rather than the tenant is what would distinguish users
+ * inside a *shared* tenant (the cloud `defaultTenantId` tier). BUT that identity is populated only in
+ * stdio / env / gh-cli contexts; the OIDC/proxy transport a cloud deployment uses resolves a `userId`
+ * but **no** agent-identity node id. So in an OIDC deployment owner-scoped read-back is currently
+ * inert: a `private` chunk has no resolvable owner on read and fails safe — hidden from everyone,
+ * including its writer. Restoring owner read-back there requires keying ownership on a
+ * transport-populated identity (`userId`); that is the tracked owner-key follow-up.
  *
- * **Fail-safe:** a private chunk whose `originAgentIdentity` is absent matches no requester and stays
- * hidden; and when the requester has no agent identity at all, the ownership branch is dropped
- * entirely, so they see only non-private content.
+ * **Fail-safe:** a private chunk whose owner is absent matches no requester and stays hidden; and when
+ * the requester has no agent identity at all, the ownership branch is dropped entirely, so they see
+ * only non-private content. This null-owner policy intentionally **diverges** from Memory Core's RLS
+ * predicate (`GraphService.isRlsVisible`): the non-null-owner match is similar in shape, but Memory
+ * Core treats a null owner as visible whereas this fails closed.
  *
  * **Offline / single-tenant:** with no authenticated request context (stdio single-tenant, offline
- * daemon) there is no tenant and no visibility filter — byte-equivalent with the pre-#11632 / pre
- * -#12163 behavior. The caller omits `where` entirely in that case.
+ * daemon) there is no tenant and no visibility filter — byte-equivalent with the pre-isolation
+ * behavior. The caller omits `where` entirely in that case.
  */
 
 /**
