@@ -31,10 +31,12 @@ class NewsTabContainer extends TabContainer {
             cls: ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar']
         },
         /**
-         * NOTE: the news tab header renders this list **inverted** — the LAST entry shows as the
-         * FIRST (leftmost) tab. Items are therefore listed in REVERSE of the intended left-to-right
-         * display order, which is: Release Notes, Tickets, Discussions, Blog, Medium, Pull Requests.
-         * When adding a tab, place it accordingly (append to the end to make it the first/leftmost tab).
+         * NOTE: the tab bar is docked left (`tabBarPosition: 'left'`), so its header toolbar lays out
+         * with `column-reverse` (see `src/tab/header/Toolbar.mjs` `getLayoutConfig`) — the LAST entry in
+         * this list renders as the TOP (first) tab. Items are therefore listed in REVERSE of the intended
+         * top-to-bottom display order, which is:
+         *   Release Notes, Tickets, Discussions, Blog, Medium, Pull Requests.
+         * Append a new tab to the END of this array to make it the first/top tab.
          * @member {Object[]} items
          */
         items: [{
