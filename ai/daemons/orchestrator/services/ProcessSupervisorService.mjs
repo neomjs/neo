@@ -266,14 +266,15 @@ export class ProcessSupervisorService extends Base {
      * @param {Object} options.child Spawned child process.
      * @param {Function} options.clear Completion/failure finalizer.
      * @param {Function} options.isCleared Completion-state guard.
-     * @returns {void}
+     * @param {Function} [options.onReadinessOutcome] Readiness-status callback.
+     * @returns {Promise|null}
      */
-    runPostSpawnHook({taskName, task, reason, child, clear, isCleared}) {
+    runPostSpawnHook({taskName, task, reason, child, clear, isCleared, onReadinessOutcome}) {
         if (typeof task.postSpawn !== 'function') {
-            return;
+            return null;
         }
 
-        Promise.resolve()
+        return Promise.resolve()
             .then(() => task.postSpawn({
                 taskName,
                 task,
@@ -285,6 +286,18 @@ export class ProcessSupervisorService extends Base {
                 if (isCleared?.()) {
                     return;
                 }
+                if (result?.ready === false || result?.degraded === true) {
+                    onReadinessOutcome?.('degraded');
+                    this.writeLog?.('WARN', `[ProcessSupervisor] ${task.label} readiness hook completed with degraded readiness.`);
+                    this.recordTaskOutcome(taskName, 'degraded', {
+                        reason,
+                        pid      : child.pid || null,
+                        readyAt  : new Date().toISOString(),
+                        readiness: result || null
+                    });
+                    return;
+                }
+                onReadinessOutcome?.('ready');
                 this.taskStateService.markReady?.(taskName);
                 this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} readiness hook completed successfully.`);
                 this.recordTaskOutcome(taskName, 'ready', {
@@ -298,6 +311,7 @@ export class ProcessSupervisorService extends Base {
                 if (isCleared?.()) {
                     return;
                 }
+                onReadinessOutcome?.('failed');
                 this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} readiness hook failed: ${error.message}`);
                 try {
                     child.kill?.('SIGTERM');
@@ -361,8 +375,12 @@ export class ProcessSupervisorService extends Base {
 
         this.recordTaskOutcome(taskName, 'running', {reason, pid: child.pid || null, startedAt: new Date().toISOString()});
 
-        let cleared = false;
-        const clear = (code, error, phase = 'start') => {
+        let cleared          = false;
+        let deferredClear    = null;
+        let readinessPending = typeof task.postSpawn === 'function';
+        let readinessOutcome = null;
+
+        const executeClear = (code, error, phase = 'start') => {
             if (cleared) {
                 return;
             }
@@ -385,7 +403,9 @@ export class ProcessSupervisorService extends Base {
                     onSuccess?.();
                     this.taskStateService.markCompleted(taskName);
                     this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} completed successfully.`);
-                    this.recordTaskOutcome(taskName, 'completed', {reason, code, completedAt});
+                    if (readinessOutcome !== 'degraded') {
+                        this.recordTaskOutcome(taskName, 'completed', {reason, code, completedAt});
+                    }
                 } catch (e) {
                     this.taskStateService.markFailed(taskName, null);
                     this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} success hook failed: ${e.message}`);
@@ -404,7 +424,32 @@ export class ProcessSupervisorService extends Base {
             }
         };
 
-        this.runPostSpawnHook({taskName, task, reason, child, clear, isCleared: () => cleared});
+        const clear = (code, error, phase = 'start') => {
+            if (readinessPending && !error && code === 0) {
+                deferredClear = {code, error, phase};
+                return;
+            }
+
+            executeClear(code, error, phase);
+        };
+
+        this.runPostSpawnHook({
+            taskName,
+            task,
+            reason,
+            child,
+            clear,
+            isCleared: () => cleared,
+            onReadinessOutcome: status => { readinessOutcome = status; }
+        })?.finally(() => {
+            readinessPending = false;
+
+            if (deferredClear && !cleared) {
+                const {code, error, phase} = deferredClear;
+                deferredClear = null;
+                clear(code, error, phase);
+            }
+        });
 
         child.on('close', code => clear(code));
         child.on('error', err => clear(null, err, 'child-process'));

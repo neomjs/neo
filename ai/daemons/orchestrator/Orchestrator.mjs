@@ -10,7 +10,7 @@ import path                        from 'path';
 import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import AiConfig                    from '../../config.mjs';
-import {buildLmsContextLengthsMap} from '../../services/graph/ProviderReadinessHelper.mjs';
+import {buildLmsPreloadConfig}     from '../../services/graph/ProviderReadinessHelper.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import SQLite                      from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
@@ -401,12 +401,8 @@ export class Orchestrator extends Base {
     // live in `ai/config.template.mjs::orchestrator.{mlx,lms}` + `envBindings.orchestrator.{mlx,lms}`.
     get mlxEnabled() { return !!AiConfig.orchestrator.mlx?.enabled; }
     get lmsEnabled() { return !!AiConfig.orchestrator.lms?.enabled; }
-    get lmsModels()  {
-        return [...new Set([
-            AiConfig.openAiCompatible?.model,
-            AiConfig.openAiCompatible?.embeddingModel
-        ].filter(Boolean))];
-    }
+    get lmsPreloadConfig() { return buildLmsPreloadConfig(AiConfig); }
+    get lmsModels()        { return this.lmsPreloadConfig.models;      }
 
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.
@@ -439,8 +435,9 @@ export class Orchestrator extends Base {
 
         // Set reactive parent props FIRST so afterSet* propagation lands when
         // processSupervisorService gets re-created below.
-        this.dataDir         = dataDir;
-        this.taskDefinitions = options.taskDefinitions || buildTaskDefinitions({
+        this.dataDir           = dataDir;
+        const lmsPreloadConfig = this.lmsPreloadConfig;
+        this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
             chromaPort: AiConfig.engines.chroma?.port,
@@ -449,15 +446,10 @@ export class Orchestrator extends Base {
             mlxPort   : AiConfig.orchestrator.mlx?.port,
             lmsEnabled: this.lmsEnabled,
             lmsModel  : AiConfig.orchestrator.lms?.model,
-            lmsModels : this.lmsModels,
+            lmsModels : lmsPreloadConfig.models,
             lmsHost   : AiConfig.openAiCompatible?.host,
             lmsPort   : AiConfig.orchestrator.lms?.port,
-            lmsContextLengths: buildLmsContextLengthsMap({
-                chatModel             : AiConfig.openAiCompatible?.model,
-                embeddingModel        : AiConfig.openAiCompatible?.embeddingModel,
-                chatContextLength     : AiConfig.localModels?.chat?.contextLimitTokens,
-                embeddingContextLength: AiConfig.localModels?.embedding?.contextLimitTokens
-            }),
+            lmsContextLengths: lmsPreloadConfig.contextLengths,
             providerReadiness: AiConfig.orchestrator.providerReadiness
         });
 

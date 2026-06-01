@@ -2,7 +2,11 @@ import http from 'http';
 import {execFile} from 'child_process';
 import {Memory_Config as aiConfig} from '../../services.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import {isGraphModelProviderSupported, resolveGraphModelProvider} from './providerDispatch.mjs';
+import {
+    isGraphModelProviderSupported,
+    isOpenAiCompatibleProvider,
+    resolveGraphModelProvider
+} from './providerDispatch.mjs';
 
 /**
  * @module ai/services/graph/ProviderReadinessHelper
@@ -202,6 +206,57 @@ export function buildLmsContextLengthsMap({
 }
 
 /**
+ * @summary Builds the LM Studio preload set from configured provider-role selectors.
+ *
+ * The state-provider config chooses which provider serves each role. The OpenAI-compatible
+ * model defaults remain populated even when a role is routed to Gemini or native Ollama, so
+ * this helper must never infer activity from non-null model leaves. It only includes roles
+ * whose selector explicitly targets the OpenAI-compatible surface that LM Studio serves.
+ *
+ * Role ownership:
+ * - `modelProvider`: session-summary chat role.
+ * - `graphProvider`: REM graph-generation chat role.
+ * - `embeddingProvider`: vector embedding role.
+ *
+ * @param {Object} config aiConfig-shaped provider config.
+ * @returns {{models: String[], contextLengths: Object}} Role-aware LMS preload config.
+ */
+export function buildLmsPreloadConfig(config = aiConfig) {
+    const openAiCompatibleConfig = config.openAiCompatible ?? {},
+          chatModel              = openAiCompatibleConfig.model,
+          embeddingModel         = openAiCompatibleConfig.embeddingModel,
+          chatContextLength      = config.localModels?.chat?.contextLimitTokens,
+          embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
+          roles                  = [{
+              provider     : config.modelProvider,
+              model        : chatModel,
+              contextRole  : 'chat',
+              contextLength: chatContextLength
+          }, {
+              provider     : config.graphProvider,
+              model        : chatModel,
+              contextRole  : 'chat',
+              contextLength: chatContextLength
+          }, {
+              provider     : config.embeddingProvider,
+              model        : embeddingModel,
+              contextRole  : 'embedding',
+              contextLength: embeddingContextLength
+          }].filter(role => isOpenAiCompatibleProvider(role.provider) && role.model);
+
+    const models              = [...new Set(roles.map(role => role.model))],
+          selectedContextRole = role => roles.some(({contextRole}) => contextRole === role),
+          contextLengths      = buildLmsContextLengthsMap({
+              chatModel       : selectedContextRole('chat') ? chatModel : undefined,
+              embeddingModel  : selectedContextRole('embedding') ? embeddingModel : undefined,
+              chatContextLength,
+              embeddingContextLength
+    });
+
+    return {models, contextLengths}
+}
+
+/**
  * @summary Ensures LM Studio has all configured OpenAI-compatible models loaded.
  *
  * The orchestrator-owned `lms server start` task gets the server process running;
@@ -224,6 +279,7 @@ export function buildLmsContextLengthsMap({
  * @param {Number} options.delayMs Delay between probes.
  * @param {Number} options.timeoutMs HTTP probe timeout.
  * @param {Object} [options.contextLengths] Per-model context-length override map keyed by model id.
+ * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one model cannot be loaded.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Object} [options.log=logger] Logger seam.
@@ -236,6 +292,7 @@ export async function ensureLmsModelsLoaded({
     delayMs,
     timeoutMs,
     contextLengths = {},
+    allowPartial   = false,
     fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
     loadModel     = (model, options) => loadLmsModel(model, options),
     log           = logger
@@ -275,6 +332,7 @@ export async function ensureLmsModelsLoaded({
 
     let {availableModels} = await probeModels('initial /v1/models probe');
     const initialMissing  = getMissing(availableModels);
+    const failedModels   = [];
 
     // Force-include context-configured models in the load set even when already
     // resident in /v1/models. `/v1/models` reports presence only — it does NOT
@@ -289,7 +347,8 @@ export async function ensureLmsModelsLoaded({
         if (initialMissing.includes(model)) return true;
         return Neo.isNumber(contextLengths?.[model]);
     });
-    const loadedModels = [...modelsToLoad];
+    const attemptedModels = [...modelsToLoad];
+    const loadedModels    = [];
 
     if (modelsToLoad.length === 0) {
         return {
@@ -310,7 +369,21 @@ export async function ensureLmsModelsLoaded({
             ? 'missing from /v1/models'
             : 'context-length enforcement on resident model';
         log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix} (${reason}).`);
-        await loadModel(model, {contextLength});
+        try {
+            await loadModel(model, {contextLength});
+            loadedModels.push(model);
+        } catch (error) {
+            failedModels.push({
+                model,
+                contextLength,
+                error: error.message
+            });
+            log.warn?.(`[ProviderReadinessHelper] LM Studio model '${model}' preload failed: ${error.message}`);
+
+            if (!allowPartial) {
+                throw error;
+            }
+        }
     }
 
     let missingModels = initialMissing;
@@ -318,12 +391,22 @@ export async function ensureLmsModelsLoaded({
     const startedAt = Date.now();
     for (let attempt = 1; attempt <= attempts; attempt++) {
         ({availableModels} = await probeModels('post-load /v1/models probe'));
-        missingModels   = getMissing(availableModels);
+        missingModels = getMissing(availableModels);
 
-        if (missingModels.length === 0) {
+        const knownUnavailable = new Set([
+            ...failedModels.map(item => item.model)
+        ]);
+        const serviceableMissing = missingModels.filter(model => !knownUnavailable.has(model));
+
+        if (missingModels.length === 0 || (allowPartial && serviceableMissing.length === 0)) {
+            const ready = missingModels.length === 0 && failedModels.length === 0;
             return {
-                ready       : true,
+                ready,
+                degraded    : !ready,
                 loadedModels,
+                attemptedModels,
+                failedModels,
+                missingModels,
                 requiredModels,
                 availableModels,
                 attempts    : attempt,
@@ -334,6 +417,21 @@ export async function ensureLmsModelsLoaded({
         if (attempt < attempts) {
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
+    }
+
+    if (allowPartial) {
+        return {
+            ready       : false,
+            degraded    : true,
+            loadedModels,
+            attemptedModels,
+            failedModels,
+            missingModels,
+            requiredModels,
+            availableModels,
+            attempts,
+            elapsedMs    : Date.now() - startedAt
+        };
     }
 
     throw new Error(

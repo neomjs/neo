@@ -150,8 +150,8 @@ export function buildTaskDefinitions({
     }
 
     if (lmsEnabled) {
-        const requiredModels = Array.isArray(lmsModels) && lmsModels.length > 0
-            ? lmsModels
+        const requiredModels = Array.isArray(lmsModels)
+            ? [...new Set(lmsModels.filter(Boolean))]
             : [lmsModel].filter(Boolean);
 
         tasks.lms = {
@@ -179,10 +179,23 @@ export function buildTaskDefinitions({
             postSpawn      : async () => {
                 const {ensureLmsModelsLoaded} = await import('../../services/graph/ProviderReadinessHelper.mjs');
 
+                if (requiredModels.length === 0) {
+                    return {
+                        ready          : true,
+                        loadedModels   : [],
+                        requiredModels,
+                        availableModels: [],
+                        attempts       : 0,
+                        skipped        : true,
+                        reason         : 'no-openai-compatible-local-roles'
+                    };
+                }
+
                 return ensureLmsModelsLoaded({
                     host           : lmsHost,
                     models         : requiredModels,
                     contextLengths : lmsContextLengths,
+                    allowPartial   : true,
                     attempts       : providerReadiness?.attempts,
                     delayMs        : providerReadiness?.delayMs,
                     timeoutMs      : providerReadiness?.timeoutMs

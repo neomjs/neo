@@ -468,8 +468,8 @@ class Config extends BaseConfig {
                  *   cloud-deployment substrate).
                  * - `model`: legacy single-model field kept for existing operator overlays. The
                  *   orchestrator-managed `lms server start` lane pre-warms the configured
-                 *   OpenAI-compatible chat + embedding models (`openAiCompatible.model` and
-                 *   `openAiCompatible.embeddingModel`) via `lms load <model>` after server spawn.
+                 *   OpenAI-compatible models for roles actively routed through the
+                 *   `openAiCompatible` provider via `lms load <model>` after server spawn.
                  *   Distinct from the OpenAI-compatible API payload label (`NEO_OPENAI_COMPATIBLE_MODEL`).
                  * - `port`: OpenAI-compatible local-inference port (LM Studio CLI default `1234`).
                  * @type {Object}
