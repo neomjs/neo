@@ -50,7 +50,7 @@ class Component extends ContentComponent {
         cls: ['portal-news-pulls-component'],
         /**
          * `#N` references in PR bodies are issue numbers → resolve to the portal tickets view.
-         * Per-content-type config (#12209): the generic content base no longer defaults this.
+         * Per-content-type config: the generic content base no longer defaults this.
          * @member {String} issuesUrl='#/news/tickets/'
          */
         issuesUrl: '#/news/tickets/',
@@ -196,7 +196,7 @@ class Component extends ContentComponent {
 
         me.timelineData.push({
             id   : bodyId,
-            image: me.getAvatarUrl(author),
+            ...me.getAvatarRecordProps(author),
             name : 'Description',
             tag  : 'body'
         });
@@ -213,7 +213,7 @@ class Component extends ContentComponent {
 
             me.timelineData.push({
                 id,
-                image: me.getAvatarUrl(entry.user),
+                ...me.getAvatarRecordProps(entry.user),
                 name : isReview ? `Review (${entry.user})` : `Comment (${entry.user})`,
                 tag  : entry.type
             });

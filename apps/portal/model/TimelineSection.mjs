@@ -21,6 +21,9 @@ class TimelineSection extends ContentSection {
             name: 'icon',
             type: 'String'
         }, {
+            name: 'iconCls',
+            type: 'String'
+        }, {
             name: 'image',
             type: 'String'
         }, {
