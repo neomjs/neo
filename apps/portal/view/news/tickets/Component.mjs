@@ -264,7 +264,7 @@ class Component extends ContentComponent {
 
         me.timelineData.unshift({
             id   : bodyId,
-            image: me.repoUserUrl + author + '.png',
+            image: me.getAvatarUrl(author),
             name : 'Description',
             tag  : 'body'
         });
@@ -272,7 +272,7 @@ class Component extends ContentComponent {
         let bodyItemHtml = `
             <div id="${bodyId}" class="neo-timeline-item comment body-item" data-record-id="${bodyId}">
                 <div id="${bodyId}-target" class="neo-timeline-avatar">
-                    <img src="${me.repoUserUrl}${author}.png" alt="${author}">
+                    ${me.getAvatarHtml(author)}
                 </div>
                 <div class="neo-timeline-content">
                     <div class="neo-timeline-header">
@@ -338,7 +338,7 @@ ${fullHtml}
 
                 me.timelineData.push({
                     id,
-                    image: repoUserUrl + currentUser + '.png',
+                    image: me.getAvatarUrl(currentUser),
                     name : `Comment (${currentUser})`,
                     tag  : 'comment'
                 });
@@ -347,7 +347,7 @@ ${fullHtml}
                 html += `
                     <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
                         <div id="${id}-target" class="neo-timeline-avatar">
-                            <img src="${repoUserUrl}${currentUser}.png" alt="${currentUser}">
+                            ${me.getAvatarHtml(currentUser)}
                         </div>
                         <div class="neo-timeline-content">
                             <div class="neo-timeline-header">
