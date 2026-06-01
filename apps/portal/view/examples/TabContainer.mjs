@@ -42,24 +42,17 @@ class ExamplesTabContainer extends TabContainer {
             module: List
         },
         /**
+         * Items are listed in the intended top-to-bottom display order for the left-docked tab bar.
          * @member {Object[]} items
          */
         items: [{
-            reference: 'examples-devmode-list',
-            store    : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_devmode.json'},
-            header   : {
-                iconCls: 'fa fa-chess-knight',
-                route  : '/examples/devmode',
-                text   : 'Dev Mode'
-            }
-        }, {
-            environment: 'dist/development',
-            reference  : 'examples-dist-dev-list',
-            store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_dev.json'},
+            environment: 'dist/production',
+            reference  : 'examples-dist-prod-list',
+            store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_prod.json'},
             header     : {
-                iconCls: 'fa fa-chess-bishop',
-                route  : '/examples/dist_dev',
-                text   : 'dist/dev'
+                iconCls: 'fa fa-chess-king',
+                route  : '/examples/dist_prod',
+                text   : 'dist/prod'
             }
         }, {
             environment: 'dist/production',
@@ -71,13 +64,21 @@ class ExamplesTabContainer extends TabContainer {
                 text   : 'dist/esm'
             }
         }, {
-            environment: 'dist/production',
-            reference  : 'examples-dist-prod-list',
-            store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_prod.json'},
+            environment: 'dist/development',
+            reference  : 'examples-dist-dev-list',
+            store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_dev.json'},
             header     : {
-                iconCls: 'fa fa-chess-king',
-                route  : '/examples/dist_prod',
-                text   : 'dist/prod'
+                iconCls: 'fa fa-chess-bishop',
+                route  : '/examples/dist_dev',
+                text   : 'dist/dev'
+            }
+        }, {
+            reference: 'examples-devmode-list',
+            store    : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_devmode.json'},
+            header   : {
+                iconCls: 'fa fa-chess-knight',
+                route  : '/examples/devmode',
+                text   : 'Dev Mode'
             }
         }]
     }
