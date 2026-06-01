@@ -175,6 +175,26 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         }
     });
 
+    test('buildTaskDefinitions honors an explicit empty lmsModels list without legacy fallback (#12264)', async () => {
+        const tasks = buildTaskDefinitions({
+            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
+            nodeBin   : '/test/node',
+            lmsEnabled: true,
+            lmsModel  : 'legacy-fallback-model',
+            lmsModels : [],
+            lmsHost   : 'http://127.0.0.1:4242',
+            lmsPort   : 4242
+        });
+
+        expect(tasks.lms.requiredModels).toEqual([]);
+        await expect(tasks.lms.postSpawn()).resolves.toMatchObject({
+            ready         : true,
+            requiredModels: [],
+            skipped       : true,
+            reason        : 'no-openai-compatible-local-roles'
+        });
+    });
+
     test('AiConfig.orchestrator.lms ships default-enabled LM Studio launch defaults', () => {
         // Tier-1 template is the stable source of truth; read as text (see the MLX test
         // for why importing the template collides with daemon.mjs's config.mjs singleton).

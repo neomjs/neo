@@ -392,6 +392,96 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(result.loadedModels).toEqual(['chat-model', 'embedding-model']);
     });
 
+    test('ensureLmsModelsLoaded does not pre-skip large local chat contexts (#12264)', async () => {
+        const loadCalls = [];
+        const warnings  = [];
+        const modelSnapshots = [
+            [],
+            ['embedding-model']
+        ];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host            : 'http://127.0.0.1:1234',
+            models          : ['chat-model', 'embedding-model'],
+            contextLengths  : {'chat-model': 262144, 'embedding-model': 8192},
+            allowPartial    : true,
+            attempts        : 2,
+            delayMs         : 0,
+            timeoutMs       : 50,
+            fetchModelIds   : async () => modelSnapshots.shift() || ['embedding-model'],
+            loadModel       : async (model, options) => {
+                loadCalls.push({model, contextLength: options?.contextLength});
+                if (model === 'chat-model') {
+                    throw new Error('LM Studio rejected 262K chat load');
+                }
+            },
+            log             : {
+                info: () => {},
+                warn: message => warnings.push(message)
+            }
+        });
+
+        expect(loadCalls).toEqual([
+            {model: 'chat-model',      contextLength: 262144},
+            {model: 'embedding-model', contextLength: 8192}
+        ]);
+        expect(result.ready).toBe(false);
+        expect(result.degraded).toBe(true);
+        expect(result.loadedModels).toEqual(['embedding-model']);
+        expect(result.failedModels).toEqual([{
+            model        : 'chat-model',
+            contextLength: 262144,
+            error        : 'LM Studio rejected 262K chat load'
+        }]);
+        expect(result.missingModels).toEqual(['chat-model']);
+        expect(warnings[0]).toContain('preload failed');
+    });
+
+    test('ensureLmsModelsLoaded continues loading remaining models after a partial preload failure (#12264)', async () => {
+        const loadCalls = [];
+        const warnings  = [];
+        const modelSnapshots = [
+            [],
+            ['embedding-model']
+        ];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host          : 'http://127.0.0.1:1234',
+            models        : ['chat-model', 'embedding-model'],
+            contextLengths: {'chat-model': 32768, 'embedding-model': 8192},
+            allowPartial  : true,
+            attempts      : 2,
+            delayMs       : 0,
+            timeoutMs     : 50,
+            fetchModelIds : async () => modelSnapshots.shift() || ['embedding-model'],
+            loadModel     : async (model, options) => {
+                loadCalls.push({model, contextLength: options?.contextLength});
+                if (model === 'chat-model') {
+                    throw new Error('LM Studio rejected chat load');
+                }
+            },
+            log: {
+                info: () => {},
+                warn: message => warnings.push(message)
+            }
+        });
+
+        expect(loadCalls).toEqual([
+            {model: 'chat-model',      contextLength: 32768},
+            {model: 'embedding-model', contextLength: 8192}
+        ]);
+        expect(result.ready).toBe(false);
+        expect(result.degraded).toBe(true);
+        expect(result.loadedModels).toEqual(['embedding-model']);
+        expect(result.failedModels).toEqual([{
+            model        : 'chat-model',
+            contextLength: 32768,
+            error        : 'LM Studio rejected chat load'
+        }]);
+        expect(result.missingModels).toEqual(['chat-model']);
+        expect(warnings[0]).toContain('preload failed');
+    });
+
     test('loadLmsModel appends --context-length to execFile args when provided (#12117)', async () => {
         const execCalls = [];
         const execFileStub = (cmd, args, callback) => {
