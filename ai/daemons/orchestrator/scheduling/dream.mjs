@@ -1,5 +1,3 @@
-const DEFAULT_DREAM_OVERFLOW_THRESHOLD = 0.8;
-
 /**
  * @summary Parses persisted task-state timestamps without throwing on legacy or
  * partially written state envelopes.
@@ -26,17 +24,14 @@ function toTimestampMs(value) {
  * @param {Object} options
  * @param {Object} [options.state] Current task state for the dream lane.
  * @param {Number} options.dreamIntervalMs Periodic REM interval.
- * @param {Number} [options.dreamOverflowThreshold=0.8] Fraction of cadence that
- * marks a completed cycle as overflowing.
+ * @param {Number} options.dreamOverflowThreshold Config-owned fraction of cadence that triggers
+ * completion-time cooldown for a completed cycle.
  * @returns {Number} Epoch millisecond cadence anchor.
  */
-export function getCadenceAnchor({state, dreamIntervalMs, dreamOverflowThreshold = DEFAULT_DREAM_OVERFLOW_THRESHOLD}) {
+export function getCadenceAnchor({state, dreamIntervalMs, dreamOverflowThreshold}) {
     const lastRunAt        = toTimestampMs(state?.lastRunAt) ?? 0;
     const lastSuccessAt    = toTimestampMs(state?.lastSuccessAt);
-    const threshold        = Number.isFinite(dreamOverflowThreshold) && dreamOverflowThreshold > 0
-        ? dreamOverflowThreshold
-        : DEFAULT_DREAM_OVERFLOW_THRESHOLD;
-    const thresholdMs      = dreamIntervalMs * threshold;
+    const thresholdMs      = dreamIntervalMs * dreamOverflowThreshold;
     const completedRuntime = lastSuccessAt !== null && lastSuccessAt > lastRunAt
         ? lastSuccessAt - lastRunAt
         : 0;
@@ -52,11 +47,11 @@ export function getCadenceAnchor({state, dreamIntervalMs, dreamOverflowThreshold
  * @param {Object} [options.state] Current task state for the dream lane.
  * @param {Number} options.now Current timestamp in milliseconds.
  * @param {Number} options.dreamIntervalMs Periodic interval; `<= 0` disables.
- * @param {Number} [options.dreamOverflowThreshold=0.8] Fraction of cadence that
- * makes the completed prior cycle use completion-time cooldown.
+ * @param {Number} options.dreamOverflowThreshold Config-owned fraction of cadence that makes
+ * the completed prior cycle use completion-time cooldown.
  * @returns {Object|null} A dream task trigger or null when no work is due.
  */
-export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold = DEFAULT_DREAM_OVERFLOW_THRESHOLD}) {
+export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold}) {
     const cadenceAnchor = getCadenceAnchor({state, dreamIntervalMs, dreamOverflowThreshold});
 
     if (dreamIntervalMs > 0 && now - cadenceAnchor >= dreamIntervalMs) {
