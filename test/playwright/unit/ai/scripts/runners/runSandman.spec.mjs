@@ -309,7 +309,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
             host          : 'http://127.0.0.1:1234',
             models        : ['chat-model', 'embedding-model'],
-            contextLengths: {'chat-model': 262144, 'embedding-model': 8192},
+            contextLengths: {'chat-model': 262144, 'embedding-model': 32768},
             attempts      : 1,
             delayMs       : 0,
             timeoutMs     : 50,
@@ -324,7 +324,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(loadCalls).toEqual([
             {model: 'chat-model',      contextLength: 262144},
-            {model: 'embedding-model', contextLength: 8192}
+            {model: 'embedding-model', contextLength: 32768}
         ]);
         expect(result.ready).toBe(true);
         expect(result.loadedModels).toEqual(['chat-model', 'embedding-model']);
@@ -375,7 +375,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
             host          : 'http://127.0.0.1:1234',
             models        : ['chat-model', 'embedding-model'],
-            contextLengths: {'chat-model': 262144, 'embedding-model': 8192},
+            contextLengths: {'chat-model': 262144, 'embedding-model': 32768},
             attempts      : 2,
             delayMs       : 0,
             timeoutMs     : 50,
@@ -386,7 +386,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(loadCalls).toEqual([
             {model: 'chat-model',      options: {contextLength: 262144}},
-            {model: 'embedding-model', options: {contextLength: 8192}}
+            {model: 'embedding-model', options: {contextLength: 32768}}
         ]);
         expect(result.ready).toBe(true);
         expect(result.loadedModels).toEqual(['chat-model', 'embedding-model']);
@@ -403,7 +403,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
             host            : 'http://127.0.0.1:1234',
             models          : ['chat-model', 'embedding-model'],
-            contextLengths  : {'chat-model': 262144, 'embedding-model': 8192},
+            contextLengths  : {'chat-model': 262144, 'embedding-model': 32768},
             allowPartial    : true,
             attempts        : 2,
             delayMs         : 0,
@@ -423,7 +423,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(loadCalls).toEqual([
             {model: 'chat-model',      contextLength: 262144},
-            {model: 'embedding-model', contextLength: 8192}
+            {model: 'embedding-model', contextLength: 32768}
         ]);
         expect(result.ready).toBe(false);
         expect(result.degraded).toBe(true);
@@ -448,7 +448,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
             host          : 'http://127.0.0.1:1234',
             models        : ['chat-model', 'embedding-model'],
-            contextLengths: {'chat-model': 32768, 'embedding-model': 8192},
+            contextLengths: {'chat-model': 32768, 'embedding-model': 32768},
             allowPartial  : true,
             attempts      : 2,
             delayMs       : 0,
@@ -468,7 +468,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(loadCalls).toEqual([
             {model: 'chat-model',      contextLength: 32768},
-            {model: 'embedding-model', contextLength: 8192}
+            {model: 'embedding-model', contextLength: 32768}
         ]);
         expect(result.ready).toBe(false);
         expect(result.degraded).toBe(true);
@@ -518,10 +518,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             chatModel             : 'chat-from-config',
             embeddingModel        : 'embedding-from-config',
             chatContextLength     : 262144,
-            embeddingContextLength: 8192
+            embeddingContextLength: 32768
         })).toEqual({
             'chat-from-config'     : 262144,
-            'embedding-from-config': 8192
+            'embedding-from-config': 32768
         });
     });
 
@@ -538,7 +538,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         // Context-lengths present but models missing
         expect(providerReadinessHelper.buildLmsContextLengthsMap({
             chatContextLength     : 262144,
-            embeddingContextLength: 8192
+            embeddingContextLength: 32768
         })).toEqual({});
 
         // Non-finite context-lengths defensive: NaN, Infinity, non-number all skipped
@@ -557,7 +557,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             chatModel             : 'shared-model',
             embeddingModel        : 'shared-model',
             chatContextLength     : 262144,
-            embeddingContextLength: 8192
+            embeddingContextLength: 32768
         })).toEqual({'shared-model': 262144});
 
         // Order independence: same result if smaller declared first (already handled
@@ -565,7 +565,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(providerReadinessHelper.buildLmsContextLengthsMap({
             chatModel             : 'shared-model',
             embeddingModel        : 'shared-model',
-            chatContextLength     : 8192,
+            chatContextLength     : 32768,
             embeddingContextLength: 262144
         })).toEqual({'shared-model': 262144});
 
@@ -586,8 +586,37 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(providerReadinessHelper.buildLmsContextLengthsMap({
             embeddingModel        : 'embedding-only',
-            embeddingContextLength: 8192
-        })).toEqual({'embedding-only': 8192});
+            embeddingContextLength: 32768
+        })).toEqual({'embedding-only': 32768});
+    });
+
+    test('buildLmsPreloadConfig uses the retuned embedding role context for OpenAI-compatible embeddings (#12286)', () => {
+        expect(providerReadinessHelper.buildLmsPreloadConfig({
+            modelProvider    : 'gemini',
+            graphProvider    : 'openAiCompatible',
+            embeddingProvider: 'openAiCompatible',
+            openAiCompatible: {
+                model         : 'gemma-4-31b-it',
+                embeddingModel: 'text-embedding-qwen3-embedding-8b'
+            },
+            localModels: {
+                chat: {
+                    contextLimitTokens: 262144
+                },
+                embedding: {
+                    contextLimitTokens: 32768
+                }
+            }
+        })).toEqual({
+            models: [
+                'gemma-4-31b-it',
+                'text-embedding-qwen3-embedding-8b'
+            ],
+            contextLengths: {
+                'gemma-4-31b-it'                  : 262144,
+                'text-embedding-qwen3-embedding-8b': 32768
+            }
+        });
     });
 
     test('loadLmsModel omits --context-length when contextLength is non-finite (defensive)', async () => {
