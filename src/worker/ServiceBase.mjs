@@ -113,11 +113,16 @@ class ServiceBase extends Base {
      * The SW will detect the mismatch (`App v1 !== SW v2`) and command a reload.
      * Without Network First, the browser might serve the stale config again, causing an infinite reload loop.
      *
-     * @member {String[]} networkFirstPaths=['DefaultConfig.mjs','neo-config.json']
+     * App data JSON (`/resources/data/`) is also network-first: these files are generated independently
+     * of the framework version and must reflect fresh content syncs even when `/resources/` assets are
+     * otherwise cache-first.
+     *
+     * @member {String[]} networkFirstPaths=['DefaultConfig.mjs','neo-config.json','/resources/data/']
      */
     networkFirstPaths = [
         'DefaultConfig.mjs',
-        'neo-config.json'
+        'neo-config.json',
+        '/resources/data/'
     ]
     /**
      * @member {Object[]} promises=[]
@@ -348,7 +353,7 @@ class ServiceBase extends Base {
      * The core interceptor for network requests.
      *
      * Implements a hybrid caching strategy:
-     * 1.  **Network First:** For `networkFirstPaths` (Configs). Priority is getting the latest version to prevent handshake loops.
+     * 1.  **Network First:** For `networkFirstPaths` (config/data). Priority is getting the latest version to prevent stale state.
      * 2.  **Cache First:** For `cachePaths` (Assets). Priority is speed and offline capability.
      *
      * @param {ExtendableMessageEvent} event
@@ -360,7 +365,7 @@ class ServiceBase extends Base {
             {request}     = event,
             key;
 
-        // Check for Network First paths (Configs)
+        // Check for Network First paths (config/data)
         for (key of me.networkFirstPaths) {
             if (request.url.includes(key)) {
                 hasNetMatch = true;
