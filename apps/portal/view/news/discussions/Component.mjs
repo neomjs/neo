@@ -200,7 +200,7 @@ class Component extends ContentComponent {
 
         me.timelineData.unshift({
             id   : bodyId,
-            image: me.getAvatarUrl(data.author),
+            ...me.getAvatarRecordProps(data.author),
             name : 'Description',
             tag  : 'body'
         });
@@ -346,7 +346,7 @@ ${fullHtml}
 
             me.timelineData.push({
                 id,
-                image: me.getAvatarUrl(comment.user),
+                ...me.getAvatarRecordProps(comment.user),
                 name : `Comment (${comment.user})`,
                 tag  : 'comment'
             });

@@ -40,6 +40,10 @@ class SectionsList extends List {
 
         if (record.image) {
             content.push({tag: 'img', src: record.image, cls: ['neo-list-icon', 'avatar']})
+        } else if (record.iconCls) {
+            // A full Font Awesome class string (e.g. a `fa-brands fa-github` bot glyph) rendered as an
+            // avatar-sized icon — lets a record supply a no-network glyph instead of an `image` URL.
+            content.push({tag: 'i', cls: ['neo-list-icon', 'avatar', ...record.iconCls.split(' ')]})
         } else if (record.icon) {
             content.push({tag: 'i', cls: ['neo-list-icon', 'fa-solid', record.icon]})
         }

@@ -73,6 +73,18 @@ class Component extends ContentComponent {
     }
 
     /**
+     * @summary True for GitHub bot/app actors whose `github.com/<login>.png` avatar 404s.
+     *
+     * Single source of truth for the bot/app actor decision, shared by `getAvatarHtml` (timeline HTML)
+     * and `getAvatarRecordProps` (summary list), so the bot list is never duplicated in a consumer renderer.
+     * @param {String} user GitHub login.
+     * @returns {Boolean}
+     */
+    isBotActor(user) {
+        return botActors.has(user) || user.endsWith('[bot]')
+    }
+
+    /**
      * @summary Renders a bounded avatar for a timeline actor.
      *
      * Normal users get the sized `<img>`; bot/app actors (whose `github.com/<login>.png` 404s) fall back
@@ -82,11 +94,25 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     getAvatarHtml(user) {
-        if (botActors.has(user) || user.endsWith('[bot]')) {
+        if (this.isBotActor(user)) {
             return `<i class="neo-timeline-avatar-icon fa-brands fa-github" role="img" aria-label="${user}"></i>`
         }
 
         return `<img src="${this.getAvatarUrl(user)}" alt="${user}" loading="lazy">`
+    }
+
+    /**
+     * @summary Resolves the avatar fields for a timeline entry record, consumed by both the timeline and
+     * the `Neo.app.content.SectionsList` "On this page" summary.
+     *
+     * Normal users get a bounded `image` URL; bot/app actors get an `iconCls` (Font Awesome GitHub glyph)
+     * instead — so the summary list renders the same no-network glyph the timeline does, rather than a
+     * broken `<img>` for a 404ing bot avatar. The bot decision stays centralized via `isBotActor`.
+     * @param {String} user GitHub login.
+     * @returns {Object} `{image}` for normal users, `{iconCls}` for bot/app actors.
+     */
+    getAvatarRecordProps(user) {
+        return this.isBotActor(user) ? {iconCls: 'fa-brands fa-github'} : {image: this.getAvatarUrl(user)}
     }
 
     /**

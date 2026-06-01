@@ -19,7 +19,7 @@ import Component       from '../../../../../../../apps/portal/view/content/Compo
  * no-network glyph. Both helpers are pure (they read only `this.repoUserUrl` / `this.getAvatarUrl`), so
  * they are exercised directly on the prototype with a stub context.
  */
-const {getAvatarHtml, getAvatarUrl} = Component.prototype;
+const {getAvatarHtml, getAvatarRecordProps, getAvatarUrl, isBotActor} = Component.prototype;
 
 test.describe('Portal.view.content.Component — shared avatar helpers', () => {
     test('getAvatarUrl bounds the avatar request to ?size=40', () => {
@@ -28,7 +28,7 @@ test.describe('Portal.view.content.Component — shared avatar helpers', () => {
     });
 
     test('getAvatarHtml: normal user → sized lazy <img>; bot/app actor → no-network glyph', () => {
-        const ctx = {repoUserUrl: 'https://github.com/', getAvatarUrl};
+        const ctx = {repoUserUrl: 'https://github.com/', getAvatarUrl, isBotActor};
 
         // Normal user: bounded (?size=40) lazy <img>, never the full-resolution original.
         const normal = getAvatarHtml.call(ctx, 'alice');
@@ -43,5 +43,21 @@ test.describe('Portal.view.content.Component — shared avatar helpers', () => {
 
         // `[bot]`-suffixed app actor: same no-network fallback.
         expect(getAvatarHtml.call(ctx, 'some-app[bot]')).toContain('fa-github')
+    });
+
+    test('isBotActor flags known bot/app actors, not normal users', () => {
+        expect(isBotActor('dependabot')).toBe(true);
+        expect(isBotActor('github-actions')).toBe(true);
+        expect(isBotActor('some-app[bot]')).toBe(true);
+        expect(isBotActor('alice')).toBe(false)
+    });
+
+    test('getAvatarRecordProps: normal user → {image:?size=40}; bot/app actor → {iconCls: github glyph}', () => {
+        // Drives the summary-list (SectionsList) avatar shape: a normal user yields a bounded image URL,
+        // a bot/app actor yields a glyph class so the summary renders the no-network glyph, not a 404 <img>.
+        const ctx = {repoUserUrl: 'https://github.com/', getAvatarUrl, isBotActor};
+
+        expect(getAvatarRecordProps.call(ctx, 'alice')).toEqual({image: 'https://github.com/alice.png?size=40'});
+        expect(getAvatarRecordProps.call(ctx, 'dependabot')).toEqual({iconCls: 'fa-brands fa-github'})
     })
 });
