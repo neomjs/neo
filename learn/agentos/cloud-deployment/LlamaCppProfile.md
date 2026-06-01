@@ -1,16 +1,15 @@
 # Cloud Deployment - llama.cpp Profile
 
-> **Status - operator profile for #12302.** This guide documents llama.cpp as a
-> self-hosted OpenAI-compatible backend for Agent OS cloud deployments. It fills
-> the cloud-deployment gap left after #12090 was resolved by PR #12118: the
-> generic provider-readiness substrate exists, but operators still need a
-> backend-specific handoff profile.
+> **Status - operator profile.** This guide documents llama.cpp as a self-hosted
+> OpenAI-compatible backend for Agent OS cloud deployments. It turns Neo's
+> generic provider-readiness substrate into a backend-specific handoff profile
+> operators can run before assigning agents to the deployment.
 
 ## Provider selector
 
 Use Neo's existing OpenAI-compatible provider keys. Do not introduce or document
-a `llamaCpp` provider selector unless a separate implementation ticket proves
-that the generic OpenAI-compatible contract is insufficient.
+a `llamaCpp` provider selector unless implementation evidence proves that the
+generic OpenAI-compatible contract is insufficient.
 
 ```bash
 export NEO_MODEL_PROVIDER=openAiCompatible
@@ -60,11 +59,11 @@ role models:
 
 Do not hide two unrelated llama.cpp hosts behind one Neo config by manually
 switching `NEO_OPENAI_COMPATIBLE_HOST` between calls. That recreates the
-model-swap failure #12090 was meant to prevent.
+model-swap failure this profile is meant to prevent.
 
 If your only safe llama.cpp topology requires separate chat and embedding hosts
 with no shared OpenAI-compatible router, current Neo config cannot express that
-cleanly. File or follow an implementation ticket for role-specific
+cleanly. Keep that topology out of production until Neo supports role-specific
 OpenAI-compatible hosts instead of documenting a manual operator workaround.
 
 ## Environment example
@@ -179,4 +178,3 @@ Neo health/readiness surfaces all agree.
 - [Configuration](./Configuration.md) - deployment config surface and provider-readiness env vars.
 - [Deployment Cookbook](../DeploymentCookbook.md) - broader Agent OS deployment topology.
 - [Shared KB/MC Team Deployment](../SharedDeployment.md) - shared local-provider residency guidance.
-- [#12090](https://github.com/neomjs/neo/issues/12090) / [PR #12118](https://github.com/neomjs/neo/pull/12118) - generic provider-capacity warning substrate.
