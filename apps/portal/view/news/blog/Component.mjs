@@ -10,7 +10,11 @@ class Component extends ContentComponent {
          * @member {String} className='Portal.view.news.blog.Component'
          * @protected
          */
-        className: 'Portal.view.news.blog.Component'
+        className: 'Portal.view.news.blog.Component',
+        /**
+         * @member {String} issuesUrl='#/news/tickets/'
+         */
+        issuesUrl: '#/news/tickets/'
     }
 
     /**
