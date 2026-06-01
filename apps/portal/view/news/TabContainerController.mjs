@@ -34,8 +34,7 @@ class TabContainerController extends Controller {
      * @summary Activates the tab whose header button carries the given route.
      *
      * Resolves `activeIndex` by matching the tab button's `route` rather than hardcoding a position, so
-     * the controller stays correct when the `items` array is reordered — which it is: the left-docked tab
-     * header renders `column-reverse`, so the array is the reverse of the visual display.
+     * the controller stays correct when the `items` array is reordered.
      *
      * The lookup MUST use `getTabBar().items` (the header buttons), NOT `component.items`:
      * `Neo.tab.Container.createItems()` transforms the user `items` into `[HeaderToolbar, Strip,

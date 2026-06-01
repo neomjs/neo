@@ -188,4 +188,32 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(container.items[3].id).toBe('btnD');
         expect(container.items[4].id).toBe('btnB');
     });
+
+    test('Treats non-reversed vertical layouts as forward sort direction', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+        container.layout.direction = 'column';
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
+        });
+
+        expect(sortZone.sortDirection).toBe('vertical');
+        expect(sortZone.reversedLayoutDirection).toBe(false);
+        expect(sortZone.currentIndex).toBe(0)
+    });
+
+    test('Keeps explicit column-reverse layouts on the reverse sort path', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+        container.layout.direction = 'column-reverse';
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
+        });
+
+        expect(sortZone.sortDirection).toBe('vertical');
+        expect(sortZone.reversedLayoutDirection).toBe(true);
+        expect(sortZone.currentIndex).toBe(0)
+    });
 });
