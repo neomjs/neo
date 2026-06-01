@@ -64,13 +64,16 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * The styles for calendar events are located inside the MainContainer CSS output.
-     * We want to fetch the CSS without requiring to load the related JS module.
-     * @param {Object} config
+     * The styles for calendar events live inside the `Neo.calendar.view.MainContainer` CSS output. We
+     * want to fetch that CSS without loading the related JS module. This runs on `windowId` (the first
+     * arg `insertThemeFiles` expects) rather than in `construct`, where the target window is not yet
+     * known, so the theme files are inserted into the correct window.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      */
-    construct(config) {
-        super.construct(config);
-        Neo.worker.App.insertThemeFiles(this.appName, null, 'Neo.calendar.view.MainContainer')
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+        value && Neo.currentWorker.insertThemeFiles(value, null, 'Neo.calendar.view.MainContainer')
     }
 }
 
