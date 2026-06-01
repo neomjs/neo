@@ -205,23 +205,22 @@ class Component extends ContentComponent {
             tag  : 'body'
         });
 
-        let bodyItemHtml = `
-            <div id="${bodyId}" class="neo-timeline-item comment body-item" data-record-id="${bodyId}">
-                <div id="${bodyId}-target" class="neo-timeline-avatar">
-                    ${me.getAvatarHtml(data.author)}
-                </div>
-                <div class="neo-timeline-content">
-                    <div class="neo-timeline-header">
-                        <a class="neo-timeline-user" href="${me.repoUserUrl}${data.author}" target="_blank">${data.author}</a>
-                        <span class="neo-timeline-date">opened on ${me.formatTimestamp(data.createdAt)}</span>
-                    </div>
-                    <div class="neo-timeline-body">
-
-${fullHtml}
-
-</div>
-                </div>
-            </div>`;
+        let bodyItemHtml = [
+            `<div id="${bodyId}" class="neo-timeline-item comment body-item" data-record-id="${bodyId}">`,
+            `<div id="${bodyId}-target" class="neo-timeline-avatar">`,
+            me.getAvatarHtml(data.author),
+            '</div>',
+            '<div class="neo-timeline-content">',
+            '<div class="neo-timeline-header">',
+            `<a class="neo-timeline-user" href="${me.repoUserUrl}${data.author}" target="_blank">${data.author}</a>`,
+            `<span class="neo-timeline-date">opened on ${me.formatTimestamp(data.createdAt)}</span>`,
+            '</div>',
+            '<div class="neo-timeline-body">',
+            fullHtml,
+            '</div>',
+            '</div>',
+            '</div>'
+        ].join('');
 
         let timelineId    = `discussion-timeline-${me.id}`,
             timelineHtml  = `<div id="${timelineId}" class="neo-ticket-timeline neo-discussion-timeline">` +
@@ -351,22 +350,23 @@ ${fullHtml}
                 tag  : 'comment'
             });
 
-            html += `
-                    <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
-                        <div id="${id}-target" class="neo-timeline-avatar">
-                            ${me.getAvatarHtml(comment.user)}
-                        </div>
-                        <div class="neo-timeline-content">
-                            <div class="neo-timeline-header">
-                                <a class="neo-timeline-user" href="${repoUserUrl}${comment.user}" target="_blank">${comment.user}</a>
-                                <span class="neo-timeline-date">commented on ${me.formatTimestamp(comment.date)}</span>
-                            </div>
-                            <div class="neo-timeline-body">
-                                ${marked.parse(comment.body)}
-                                ${me.renderReplies(comment.replies)}
-                            </div>
-                        </div>
-                    </div>`
+            html += [
+                `<div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">`,
+                `<div id="${id}-target" class="neo-timeline-avatar">`,
+                me.getAvatarHtml(comment.user),
+                '</div>',
+                '<div class="neo-timeline-content">',
+                '<div class="neo-timeline-header">',
+                `<a class="neo-timeline-user" href="${repoUserUrl}${comment.user}" target="_blank">${comment.user}</a>`,
+                `<span class="neo-timeline-date">commented on ${me.formatTimestamp(comment.date)}</span>`,
+                '</div>',
+                '<div class="neo-timeline-body">',
+                marked.parse(comment.body),
+                me.renderReplies(comment.replies),
+                '</div>',
+                '</div>',
+                '</div>'
+            ].join('')
         });
 
         return html
@@ -388,14 +388,19 @@ ${fullHtml}
             return ''
         }
 
-        return `<div class="neo-discussion-replies">${replies.map(reply => `
-            <div class="neo-discussion-reply depth-${reply.depth}">
-                <div class="neo-discussion-reply-header">
-                    <a class="neo-timeline-user" href="${repoUserUrl}${reply.user}" target="_blank">${reply.user}</a>
-                    <span class="neo-timeline-date">replied on ${this.formatTimestamp(reply.date)}</span>
-                </div>
-                <div class="neo-discussion-reply-body">${marked.parse(reply.body)}</div>
-            </div>`).join('')}</div>`
+        return [
+            '<div class="neo-discussion-replies">',
+            replies.map(reply => [
+                `<div class="neo-discussion-reply depth-${reply.depth}">`,
+                '<div class="neo-discussion-reply-header">',
+                `<a class="neo-timeline-user" href="${repoUserUrl}${reply.user}" target="_blank">${reply.user}</a>`,
+                `<span class="neo-timeline-date">replied on ${this.formatTimestamp(reply.date)}</span>`,
+                '</div>',
+                `<div class="neo-discussion-reply-body">${marked.parse(reply.body)}</div>`,
+                '</div>'
+            ].join('')).join(''),
+            '</div>'
+        ].join('')
     }
 }
 
