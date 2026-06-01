@@ -1,7 +1,6 @@
-import aiConfig      from '../../mcp/server/knowledge-base/config.mjs';
 import Base          from '../../../src/core/Base.mjs';
 import ChromaManager from './ChromaManager.mjs';
-import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {buildReadWhereClause} from './readVisibilityFilter.mjs';
 
 /**
  * @summary Retrieves documents from the knowledge base.
@@ -47,14 +46,11 @@ class DocumentService extends Base {
             include: ["metadatas", "documents"]
         };
 
-        // #11632 read-side tenant filter: a requester lists its own tenant's documents plus
-        // Neo's curated `neo-shared` corpus. The requester is derived server-side from the
-        // request context — never a client parameter. No context (stdio single-tenant /
-        // offline daemon) → no filter, byte-equivalent with pre-#11632 behavior. Mirrors the
-        // QueryService.queryDocuments clause (inline per the memory-core MemoryService pattern).
-        const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
-        if (requesterTenantId) {
-            getOptions.where = {tenantId: {$in: [requesterTenantId, aiConfig.defaultTenantId]}};
+        // Tenant isolation (#11632) + per-chunk visibility (#12163) from the authenticated context
+        // (see readVisibilityFilter); offline / no-context → no filter, pre-#11632 byte-equivalent.
+        const whereClause = buildReadWhereClause();
+        if (whereClause) {
+            getOptions.where = whereClause;
         }
 
         const results = await collection.get(getOptions);
@@ -89,12 +85,12 @@ class DocumentService extends Base {
             include: ["metadatas", "documents"]
         };
 
-        // #11632 read-side tenant filter: a document owned by another tenant resolves to
-        // "not found" — fail-closed, indistinguishable from a genuinely absent id, so the
-        // error leaks no cross-tenant existence signal. Mirrors QueryService.queryDocuments.
-        const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
-        if (requesterTenantId) {
-            getOptions.where = {tenantId: {$in: [requesterTenantId, aiConfig.defaultTenantId]}};
+        // Tenant isolation (#11632) + per-chunk visibility (#12163) from the authenticated context
+        // (see readVisibilityFilter). A doc owned by another tenant — or another user's private doc
+        // — resolves to "not found", fail-closed, leaking no cross-tenant/owner existence signal.
+        const whereClause = buildReadWhereClause();
+        if (whereClause) {
+            getOptions.where = whereClause;
         }
 
         const result = await collection.get(getOptions);

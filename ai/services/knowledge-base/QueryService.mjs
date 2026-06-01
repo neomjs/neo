@@ -4,7 +4,7 @@ import mcConfig             from '../../mcp/server/memory-core/config.mjs';
 import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
 import Base                 from '../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
-import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {buildReadWhereClause} from './readVisibilityFilter.mjs';
 import dotenv               from 'dotenv';
 import path                 from 'path';
 
@@ -115,26 +115,18 @@ class QueryService extends Base {
         const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.embeddingProvider);
         const queryLower     = query.toLowerCase();
 
-        const whereClause = (type && type !== 'all') ? { type } : {};
-
-        // #11632 read-side tenant filter: a requester retrieves its own tenant's chunks plus
-        // Neo's curated `neo-shared` corpus. The requester is derived server-side from the
-        // authenticated request context — never from a client-supplied parameter (a forged
-        // `tenantId` query arg is therefore ignored). No request context (stdio single-tenant
-        // / offline daemon) → no tenant filter, byte-equivalent with pre-#11632 behavior.
-        const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
-        if (requesterTenantId) {
-            whereClause.tenantId = {$in: [requesterTenantId, aiConfig.defaultTenantId]};
-        }
+        // Tenant isolation (#11632) + per-chunk visibility (#12163), derived from the authenticated
+        // request context (see readVisibilityFilter). A forged client `tenantId` arg is ignored; an
+        // offline / no-context daemon gets no filter, byte-equivalent with pre-#11632 behavior.
+        const whereClause = buildReadWhereClause((type && type !== 'all') ? {type} : {});
 
         const queryOptions = {
             queryEmbeddings: [queryEmbeddingValues],
-            nResults       : aiConfig.nResults,
-            where          : whereClause
+            nResults       : aiConfig.nResults
         };
 
-        if (Object.keys(whereClause).length === 0) {
-            delete queryOptions.where;
+        if (whereClause) {
+            queryOptions.where = whereClause;
         }
 
         const results = await collection.query(queryOptions);

@@ -53,9 +53,14 @@ function createSpyCollection() {
     const matchesWhere = (metadata, where) => {
         if (!where) return true;
         return Object.entries(where).every(([key, cond]) => {
-            if (cond && typeof cond === 'object' && Array.isArray(cond.$in)) {
-                return cond.$in.includes(metadata?.[key]);
+            if (key === '$and') return cond.every(sub => matchesWhere(metadata, sub));
+            if (key === '$or')  return cond.some(sub => matchesWhere(metadata, sub));
+
+            if (cond && typeof cond === 'object') {
+                if (Array.isArray(cond.$in)) return cond.$in.includes(metadata?.[key]);
+                if ('$ne' in cond)           return metadata?.[key] !== cond.$ne;
             }
+
             return metadata?.[key] === cond;
         });
     };
@@ -113,7 +118,7 @@ function createSpyCollection() {
  * `QueryService.queryDocuments` expects (it `JSON.parse`s the field).
  * @returns {{id: String, metadata: Object}}
  */
-function chunk({id, tenantId, source, name, type = 'guide', content, repoSlug}) {
+function chunk({id, tenantId, source, name, type = 'guide', content, repoSlug, visibility, originAgentIdentity}) {
     const metadata = {tenantId, source, name, type, inheritanceChain: '[]'};
 
     if (content) {
@@ -122,6 +127,17 @@ function chunk({id, tenantId, source, name, type = 'guide', content, repoSlug}) 
 
     if (repoSlug) {
         metadata.repoSlug = repoSlug;
+    }
+
+    // VectorService stamps `visibility` (default 'team') on every write, so production chunks always
+    // carry it; the read-side `{visibility: {$ne: 'private'}}` gate therefore runs against a present
+    // field. Fixtures mirror that. `originAgentIdentity` is the owner of a private chunk.
+    if (visibility) {
+        metadata.visibility = visibility;
+    }
+
+    if (originAgentIdentity) {
+        metadata.originAgentIdentity = originAgentIdentity;
     }
 
     return {
@@ -142,24 +158,27 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
         id      : 'c-own',
         tenantId: 'tenant-a',
         repoSlug: 'tenant-app',
-        source  : 'kb/tenant-a/Own.md',
-        name    : 'Own',
-        content : 'TENANT_A_VISIBLE_CONTENT'
+        source    : 'kb/tenant-a/Own.md',
+        name      : 'Own',
+        content   : 'TENANT_A_VISIBLE_CONTENT',
+        visibility: 'team'
     });
     const FOREIGN = chunk({
         id      : 'c-foreign',
         tenantId: 'tenant-b',
         repoSlug: 'tenant-app',
-        source  : 'kb/tenant-b/Secret.md',
-        name    : 'Secret',
-        content : 'TENANT_B_SECRET_CONTENT'
+        source    : 'kb/tenant-b/Secret.md',
+        name      : 'Secret',
+        content   : 'TENANT_B_SECRET_CONTENT',
+        visibility: 'team'
     });
     const SHARED = chunk({
         id      : 'c-shared',
         tenantId: 'neo-shared',
         repoSlug: 'neo',
-        source  : 'kb/neo-shared/Curated.md',
-        name    : 'Curated'
+        source    : 'kb/neo-shared/Curated.md',
+        name      : 'Curated',
+        visibility: 'team'
     });
 
     test.beforeAll(async () => {
@@ -219,7 +238,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
         expect(sources).not.toContain(FOREIGN.metadata.source);
 
         // The filter is server-derived and carries exactly the requester plus the team namespace.
-        expect(spy.calls.query.at(-1).where).toEqual({tenantId: {$in: ['tenant-a', 'neo-shared']}});
+        expect(spy.calls.query.at(-1).where).toEqual({$and: [{tenantId: {$in: ['tenant-a', 'neo-shared']}}, {visibility: {$ne: 'private'}}]});
     });
 
     test('case 2 — team visibility: neo-shared chunks stay visible across every tenant', async () => {
@@ -232,6 +251,57 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
 
         expect(asTenantA.results.map(r => r.source)).toContain(SHARED.metadata.source);
         expect(asTenantB.results.map(r => r.source)).toContain(SHARED.metadata.source);
+    });
+
+    test('case 9 — visibility: a private chunk is hidden from a same-tenant non-owner, shown to its owner (#12163)', async () => {
+        // A private chunk in tenant-a, owned by `agent-owner`.
+        const PRIVATE = chunk({
+            id                 : 'c-private',
+            tenantId           : 'tenant-a',
+            repoSlug           : 'tenant-app',
+            source             : 'kb/tenant-a/Private.md',
+            name               : 'Private',
+            content            : 'TENANT_A_PRIVATE_CONTENT',
+            visibility         : 'private',
+            originAgentIdentity: 'agent-owner'
+        });
+        spy.seed(PRIVATE.id, PRIVATE.metadata);
+
+        // A same-tenant requester who is NOT the owner: sees the team chunk, never the private one.
+        const asNonOwner = await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: 'agent-other'}, () =>
+            QueryService.queryDocuments({query: 'anything', type: 'all'})
+        );
+        expect(asNonOwner.results.map(r => r.source)).toContain(OWN.metadata.source);
+        expect(asNonOwner.results.map(r => r.source)).not.toContain(PRIVATE.metadata.source);
+
+        // The owner sees their own private chunk, and the read filter carries the ownership branch
+        // keyed on the requester's agent-identity node id (NOT the tenant).
+        const asOwner = await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: 'agent-owner'}, () =>
+            QueryService.queryDocuments({query: 'anything', type: 'all'})
+        );
+        expect(asOwner.results.map(r => r.source)).toContain(PRIVATE.metadata.source);
+        expect(spy.calls.query.at(-1).where).toEqual({$and: [
+            {tenantId: {$in: ['tenant-a', 'neo-shared']}},
+            {$or    : [{visibility: {$ne: 'private'}}, {originAgentIdentity: 'agent-owner'}]}
+        ]});
+    });
+
+    test('case 10 — visibility fail-safe: a private chunk with no owner stays hidden from everyone (#12163)', async () => {
+        const ORPHAN = chunk({
+            id        : 'c-orphan',
+            tenantId  : 'tenant-a',
+            repoSlug  : 'tenant-app',
+            source    : 'kb/tenant-a/Orphan.md',
+            name      : 'Orphan',
+            content   : 'ORPHAN_PRIVATE_CONTENT',
+            visibility: 'private' // no originAgentIdentity → owned by nobody, so nobody may read it
+        });
+        spy.seed(ORPHAN.id, ORPHAN.metadata);
+
+        const asAnyone = await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: 'agent-anyone'}, () =>
+            QueryService.queryDocuments({query: 'anything', type: 'all'})
+        );
+        expect(asAnyone.results.map(r => r.source)).not.toContain(ORPHAN.metadata.source);
     });
 
     test('case 3 — chunk-shadow: identical content under two tenants yields distinct chunk ids', () => {
@@ -269,7 +339,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
             QueryService.queryDocuments({query: 'anything', type: 'all', tenantId: 'tenant-b'})
         );
 
-        expect(spy.calls.query.at(-1).where).toEqual({tenantId: {$in: ['tenant-a', 'neo-shared']}});
+        expect(spy.calls.query.at(-1).where).toEqual({$and: [{tenantId: {$in: ['tenant-a', 'neo-shared']}}, {visibility: {$ne: 'private'}}]});
         expect(result.results.map(r => r.source)).not.toContain(FOREIGN.metadata.source);
     });
 
@@ -345,7 +415,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
             expect(ids).toContain(OWN.id);
             expect(ids).toContain(SHARED.id);
             expect(ids).not.toContain(FOREIGN.id);
-            expect(spy.calls.get.at(-1).where).toEqual({tenantId: {$in: ['tenant-a', 'neo-shared']}});
+            expect(spy.calls.get.at(-1).where).toEqual({$and: [{tenantId: {$in: ['tenant-a', 'neo-shared']}}, {visibility: {$ne: 'private'}}]});
         });
 
         test('get_document_by_id (DocumentService.getDocumentById) — a foreign id is not found', async () => {

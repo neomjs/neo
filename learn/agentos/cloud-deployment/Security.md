@@ -6,7 +6,7 @@
 
 A cloud-native KB deployment indexes content from mutually-untrusting tenants in one shared Chroma collection. The security model must guarantee:
 
-1. **No cross-tenant read leakage** — a tenant's `private` content is never returned to another tenant's query.
+1. **No read leakage across tenants or users** — a tenant only ever sees its own content plus `neo-shared`; and within a (possibly shared) tenant, a `private` chunk is returned only to the user who wrote it.
 2. **No identity spoofing on write** — a tenant cannot stamp its chunks with another tenant's `tenantId` to poison or impersonate.
 3. **No chunk-ID collision** — byte-identical content ingested by two tenants must not overwrite each other in the index.
 4. **No untrusted-code execution escape** — a tenant-supplied Parser must not be able to read or mutate another tenant's substrate.
@@ -30,7 +30,12 @@ A cloud-deployment operator running mutually-untrusting tenants should consider 
 
 ## Read-side tenant filter
 
-Write-side stamping puts the `tenantId` / `visibility` fields *into* the index. Read-side enforcement injects tenant-aware Chroma `where` clauses into query paths from the authenticated requester identity. A tenant can see its own content plus `neo-shared`; another tenant's `private` content is filtered out. The fail-closed test suite for "tenant A cannot see tenant B's private content" is part of #11632.
+Write-side stamping puts the `tenantId` and `visibility` fields *into* the index. Read-side enforcement then builds a Chroma `where` clause from the authenticated requester's identity, with two layers:
+
+- **Tenant filter** — you see your own tenant's content plus the shared `neo-shared` corpus, never another tenant's content.
+- **Visibility filter** — a `private` chunk is returned only to the user who wrote it (matched on the writer's identity, not the tenant — this matters when several users share one tenant, such as a shared default-tenant tier), while `team` content stays visible to everyone in the tenant. A `private` chunk with no recorded owner is returned to nobody.
+
+With no authenticated request context (a single-tenant / offline daemon) no filter is applied. The fail-closed coverage lives in `KnowledgeBase.TenantIsolation.spec.mjs`.
 
 ## Parser-execution boundary
 
