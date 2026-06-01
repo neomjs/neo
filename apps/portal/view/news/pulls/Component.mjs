@@ -49,6 +49,12 @@ class Component extends ContentComponent {
          */
         cls: ['portal-news-pulls-component'],
         /**
+         * `#N` references in PR bodies are issue numbers → resolve to the portal tickets view.
+         * Per-content-type config (#12209): the generic content base no longer defaults this.
+         * @member {String} issuesUrl='#/news/tickets/'
+         */
+        issuesUrl: '#/news/tickets/',
+        /**
          * @member {String} repoUserUrl='https://github.com/'
          */
         repoUserUrl: 'https://github.com/'
