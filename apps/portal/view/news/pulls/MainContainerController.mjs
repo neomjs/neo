@@ -70,42 +70,89 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * @returns {String}
+     * @summary Resolves the default-route id under lazy load.
+     *
+     * The chunked store loads only the group + chunk-folder skeleton; leaf records arrive on folder
+     * expansion. Expands the first chunk folder (`childrenUrl`) and returns its first leaf, so the
+     * default `#/news/pulls` route lands on a real PR instead of an unloaded id. Mirrors the
+     * discussions controller's lazy-aware resolution.
+     * @returns {String|null}
      */
-    getDefaultRouteId() {
-        let store     = this.getStateProvider().getStore('tree'),
-            rootCount = 0,
-            i         = 0,
-            len       = store.getCount(),
+    async getDefaultRouteId() {
+        let tree   = this.getReference('tree'),
+            store  = this.getStateProvider().getStore('tree'),
+            folder = store.items.find(record => !record.isLeaf && record.childrenUrl),
             record;
 
-        for (; i < len; i++) {
-            record = store.getAt(i);
+        if (!folder) {
+            return store.items.find(item => item.isLeaf)?.id || null
+        }
 
-            if (record.parentId === null) {
-                rootCount++;
+        await tree.onFolderItemClick(folder);
 
-                if (rootCount === 2) {
-                    return store.getAt(i + 1)?.id
-                }
+        this.getStateProvider().data.countPages = store.getCount();
+
+        record = store.items.find(item => item.parentId === folder.id && item.isLeaf);
+
+        return record?.id || null
+    }
+
+    /**
+     * @summary Lazy-aware record resolution for deep-links.
+     *
+     * Probes the store for `itemId`; if absent (its chunk is not loaded yet), expands unloaded chunk
+     * folders (`childrenUrl` + `!isChildrenLoaded`) one at a time until the record's chunk loads. This
+     * is what makes a bare-id deep-link (`#/news/pulls/<number>`) resolve under the chunked store.
+     * @param {String} itemId
+     * @returns {Promise<Object|null>}
+     */
+    async ensureRecordLoaded(itemId) {
+        let me     = this,
+            tree   = me.getReference('tree'),
+            store  = me.getStateProvider().getStore('tree'),
+            record = store.get(itemId),
+            folders, i, len;
+
+        if (record) {
+            return record
+        }
+
+        folders = store.items.filter(record => !record.isLeaf && record.childrenUrl && !record.isChildrenLoaded);
+
+        for (i = 0, len = folders.length; i < len; i++) {
+            await tree.onFolderItemClick(folders[i]);
+
+            record = store.get(itemId);
+
+            if (record) {
+                me.getStateProvider().data.countPages = store.getCount();
+                return record
             }
         }
 
-        return store.getAt(1)?.id
+        return null
     }
 
     /**
      * @param {Object} data
      */
-    onRouteDefault(data) {
+    async onRouteDefault(data) {
         let me    = this,
             store = me.getStateProvider().getStore('tree');
 
+        const navigate = async () => {
+            let id = await me.getDefaultRouteId();
+
+            if (id) {
+                me.navigateTo(id)
+            }
+        };
+
         if (store.getCount() > 0) {
-            me.navigateTo(me.getDefaultRouteId())
+            await navigate()
         } else {
             store.on({
-                load : () => me.navigateTo(me.getDefaultRouteId()),
+                load : navigate,
                 delay: 10,
                 once : true
             })
@@ -130,7 +177,13 @@ class MainContainerController extends Controller {
         }
 
         const select = async () => {
-            stateProvider.data.currentPageRecord = store.get(itemId);
+            let record = await me.ensureRecordLoaded(itemId);
+
+            if (!record) {
+                return
+            }
+
+            stateProvider.data.currentPageRecord = record;
 
             if (!oldValue?.hashString?.startsWith('/news/pulls')) {
                 await tree.expandAndScrollToItem(itemId)
