@@ -81,5 +81,5 @@ ticket.
 
 - [Overview](./Overview.md) — the contract split + topology anchor.
 - [Migration Path](./MigrationPath.md) — zero-config upgrade for existing deployments.
-- [ADR 0003](../decisions/0003-chroma-topology-unified-only.md) — unified Chroma topology.
+- [ADR 0017](../decisions/0017-chroma-single-flat-unified-store.md) — one flat `unified` Chroma store, identical local + cloud (amends [ADR 0003](../decisions/0003-chroma-topology-unified-only.md)).
 - Phase 4 #11628 — retention + observability; the per-substrate retention asymmetry follows from the cache-vs-store model above.
