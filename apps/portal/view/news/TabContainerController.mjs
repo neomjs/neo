@@ -15,12 +15,14 @@ class TabContainerController extends Controller {
          * @member {Object} routes
          */
         routes: {
-            '/news'                   : 'onReleasesRoute',
-            '/news/blog'              : 'onBlogRoute',
+            '/news'                      : 'onReleasesRoute',
+            '/news/blog'                 : 'onBlogRoute',
             '/news/blog/{*itemId}'       : 'onBlogRoute',
             '/news/discussions'          : 'onDiscussionsRoute',
             '/news/discussions/{*itemId}': 'onDiscussionsRoute',
             '/news/medium'               : 'onMediumRoute',
+            '/news/pulls'                : 'onPullsRoute',
+            '/news/pulls/{*itemId}'      : 'onPullsRoute',
             '/news/releases'             : 'onReleasesRoute',
             '/news/releases/{*itemId}'   : 'onReleasesRoute',
             '/news/tickets'              : 'onTicketsRoute',
@@ -54,6 +56,13 @@ class TabContainerController extends Controller {
      */
     onMediumRoute(data) {
         this.component.activeIndex = 0
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPullsRoute(data) {
+        this.setActiveIndexByRoute('/news/pulls')
     }
 
     /**

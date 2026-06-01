@@ -1,0 +1,58 @@
+import CanvasWrapper    from '../../content/CanvasWrapper.mjs';
+import Component        from './Component.mjs';
+import Controller       from './MainContainerController.mjs';
+import PageContainer    from './PageContainer.mjs';
+import SharedContainer  from '../../../../../src/app/content/Container.mjs';
+import StateProvider    from './MainContainerStateProvider.mjs';
+
+/**
+ * @class Portal.view.news.pulls.MainContainer
+ * @extends Neo.app.content.Container
+ */
+class MainContainer extends SharedContainer {
+    static config = {
+        /**
+         * @member {String} className='Portal.view.news.pulls.MainContainer'
+         * @protected
+         */
+        className: 'Portal.view.news.pulls.MainContainer',
+        /**
+         * @member {String[]} cls=['portal-pulls-maincontainer']
+         * @reactive
+         */
+        cls: ['portal-pulls-maincontainer'],
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
+         */
+        controller: Controller,
+        /**
+         * @member {Object} pageContainerConfig
+         */
+        pageContainerConfig: {
+            module         : PageContainer,
+            buttonTextField: 'id',
+            contentConfig  : {
+                contentComponent: Component,
+                module          : CanvasWrapper
+            }
+        },
+        /**
+         * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
+         * @reactive
+         */
+        stateProvider: StateProvider,
+        /**
+         * The `pulls.json` index is chunked (state-groups → chunk-folder nodes); opt the shared
+         * tree into load-on-folder-expand so each chunk's PR leaves are fetched on first expand.
+         * @member {Object} treeConfig
+         */
+        treeConfig: {
+            displayField      : 'treeNodeName',
+            lazyChildLoad     : true,
+            lazyChildUrlPrefix: '../../apps/portal/resources/data/'
+        }
+    }
+}
+
+export default Neo.setupClass(MainContainer);

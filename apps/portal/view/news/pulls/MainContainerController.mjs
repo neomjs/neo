@@ -1,0 +1,161 @@
+import Controller from '../../../../../src/controller/Component.mjs';
+
+/**
+ * @class Portal.view.news.pulls.MainContainerController
+ * @extends Neo.controller.Component
+ */
+class MainContainerController extends Controller {
+    static config = {
+        /**
+         * @member {String} className='Portal.view.news.pulls.MainContainerController'
+         * @protected
+         */
+        className: 'Portal.view.news.pulls.MainContainerController',
+        /**
+         * @member {Object} routes
+         */
+        routes: {
+            '/news/pulls'          : 'onRouteDefault',
+            '/news/pulls/{*itemId}': 'onRouteItem'
+        }
+    }
+
+    /**
+     * @param {String} item
+     */
+    navigateTo(item) {
+        Neo.Main.setRoute({
+            value   : `/news/pulls/${item}`,
+            windowId: this.component.windowId
+        })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onIntersect(data) {
+        let panel    = this.getReference('page-sections-container'),
+            list     = panel.list,
+            recordId = data.data.recordId,
+            record;
+
+        if (recordId && !list.isAnimating) {
+            record = list.store.get(recordId);
+
+            if (record) {
+                list.selectionModel.select(record)
+            }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onNextPageButtonClick(data) {
+        this.navigateTo(this.getStateProvider().getData('nextPageRecord').id)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPageSectionsToggleButtonClick(data) {
+        this.getReference('page-sections-container').toggleCls('neo-expanded')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPreviousPageButtonClick(data) {
+        this.navigateTo(this.getStateProvider().getData('previousPageRecord').id)
+    }
+
+    /**
+     * @returns {String}
+     */
+    getDefaultRouteId() {
+        let store     = this.getStateProvider().getStore('tree'),
+            rootCount = 0,
+            i         = 0,
+            len       = store.getCount(),
+            record;
+
+        for (; i < len; i++) {
+            record = store.getAt(i);
+
+            if (record.parentId === null) {
+                rootCount++;
+
+                if (rootCount === 2) {
+                    return store.getAt(i + 1)?.id
+                }
+            }
+        }
+
+        return store.getAt(1)?.id
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onRouteDefault(data) {
+        let me    = this,
+            store = me.getStateProvider().getStore('tree');
+
+        if (store.getCount() > 0) {
+            me.navigateTo(me.getDefaultRouteId())
+        } else {
+            store.on({
+                load : () => me.navigateTo(me.getDefaultRouteId()),
+                delay: 10,
+                once : true
+            })
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    async onRouteItem({itemId}, value, oldValue) {
+        let me            = this,
+            stateProvider = me.getStateProvider(),
+            store         = stateProvider.getStore('tree'),
+            tree          = me.getReference('tree');
+
+        // Ensure the tree has the correct route prefix for this controller context
+        if (tree.routePrefix !== '/news/pulls') {
+            tree.routePrefix = '/news/pulls'
+        }
+
+        const select = async () => {
+            stateProvider.data.currentPageRecord = store.get(itemId);
+
+            if (!oldValue?.hashString?.startsWith('/news/pulls')) {
+                await tree.expandAndScrollToItem(itemId)
+            } else {
+                tree.expandParents(itemId)
+            }
+        };
+
+        if (store.getCount() > 0) {
+            await select()
+        } else {
+            store.on({
+                load : select,
+                delay: 10,
+                once : true
+            })
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSideNavToggleButtonClick(data) {
+        this.getReference('sidenav-container').toggleCls('neo-expanded')
+    }
+}
+
+export default Neo.setupClass(MainContainerController);
