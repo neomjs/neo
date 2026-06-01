@@ -575,7 +575,7 @@ class Tree extends Base {
      * @param {Object} node
      * @param {Object} data
      */
-    onItemClick(node, data) {
+    async onItemClick(node, data) {
         let me          = this,
             {items}     = me.store,
             i           = 0,
@@ -597,11 +597,27 @@ class Tree extends Base {
 
         if (item) {
             if (item.cls?.includes(me.folderCls)) {
+                if (await me.onFolderItemClick(record, item, data) === false) {
+                    return false
+                }
+
+                item = me.getVdomChild(vnodeId);
+
+                if (!item) {
+                    return false
+                }
+
                 NeoArray.toggle(item.cls, 'neo-folder-open');
 
                 let isOpen              = item.cls.includes('neo-folder-open'),
                     {parentNode, index} = VDomUtil.find(me.vdom, item.id),
                     nextSibling         = parentNode.cn[index + 1];
+
+                if (record.isRecord) {
+                    record.setSilent({collapsed: !isOpen})
+                } else {
+                    record.collapsed = !isOpen
+                }
 
                 item.style.position = isOpen ? 'sticky' : null;
                 item.style.top      = isOpen ? (item.level * 38) + 'px' : null;
@@ -632,6 +648,18 @@ class Tree extends Base {
      * @param {Object} record
      */
     onLeafItemClick(record) {
+
+    }
+
+    /**
+     * @summary Extension hook for subclasses that need to prepare a folder before its
+     * open state is toggled, e.g. by loading children on demand.
+     * @param {Object} record
+     * @param {Object} item
+     * @param {Object} data
+     * @returns {Boolean|Promise<Boolean>|void} Return false to cancel the toggle.
+     */
+    onFolderItemClick(record, item, data) {
 
     }
 

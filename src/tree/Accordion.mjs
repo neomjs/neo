@@ -319,9 +319,12 @@ class AccordionTree extends TreeList {
     /**
      * @param {Object} item
      * @param {Object} data
+     * @returns {Promise<Boolean|void>}
      */
-    onItemClick(item, data) {
-        super.onItemClick(item, data);
+    async onItemClick(item, data) {
+        if (await super.onItemClick(item, data) === false) {
+            return false
+        }
 
         let me               = this,
             {selectionModel} = me,
@@ -339,8 +342,6 @@ class AccordionTree extends TreeList {
              * @returns {Object} record
              */
             me.fire('folderItemClick', {record});
-
-            record.collapsed = !record.collapsed
         }
     }
 
