@@ -1,6 +1,6 @@
 # Neo-Code Debt-Scan Audit (Reviewer-Side Enforcement)
 
-Reviewer-side gate for three recurring Neo-code anti-patterns that have produced retracted approvals: hardcoded swarm identities, hidden config/default literals, and module-level helper functions inside Neo class files.
+Reviewer-side gate for four recurring Neo-code anti-patterns that have produced retracted approvals: hardcoded swarm identities, hidden config/default literals, module-level helper functions inside Neo class files, and config-value massage instead of verbatim config reads.
 
 ## When This Audit Fires
 
@@ -47,7 +47,32 @@ Required Action:
 
 > *"PR adds hidden config/default literals in code. Required: move the concrete default to the authoritative config/registry surface and consume it verbatim; do not keep a parallel `DEFAULT_*`, provider-selector, threshold, timeout, context-limit, or boolean fallback in implementation code."*
 
-## Pattern 3: Module-Level Helpers In Neo Class Files
+## Pattern 3: Config-Value Massage
+
+Block new fallback chains or conditional resets that rewrite one config value into another runtime shape. Config picks the selection; implementation code reads that selection verbatim.
+
+Probe examples:
+
+```bash
+rg -n "config\.[A-Za-z0-9_]+ *\|\| *config\.[A-Za-z0-9_]+|config\.[A-Za-z0-9_]+ *\?\? *config\.[A-Za-z0-9_]+" ai .agents
+rg -n "\? *[^:]*config\.[A-Za-z0-9_]+[^:]*: *null|null *: *[^?]*config\.[A-Za-z0-9_]+" ai .agents
+```
+
+Blocked examples:
+- `config.modelProvider || config.chatProvider`
+- `config.embeddingProvider ?? config.chatProvider`
+- `usesLocal ? config.openAiCompatible?.model : null`
+
+Allowed:
+- Pure presence checks that guard optional behavior without rewriting or replacing the config value.
+- Normalizing user input before it reaches the authoritative config surface.
+- Explicit test fixtures that assert fallback rejection or legacy compatibility behavior.
+
+Required Action:
+
+> *"PR massages config values instead of reading the authoritative selection verbatim. Required: move provider selection, model selection, or null/disable behavior into the config surface and consume that resolved value directly; do not add `||` / `??` chains between config fields or conditional null-reset of config values in implementation code."*
+
+## Pattern 4: Module-Level Helpers In Neo Class Files
 
 Block new module-level helper declarations in files that define a Neo class. Behavior belongs on the owning class as an instance, static, or private method so the class blueprint remains introspectable.
 
@@ -74,4 +99,4 @@ Required Action:
 
 ## Review Discipline
 
-Any in-scope hit is a **Request Changes** finding, not an Approve+Follow-Up item. Green CI, passing tests, or "pre-existing adjacent debt" do not excuse newly added instances of these patterns. If a grep probe matches only an allowed carve-out, record that in the review evidence and continue.
+This scan is a separate battery from functional V-B-A. Run it even after a clean functional pass; green CI and passing tests verify behavior, not shape. Any in-scope hit is a **Request Changes** finding, not an Approve+Follow-Up item. Green CI, passing tests, or "pre-existing adjacent debt" do not excuse newly added instances of these patterns. If a grep probe matches only an allowed carve-out, record that in the review evidence and continue.
