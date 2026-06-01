@@ -1,6 +1,6 @@
 /**
  * @module ai/daemons/kb-gc/daemon
- * @summary Thin Node-process boot wrapper for the Phase 4C KB garbage-collection daemon (#11641).
+ * @summary Thin Node-process boot wrapper for the KB garbage-collection daemon.
  *
  * Owns Neo namespace bootstrap + SIGTERM / SIGINT clean-stop signal handling +
  * `KbGarbageCollectionService.start()` invocation. The class definition (poll loop, tenant
@@ -18,7 +18,6 @@
  *
  * @see ai/daemons/kb-gc/KbGarbageCollectionService.mjs
  * @see ai/daemons/kb-reconciliation/daemon.mjs (sibling wrapper precedent)
- * @see #11641 (Phase 4C GC daemon), #11628 (Phase 4 epic)
  */
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate
