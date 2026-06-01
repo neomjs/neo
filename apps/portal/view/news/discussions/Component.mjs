@@ -229,64 +229,103 @@ ${fullHtml}
     }
 
     /**
+     * @summary Parses the Discussion `## Comments` body into stable comment entries.
+     *
+     * The synced Discussion grammar uses backtick-wrapped `@user` headings as the durable entry
+     * boundary. Separator rules (`---`) are emitted between comments, but comment bodies can also
+     * contain their own `###` headings and horizontal rules, so this method splits only on the
+     * full comment header and trims just the trailing separator before the next entry.
      * @param {String} content
-     * @returns {String}
+     * @returns {Object[]} `[{user, date, body}]`
      */
-    renderComments(content) {
-        let me             = this,
-            {repoUserUrl} = me,
-            html           = '',
-            lines          = content.split('\n'),
-            commentBuf     = [],
-            currentUser    = null,
-            currentDate    = null,
-            i              = 0,
-            len            = lines.length,
-            id, line, match;
+    parseComments(content) {
+        let lines   = content.split('\n'),
+            entries = [],
+            current = null,
+            i       = 0,
+            len     = lines.length,
+            line, match;
+
+        const trimTrailingDelimiter = (rows) => {
+            while (rows.length && rows[rows.length - 1].trim() === '') {
+                rows.pop()
+            }
+
+            if (rows[rows.length - 1]?.trim() === '---') {
+                rows.pop()
+            }
+
+            while (rows.length && rows[rows.length - 1].trim() === '') {
+                rows.pop()
+            }
+        };
 
         const flushComment = () => {
-            if (commentBuf.length > 0 && currentUser) {
-                id = `timeline-${me.record.id}-${me.timelineData.length + 1}`;
+            if (!current) return;
 
-                me.timelineData.push({
-                    id,
-                    image: repoUserUrl + currentUser + '.png',
-                    name : `Comment (${currentUser})`,
-                    tag  : 'comment'
-                });
+            trimTrailingDelimiter(current.bodyLines);
 
-                html += `
-                    <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
-                        <div id="${id}-target" class="neo-timeline-avatar">
-                            <img src="${repoUserUrl}${currentUser}.png" alt="${currentUser}">
-                        </div>
-                        <div class="neo-timeline-content">
-                            <div class="neo-timeline-header">
-                                <a class="neo-timeline-user" href="${repoUserUrl}${currentUser}" target="_blank">${currentUser}</a>
-                                <span class="neo-timeline-date">commented on ${me.formatTimestamp(currentDate)}</span>
-                            </div>
-                            <div class="neo-timeline-body">${marked.parse(commentBuf.join('\n'))}</div>
-                        </div>
-                    </div>`;
+            let body = current.bodyLines.join('\n').trim();
 
-                commentBuf = []
+            if (body) {
+                entries.push({
+                    user: current.user,
+                    date: current.date,
+                    body
+                })
             }
         };
 
         for (; i < len; i++) {
-            line = lines[i];
+            line  = lines[i];
             match = line.match(regexCommentHeader);
 
             if (match) {
                 flushComment();
-                currentUser = match[1];
-                currentDate = match[2]
-            } else if (currentUser && line !== '---') {
-                commentBuf.push(line)
+                current = {user: match[1], date: match[2], bodyLines: []}
+            } else if (current) {
+                current.bodyLines.push(line)
             }
         }
 
         flushComment();
+
+        return entries
+    }
+
+    /**
+     * @param {String} content
+     * @returns {String}
+     */
+    renderComments(content) {
+        let me            = this,
+            {repoUserUrl} = me,
+            html          = '';
+
+        me.parseComments(content).forEach(comment => {
+            let id = `timeline-${me.record.id}-${me.timelineData.length + 1}`;
+
+            me.timelineData.push({
+                id,
+                image: repoUserUrl + comment.user + '.png',
+                name : `Comment (${comment.user})`,
+                tag  : 'comment'
+            });
+
+            html += `
+                    <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
+                        <div id="${id}-target" class="neo-timeline-avatar">
+                            <img src="${repoUserUrl}${comment.user}.png" alt="${comment.user}">
+                        </div>
+                        <div class="neo-timeline-content">
+                            <div class="neo-timeline-header">
+                                <a class="neo-timeline-user" href="${repoUserUrl}${comment.user}" target="_blank">${comment.user}</a>
+                                <span class="neo-timeline-date">commented on ${me.formatTimestamp(comment.date)}</span>
+                            </div>
+                            <div class="neo-timeline-body">${marked.parse(comment.body)}</div>
+                        </div>
+                    </div>`
+        });
 
         return html
     }
