@@ -25,13 +25,13 @@ Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647, #1
 
 The split was deliberate: **contracts before transport**. The schemas and registry stabilized first; the Phase 2 ingestion endpoints were built against that frozen contract surface.
 
-## Topology anchor — one flat unified Chroma store
+## Topology anchor — one unified Chroma store
 
-Per [ADR 0017 — Chroma: Single Flat Unified Store + Dev/Prod Parity](../decisions/0017-chroma-single-flat-unified-store.md) (which amends [ADR 0003](../decisions/0003-chroma-topology-unified-only.md)), every deployment runs **one** ChromaDB daemon over **one flat persist store named `unified`** — `.neo-ai-data/chroma/unified` locally, `/chroma/unified` in the cloud container (set via `PERSIST_DIRECTORY`, not just the volume mount). The store shape is identical local and cloud; there are no per-realm persist folders and no second daemon.
+A cloud deployment keeps all its vector data in **one** ChromaDB store named `unified`, with the same layout locally and in the cloud. A single Chroma daemon serves three collections — the Knowledge Base, your agents' memories, and their session summaries — and two MCP servers (Knowledge Base and Memory Core) read from it. Cloud ingestion only ever writes to the Knowledge Base collection.
 
-That one store holds the **Knowledge Base** plus Memory Core's **memories** and **session summaries** as distinct collections — `neo-knowledge-base`, `neo-agent-memory`, `neo-agent-sessions` — reached by **two** MCP servers (Knowledge Base + Memory Core). Cloud ingestion writes only to the `neo-knowledge-base` collection. The Memory Core's **Native Edge Graph** is **not** a Chroma collection — it persists in its own SQLite store (`memory-core-graph.sqlite`), outside the unified vector store.
+The Memory Core's edge graph is **not** stored in Chroma — it lives in a separate SQLite database.
 
-Realm and tenant separation is enforced at the layers that exist in every deployment, never by directory or daemon split: **collection names + per-chunk metadata** (the identity tuple + write-side stamping + read-side filter) for isolation, **collection-scoped export** of `neo-knowledge-base` for KB shipping, and the **KB-as-cache / MC-as-store** model for recovery. Per-collection HNSW indices mean realm coexistence in one store does not degrade per-collection search. There is no per-tenant Chroma instance: a tenant reads its own content plus `neo-shared`, never another tenant's `private` chunks.
+There is no separate Chroma instance per tenant. Every piece of content is tagged with its owner when it's written and filtered by owner when it's read, so each tenant sees its own content plus Neo's shared library — never another tenant's private data.
 
 ## Default-source inheritance
 
