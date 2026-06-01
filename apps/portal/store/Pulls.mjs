@@ -2,9 +2,9 @@ import Store     from '../../../src/data/Store.mjs';
 import PullModel from '../model/Pull.mjs';
 
 /**
- * Tree store for the portal Pull Requests view. Loads the flat `pulls.json` index — state-group
- * roots with PR leaves directly beneath, each carrying its markdown `path` — matching the tickets
- * view's `tickets.json` shape.
+ * Tree store for the portal Pull Requests view. Loads the chunked lazy index `pulls/index.json` —
+ * release-group roots (`Latest` for unreleased + one per release version) with chunk-folder nodes
+ * whose PR leaves lazy-load on folder expansion. Mirrors the discussions view's chunked store.
  * @class Portal.store.Pulls
  * @extends Neo.data.Store
  */
@@ -21,9 +21,9 @@ class Pulls extends Store {
          */
         model: PullModel,
         /**
-         * @member {String} url='../../apps/portal/resources/data/pulls.json'
+         * @member {String} url='../../apps/portal/resources/data/pulls/index.json'
          */
-        url: '../../apps/portal/resources/data/pulls.json'
+        url: '../../apps/portal/resources/data/pulls/index.json'
     }
 }
 
