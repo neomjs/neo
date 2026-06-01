@@ -1,0 +1,18 @@
+:root .neo-theme-neo-dark {
+    --gh-badge-bg                    : var(--sem-color-bg-neutral-highlighted);
+    --gh-badge-border                : var(--sem-color-border-subtle);
+    --gh-bg-default                  : var(--sem-color-bg-neutral-default);
+    --gh-bg-subtle                   : var(--purple-900);
+    --gh-border-default              : var(--sem-color-border-default);
+    --gh-discussion-category-bg      : var(--sem-color-bg-neutral-highlighted);
+    --gh-discussion-category-color   : var(--sem-color-text-primary-default);
+    --gh-event-text-color            : var(--markdown-text-color);
+    --gh-header-text-color           : var(--markdown-text-color);
+    --gh-icon-muted                  : var(--sem-color-icon-neutral-subdued);
+    --gh-state-closed-bg             : #a371f7;
+    --gh-state-open-bg               : #3fb950;
+    --gh-text-inverse                : #ffffff;
+    --gh-text-primary                : var(--sem-color-text-neutral-default);
+    --gh-text-secondary              : var(--sem-color-text-neutral-subdued);
+    --gh-timeline-border             : var(--purple-700);
+}
