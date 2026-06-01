@@ -68,7 +68,7 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Returns the layout config matching to the dock position
+     * @summary Returns the layout config matching the dock position.
      * @returns {Object} layoutConfig
      * @protected
      */
@@ -87,8 +87,8 @@ class Toolbar extends BaseToolbar {
             case 'left':
                 layoutConfig = {
                     align    : 'center',
-                    direction: 'column-reverse',
-                    pack     : 'end'
+                    direction: 'column',
+                    pack     : 'start'
                 };
                 break
             case 'right':
