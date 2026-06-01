@@ -130,6 +130,32 @@ function buildLegacyFlatTree(sortedGroups, ticketsByGroup) {
 }
 
 /**
+ * Orders chunk-folder nodes within a group by their positional chunk number, descending (newest /
+ * highest-numbered chunk first). This matches the newest-first ordering used elsewhere in the tree
+ * (release groups are semver-descending; leaves within a chunk are date/id-descending) and, critically,
+ * keeps folder display order aligned with the positional `treeNodeName` range labels.
+ *
+ * The previous `sortDate`-based ordering scrambled folders relative to their labels: a chunk's max
+ * item-date is not monotonic with its number (item updates bump older chunks), so date-order and
+ * chunk-number order diverge while the labels stay positional.
+ * @param {Object} a
+ * @param {Object} b
+ * @returns {Number}
+ */
+function sortChunkFolders(a, b) {
+    const
+        matchA = a.title?.match(/chunk-(\d+)$/),
+        matchB = b.title?.match(/chunk-(\d+)$/);
+
+    if (matchA && matchB) {
+        return Number(matchB[1]) - Number(matchA[1])
+    }
+
+    // Defensive fallback for any bucket without a `chunk-N` title: preserve the prior date-then-id order.
+    return (new Date(b.sortDate || 0) - new Date(a.sortDate || 0)) || a.id.localeCompare(b.id)
+}
+
+/**
  * @param {String[]} sortedGroups
  * @param {Map<String,Object[]>} ticketsByGroup
  * @returns {{rootIndex: Object[], chunks: Map<String,Object>}}
@@ -184,10 +210,7 @@ function buildChunkedIndex(sortedGroups, ticketsByGroup) {
 
         const groupChunks = Array.from(chunks.values())
             .filter(chunk => chunk.parentId === groupName)
-            .sort((a, b) => {
-                const dateDiff = new Date(b.sortDate || 0) - new Date(a.sortDate || 0);
-                return dateDiff || a.id.localeCompare(b.id)
-            });
+            .sort(sortChunkFolders);
 
         rootIndex.push(...groupChunks.map(chunk => {
             const {records, sortDate, ...node} = chunk;
