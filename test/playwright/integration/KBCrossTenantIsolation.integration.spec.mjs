@@ -28,6 +28,11 @@ function toolText(result) {
     return result.content?.map(item => item.text).join('\n') || '';
 }
 
+// Cross-tenant isolation is enforced by the read-side tenant filter (`tenantId $in [requester, shared]`),
+// which is independent of the per-chunk visibility tier. This spec exercises the OIDC/proxy transport,
+// which populates a tenant but no agent-identity node id, so per-chunk `private` owner-scoping (#12163)
+// is inert here and is unit-covered (`KnowledgeBase.TenantIsolation.spec.mjs`); a `team`-tier chunk is
+// the right fixture for proving a foreign tenant's content never crosses the tenant boundary.
 function kbRecord({id, tenantId, source, name, content}) {
     return {
         id,
@@ -41,13 +46,13 @@ function kbRecord({id, tenantId, source, name, content}) {
             sourcePath: source,
             tenantId,
             type: 'guide',
-            visibility: 'private'
+            visibility: 'team'
         }
     };
 }
 
 test.describe('Dockerized KB cross-tenant isolation integration (#11645)', () => {
-    test('public KB facades do not expose another tenant private chunk', async () => {
+    test('public KB facades do not expose another tenant chunk', async () => {
         const readiness = await getReadiness();
 
         test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
@@ -62,7 +67,7 @@ test.describe('Dockerized KB cross-tenant isolation integration (#11645)', () =>
             tenantId: bobTenant,
             source  : `integration/${runId}/bob/Secret.md`,
             name    : 'BobOnly',
-            content : `BOB_ONLY_PRIVATE_${runId}`
+            content : `BOB_ONLY_TEAM_${runId}`
         });
         const alice       = await createIdentityClient({
             baseUrl   : KB_URL,

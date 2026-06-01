@@ -20,6 +20,12 @@ function documentsById(result) {
     return new Map((result.documents || []).map(document => [document.id, document]));
 }
 
+// These integration specs run against the dockerized MCP server over the OIDC/proxy transport, which
+// resolves a `userId`/tenant from the identity header but does NOT populate an agent-identity node id.
+// Per-chunk `private` owner-scoping (#12163) keys on `originAgentIdentity`, which is therefore absent
+// here — so the owner axis cannot be exercised end-to-end in this transport and is covered by the unit
+// suite (`KnowledgeBase.TenantIsolation.spec.mjs`). These dockerized specs validate the TENANT axis:
+// `team`-scoped chunks are visible to same-tenant requesters and isolated across tenants.
 function kbRecord({id, tenantId, source, name, content}) {
     return {
         id,
@@ -33,13 +39,13 @@ function kbRecord({id, tenantId, source, name, content}) {
             sourcePath: source,
             tenantId,
             type: 'guide',
-            visibility: tenantId === 'neo-shared' ? 'team' : 'private'
+            visibility: 'team'
         }
     };
 }
 
-test.describe('Dockerized KB team/private retrieval integration (#11645)', () => {
-    test('tenant clients see own private chunks plus neo-shared chunks only', async () => {
+test.describe('Dockerized KB team retrieval + tenant isolation integration (#11645)', () => {
+    test('tenant clients see own team chunks plus neo-shared chunks only', async () => {
         const readiness = await getReadiness();
 
         test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
@@ -54,14 +60,14 @@ test.describe('Dockerized KB team/private retrieval integration (#11645)', () =>
             tenantId: aliceTenant,
             source  : `integration/${runId}/alice/Own.md`,
             name    : 'AliceOwn',
-            content : `ALICE_PRIVATE_VISIBLE_${runId}`
+            content : `ALICE_TEAM_VISIBLE_${runId}`
         });
         const foreign     = kbRecord({
             id      : `kb-team-foreign-${runId}`,
             tenantId: bobTenant,
             source  : `integration/${runId}/bob/Secret.md`,
             name    : 'BobSecret',
-            content : `BOB_PRIVATE_HIDDEN_${runId}`
+            content : `BOB_TEAM_HIDDEN_${runId}`
         });
         const shared      = kbRecord({
             id      : `kb-team-shared-${runId}`,
