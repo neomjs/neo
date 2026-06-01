@@ -8,16 +8,17 @@ import {sanitizeInput} from '../../util/Sanitizer.mjs';
 
 /**
  * @module buildScripts.createPullRequestIndex
- * @summary Generates the chunked Pull Requests tree index for the Neo.mjs Portal application.
+ * @summary Generates the Pull Requests tree index for the Neo.mjs Portal application.
  *
- * The script scans synced pull-request markdown from active and archive content buckets and emits a
- * lightweight root index plus per-content-chunk leaf files. The root index contains semantic groups
- * (Merged / Open / Closed) and chunk-folder nodes; leaves stay in chunk files so the Portal can lazy-load
- * them on folder expand without loading the entire PR corpus up front.
+ * Scans synced pull-request markdown from active + archive content buckets and emits a flat tree —
+ * semantic group roots (Merged / Open / Closed) with PR leaves directly beneath them, each carrying
+ * its markdown `path`. This mirrors the tickets view's `tickets.json` shape so both portal views are
+ * structurally consistent. (Lazy / chunked loading is a future migration to be applied to both views
+ * together, not pulls-only.)
  *
  * @see buildScripts/docs/index/tickets.mjs
  * @see https://github.com/neomjs/neo/issues/12210
- * @keywords portal, pull-requests, seo, json-index, build-script, chunked-index
+ * @keywords portal, pull-requests, seo, json-index, build-script
  */
 
 const ROOT_DIR    = process.cwd();
@@ -27,17 +28,6 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls.jso
 const OUTPUT_DIR  = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls');
 
 const GROUP_ORDER = ['Merged', 'Open', 'Closed'];
-
-/**
- * @param {String} value
- * @returns {String}
- */
-function slugify(value) {
-    return String(value)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-}
 
 /**
  * @param {Object} frontmatter
@@ -58,35 +48,55 @@ function getGroupName(frontmatter) {
 }
 
 /**
- * @param {String} filePath
- * @param {Object} options
- * @param {String} options.archiveDir
- * @param {String} options.inputDir
- * @param {Boolean} options.isActive
- * @returns {Object}
+ * @param {Object} a
+ * @param {Object} b
+ * @returns {Number}
  */
-function getSourceBucket(filePath, {archiveDir, inputDir, isActive}) {
-    const
-        dir         = path.dirname(filePath),
-        relativeDir = path.relative(isActive ? inputDir : archiveDir, dir),
-        sourceKey   = `${isActive ? 'active' : 'archive'}-${slugify(relativeDir)}`;
+function sortPulls(a, b) {
+    const dateDiff = new Date(b._date || 0) - new Date(a._date || 0);
 
-    return {
-        contentDir: path.relative(ROOT_DIR, dir),
-        sourceKey,
-        title     : isActive ? relativeDir : `archive/${relativeDir}`
-    }
+    return dateDiff || (Number(b.id) - Number(a.id))
 }
 
 /**
- * Core logic to generate the chunked Pull Requests index.
+ * Builds the flat tree (group roots + PR leaves), mirroring the tickets view's `tickets.json` shape.
+ * @param {Map<String,Object[]>} pullsByGroup
+ * @returns {Object[]}
+ */
+function buildFlatTree(pullsByGroup) {
+    const flatTree = [];
+
+    GROUP_ORDER.forEach(groupName => {
+        const leaves = pullsByGroup.get(groupName);
+
+        if (!leaves) {
+            return
+        }
+
+        flatTree.push({
+            collapsed: groupName !== GROUP_ORDER[0],
+            id       : groupName,
+            isLeaf   : false,
+            parentId : null
+        });
+
+        leaves.slice().sort(sortPulls).forEach(({id, parentId, path: leafPath, title}) => {
+            flatTree.push({id, parentId, path: leafPath, title})
+        })
+    });
+
+    return flatTree
+}
+
+/**
+ * Core logic to generate the flat Pull Requests index.
  *
  * @param {Object} options Configuration options
  * @param {String} [options.archiveDir] Directory containing archived pull markdown files.
  * @param {String} [options.inputDir] Directory containing active pull markdown files.
- * @param {String} [options.outputDir] Directory for per-chunk leaf JSON files.
- * @param {String} [options.outputFile] Path to the root index JSON file.
- * @returns {Promise<void>} Resolves when the JSON files are written.
+ * @param {String} [options.outputDir] Stale chunk-output directory removed during the flat rewrite.
+ * @param {String} [options.outputFile] Path to the flat tree JSON file.
+ * @returns {Promise<void>} Resolves when the JSON file is written.
  */
 async function createPullRequestIndex(options = {}) {
     const
@@ -105,11 +115,10 @@ async function createPullRequestIndex(options = {}) {
         ...archivedFiles.map(filePath => ({filePath, isActive: false}))
     ];
 
-    const groups = new Map();
-    const chunks = new Map();
+    const pullsByGroup = new Map();
 
     for (const fileInfo of allFiles) {
-        const {filePath, isActive} = fileInfo;
+        const {filePath} = fileInfo;
 
         let frontmatter = {};
 
@@ -127,90 +136,30 @@ async function createPullRequestIndex(options = {}) {
 
         const
             groupName = getGroupName(frontmatter),
-            groupSlug = slugify(groupName),
-            bucket    = getSourceBucket(filePath, {archiveDir, inputDir, isActive}),
-            chunkId   = `${groupName}/${bucket.sourceKey}`,
-            chunkPath = `pulls/${groupSlug}/${bucket.sourceKey}.json`,
             dateValue = frontmatter.mergedAt || frontmatter.closedAt || frontmatter.updatedAt || frontmatter.createdAt || '';
 
-        if (!groups.has(groupName)) {
-            groups.set(groupName, {
-                collapsed: groupName !== GROUP_ORDER[0],
-                id       : groupName,
-                isLeaf   : false,
-                parentId : null
-            })
+        if (!pullsByGroup.has(groupName)) {
+            pullsByGroup.set(groupName, [])
         }
 
-        if (!chunks.has(chunkId)) {
-            chunks.set(chunkId, {
-                childrenUrl: chunkPath,
-                childCount : 0,
-                collapsed  : true,
-                contentDir : bucket.contentDir,
-                filePrefix : 'pr-',
-                id         : chunkId,
-                isLeaf     : false,
-                parentId   : groupName,
-                sortDate   : dateValue,
-                title      : bucket.title,
-                records    : []
-            })
-        }
-
-        const chunk = chunks.get(chunkId);
-
-        chunk.childCount++;
-
-        if (dateValue && (!chunk.sortDate || new Date(dateValue) > new Date(chunk.sortDate))) {
-            chunk.sortDate = dateValue
-        }
-
-        chunk.records.push({
+        pullsByGroup.get(groupName).push({
+            _date   : dateValue,
             id      : String(frontmatter.number),
-            parentId: chunkId,
+            parentId: groupName,
+            path    : path.relative(ROOT_DIR, filePath),
             title   : frontmatter.title
         })
     }
 
-    const rootIndex = [];
+    const flatTree = buildFlatTree(pullsByGroup);
 
-    for (const groupName of GROUP_ORDER) {
-        if (!groups.has(groupName)) {
-            continue
-        }
-
-        rootIndex.push(groups.get(groupName));
-
-        const groupChunks = Array.from(chunks.values())
-            .filter(chunk => chunk.parentId === groupName)
-            .sort((a, b) => {
-                const dateDiff = new Date(b.sortDate || 0) - new Date(a.sortDate || 0);
-                return dateDiff || a.id.localeCompare(b.id)
-            });
-
-        rootIndex.push(...groupChunks.map(chunk => {
-            const {records, sortDate, ...node} = chunk;
-            return node
-        }))
-    }
-
-    await fs.emptyDir(outputDir);
-
-    for (const chunk of chunks.values()) {
-        const target = path.join(path.dirname(outputFile), chunk.childrenUrl);
-
-        chunk.records.sort((a, b) => Number(b.id) - Number(a.id));
-
-        await fs.ensureDir(path.dirname(target));
-        await fs.writeJSON(target, chunk.records)
-    }
-
+    // Remove the stale per-chunk leaf output from the prior lazy-load shape; the flat tree carries
+    // every PR leaf inline (consistent with tickets.json).
+    await fs.remove(outputDir);
     await fs.ensureDir(path.dirname(outputFile));
-    await fs.writeJSON(outputFile, rootIndex);
+    await fs.writeJSON(outputFile, flatTree);
 
-    console.log(`Pull Requests index written to ${outputFile}`);
-    console.log(`Pull Requests leaf chunks written to ${outputDir}`);
+    console.log(`Pull Requests index written to ${outputFile} (${flatTree.length} nodes)`);
 }
 
 /**
@@ -221,11 +170,11 @@ async function runCli() {
 
     program
         .name('create-pull-request-index')
-        .description('Generates a chunked JSON index of pull requests.')
+        .description('Generates a flat JSON index of pull requests.')
         .option('-i, --input <path>',   'Active pull requests directory path', sanitizeInput)
         .option('-a, --archive <path>', 'Archive pull requests directory path', sanitizeInput)
-        .option('-d, --output-dir <path>', 'Output chunk directory path', sanitizeInput)
-        .option('-o, --output <path>',  'Output root index file path', sanitizeInput);
+        .option('-d, --output-dir <path>', 'Stale chunk directory to remove', sanitizeInput)
+        .option('-o, --output <path>',  'Output flat index file path', sanitizeInput);
 
     program.parse(process.argv);
 
