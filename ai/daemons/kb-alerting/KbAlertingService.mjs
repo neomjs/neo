@@ -1,7 +1,7 @@
-// Class-only file (#11058-style split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/daemons/kb-alerting/daemon.mjs` per the canonical
-// Orchestrator class+wrapper pattern. `Neo.setupClass(KbAlertingService)` at file
-// bottom works via `globalThis.Neo`, populated by the entry-point bootstrap chain.
+// Class-only daemon implementation. Entry-point bootstrap (Neo + core/_export +
+// InstanceManager) lives in `ai/daemons/kb-alerting/daemon.mjs`, following the
+// canonical Orchestrator class+wrapper pattern. `Neo.setupClass(KbAlertingService)`
+// at file bottom uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
 import Base                           from '../../../src/core/Base.mjs';
 import {Memory_Config as aiConfig}    from '../../services.mjs';
 import KBRecorderService              from '../../services/knowledge-base/KBRecorderService.mjs';
@@ -34,12 +34,12 @@ const DEFAULT_WINDOW_MS = 60 * 60 * 1000;
 const DEFAULT_SENDER = '@system';
 
 /**
- * @summary Phase 4D KB operator-alerting daemon — telemetry thresholds → A2A / console alerts (#11642).
+ * @summary KB operator-alerting daemon — telemetry thresholds → A2A / console alerts.
  *
- * Closes the Phase 4 operability loop: Phase 4A (#11639) collects per-tenant KB ingestion
- * telemetry into `kb_ingestion_metrics`; this daemon polls the per-tenant rollup, evaluates
- * it against operator-configured `aiConfig.knowledgeBase.alertRules`, and dispatches an alert
- * to each breached rule's channels. Without it, operators must manually poll telemetry.
+ * Provides the alerting leg of KB operability: ingestion records per-tenant metrics in
+ * `kb_ingestion_metrics`; this daemon polls the per-tenant rollup, evaluates it against
+ * operator-configured `aiConfig.knowledgeBase.alertRules`, and dispatches an alert to each
+ * breached rule's channels. Without it, operators must manually poll telemetry.
  *
  * **Shape** — the canonical poll-loop daemon (the `SwarmHeartbeatService` precedent): a
  * `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` / `pulse()`. The
@@ -52,9 +52,9 @@ const DEFAULT_SENDER = '@system';
  * **Opt-in** — `start()` is a no-op unless `aiConfig.knowledgeBase.alertingEnabled` is true,
  * so a default deployment never runs the daemon.
  *
- * **Channels** (per the #11642 Contract Ledger): `console` → `logger`; `a2a:<target>` →
- * `MailboxService.addMessage` under a bound sender identity; `webhook:<url>` → V1.5-deferred
- * (recognized but warn-skipped). Cooldown state is held in-memory and reset on `start()`.
+ * **Channels** — `console` → `logger`; `a2a:<target>` → `MailboxService.addMessage`
+ * under a bound sender identity; `webhook:<url>` is recognized but warn-skipped until
+ * webhook delivery is implemented. Cooldown state is held in-memory and reset on `start()`.
  *
  * @class Neo.ai.daemons.KbAlertingService
  * @extends Neo.core.Base
@@ -224,9 +224,9 @@ class KbAlertingService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` deployment predating #11642
-     * has no `knowledgeBase` key, so a naked `aiConfig.knowledgeBase.alertRules` would
-     * throw. Returns `{}` when the key is absent.
+     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may lack the
+     * `knowledgeBase` key, so a naked `aiConfig.knowledgeBase.alertRules` would throw.
+     * Returns `{}` when the key is absent.
      *
      * @returns {Object}
      * @protected
@@ -261,7 +261,7 @@ class KbAlertingService extends Base {
             } else if (channel.startsWith('a2a:')) {
                 await this.dispatchA2A(alert)
             } else if (channel.startsWith('webhook:')) {
-                // V1.5-deferred per the #11642 Contract Ledger — recognized but not POSTed.
+                // Webhook delivery is recognized in config but not yet POSTed.
                 logger.warn(`[KbAlertingService] Webhook channel deferred to V1.5; skipping "${channel}" (tenant ${alert.tenantId})`)
             } else {
                 logger.warn(`[KbAlertingService] Unknown channel "${channel}" (tenant ${alert.tenantId}); skipping`)
@@ -305,9 +305,8 @@ class KbAlertingService extends Base {
     async dispatchA2A(alert) {
         const target = alert.channel.slice('a2a:'.length);
 
-        // Reject an unresolvable target BEFORE dispatch (#11642 Contract Ledger; @neo-gpt
-        // PR #11709 Cycle-1 review). A target that is neither a registered `@<identity>`
-        // nor the `AGENT:*` sentinel is skipped with a warn — `MailboxService.addMessage`
+        // Reject an unresolvable target before dispatch. A target that is neither a registered
+        // `@<identity>` nor the `AGENT:*` sentinel is skipped with a warn; `MailboxService.addMessage`
         // is never reached, so a misconfigured rule cannot attempt orphan-target dispatch.
         if (!MailboxService.isReachableTarget(target)) {
             logger.warn(`[KbAlertingService] Skipping alert for unresolvable A2A target "${target}" (tenant ${alert.tenantId})`);
