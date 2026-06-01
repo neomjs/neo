@@ -31,10 +31,23 @@ class TabContainerController extends Controller {
     }
 
     /**
+     * @summary Activates the tab whose item config carries the given route.
+     *
+     * Resolves `activeIndex` by matching `item.header.route` rather than hardcoding a position, so the
+     * controller stays correct when the `items` array is reordered — which it is: the left-docked tab
+     * header renders `column-reverse`, so the array is ordered as the reverse of the visual display.
+     * This removes the index-sync footgun between the `items` order and these route handlers.
+     * @param {String} route
+     */
+    activateRoute(route) {
+        this.component.activeIndex = this.component.items.findIndex(item => item.header?.route === route)
+    }
+
+    /**
      * @param {Object} data
      */
     onBlogRoute(data) {
-        this.component.activeIndex = 1
+        this.activateRoute('/news/blog')
     }
 
     /**
@@ -48,35 +61,35 @@ class TabContainerController extends Controller {
      * @param {Object} data
      */
     onDiscussionsRoute(data) {
-        this.component.activeIndex = 4
+        this.activateRoute('/news/discussions')
     }
 
     /**
      * @param {Object} data
      */
     onMediumRoute(data) {
-        this.component.activeIndex = 0
+        this.activateRoute('/news/medium')
     }
 
     /**
      * @param {Object} data
      */
     onPullsRoute(data) {
-        this.component.activeIndex = 5
+        this.activateRoute('/news/pulls')
     }
 
     /**
      * @param {Object} data
      */
     onReleasesRoute(data) {
-        this.component.activeIndex = 3
+        this.activateRoute('/news/releases')
     }
 
     /**
      * @param {Object} data
      */
     onTicketsRoute(data) {
-        this.component.activeIndex = 2
+        this.activateRoute('/news/tickets')
     }
 }
 
