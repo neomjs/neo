@@ -24,10 +24,10 @@ class Component extends Markdown {
         bind: {
             record: data => data.currentPageRecord
         },
-        /**
-         * @member {String} issuesUrl='#/news/tickets/'
-         */
-        issuesUrl: '#/news/tickets/',
+        // issuesUrl is intentionally NOT defaulted here: this generic content base must not bake in a
+        // portal-app route. It inherits Neo.component.Markdown's neutral default
+        // (https://github.com/neomjs/neo/issues/); each consuming portal view sets its own cross-link
+        // target (e.g. '#/news/tickets/') as a per-content-type config (#12209).
         /**
          * @member {Object} record_=null
          * @reactive

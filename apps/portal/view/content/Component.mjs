@@ -28,6 +28,10 @@ class Component extends ContentComponent {
             resize: 'onResize'
         },
         /**
+         * @member {String} issuesUrl='#/news/tickets/'
+         */
+        issuesUrl: '#/news/tickets/',
+        /**
          * @member {Boolean} updateSectionsStore=false
          */
         updateSectionsStore: false
