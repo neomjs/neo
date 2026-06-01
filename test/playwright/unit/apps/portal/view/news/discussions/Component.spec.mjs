@@ -1,4 +1,5 @@
 import {setup} from '../../../../../../setup.mjs';
+import {readFileSync} from 'node:fs';
 
 setup({
     appConfig: {
@@ -11,6 +12,7 @@ import Neo              from '../../../../../../../../src/Neo.mjs';
 import * as core        from '../../../../../../../../src/core/_export.mjs';
 import Component        from '../../../../../../../../apps/portal/view/news/discussions/Component.mjs';
 import DiscussionsStore from '../../../../../../../../apps/portal/store/Discussions.mjs';
+import {marked}         from '../../../../../../../../node_modules/marked/lib/marked.esm.js';
 
 /**
  * Unit coverage for the Discussion-specific parser in `Portal.view.news.discussions.Component`.
@@ -21,7 +23,14 @@ import DiscussionsStore from '../../../../../../../../apps/portal/store/Discussi
  * helpers are tested directly on the prototype to avoid constructing the full state-provider-backed
  * content component.
  */
-const {parseFrontMatter, parseComments, renderReplies, getClosedBadgeHtml, getCategoryBadgeHtml} = Component.prototype;
+const {
+    getCategoryBadgeHtml,
+    getClosedBadgeHtml,
+    modifyMarkdown,
+    parseComments,
+    parseFrontMatter,
+    renderReplies
+} = Component.prototype;
 
 test.describe('Portal.view.news.discussions.Component - Discussion markdown parser', () => {
     test('parses folded and literal frontmatter block scalars used by discussion titles', () => {
@@ -171,6 +180,59 @@ test.describe('Portal.view.news.discussions.Component - Discussion markdown pars
         expect(open).toContain('neo-state-open');
         expect(open).toContain('Open');
         expect(getCategoryBadgeHtml('')).toBe('')
+    })
+
+    test('keeps generated timeline HTML out of escaped markdown code blocks', () => {
+        const
+            content       = readFileSync('resources/content/discussions/chunk-2/discussion-11891.md', 'utf8'),
+            sectionsStore = {data: []};
+
+        const component = Object.create(Component.prototype);
+
+        Object.defineProperties(component, {
+            getStateProvider: {
+                value() {
+                    return {
+                        getStore: () => sectionsStore
+                    }
+                }
+            },
+            formatTimestamp: {
+                value: value => value
+            },
+            id: {
+                value: 'discussion-html-literal-regression-test'
+            },
+            issuesUrl: {
+                value: '#/news/tickets/'
+            },
+            record: {
+                value: {id: '11891'}
+            },
+            renderFrontmatter: {
+                value: true
+            },
+            replaceTicketIds: {
+                value: true
+            },
+            repoUserUrl: {
+                value: 'https://github.com/'
+            },
+            updateSectionsStore: {
+                value: false
+            },
+            useFrontmatterDetails: {
+                value: true
+            }
+        });
+
+        const html = marked.parse(modifyMarkdown.call(component, content));
+
+        expect(html).toContain('<div id="timeline-11891-2" class="neo-timeline-item comment"');
+        expect(html).toContain('<div id="timeline-11891-2-target" class="neo-timeline-avatar">');
+        expect(html).not.toContain('&lt;div id=&quot;timeline-11891-2');
+        expect(html).not.toContain('&lt;div id=&quot;timeline-11891-2-target');
+        expect(sectionsStore.data.map(record => record.id)).toContain('timeline-11891-2')
     })
 });
 
