@@ -216,7 +216,8 @@
             "node ./buildScripts/util/check-whitespace.mjs"
         ],
         "*.mjs": [
-            "node ./buildScripts/util/check-shorthand.mjs"
+            "node ./buildScripts/util/check-shorthand.mjs",
+            "node ./buildScripts/util/check-ticket-archaeology.mjs"
         ]
     }
 }
