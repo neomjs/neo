@@ -89,8 +89,8 @@ test.describe('Tier 1 Config Immutability', () => {
                 safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
             },
             embedding: {
-                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 8192,
-                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 6144
+                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
+                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672
             }
         });
         expect(Config.engines.chroma).toEqual({
@@ -98,6 +98,23 @@ test.describe('Tier 1 Config Immutability', () => {
             host   : process.env.NEO_CHROMA_HOST || 'localhost',
             port   : Number(process.env.NEO_CHROMA_PORT) || 8000
         });
+    });
+
+    test('keeps local embedding context env overrides role-scoped (#12286)', () => {
+        const originalContext = Config.localModels.embedding.contextLimitTokens,
+              originalSafe    = Config.localModels.embedding.safeProcessingLimitTokens;
+
+        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 12345);
+        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 11111);
+
+        expect(Config.localModels.embedding).toMatchObject({
+            contextLimitTokens      : 12345,
+            safeProcessingLimitTokens: 11111
+        });
+        expect(Config.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 262144);
+
+        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', originalContext);
+        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', originalSafe);
     });
 
     test('ships top-level deployment and maintenance policy defaults', async () => {

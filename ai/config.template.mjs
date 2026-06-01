@@ -200,15 +200,14 @@ class Config extends BaseConfig {
                 /**
                  * @summary Embedding-model context limits in tokens.
                  *
-                 * Conservative placeholder defaults. Operators must pin to their loaded
-                 * embedding model's actual capability before operational reliance — for
-                 * instance Qwen3-8B-embedding typically supports 32K context, but this
-                 * default holds an 8K conservative floor until V-B-A confirms the value
-                 * against the configured embedding model.
+                 * Tuned for the default OpenAI-compatible embedding model
+                 * `text-embedding-qwen3-embedding-8b`, whose upstream Qwen model card
+                 * advertises a 32K context window. Operators serving smaller embedding
+                 * models must pin this to the actual loaded-model capacity.
                  *
-                 * No active consumer reads these yet; pre-positioned for the embedding
-                 * consumer surface (TextEmbeddingService + KB ingestion retry-on-unload
-                 * telemetry paths).
+                 * `safeProcessingLimitTokens` is the explicit 28K operational band —
+                 * large enough for file-scale KB / Memory Core ingestion while leaving a
+                 * 4K-token margin below the advertised model maximum.
                  *
                  * Env overrides: `NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS`,
                  * `NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS`.
@@ -216,8 +215,8 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 embedding: {
-                    contextLimitTokens       : leaf(8192, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(6144, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
+                    contextLimitTokens       : leaf(32768, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(28672, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 }
             },
             /**
