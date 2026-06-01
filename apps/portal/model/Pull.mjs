@@ -49,21 +49,41 @@ class Pull extends Model {
             name: 'path', // "resources/content/pulls/chunk-N/pr-1234.md"
             type: 'String'
         }, {
-            name: 'title', // "fix(build): bypass hooks for data sync commits (#11590)"
+            name: 'title', // "fix(build): bypass hooks for data sync commits (#11590)" — ticket-ref-ok: illustrative PR-title sample, not a tracking ref
             type: 'String'
         }, {
             // Computed field for TreeList display
             name: 'treeNodeName',
             type: 'html',
             /**
-             * @param {Object}  data
-             * @param {String}  data.id
-             * @param {Boolean} data.isLeaf
-             * @param {String}  data.title
+             * @param {Object}   data
+             * @param {Number}   data.childCount
+             * @param {String}   data.childrenUrl
+             * @param {String}   data.id
+             * @param {Boolean}  data.isLeaf
+             * @param {String}   data.title
              * @returns {String}
              */
-            calculate({id, isLeaf, title}) {
-                return isLeaf ? `<b>${id}</b> <span class="pr-title">${title}</span>` : id
+            calculate({childCount, childrenUrl, id, isLeaf, title}) {
+                if (isLeaf) {
+                    return `<b>${id}</b> <span class="pr-title">${title}</span>`
+                }
+
+                // Chunk-folder nodes: render a positional PR range (e.g. "PRs 1-100") instead of the
+                // raw `chunk-N` implementation label. Mirrors Portal.model.Ticket's range scheme so the
+                // tickets + pulls chunked trees stay consistent (each chunk holds up to 100 entries).
+                if (childrenUrl && title) {
+                    let match = title.match(/chunk-(\d+)$/);
+
+                    if (match) {
+                        let start = (Number(match[1]) - 1) * 100 + 1,
+                            end   = childCount ? start + childCount - 1 : start + 99;
+
+                        return `PRs ${start}-${end}`
+                    }
+                }
+
+                return id
             }
         }]
     }
