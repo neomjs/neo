@@ -52,14 +52,31 @@ class Ticket extends Model {
             name: 'treeNodeName',
             type: 'html',
             /**
-             * @param {Object}  data
-             * @param {String}  data.id
-             * @param {Boolean} data.isLeaf
-             * @param {String}  data.title
+             * @param {Object}   data
+             * @param {Number}   data.childCount
+             * @param {String}   data.childrenUrl
+             * @param {String}   data.id
+             * @param {Boolean}  data.isLeaf
+             * @param {String}   data.title
              * @returns {String}
              */
-            calculate({id, isLeaf, title}) {
-                return isLeaf ? `<b>${id}</b> <span class="ticket-title">${title}</span>` : id
+            calculate({childCount, childrenUrl, id, isLeaf, title}) {
+                if (isLeaf) {
+                    return `<b>${id}</b> <span class="ticket-title">${title}</span>`
+                }
+
+                if (childrenUrl && title) {
+                    let match = title.match(/chunk-(\d+)$/);
+
+                    if (match) {
+                        let start = (Number(match[1]) - 1) * 100 + 1,
+                            end   = childCount ? start + childCount - 1 : start + 99;
+
+                        return `Tickets ${start}-${end}`
+                    }
+                }
+
+                return id
             }
         }]
     }
