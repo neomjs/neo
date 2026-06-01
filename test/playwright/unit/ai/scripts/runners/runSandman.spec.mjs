@@ -153,6 +153,60 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(calls).toEqual([{url: 'http://ollama.test/api/ps', method: 'GET'}]);
     });
 
+    test('warmOllamaRoleModel uses native role endpoints and keep_alive', async () => {
+        const calls = [];
+        const fetchFn = async (url, options) => {
+            calls.push({
+                url,
+                method : options.method,
+                headers: options.headers,
+                body   : JSON.parse(options.body)
+            });
+            return {
+                ok  : true,
+                text: async () => ''
+            };
+        };
+
+        await providerReadinessHelper.warmOllamaRoleModel({
+            host     : 'http://ollama.test',
+            model    : 'gemma4:31b',
+            role     : 'chat',
+            keepAlive: '-1',
+            timeoutMs: 25,
+            fetchFn
+        });
+        await providerReadinessHelper.warmOllamaRoleModel({
+            host     : 'http://ollama.test',
+            model    : 'qwen3-embedding',
+            role     : 'embedding',
+            keepAlive: '-1',
+            timeoutMs: 25,
+            fetchFn
+        });
+
+        expect(calls).toEqual([{
+            url    : 'http://ollama.test/api/chat',
+            method : 'POST',
+            headers: {'content-type': 'application/json'},
+            body   : {
+                model     : 'gemma4:31b',
+                messages  : [{role: 'user', content: ''}],
+                stream    : false,
+                keep_alive: '-1'
+            }
+        }, {
+            url    : 'http://ollama.test/api/embed',
+            method : 'POST',
+            headers: {'content-type': 'application/json'},
+            body   : {
+                model     : 'qwen3-embedding',
+                input     : '',
+                keep_alive: '-1'
+            }
+        }]);
+    });
+
     test('warnProviderParallelModelCapacity warns for native Ollama missing the embedding model', async () => {
         const warnings = [];
         const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
@@ -482,6 +536,141 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(warnings[0]).toContain('preload failed');
     });
 
+    test('ensureOllamaModelsReady warms missing chat and embedding models through native roles (#12285)', async () => {
+        const warmCalls = [];
+        const modelSnapshots = [
+            [],
+            ['gemma4:31b', 'qwen3-embedding']
+        ];
+
+        const result = await providerReadinessHelper.ensureOllamaModelsReady({
+            host                 : 'http://ollama.test',
+            roles                : [{
+                providerRole: 'modelProvider',
+                role        : 'chat',
+                model       : 'gemma4:31b'
+            }, {
+                providerRole: 'embeddingProvider',
+                role        : 'embedding',
+                model       : 'qwen3-embedding'
+            }],
+            requireParallelModels: 2,
+            attempts             : 2,
+            delayMs              : 0,
+            timeoutMs            : 25,
+            keepAlive            : '-1',
+            fetchModelIds        : async () => modelSnapshots.shift() || ['gemma4:31b', 'qwen3-embedding'],
+            warmModel            : async (role, options) => warmCalls.push({role, options}),
+            log                  : {info: () => {}}
+        });
+
+        expect(warmCalls).toEqual([{
+            role: {
+                providerRole: 'modelProvider',
+                role        : 'chat',
+                model       : 'gemma4:31b'
+            },
+            options: {
+                host     : 'http://ollama.test',
+                keepAlive: '-1',
+                timeoutMs: 25
+            }
+        }, {
+            role: {
+                providerRole: 'embeddingProvider',
+                role        : 'embedding',
+                model       : 'qwen3-embedding'
+            },
+            options: {
+                host     : 'http://ollama.test',
+                keepAlive: '-1',
+                timeoutMs: 25
+            }
+        }]);
+        expect(result).toMatchObject({
+            ready                : true,
+            provider             : 'ollama',
+            warmedModels         : [{
+                model       : 'gemma4:31b',
+                role        : 'chat',
+                providerRole: 'modelProvider'
+            }, {
+                model       : 'qwen3-embedding',
+                role        : 'embedding',
+                providerRole: 'embeddingProvider'
+            }],
+            requiredModels       : ['gemma4:31b', 'qwen3-embedding'],
+            availableModels      : ['gemma4:31b', 'qwen3-embedding'],
+            requireParallelModels: 2
+        });
+    });
+
+    test('ensureOllamaModelsReady returns degraded when one native role cannot be warmed (#12285)', async () => {
+        const warnings = [];
+        const result = await providerReadinessHelper.ensureOllamaModelsReady({
+            host                 : 'http://ollama.test',
+            roles                : [{
+                providerRole: 'modelProvider',
+                role        : 'chat',
+                model       : 'gemma4:31b'
+            }, {
+                providerRole: 'embeddingProvider',
+                role        : 'embedding',
+                model       : 'qwen3-embedding'
+            }],
+            requireParallelModels: 2,
+            allowPartial         : true,
+            attempts             : 2,
+            delayMs              : 0,
+            timeoutMs            : 25,
+            fetchModelIds        : async () => ['qwen3-embedding'],
+            warmModel            : async role => {
+                if (role.role === 'chat') {
+                    throw new Error('Ollama refused chat model');
+                }
+            },
+            log                  : {
+                info: () => {},
+                warn: message => warnings.push(message)
+            }
+        });
+
+        expect(result.ready).toBe(false);
+        expect(result.degraded).toBe(true);
+        expect(result.failedModels).toEqual([{
+            model       : 'gemma4:31b',
+            role        : 'chat',
+            providerRole: 'modelProvider',
+            error       : 'Ollama refused chat model'
+        }]);
+        expect(result.missingModels).toEqual(['gemma4:31b']);
+        expect(result.availableModels).toEqual(['qwen3-embedding']);
+        expect(result.warning).toContain('set OLLAMA_MAX_LOADED_MODELS=2');
+        expect(warnings[0]).toContain('warm-up failed');
+    });
+
+    test('ensureOllamaModelsReady does not require inactive role models (#12285)', async () => {
+        const result = await providerReadinessHelper.ensureOllamaModelsReady({
+            host                 : 'http://ollama.test',
+            roles                : [{
+                providerRole: 'graphProvider',
+                role        : 'chat',
+                model       : 'gemma4:31b'
+            }],
+            requireParallelModels: 2,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 25,
+            fetchModelIds        : async () => ['gemma4:31b']
+        });
+
+        expect(result.ready).toBe(true);
+        expect(result.requiredModels).toEqual(['gemma4:31b']);
+        expect(result.requiredResidentModels).toBe(1);
+        expect(result.requireParallelModels).toBe(2);
+        expect(result.warning).toBeNull();
+    });
+
     test('loadLmsModel appends --context-length to execFile args when provided (#12117)', async () => {
         const execCalls = [];
         const execFileStub = (cmd, args, callback) => {
@@ -617,6 +806,56 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 'text-embedding-qwen3-embedding-8b': 32768
             }
         });
+    });
+
+    test('buildOllamaReadinessConfig only includes explicitly selected native Ollama roles (#12285)', () => {
+        expect(providerReadinessHelper.buildOllamaReadinessConfig({
+            modelProvider    : 'gemini',
+            graphProvider    : 'ollama',
+            embeddingProvider: 'ollama',
+            ollama: {
+                host                 : 'http://ollama.test',
+                model                : 'gemma4:31b',
+                embeddingModel       : 'qwen3-embedding',
+                keep_alive           : '-1',
+                requireParallelModels: 2
+            },
+            openAiCompatible: {
+                model         : 'gemma-openai',
+                embeddingModel: 'openai-embedding'
+            }
+        })).toEqual({
+            provider             : 'ollama',
+            host                 : 'http://ollama.test',
+            keepAlive            : '-1',
+            requireParallelModels: 2,
+            model                : 'gemma4:31b',
+            embeddingModel       : 'qwen3-embedding',
+            roles                : [{
+                provider    : 'ollama',
+                providerRole: 'graphProvider',
+                role        : 'chat',
+                model       : 'gemma4:31b'
+            }, {
+                provider    : 'ollama',
+                providerRole: 'embeddingProvider',
+                role        : 'embedding',
+                model       : 'qwen3-embedding'
+            }],
+            models               : ['gemma4:31b', 'qwen3-embedding']
+        });
+
+        expect(providerReadinessHelper.buildOllamaReadinessConfig({
+            modelProvider    : 'openAiCompatible',
+            graphProvider    : 'openAiCompatible',
+            embeddingProvider: 'openAiCompatible',
+            ollama: {
+                host                 : 'http://ollama.test',
+                model                : 'gemma4:31b',
+                embeddingModel       : 'qwen3-embedding',
+                requireParallelModels: 2
+            }
+        }).roles).toEqual([]);
     });
 
     test('loadLmsModel omits --context-length when contextLength is non-finite (defensive)', async () => {
@@ -773,6 +1012,59 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             host          : null,
             endpoint      : null
         });
+    });
+
+    test('provider model-residency diagnostic carries degraded Ollama capacity (#12285)', async () => {
+        const stderrMessages = [];
+        const logErrors      = [];
+        const capacity       = {
+            degraded             : true,
+            provider             : 'ollama',
+            host                 : 'http://ollama.test',
+            requiredModels       : ['gemma4:31b', 'qwen3-embedding'],
+            availableModels      : ['qwen3-embedding'],
+            missingModels        : ['gemma4:31b'],
+            observedCount        : 1,
+            requireParallelModels: 2,
+            warning              : '[provider/ollama] expected 2+ models loaded; set OLLAMA_MAX_LOADED_MODELS=2 in the Ollama server environment.'
+        };
+        const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
+            config: {
+                modelProvider : 'ollama',
+                graphProvider : 'ollama',
+                ollama        : {
+                    host          : 'http://ollama.test',
+                    model         : 'gemma4:31b',
+                    embeddingModel: 'qwen3-embedding'
+                }
+            },
+            reason: 'PROVIDER_MODEL_RESIDENCY_DEGRADED',
+            capacity
+        });
+
+        expect(diagnostic).toMatchObject({
+            event         : 'runSandman.provider_model_residency_degraded',
+            reason        : 'PROVIDER_MODEL_RESIDENCY_DEGRADED',
+            provider      : 'ollama',
+            graphProvider : 'ollama',
+            host          : 'http://ollama.test',
+            endpoint      : '/api/tags',
+            capacity,
+            nextAction    : capacity.warning
+        });
+
+        const result = await runSandmanModule.recordProviderReadinessFailure(diagnostic, {
+            stderr: message => stderrMessages.push(message),
+            log   : {
+                error: (...args) => logErrors.push(args),
+                flush: async () => {}
+            }
+        });
+
+        expect(result.message).toContain('provider model residency degraded');
+        expect(stderrMessages[0]).toContain('OLLAMA_MAX_LOADED_MODELS=2');
+        expect(logErrors[0][0]).toContain('provider model residency degraded');
+        expect(logErrors[0][1]).toBe(diagnostic);
     });
 
     test('runSandman delegates exactly one canonical REM cycle inside the lease (#12070)', async () => {

@@ -125,6 +125,72 @@ export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fet
 }
 
 /**
+ * @summary Warms one native Ollama model through the role-specific Ollama endpoint.
+ *
+ * Native Ollama is not an OpenAI-compatible provider behind a different selector:
+ * chat/generation work is warmed through `/api/chat`, while vector work is warmed
+ * through `/api/embed`. `keep_alive` flows from operator config so readiness
+ * matches the same residency policy used by normal provider calls.
+ *
+ * @param {Object} options
+ * @param {String} options.host Ollama host.
+ * @param {String} options.model Ollama model identifier.
+ * @param {String} options.role Either `'chat'` or `'embedding'`.
+ * @param {String|Number} [options.keepAlive] Ollama keep_alive value.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @returns {Promise<Object>}
+ */
+export async function warmOllamaRoleModel({
+    host,
+    model,
+    role,
+    keepAlive,
+    timeoutMs,
+    fetchFn = fetch
+} = {}) {
+    if (!host) {
+        throw new TypeError('warmOllamaRoleModel: host is required');
+    }
+    if (!model) {
+        throw new TypeError('warmOllamaRoleModel: model is required');
+    }
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('warmOllamaRoleModel: timeoutMs is required');
+    }
+    if (role !== 'chat' && role !== 'embedding') {
+        throw new TypeError("warmOllamaRoleModel: role must be 'chat' or 'embedding'");
+    }
+
+    const endpoint = role === 'embedding' ? '/api/embed' : '/api/chat';
+    const payload  = role === 'embedding'
+        ? {model, input: ''}
+        : {model, messages: [{role: 'user', content: ''}], stream: false};
+
+    if (keepAlive !== undefined) {
+        payload.keep_alive = keepAlive;
+    }
+
+    const response = await fetchFn(new URL(endpoint, host).toString(), {
+        method : 'POST',
+        headers: {'content-type': 'application/json'},
+        body   : JSON.stringify(payload),
+        signal : AbortSignal.timeout(timeoutMs)
+    });
+
+    if (!response.ok) {
+        const text = typeof response.text === 'function' ? await response.text() : '';
+        throw new Error(`Ollama ${role} model warmup failed for '${model}': HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+    }
+
+    if (typeof response.text === 'function') {
+        await response.text();
+    }
+
+    return {model, role, endpoint};
+}
+
+/**
  * @summary Invokes `lms load <model> [--context-length <N>]` for one LM Studio model.
  *
  * When `contextLength` is provided, appends `--context-length <N>` to the `lms`
@@ -254,6 +320,61 @@ export function buildLmsPreloadConfig(config = aiConfig) {
     });
 
     return {models, contextLengths}
+}
+
+/**
+ * @summary Builds the native Ollama readiness set from provider-role selectors.
+ *
+ * Non-null Ollama model leaves are deployment configuration, not proof that the
+ * native Ollama provider owns a role. This mirrors {@link buildLmsPreloadConfig}:
+ * only explicit provider selectors participate, preserving operator choice when
+ * chat, graph, or embedding is routed to another provider family.
+ *
+ * @param {Object} config aiConfig-shaped provider config.
+ * @returns {{provider: String, host: String, keepAlive: *, requireParallelModels: Number, model: String, embeddingModel: String, roles: Object[], models: String[]}}
+ */
+export function buildOllamaReadinessConfig(config = aiConfig) {
+    const ollamaConfig   = config.ollama ?? {},
+          chatModel      = ollamaConfig.model,
+          embeddingModel = ollamaConfig.embeddingModel,
+          roles          = [{
+              provider    : config.modelProvider,
+              providerRole: 'modelProvider',
+              role        : 'chat',
+              model       : chatModel
+          }, {
+              provider    : config.graphProvider,
+              providerRole: 'graphProvider',
+              role        : 'chat',
+              model       : chatModel
+          }, {
+              provider    : config.embeddingProvider,
+              providerRole: 'embeddingProvider',
+              role        : 'embedding',
+              model       : embeddingModel
+          }].filter(role => role.provider === 'ollama' && role.model);
+
+    const dedupedRoles = [];
+    const seenRoles    = new Set();
+
+    for (const role of roles) {
+        const key = `${role.role}:${role.model}`;
+        if (!seenRoles.has(key)) {
+            seenRoles.add(key);
+            dedupedRoles.push(role);
+        }
+    }
+
+    return {
+        provider             : 'ollama',
+        host                 : ollamaConfig.host,
+        keepAlive            : ollamaConfig.keep_alive,
+        requireParallelModels: ollamaConfig.requireParallelModels,
+        model                : chatModel,
+        embeddingModel,
+        roles                : dedupedRoles,
+        models               : [...new Set(dedupedRoles.map(role => role.model))]
+    }
 }
 
 /**
@@ -438,6 +559,217 @@ export async function ensureLmsModelsLoaded({
         `LM Studio model readiness failed: missing ${missingModels.join(', ')} from ${host}/v1/models after ` +
         `${attempts} attempt(s). Run ${missingModels.map(model => `lms load ${model}`).join(' && ')} ` +
         'or raise the LM Studio loaded-model cap so chat and embedding models can stay resident together.'
+    );
+}
+
+/**
+ * @summary Ensures native Ollama has all configured role models resident.
+ *
+ * Ollama has no `lms load` equivalent and must be warmed through its native API.
+ * This helper probes `/api/ps`, warms only missing role/model pairs through
+ * `/api/chat` or `/api/embed`, and then verifies that the required chat and
+ * embedding models are resident together. Partial failure returns a degraded
+ * readiness envelope when `allowPartial` is true so callers can fail readiness
+ * with operator-actionable diagnostics instead of emitting warning-only drift.
+ *
+ * @param {Object} options
+ * @param {String} options.host Ollama host.
+ * @param {Object[]} options.roles Role entries from {@link buildOllamaReadinessConfig}.
+ * @param {Number} options.requireParallelModels Minimum resident-model count.
+ * @param {Number} options.attempts Probe attempts after warm-up.
+ * @param {Number} options.delayMs Delay between probes.
+ * @param {Number} options.timeoutMs HTTP probe timeout.
+ * @param {String|Number} [options.keepAlive] Ollama keep_alive value.
+ * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one role cannot be warmed.
+ * @param {Function} [options.fetchModelIds] Injectable `/api/ps` probe.
+ * @param {Function} [options.warmModel] Injectable warm-up function.
+ * @param {Object} [options.log=logger] Logger seam.
+ * @returns {Promise<Object>}
+ */
+export async function ensureOllamaModelsReady({
+    host,
+    roles,
+    requireParallelModels,
+    attempts,
+    delayMs,
+    timeoutMs,
+    keepAlive,
+    allowPartial = false,
+    fetchModelIds = opts => fetchOllamaRunningModelIds(opts),
+    warmModel     = (role, options) => warmOllamaRoleModel({...role, ...options}),
+    log           = logger
+} = {}) {
+    if (!Array.isArray(roles) || roles.length === 0) {
+        throw new TypeError('ensureOllamaModelsReady: roles must contain at least one configured Ollama role');
+    }
+    if (!Neo.isNumber(requireParallelModels)) {
+        throw new TypeError('ensureOllamaModelsReady: requireParallelModels is required');
+    }
+    if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
+        throw new TypeError('ensureOllamaModelsReady: attempts, delayMs, and timeoutMs are required');
+    }
+
+    const requiredModels = [...new Set(roles.map(role => role.model).filter(Boolean))];
+    if (requiredModels.length === 0) {
+        throw new TypeError('ensureOllamaModelsReady: roles must contain at least one configured model');
+    }
+
+    const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
+    const getMissing             = available => requiredModels.filter(model => !available.includes(model));
+    const getWarning = ({availableModels, missingModels}) => createParallelModelCapacityWarning({
+        provider             : 'ollama',
+        model                : roles.find(role => role.role === 'chat')?.model,
+        embeddingModel       : roles.find(role => role.role === 'embedding')?.model,
+        requiredModels,
+        availableModels,
+        missingModels,
+        observedCount        : availableModels.length,
+        requireParallelModels: requiredResidentModels
+    });
+
+    const probeModels = async phase => {
+        let lastError;
+
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return {
+                    attempt,
+                    availableModels: [...new Set(await fetchModelIds({host, timeoutMs}))]
+                };
+            } catch (error) {
+                lastError = error;
+                if (attempt < attempts) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
+            }
+        }
+
+        throw new Error(`Ollama model readiness failed during ${phase}: ${lastError?.message || lastError}`);
+    };
+
+    const startedAt = Date.now();
+    let availableModels;
+
+    try {
+        ({availableModels} = await probeModels('initial /api/ps probe'));
+    } catch (error) {
+        if (!allowPartial) {
+            throw error;
+        }
+
+        return {
+            ready                : false,
+            degraded             : true,
+            provider             : 'ollama',
+            host,
+            requiredModels,
+            availableModels      : [],
+            missingModels        : requiredModels,
+            observedCount        : 0,
+            requireParallelModels,
+            requiredResidentModels,
+            warmedModels         : [],
+            attemptedModels      : [],
+            failedModels         : [],
+            error                : {message: error.message},
+            warning              : `[provider/ollama] model residency probe failed: ${error.message}`,
+            attempts,
+            elapsedMs            : Date.now() - startedAt
+        };
+    }
+
+    const initialMissing = getMissing(availableModels);
+    const rolesToWarm    = roles.filter(role => initialMissing.includes(role.model));
+    const warmedModels   = [];
+    const failedModels   = [];
+    const attemptedModels = [];
+
+    for (const role of rolesToWarm) {
+        attemptedModels.push({model: role.model, role: role.role, providerRole: role.providerRole});
+        log.info?.(`[ProviderReadinessHelper] Warming native Ollama ${role.role} model '${role.model}' via ${role.role === 'embedding' ? '/api/embed' : '/api/chat'}.`);
+
+        try {
+            await warmModel(role, {host, keepAlive, timeoutMs});
+            warmedModels.push({model: role.model, role: role.role, providerRole: role.providerRole});
+        } catch (error) {
+            failedModels.push({
+                model       : role.model,
+                role        : role.role,
+                providerRole: role.providerRole,
+                error       : error.message
+            });
+            log.warn?.(`[ProviderReadinessHelper] Ollama ${role.role} model '${role.model}' warm-up failed: ${error.message}`);
+
+            if (!allowPartial) {
+                throw error;
+            }
+        }
+    }
+
+    let missingModels = initialMissing;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        ({availableModels} = await probeModels('post-warm /api/ps probe'));
+        missingModels = getMissing(availableModels);
+
+        const failedModelIds     = new Set(failedModels.map(item => item.model));
+        const serviceableMissing = missingModels.filter(model => !failedModelIds.has(model));
+        const observedCount      = availableModels.length;
+        const capacityReady      = observedCount >= requiredResidentModels;
+        const ready              = capacityReady && missingModels.length === 0 && failedModels.length === 0;
+        const capacityOnlyGap    = missingModels.length === 0 && !capacityReady;
+
+        if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap))) {
+            const degraded = !ready;
+            return {
+                ready,
+                degraded,
+                provider             : 'ollama',
+                host,
+                warmedModels,
+                attemptedModels,
+                failedModels,
+                missingModels,
+                requiredModels,
+                availableModels,
+                observedCount,
+                requireParallelModels,
+                requiredResidentModels,
+                warning              : degraded ? getWarning({availableModels, missingModels}) : null,
+                attempts             : attempt,
+                elapsedMs            : Date.now() - startedAt
+            };
+        }
+
+        if (attempt < attempts) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
+
+    const warning = getWarning({availableModels, missingModels});
+    if (allowPartial) {
+        return {
+            ready                : false,
+            degraded             : true,
+            provider             : 'ollama',
+            host,
+            warmedModels,
+            attemptedModels,
+            failedModels,
+            missingModels,
+            requiredModels,
+            availableModels,
+            observedCount        : availableModels.length,
+            requireParallelModels,
+            requiredResidentModels,
+            warning,
+            attempts,
+            elapsedMs            : Date.now() - startedAt
+        };
+    }
+
+    throw new Error(
+        `Ollama model readiness failed: ${warning}`
     );
 }
 
@@ -763,22 +1095,26 @@ export function assertProviderReadinessConfig(readinessConfig) {
  * @param {Object} options.config Provider-source config (aiConfig-shaped).
  * @param {Object} [options.waitResult] Result envelope from `waitForProvider`; omit when emitting on the unsupported-provider path.
  * @param {Object} [options.lifecycleStatus] Consumer-sourced lifecycle snapshot; surfaces verbatim on the envelope.
- * @param {String} [options.reason] One of `'PROVIDER_READINESS_TIMEOUT'`, `'UNSUPPORTED_GRAPH_PROVIDER'`.
+ * @param {String} [options.reason] One of `'PROVIDER_READINESS_TIMEOUT'`, `'UNSUPPORTED_GRAPH_PROVIDER'`, `'PROVIDER_MODEL_RESIDENCY_DEGRADED'`.
  * @returns {Object}
  */
 export function createProviderFailureDiagnostic({
     config = aiConfig,
     waitResult,
     lifecycleStatus,
-    reason = 'PROVIDER_READINESS_TIMEOUT'
+    reason = 'PROVIDER_READINESS_TIMEOUT',
+    capacity
 } = {}) {
     const target = getGraphProviderReadinessTarget(config);
     const unsupported = reason === 'UNSUPPORTED_GRAPH_PROVIDER';
+    const degraded    = reason === 'PROVIDER_MODEL_RESIDENCY_DEGRADED';
 
     return {
         event          : unsupported
             ? 'runSandman.unsupported_graph_provider'
-            : 'runSandman.provider_readiness_timeout',
+            : degraded
+                ? 'runSandman.provider_model_residency_degraded'
+                : 'runSandman.provider_readiness_timeout',
         reason,
         provider       : target.provider,
         graphProvider  : target.provider,
@@ -792,8 +1128,11 @@ export function createProviderFailureDiagnostic({
         attempts       : waitResult?.attempts,
         elapsedMs      : waitResult?.elapsedMs,
         timeoutMs      : waitResult?.timeoutMs,
+        capacity,
         lifecycleStatus,
-        nextAction     : target.supported
+        nextAction     : degraded && capacity?.warning
+            ? capacity.warning
+            : target.supported
             ? (
                 target.provider === 'openAiCompatible'
                     ? 'Start the configured OpenAI-compatible / MLX provider, then rerun npm run ai:run-sandman.'
@@ -820,12 +1159,16 @@ export async function recordProviderReadinessFailure(
 ) {
     const message = diagnostic.reason === 'UNSUPPORTED_GRAPH_PROVIDER'
         ? `\n❌ Unsupported Sandman graph provider '${diagnostic.graphProvider}'. Expected one of: 'ollama', 'openAiCompatible'.`
+        : diagnostic.reason === 'PROVIDER_MODEL_RESIDENCY_DEGRADED'
+            ? `\n❌ ${diagnostic.provider} provider model residency degraded on ${diagnostic.host}. ${diagnostic.nextAction}`
         : `\n❌ ${diagnostic.provider} provider is not running on ${diagnostic.host}${diagnostic.endpoint || ''}. Please start the configured provider manually.`;
 
     stderr(message);
     log.error(
         diagnostic.reason === 'UNSUPPORTED_GRAPH_PROVIDER'
             ? '[runSandman] unsupported graph provider'
+            : diagnostic.reason === 'PROVIDER_MODEL_RESIDENCY_DEGRADED'
+                ? `[runSandman] ${diagnostic.provider} provider model residency degraded`
             : `[runSandman] ${diagnostic.provider} provider readiness timeout`,
         diagnostic
     );

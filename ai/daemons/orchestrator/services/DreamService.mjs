@@ -23,7 +23,9 @@ import GoldenPathSynthesizer from '../../../services/graph/GoldenPathSynthesizer
 import AiConfig from '../../../config.mjs';
 import {
     assertProviderReadinessConfig,
+    buildOllamaReadinessConfig,
     createProviderFailureDiagnostic,
+    ensureOllamaModelsReady,
     getGraphProviderReadinessTarget,
     waitForProvider,
     warnProviderParallelModelCapacity
@@ -740,10 +742,30 @@ class DreamService extends Base {
             };
         }
 
-        const capacity = await warnProviderParallelModelCapacity({
-            config   : AiConfig,
-            timeoutMs: readinessConfig.timeoutMs
-        });
+        const ollamaReadinessConfig = buildOllamaReadinessConfig(AiConfig);
+        const capacity = ollamaReadinessConfig.roles.length > 0
+            ? await ensureOllamaModelsReady({
+                ...ollamaReadinessConfig,
+                attempts    : readinessConfig.attempts,
+                delayMs     : readinessConfig.delayMs,
+                timeoutMs   : readinessConfig.timeoutMs,
+                allowPartial: true
+            })
+            : await warnProviderParallelModelCapacity({
+                config   : AiConfig,
+                timeoutMs: readinessConfig.timeoutMs
+            });
+
+        if (capacity?.degraded) {
+            return {
+                ready     : false,
+                capacity,
+                diagnostic: createProviderFailureDiagnostic({
+                    reason: 'PROVIDER_MODEL_RESIDENCY_DEGRADED',
+                    capacity
+                })
+            };
+        }
 
         return {ready: true, capacity};
     }
