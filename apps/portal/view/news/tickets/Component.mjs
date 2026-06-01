@@ -42,6 +42,10 @@ class Component extends ContentComponent {
          */
         commitsUrl: 'https://github.com/neomjs/neo/commit/',
         /**
+         * @member {String} issuesUrl='#/news/tickets/'
+         */
+        issuesUrl: '#/news/tickets/',
+        /**
          * @member {String} repoUserUrl='https://github.com/'
          */
         repoUserUrl: 'https://github.com/'
