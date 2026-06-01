@@ -25,9 +25,13 @@ Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647, #1
 
 The split was deliberate: **contracts before transport**. The schemas and registry stabilized first; the Phase 2 ingestion endpoints were built against that frozen contract surface.
 
-## Topology anchor — unified Chroma
+## Topology anchor — one unified Chroma store
 
-Per [ADR 0003 — Chroma Topology Unified Only](../decisions/0003-chroma-topology-unified-only.md), a cloud deployment runs **one** ChromaDB daemon hosting **three** collections — `knowledge-base`, `neo-agent-memory`, `neo-agent-sessions` — reached by **two** MCP servers (KB + Memory Core). Cloud ingestion writes only to the `knowledge-base` collection. There is no per-tenant Chroma instance: tenant isolation is enforced by the identity tuple + write-side stamping + read-side filter, not by physical separation.
+A cloud deployment keeps all its vector data in **one** ChromaDB store named `unified`, with the same layout locally and in the cloud. A single Chroma daemon serves three collections — the Knowledge Base, your agents' memories, and their session summaries — and two MCP servers (Knowledge Base and Memory Core) read from it. Cloud ingestion only ever writes to the Knowledge Base collection.
+
+The Memory Core's edge graph is **not** stored in Chroma — it lives in a separate SQLite database.
+
+There is no separate Chroma instance per tenant. Every piece of content is tagged with its owner when it's written and filtered by owner when it's read, so each tenant sees its own content plus Neo's shared library — never another tenant's private data.
 
 ## Default-source inheritance
 
