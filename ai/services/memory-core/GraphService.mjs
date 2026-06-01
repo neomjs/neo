@@ -1035,27 +1035,24 @@ class GraphService extends Base {
 
     /**
      * @summary Count SESSION-labeled graph nodes (deployment-wide, untenanted).
-     * This is **Axis B** of the 5-axis REM observability model (per Discussion
-     * #12062 §2.6) — the count of sessions actually committed to the Semantic
-     * Graph by the REM digest pipeline.
+     * This is **Axis B** of the 5-axis REM observability model: the count of
+     * sessions actually committed to the Semantic Graph by the REM digest pipeline.
      *
-     * Mirrors the filter shape of {@link Neo.ai.services.memory-core.HealthService}
-     * lines 812-816 (`label='SESSION'` AND `COALESCE(properties.userId,'')=''`)
-     * to align with Memory Core's existing deployment-wide tenant-isolation
-     * semantic. A tenant-scoped variant (`getSessionNodeCount({userId})`) is a
-     * Phase 2 extension if operator deployments need per-tenant axis counts.
+     * Mirrors the deployment-wide filter shape used by
+     * {@link Neo.ai.services.memory-core.HealthService}: `label='SESSION'` and
+     * empty `properties.userId`. A tenant-scoped variant
+     * (`getSessionNodeCount({userId})`) is a future extension if operator
+     * deployments need per-tenant axis counts.
      *
      * **Important divergence semantic:** the divergence between this count and
      * {@link Neo.ai.services.memory-core.managers.ChromaManager#getGraphDigestedCount}
-     * is the empirical signal the 5-axis model surfaces — GPT live V-B-A
-     * 2026-05-27 ~01:19Z showed 76× divergence (1,069 Chroma summaries vs only
-     * 14 graph SESSION nodes), pointing to silent failures in the graph-write
-     * arm of DreamService.processUndigestedSessions. A healthy pipeline produces
+     * is the empirical signal the 5-axis model surfaces: large divergence points
+     * to silent failures in the graph-write arm of
+     * DreamService.processUndigestedSessions. A healthy pipeline produces
      * `chroma.graphDigested ≈ graph.SESSION` within batch-window tolerance.
      *
      * @returns {Number} Count of deployment-wide SESSION nodes; 0 on storage error
-     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
-     * @see Discussion #12062 §2.6 — axis-divergence framing
+     * @see Neo.ai.services.memory-core.managers.ChromaManager#getGraphDigestedCount
      */
     getSessionNodeCount() {
         try {
@@ -1076,39 +1073,28 @@ class GraphService extends Base {
 
     /**
      * @summary Count inbound entity-relation edges TO a specific session node.
-     * This is **Axis C** of the 5-axis REM observability model (per Discussion
-     * #12062 §2.6) — the per-session extraction yield, measured as the number
-     * of graph edges where the session node is the TARGET (the canonical
-     * provenance direction).
+     * This is **Axis C** of the 5-axis REM observability model: the per-session
+     * extraction yield, measured as the number of graph edges where the session
+     * node is the TARGET (the canonical provenance direction).
      *
-     * **Edge-direction contract** (V-B-A on `MemorySessionIngestor.mjs:226`
-     * `GraphService.linkNodes(memoryNodeId, sessionNodeId, 'ORIGINATES_IN', 1.0)`
-     * + `SemanticGraphExtractor.mjs:88` prompt directive *"emit provenance
-     * edges linking them back to the source Memory or Session"*):
-     * the session node is the TARGET of provenance edges from extracted
-     * entities (memories ORIGINATES_IN session; concepts/classes DISCUSSED_IN
-     * session; etc.). Counting `Edges.target = session:<id>` captures the
+     * **Edge-direction contract:** the session node is the TARGET of provenance
+     * edges from extracted entities (memories ORIGINATES_IN session;
+     * concepts/classes DISCUSSED_IN session; etc.). Counting
+     * `Edges.target = session:<id>` captures the
      * full extraction-yield surface — a session with zero inbound edges
      * either had no entities OR suffered the extraction-failed-silent path
-     * (hypothesis #11 in PR #12077 forensics runbook: 3-retry JSON parse
-     * exhaustion returning `null`).
+     * such as repeated JSON parse exhaustion returning `null`.
      *
      * **Case normalization:** delegated to
-     * {@link GraphService#normalizeGraphNodeId} (lines 489-505), which
-     * canonicalizes `memory:` / `session:` prefixes to lowercase regardless
-     * of input case. The canonical SQLite-stored convention is
-     * **lowercase** `session:<id>` (per MemorySessionIngestor.mjs:160 +
-     * GraphService.mjs:405-408). The `SESSION:` uppercase form appears in
-     * SemanticGraphExtractor LLM prompts as an instruction shape but is
-     * normalized to lowercase before any persistence — querying with
-     * uppercase against SQLite returns 0 (the original cycle-1 bug
-     * @neo-gpt PR #12081 review flagged).
+     * {@link GraphService#normalizeGraphNodeId}, which canonicalizes `memory:`
+     * / `session:` prefixes to lowercase regardless of input case. The canonical
+     * SQLite-stored convention is lowercase `session:<id>`. The `SESSION:`
+     * uppercase form appears in SemanticGraphExtractor LLM prompts as an
+     * instruction shape but is normalized to lowercase before any persistence;
+     * querying SQLite with the uppercase form returns 0.
      *
      * @param {String} sessionId Session ID, with or without `session:` / `SESSION:` prefix
      * @returns {Number} Count of inbound edges; 0 on storage error, unknown session, or empty session
-     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
-     * @see PR #12077 Sub 1 forensics runbook hypothesis #11 (extraction silent failure)
-     * @see ai/services/ingestion/MemorySessionIngestor.mjs line 226 — writer precedent
      * @see GraphService#normalizeGraphNodeId — case-canonicalization primitive
      */
     getSessionEntityCount(sessionId) {

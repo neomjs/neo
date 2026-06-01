@@ -595,7 +595,7 @@ export function buildChromaMigrationStats(metadatas, {summaryCollection = false}
  *
  * The MCP surface is operator-facing diagnostics, not a scheduling input. A
  * single unavailable backing store must not hide every other axis, so failures
- * are logged and projected as `0` in line with #12087's fallback contract.
+ * are logged and projected as `0` in line with the diagnostic fallback contract.
  *
  * @param {String} label Human-readable axis label for warning logs
  * @param {Function} fn Probe function returning the axis count
@@ -630,8 +630,8 @@ async function resolveRemBlock(label, fn, fallback) {
 /**
  * @summary Builds the operator-facing REM pipeline state projection.
  *
- * This composes the Phase 1a axis helpers from Epic #12065 Sub 2 into a single
- * MCP-safe read envelope without mutating the Dream Pipeline. The helper remains
+ * This composes the REM observability axis helpers into a single MCP-safe read
+ * envelope without mutating the Dream Pipeline. The helper remains
  * in the Memory Core service boundary because the MCP server layer maps
  * operationIds to existing services after the post-M6 service lift.
  *
@@ -642,7 +642,6 @@ async function resolveRemBlock(label, fn, fallback) {
  * @see ChromaManager#getGraphDigestedCount
  * @see Neo.ai.services.memory-core.GraphService#getSessionNodeCount
  * @see Neo.ai.daemons.services.TopologyInferenceEngine#getTopologyConflictCount
- * @see https://github.com/neomjs/neo/issues/12087
  */
 export async function buildRemPipelineState({sessionId} = {}) {
     const [

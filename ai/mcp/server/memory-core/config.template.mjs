@@ -48,9 +48,9 @@ class Config extends BaseConfig {
         data: {
             /**
              * Repo root, computed from this module's path. Exported for symmetry with the
-             * KB and Neural Link configs (#10584) so consumers (loggers, services, future)
-             * can read `aiConfig.neoRootDir` rather than recomputing the 4-level traversal
-             * locally. Module path is stable; the resolution is deterministic at boot.
+             * KB and Neural Link config contracts so consumers can read `aiConfig.neoRootDir`
+             * instead of recomputing the 4-level traversal locally. Module path is stable;
+             * the resolution is deterministic at boot.
              * @type {string}
              */
             neoRootDir: leaf(neoRootDir),
@@ -102,7 +102,7 @@ class Config extends BaseConfig {
              * The target Storage Architecture to use.
              * Note: Chroma is the only supported Vector DB.
              * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Chroma vectors only).
-             * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
+             * The default is explicitly 'hybrid' for the two-pillar RAG architecture.
              */
             engine: leaf('hybrid'),
             /**
@@ -175,13 +175,13 @@ class Config extends BaseConfig {
              * Setting threshold = `0.8` means *"at least tier-1 baseline priority"* — every tier-1 concept
              * without a guide qualifies; tier-2/3 concepts qualify only if uniqueness + deficit push them above.
              *
-             * Tune up to silence tier-2/3 noise as ontology grows (#10036 / #10037 / #10050); tune down to
-             * surface lower-priority concepts in the handoff.
+             * Tune up to silence tier-2/3 noise as ontology grows; tune down to surface
+             * lower-priority concepts in the handoff.
              * @type {number}
              */
             guideGapWeightThreshold: leaf(0.8, 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', 'number'),
             /**
-             * Operator-tuning knobs for `ConceptDiscoveryService` (#10036). Both values are read live
+             * Operator-tuning knobs for `ConceptDiscoveryService`. Both values are read live
              * at method-call time (not captured at module load) so tests + runtime overrides are honored.
              *
              * - `prScanLimit`: how many pull-request markdown files to process per discovery cycle.
@@ -190,8 +190,8 @@ class Config extends BaseConfig {
              * - `minSourceLength`: minimum source text length (chars) to trigger an LLM extraction call.
              *   Short bodies aren't worth the provider round-trip; 200 ≈ 30 words of coherent prose.
              *
-             * Expected to migrate to SDK-layer config per #10103 once the daemon/service config split
-             * lands — these are daemon concerns, not memory-core concerns.
+             * Expected to migrate to SDK-layer config once daemon/service ownership is split:
+             * these are daemon concerns, not memory-core concerns.
              * @type {Object}
              */
             conceptDiscovery: {
@@ -199,11 +199,11 @@ class Config extends BaseConfig {
                 minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
             },
             /**
-             * Phase 4 (#11663): bundle retention policy for `ai/scripts/maintenance/backup.mjs`.
-             * Bundles older than `maxDays` are eligible for deletion, but the newest
-             * `keepMinimum` bundles are retained unconditionally regardless of age.
-             * Defaults match the pre-#11663 hardcoded behavior (`K=3, N_DAYS=30`) so
-             * existing deployments are unaffected without operator action.
+             * Bundle retention policy for `ai/scripts/maintenance/backup.mjs`. Bundles older
+             * than `maxDays` are eligible for deletion, but the newest `keepMinimum` bundles
+             * are retained unconditionally regardless of age. Defaults preserve the historical
+             * `K=3, N_DAYS=30` behavior so existing deployments are unaffected without
+             * operator action.
              * @type {{keepMinimum: number, maxDays: number}}
              */
             backupRetention: leaf({
@@ -211,10 +211,10 @@ class Config extends BaseConfig {
                 maxDays    : 30
             }),
             /**
-             * Directory for the always-on Memory Core diagnostic log files (#10582). The MC
-             * server's `logger.mjs` writes daily-rotated entries here regardless of `debug`,
-             * so long-running operations (summarization, ingestion sweeps, ChromaDB
-             * lifecycle) leave a tail-able diagnostic trail observable from the host shell.
+             * Directory for the always-on Memory Core diagnostic log files. The MC server's
+             * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-
+             * running operations (summarization, ingestion sweeps, ChromaDB lifecycle) leave
+             * a tail-able diagnostic trail observable from the host shell.
              * Default: `<neoRootDir>/.neo-ai-data/logs/` — shared with the KB and Neural
              * Link servers (each uses a distinct filename prefix: `mc-server-`, `kb-server-`,
              * `nl-server-`). Per-server file isolation, single tailable directory.
@@ -236,7 +236,7 @@ class Config extends BaseConfig {
                 timestampStyle: 'plain'
             }),
             /**
-             * Mailbox substrate behavior configuration (#10252).
+             * Mailbox substrate behavior configuration.
              *
              * Deployment-tier selectors for the A2A mailbox service. The A2A primitives
              * themselves (Message nodes, SENT_BY / SENT_TO edges, CAN_REPLY_TO permission
@@ -250,15 +250,15 @@ class Config extends BaseConfig {
                 /**
                  * Default reply policy for non-broadcast DMs. Controls whether `addMessage`
                  * to a specific AgentIdentity target requires a prior `CAN_REPLY_TO` grant
-                 * or reachable-counterparty trust-lift (#10146 strict-isolation default),
-                 * or accepts any authenticated sender as a peer.
+                 * or reachable-counterparty trust-lift, or accepts any authenticated sender
+                 * as a peer.
                  *
-                 * - `'blocked'` — strict-isolation default policy from #10146. Suited for
-                 *   multi-user / multi-tenant Memory Core deployments and mixed-trust-tier
-                 *   installations where cross-tenant boundaries must be enforced at the
-                 *   substrate. Cross-tenant reach requires explicit `CAN_REPLY_TO` grants.
-                 *   Reachable-counterparty trust-lift (#10179) relaxes the bootstrap once
-                 *   any broadcast or direct message has flowed between the pair.
+                 * - `'blocked'` — strict-isolation default policy. Suited for multi-user /
+                 *   multi-tenant Memory Core deployments and mixed-trust-tier installations
+                 *   where cross-tenant boundaries must be enforced at the substrate.
+                 *   Cross-tenant reach requires explicit `CAN_REPLY_TO` grants. Reachable-
+                 *   counterparty trust-lift relaxes the bootstrap once any broadcast or
+                 *   direct message has flowed between the pair.
                  *
                  * - `'open'` — peer-trust mode. Suited for homogeneous trusted-frontier
                  *   swarms where every authenticated identity is a peer owned by the same
@@ -281,7 +281,7 @@ class Config extends BaseConfig {
                 defaultReplyPolicy: leaf('open', 'NEO_MAILBOX_DEFAULT_REPLY_POLICY', 'string')
             },
             /**
-             * Memory sharing policy for multi-tenant isolation (#10010).
+             * Memory sharing policy for multi-tenant isolation.
              *
              * Defines the retrieval scope for query_raw_memories and query_summaries:
              * - 'private': strict tenant isolation. Only caller's owned rows.
