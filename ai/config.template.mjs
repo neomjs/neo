@@ -314,6 +314,12 @@ class Config extends BaseConfig {
                     primaryDevSyncMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
                     tenantRepoSyncMs      : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
                     dreamMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
+                    /**
+                     * Fraction of `dreamMs` runtime that triggers completion-time cooldown for the
+                     * next dream cycle. This is intentionally below the #12088 `cycleOverflowRatio > 1`
+                     * telemetry signal: it prevents tight reacquire windows before a cycle exceeds
+                     * the full cadence.
+                     */
                     dreamOverflowThreshold: leaf(0.8, 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', 'number'),
                     goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
                     swarmHeartbeatMs      : leaf(15 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number')
