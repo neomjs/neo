@@ -243,7 +243,7 @@ class ChromaManager extends AbstractVectorManager {
      * @param {String} [options.confirmation]     Production-recovery token; equals `CONFIRM_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE` for bypass.
      * @returns {Promise<*>} Forwarded chromadb-client response.
      * @throws {CanonicalCollectionGuardError} When `name` is canonical and neither bypass applies.
-     * @see https://github.com/neomjs/neo/issues/11652
+     * @see chromaDeleteCollection
      */
     async deleteCollection({name, confirmation} = {}) {
         return chromaDeleteCollection({client: this.client, name, subsystem: 'memory-core', confirmation})
@@ -252,13 +252,12 @@ class ChromaManager extends AbstractVectorManager {
     /**
      * @summary Count sessions in the Chroma summary collection that do NOT have the
      * `graphDigested` metadata flag set to true. This is **Axis A (negative)** of the
-     * 5-axis REM observability model (per Discussion #12062 §2.6) — the count of
-     * sessions that summarization has produced but graph extraction has not yet
-     * digested into the Semantic Graph.
+     * 5-axis REM observability model: the count of sessions that summarization has
+     * produced but graph extraction has not yet digested into the Semantic Graph.
      *
      * Uses the same in-memory filtering pattern as
-     * {@link Neo.ai.daemons.services.DreamService#findUndigestedSessions} (lines 94-119)
-     * because ChromaDB filtering on missing/false attributes is unreliable across
+     * {@link Neo.ai.daemons.services.DreamService#findUndigestedSessions} because
+     * ChromaDB filtering on missing/false attributes is unreliable across
      * versions. The count is bounded by the same `summarizationBatchLimit` (default
      * 2000) as the production digest path, so the number is "undigested-among-recent"
      * not a strict global count — the count is operator-facing diagnostic, not a
@@ -267,15 +266,13 @@ class ChromaManager extends AbstractVectorManager {
      * Counterpart helper: {@link #getGraphDigestedCount}. Together they bracket the
      * digestion-progress axis; the divergence between this count and
      * {@link Neo.ai.services.memory-core.GraphService#getSessionNodeCount} (graph
-     * SESSION node count, also pending in this Epic) is the empirical signal the
-     * 5-axis model is designed to surface (GPT live V-B-A 2026-05-27 ~01:19Z showed
-     * 76× Chroma-vs-graph divergence — 1,069 Chroma summaries vs only 14 graph
-     * SESSION nodes).
+     * SESSION node count) is the empirical signal the 5-axis model is designed to
+     * surface. Large Chroma-vs-graph divergence points to graph-write or digest
+     * failures that the Chroma flag alone cannot prove.
      *
      * @returns {Promise<Number>} Count of sessions without `graphDigested:true`
      *     metadata; 0 if the collection is empty
-     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
-     * @see Discussion #12062 §2.6 — axis-divergence framing
+     * @see Neo.ai.services.memory-core.GraphService#getSessionNodeCount
      */
     async getUndigestedSessionCount() {
         const collection = await this.getSummaryCollection();
@@ -310,11 +307,11 @@ class ChromaManager extends AbstractVectorManager {
      * believes the digest succeeded, but the actual graph mutation is a separate
      * substrate. Compare against
      * {@link Neo.ai.services.memory-core.GraphService#getSessionNodeCount} for the
-     * Chroma-vs-graph divergence detection per Discussion #12062 §2.6.
+     * Chroma-vs-graph divergence detection.
      *
      * @returns {Promise<Number>} Count of sessions with `graphDigested:true`
      *     metadata; 0 if the collection is empty
-     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
+     * @see Neo.ai.services.memory-core.GraphService#getSessionNodeCount
      */
     async getGraphDigestedCount() {
         const collection = await this.getSummaryCollection();

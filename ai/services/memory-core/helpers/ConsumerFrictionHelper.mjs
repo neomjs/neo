@@ -8,12 +8,11 @@
  * handoff section. No `AgentOrchestrator.parseGoldenPath()` routing changes; no auto-mutation of
  * caller behavior beyond the explicit pre-check skip.
  *
- * Schema is the consensus-bound graduation contract from Discussion #11444 (Round-2 + Round-3
- * cross-family convergence): structured `ConsumerFriction` with enum-backed `suggestionKind`,
- * token-based durable metrics, `(assetRef, consumer, symptom)` aggregation tuple, and explicit
- * `serviceDomain` provenance.
+ * Schema is the durable visibility contract: structured `ConsumerFriction` with enum-backed
+ * `suggestionKind`, token-based metrics, `(assetRef, consumer, symptom)` aggregation tuple,
+ * and explicit `serviceDomain` provenance.
  *
- * Bidirectional defense (per Discussion #11444 Round-2):
+ * Bidirectional defense:
  * - **Angle 1 (downstream)**: `invokeWithGuardrail` wraps the LLM invocation in try/catch and
  *   categorizes failures (`context-overflow` / `parse-failure` / `timeout`) into a
  *   ConsumerFriction record before returning `{result: null, friction}`.
@@ -32,7 +31,7 @@
  *
  * Token estimation: V1 uses a 4-chars/token heuristic (`Math.ceil(Buffer.byteLength(payload) / 4)`)
  * because the codebase has no canonical provider-specific tokenizer. Bytes are retained on
- * the record as evidence; tokens are the durable contract per Discussion #11444 consensus.
+ * the record as evidence; tokens are the durable LLM-relevant contract.
  * Future V2 may integrate with Model-Stats registry (ADR 0012) for per-provider tokenization.
  *
  * @see learn/agentos/decisions/0012-model-stats-framework.md
@@ -103,8 +102,8 @@ const AGGREGATOR_TTL_MS = 60 * 60 * 1000;
 
 /**
  * @summary Default safe-processing fraction of the consumer's contextLimitTokens.
- * Per Discussion #11444 Round-2 consensus: 0.75 leaves 25% headroom for system-prompt envelope,
- * repair-cycle prompt growth, and output-token reservation.
+ * Leaves 25% headroom for system-prompt envelope, repair-cycle prompt growth, and
+ * output-token reservation.
  * @type {Number}
  */
 const DEFAULT_SAFE_FRACTION = 0.75;
@@ -187,8 +186,8 @@ export function deriveSuggestionKind(symptom, assetRef) {
  * when their count reaches `PROBABILISTIC_EMIT_THRESHOLD`.
  *
  * Validates enum membership of `symptom`, `suggestionKind`, `emissionPoint`, `serviceDomain`
- * and the positive-finite-number contract on `contextLimitTokens` (the durable-contract field
- * per #12116 — silent `undefined` would corrupt the friction record downstream). Throws
+ * and the positive-finite-number contract on `contextLimitTokens`. A missing numeric limit
+ * would corrupt the downstream friction record, so this helper fails loudly. Throws
  * `TypeError` on invalid input. Pure aside from the module-singleton aggregator mutation.
  *
  * @param {Partial<ConsumerFriction>} input Friction fields. `assetRef`, `consumer`, `model`,
@@ -318,7 +317,7 @@ export function clearAggregatedFrictions() {
  * @param {String} options.model Consumer model identifier.
  * @param {String} options.assetRef Origin identifier (sessionId, documentId, etc.) — first tuple member.
  * @param {String} options.consumer Service name emitting the friction (e.g. 'SemanticGraphExtractor') — second tuple member.
- * @param {Number} options.contextLimitTokens Consumer context limit (tokens). **Required, positive, finite.** Loud-fails with `TypeError` at entry — the operator-codified contract bans hidden default fallbacks: config is the source of truth, missing values surface loudly. See #12116 for the NaN-silent-skip hole this guards against.
+ * @param {Number} options.contextLimitTokens Consumer context limit (tokens). **Required, positive, finite.** Loud-fails with `TypeError` at entry: config is the source of truth, and missing values must surface instead of falling back to hidden defaults.
  * @param {Number} [options.safeProcessingLimitTokens] Optional safer threshold (tokens); defaults to 75% of contextLimitTokens.
  * @param {'dream-pipeline' | 'memory-core' | 'concept-extraction' | 'other'} options.serviceDomain Provenance domain.
  * @param {String} [options.suggestionKind] Optional caller-provided enum override; defaults to symptom-derived.

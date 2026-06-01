@@ -186,7 +186,7 @@ class MemoryService extends Base {
     static maxTrustTierRank = TRUST_TIER_ORDER.length - 1
 
     /**
-     * @summary Resolves a summary row's #10292 trust tier from source-memory metadata.
+     * @summary Resolves a summary row's provenance trust tier from source-memory metadata.
      *
      * `getContextFrontier()` hydrates session summaries, not raw memories. Summaries are
      * derived content, so their ranking tier is the most restrictive source-memory tier
@@ -202,12 +202,12 @@ class MemoryService extends Base {
     }
 
     /**
-     * @summary Converts a #10292 trust tier into a multiplier for frontier result ranking.
+     * @summary Converts a provenance trust tier into a multiplier for frontier result ranking.
      *
      * Higher-trust tiers remain closer to the graph topology weight. Lower/unclassified tiers
      * are still returned, but rank behind equally weighted higher-trust contexts.
      *
-     * @param {String} trustTier Resolved #10292 trust tier.
+     * @param {String} trustTier Resolved provenance trust tier.
      * @returns {Number} Weight multiplier in the range `(0, 1]`.
      */
     static getFrontierTrustWeight(trustTier) {
@@ -217,7 +217,7 @@ class MemoryService extends Base {
     }
 
     /**
-     * @summary Resolves a raw memory row's #10292 trust tier from its AgentIdentity metadata.
+     * @summary Resolves a raw memory row's provenance trust tier from its AgentIdentity metadata.
      * @param {Object} metadata Chroma metadata row.
      * @returns {String} Trust tier, or `unclassified` when no seeded identity matches.
      */
@@ -458,7 +458,7 @@ class MemoryService extends Base {
      * @param {Number} options.nResults      The number of results to return.
      * @param {String} [options.sessionId]   Optional session ID to filter results.
      * @param {String} [options.memorySharing] Optional override for tenant isolation policy.
-     * @param {String} [options.minTrustTier] Optional #10292 minimum accepted trust tier.
+     * @param {String} [options.minTrustTier] Optional minimum accepted provenance trust tier.
      * @returns {Promise<{query: string, count: number, results: Object[]}>}
      */
     async queryMemories({query, nResults, sessionId, memorySharing, minTrustTier}) {
