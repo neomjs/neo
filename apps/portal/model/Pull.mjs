@@ -1,10 +1,10 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
- * Tree-node model for the portal Pull Requests view. Mirrors `Portal.model.Ticket` plus the
- * chunked-index lazy-load fields (`childCount` / `childrenUrl` / `contentDir` / `filePrefix`)
- * that the `pulls.json` chunk-folder nodes carry, so the shared `TreeList`'s opt-in
- * load-on-folder-expand can fetch each chunk's PR leaves on first expand.
+ * Tree-node model for the portal Pull Requests view. Mirrors `Portal.model.Ticket`: group roots +
+ * PR leaves carrying their markdown `path`. The `childCount` / `childrenUrl` / `contentDir` /
+ * `filePrefix` fields are retained in parity with the tickets model for the shared chunked future
+ * surface; the current flat `pulls.json` does not populate them.
  * @class Portal.model.Pull
  * @extends Neo.data.Model
  */

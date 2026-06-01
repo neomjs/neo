@@ -43,8 +43,6 @@ class MainContainer extends SharedContainer {
          */
         stateProvider: StateProvider,
         /**
-         * The `pulls.json` index is chunked (state-groups → chunk-folder nodes); opt the shared
-         * tree into load-on-folder-expand so each chunk's PR leaves are fetched on first expand.
          * @member {Object} treeConfig
          */
         treeConfig: {
