@@ -68,6 +68,13 @@ class NewsTabContainer extends TabContainer {
                 route  : '/news/discussions',
                 text   : 'Discussions'
             }
+        }, {
+            module: () => import('./pulls/MainContainer.mjs'),
+            header: {
+                iconCls: 'fa fa-code-pull-request',
+                route  : '/news/pulls',
+                text   : 'Pull Requests'
+            }
         }],
         /**
          * @member {Object} unmountConfigs={activeIndex: null}
