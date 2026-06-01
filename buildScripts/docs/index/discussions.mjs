@@ -47,6 +47,23 @@ function getCategory(frontmatter) {
 }
 
 /**
+ * @summary Resolves the stable tree-state emitted for a discussion leaf.
+ * @param {Object} frontmatter
+ * @returns {'answered'|'closed'|'open'}
+ */
+function getDiscussionState(frontmatter) {
+    if (frontmatter.state) {
+        return String(frontmatter.state).toLowerCase()
+    }
+
+    if (frontmatter.isAnswered === true || frontmatter.isAnswered === 'true' || frontmatter.answerChosenAt) {
+        return 'answered'
+    }
+
+    return frontmatter.closed === true || frontmatter.closed === 'true' ? 'closed' : 'open'
+}
+
+/**
  * @param {String} filePath
  * @param {Object} options
  * @param {String} options.archiveDir
@@ -158,6 +175,7 @@ async function createDiscussionIndex(options = {}) {
         chunk.records.push({
             id      : String(frontmatter.number),
             parentId: chunkId,
+            state   : getDiscussionState(frontmatter),
             title   : frontmatter.title
         })
     }

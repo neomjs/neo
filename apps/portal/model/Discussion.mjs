@@ -1,5 +1,37 @@
 import Model from '../../../src/data/Model.mjs';
 
+const STATE_BADGE_CONFIGS = {
+    answered: {
+        cls : 'neo-state-answered',
+        icon: 'fa-circle-check',
+        text: 'Answered'
+    },
+    closed: {
+        cls : 'neo-state-closed',
+        icon: 'fa-circle-check',
+        text: 'Closed'
+    },
+    open: {
+        cls : 'neo-state-open',
+        icon: 'fa-circle-dot',
+        text: 'Open'
+    }
+};
+
+/**
+ * @summary Renders the compact state glyph used by discussion tree leaf nodes.
+ * @param {String} state
+ * @returns {String}
+ */
+function getDiscussionStateBadgeHtml(state) {
+    const config = STATE_BADGE_CONFIGS[String(state || '').toLowerCase()];
+
+    if (!config) return '';
+
+    return `<span class="discussion-state-badge ${config.cls}" title="${config.text}">` +
+        `<i class="fa-regular ${config.icon}"></i></span>`
+}
+
 /**
  * @class Portal.model.Discussion
  * @extends Neo.data.Model
@@ -45,6 +77,9 @@ class Discussion extends Model {
             name: 'path',
             type: 'String'
         }, {
+            name: 'state',
+            type: 'String'
+        }, {
             name: 'title',
             type: 'String'
         }, {
@@ -54,11 +89,17 @@ class Discussion extends Model {
              * @param {Object}  data
              * @param {String}  data.id
              * @param {Boolean} data.isLeaf
+             * @param {String}  data.state
              * @param {String}  data.title
              * @returns {String}
              */
-            calculate({id, isLeaf, title}) {
-                return isLeaf ? `<b>${id}</b> <span class="discussion-title">${title}</span>` : (title || id)
+            calculate({id, isLeaf, state, title}) {
+                if (isLeaf) {
+                    return `<span class="discussion-tree-node">${getDiscussionStateBadgeHtml(state)}` +
+                        `<b>${id}</b> <span class="discussion-title">${title}</span></span>`
+                }
+
+                return title || id
             }
         }]
     }
