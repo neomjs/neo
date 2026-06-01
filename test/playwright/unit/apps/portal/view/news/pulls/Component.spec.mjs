@@ -10,6 +10,8 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../../src/core/_export.mjs';
 import Component       from '../../../../../../../../apps/portal/view/news/pulls/Component.mjs';
+import PullsController from '../../../../../../../../apps/portal/view/news/pulls/MainContainerController.mjs';
+import PullsStore      from '../../../../../../../../apps/portal/store/Pulls.mjs';
 
 /**
  * Unit coverage for the PR-specific parser in `Portal.view.news.pulls.Component`. These tests
@@ -119,5 +121,94 @@ test.describe('Portal.view.news.pulls.Component — PR markdown parser', () => {
         expect(getReviewStateCls('DISMISSED')).toBe('neo-review-neutral');
         expect(getReviewStateCls('SOMETHING_NEW')).toBe('neo-review-neutral');
         expect(getReviewStateCls('')).toBe('neo-review-neutral')
+    })
+});
+
+/**
+ * Chunked lazy-nav adoption: the Pulls store consumes the chunked `pulls/index.json` root index and
+ * chunk-folder nodes render a positional `PRs <range>` label (not raw `chunk-N`), while the controller
+ * resolves the default route by pre-loading the first chunk. Mirrors the tickets chunked-tree adoption
+ * so both chunked views stay consistent.
+ */
+test.describe('Portal pulls chunked tree adoption (#12305)', () => {
+    test('uses the chunked pulls index and renders chunk folders as PR ranges', () => {
+        const store = Neo.create(PullsStore, {
+            id  : 'portal-pulls-chunked-store-test',
+            data: [{
+                id       : 'Latest',
+                isLeaf   : false,
+                parentId : null,
+                collapsed: true
+            }, {
+                id         : 'Latest/active-chunk-16',
+                isLeaf     : false,
+                parentId   : 'Latest',
+                title      : 'chunk-16',
+                childCount : 9,
+                childrenUrl: 'pulls/latest/active-chunk-16.json'
+            }, {
+                id      : '12218',
+                parentId: 'Latest/active-chunk-16',
+                title   : 'Opt-in load-on-folder-expand for the shared portal TreeList'
+            }]
+        });
+
+        try {
+            expect(store.url).toBe('../../apps/portal/resources/data/pulls/index.json');
+            expect(store.get('Latest').treeNodeName).toBe('Latest');
+            expect(store.get('Latest/active-chunk-16').treeNodeName).toBe('PRs 1501-1509');
+            expect(store.get('Latest/active-chunk-16').treeNodeName).not.toContain('chunk');
+            expect(store.get('12218').treeNodeName).toBe(
+                '<b>12218</b> <span class="pr-title">Opt-in load-on-folder-expand for the shared portal TreeList</span>'
+            )
+        } finally {
+            store.destroy()
+        }
+    });
+
+    test('resolves the default route after loading the first pulls chunk', async () => {
+        const store = Neo.create(PullsStore, {
+            id  : 'portal-pulls-default-route-store-test',
+            data: [{
+                id       : 'Latest',
+                isLeaf   : false,
+                parentId : null,
+                collapsed: true
+            }, {
+                id         : 'Latest/active-chunk-16',
+                isLeaf     : false,
+                parentId   : 'Latest',
+                title      : 'chunk-16',
+                childCount : 9,
+                childrenUrl: 'pulls/latest/active-chunk-16.json'
+            }]
+        });
+
+        const stateProvider = {
+            data    : {},
+            getStore: () => store
+        };
+
+        const controller = Object.create(PullsController.prototype);
+
+        controller.getStateProvider = () => stateProvider;
+        controller.getReference = () => ({
+            async onFolderItemClick(record) {
+                store.add([{
+                    id      : '12218',
+                    parentId: record.id,
+                    title   : 'Opt-in load-on-folder-expand for the shared portal TreeList'
+                }]);
+
+                record.isChildrenLoaded = true
+            }
+        });
+
+        try {
+            expect(await controller.getDefaultRouteId()).toBe('12218');
+            expect(stateProvider.data.countPages).toBe(3)
+        } finally {
+            store.destroy()
+        }
     })
 });

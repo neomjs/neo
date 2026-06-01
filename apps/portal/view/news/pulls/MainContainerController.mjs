@@ -76,7 +76,7 @@ class MainContainerController extends Controller {
      * expansion. Expands the first chunk folder (`childrenUrl`) and returns its first leaf, so the
      * default `#/news/pulls` route lands on a real PR instead of an unloaded id. Mirrors the
      * discussions controller's lazy-aware resolution.
-     * @returns {String|null}
+     * @returns {Promise<String|null>}
      */
     async getDefaultRouteId() {
         let tree   = this.getReference('tree'),
