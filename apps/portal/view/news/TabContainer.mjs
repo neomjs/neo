@@ -61,6 +61,13 @@ class NewsTabContainer extends TabContainer {
                 route  : '/news/releases',
                 text   : 'Release Notes'
             }
+        }, {
+            module: () => import('./discussions/MainContainer.mjs'),
+            header: {
+                iconCls: 'fa fa-comments',
+                route  : '/news/discussions',
+                text   : 'Discussions'
+            }
         }],
         /**
          * @member {Object} unmountConfigs={activeIndex: null}
