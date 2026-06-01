@@ -172,4 +172,4 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 - **Authoring Discipline:** Read 1-2 sibling files to lift patterns before writing new classes.
 - **File Reading Efficiently:** Reading modified files; efficiency patterns.
 - **Verify-Before-Assert (§verify_before_assert):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion): §anti_hallucination_policy.
-- **Wake/Heartbeat-without-active-lifecycle:** Delivered heartbeats are lifecycle prompts, not passive notices. Three consecutive pulses without progress evidence are a critical failure; load `/post-review-pickup` + `NightShiftLeasedDriver.md` and route recovery.
+- **Wake/Heartbeat-without-active-lifecycle:** Every delivered heartbeat must produce progress evidence or a freshly verified blocker + next probe. Repeated unchanged pause/halt/no-delta is an ignored heartbeat; three ignored heartbeats is critical failure -> load `/post-review-pickup` + `NightShiftLeasedDriver.md`.

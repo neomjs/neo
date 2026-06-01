@@ -82,9 +82,10 @@ handoff before expiry.
 
 ### 4.1 Three-Heartbeat Critical Failure Threshold
 
-Three consecutive ignored heartbeats in the same active goal/session are a
-critical failure. The third pulse MUST NOT end as another passive pause, halt,
-or no-delta response.
+An ignored heartbeat is a failure on the first occurrence. The three-heartbeat
+threshold does not authorize two passive misses; it marks the third consecutive
+miss in the same active goal/session as a critical failure. The third pulse MUST
+NOT end as another passive pause, halt, or no-delta response.
 
 On the third pulse, the recipient must:
 

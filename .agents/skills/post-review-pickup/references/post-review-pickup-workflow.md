@@ -79,7 +79,13 @@ renewal, direct-driver routing, and no-idle obligations for autonomous windows.
 A delivered heartbeat or watchdog pulse is ignored when the recipient ends the
 turn without progress evidence: lane claim, implementation/review/PR update,
 targeted blocker route, verified handoff, ticket triage/retraction,
-ideation/epic-resolution artifact, or an explicit recovery escalation.
+ideation/epic-resolution artifact, or an explicit recovery escalation. A
+freshly verified blocker with a named next probe counts as progress evidence;
+repeating an unchanged pause, halt, or no-delta reason does not.
+
+An ignored heartbeat is already a failure on the first occurrence. The threshold
+does not permit two passive misses; it marks the third consecutive miss as a
+critical recovery event.
 
 Three consecutive ignored pulses in the same active goal/session are a critical
 failure, not a legitimate halt-state. On the third pulse, the agent MUST stop
