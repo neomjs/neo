@@ -10,6 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import Component       from '../../../../../../../apps/portal/view/content/Component.mjs';
+import TimelineSections from '../../../../../../../apps/portal/store/TimelineSections.mjs';
 
 /**
  * Unit coverage for the shared avatar helpers on the Portal news timeline base
@@ -59,5 +60,31 @@ test.describe('Portal.view.content.Component — shared avatar helpers', () => {
 
         expect(getAvatarRecordProps.call(ctx, 'alice')).toEqual({image: 'https://github.com/alice.png?size=40'});
         expect(getAvatarRecordProps.call(ctx, 'dependabot')).toEqual({iconCls: 'fa-brands fa-github'})
+    })
+});
+
+/**
+ * The summary list (`Neo.app.content.SectionsList`) renders `record.iconCls` for bot/app actors. That
+ * only works if `iconCls` is a declared field on the `Portal.model.TimelineSection` contract — an
+ * undeclared field is dropped during record hydration, so the glyph would silently vanish from the
+ * summary even though the parser emitted it. This pins the field on the model.
+ */
+test.describe('Portal.model.TimelineSection — iconCls hydration contract', () => {
+    test('iconCls survives store hydration as a declared field, alongside image', () => {
+        const store = Neo.create(TimelineSections, {
+            id  : 'portal-timeline-iconcls-hydration-test',
+            data: [
+                {id: 'bot',   iconCls: 'fa-brands fa-github'},
+                {id: 'human', image  : 'https://github.com/alice.png?size=40'}
+            ]
+        });
+
+        try {
+            // An undeclared field would be undefined here → the summary bot-glyph would silently break.
+            expect(store.get('bot').iconCls).toBe('fa-brands fa-github');
+            expect(store.get('human').image).toBe('https://github.com/alice.png?size=40')
+        } finally {
+            store.destroy()
+        }
     })
 });
