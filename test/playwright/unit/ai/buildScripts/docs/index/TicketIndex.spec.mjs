@@ -6,7 +6,7 @@ import createTicketIndex from '../../../../../../../buildScripts/docs/index/tick
 
 /**
  * @summary Verifies the Portal ticket index generator emits both the legacy full-tree feed
- * and the chunked root-plus-leaves contract for #12217.
+ * and the chunked root-plus-leaves contract.
  */
 
 function frontmatter(data) {
@@ -128,5 +128,49 @@ test.describe('Portal ticket index generator (#12217)', () => {
                 childCount : 1
             })])
         })
+    });
+
+    test('orders chunk folders by chunk-number (desc), not by sortDate, matching the positional labels (#12309)', async () => {
+        const
+            issuesDir         = path.join(tempDir, 'resources/content/issues'),
+            archiveDir        = path.join(tempDir, 'resources/content/archive/issues'),
+            outputFile        = path.join(tempDir, 'apps/portal/resources/data/tickets.json'),
+            outputDir         = path.join(tempDir, 'apps/portal/resources/data/tickets'),
+            chunkedOutputFile = path.join(outputDir, 'index.json'),
+            manifestFile      = path.join(outputDir, 'manifest.json');
+
+        // Three chunk folders in the SAME (Backlog) group with NON-MONOTONIC dates: the lowest-numbered
+        // chunk carries the newest date, the highest-numbered the middle date. A sortDate ordering would
+        // emit [chunk-1, chunk-3, chunk-2] — scrambled relative to the positional `treeNodeName` labels.
+        await fs.outputFile(path.join(issuesDir, 'chunk-1/issue-110.md'), frontmatter({
+            id       : 110,
+            title    : 'Newest date, lowest chunk',
+            labels   : ['enhancement'],
+            updatedAt: '2026-05-30T00:00:00Z'
+        }));
+        await fs.outputFile(path.join(issuesDir, 'chunk-2/issue-210.md'), frontmatter({
+            id       : 210,
+            title    : 'Oldest date, middle chunk',
+            labels   : ['enhancement'],
+            updatedAt: '2026-05-01T00:00:00Z'
+        }));
+        await fs.outputFile(path.join(issuesDir, 'chunk-3/issue-310.md'), frontmatter({
+            id       : 310,
+            title    : 'Middle date, highest chunk',
+            labels   : ['enhancement'],
+            updatedAt: '2026-05-15T00:00:00Z'
+        }));
+
+        await createTicketIndex({archiveDir, chunkedOutputFile, issuesDir, manifestFile, outputDir, outputFile});
+
+        // Chunk folders descend by chunk-number (newest/highest chunk first), regardless of sortDate.
+        const root = await fs.readJson(chunkedOutputFile);
+
+        expect(root.map(record => record.id)).toEqual([
+            'Backlog',
+            'Backlog/active-chunk-3',
+            'Backlog/active-chunk-2',
+            'Backlog/active-chunk-1'
+        ])
     })
 });

@@ -124,6 +124,49 @@ test.describe('Portal content index generators (#12210)', () => {
         expect(manifest.chunks.some(chunk => chunk.childrenUrl === 'pulls/latest/active-chunk-1.json')).toBe(true)
     });
 
+    test('createPullRequestIndex orders chunk folders by chunk-number (desc), not by sortDate, matching the positional labels (#12309)', async () => {
+        const
+            inputDir          = path.join(tempDir, 'resources/content/pulls'),
+            archiveDir        = path.join(tempDir, 'resources/content/archive/pulls'),
+            outputFile        = path.join(tempDir, 'apps/portal/resources/data/pulls.json'),
+            outputDir         = path.join(tempDir, 'apps/portal/resources/data/pulls'),
+            chunkedOutputFile = path.join(tempDir, 'apps/portal/resources/data/pulls/index.json'),
+            manifestFile      = path.join(tempDir, 'apps/portal/resources/data/pulls/manifest.json');
+
+        // Same Latest group, three chunk folders, NON-MONOTONIC dates: a sortDate ordering would emit
+        // [chunk-1, chunk-3, chunk-2] — scrambled relative to the positional `treeNodeName` labels.
+        await fs.outputFile(path.join(inputDir, 'chunk-1/pr-110.md'), frontmatter({
+            number   : 110,
+            title    : 'Newest date, lowest chunk',
+            state    : 'OPEN',
+            updatedAt: '2026-05-30T00:00:00Z'
+        }));
+        await fs.outputFile(path.join(inputDir, 'chunk-2/pr-210.md'), frontmatter({
+            number   : 210,
+            title    : 'Oldest date, middle chunk',
+            state    : 'OPEN',
+            updatedAt: '2026-05-01T00:00:00Z'
+        }));
+        await fs.outputFile(path.join(inputDir, 'chunk-3/pr-310.md'), frontmatter({
+            number   : 310,
+            title    : 'Middle date, highest chunk',
+            state    : 'OPEN',
+            updatedAt: '2026-05-15T00:00:00Z'
+        }));
+
+        await createPullRequestIndex({archiveDir, inputDir, outputDir, outputFile, chunkedOutputFile, manifestFile});
+
+        // Chunk folders descend by chunk-number (newest/highest chunk first), regardless of sortDate.
+        const index = await fs.readJson(chunkedOutputFile);
+
+        expect(index.map(record => record.id)).toEqual([
+            'Latest',
+            'Latest/active-chunk-3',
+            'Latest/active-chunk-2',
+            'Latest/active-chunk-1'
+        ])
+    });
+
     test('createDiscussionIndex groups by frontmatter category for active and archive files', async () => {
         const
             inputDir   = path.join(tempDir, 'resources/content/discussions'),
