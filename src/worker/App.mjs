@@ -370,7 +370,7 @@ class App extends Base {
 
         return import(
             /* webpackInclude: /(?:apps|docs\/app|examples|src)\/.*app\.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
+            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services|test(?:\/|\\))/ */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )
