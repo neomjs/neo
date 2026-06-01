@@ -1,10 +1,7 @@
 // Dark-theme palette for Portal.view.news.pulls.Component (PR view). Scoped to the component so
 // the PR MERGED/CLOSED semantics (purple/red) do not redefine the tickets view's state vars.
-// Pull in the shared news timeline theme (`--gh-*` palette vars + timeline colors) so the pulls
-// view's timeline content boxes render their borders. Mirrors the structural `@use` in
-// `resources/scss/src/apps/portal/news/pulls/Component.scss`.
-@use "../tickets/Component";
-
+// The shared `--gh-*` palette comes from the base `Portal.view.content.Component` theme via the
+// proto-chain, so no cross-module `@use` is needed here.
 .neo-theme-neo-dark .portal-news-pulls-component {
     .neo-badge {
         background-color: #21262d;
