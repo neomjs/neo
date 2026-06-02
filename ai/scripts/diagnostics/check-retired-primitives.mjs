@@ -12,7 +12,7 @@ import process        from 'node:process';
  *
  * Three enforcement categories:
  *   1. **Retired module imports** — a retired primitive imported from a non-spec source file
- *      (ADR 0004 §2.3 / §2.6 Clean-Cut Pattern).
+ *      (the Clean-Cut Pattern).
  *   2. **Retired per-MCP-server config flags** — a removed boot-time auto-* flag re-declared as a
  *      `leaf(...)` in a server `config.template.mjs`.
  *   3. **Retired MCP tools** — a removed tool's `operationId` re-added to a server `openapi.yaml`
@@ -41,7 +41,7 @@ const ORCHESTRATOR_REF = '#12139 / #12065';
 /**
  * Retired module-import fragments that MUST NOT be imported from non-spec source files.
  * Each entry is the import-path fragment as it appears inside a `from '...'` clause.
- * Add entries as the ADR 0004 §2.3 RETIRED table grows. The §2.6 Clean-Cut Pattern mandates
+ * Add entries as the retired-primitives table grows. The Clean-Cut Pattern mandates
  * deletion, not preservation as dead code.
  */
 const RETIRED_PRIMITIVES = [
@@ -50,7 +50,7 @@ const RETIRED_PRIMITIVES = [
 ];
 
 /**
- * Retired per-MCP-server boot-time config flags. Removed in #12139; the orchestrator daemon (#12065)
+ * Retired per-MCP-server boot-time config flags. The orchestrator daemon
  * drives every one of these behaviors on its own schedule (dream / summary / golden-path / chroma /
  * kbSync tasks). Re-declaring any as a `leaf(...)` in a server `config.template.mjs` would resurrect
  * the per-instance self-trigger that caused duplicate background work across harness-spawned MCP
@@ -74,7 +74,7 @@ const RETIRED_CONFIG_FLAGS = [
 ];
 
 /**
- * Retired MCP tools. Removed in #12139; the orchestrator daemon owns the Chroma database lifecycle
+ * Retired MCP tools. The orchestrator daemon owns the Chroma database lifecycle
  * (`manage_database`) and session summarization (`summarize_sessions`) — the MCP servers are pure
  * clients. Re-adding an `operationId` for either to a server `openapi.yaml` re-advertises a tool the
  * orchestrator owns (and breaks the derived tool-consistency specs, which assert that every
