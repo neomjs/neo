@@ -104,10 +104,13 @@ export function parseArgs(argv) {
 }
 
 /**
- * @summary Resolve the AgentIdentity record for a model family. MVP requires
- *   exactly one identity per family. Multi-identity families require a
- *   same-family aggregation rule before the sweep can route notifications
- *   without ambiguity.
+ * @summary Resolve the representative AgentIdentity record for a model family.
+ *
+ * Same-family sibling identities make model-family membership one-to-many.
+ * Revalidation notifications still need a single family representative when a
+ * family has exactly one active identity and one or more inactive / pending
+ * identities. If multiple active identities exist, the sweep refuses to choose
+ * silently; that future state needs an explicit notification fan-out rule.
  */
 export function resolveIdentityForFamily(family) {
     const matches = IDENTITIES.filter(node =>
@@ -119,14 +122,28 @@ export function resolveIdentityForFamily(family) {
         throw new Error(`No AgentIdentity with modelFamily=${family} in identityRoots.mjs`);
     }
 
-    if (matches.length > 1) {
+    if (matches.length === 1) {
+        return matches[0];
+    }
+
+    const activeMatches = matches.filter(node => node.properties?.participationStatus === 'active');
+
+    if (activeMatches.length === 1) {
+        return activeMatches[0];
+    }
+
+    if (activeMatches.length > 1) {
         throw new Error(
-            `Multiple identities for family=${family}; sweep MVP supports one-identity-per-family. ` +
-            `Found: ${matches.map(m => m.id).join(', ')}. See Discussion #11792 OQ5 + §6.4 same-family aggregation.`
+            `Multiple active identities for family=${family}; revalidation sweep needs an explicit ` +
+            `notification fan-out rule. Found: ${activeMatches.map(m => m.id).join(', ')}. ` +
+            `See Discussion #11792 OQ5 + §6.4 same-family aggregation.`
         );
     }
 
-    return matches[0];
+    throw new Error(
+        `Multiple inactive identities for family=${family}; cannot infer revalidation representative. ` +
+        `Found: ${matches.map(m => m.id).join(', ')}. Pass --since after selecting the intended family transition.`
+    );
 }
 
 /**
