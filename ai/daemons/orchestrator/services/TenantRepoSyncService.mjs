@@ -546,7 +546,7 @@ class TenantRepoSyncService extends Base {
      * `KnowledgeBaseIngestionService.listConfiguredTenantRepos` (graph node > `kb-config.yaml`
      * bootstrap > `aiConfig.tenantRepos[]` default, per-tenant single-winner, flattened). Replaces
      * the prior direct `aiConfig.tenantRepos` read so the documented bootstrap / graph tiers are
-     * actually honored on the pull path (#12145).
+     * actually honored on the pull path.
      *
      * Then materializes per-repo `mirrorRoot` via a defensive fallback chain when the per-repo
      * override is absent:

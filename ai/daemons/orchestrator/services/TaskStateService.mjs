@@ -225,7 +225,7 @@ export class TaskStateService extends Base {
      * Marks a task as recycled — process intentionally killed for restart. Clears running +
      * pid so the supervisor loop respawns it; intentionally records no error/success
      * timestamp (a recycle is neither a failure nor a successful completion). Used by the
-     * chroma max-runtime recycle (#12138).
+     * chroma max-runtime recycle.
      * @param {String} taskName
      * @returns {void}
      */
