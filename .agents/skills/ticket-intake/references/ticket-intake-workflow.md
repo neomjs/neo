@@ -37,8 +37,8 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - A matrix is incomplete when a row names an existing field, method, helper, tool, config key, docs path, or runtime surface that does not match current substrate reality or lacks the Surface-Anchor V-B-A required by `learn/agentos/contract-ledger.md`.
    - **Hand-back loop:** You MUST post a comment explaining the missing fields, requesting the author or maintainer to update the ticket body. You are forbidden from guessing the contract or starting branch/code work. Once the ticket is updated, intake re-verifies the ledger before proceeding.
 
-7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene.
-   - **Protocol:** You MUST execute the detailed mechanics defined in `.agents/skills/ticket-intake/references/successor-risk-audit.md` for age-band classification, missing close-link sweeps, and stale renewal discipline.
+7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, short-horizon currency risk, and missing PR close-link hygiene.
+   - **Protocol:** You MUST execute the detailed mechanics defined in `.agents/skills/ticket-intake/references/successor-risk-audit.md` for bot-state band classification, same-day / short-horizon successor checks, missing close-link sweeps, and stale renewal discipline.
    - **ADR branch:** If the ticket cites, predates, conflicts with, or depends on an ADR / Decision Record, also execute `.agents/skills/ticket-intake/references/adr-successor-risk-audit.md` and record the ADR successor-risk verdict before `valid-as-written`.
 
 8. **Ticket Reality Classification:** Before ROI acceptance or branch/code work, you MUST emit a concise classification artifact that converts the validation sweep into a stable verdict. Ticket prose is not authoritative; the classification must be grounded in the live issue conversation, linked PRs/commits, current source/docs/tests, and relevant Knowledge Base / Memory Core evidence when applicable.
@@ -46,7 +46,8 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    **Required Classification Artifact Data:**
    You MUST explicitly record the following in your intake reasoning:
    - `Ticket age`: `createdAt` and `updatedAt`.
-   - `Age state`: Workflow-derived age state (`pre-stale`, `in-stale-window`, `post-stale-with-exemption`), `stale` label state, and `no auto close` label state.
+   - `Bot stale-band`: Workflow-derived bot-state band (`pre-stale`, `in-stale-window`, `post-stale-with-exemption`), `stale` label state, and `no auto close` label state. This is automation metadata only, never evidence that the ticket is architecturally current.
+   - `Currency / successor-risk evidence`: same-day, short-horizon, newer-artifact, existing-enforcement, and current-source checks that determine whether `valid-as-written` can proceed.
    - `ADR successor-risk`: when triggered, the verdict from `adr-successor-risk-audit.md`.
 
    **Allowed verdicts:**
