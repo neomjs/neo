@@ -66,6 +66,15 @@ class Config extends BaseConfig {
              */
             publicUrl: leaf(null, 'NEO_PUBLIC_URL', 'url'),
             /**
+             * Comma-separated extra hostnames added to the MCP transport's Host-header allowlist
+             * (the SDK's DNS-rebinding protection). localhost/127.0.0.1/[::1] and the `publicUrl`
+             * hostname are always allowed; set this for multi-hostname deployments or where the
+             * client `Host` differs from `publicUrl`. Empty/null → only the implicit localhost +
+             * publicUrl hosts. Consumed by TransportService.computeAllowedHosts.
+             * @type {string|null}
+             */
+            allowedHosts: leaf(null, 'NEO_MCP_ALLOWED_HOSTS', 'string'),
+            /**
              * Optional Express middleware function for authentication (only used if transport is 'sse').
              * @type {Function|null}
              */
