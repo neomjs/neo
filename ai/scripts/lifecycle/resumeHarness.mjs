@@ -2,15 +2,13 @@
 /**
  * @summary Fresh-session harness resume adapter for the auto-wakeup substrate.
  *
- * This script implements the **Q1b fresh-session-spawn** primitive per @tobiu's verbatim
- * operator-intent correction (2026-05-02): sunset is terminal for the old transcript;
- * recovery preserves trio coordination by opening a NEW chat session in the target
- * harness (Cmd+N or equivalent) and pasting a boot-grounding prompt instructing the
- * fresh agent to read AGENTS_STARTUP.md first.
+ * This script implements the fresh-session-spawn primitive: a sunsetted transcript
+ * is terminal, so recovery preserves trio coordination by opening a new chat session
+ * in the target harness and pasting a boot-grounding prompt that starts from
+ * AGENTS_STARTUP.md.
  *
  * @see ai/scripts/lifecycle/checkSunsetted.mjs (caller; supplies originSessionId)
  * @see ai/daemons/SwarmHeartbeatService.mjs
- * @see AGENTS.md §14 PRE-DECISION SUNSET GATE (recovery-substrate cross-reference)
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */
 import { spawn } from 'child_process';
@@ -287,8 +285,8 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
         }
     }
 
-    // Blocker 1: Idempotency (cooldown file + 600s minimum re-fire window)
-    // Fix: Resolve from __dirname instead of process.cwd() to support cron/launchd
+    // Idempotency: resolve the cooldown beside this script so cron/launchd callers
+    // share the same 600s re-fire window regardless of their current working directory.
     const cooldownDir = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');
     const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
 
@@ -308,20 +306,15 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     // AGENTS_STARTUP.md and re-anchors prior context via Memory Core + sandman_handoff.
     const payload = buildBootGroundingPrompt(identity, reason, originSessionId);
 
-    // Harness Registry: Maps identity IDs to their corresponding restart adapter.
-    // 'antigravity-ide' utilizes its native CLI `chat -n` via the `antigravity-cli` adapter.
-    // 'claude-desktop' utilizes the embedded Claude Code CLI via the `claude-cli` adapter
-    //   with no session id flag; a fresh `claude <prompt>` process boots a fresh MCP client
-    //   and fresh `currentSessionId` by construction.
-    // 'codex-desktop' utilizes Codex Desktop's app-server debug surface via
-    //   `codex debug app-server send-message-v2`. This adapter is deliberately
-    //   live-host-gated: normal tests use CODEX_APP_SERVER_MOCK=1 + CODEX_CLI_PATH
-    //   mocks, while real probes require RUN_LIVE_CODEX_APP_SERVER=1 until target-thread
-    //   Memory Core health + first-memory session identity proof has been captured.
-    //
-    // The legacy `osascript` adapter dispatch (Cmd+N keystroke into running Claude Desktop)
-    // is preserved as a fallback for harnesses that may need it; no production identity
-    // currently routes there.
+    // Harness Registry: maps identity IDs to their restart adapters.
+    // - antigravity-ide: native CLI `chat -n` through the `antigravity-cli` adapter.
+    // - claude-desktop: embedded Claude Code CLI through the `claude-cli` adapter;
+    //   no session-id flag is passed because a fresh process creates a fresh MCP client.
+    // - codex-desktop: Codex Desktop app-server debug surface through
+    //   `codex debug app-server send-message-v2`; live dispatch remains explicitly
+    //   gated, while tests use CODEX_APP_SERVER_MOCK=1 + CODEX_CLI_PATH.
+    // The `osascript` adapter remains available as a fallback for harnesses that need
+    // UI-keystroke dispatch, but no production identity currently routes there.
     const HARNESS_REGISTRY = {
         'antigravity-ide': { adapter: 'antigravity-cli' },
         'claude-desktop':  { adapter: 'claude-cli' },
@@ -346,13 +339,11 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     // Write the inflight lock before taking action to secure the boot ramp.
     await writeInflightLock(identity, 'sunset_restart', abandonedCount);
 
-    // Cross-adapter cleanup: terminate the previous harness process for this identity BEFORE
-    // spawning the new one. Sunset-mode restart spawns fresh processes (claude-cli, antigravity-cli);
-    // without cleanup, repeated sunsets accumulate stale processes and orphan windows. Applies to
-    // CLI-spawning adapters; the legacy osascript Cmd+N adapter (which targeted the same app
-    // instance, no leak surface) and Codex app-server adapter (which creates/injects a thread
-    // through the already-running Codex Desktop app-server) are exempt.
-    // Explicitly scoped to 'sunset_restart' ONLY per @tobiu mandate.
+    // Cross-adapter cleanup: sunset_restart replaces the previous CLI-spawned
+    // harness process before starting a fresh one, preventing stale processes and
+    // orphan windows. UI-keystroke and app-server adapters are exempt because they
+    // reuse an already-running host application instead of creating a tracked child
+    // process.
     if (reason === 'sunset_restart' && adapter !== 'codex-app-server' && adapter !== 'osascript' && adapter !== 'tmux') {
         const cleanup = await terminatePreviousHarness(identity);
         if (cleanup.terminated) {
@@ -378,12 +369,11 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
              * @anchor claude-cli-mac-specific
              * @summary Embedded Claude Code CLI inside Claude Desktop (`~/Library/Application Support/Claude/...`).
              *
-             * Substrate-truth: invoking `claude <prompt>` with NO flags spawns a fresh process
-             * which establishes a fresh MCP client connection, which means a fresh
-             * `SessionService.currentSessionId` by construction. The whole point of harness
-             * restart is to get fresh state for free — spawner-side sessionId enforcement
-             * (`--session-id <uuid>`) would defeat the architectural goal by reintroducing
-             * transcript reuse.
+             * Invoking `claude <prompt>` with no flags spawns a fresh process, which
+             * establishes a fresh MCP client connection and therefore a fresh
+             * `SessionService.currentSessionId`. Spawner-side sessionId enforcement
+             * (`--session-id <uuid>`) would defeat the restart contract by reusing a
+             * prior transcript.
              *
              * `--session-id` is for *resuming* a specific session, the opposite of what
              * recovery needs. Fresh process = fresh session, no flag required.
@@ -412,12 +402,10 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
              * @anchor codex-app-server-live-host-gate
              * @summary Codex Desktop app-server thread injection via `send-message-v2`.
              *
-             * `send-message-v2` is a prompt-injection primitive, not yet a complete
-             * recovery proof. It can create a fresh Codex Desktop thread and deliver
-             * the prompt, but target-thread Memory
-             * Core startup failed. Until a live proof captures healthy post-spawn
-             * Memory Core plus a first `add_memory` sessionId change, the adapter
-             * remains fail-closed for real hosts via `RUN_LIVE_CODEX_APP_SERVER=1`.
+             * `send-message-v2` can create a fresh Codex Desktop thread and deliver
+             * the boot prompt. Live dispatch remains fail-closed until the target
+             * thread proves healthy Memory Core startup plus a first `add_memory`
+             * sessionId change.
              *
              * Tests use `CODEX_APP_SERVER_MOCK=1` plus `CODEX_CLI_PATH` to point at a
              * mock executable, verifying the command shape without creating real Codex
