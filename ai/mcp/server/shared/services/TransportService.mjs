@@ -160,8 +160,8 @@ class TransportService extends Base {
         const mcpServerUrl = aiConfig.publicUrl ? new URL(aiConfig.publicUrl) : getFullUrl(process.env.HOST || 'localhost', aiConfig.mcpHttpPort);
         this.mcpServerUrl = mcpServerUrl;
 
-        // Optional OIDC/OAuth Authorization
-        if (aiConfig.auth.host || aiConfig.auth.issuerUrl) {
+        // Optional Authorization: OIDC/OAuth (host / issuerUrl) OR the GitLab-PAT bearer mode.
+        if (aiConfig.auth.host || aiConfig.auth.issuerUrl || aiConfig.auth.mode === 'gitlab-pat') {
             const { default: AuthService } = await import('./AuthService.mjs');
             await AuthService.setup({
                 app,
