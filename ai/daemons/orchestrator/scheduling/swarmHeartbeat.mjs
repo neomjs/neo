@@ -47,7 +47,7 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
  *      via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
  *   3. Code-side null→self fallback when `targetSource` is nullish (the deployment-portable
  *      safety net for the rare case where the tracked template default is bypassed). The
- *      tracked default in `ai/config.template.mjs` is `'active-a2a-participants'` per #12003.
+ *      tracked default in `ai/config.template.mjs` is `'active-a2a-participants'`.
  *
  * **Per-source semantics:**
  *
@@ -61,11 +61,11 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
  *   (the existing `WAKE_SUBSCRIPTION` SQL discovery in
  *   `SwarmHeartbeatService.getWakeSubscriptionIdentities()`); union with `selfIdentity`.
  *   Subscription-presence-based — degrades on dormant subscribers.
- * - **`'active-a2a-participants'`** (#12003) — delegates to injected
+ * - **`'active-a2a-participants'`** — delegates to injected
  *   `activeA2aParticipantsProvider` (the `SwarmHeartbeatService.getActiveA2aParticipants()`
  *   3h `MESSAGE`-edge query); union with `selfIdentity`. Activity-derived — per-MC-instance
  *   discovery, tenant-safe (no team-registry coupling), self-healing 3h sliding window.
- *   Per Discussion #11992 §5.1.1 framing; **tracked template default**.
+ *   This is the tracked template default.
  * - **`'disabled'`** — returns `[]` plus an info log. Downstream `pulse()` skips per-identity
  *   work (sunset detection, idle-out nudge) while identity-agnostic substrate maintenance
  *   (TTL sweep, all-agent-idle detection, liveness touch) still runs.
@@ -84,7 +84,7 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
  * @param {String|null}    [opts.targetSource=null]                Resolver source enum (see {@link VALID_TARGET_SOURCES}).
  * @param {String[]|null}  [opts.explicitTargets=null]             Explicit target list (wins when non-empty).
  * @param {Function}       [opts.activeSubscribersProvider]        Async `() => Promise<String[]>` for `'active-subscribers'`.
- * @param {Function}       [opts.activeA2aParticipantsProvider]    Async `() => Promise<String[]>` for `'active-a2a-participants'` (#12003).
+ * @param {Function}       [opts.activeA2aParticipantsProvider]    Async `() => Promise<String[]>` for `'active-a2a-participants'`.
  * @param {Object}         [opts.logger=console]                   Logger; defaults to console.
  * @returns {Promise<String[]>}  Normalized canonical `@<identity>` strings (deduplicated, order-preserving).
  */
@@ -181,7 +181,7 @@ export async function resolveTargets({
         }
 
         case 'active-a2a-participants': {
-            // Activity-derived candidate discovery per Discussion #11992 §5.1.1 framing —
+            // Activity-derived candidate discovery:
             // pulse candidate set is auto-discovered from A2A graph activity within the
             // 3h `active` window (`getRecentActivityTimestamps` per-identity sibling).
             // Per-MC-instance derived; no team-registry coupling (safe for external
