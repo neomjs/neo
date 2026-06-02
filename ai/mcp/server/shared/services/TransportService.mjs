@@ -86,6 +86,41 @@ class TransportService extends Base {
     mcpServers = new Map()
 
     /**
+     * Computes the Host-header allowlist for the SDK's DNS-rebinding protection
+     * (`createMcpExpressApp({allowedHosts})`). Pure + side-effect-free so it is unit-testable
+     * (an instance method on the singleton, callable as `TransportService.computeAllowedHosts(...)`)
+     * without a live transport. The localhost set is ALWAYS included — the container healthcheck hits
+     * `http://127.0.0.1:<port>`, so dropping it would fail the healthcheck (restart loop). The
+     * public hostname is derived from `aiConfig.publicUrl` (the existing `NEO_PUBLIC_URL` leaf) and
+     * augmented by the comma-separated `aiConfig.allowedHosts` (`NEO_MCP_ALLOWED_HOSTS`) for
+     * multi-hostname deployments or where the client `Host` differs from the advertised URL.
+     * @param {Object} [aiConfig={}]
+     * @param {String|null} [aiConfig.publicUrl]
+     * @param {String|null} [aiConfig.allowedHosts] Comma-separated extra hostnames
+     * @returns {String[]} De-duplicated allowlist (hostnames, port-agnostic; IPv6 in brackets)
+     */
+    computeAllowedHosts(aiConfig={}) {
+        const hosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+        if (aiConfig.publicUrl) {
+            try {
+                hosts.add(new URL(aiConfig.publicUrl).hostname)
+            } catch {
+                // Unparseable publicUrl is ignored here; an explicit NEO_MCP_ALLOWED_HOSTS entry can still cover it.
+            }
+        }
+
+        if (aiConfig.allowedHosts) {
+            for (const host of String(aiConfig.allowedHosts).split(',')) {
+                const trimmed = host.trim();
+                trimmed && hosts.add(trimmed)
+            }
+        }
+
+        return [...hosts]
+    }
+
+    /**
      * Setups the SSE transport for an MCP server.
      * @param {Object} options
      * @param {Object} options.server The Neo MCP Server instance
@@ -101,7 +136,11 @@ class TransportService extends Base {
         const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
         const crypto = await import('crypto');
         const cors = await import('cors');
-        const app = createMcpExpressApp();
+        // Host-allowlist for the SDK's DNS-rebinding protection. Always includes localhost (the
+        // container healthcheck hits 127.0.0.1) plus the publicUrl hostname + NEO_MCP_ALLOWED_HOSTS,
+        // so a cloud deployment behind a reverse proxy on a public hostname is not rejected with
+        // `-32000 Invalid Host`.
+        const app = createMcpExpressApp({allowedHosts: this.computeAllowedHosts(aiConfig)});
 
         this.app = app;
 

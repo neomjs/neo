@@ -93,7 +93,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
     });
 
     test('setup() awaits listener accept-state before resolving (#10932)', async () => {
-        // Bind-race regression guard: prior to #10932, TransportService.setup() returned
+        // Bind-race regression guard: prior to the listen-callback fix, TransportService.setup() returned
         // synchronously after `app.listen()` without awaiting the listen-callback. Under load
         // or fullyParallel test interleaving, the calling spec's subsequent `fetch()` could
         // race the bind and observe the response object lacking expected shape (e.g.,
@@ -303,6 +303,41 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
             expect(TransportService.mcpServerUrl.href).toBe('https://internal-host:3000/');
             process.env.HOST = originalHost;
+        });
+    });
+
+    test.describe('computeAllowedHosts host-allowlist (DNS-rebinding) — #12371', () => {
+        let TransportService;
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+        });
+
+        test('always includes the localhost set (empty config) — healthcheck-safe', () => {
+            expect(TransportService.computeAllowedHosts({})).toEqual(['localhost', '127.0.0.1', '[::1]']);
+        });
+
+        test('derives the public hostname from publicUrl, keeping localhost', () => {
+            const hosts = TransportService.computeAllowedHosts({publicUrl: 'https://mcp.example.com/knowledge-base'});
+            expect(hosts).toContain('mcp.example.com');
+            expect(hosts).toContain('localhost');
+            expect(hosts).toContain('127.0.0.1');
+        });
+
+        test('adds comma-separated NEO_MCP_ALLOWED_HOSTS entries, trimmed, dropping blanks', () => {
+            const hosts = TransportService.computeAllowedHosts({allowedHosts: 'a.example.com, b.example.com ,, c.example.com'});
+            expect(hosts).toEqual(expect.arrayContaining(['a.example.com', 'b.example.com', 'c.example.com']));
+            expect(hosts).not.toContain('');
+            expect(hosts).toContain('127.0.0.1');
+        });
+
+        test('de-duplicates when publicUrl host also appears in the explicit list', () => {
+            const hosts = TransportService.computeAllowedHosts({publicUrl: 'https://mcp.example.com', allowedHosts: 'mcp.example.com'});
+            expect(hosts.filter(host => host === 'mcp.example.com')).toHaveLength(1);
+        });
+
+        test('ignores an unparseable publicUrl without throwing', () => {
+            expect(TransportService.computeAllowedHosts({publicUrl: 'not a url'})).toEqual(['localhost', '127.0.0.1', '[::1]']);
         });
     });
 
