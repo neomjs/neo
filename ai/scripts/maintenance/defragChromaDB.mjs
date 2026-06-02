@@ -14,11 +14,11 @@ import AiConfig        from '../../config.mjs';
  * within ChromaDB. It is target-agnostic at the collection-group layer: Knowledge Base and Memory Core
  * share one unified persist directory, while the target controls which logical collections are rewritten.
  *
- * ## Peer Architecture (#10129)
+ * ## Peer Architecture
  *
  * This script and `ai/scripts/maintenance/backup.mjs` are **peer scripts with orthogonal responsibilities**.
  * Defrag does NOT call the canonical backup orchestrator — it retains its own private pre-nuke
- * physical-copy snapshot (step 1 below). The rationale is captured in #10129 Phase 3:
+ * physical-copy snapshot (step 1 below). The rationale:
  *
  * - `backup.mjs` captures current state as portable JSONL via the `ai/services.mjs` SDK boundary
  * - Defrag needs a *fast* pre-nuke snapshot that preserves exact HNSW index state, which a
@@ -356,7 +356,7 @@ async function defragChromaDB() {
         // 1. Pre-Nuke Snapshot (Defrag-Internal Safety)
         // Fast physical copy preserving exact HNSW index state. This is defrag-exclusive —
         // it is NOT the canonical backup. For portable JSONL snapshots see `ai/scripts/maintenance/backup.mjs`.
-        // Peer architecture per #10129: neither script calls the other.
+        // Peer architecture: neither script calls the other.
         const timestamp  = Date.now();
         const backupRoot = path.resolve(PROJECT_ROOT, 'dist', 'chromadb-backups', targetName);
         const backupName = `backup-${timestamp}`;
@@ -377,7 +377,7 @@ async function defragChromaDB() {
             port: config.port
         });
 
-        // Dummy embedding function — single source of truth: Tier-1 AiConfig.dummyEmbeddingFunction (#12165).
+        // Dummy embedding function — single source of truth: Tier-1 AiConfig.dummyEmbeddingFunction.
         // Satisfies the Chroma client for raw embeddings without re-generating via a provider.
         const dummyEf = AiConfig.dummyEmbeddingFunction;
 
