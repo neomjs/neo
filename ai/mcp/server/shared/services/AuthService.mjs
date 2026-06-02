@@ -250,8 +250,28 @@ class AuthService extends Base {
     createGitlabPatVerifier({aiConfig, logger, InvalidTokenError}) {
         const
             apiBaseUrl = aiConfig.auth.gitlabApiBaseUrl.replace(/\/+$/, ''),
-            ttlMs      = aiConfig.auth.patCacheTtlSeconds * 1000,
-            cache      = new Map(); // tokenHash -> {info, expiresAt}
+            ttlSeconds = aiConfig.auth.patCacheTtlSeconds,
+            ttlMs      = ttlSeconds * 1000,
+            cache      = new Map(); // tokenHash -> {user, expiresAt} (cache-freshness, ms)
+
+        // Builds the AuthInfo shape consumed by the SDK `requireBearerAuth` middleware AND
+        // `RequestContextService`. `expiresAt` is REQUIRED by `requireBearerAuth` — it rejects auth
+        // info lacking a numeric expiry with `Token has no expiration time` BEFORE `req.auth` is set,
+        // so omitting it silently breaks the valid-PAT path. GitLab `/api/v4/user` does not return the
+        // PAT's own expiry, so we use the re-validation horizon: one cache window from now (Unix
+        // seconds). The cache re-validates against GitLab after that, so a revoked PAT still clears
+        // within `patCacheTtlSeconds`. Built per-call so `expiresAt` stays request-fresh on cache hits.
+        const buildInfo = (token, user) => ({
+            token,
+            clientId : user.username,
+            scopes   : [],
+            expiresAt: Math.floor(Date.now() / 1000) + ttlSeconds,
+            userId   : user.username,
+            username : user.name || user.username,
+            // Provenance tag read by RequestContextService.getSource(); distinguishes a GitLab-PAT
+            // identity from OIDC / stdio env-var / gh-CLI sources.
+            source   : 'gitlab-pat'
+        });
 
         return {
             verifyAccessToken: async (token) => {
@@ -260,7 +280,7 @@ class AuthService extends Base {
                     cached    = cache.get(tokenHash);
 
                 if (cached && cached.expiresAt > Date.now()) {
-                    return cached.info
+                    return buildInfo(token, cached.user)
                 }
 
                 const response = await fetch(`${apiBaseUrl}/api/v4/user`, {
@@ -272,23 +292,12 @@ class AuthService extends Base {
                     throw new InvalidTokenError(`GitLab PAT validation failed (HTTP ${response.status})`)
                 }
 
-                const
-                    data = await response.json(),
-                    info = {
-                        token,
-                        clientId: data.username,
-                        scopes  : [],
-                        userId  : data.username,
-                        username: data.name || data.username,
-                        // Provenance tag read by RequestContextService.getSource(); distinguishes a
-                        // GitLab-PAT identity from OIDC / stdio env-var / gh-CLI sources.
-                        source  : 'gitlab-pat'
-                    };
+                const user = await response.json();
 
-                cache.set(tokenHash, {info, expiresAt: Date.now() + ttlMs});
-                logger.info(`[AuthService] GitLab PAT validated for user: ${info.username}`);
+                cache.set(tokenHash, {user, expiresAt: Date.now() + ttlMs});
+                logger.info(`[AuthService] GitLab PAT validated for user: ${user.name || user.username}`);
 
-                return info
+                return buildInfo(token, user)
             }
         }
     }
