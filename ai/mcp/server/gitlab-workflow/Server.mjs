@@ -8,8 +8,9 @@ import {listTools, callTool} from './toolService.mjs';
  * @summary The GitLab Workflow MCP Server application.
  *
  * Bootstraps the GitLab Workflow MCP surface as a sibling to `github-workflow`.
- * This initial scaffold deliberately registers the #11768 tool contract while
- * leaving real GitLab API calls to the later GitLabClient / syncer subtasks.
+ * This initial scaffold deliberately registers the GitHub Workflow-compatible
+ * tool contract while leaving real GitLab API calls to the later GitLab client
+ * and syncer work.
  *
  * @class Neo.ai.mcp.server.gitlab-workflow.Server
  * @extends Neo.ai.mcp.server.BaseServer

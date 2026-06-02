@@ -11,11 +11,11 @@ const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
 /**
- * @summary #11768 GitLab Workflow scaffold tool registry.
+ * @summary GitLab Workflow scaffold tool registry.
  *
- * The operation IDs intentionally match the ticket's initial mirrored surface.
- * Service implementations return scaffold responses until the later GitLabClient
- * and syncer subtasks replace them with real GitLab API behavior.
+ * The operation IDs intentionally match the initial GitHub Workflow-compatible
+ * surface. Service implementations return scaffold responses until the GitLab
+ * client and syncer replace them with real GitLab API behavior.
  */
 const serviceMapping = {
     create_issue             : IssueService       .createIssue          .bind(IssueService),
