@@ -249,7 +249,7 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 - [Hook Wiring](https://neomjs.com/raw/learn/agentos/cloud-deployment/HookWiring.md)
 - [Pipeline Wiring](https://neomjs.com/raw/learn/agentos/cloud-deployment/PipelineWiring.md)
 - [Security](https://neomjs.com/raw/learn/agentos/cloud-deployment/Security.md)
-- [Client Authentication (GitLab PAT)](https://neomjs.com/raw/learn/agentos/cloud-deployment/ClientAuthentication.md)
+- [Client Authentication (GitLab)](https://neomjs.com/raw/learn/agentos/cloud-deployment/ClientAuthentication.md)
 - [Migration Path](https://neomjs.com/raw/learn/agentos/cloud-deployment/MigrationPath.md)
 - [Config Substrate Env-Var Audit](https://neomjs.com/raw/learn/agentos/ConfigSubstrateEnvVarAudit.md)
 - [Config Substrate Dead-Config Audit](https://neomjs.com/raw/learn/agentos/ConfigSubstrateDeadConfigAudit.md)
