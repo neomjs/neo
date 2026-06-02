@@ -47,6 +47,7 @@ import {
     getEdgesData,
     getDbNode
 } from './queries.mjs';
+import {getInstancePid} from './instanceResolver.mjs';
 
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
@@ -665,6 +666,22 @@ async function deliverDigest(subscription, digest) {
                 return;
             }
 
+            // Instance-addressable wake: when the subscription carries a userDataDir, two
+            // same-bundle harnesses may be running. Resolve the intended instance's pid and raise
+            // THAT process — never the ambiguous app-activate / frontmost guess. Fail closed (skip
+            // the wake) if the instance cannot be located, so a wake never lands in the wrong one.
+            let instancePid = null;
+            if (meta.userDataDir) {
+                instancePid = await getInstancePid({userDataDir: meta.userDataDir});
+                if (!instancePid) {
+                    writeLog('ERROR',
+                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `no running process found for userDataDir='${meta.userDataDir}'. ` +
+                        `Failing closed to avoid misrouting to another ${appName} instance.`
+                    );
+                    return;
+                }
+            }
 
             // [Anchor & Echo] The Electron-Paradox Defense:
             // Electron-based IDEs (Antigravity, VS Code) register their bundle names differently
@@ -679,6 +696,13 @@ async function deliverDigest(subscription, digest) {
             // This is load-bearing for Claude Desktop with Tab 3 (Claude Code) and Google Antigravity.
             // Do NOT "clean this up" or revert to \`tell process\` or try to replace the Enter key
             // without empiric validation across both harnesses.
+            // Instance-addressed wake raises the resolved pid's process to frontmost (verified
+            // addressable via System Events `whose unix id`); single-instance wakes keep the
+            // app-activate path unchanged.
+            const activateLine = instancePid
+                ? `  tell application "System Events" to set frontmost of (first process whose unix id is ${instancePid}) to true`
+                : `  tell application "${appName}" to activate`;
+
             const osascriptArgs = [
                 '-e', 'on run argv',
                 '-e', '  set wakePayload to (item 1 of argv)',
@@ -687,7 +711,7 @@ async function deliverDigest(subscription, digest) {
                 '-e', '  on error',
                 '-e', '    set savedClipboard to ""',
                 '-e', '  end try',
-                '-e', `  tell application "${appName}" to activate`,
+                '-e', activateLine,
                 '-e', '  delay 0.5',
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
