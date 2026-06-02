@@ -12,8 +12,7 @@ import {summarize} from './helpers/stats.mjs';
  * @module ai/scripts/benchmark/gemma4-rem-benchmark
  * @summary REM-pipeline gemma4 cost benchmark — TTFT / TTLT / tps per session-size bucket.
  *
- * **Why this exists** (operator 2026-05-27 directive, Discussion #12062 §2.4.1 +
- * Epic #12065 Sub 8 / #12074):
+ * **Why this exists**:
  * > "we need benchmarking for gemma4 => creating context windows is the most
  * > expensive task. if there is any way to REUSE created context windows => big win."
  *
