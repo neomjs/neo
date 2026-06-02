@@ -325,19 +325,19 @@ until shape is correct.
 Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
 
 **The Epic Close-Target Ban (Mandatory):**
-You are strictly FORBIDDEN from using magic close keywords (e.g., `Closes #N`, `Resolves #N`, `Fixes #N`) where `#N` is an Epic ticket. GitHub's auto-close-on-merge semantics will prematurely close the entire epic when the PR merges. PRs deliver sub-issues, not epics.
-- If your PR contributes to an epic but does not close it, use `Related: #N` instead.
-- You may only use magic close keywords on leaf sub-issues that the PR fully implements.
+You are strictly FORBIDDEN from pointing `Resolves #N` at an Epic ticket. GitHub's auto-close-on-merge semantics would prematurely close the entire epic when the PR merges. PRs deliver sub-issues, not epics.
+- `Resolves` only the leaf sub-issue the PR fully implements.
+- To reference the parent epic without closing it, use `Related: #N` (or `Refs #N`).
 
-**The Syntax-Exact Keyword Mandate (Mandatory):**
-When your PR fully implements a ticket, you MUST use the exact GitHub-supported magic keyword syntax on its own line. Prefer `Resolves #N` for shipped work, or `Fixes #N` for bugs; avoid `Closes #N` unless the semantics are "closed but not necessarily delivered" such as not-planned, superseded, or dropped scope.
-You are strictly FORBIDDEN from embedding the closing keyword in a conversational sentence (e.g., "Closes Sub 3 of Epic #X (#Y)"). GitHub's parser requires strict syntax to establish the automatic close link. If you fail to use the exact syntax, the ticket will remain open after merge.
+**The `Resolves`-Only Mandate (Mandatory, CI-enforced — #12367):**
+Every PR body MUST contain ≥1 `Resolves #N` — the only sanctioned closing keyword (= delivered work); `agent-pr-body-lint.yml` rejects agent/`ai` PRs without one. `Closes #N` is forbidden (closed-without-delivery needs no PR); `Fixes #N` is forbidden (ambiguous). `Refs #N` / `Related: #N` are allowed only as *additional* references. This makes 1-PR-per-ticket mechanical: N PRs cannot share N valid `Resolves`, so split the work into subs.
+You are strictly FORBIDDEN from embedding the keyword in a conversational sentence (e.g., "Resolves Sub 3 of Epic #X (#Y)"). GitHub's parser requires strict syntax to establish the automatic close link. If you fail to use the exact syntax, the ticket will remain open after merge.
 **Multiple Tickets Loophole:** While we strive for a 1-Ticket-to-1-PR ratio, if your PR fully resolves multiple tickets, you MUST flag each one individually. Do NOT use comma-separated lists like `Resolves #X, #Y`. Instead, use a distinct line for each ticket:
 `Resolves #X`
 `Resolves #Y`
 
-**Partial-resolution branch-history check (#11185):**
-If the ticket must remain open and your PR body uses `Refs #N`, `Related: #N`, or another non-closing reference, the entire branch history must agree. Before handoff, run:
+**Branch-history close-keyword hygiene (#11185):**
+For any *additional* ticket your PR references but must NOT close (e.g. a parent epic via `Refs #N` / `Related: #N`), the entire branch history must agree it stays open. Before handoff, run:
 
 ```bash
 git log origin/dev..HEAD --format='%h%x09%s%n%b'
