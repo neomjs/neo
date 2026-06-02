@@ -14,7 +14,7 @@ import {withHeavyMaintenanceLease}     from '../../daemons/orchestrator/services
  * + delegated to by `ai/services/github-workflow/toolService.mjs`'s `sync_all`
  * MCP handler). The MCP path is bound to MCP-request-response timing — fine for
  * delta-syncs (the "cached for fast no-ops" path) but inadequate for clean-slate
- * full emission post-ADR-0004 §3.6 purge (~8.5k issues + ~2.8k PRs + ~165
+ * full emission after a clean-slate mirror purge (~8.5k issues + ~2.8k PRs + ~165
  * discussions + ~166 release notes via GraphQL pagination = many minutes).
  *
  * The CLI dual:
@@ -31,7 +31,7 @@ import {withHeavyMaintenanceLease}     from '../../daemons/orchestrator/services
  * `defragChromaDB.mjs`, and other operator-runnable CLI scripts. No direct
  * `ai/mcp/server/...` or `ai/services/...` deep imports.
  *
- * The authority boundary is ADR 0004's regeneratable-cache model: this script exists
+ * The authority boundary is the regeneratable-cache model: this script exists
  * to rebuild workflow mirrors outside the MCP request-timeout envelope while preserving
  * the same service path as `sync_all`.
  *
