@@ -40,9 +40,14 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
     test('expected scheduling lanes are registered (#11862 Prescription parity)', () => {
         const names = TASK_REGISTRY.map(d => d.taskName);
         expect(names).toEqual(expect.arrayContaining([
-            'summary', 'kbSync', 'backup', 'graphlog-compaction', 'primary-dev-sync',
+            'summary', 'kbSync', 'backup', 'primary-dev-sync',
             'dream', 'golden-path', 'swarm-heartbeat'
         ]));
+    });
+
+    test('graphlog-compaction stays out until collectDueCandidates is wired into Orchestrator.poll()', () => {
+        const names = TASK_REGISTRY.map(d => d.taskName);
+        expect(names).not.toContain('graphlog-compaction');
     });
 
     test('continuous tasks (chroma/bridgeDaemon/mlx) are intentionally NOT in registry', () => {

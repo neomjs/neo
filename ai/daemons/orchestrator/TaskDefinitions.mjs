@@ -38,7 +38,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
  * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
  * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
- * @param {Boolean} [options.graphLogCompactionVacuum=false] Whether scheduled GraphLog compaction also runs SQLite VACUUM.
+ * @param {Boolean} [options.graphLogCompactionVacuum] Whether scheduled GraphLog compaction also runs SQLite VACUUM.
  * @returns {Object}
  */
 export function buildTaskDefinitions({
@@ -55,7 +55,7 @@ export function buildTaskDefinitions({
     lmsPort,
     lmsContextLengths,
     providerReadiness,
-    graphLogCompactionVacuum = false
+    graphLogCompactionVacuum
 } = {}) {
     const tasks = {
         chroma: {

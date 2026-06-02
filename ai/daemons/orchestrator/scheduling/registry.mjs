@@ -2,7 +2,6 @@ import {getDueTask as getSummaryDueTask}             from './summary.mjs';
 import {getDueTask as getBackupDueTask}              from './backup.mjs';
 import {getDueTask as getDreamDueTask}               from './dream.mjs';
 import {getDueTask as getGoldenPathDueTask}          from './goldenPath.mjs';
-import {getDueTask as getGraphLogCompactionDueTask}  from './graphLogCompaction.mjs';
 import {getDueTask as getPrimaryDevSyncDueTask}      from './primaryDevSync.mjs';
 import {getDueTask as getSwarmHeartbeatDueTask}      from './swarmHeartbeat.mjs';
 
@@ -79,21 +78,6 @@ export const TASK_REGISTRY = Object.freeze([
                 state,
                 now,
                 backupIntervalMs: intervals.backup
-            });
-        }
-    },
-    {
-        taskName        : 'graphlog-compaction',
-        executionKind   : 'supervised-child-process',
-        maintenanceClass: 'heavy',
-        backpressure    : 'exclusive-heavy',
-        dependencies    : [],
-        getDueTask({state, now, intervals, enables}) {
-            return getGraphLogCompactionDueTask({
-                state,
-                now,
-                graphLogCompactionIntervalMs: intervals.graphLogCompaction,
-                enabled                     : enables.graphLogCompaction
             });
         }
     },

@@ -399,7 +399,7 @@ export class Orchestrator extends Base {
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
-    get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction?.enabled !== false;}
+    get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
 
     // MLX + LM Studio CLI inference-server lane config. Canonical defaults + env overrides
     // live in `ai/config.template.mjs::orchestrator.{mlx,lms}` + `envBindings.orchestrator.{mlx,lms}`.
@@ -455,7 +455,7 @@ export class Orchestrator extends Base {
             lmsPort   : AiConfig.orchestrator.lms?.port,
             lmsContextLengths: lmsPreloadConfig.contextLengths,
             providerReadiness: AiConfig.orchestrator.providerReadiness,
-            graphLogCompactionVacuum: AiConfig.orchestrator.graphLogCompaction?.vacuum === true
+            graphLogCompactionVacuum: AiConfig.orchestrator.graphLogCompaction.vacuum
         });
 
         // Non-reactive boot-wrapper-provided instance state
@@ -725,7 +725,7 @@ export class Orchestrator extends Base {
             return this.graphLogCompactionGetDueTask({
                 state                        : this.taskStateService.getState(),
                 now,
-                graphLogCompactionIntervalMs: AiConfig.orchestrator.intervals.graphLogCompactionMs ?? AiConfig.orchestrator.intervals.backupMs,
+                graphLogCompactionIntervalMs: AiConfig.orchestrator.intervals.graphLogCompactionMs,
                 enabled                      : this.graphLogCompactionEnabled
             });
         }, executeMaintenanceTask(executeTask), context);

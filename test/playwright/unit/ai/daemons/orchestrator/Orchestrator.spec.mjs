@@ -17,6 +17,7 @@ let savedIntervals = null;
 let savedLocalOnly = null;
 let savedCloudOnly = null;
 let savedGraphLogCompaction = null;
+let savedGraphLogCompactionMissing = false;
 let savedDeploymentMode = null;
 
 /**
@@ -55,7 +56,10 @@ function createTestOrchestrator(config = {}) {
     savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
     savedLocalOnly = savedLocalOnly || {...AiConfig.orchestrator.localOnly};
     savedCloudOnly = savedCloudOnly || {...AiConfig.orchestrator.cloudOnly};
-    savedGraphLogCompaction = savedGraphLogCompaction || {...(AiConfig.orchestrator.graphLogCompaction || {})};
+    if (savedGraphLogCompaction === null) {
+        savedGraphLogCompactionMissing = AiConfig.orchestrator.graphLogCompaction === undefined;
+        savedGraphLogCompaction = {...(AiConfig.orchestrator.graphLogCompaction || {})};
+    }
     savedDeploymentMode = savedDeploymentMode ?? AiConfig.orchestrator.deploymentMode;
 
     // Class D operator policy values — AiConfig.data mutation reaches lazy getters.
@@ -80,9 +84,10 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.goldenPathRepoEnrichmentEnabled = config.goldenPathRepoEnrichmentEnabled ?? true;
 
     AiConfig.orchestrator.cloudOnly.tenantRepoSyncEnabled = config.tenantRepoSyncEnabled ?? false;
-    AiConfig.orchestrator.graphLogCompaction ??= {};
-    AiConfig.orchestrator.graphLogCompaction.enabled      = config.graphLogCompactionEnabled ?? true;
-    AiConfig.orchestrator.graphLogCompaction.vacuum       = config.graphLogCompactionVacuum ?? false;
+    AiConfig.setData('orchestrator.graphLogCompaction', {
+        enabled: config.graphLogCompactionEnabled ?? true,
+        vacuum : config.graphLogCompactionVacuum ?? false
+    });
 
     const orchestrator = Neo.create(Orchestrator, {
         dataDir                  : '/tmp/orchestrator-test',
@@ -131,8 +136,13 @@ test.afterEach(() => {
         savedCloudOnly = null;
     }
     if (savedGraphLogCompaction) {
-        restoreConfigObject(AiConfig.orchestrator.graphLogCompaction, savedGraphLogCompaction);
+        if (savedGraphLogCompactionMissing) {
+            AiConfig.setData('orchestrator.graphLogCompaction', undefined);
+        } else {
+            AiConfig.setData('orchestrator.graphLogCompaction', {...savedGraphLogCompaction});
+        }
         savedGraphLogCompaction = null;
+        savedGraphLogCompactionMissing = false;
     }
     if (savedDeploymentMode !== null) {
         AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
@@ -653,11 +663,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('falls back to backup cadence when stale config lacks graphLogCompactionMs (#12394)', () => {
+    test('passes graphlog-compaction cadence from config verbatim (#12394 / #12061)', () => {
         const dueCalls = [];
         const orchestrator = createTestOrchestrator({
             kbSyncIntervalMs             : 0,
             backupIntervalMs             : 123456,
+            graphLogCompactionIntervalMs : 777777,
             graphLogCompactionGetDueTask : options => {
                 dueCalls.push(options);
                 return null;
@@ -669,12 +680,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             swarmHeartbeatIntervalMs     : Number.MAX_SAFE_INTEGER
         });
 
-        AiConfig.orchestrator.intervals.graphLogCompactionMs = null;
-
         orchestrator.poll();
 
         expect(dueCalls).toEqual([expect.objectContaining({
-            graphLogCompactionIntervalMs: 123456
+            graphLogCompactionIntervalMs: 777777
         })]);
     });
 
