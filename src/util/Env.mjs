@@ -104,6 +104,27 @@ const Env = {
     },
 
     /**
+     * Decode env value as a comma-separated string list.
+     *
+     * Empty items are ignored so operators can format values as
+     * `client-a, client-b` without introducing blank allowlist entries.
+     *
+     * @param {String} envVarName
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
+     * @returns {String[]|undefined}
+     */
+    parseCsv(envVarName, {env = process.env} = {}) {
+        const rawValue = env[envVarName];
+        if (Neo.isEmpty(rawValue)) return;
+
+        return String(rawValue)
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean)
+    },
+
+    /**
      * Decode env value as port (integer 1..65535).
      * @param {String} envVarName
      * @param {Object} [opts]

@@ -11,6 +11,7 @@ import Env      from '../src/util/Env.mjs';
  */
 const typeParsers = {
     boolean  : Env.parseBool,
+    csv      : Env.parseCsv,
     keepAlive: Env.parseKeepAlive,
     number   : Env.parseNumber,
     port     : Env.parsePort,
@@ -26,6 +27,7 @@ const typeParsers = {
  */
 const typeValidators = {
     boolean: value => typeof value === 'boolean',
+    csv    : value => Array.isArray(value) && value.every(item => typeof item === 'string'),
     number : value => typeof value === 'number' && !Number.isNaN(value),
     port   : value => Number.isInteger(value) && value >= 0 && value <= 65535,
     string : value => typeof value === 'string',

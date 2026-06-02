@@ -27,6 +27,7 @@ function buildTree() {
     return {
         debug    : leaf(false, 'NEO_TEST_DEBUG'),
         port     : leaf(3000, 'NEO_TEST_PORT', 'port'),
+        names    : leaf([], 'NEO_TEST_NAMES', 'csv'),
         name     : leaf('neo'),
         publicUrl: leaf(null, 'NEO_TEST_URL', 'url'),
         server   : {
@@ -69,6 +70,11 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
         expect(leaf(false, 'NEO_X').type).toBe('boolean');
         expect(leaf(false, 'NEO_X').parse).toBe(Env.parseBool);
 
+        // explicit csv type binds to the shared comma-list env parser
+        const csvLeaf = leaf([], 'NEO_X', 'csv');
+        expect(csvLeaf.type).toBe('csv');
+        expect(csvLeaf.parse).toBe(Env.parseCsv);
+
         // explicit type survives a null default (stays validatable)
         const urlLeaf = leaf(null, 'NEO_X', 'url');
         expect(urlLeaf.type).toBe('url');
@@ -87,6 +93,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
 
         expect(config.getDataConfig('debug').get()).toBe(false);
         expect(config.getDataConfig('port').get()).toBe(3000);
+        expect(config.getDataConfig('names').get()).toEqual([]);
         expect(config.getDataConfig('name').get()).toBe('neo');
         expect(config.getDataConfig('publicUrl').get()).toBe(null);
         expect(config.getDataConfig('server.host').get()).toBe('localhost');
@@ -109,12 +116,14 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     test('env vars override leaf defaults — top-level AND nested (bounded, parsed)', () => {
         process.env.NEO_TEST_PORT    = '8080';
         process.env.NEO_TEST_DEBUG   = 'true';
+        process.env.NEO_TEST_NAMES   = 'neo-gpt, neo-opus-4-7';
         process.env.NEO_TEST_TIMEOUT = '1234';
 
         const config = Neo.create(BaseConfig, {data: buildTree()});
 
         expect(config.getDataConfig('port').get()).toBe(8080);
         expect(config.getDataConfig('debug').get()).toBe(true);
+        expect(config.getDataConfig('names').get()).toEqual(['neo-gpt', 'neo-opus-4-7']);
         // A NESTED env-bound leaf must also be env-overridden. Regression guard: `assignToNs`
         // mutates its `path` arg (pops the last segment), which had collapsed every nested leaf
         // onto its parent namespace key — dropping the nested leaf's env binding entirely.
@@ -204,7 +213,11 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
             // a scalar type mismatch also warns but keeps the value
             config.setData('port', 'not-a-number');
             expect(config.getDataConfig('port').get()).toBe('not-a-number');
-            expect(warnings.some(w => w.includes('port'))).toBe(true)
+            expect(warnings.some(w => w.includes('port'))).toBe(true);
+
+            // csv leaves are arrays of strings, not raw comma strings at the Provider layer.
+            config.setData('names', 'neo-gpt,neo-opus');
+            expect(warnings.some(w => w.includes('names'))).toBe(true)
         } finally {
             console.warn = origWarn
         }
