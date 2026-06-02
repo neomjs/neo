@@ -48,6 +48,7 @@
             {"name": "Cloud-Native KB Ingestion Overview",             "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Overview"},
             {"name": "Day-0 Tutorial",                                 "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Day0Tutorial"},
             {"name": "llama.cpp Profile",                              "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/LlamaCppProfile"},
+            {"name": "MCP Inspector PAT Compatibility",                "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/McpInspectorCompatibility"},
             {"name": "Tenant Ingestion Model",                         "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/TenantIngestionModel"},
             {"name": "Configuration",                                  "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Configuration"},
             {"name": "Custom Sources",                                 "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/CustomSources"},
