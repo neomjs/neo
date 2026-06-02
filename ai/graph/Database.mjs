@@ -9,6 +9,8 @@ import StorageBase     from './storage/Base.mjs';
  * The Database class serves as the core coordinator for the Native Edge Graph Database engine.
  * Operating in headless MCP server environments (Sandman, memory-core), it orchestrates local
  * Native Node embeddings tracking alongside Semantic vectors natively inside ChromaDB (GraphRAG).
+ * When backed by SQLite storage, persisted edges must reference existing node IDs for both
+ * `source` and `target`; the storage schema enforces this with foreign keys on `Edges`.
  *
  * Implements strict Multi-Worker Cache Coherence via SQLite Hardware Triggers & Delta Logs, combined
  * with completely Synchronous Lazy Loading architectures and automated LRU Garbage Collection
@@ -72,11 +74,11 @@ class Database extends Base {
      * Executes strict cache synchronization polling Native SQLite triggers for identical cross-worker coherence cleanly natively.
      * Evaluates hardware SQLite `GraphLog` boundaries securely identifying structural mutations dynamically created by concurrent Nodes/AppWorkers.
      * Splices identified cache diffs executing perfectly accurately guaranteeing perfect isolated thread execution topologies.
-     * 
-     * Invariants (ADR 0001):
+     *
+     * Cache-coherence invariants:
      * 1. A fresh boot (`lastSyncId === 0`) is a legitimate "catch me up" trigger, not a short-circuit skip.
      * 2. This method INVALIDATES stale cache entries; it does not upsert new ones (lazy-load handles that).
-     * 
+     *
      * @see Neo.ai.graph.storage.SQLite#getDeltaLog
      */
     syncCache() {
@@ -176,6 +178,10 @@ class Database extends Base {
     /**
      * Injects a relationship edge into the Native Edge Graph Database topology.
      * @param {Object} edge
+     * @throws {SqliteError} When SQLite storage is attached and `edge.source` or `edge.target`
+     * is not already present as a node ID. The storage schema enforces
+     * `FOREIGN KEY(source|target) REFERENCES Nodes(id)`, so callers must create endpoint
+     * nodes before inserting persisted edges.
      */
     addEdge(edge) {
         edge.id ??= globalThis.crypto.randomUUID();
