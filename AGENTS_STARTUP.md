@@ -85,11 +85,11 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../ai/mcp/server/github-workf
 **Before running any SDK-consuming script or `test-unit` command in a worktree, execute:**
 
 ```bash
-node ai/scripts/bootstrapWorktree.mjs
-node ai/scripts/bootstrapWorktree.mjs --link-data
-node ai/scripts/bootstrapWorktree.mjs --link-data --canonical-root <canonical-checkout>
-node ai/scripts/bootstrapWorktree.mjs --link-data --install
-node ai/scripts/bootstrapWorktree.mjs --link-data --build-all
+node ai/scripts/migrations/bootstrapWorktree.mjs
+node ai/scripts/migrations/bootstrapWorktree.mjs --link-data
+node ai/scripts/migrations/bootstrapWorktree.mjs --link-data --canonical-root <canonical-checkout>
+node ai/scripts/migrations/bootstrapWorktree.mjs --link-data --install
+node ai/scripts/migrations/bootstrapWorktree.mjs --link-data --build-all
 ```
 
 It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`) and — with `--link-data` — symlinks gitignored shared data substrates from the main checkout: `.neo-ai-data/` subdirs plus gitignored single-file handoffs such as `resources/content/sandman_handoff.md`. Independent sibling clones (Codex / Antigravity style) cannot infer the canonical checkout from `git worktree list`; pass `--canonical-root <canonical-checkout>` or set `NEO_AI_CANONICAL_ROOT`. Idempotent; no-op from the main checkout.
@@ -100,6 +100,16 @@ It copies the four `config.mjs` files from the main checkout (resolved via `git 
 - **Frontend / Webpack-distribution tickets** — add `--build-all`. Implies `--install`; runs the full `npm run build-all` after dependencies are present. Use only when the ticket actually touches frontend bundles, themes, or Webpack thread distributions — backend tickets pay the full build cost for nothing otherwise.
 
 **Why `--link-data` matters (per #10224):** without it, each worktree gets its own empty `.neo-ai-data/sqlite/memory-core-graph.sqlite`, which means AgentIdentity nodes seeded in the main checkout are invisible to the worktree's MCP server. `bindAgentIdentity('neo-opus-4-7')` returns null, the mailbox throws `"no agent identity context bound"`, and A2A handshakes silently fail — the #10184 symptom from a different root cause than cache coherence. The symlink unifies the Memory Core substrate (SQLite + Chroma + concepts + backups) so ADR 0001's "one SQLite file shared across N processes" assumption holds across worktrees.
+
+#### Codex Sandbox SQLite Probe
+
+Codex Desktop can run unit tests in a sandbox that blocks SQLite file creation through the shared `.neo-ai-data/sqlite` symlink. Before running a Codex unit-test lane that touches `.neo-ai-data/sqlite`, run:
+
+```bash
+npm run ai:bootstrap-codex-sandbox
+```
+
+The probe creates, opens, closes, and deletes a transient SQLite file at `.neo-ai-data/sqlite/codex-sandbox-probe-*.sqlite`. Success means the current sandbox can open the same path shape used by affected tests. Failure prints the logical path, resolved physical/symlink target, SQLite error, detected sandbox mode when available, and the remediation: rerun the affected probe/test with `sandbox_permissions=require_escalated` or intentionally replace the symlink with a local writable path. It is diagnostic-only and never auto-escalates.
 
 **Symlink discipline — code vs data:**
 - **Source code** (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`): **do NOT symlink.** Node's ESM resolver walks to the canonical (target) path, and `Neo.setupClass` sees the same namespace registered from two different file paths → `Namespace collision in unitTestMode`. Config files MUST be real copies.
