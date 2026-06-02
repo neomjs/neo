@@ -75,7 +75,7 @@ class Database extends Base {
      * Evaluates hardware SQLite `GraphLog` boundaries securely identifying structural mutations dynamically created by concurrent Nodes/AppWorkers.
      * Splices identified cache diffs executing perfectly accurately guaranteeing perfect isolated thread execution topologies.
      *
-     * Cache-coherence invariants:
+     * Cache-coherence invariants (ADR 0001; ticket-ref-ok: file-owned decision record):
      * 1. A fresh boot (`lastSyncId === 0`) is a legitimate "catch me up" trigger, not a short-circuit skip.
      * 2. This method INVALIDATES stale cache entries; it does not upsert new ones (lazy-load handles that).
      *
