@@ -3,6 +3,7 @@ import fs                     from 'fs-extra';
 import path                   from 'path';
 import Base                   from '../../../src/core/Base.mjs';
 import GraphService           from './GraphService.mjs';
+import aiConfig               from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService  from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                 from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService from './CoalescingEngineService.mjs';
@@ -97,10 +98,10 @@ class WakeSubscriptionService extends Base {
     liveCursor = 0
 
     /**
-     * @member {String} liveCursorStateFile='.neo-ai-data/wake-daemon/wakeSubscriptionLiveCursor'
+     * @member {String} liveCursorStateFile
      * @protected
      */
-    liveCursorStateFile = path.resolve(process.env.NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE || '.neo-ai-data/wake-daemon/wakeSubscriptionLiveCursor')
+    liveCursorStateFile = aiConfig.wakeDaemon.wakeSubscriptionLiveCursorPath
 
     /**
      * Sets the initial live cursor to the current graph log head to prevent

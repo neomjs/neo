@@ -2,7 +2,7 @@ import {Command}                      from 'commander';
 import Database                       from 'better-sqlite3';
 import fs                             from 'fs-extra';
 import path                           from 'path';
-import {fileURLToPath, pathToFileURL} from 'url';
+import {pathToFileURL}                from 'url';
 
 /**
  * @module ai.scripts.maintenance.compactGraphLog
@@ -23,14 +23,34 @@ import {fileURLToPath, pathToFileURL} from 'url';
  * @see ai/daemons/bridge/queries.mjs
  */
 
-const __filename   = fileURLToPath(import.meta.url);
-const __dirname    = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '../../..');
-
-export const DEFAULT_DB_PATH            = path.join(PROJECT_ROOT, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
-export const DEFAULT_BRIDGE_STATE_FILE  = path.join(PROJECT_ROOT, '.neo-ai-data/wake-daemon/lastSyncId');
-export const DEFAULT_WAKE_STATE_FILE    = path.join(PROJECT_ROOT, '.neo-ai-data/wake-daemon/wakeSubscriptionLiveCursor');
 export const DEFAULT_SAFETY_MARGIN_ROWS = 1000;
+
+/**
+ * @summary Loads the runtime Memory Core config for CLI execution.
+ * @returns {Promise<Object>}
+ */
+export async function loadMemoryCoreConfig() {
+    return (await import('../../mcp/server/memory-core/config.mjs')).default;
+}
+
+/**
+ * @summary Resolves default compaction paths from a Memory Core config instance.
+ * @param {Object} options
+ * @param {Object} options.aiConfig Runtime or template Memory Core config.
+ * @returns {{dbPath:String, bridgeStateFile:String, wakeStateFile:String, safetyMarginRows:Number}}
+ */
+export function getDefaultGraphLogCompactionOptions({aiConfig}) {
+    if (!aiConfig) {
+        throw new TypeError('aiConfig is required to resolve GraphLog compaction defaults.');
+    }
+
+    return {
+        dbPath          : aiConfig.storagePaths.graph,
+        bridgeStateFile: aiConfig.wakeDaemon.bridgeLastSyncIdPath,
+        wakeStateFile  : aiConfig.wakeDaemon.wakeSubscriptionLiveCursorPath,
+        safetyMarginRows: DEFAULT_SAFETY_MARGIN_ROWS
+    };
+}
 
 /**
  * @summary Parses a non-negative integer CLI value.
@@ -346,9 +366,10 @@ export function checkpointWal(db) {
  * @returns {Object}
  */
 export function runGraphLogCompaction({
-    dbPath             = DEFAULT_DB_PATH,
-    bridgeStateFile   = DEFAULT_BRIDGE_STATE_FILE,
-    wakeStateFile     = DEFAULT_WAKE_STATE_FILE,
+    aiConfig          = null,
+    dbPath            = null,
+    bridgeStateFile   = null,
+    wakeStateFile     = null,
     safetyMarginRows  = DEFAULT_SAFETY_MARGIN_ROWS,
     extraWatermarks   = [],
     wakeLiveCursor    = null,
@@ -358,6 +379,18 @@ export function runGraphLogCompaction({
     fsModule          = fs,
     logger            = console
 } = {}) {
+    if (aiConfig) {
+        const defaults = getDefaultGraphLogCompactionOptions({aiConfig});
+
+        dbPath          ??= defaults.dbPath;
+        bridgeStateFile ??= defaults.bridgeStateFile;
+        wakeStateFile   ??= defaults.wakeStateFile;
+    }
+
+    if (!dbPath || !bridgeStateFile || !wakeStateFile) {
+        throw new TypeError('dbPath, bridgeStateFile, and wakeStateFile are required unless aiConfig is provided.');
+    }
+
     const db = new Database(dbPath, {fileMustExist: true});
 
     try {
@@ -445,17 +478,21 @@ export function logCompactionResult(result, {apply = false, vacuum = false, logg
 
 /**
  * @summary Creates the CLI command object.
+ * @param {Object} options
+ * @param {Object} options.aiConfig Runtime or template Memory Core config.
  * @returns {Command}
  */
-export function createCommand() {
+export function createCommand({aiConfig} = {}) {
+    const defaults = getDefaultGraphLogCompactionOptions({aiConfig});
+
     return new Command()
         .name('compactGraphLog')
         .description('Dry-run-first GraphLog CDC compaction past known consumer watermarks.')
         .option('--apply', 'Actually delete eligible GraphLog rows. Without this flag the script is dry-run only.', false)
-        .option('--db <path>', 'SQLite graph db path.', DEFAULT_DB_PATH)
-        .option('--bridge-state-file <path>', 'Bridge daemon lastSyncId file.', DEFAULT_BRIDGE_STATE_FILE)
-        .option('--wake-state-file <path>', 'WakeSubscriptionService live cursor file.', DEFAULT_WAKE_STATE_FILE)
-        .option('--safety-margin <rows>', 'Rows to retain below the minimum known consumer watermark.', String(DEFAULT_SAFETY_MARGIN_ROWS))
+        .option('--db <path>', 'SQLite graph db path.', defaults.dbPath)
+        .option('--bridge-state-file <path>', 'Bridge daemon lastSyncId file.', defaults.bridgeStateFile)
+        .option('--wake-state-file <path>', 'WakeSubscriptionService live cursor file.', defaults.wakeStateFile)
+        .option('--safety-margin <rows>', 'Rows to retain below the minimum known consumer watermark.', String(defaults.safetyMarginRows))
         .option('--consumer-watermark <name=logId>', 'Additional durable consumer watermark. May be repeated.', collect, [])
         .option('--wake-live-cursor <logId>', 'Current WakeSubscriptionService liveCursor when active mcp-notifications consumers exist.')
         .option('--vacuum', 'Run VACUUM after deletion to physically shrink the SQLite db. Operator-gated heavy maintenance.', false);
@@ -475,10 +512,14 @@ function collect(value, previous) {
 /**
  * @summary Runs the CLI from process argv.
  * @param {String[]} argv
- * @returns {Object}
+ * @param {Object} options
+ * @param {Object} [options.aiConfig] Runtime or template Memory Core config.
+ * @returns {Promise<Object>}
  */
-export function runCli(argv = process.argv) {
-    const command = createCommand();
+export async function runCli(argv = process.argv, {aiConfig = null} = {}) {
+    aiConfig ??= await loadMemoryCoreConfig();
+
+    const command = createCommand({aiConfig});
 
     command.parse(argv);
 
@@ -499,5 +540,5 @@ export function runCli(argv = process.argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    runCli();
+    await runCli();
 }

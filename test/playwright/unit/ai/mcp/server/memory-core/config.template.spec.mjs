@@ -127,6 +127,25 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.graphProvider).toBe('openAiCompatible');
     });
 
+    test('declares GraphLog compaction watermark paths', () => {
+        expect(config.wakeDaemon.bridgeLastSyncIdPath).toContain('.neo-ai-data/wake-daemon/lastSyncId');
+        expect(config.wakeDaemon.wakeSubscriptionLiveCursorPath).toContain('.neo-ai-data/wake-daemon/wakeSubscriptionLiveCursor');
+    });
+
+    test('env overrides GraphLog compaction watermark paths', () => {
+        process.env.NEO_BRIDGE_LAST_SYNC_ID_PATH = '/tmp/neo-bridge-last-sync-id';
+        process.env.NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE = '/tmp/neo-wake-live-cursor';
+
+        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+
+        try {
+            expect(freshCfg.wakeDaemon.bridgeLastSyncIdPath).toBe('/tmp/neo-bridge-last-sync-id');
+            expect(freshCfg.wakeDaemon.wakeSubscriptionLiveCursorPath).toBe('/tmp/neo-wake-live-cursor');
+        } finally {
+            freshCfg.destroy();
+        }
+    });
+
     test('env overrides remain final after Tier-1 default mapping', () => {
         process.env.NEO_MODEL_PROVIDER = 'openAiCompatible';
         process.env.NEO_GRAPH_PROVIDER = 'ollama';

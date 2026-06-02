@@ -12,10 +12,13 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import Database       from 'better-sqlite3';
 import fs             from 'fs-extra';
 import path           from 'path';
+import MemoryCoreConfigTemplate from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 
 import {
     compactGraphLogRows,
     computeCompactionPlan,
+    createCommand,
+    getDefaultGraphLogCompactionOptions,
     getGraphLogStats,
     listActiveWakeSubscriptions,
     parseConsumerWatermark,
@@ -79,6 +82,21 @@ test.describe('compactGraphLog maintenance guard', () => {
             }
         }));
     }
+
+    test('resolves CLI defaults from the Memory Core template config in tests', () => {
+        const defaults = getDefaultGraphLogCompactionOptions({aiConfig: MemoryCoreConfigTemplate});
+        const command  = createCommand({aiConfig: MemoryCoreConfigTemplate});
+
+        command.parse([], {from: 'user'});
+
+        expect(defaults.dbPath).toBe(MemoryCoreConfigTemplate.storagePaths.graph);
+        expect(defaults.bridgeStateFile).toBe(MemoryCoreConfigTemplate.wakeDaemon.bridgeLastSyncIdPath);
+        expect(defaults.wakeStateFile).toBe(MemoryCoreConfigTemplate.wakeDaemon.wakeSubscriptionLiveCursorPath);
+
+        expect(command.opts().db).toBe(defaults.dbPath);
+        expect(command.opts().bridgeStateFile).toBe(defaults.bridgeStateFile);
+        expect(command.opts().wakeStateFile).toBe(defaults.wakeStateFile);
+    });
 
     test('computes cutoff from the minimum known consumer watermark plus safety margin', () => {
         const plan = computeCompactionPlan({
