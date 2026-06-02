@@ -102,6 +102,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     });
 
     test('env overrides win — KB-local leaves at the child, Tier-1-owned leaves at the owner (inherited)', () => {
+        process.env.NEO_DEBUG       = 'true';
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
         process.env.NEO_AUTH_REALM  = 'tenant-realm';
@@ -120,6 +121,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         Neo.ai.Config   = freshRoot;
 
         try {
+            expect(freshKB.debug).toBe(true);                       // KB-local, env at child
             expect(freshKB.host).toBe('chroma');                    // KB-local, env at child
             expect(freshKB.port).toBe(8010);                        // KB-local, env at child
             expect(freshKB.auth.realm).toBe('tenant-realm');        // Tier-1-owned, env at owner → inherited
@@ -128,6 +130,48 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             if (prevRoot === undefined) {delete Neo.ai.Config} else {Neo.ai.Config = prevRoot}
             freshKB.destroy();
             freshRoot.destroy()
+        }
+    });
+
+    test('keeps debug off by default and accepts NEO_DEBUG as a KB-local override', () => {
+        const defaultKB = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+
+        try {
+            expect(defaultKB.debug).toBe(false);
+        } finally {
+            defaultKB.destroy()
+        }
+
+        process.env.NEO_DEBUG = 'true';
+
+        const freshKB = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+
+        try {
+            expect(freshKB.debug).toBe(true);
+        } finally {
+            freshKB.destroy()
+        }
+    });
+
+    test('invalid NEO_DEBUG values fall back to the debug-off default', () => {
+        process.env.NEO_DEBUG = 'maybe';
+
+        const
+            warnings     = [],
+            originalWarn = console.warn;
+
+        let freshKB;
+
+        console.warn = message => warnings.push(message);
+
+        try {
+            freshKB = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+
+            expect(freshKB.debug).toBe(false);
+            expect(warnings.some(message => message.includes('Invalid NEO_DEBUG'))).toBe(true);
+        } finally {
+            console.warn = originalWarn;
+            freshKB?.destroy()
         }
     });
 });
