@@ -40,9 +40,11 @@ class Config extends BaseConfig {
             neoRootDir: leaf(neoRootDir),
             /**
              * Global debug flag for all MCP servers.
+             *
+             * Operator env var: `NEO_DEBUG`.
              * @type {boolean}
              */
-            debug: leaf(false),
+            debug: leaf(false, 'NEO_DEBUG', 'boolean'),
             /**
              * Transport protocol for the MCP server ('stdio' or 'sse').
              * @type {string}
