@@ -136,7 +136,7 @@ export function resolveIdentityForFamily(family) {
         throw new Error(
             `Multiple active identities for family=${family}; revalidation sweep needs an explicit ` +
             `notification fan-out rule. Found: ${activeMatches.map(m => m.id).join(', ')}. ` +
-            `See Discussion #11792 OQ5 + §6.4 same-family aggregation.`
+            `See the same-family aggregation rule before routing notifications.`
         );
     }
 

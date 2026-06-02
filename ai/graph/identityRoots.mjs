@@ -157,6 +157,8 @@ export const IDENTITIES = [
             // pending. Reusing the
             // existing `appName: "Claude"` route here would make same-bundle Desktop delivery
             // ambiguous before the wake substrate can prove the target instance.
+            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
+            // §neo_claude_opus, which mirrors the Claude Opus model-class row until activation.
             contextWindowInput: 1048576,
             parallelToolCalls : true,
             thoughtBudget     : 'max',
@@ -166,7 +168,7 @@ export const IDENTITIES = [
             releaseDate       : '2026-04-16',
             pricingInput      : 5.00,
             pricingOutput     : 25.00,
-            swarmRole         : 'Same-family Claude throughput, generalist maintainer authorship, same-family challenge pressure; does not add cross-family review coverage for Claude-authored PRs.',
+            swarmRole         : 'Pending same-family Claude generalist maintainer identity; no active routing, quorum participation, or review coverage until activation.',
             sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus : 'temporarily_unreachable',
             statusReason        : 'Operator-created GitHub account and identity-specific wake route pending; identity root is seeded so mailbox, provenance, and review-family semantics are stable before activation.',

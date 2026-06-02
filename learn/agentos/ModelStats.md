@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-05-18
+**Last updated:** 2026-06-02
 
 ---
 
@@ -91,6 +91,43 @@ Named cross-family maintainers with active swarm participation. These models hol
 - **Primary**: [GPT-5.5 Model — OpenAI API Docs](https://developers.openai.com/api/docs/models/gpt-5.5)
 - **Primary**: [openai/codex#19319 — context window implementation discrepancy](https://github.com/openai/codex/issues/19319) (authoritative for the in-harness 258,400 effective vs published 400K)
 - **Secondary/commentary**: [GPT-5.5 Complete Guide — DigitalApplied](https://www.digitalapplied.com/blog/gpt-5-5-complete-guide-thinking-pro-1m-context) (V-B-A pending — demote on next-update if not load-bearing)
+
+---
+
+## §pending_swarm_identities
+
+Named maintainer identities provisioned in the graph but excluded from active
+routing, quorum, and review-approval semantics until `participationStatus`
+transitions to `active`.
+
+### §neo_claude_opus
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-claude-opus` |
+| `name` | Claude Opus Sibling |
+| `family` | `claude` (Anthropic) |
+| `participationStatus` | `temporarily_unreachable` |
+| `hosting` | `cloud` |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M) |
+| `parallelToolCalls` | `true` |
+| `thoughtBudget` | `max` (highest Claude thinking-budget setting in use for the active Claude Opus maintainer) |
+| `releaseDate` | 2026-04-16 |
+| `pricingInput` | $5.00 per 1M tokens |
+| `pricingOutput` | $25.00 per 1M tokens |
+| `sunsetTriggers` | Anthropic releases Opus 4.8+ with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `swarmRole` | Pending same-family Claude generalist maintainer identity; no active routing, quorum participation, or review coverage until activation |
+
+This row mirrors the Claude Opus model-class capability values from
+`§neo_opus_4_7` because the sibling identity is reserved for the same model
+class. Activation must re-verify the row if the operator-created account uses a
+different Claude model, provider-side capability tier, or pricing surface.
+
+**Sources** (primary first; secondary/commentary marked):
+- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
+- **Primary**: [Context windows — Claude API Docs](https://platform.claude.com/docs/en/build-with-claude/context-windows)
+- **Secondary/commentary**: [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/) (V-B-A pending — replace with Anthropic's own pricing page citation when next-update touches this row)
 
 ---
 
@@ -176,6 +213,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | Date | PR | Change |
 |---|---|---|
 | 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
+| 2026-06-02 | (pending PR) | Added pending Claude sibling identity row; row is inactive until account and wake-route activation are complete. |
 
 ---
 
