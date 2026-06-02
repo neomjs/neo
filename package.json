@@ -41,6 +41,7 @@
         "ai:mcp-server-neural-link"    : "node ./ai/mcp/server/neural-link/mcp-server.mjs",
         "ai:probe-keep-alive"          : "node ./ai/scripts/benchmark/keep-alive-probe.mjs",
         "ai:prune-worktrees"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
+        "ai:purge-test-collections"    : "node ./ai/scripts/maintenance/purgeTestCollections.mjs",
         "ai:lint-agents"               : "node ./ai/scripts/lint/lint-agents.mjs",
         "ai:lint-skill-manifest"       : "node ./ai/scripts/lint/lint-skill-manifest.mjs",
         "ai:lint-tree-json"            : "node ./ai/scripts/lint/lint-tree-json.mjs",
