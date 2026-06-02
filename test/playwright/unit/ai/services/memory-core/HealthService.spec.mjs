@@ -17,6 +17,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import ChromaManager   from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import StorageRouter   from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
+import MailboxService  from '../../../../../../ai/services/memory-core/MailboxService.mjs';
 
 /**
  * @summary Coverage for the #10176 identity observability block in the healthcheck payload.
@@ -157,87 +161,143 @@ test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
 });
 
 /**
- * @summary Coverage for the #12382 request-fresh cached healthcheck snapshot.
+ * @summary Coverage for the #12382 request-fresh cached healthcheck path.
  *
  * The live bug was in the healthy-cache fast path: direct healthcheck callers observed the cached
- * payload's original `timestamp` and collection counts even after later writes. This pure helper
- * covers the request-facing snapshot logic without booting ChromaDB.
+ * payload's original `timestamp` and collection counts even after later writes. The tests patch the
+ * singleton collaborators to keep the path unit-fast while still exercising the public `healthcheck()`
+ * API instead of a detached helper.
  *
- * @see Neo.ai.services.memory-core.HealthService#buildRequestFreshCachedHealth
+ * @see Neo.ai.services.memory-core.HealthService#healthcheck
  */
-test.describe('HealthService #12382 — buildRequestFreshCachedHealth', () => {
-    let buildRequestFreshCachedHealth;
+test.describe('HealthService #12382 — cached healthcheck freshness', () => {
+    test.describe.configure({mode: 'serial'});
+
+    let HealthService;
+    let memoryCount;
+    let originalDateNow;
+    let originalGeminiApiKey;
+    let originals;
+    let summaryCount;
+    let summaryGetCalls;
+    let summaryUnavailableOnCall;
+
+    const makeCollection = countGetter => ({
+        count: async () => countGetter(),
+        get  : async () => ({ids: [], metadatas: []})
+    });
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildRequestFreshCachedHealth = mod.buildRequestFreshCachedHealth;
+        HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
     });
 
-    test('refreshes timestamp and collection counts without mutating the cached payload', async () => {
-        const cachedHealth = {
-            status   : 'healthy',
-            timestamp: '2026-06-02T12:00:00.000Z',
-            database : {
-                connection: {
-                    connected  : true,
-                    collections: {
-                        memories : {name: 'neo-agent-memory', exists: true, count: 10},
-                        summaries: {name: 'neo-agent-sessions', exists: true, count: 20}
-                    },
-                    engines: {chroma: true}
-                },
-                topology: {mode: 'unified'}
-            },
-            details: ['cached']
+    test.beforeEach(() => {
+        originalDateNow    = Date.now;
+        originalGeminiApiKey = process.env.GEMINI_API_KEY;
+        memoryCount        = 10;
+        summaryCount       = 20;
+        summaryGetCalls    = 0;
+        summaryUnavailableOnCall = null;
+
+        const memoryCollection  = makeCollection(() => memoryCount);
+        const summaryCollection = makeCollection(() => summaryCount);
+
+        originals = {
+            chromaConnected         : ChromaManager.connected,
+            chromaReady             : ChromaManager.ready,
+            chromaConnect           : ChromaManager.connect,
+            getMemoryCollection     : StorageRouter.getMemoryCollection,
+            getSummaryCollection    : StorageRouter.getSummaryCollection,
+            getDatabaseStatus       : ChromaLifecycleService.getDatabaseStatus,
+            getHealthcheckPreview   : MailboxService.getHealthcheckPreview
         };
 
-        const result = await buildRequestFreshCachedHealth(
-            cachedHealth,
-            new Date('2026-06-02T12:05:00.000Z'),
-            async () => ({
-                memories : {name: 'neo-agent-memory', exists: true, count: 11},
-                summaries: {name: 'neo-agent-sessions', exists: true, count: 21}
-            })
-        );
-
-        expect(result.timestamp).toBe('2026-06-02T12:05:00.000Z');
-        expect(result.database.connection.collections).toEqual({
-            memories : {name: 'neo-agent-memory', exists: true, count: 11},
-            summaries: {name: 'neo-agent-sessions', exists: true, count: 21}
-        });
-
-        expect(result).not.toBe(cachedHealth);
-        expect(result.database).not.toBe(cachedHealth.database);
-        expect(result.database.connection).not.toBe(cachedHealth.database.connection);
-        expect(cachedHealth.timestamp).toBe('2026-06-02T12:00:00.000Z');
-        expect(cachedHealth.database.connection.collections.memories.count).toBe(10);
-        expect(cachedHealth.database.connection.collections.summaries.count).toBe(20);
-    });
-
-    test('returns null when the collection refresh reports an unhealthy shape', async () => {
-        const cachedHealth = {
-            status  : 'healthy',
-            database: {connection: {collections: null}}
+        ChromaManager.connected = true;
+        ChromaManager.ready     = async () => {};
+        ChromaManager.connect   = async () => {
+            ChromaManager.connected = true;
+            return true;
         };
 
-        await expect(buildRequestFreshCachedHealth(
-            cachedHealth,
-            Date.now(),
-            async () => ({
-                memories : {name: 'neo-agent-memory', exists: true,  count: 1},
-                summaries: {name: 'neo-agent-sessions', exists: false, count: 0}
-            })
-        )).resolves.toBeNull();
+        StorageRouter.getMemoryCollection = async () => memoryCollection;
+        StorageRouter.getSummaryCollection = async () => {
+            summaryGetCalls++;
+            return summaryGetCalls === summaryUnavailableOnCall ? null : summaryCollection
+        };
+
+        ChromaLifecycleService.getDatabaseStatus = () => ({running: true});
+        MailboxService.getHealthcheckPreview     = async () => ({unreadCount: 0, latestPreview: null});
+        process.env.GEMINI_API_KEY               = 'unit-test-key';
+
+        HealthService.clearCache();
     });
 
-    test('returns null when collection refresh throws so callers can run a full healthcheck', async () => {
-        await expect(buildRequestFreshCachedHealth(
-            {status: 'healthy', database: {connection: {collections: null}}},
-            Date.now(),
-            async () => {
-                throw new Error('count failed');
-            }
-        )).resolves.toBeNull();
+    test.afterEach(() => {
+        Date.now = originalDateNow;
+
+        if (originalGeminiApiKey === undefined) {
+            delete process.env.GEMINI_API_KEY;
+        } else {
+            process.env.GEMINI_API_KEY = originalGeminiApiKey;
+        }
+
+        ChromaManager.connected = originals.chromaConnected;
+        ChromaManager.ready     = originals.chromaReady;
+        ChromaManager.connect   = originals.chromaConnect;
+        StorageRouter.getMemoryCollection      = originals.getMemoryCollection;
+        StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
+        ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
+        MailboxService.getHealthcheckPreview     = originals.getHealthcheckPreview;
+
+        HealthService.clearCache();
+    });
+
+    test('direct healthcheck refreshes cached timestamp and collection counts without mutating the cache', async () => {
+        const cached = await HealthService.healthcheck();
+
+        expect(cached.status).toBe('healthy');
+        expect(cached.database.connection.collections.memories.count).toBe(10);
+        expect(cached.database.connection.collections.summaries.count).toBe(20);
+
+        memoryCount  = 11;
+        summaryCount = 21;
+
+        const requestNow = originalDateNow() + 60_000;
+        Date.now = () => requestNow;
+
+        const fresh = await HealthService.healthcheck();
+
+        expect(fresh.timestamp).toBe(new Date(requestNow).toISOString());
+        expect(fresh.database.connection.collections.memories).toMatchObject({exists: true, count: 11});
+        expect(fresh.database.connection.collections.summaries).toMatchObject({exists: true, count: 21});
+
+        expect(fresh).not.toBe(cached);
+        expect(fresh.database).not.toBe(cached.database);
+        expect(fresh.database.connection).not.toBe(cached.database.connection);
+        expect(cached.database.connection.collections.memories.count).toBe(10);
+        expect(cached.database.connection.collections.summaries.count).toBe(20);
+
+        const ensureHealthyFastPath = await HealthService.healthcheck({freshObservability: false});
+        expect(ensureHealthyFastPath).toBe(cached);
+        expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
+    });
+
+    test('unhealthy cached-refresh shape clears cache and falls through to a full healthcheck', async () => {
+        const cached = await HealthService.healthcheck();
+
+        expect(cached.database.connection.collections.summaries.count).toBe(20);
+
+        memoryCount  = 12;
+        summaryCount = 22;
+        summaryUnavailableOnCall = summaryGetCalls + 1;
+        Date.now = () => originalDateNow() + 60_000;
+
+        const refreshed = await HealthService.healthcheck();
+
+        expect(refreshed.status).toBe('healthy');
+        expect(refreshed).not.toBe(cached);
+        expect(refreshed.database.connection.collections.memories.count).toBe(12);
+        expect(refreshed.database.connection.collections.summaries.count).toBe(22);
     });
 });
 

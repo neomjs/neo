@@ -112,58 +112,6 @@ export function buildTaskOutcomesBlock(taskOutcomes) {
 }
 
 /**
- * @summary Builds a request-fresh healthcheck snapshot from a cached healthy payload.
- *
- * The broader healthcheck cache intentionally preserves expensive dependency probes for the
- * `ensureHealthy()` gate. Direct operator healthcheck calls still need request-time observability:
- * a fresh `timestamp` and live collection counts. This helper refreshes those cheap request-facing
- * fields without mutating the cached payload; returning `null` tells the caller to fall through to a
- * full healthcheck because the collection refresh indicates an unhealthy or ambiguous state.
- *
- * @param {Object} cachedHealth Previously cached healthy healthcheck payload.
- * @param {Number|Date} now Request time used for the returned `timestamp`.
- * @param {Function} refreshCollections Async function returning the collection-check payload.
- * @returns {Promise<Object|null>} Fresh request snapshot or `null` when a full healthcheck is required.
- */
-export async function buildRequestFreshCachedHealth(cachedHealth, now, refreshCollections) {
-    if (!cachedHealth || typeof refreshCollections !== 'function') {
-        return null;
-    }
-
-    let collectionsCheck;
-
-    try {
-        collectionsCheck = await refreshCollections();
-    } catch (e) {
-        return null;
-    }
-
-    if (collectionsCheck?.error ||
-        !collectionsCheck?.memories?.exists ||
-        !collectionsCheck?.summaries?.exists) {
-        return null;
-    }
-
-    const database   = cachedHealth.database || {};
-    const connection = database.connection || {};
-
-    return {
-        ...cachedHealth,
-        timestamp: new Date(now).toISOString(),
-        database : {
-            ...database,
-            connection: {
-                ...connection,
-                collections: {
-                    memories : {...collectionsCheck.memories},
-                    summaries: {...collectionsCheck.summaries}
-                }
-            }
-        }
-    };
-}
-
-/**
  * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
  *          observability block.
  *
@@ -923,6 +871,57 @@ class HealthService extends Base {
     }
 
     /**
+     * Builds a request-fresh healthcheck snapshot from a cached healthy payload.
+     *
+     * The broader healthcheck cache intentionally preserves expensive dependency probes for the
+     * `ensureHealthy()` gate. Direct operator healthcheck calls still need request-time observability:
+     * a fresh `timestamp` and live collection counts. Keeping this logic inside the singleton avoids
+     * exporting a one-off helper and lets the method use the existing private collection probe directly.
+     *
+     * @param {Object} cachedHealth Previously cached healthy healthcheck payload.
+     * @param {Number|Date} now Request time used for the returned `timestamp`.
+     * @returns {Promise<Object|null>} Fresh request snapshot or `null` when a full healthcheck is required.
+     * @private
+     */
+    async #buildRequestFreshCachedHealth(cachedHealth, now) {
+        if (!cachedHealth) {
+            return null;
+        }
+
+        let collectionsCheck;
+
+        try {
+            collectionsCheck = await this.#checkCollections();
+        } catch (e) {
+            return null;
+        }
+
+        if (collectionsCheck?.error ||
+            !collectionsCheck?.memories?.exists ||
+            !collectionsCheck?.summaries?.exists) {
+            return null;
+        }
+
+        const database   = cachedHealth.database || {};
+        const connection = database.connection || {};
+
+        return {
+            ...cachedHealth,
+            timestamp: new Date(now).toISOString(),
+            database : {
+                ...database,
+                connection: {
+                    ...connection,
+                    collections: {
+                        memories : {...collectionsCheck.memories},
+                        summaries: {...collectionsCheck.summaries}
+                    }
+                }
+            }
+        };
+    }
+
+    /**
      * Computes the untagged-legacy-node counts for the multi-tenant migration observability
      * surface. Operators scrape `healthcheck.migration.untaggedCount.total` to track
      * how much pre-tenant-aware-era data remains as natural query patterns move writes toward
@@ -1257,11 +1256,7 @@ class HealthService extends Base {
                         return this.#cachedHealth;
                     }
 
-                    const freshCachedHealth = await buildRequestFreshCachedHealth(
-                        this.#cachedHealth,
-                        now,
-                        () => this.#checkCollections()
-                    );
+                    const freshCachedHealth = await this.#buildRequestFreshCachedHealth(this.#cachedHealth, now);
 
                     if (freshCachedHealth) {
                         return freshCachedHealth;
