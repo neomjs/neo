@@ -55,6 +55,7 @@
             {"name": "Hook Wiring",                                     "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/HookWiring"},
             {"name": "Pipeline Wiring",                                "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/PipelineWiring"},
             {"name": "Security",                                       "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Security"},
+            {"name": "Client Authentication (GitLab PAT)",             "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/ClientAuthentication"},
             {"name": "Migration Path",                                 "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/MigrationPath"},
         {"name": "Config Substrate Env-Var Audit",                     "parentId": "AgentOS",                                             "id": "agentos/ConfigSubstrateEnvVarAudit"},
         {"name": "Config Substrate Dead-Config Audit",                  "parentId": "AgentOS",                                             "id": "agentos/ConfigSubstrateDeadConfigAudit"},
