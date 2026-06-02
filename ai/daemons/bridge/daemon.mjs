@@ -30,6 +30,7 @@
 import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
+import AiConfig        from '../../config.mjs';
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -666,12 +667,16 @@ async function deliverDigest(subscription, digest) {
                 return;
             }
 
-            // Instance-addressable wake: when the subscription carries a userDataDir, two
-            // same-bundle harnesses may be running. Resolve the intended instance's pid and raise
-            // THAT process — never the ambiguous app-activate / frontmost guess. Fail closed (skip
-            // the wake) if the instance cannot be located, so a wake never lands in the wrong one.
+            // Instance-addressable wake — LOCAL deployment only. When the subscription carries a
+            // userDataDir, two same-bundle GUI harnesses may be running; resolve the intended
+            // instance's pid and raise THAT process — never the ambiguous app-activate / frontmost
+            // guess. Fail closed (skip the wake) if the instance cannot be located, so a wake never
+            // lands in the wrong one. Gated on AiConfig.orchestrator.deploymentMode !== 'cloud' (the
+            // canonical local-vs-cloud signal, mirroring the orchestrator's deployment-lane gate), so
+            // this local macOS GUI/osascript route never runs under cloud deployment and adds no
+            // cloud-deployment surface.
             let instancePid = null;
-            if (meta.userDataDir) {
+            if (meta.userDataDir && AiConfig.orchestrator.deploymentMode !== 'cloud') {
                 instancePid = await getInstancePid({userDataDir: meta.userDataDir});
                 if (!instancePid) {
                     writeLog('ERROR',
