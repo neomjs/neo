@@ -47,10 +47,9 @@ import {
 /**
  * @summary Self-bootstrapping orchestrator database open — replaces the previous
  * `bridge/queries.mjs::initializeDatabase` consumption in this daemon's `start()`
- * path. Resolves #12012 (orchestrator hard-exit on missing sqlite in fresh
- * `npx-neo-app` workspaces).
+ * path for fresh `npx-neo-app` workspaces with missing sqlite files.
  *
- * **Behavior contract** (per #12012 Contract Ledger):
+ * **Behavior contract**:
  * - Fresh workspace with absent sqlite path → creates the directory + opens the
  *   sqlite file + initializes the Memory Core graph schema (Nodes / Edges /
  *   GraphLog / triggers / SummarizationJobs), then returns the underlying
@@ -59,10 +58,10 @@ import {
  *   re-create; `initSchema()` self-skips when schema is already valid).
  * - Invalid/malformed dbPath → throws (orchestrator-scoped; lane-isolated
  *   failure-recovery in `start()`'s outer try handles it). **No `process.exit(1)`**
- *   from this path — that hard-exit semantic was the original #12012 symptom.
+ *   from this path — that hard-exit semantic was the original failure symptom.
  *
- * **Schema parity with Memory Core MCP first-boot** (#12012 Contract Ledger Row
- * 4): delegates to `ai/graph/storage/SQLite.mjs`'s self-bootstrap chain
+ * **Schema parity with Memory Core MCP first-boot**: delegates to
+ * `ai/graph/storage/SQLite.mjs`'s self-bootstrap chain
  * (`ensureDir` → open without `fileMustExist` → `initSchema()`), so the
  * orchestrator-bootstrapped schema is byte-equivalent to the MC-bootstrapped
  * schema. Day-2 workspaces where the user boots orchestrator before MC produce
@@ -82,7 +81,6 @@ import {
  * @returns {Promise<Object>} better-sqlite3 database handle, schema-initialized
  * @see ai/graph/storage/SQLite.mjs — shared schema-creation primitive
  * @see ai/daemons/bridge/queries.mjs — sibling strict-open primitive (preserved)
- * @see #12012 — issue tracking this fix
  */
 export async function initializeDatabaseSelfBootstrap(dbPath) {
     const storage = Neo.create(SQLite, {dbPath});
@@ -118,7 +116,7 @@ function resolveDeploymentEnabled(key) {
  * Resolves a cloud-deployment-aware boolean toggle from `AiConfig.orchestrator.cloudOnly[key]`.
  * Inverse of `resolveDeploymentEnabled`: `null` in cloudOnly means "use the deployment-profile
  * default" (cloud = enabled, local = disabled); explicit `true`/`false` overrides. Used for
- * lanes classified cloud-deployable per ADR 0014 (e.g. `tenant-repo-sync`).
+ * lanes classified cloud-deployable by the deployment policy (e.g. `tenant-repo-sync`).
  *
  * @param {String} key
  * @returns {Boolean}
@@ -465,7 +463,7 @@ export class Orchestrator extends Base {
             ? options.primaryDevSyncRootsConfig
             : AiConfig.orchestrator.devSyncRoots;
         this.maintenanceDeferralLogKeys = new Set();
-        // #12138 chroma max-runtime recycle: process-local (non-persisted) flags.
+        // Chroma max-runtime recycle: process-local (non-persisted) flags.
         // `_chromaDefragPending` gates the post-restart defrag; `_chromaDefragInFlight` prevents
         // poll re-entry during the readiness probe. The defrag is BEST-EFFORT: if the orchestrator
         // restarts after killTask but before the defrag fires, the flag is lost and the defrag is
@@ -650,7 +648,7 @@ export class Orchestrator extends Base {
 
             const state = this.taskStateService.getTaskState(taskName);
 
-            // Max-runtime recycle (#12138): kill an over-age chroma daemon (SIGKILL — chroma
+            // Max-runtime recycle: kill an over-age chroma daemon (SIGKILL — chroma
             // ignores SIGTERM) so the restart branch below respawns it; the KB defrag fires
             // once the fresh daemon is connection-ready. Implicitly gated by chromaDaemonEnabled
             // (chroma is only a continuousTask when that lane is enabled).
@@ -665,10 +663,10 @@ export class Orchestrator extends Base {
             // out-of-band (so the running flag never recovers and a process match would loop).
             this.processSupervisorService.superviseTask(taskName, now, RESTART_COOLDOWN_MS);
 
-            // Post-recycle defrag (#12138): once the restarted chroma is connection-ready, run
+            // Post-recycle defrag: once the restarted chroma is connection-ready, run
             // the unified-store-safe KB defrag against the fresh daemon. MC defrag is deferred
-            // (no rebuild-from-source fallback) to #12142. The in-flight guard prevents poll
-            // re-entry while the async readiness probe is pending.
+            // because it has no rebuild-from-source fallback. The in-flight guard prevents
+            // poll re-entry while the async readiness probe is pending.
             if (taskName === 'chroma' && state?.running && this._chromaDefragPending && !this._chromaDefragInFlight) {
                 this._chromaDefragInFlight = true;
                 this.probeChromaReady()
