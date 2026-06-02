@@ -8,7 +8,7 @@ import {
     chromaDeleteCollection,
     createSilentExecutor
 } from '../../shared/vector/chromaClientPrimitives.mjs';
-import {ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
+import {CHROMA_PRODUCTION_DATABASE, ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
 
 /**
  * Predicate suppression filter for MC: the four Chroma library messages that surface noisily
@@ -105,10 +105,25 @@ class ChromaManager extends AbstractVectorManager {
             throw new Error(message);
         }
 
+        const database = chroma.database;
+
+        // Fail-closed test-isolation guard: under UNIT_TEST_MODE the client must never resolve to the
+        // production database, even via a NEO_CHROMA_DATABASE override — refuse to construct/connect
+        // rather than risk a unit run touching the production namespace. Production override behavior
+        // remains intact outside UNIT_TEST_MODE.
+        if (process.env.UNIT_TEST_MODE === 'true' && database === CHROMA_PRODUCTION_DATABASE) {
+            const message = `ChromaManager: refusing the production database "${CHROMA_PRODUCTION_DATABASE}" under ` +
+                `UNIT_TEST_MODE — unit-test isolation must not be overridable into the production namespace.`;
+
+            logger.error(`[ChromaManager] Test-isolation guard: ${message}`);
+
+            throw new Error(message);
+        }
+
         return {
             host    : chroma.host,
             port,
-            database: chroma.database
+            database
         }
     }
 

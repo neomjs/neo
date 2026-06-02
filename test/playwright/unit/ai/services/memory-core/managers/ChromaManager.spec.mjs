@@ -73,6 +73,20 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(ChromaManager.client.database).not.toBe(CHROMA_PRODUCTION_DATABASE);
     });
 
+    test('resolveChromaClientConfig fails closed: refuses the production database under UNIT_TEST_MODE (#12335 AC1)', () => {
+        // The spec runs with UNIT_TEST_MODE=true. Even an inherited NEO_CHROMA_DATABASE=default_database
+        // override must not let a unit run resolve into the production namespace — the resolver throws
+        // fail-closed before any ChromaClient construct/connect, so no test can touch production.
+        expect(() => ChromaManager.resolveChromaClientConfig({
+            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_PRODUCTION_DATABASE}}
+        })).toThrow(/refusing the production database .* under\s+UNIT_TEST_MODE/);
+
+        // A normal isolated test database resolves cleanly (the guard only fires for the production name).
+        expect(ChromaManager.resolveChromaClientConfig({
+            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_TEST_DATABASE}}
+        }).database).toBe(CHROMA_TEST_DATABASE);
+    });
+
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
         // Set up a custom warn logger to inspect leaks
         const warningLogs = [];
