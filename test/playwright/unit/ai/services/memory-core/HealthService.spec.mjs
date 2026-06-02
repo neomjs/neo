@@ -17,6 +17,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import ChromaManager   from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import StorageRouter   from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
+import MailboxService  from '../../../../../../ai/services/memory-core/MailboxService.mjs';
 
 /**
  * @summary Coverage for the #10176 identity observability block in the healthcheck payload.
@@ -153,6 +157,147 @@ test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
         expect(block).toEqual(source);
         expect(block).not.toBe(source);
         expect(block.summary).not.toBe(source.summary);
+    });
+});
+
+/**
+ * @summary Coverage for the #12382 request-fresh cached healthcheck path.
+ *
+ * The live bug was in the healthy-cache fast path: direct healthcheck callers observed the cached
+ * payload's original `timestamp` and collection counts even after later writes. The tests patch the
+ * singleton collaborators to keep the path unit-fast while still exercising the public `healthcheck()`
+ * API instead of a detached helper.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#healthcheck
+ */
+test.describe('HealthService #12382 — cached healthcheck freshness', () => {
+    test.describe.configure({mode: 'serial'});
+
+    let HealthService;
+    let memoryCount;
+    let originalDateNow;
+    let originalGeminiApiKey;
+    let originals;
+    let summaryCount;
+    let summaryGetCalls;
+    let summaryUnavailableOnCall;
+
+    const makeCollection = countGetter => ({
+        count: async () => countGetter(),
+        get  : async () => ({ids: [], metadatas: []})
+    });
+
+    test.beforeAll(async () => {
+        HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        originalDateNow    = Date.now;
+        originalGeminiApiKey = process.env.GEMINI_API_KEY;
+        memoryCount        = 10;
+        summaryCount       = 20;
+        summaryGetCalls    = 0;
+        summaryUnavailableOnCall = null;
+
+        const memoryCollection  = makeCollection(() => memoryCount);
+        const summaryCollection = makeCollection(() => summaryCount);
+
+        originals = {
+            chromaConnected         : ChromaManager.connected,
+            chromaReady             : ChromaManager.ready,
+            chromaConnect           : ChromaManager.connect,
+            getMemoryCollection     : StorageRouter.getMemoryCollection,
+            getSummaryCollection    : StorageRouter.getSummaryCollection,
+            getDatabaseStatus       : ChromaLifecycleService.getDatabaseStatus,
+            getHealthcheckPreview   : MailboxService.getHealthcheckPreview
+        };
+
+        ChromaManager.connected = true;
+        ChromaManager.ready     = async () => {};
+        ChromaManager.connect   = async () => {
+            ChromaManager.connected = true;
+            return true;
+        };
+
+        StorageRouter.getMemoryCollection = async () => memoryCollection;
+        StorageRouter.getSummaryCollection = async () => {
+            summaryGetCalls++;
+            return summaryGetCalls === summaryUnavailableOnCall ? null : summaryCollection
+        };
+
+        ChromaLifecycleService.getDatabaseStatus = () => ({running: true});
+        MailboxService.getHealthcheckPreview     = async () => ({unreadCount: 0, latestPreview: null});
+        process.env.GEMINI_API_KEY               = 'unit-test-key';
+
+        HealthService.clearCache();
+    });
+
+    test.afterEach(() => {
+        Date.now = originalDateNow;
+
+        if (originalGeminiApiKey === undefined) {
+            delete process.env.GEMINI_API_KEY;
+        } else {
+            process.env.GEMINI_API_KEY = originalGeminiApiKey;
+        }
+
+        ChromaManager.connected = originals.chromaConnected;
+        ChromaManager.ready     = originals.chromaReady;
+        ChromaManager.connect   = originals.chromaConnect;
+        StorageRouter.getMemoryCollection      = originals.getMemoryCollection;
+        StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
+        ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
+        MailboxService.getHealthcheckPreview     = originals.getHealthcheckPreview;
+
+        HealthService.clearCache();
+    });
+
+    test('direct healthcheck refreshes cached timestamp and collection counts without mutating the cache', async () => {
+        const cached = await HealthService.healthcheck();
+
+        expect(cached.status).toBe('healthy');
+        expect(cached.database.connection.collections.memories.count).toBe(10);
+        expect(cached.database.connection.collections.summaries.count).toBe(20);
+
+        memoryCount  = 11;
+        summaryCount = 21;
+
+        const requestNow = originalDateNow() + 60_000;
+        Date.now = () => requestNow;
+
+        const fresh = await HealthService.healthcheck();
+
+        expect(fresh.timestamp).toBe(new Date(requestNow).toISOString());
+        expect(fresh.database.connection.collections.memories).toMatchObject({exists: true, count: 11});
+        expect(fresh.database.connection.collections.summaries).toMatchObject({exists: true, count: 21});
+
+        expect(fresh).not.toBe(cached);
+        expect(fresh.database).not.toBe(cached.database);
+        expect(fresh.database.connection).not.toBe(cached.database.connection);
+        expect(cached.database.connection.collections.memories.count).toBe(10);
+        expect(cached.database.connection.collections.summaries.count).toBe(20);
+
+        const ensureHealthyFastPath = await HealthService.healthcheck({freshObservability: false});
+        expect(ensureHealthyFastPath).toBe(cached);
+        expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
+    });
+
+    test('unhealthy cached-refresh shape clears cache and falls through to a full healthcheck', async () => {
+        const cached = await HealthService.healthcheck();
+
+        expect(cached.database.connection.collections.summaries.count).toBe(20);
+
+        memoryCount  = 12;
+        summaryCount = 22;
+        summaryUnavailableOnCall = summaryGetCalls + 1;
+        Date.now = () => originalDateNow() + 60_000;
+
+        const refreshed = await HealthService.healthcheck();
+
+        expect(refreshed.status).toBe('healthy');
+        expect(refreshed).not.toBe(cached);
+        expect(refreshed.database.connection.collections.memories.count).toBe(12);
+        expect(refreshed.database.connection.collections.summaries.count).toBe(22);
     });
 });
 
