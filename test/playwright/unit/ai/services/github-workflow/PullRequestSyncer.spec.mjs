@@ -30,6 +30,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
     let originalQuery;
     let originalSortedReleases;
     let originalVersionDirectoryPrefix;
+    let originalRouteByMilestone;
     let tmpRoot;
 
     test.beforeAll(async () => {
@@ -44,6 +45,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         originalQuery                  = GraphqlService.query.bind(GraphqlService);
         originalSortedReleases         = ReleaseNotesSyncer.sortedReleases;
         originalVersionDirectoryPrefix = aiConfig.issueSync.versionDirectoryPrefix;
+        originalRouteByMilestone       = aiConfig.issueSync.routeByMilestone;
     });
 
     test.beforeEach(async () => {
@@ -54,6 +56,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         aiConfig.issueSync.pullsDir               = path.join(tmpRoot, 'pulls');
         aiConfig.issueSync.contentRoot            = tmpRoot;
         aiConfig.issueSync.versionDirectoryPrefix = 'v';
+        aiConfig.issueSync.routeByMilestone       = false;
         ReleaseNotesSyncer.sortedReleases              = [];
     });
 
@@ -64,6 +67,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         aiConfig.issueSync.pullsDir               = originalPullsDir;
         aiConfig.issueSync.contentRoot            = originalContentRoot;
         aiConfig.issueSync.versionDirectoryPrefix = originalVersionDirectoryPrefix;
+        aiConfig.issueSync.routeByMilestone       = originalRouteByMilestone;
 
         await fs.remove(tmpRoot).catch(() => {});
     });
@@ -71,7 +75,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
     test('stale cached archiveVersion does not force a closed-post-latest-release PR into archive/pulls/v13.0.0 (#11364)', async () => {
         const prNumber = 12345;
 
-        // Pre-#11364 metadata pinned this PR to a v13.0.0 archive bucket via the
+        // Legacy metadata pinned this PR to a v13.0.0 archive bucket via the
         // `archiveVersion` carry-forward. With the carry-forward retired, archive placement
         // is derived fresh from real milestone/release logic — and a PR merged after the
         // latest release with no milestone must land ACTIVE, not in the stale v13.0.0 bucket.
@@ -113,7 +117,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await expect(fs.pathExists(activePath)).resolves.toBe(true);
         await expect(fs.pathExists(stalePath)).resolves.toBe(false);
         expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, activePath));
-        // `archiveVersion` is fully retired (#11364) — it is no longer written to metadata.
+        // `archiveVersion` is fully retired — it is no longer written to metadata.
         expect(metadata.pulls[prNumber].archiveVersion).toBeUndefined();
     });
 
@@ -148,6 +152,58 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         // Bucketed into the real release, NOT a title-derived garbage folder.
         await expect(fs.pathExists(releasePath)).resolves.toBe(true);
         await expect(fs.pathExists(garbagePath)).resolves.toBe(false);
+    });
+
+    test('routeByMilestone=false ignores semver milestones and keeps post-latest merged PRs active', async () => {
+        const prNumber = 3288;
+        const pr = buildPullRequest(prNumber);
+        pr.milestone = {title: 'v99.0.0'};
+        await fs.ensureDir(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v99.0.0'));
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [pr],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats       = await PullRequestSyncer.syncPullRequests({pulls: {}});
+        const activePath  = path.join(aiConfig.issueSync.contentRoot, 'pulls', 'chunk-1', `pr-${prNumber}.md`);
+        const archivePath = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'v99.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.synced).toEqual([prNumber]);
+        await expect(fs.pathExists(activePath)).resolves.toBe(true);
+        await expect(fs.pathExists(archivePath)).resolves.toBe(false);
+    });
+
+    test('routeByMilestone=true only routes semver milestones into already-cut archive buckets', async () => {
+        const missingBucketPr = buildPullRequest(3289);
+        missingBucketPr.milestone = {title: 'v99.0.0'};
+
+        const cutBucketPr = buildPullRequest(3290);
+        cutBucketPr.milestone = {title: 'v98.0.0'};
+
+        aiConfig.issueSync.routeByMilestone = true;
+        await fs.ensureDir(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v98.0.0'));
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [missingBucketPr, cutBucketPr],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats             = await PullRequestSyncer.syncPullRequests({pulls: {}});
+        const missingActivePath = path.join(aiConfig.issueSync.contentRoot, 'pulls', 'chunk-1', `pr-${missingBucketPr.number}.md`);
+        const cutArchivePath    = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'v98.0.0', 'chunk-1', `pr-${cutBucketPr.number}.md`);
+
+        expect(stats.synced).toEqual([missingBucketPr.number, cutBucketPr.number]);
+        await expect(fs.pathExists(missingActivePath)).resolves.toBe(true);
+        await expect(fs.pathExists(cutArchivePath)).resolves.toBe(true);
     });
 
     test('delta cutoff stops PR pagination once a batch predates the cached high-water mark (#12190)', async () => {

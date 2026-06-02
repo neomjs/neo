@@ -1,6 +1,7 @@
 import aiConfig                                      from '../../../mcp/server/github-workflow/config.mjs';
 import Base                                          from '../../../../src/core/Base.mjs';
 import crypto                                        from 'crypto';
+import {existsSync}                                  from 'fs';
 import fs                                            from 'fs/promises';
 import logger                                        from '../../../mcp/server/github-workflow/logger.mjs';
 import matter                                        from 'gray-matter';
@@ -62,6 +63,44 @@ class IssueSyncer extends Base {
      */
     #calculateContentHash(content) {
         return crypto.createHash('sha256').update(content).digest('hex');
+    }
+
+    /**
+     * @summary Resolves a closed issue's release-date bucket.
+     * @param {String} closedAt GitHub close timestamp.
+     * @returns {String|null} Version bucket, or null when no cut release follows the close date.
+     * @private
+     */
+    #deriveClosedAtVersion(closedAt) {
+        const closed  = new Date(closedAt);
+        const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+
+        if (!release) return null;
+
+        return release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+            ? release.tagName
+            : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+    }
+
+    /**
+     * @summary Resolves an opt-in milestone archive bucket without pre-staging future releases.
+     * @param {Object} issue GitHub issue node or cached issue entry.
+     * @returns {String|null} Existing milestone bucket, or null when disabled, invalid, or uncut.
+     * @private
+     */
+    #deriveMilestoneVersion(issue) {
+        const title = issue.milestone?.title;
+
+        if (!issueSyncConfig.routeByMilestone || !title || !semver.valid(semver.clean(title))) {
+            return null;
+        }
+
+        const candidate = title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+            ? title
+            : issueSyncConfig.versionDirectoryPrefix + title;
+        const archiveDir = path.join(issueSyncConfig.archiveRoot, 'issues', candidate);
+
+        return existsSync(archiveDir) ? candidate : null;
     }
 
     /**
@@ -313,7 +352,8 @@ class IssueSyncer extends Base {
                 state: issue.state,
                 milestone: issue.milestone ? { title: issue.milestone } : null,
                 closedAt: issue.closedAt,
-                oldVersion
+                oldVersion,
+                fromFetched: false
             });
         }
 
@@ -336,13 +376,15 @@ class IssueSyncer extends Base {
                 existing.state = issue.state;
                 existing.milestone = issue.milestone;
                 existing.closedAt = issue.closedAt;
+                existing.fromFetched = true;
             } else {
                 combined.set(issue.number, {
                     number: issue.number,
                     state: issue.state,
                     milestone: issue.milestone,
                     closedAt: issue.closedAt,
-                    oldVersion: null
+                    oldVersion: null,
+                    fromFetched: true
                 });
             }
         }
@@ -353,14 +395,7 @@ class IssueSyncer extends Base {
         for (const issue of combined.values()) {
             let version = null;
             if (issue.state === 'CLOSED') {
-                // Treat a milestone as a version bucket ONLY when its title is valid semver. A
-                // descriptive milestone (e.g. "neo.d.ts - Typescript definitions") must not become
-                // a version folder; non-semver milestones fall through to closedAt→release resolution.
-                if (issue.milestone?.title && semver.valid(semver.clean(issue.milestone.title))) {
-                    version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                        ? issue.milestone.title
-                        : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
-                } else if (!ignoreOldVersion && issue.oldVersion && semver.valid(semver.clean(issue.oldVersion)) !== null) {
+                if (!issue.fromFetched && !ignoreOldVersion && issue.oldVersion && semver.valid(semver.clean(issue.oldVersion)) !== null) {
                     // Use cached path-derived version when present and valid semver. Unchanged closed
                     // issues seeded from existing serialized metadata may lack milestone data but still
                     // have a known on-disk bucket via oldVersion. Skipping closedAt timestamp inference
@@ -368,13 +403,15 @@ class IssueSyncer extends Base {
                     // path is the canonical bucket when no milestone data exists.
                     version = issue.oldVersion;
                 } else if (issue.closedAt) {
-                    const closed = new Date(issue.closedAt);
-                    const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
-                    if (release) {
-                        version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                            ? release.tagName
-                            : issueSyncConfig.versionDirectoryPrefix + release.tagName;
-                    }
+                    version = this.#deriveClosedAtVersion(issue.closedAt);
+                }
+
+                if (!version) {
+                    version = this.#deriveMilestoneVersion(issue);
+                }
+
+                if (!version && !ignoreOldVersion && issue.oldVersion && semver.valid(semver.clean(issue.oldVersion)) !== null) {
+                    version = issue.oldVersion;
                 }
             }
 
@@ -529,7 +566,7 @@ class IssueSyncer extends Base {
                     cursor,
                     states          : ['OPEN', 'CLOSED'],
                     // Clean-slate sync (`metadata.lastSync === null`) must traverse the full repo
-                    // history per ADR 0004. Falling back to the normal syncStartDate would miss old
+                    // history per ADR 0004 (ticket-ref-ok: file-owned decision record). Falling back to the normal syncStartDate would miss old
                     // issues that have not been touched since that date. Use an explicit pre-Neo date,
                     // then let droppedLabels and maxIssues caps trim the actual processed set.
                     since           : metadata.lastSync || '2017-01-01T00:00:00Z',
