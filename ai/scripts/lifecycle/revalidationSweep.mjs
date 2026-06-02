@@ -106,7 +106,7 @@ export function parseArgs(argv) {
 /**
  * @summary Resolve the representative AgentIdentity record for a model family.
  *
- * Same-family sibling identities make model-family membership one-to-many.
+ * Multiple same-family identities make model-family membership one-to-many.
  * Revalidation notifications still need a single family representative when a
  * family has exactly one active identity and one or more inactive / pending
  * identities. If multiple active identities exist, the sweep refuses to choose

@@ -121,11 +121,11 @@ export const IDENTITIES = [
     {
         id: '@neo-claude-opus',
         type: 'AgentIdentity',
-        name: 'Claude Opus Sibling',
-        description: 'Second Anthropic Claude-family generalist maintainer identity reserved for sibling activation.',
+        name: 'Neo Claude Opus',
+        description: 'Anthropic Claude-family generalist maintainer identity reserved for activation.',
         properties: {
             githubLogin: '@neo-claude-opus',
-            displayName: 'Claude Opus Sibling',
+            displayName: 'Neo Claude Opus',
             modelFamily: 'claude',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
@@ -139,17 +139,17 @@ export const IDENTITIES = [
                 reviewSemantics: {
                     modelFamily                  : 'claude',
                     crossFamilyApprovalQualified : false,
-                    rationale                    : 'Same-family Claude siblings add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-authored PRs.'
+                    rationale                    : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-authored PRs.'
                 },
                 memoryContinuity: {
                     policy             : 'hybrid-team-readable',
                     readScope           : 'team',
                     writeProvenance     : 'separate-agent-identity',
                     sessionSummaries    : 'separate-agent-identity',
-                    rationale           : 'The sibling may read shared team context, but all memories and summaries remain authored by @neo-claude-opus so long-run continuity and provenance do not collapse into @neo-opus-4-7.'
+                    rationale           : '@neo-claude-opus may read shared team context, but all memories and summaries remain authored by @neo-claude-opus so long-run continuity and provenance do not collapse into @neo-opus-4-7.'
                 },
                 activationPrerequisites: [
-                    'Operator creates the @neo-claude-opus GitHub account or updates this root to the actual sibling login.',
+                    'Operator creates the @neo-claude-opus GitHub account or updates this root to the final maintainer login.',
                     'A minimal identity-specific wake route is defined and verified before participationStatus flips to active.'
                 ]
             },
@@ -168,13 +168,13 @@ export const IDENTITIES = [
             releaseDate       : '2026-04-16',
             pricingInput      : 5.00,
             pricingOutput     : 25.00,
-            swarmRole         : 'Pending same-family Claude generalist maintainer identity; no active routing, quorum participation, or review coverage until activation.',
+            swarmRole         : 'Pending Claude-family generalist maintainer identity; no active routing, quorum participation, or review coverage until activation.',
             sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus : 'temporarily_unreachable',
             statusReason        : 'Operator-created GitHub account and identity-specific wake route pending; identity root is seeded so mailbox, provenance, and review-family semantics are stable before activation.',
             authority           : '@tobiu',
             since               : '2026-06-02T21:35:48.405Z',
-            reactivationTrigger : 'Operator creates the sibling GitHub account and a minimal identity-specific wake route is verified; then flip participationStatus to active.',
+            reactivationTrigger : 'Operator creates the @neo-claude-opus GitHub account and a minimal identity-specific wake route is verified; then flip participationStatus to active.',
             createdAt           : new Date().toISOString()
         }
     },

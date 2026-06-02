@@ -922,7 +922,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(inbox.messages[0].subject).toBe('direct ping');
         });
 
-        test('Claude sibling routes by canonical identity while family alias stays ambiguous', async () => {
+        test('additional Claude identity routes by canonical identity while family alias stays ambiguous', async () => {
             GraphService.upsertNode({
                 id        : '@neo-opus-4-7',
                 type      : 'AgentIdentity',
@@ -932,7 +932,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             GraphService.upsertNode({
                 id        : '@neo-claude-opus',
                 type      : 'AgentIdentity',
-                name      : 'Claude Opus Sibling',
+                name      : 'Neo Claude Opus',
                 properties: {accountType: 'agent', modelFamily: 'claude'}
             });
 
@@ -943,14 +943,14 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             await RequestContextService.run({ agentIdentityNodeId: '@neo-opus-4-7' }, async () => {
                 const res = await MailboxService.addMessage({
                     to     : '@neo-claude-opus',
-                    subject: 'sibling direct ping',
-                    body   : 'Canonical same-family sibling address must remain routable.'
+                    subject: 'additional Claude direct ping',
+                    body   : 'Canonical same-family Claude address must remain routable.'
                 });
 
                 expect(res.status).toBe('sent');
                 await expect(MailboxService.addMessage({
                     to     : 'AGENT:claude/opus',
-                    subject: 'ambiguous sibling ping',
+                    subject: 'ambiguous Claude ping',
                     body   : 'Family alias must fail closed once two Claude identities exist.'
                 })).rejects.toThrow(/Ambiguous 'to' alias.*modelFamily='claude'/);
             });
@@ -959,7 +959,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 return await MailboxService.listMessages({ box: 'inbox' });
             });
 
-            expect(inbox.messages.map(message => message.subject)).toContain('sibling direct ping');
+            expect(inbox.messages.map(message => message.subject)).toContain('additional Claude direct ping');
         });
 
         test('`AGENT:@login` prefixed form normalizes to bare `@login` SENT_TO target', async () => {

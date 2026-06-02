@@ -133,7 +133,7 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             expect(identity.id).toBe('@neo-opus-4-7');
         });
 
-        test('prefers the active Claude identity while sibling activation is pending', () => {
+        test('prefers the active Claude identity while another Claude activation is pending', () => {
             const claudeIdentities = IDENTITIES.filter(identity =>
                 identity.type === 'AgentIdentity' &&
                 identity.properties?.modelFamily === 'claude'
