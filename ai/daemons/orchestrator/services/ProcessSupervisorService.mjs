@@ -619,7 +619,7 @@ export class ProcessSupervisorService extends Base {
     /**
      * Recycles a supervised task: SIGKILLs its tracked process (no-op under UNIT_TEST_MODE)
      * and marks it recycled so the poll loop respawns a fresh one. Used by the chroma
-     * max-runtime recycle (#12138). Safe when no pid is currently tracked (e.g. already exited).
+     * max-runtime recycle. Safe when no pid is currently tracked (e.g. already exited).
      * @param {String} taskName
      * @param {String} reason
      * @returns {void}
