@@ -41,10 +41,9 @@
  *     }
  *
  * **In-flight lock integration:** when a `sunset_restart` or `idle_out_nudge`
- * action is in flight (per `inflightLock.mjs`), the corresponding signal
- * downgrades to `false` — the substrate is already mid-recovery; no second
- * dispatch needed. This is the data-layer mutex that prevents the runaway-spawn
- * pattern documented in `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`.
+ * action is in flight, the corresponding signal downgrades to `false`; the
+ * substrate is already mid-recovery, so no second dispatch is needed. This
+ * data-layer mutex prevents duplicate recovery dispatches.
  *
  * `AGENT_MEMORY` rows are read for origin-session extraction (so the
  * fresh-session-spawn boot prompt can carry the prior session ID for Memory
@@ -55,7 +54,7 @@
  * @see ai/daemons/SwarmHeartbeatService.mjs — primary consumer of detector output
  * @see ai/scripts/lifecycle/resumeHarness.mjs       — sunset-mode action dispatcher
  * @see ai/scripts/lifecycle/trioWakeCooldown.mjs    — idle-out-mode action dispatcher
- * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — pre-fix forensic context
+ * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — wake-recovery failure-mode background
  */
 import Neo from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';
@@ -84,9 +83,8 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
 
-    // 1. Query ALL subscriptions for this identity (regardless of status) so the
-    //    detector can emit a structured `subscription_status` field rather than
-    //    a binary "exists / doesn't exist".
+    // Query all subscriptions for this identity so the detector emits a structured
+    // `subscription_status` field rather than a binary "exists / doesn't exist".
     const allSubsStmt = db.prepare(`
         SELECT json_extract(data, '$.properties.status')        as status,
                json_extract(data, '$.properties.harnessTarget') as harnessTarget
@@ -96,11 +94,10 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     `);
     const allSubs = allSubsStmt.all(identity);
 
-    // Determine subscription_status with the same precedence the prior
-    // active-subs query encoded: 'active' wins over 'degraded'/'disabled'
-    // (an identity with both an active sub and a disabled one is operationally
-    // active). This preserves the sunset-detection discipline:
-    // subscription presence beats staleness as the authoritative signal.
+    // `active` wins over `degraded` / `disabled`: an identity with both an active
+    // subscription and an inactive one is operationally active. Subscription
+    // presence remains the authoritative sunset signal; memory staleness only
+    // feeds idle-out recovery.
     let subscriptionStatus;
     if (allSubs.length === 0) {
         subscriptionStatus = 'missing';
@@ -118,12 +115,10 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     }
     const subscriptionActive = subscriptionStatus === 'active';
 
-    // [Anchor & Echo] Option A: Upfront Bulk Migration for Legacy Rows
-    // Legacy AGENT_MEMORY rows lack a structured 'timestamp' property (time was embedded in 'name').
-    // If not migrated, 'ORDER BY COALESCE(timestamp, name)' falls back to 'name', and lexical
-    // sorting ('Memory: 2026-05...') always places legacy rows above fresh rows (which have pure ISO strings).
-    // Instead of probabilistic update-on-read (which blocks on the top-1 legacy row infinitely),
-    // we perform a deterministic bulk-migration of ALL legacy rows for the target identity before querying.
+    // Bulk-migrate legacy AGENT_MEMORY rows before querying so timestamp ordering
+    // is deterministic. Legacy rows store time in `name`; without migration,
+    // `ORDER BY COALESCE(timestamp, name)` can keep selecting the same older row
+    // ahead of fresh ISO-timestamped rows.
     const legacyStmt = db.prepare(`
         SELECT id,
                data,
@@ -152,16 +147,16 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
                         dataObj.properties.agentIdentity = identity;
                         updateStmt.run(JSON.stringify(dataObj), row.id);
                     } catch (err) {
-                        // Ignore unparseable legacy rows
+                        // Non-parseable legacy rows remain invisible to timestamp ordering.
                     }
                 }
             }
         })(legacyRows);
     }
 
-    // 2. Find last AGENT_MEMORY for this identity + extract origin session ID.
-    //    rows are `AGENT_MEMORY` (not `MEMORY`); identity tracks via `properties.userId`.
-    //    Now that legacy rows are migrated, ORDER BY timestamp works deterministically.
+    // Find the latest AGENT_MEMORY for this identity and extract its origin session.
+    // Rows use `AGENT_MEMORY` labels, and identity can be tracked via
+    // `properties.agentIdentity` or `properties.userId`.
     const memStmt = db.prepare(`
         SELECT json_extract(data, '$.properties.timestamp')   as timestampField,
                json_extract(data, '$.properties.sessionId')   as sessionIdField
@@ -178,16 +173,10 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     const memAgeMs        = lastMemTimeMs ? (Date.now() - lastMemTimeMs) : null;
     const lastMemoryAgeMin = memAgeMs !== null ? Math.round(memAgeMs / 60000) : null;
 
-    // 3. Compute the two signals via in-flight lock-aware logic.
-    //
-    // [Anchor & Echo] Sunset detection criterion: ONLY the explicit Unsubscribe primitive.
-    //
-    // Memory-staleness is NOT a sunset signal. See
-    // historical context in `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`).
-    // The authoritative sunset signal is the absence of an active
-    // `WAKE_SUBSCRIPTION`. Staleness is reflected in `idle_out_candidate`
-    // ONLY when paired with an active subscription, surfacing as a
-    // lower-authority "candidate in-place nudge" signal — never as sunset.
+    // Compute the two recovery signals with in-flight lock awareness. Absence of
+    // an active WAKE_SUBSCRIPTION is the authoritative sunset signal. Memory
+    // staleness is never a sunset signal; when paired with an active subscription,
+    // it only produces the lower-authority in-place idle-out nudge candidate.
 
     let sunset             = false;
     let idleOutCandidate   = false;
@@ -195,8 +184,8 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     let lockData           = null;
 
     if (!subscriptionActive) {
-        // Potential sunset path. Check in-flight lock first — if a sunset_restart
-        // is already in flight, downgrade to no-op so we don't spawn a second.
+        // Sunset path: if a restart is already in flight, downgrade to no-op so
+        // recovery stays single-dispatch.
         lockData = await checkInflightLock(identity, 'sunset_restart', lastMemTimeMs);
 
         if (lockData.inFlight) {
@@ -219,17 +208,16 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
         // else: nudge already in flight; emit no_action recommendation.
     }
 
-    // 4. Compute recommended_action — the single field the Orchestrator swarm-heartbeat
-    //    lane / trioWakeCooldown.mjs / resumeHarness.mjs consume to fork into the
-    //    right recovery path.
+    // `recommended_action` is the single branch field consumed by Orchestrator
+    // heartbeat recovery, trioWakeCooldown.mjs, and resumeHarness.mjs.
     let recommendedAction;
     if (sunset)                  recommendedAction = 'sunset_restart';
     else if (idleOutCandidate)   recommendedAction = 'idle_out_nudge';
     else                         recommendedAction = 'no_action';
 
-    // 5. Emit structured + backward-compat output. The legacy fields preserve
-    //    `sunsetted` / `reason` / `originSessionId` / `abandonedCount` for
-    //    consumers not yet migrated to the structured shape.
+    // Emit the structured contract plus backward-compatible fields consumed by
+    // callers that still read `sunsetted`, `reason`, `originSessionId`, or
+    // `abandonedCount`.
     return {
         identity,
         sunset,
