@@ -84,7 +84,16 @@ class Config extends BaseConfig {
              */
             authMiddleware: leaf(null),
             /**
-             * Base authentication configuration.
+             * Base authentication configuration for the SSE / HTTP transport.
+             *
+             * `mode` selects the authorization strategy:
+             * - `'oidc'` (default, production): OAuth 2.1 / OIDC bearer tokens validated via
+             *   RFC 7662 introspection, with `aud` audience enforcement and Protected-Resource-
+             *   Metadata advertisement.
+             * - `'gitlab-pat'`: a GitLab Personal Access Token (`read_user` scope) presented as the
+             *   bearer token, validated against `{gitlabApiBaseUrl}/api/v4/user`. No `aud` claim and
+             *   no PRM advertisement (a naked `401` on failure) — the lighter path for clients that
+             *   authenticate with a long-lived PAT from an env var instead of an OAuth dance.
              * @type {Object}
              */
             auth: {
@@ -94,7 +103,13 @@ class Config extends BaseConfig {
                 issuerUrl         : leaf(null, 'NEO_AUTH_ISSUER_URL', 'string'),
                 clientId          : leaf(null, 'NEO_OAUTH_CLIENT_ID', 'string'),
                 clientSecret      : leaf('', 'NEO_OAUTH_CLIENT_SECRET', 'string'),
-                trustProxyIdentity: leaf(false, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean')
+                trustProxyIdentity: leaf(false, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean'),
+                // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat'. See block doc above.
+                mode              : leaf('oidc', 'NEO_AUTH_MODE', 'string'),
+                // GitLab API base URL used by 'gitlab-pat' mode for token validation (self-managed configurable).
+                gitlabApiBaseUrl  : leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string'),
+                // Bounded TTL (seconds) for the per-token PAT validation cache → a revoked PAT clears within this window.
+                patCacheTtlSeconds: leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number')
             },
             /**
              * @summary Deployment-wide chat / generation model provider.
