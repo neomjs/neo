@@ -2,12 +2,24 @@
 
 This document provides the Atlas-level mechanics for executing the Age / Successor-Risk Audit Gate during Ticket Intake.
 
-## 1. Workflow-Derived Age Bands
-Do not use arbitrary hard-coded thresholds. Derive age bands from `.github/workflows/close-inactive-issues.yml` (`days-before-issue-stale` and `days-before-issue-close`).
+## 1. Workflow-Derived Bot-State Bands
+Do not use arbitrary hard-coded thresholds. Derive bot-state bands from `.github/workflows/close-inactive-issues.yml` (`days-before-issue-stale` and `days-before-issue-close`).
 
-- **pre-stale** (inactivity / `updatedAt` age < `days-before-issue-stale`): Standard duplicate and first-pass successor sweep. Record `createdAt` separately to distinguish same-day duplicates (hot context) from older-ticket successor-risk classification.
+These bands describe close-inactive automation risk only. They are NOT evidence that a ticket is architecturally current. A ticket can be stale-by-birth or stale after a short interval when newer PRs, tickets, Discussions, ADRs, operator corrections, or current source/docs/tests supersede its premise. Never cite `pre-stale` as a reason to skip successor, duplicate, existing-enforcement, or current-source checks.
+
+- **pre-stale** (inactivity / `updatedAt` age < `days-before-issue-stale`): Standard duplicate and first-pass successor sweep. Record `createdAt` separately to distinguish same-day duplicates and hot-context drift from older-ticket successor-risk classification.
 - **in-stale-window** (>= stale-days, < stale-days + close-days OR has `stale` label): Explicitly sweep newer PRs, tickets, and discussions before proceeding.
 - **post-stale-with-exemption** (>= stale-days + close-days AND has `no auto close` label): Operator-parked. Full successor sweep and escalation flag required.
+
+### 1.1 Short-Horizon Currency Check
+Before emitting `valid-as-written`, explicitly check for same-day or short-horizon successor evidence when any freshness trigger is present:
+
+- the ticket touches Agent OS substrate, skills, workflow templates, CI guards, config contracts, or ADR/Decision Record surfaces;
+- the ticket body cites recently landed rules, PRs, sibling layers, or active release work;
+- the operator or a peer has just corrected the premise, priority, or implementation shape;
+- the ticket was created during active swarm work where local/KB state can lag remote reality.
+
+If a newer artifact or current source state already solves or reshapes the failure mode, route to `already-resolved`, `superseded`, `duplicate`, `needs-narrowing`, or `invalid-or-negative-roi` instead of treating bot pre-stale status as low risk.
 
 ## 2. Missing Close-Link Sweep
 Explicitly check for merged PRs that completed the ticket but missed a GitHub close keyword (`Resolves #N`, `Closes #N`). A merged PR touching the target surface or mentioned in the conversation may mean the ticket is `already-resolved`. If you find one, you MUST cite the PR number, merged status, target surface touched, and issue/thread link as evidence.
