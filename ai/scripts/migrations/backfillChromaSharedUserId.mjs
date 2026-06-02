@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
  * @summary One-shot migration script that backfills `userId: 'shared'` metadata on
- * pre-#10145 ChromaDB records lacking the `userId` key, and promotes core-swarm session
+ * legacy ChromaDB records lacking the `userId` key, and promotes core-swarm session
  * summaries to the shared visibility contract.
  *
- * Context: #10556. The Multi-Tenant Identity rollout (#10145, #10000) added
+ * Context: the Multi-Tenant Identity rollout added
  * `where: {userId}` filters to all reads in `SummaryService` and `MemoryService`.
  * Per ChromaDB's documented filter semantics, records lacking the `userId` key
  * are invisible to ANY where-clause that mentions `userId` (no `$exists` operator).
- * Pre-#10145 records (812 summaries + ~9700 memories on the canonical instance)
+ * Legacy records (812 summaries + ~9700 memories on the canonical instance)
  * have no `userId` key, so they're silently filtered out for every stdio agent.
  *
  * The accompanying read-path change in this PR (`SHARED_USER_ID` sentinel +
@@ -36,8 +36,8 @@
  *   node ai/scripts/migrations/backfillChromaSharedUserId.mjs --session-only # tag only neo-agent-sessions
  *   node ai/scripts/migrations/backfillChromaSharedUserId.mjs --help
  *
- * @see #10556 — the Fat Ticket; ACs covered by this script + the read-path PR
- * @see #10017 — adjacent SQLite Native Edge Graph migration (different storage layer)
+ * @see ai/mcp/server/shared/services/RequestContextService.mjs
+ * @see ai/services/memory-core/SummaryService.mjs
  */
 
 import path from 'node:path';
