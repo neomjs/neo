@@ -8,7 +8,7 @@ import {buildGraphProvider, resolveGraphModelProvider} from '../../services/grap
  * @module ai/scripts/benchmark/keep-alive-probe
  * @summary Empirical V-B-A of Ollama / OpenAI-compat KV-cache reuse via `keep_alive`.
  *
- * **Why this exists** (Epic #12065 Sub 8 / #12074 Part B):
+ * **Why this exists**:
  *
  * V-B-A on the provider substrate (2026-05-27, branch `feature-12074-gemma4-bench`):
  * - `ai/provider/Ollama.mjs` promotes caller-supplied `keep_alive` to the top-level
