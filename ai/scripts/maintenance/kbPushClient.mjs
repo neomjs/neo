@@ -16,8 +16,8 @@ import ClientConfig   from '../../mcp/client/config.mjs';
  *
  * @summary Tenant-side repo-push client for the KB `ingest_source_files` MCP facade.
  *
- * This is the operator-facing invocation primitive for #11743's MCP-over-StreamableHTTP
- * path. Tenant hooks or CI jobs build a content-bearing ingestion envelope, then this
+ * This is the operator-facing invocation primitive for the MCP-over-StreamableHTTP path.
+ * Tenant hooks or CI jobs build a content-bearing ingestion envelope, then this
  * client connects to the cloud KB MCP `/mcp` endpoint with an automation identity token
  * and calls `ingest_source_files`. Large backfills remain the co-located
  * `ai:ingest-tenant` bulk CLI; this client intentionally preserves the MCP work-volume
@@ -31,8 +31,6 @@ import ClientConfig   from '../../mcp/client/config.mjs';
  * - `NEO_KB_MCP_TRANSPORT` - `streamable-http` (default) or `sse`.
  * - `NEO_KB_INGEST_TOKEN` - bearer token for the repo-push automation identity.
  * - `NEO_KB_TENANT_ID` / `NEO_KB_REPO_SLUG` - optional envelope defaults.
- *
- * @see https://github.com/neomjs/neo/issues/11743
  */
 
 const DEFAULT_TOKEN_ENV = 'NEO_KB_INGEST_TOKEN';

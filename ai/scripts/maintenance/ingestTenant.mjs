@@ -16,12 +16,12 @@ import {withHeavyMaintenanceLease}  from '../../daemons/orchestrator/services/He
 /**
  * @module ai/scripts/maintenance/ingestTenant
  *
- * @summary Phase 2C bulk-facade CLI (`npm run ai:ingest-tenant`) for Cloud-Native KB Ingestion.
+ * @summary Bulk-facade CLI (`npm run ai:ingest-tenant`) for Cloud-Native KB Ingestion.
  *
  * Streams `parsed-chunk-v1` JSONL records (one record per line) from a file or stdin into the
  * Knowledge Base via {@link Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService}. This is
- * the bulk data-plane counterpart to the `ingest_source_files` MCP small-batch facade (#11634):
- * initial tenant onboarding (5k–50k chunks) and large `git push` hook bursts exceed the #10572
+ * the bulk data-plane counterpart to the `ingest_source_files` MCP small-batch facade:
+ * initial tenant onboarding (5k–50k chunks) and large `git push` hook bursts exceed the
  * MCP work-volume gate (`aiConfig.mcpSyncMaxChunks`), so the CLI calls `ingestSourceFiles` with
  * `viaMcp: false` — an explicit opt-in to long-running bulk work that bypasses that gate.
  *
@@ -35,9 +35,6 @@ import {withHeavyMaintenanceLease}  from '../../daemons/orchestrator/services/He
  * module can be imported substrate-free by unit tests.
  *
  * Usage: `npm run ai:ingest-tenant -- <tenantId> (--from-file <path.jsonl> | --from-stdin) [--batch-size <n>]`
- *
- * @see https://github.com/neomjs/neo/issues/11635
- * @see https://github.com/neomjs/neo/issues/11624
  */
 
 const DEFAULT_BATCH_SIZE = 500;
@@ -203,7 +200,7 @@ async function ingestTenant() {
                 return runIngest({
                     records  : readJsonlRecords(input),
                     batchSize: args.batchSize,
-                    // Bulk path: viaMcp:false bypasses the #10572 work-volume gate (#11635 Phase 2C).
+                    // Bulk path: viaMcp:false bypasses the MCP work-volume gate for tenant-scale ingestion.
                     ingestFn : files => KB_IngestionService.ingestSourceFiles({tenantId: args.tenantId, files, viaMcp: false}),
                     onBatch  : (batchNumber, summary) => console.log(
                         `   batch ${batchNumber}: ${summary.ingested} ingested, ${summary.embeddingsGenerated} embedded` +
