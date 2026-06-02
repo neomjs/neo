@@ -922,7 +922,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(inbox.messages[0].subject).toBe('direct ping');
         });
 
-        test('#11821 Claude sibling routes by canonical identity while family alias stays ambiguous', async () => {
+        test('Claude sibling routes by canonical identity while family alias stays ambiguous', async () => {
             GraphService.upsertNode({
                 id        : '@neo-opus-4-7',
                 type      : 'AgentIdentity',
