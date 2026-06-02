@@ -1,7 +1,8 @@
 import {test, expect} from '@playwright/test';
 import {
-    isPurgeableTestCollection, partitionCollections, listAllCollectionNames, cleanDaemonSqliteResidue
+    isPurgeableTestCollection, partitionCollections, listAllCollectionNames, cleanDaemonSqliteResidue, dropTestDatabase
 } from '../../../../../../ai/scripts/maintenance/purgeTestCollections.mjs';
+import {CHROMA_TEST_DATABASE} from '../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 
 /**
  * Self-test for the test-collection purge: the on-demand reclaimer for leaked unit-test Chroma
@@ -88,5 +89,33 @@ test.describe('purgeTestCollections guard', () => {
 
         expect(removed.map(p => p.split('/').pop()).sort()).toEqual(['test-daemon-1.sqlite', 'wake-daemon-test-abc']);
         expect(removed.some(p => p.includes('memory-core-graph.sqlite'))).toBe(false)
+    });
+
+    test('dropTestDatabase dry-run does not invoke the drop seam', async () => {
+        const calls  = [];
+        const dropFn = async args => { calls.push(args) };
+
+        const result = await dropTestDatabase({host: 'h', port: 1, apply: false, dropFn, log: () => {}});
+
+        expect(calls).toEqual([]);
+        expect(result).toBe(true)
+    });
+
+    test('dropTestDatabase --apply drops the isolated test database wholesale', async () => {
+        const calls  = [];
+        const dropFn = async args => { calls.push(args) };
+
+        const result = await dropTestDatabase({host: 'h', port: 1, apply: true, dropFn, log: () => {}});
+
+        expect(calls).toEqual([{host: 'h', port: 1, database: CHROMA_TEST_DATABASE}]);
+        expect(result).toBe(true)
+    });
+
+    test('dropTestDatabase --apply reports false (not throw) when the test database is absent', async () => {
+        const dropFn = async () => { throw new Error('database not found') };
+
+        const result = await dropTestDatabase({host: 'h', port: 1, apply: true, dropFn, log: () => {}});
+
+        expect(result).toBe(false)
     })
 });

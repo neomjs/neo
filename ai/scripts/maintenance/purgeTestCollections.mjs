@@ -4,6 +4,10 @@ import fs                              from 'fs-extra';
 import path                            from 'path';
 import {fileURLToPath, pathToFileURL}  from 'url';
 import Neo                             from '../../../src/Neo.mjs'; // side-effect: defines globalThis.Neo so the memory-core config module evaluates
+import {
+    CHROMA_TEST_DATABASE,
+    dropChromaTestDatabase
+}                                     from '../../services/shared/vector/chromaTestIsolation.mjs';
 
 /**
  * @summary Purges leaked unit-test stores: orphaned `test-*` ChromaDB collections + leftover
@@ -179,6 +183,39 @@ export async function cleanDaemonSqliteResidue({dataDir, apply, fsModule = fs, l
 }
 
 /**
+ * @summary Drops the isolated unit-test Chroma database wholesale.
+ *
+ * Once `UNIT_TEST_MODE` routes test collections into their own database, the whole namespace is
+ * droppable in a single call — the prevention-era cleanup that supersedes enumerating `test-*`
+ * names. The underlying {@link dropChromaTestDatabase} refuses to touch `default_database`, so this
+ * can never reach production. Dry-run by default; a non-existent test database is treated as benign.
+ * @param {Object} options
+ * @param {String} options.host
+ * @param {Number} options.port
+ * @param {Boolean} options.apply
+ * @param {String} [options.database=CHROMA_TEST_DATABASE]
+ * @param {Function} [options.dropFn=dropChromaTestDatabase] Injectable drop seam for unit tests.
+ * @param {Function} [options.log=console.log]
+ * @returns {Promise<Boolean>} True if the database was dropped (apply) or would be (dry-run); false on a drop error.
+ */
+export async function dropTestDatabase({host, port, apply, database = CHROMA_TEST_DATABASE, dropFn = dropChromaTestDatabase, log = console.log}) {
+    log(`\n🗄️  Test database "${database}": ${apply ? 'dropping wholesale' : '[dry-run] would drop wholesale'}.`);
+
+    if (!apply) {
+        return true;
+    }
+
+    try {
+        await dropFn({host, port, database});
+        log(`   ✅ Dropped "${database}".`);
+        return true;
+    } catch (e) {
+        log(`   ⚠️  Could not drop "${database}" (already absent or unreachable): ${e.message}`);
+        return false;
+    }
+}
+
+/**
  * @summary Orchestrates the purge: list → partition → (dry-run report | delete) → residue cleanup → verify.
  * @returns {Promise<void>}
  */
@@ -189,6 +226,7 @@ async function purgeTestCollections() {
         .option('--apply', 'Actually delete. Without this flag the script is a dry-run report.', false)
         .option('--host <host>', 'Chroma host override (defaults to memory-core config).')
         .option('--port <port>', 'Chroma port override (defaults to memory-core config).')
+        .option('--drop-test-db', `Also drop the isolated unit-test database "${CHROMA_TEST_DATABASE}" wholesale (prevention-era cleanup).`, false)
         .parse(process.argv);
 
     const options = program.opts(),
@@ -236,6 +274,10 @@ async function purgeTestCollections() {
     console.log(`\n🧽 SQLite-daemon residue under ${DATA_DIR}:`);
     const residue = await cleanDaemonSqliteResidue({dataDir: DATA_DIR, apply});
     if (residue.length === 0) console.log('   ✅ none found.');
+
+    if (options.dropTestDb) {
+        await dropTestDatabase({host, port, apply});
+    }
 
     if (!apply) {
         console.log(`\nℹ️  Dry-run complete. Re-run with --apply to delete ${purge.length} collections + ${residue.length} residue paths.`);

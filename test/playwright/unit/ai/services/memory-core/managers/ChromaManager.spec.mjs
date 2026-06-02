@@ -19,6 +19,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
 import aiConfig       from '../../../../../../../ai/mcp/server/memory-core/config.mjs';
 import ChromaManager  from '../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import {CHROMA_PRODUCTION_DATABASE, CHROMA_TEST_DATABASE} from '../../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 import logger         from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
 import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import path           from 'path';
@@ -43,6 +44,47 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         } finally {
             logger.error = originalError;
         }
+    });
+
+    test('resolveChromaClientConfig returns the configured database verbatim (no fallback substitution)', () => {
+        const resolved = ChromaManager.resolveChromaClientConfig({
+            engines: {chroma: {host: 'localhost', port: 8000, database: 'some-explicit-db'}}
+        });
+
+        expect(resolved).toEqual({host: 'localhost', port: 8000, database: 'some-explicit-db'});
+    });
+
+    test('under UNIT_TEST_MODE the Chroma database is isolated from production (#12335 AC1/AC2)', () => {
+        // The spec runs with unitTestMode:true, so the config leaf must resolve to the dedicated
+        // test database — never default_database — by construction. No crashed/npx-bypassed run can
+        // create collections in the production namespace because the client never points there.
+        expect(aiConfig.engines.chroma.database).toBe(CHROMA_TEST_DATABASE);
+        expect(aiConfig.engines.chroma.database).not.toBe(CHROMA_PRODUCTION_DATABASE);
+
+        // …and the resolver carries that isolated namespace through to the client coordinates.
+        const {database} = ChromaManager.resolveChromaClientConfig(aiConfig);
+        expect(database).toBe(CHROMA_TEST_DATABASE);
+    });
+
+    test('the constructed ChromaClient targets the isolated test database', () => {
+        // construct() wires resolveChromaClientConfig(...).database into `new ChromaClient({database})`,
+        // so the live client's database getter reflects the isolated namespace, not default_database.
+        expect(ChromaManager.client.database).toBe(aiConfig.engines.chroma.database);
+        expect(ChromaManager.client.database).not.toBe(CHROMA_PRODUCTION_DATABASE);
+    });
+
+    test('resolveChromaClientConfig fails closed: refuses the production database under UNIT_TEST_MODE (#12335 AC1)', () => {
+        // The spec runs with UNIT_TEST_MODE=true. Even an inherited NEO_CHROMA_DATABASE=default_database
+        // override must not let a unit run resolve into the production namespace — the resolver throws
+        // fail-closed before any ChromaClient construct/connect, so no test can touch production.
+        expect(() => ChromaManager.resolveChromaClientConfig({
+            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_PRODUCTION_DATABASE}}
+        })).toThrow(/refusing the production database .* under\s+UNIT_TEST_MODE/);
+
+        // A normal isolated test database resolves cleanly (the guard only fires for the production name).
+        expect(ChromaManager.resolveChromaClientConfig({
+            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_TEST_DATABASE}}
+        }).database).toBe(CHROMA_TEST_DATABASE);
     });
 
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
