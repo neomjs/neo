@@ -97,9 +97,9 @@ export function buildTaskDefinitions({
             pidFileName    : 'backup.pid',
             expectedCommand: 'backup.mjs'
         },
-        // One-shot KB defrag spawned by the chroma max-runtime recycle (#12138) once the
+        // One-shot KB defrag spawned by the chroma max-runtime recycle once the
         // freshly-restarted daemon is connection-ready. Unified-store-safe (rebuilds the KB
-        // collection, preserves MC segment dirs per #12140). NOT a continuousTask.
+        // collection, preserves Memory Core segment dirs). NOT a continuousTask.
         chromaDefrag: {
             label          : 'chroma defrag (knowledge-base)',
             command        : nodeBin,
