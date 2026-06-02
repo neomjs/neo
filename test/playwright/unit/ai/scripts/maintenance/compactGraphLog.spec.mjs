@@ -9,6 +9,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import {spawnSync}    from 'node:child_process';
 import Database       from 'better-sqlite3';
 import fs             from 'fs-extra';
 import path           from 'path';
@@ -147,6 +148,44 @@ test.describe('compactGraphLog maintenance guard', () => {
             expect(command.opts().bridgeStateFile).toBe(defaults.bridgeStateFile);
             expect(command.opts().wakeStateFile).toBe(defaults.wakeStateFile);
         });
+    });
+
+    test('standalone CLI bootstraps the Neo realm before loading runtime config', async () => {
+        insertGraphLogRows(3);
+        db.close();
+        db = null;
+
+        const runtimeConfigPath  = path.resolve(process.cwd(), 'ai/mcp/server/memory-core/config.mjs');
+        const templateConfigPath = path.resolve(process.cwd(), 'ai/mcp/server/memory-core/config.template.mjs');
+        const hadRuntimeConfig   = await fs.pathExists(runtimeConfigPath);
+
+        if (!hadRuntimeConfig) {
+            await fs.copy(templateConfigPath, runtimeConfigPath);
+        }
+
+        try {
+            const result = spawnSync('node', [
+                'ai/scripts/maintenance/compactGraphLog.mjs',
+                '--db', dbPath,
+                '--bridge-state-file', bridgeStateFile,
+                '--wake-state-file', wakeStateFile,
+                '--safety-margin', '1',
+                '--consumer-watermark', 'test=3'
+            ], {
+                cwd     : process.cwd(),
+                encoding: 'utf8',
+                env     : {...process.env, UNIT_TEST_MODE: 'true'}
+            });
+
+            expect(result.status).toBe(0);
+            expect(result.stderr).not.toContain('ReferenceError: Neo is not defined');
+            expect(result.stdout).toContain('GraphLog compaction DRY-RUN');
+            expect(result.stdout).toContain('eligible rows: 2');
+        } finally {
+            if (!hadRuntimeConfig) {
+                await fs.remove(runtimeConfigPath);
+            }
+        }
     });
 
     test('computes cutoff from the minimum known consumer watermark plus safety margin', () => {
