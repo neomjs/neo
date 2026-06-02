@@ -92,7 +92,7 @@ class Config extends BaseConfig {
              *
              * Tier-1 source of truth for model-consuming Agent OS lanes. Memory Core maps
              * this into its historical `modelProvider` key until runtime provider routing
-             * graduates from #10103 Sub-2. Supported values today: `gemini`,
+             * converges on one canonical key. Supported values today: `gemini`,
              * `openAiCompatible`.
              * @type {String}
              */
@@ -128,8 +128,8 @@ class Config extends BaseConfig {
             /**
              * @summary Deployment-wide Ollama provider defaults.
              *
-             * These are configuration defaults only. Runtime dispatch support for native
-             * `ollama` is owned by #10103 Sub-2.
+             * These are configuration defaults only. Native Ollama dispatch is enabled by
+             * runtime provider adapters that explicitly select the `ollama` provider.
              * @type {Object}
              */
             ollama: {
@@ -244,8 +244,8 @@ class Config extends BaseConfig {
             /**
              * @summary Deployment-wide storage engine coordinates.
              *
-             * `engines.chroma` is the unified Chroma topology from ADR 0003: ONE daemon, ONE persist
-             * dir, shared by Knowledge Base + Memory Core. `dataDir` is the fixed canonical persist dir
+             * `engines.chroma` is the unified Chroma topology: ONE daemon, ONE persist dir,
+             * shared by Knowledge Base + Memory Core. `dataDir` is the fixed canonical persist dir
              * read by both server configs + the `defragChromaDB` maintenance script; the local
              * orchestrator launches the daemon against the same fixed path. The leaf is named `unified`
              * (identical local + cloud) — it holds every realm (KB + MC + graph + sessions), so a
@@ -315,18 +315,18 @@ class Config extends BaseConfig {
                     dreamMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
                     /**
                      * Fraction of `dreamMs` runtime that triggers completion-time cooldown for the
-                     * next dream cycle. This is intentionally below the #12088 `cycleOverflowRatio > 1`
-                     * telemetry signal: it prevents tight reacquire windows before a cycle exceeds
-                     * the full cadence.
+                     * next dream cycle. This is intentionally below the cycle-overflow telemetry
+                     * signal: it prevents tight reacquire windows before a cycle exceeds the full
+                     * cadence.
                      */
                     dreamOverflowThreshold: leaf(0.8, 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', 'number'),
                     goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
                     swarmHeartbeatMs      : leaf(15 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number')
                 },
                 /**
-                 * Chroma daemon recycle policy (#12138). The orchestrator kills and respawns the
-                 * supervised Chroma daemon once its uptime exceeds `maxRuntimeMs`, then runs a
-                 * unified-store-safe defrag against the fresh daemon. `0` disables recycling.
+                 * Chroma daemon recycle policy. The orchestrator kills and respawns the supervised
+                 * Chroma daemon once its uptime exceeds `maxRuntimeMs`, then runs a unified-store-safe
+                 * defrag against the fresh daemon. `0` disables recycling.
                  * Env override: `NEO_CHROMA_MAX_RUNTIME_MS`. The lane is gated by
                  * `localOnly.chromaDaemonEnabled` — a no-op when Chroma is externally managed.
                  * @type {Object}
@@ -344,12 +344,11 @@ class Config extends BaseConfig {
                  */
                 swarmHeartbeat: {
                     /**
-                     * Resolver source enum. Tracked default is `'active-a2a-participants'`
-                     * per Discussion #11992 §5.1.1 "activity-derived signals" framing — the
-                     * pulse candidate set is auto-discovered from A2A `MESSAGE` activity
-                     * within the last 3h (sibling to the per-identity `active` signal). This
-                     * is per-MC-instance derived (no team-registry coupling), so external
-                     * workspaces only ever see their own MC's activity — tenant-safe.
+                     * Resolver source enum. Tracked default is `'active-a2a-participants'`:
+                     * the pulse candidate set is auto-discovered from A2A `MESSAGE` activity
+                     * within the last 3h (sibling to the per-identity `active` signal). This is
+                     * per-MC-instance derived (no team-registry coupling), so external workspaces
+                     * only ever see their own MC's activity — tenant-safe.
                      *
                      * Valid values: `'self'`, `'active-local-team'`, `'active-subscribers'`,
                      * `'active-a2a-participants'`, `'disabled'`. `null` falls through to
@@ -384,12 +383,12 @@ class Config extends BaseConfig {
                     primaryDevSyncEnabled          : leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
                     kbSyncEnabled                  : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
-                    // reaches the compose-owned `chroma` peer container instead (#12019).
+                    // reaches the compose-owned `chroma` peer container instead.
                     chromaDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
                     bridgeDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
                     goldenPathRepoEnrichmentEnabled: leaf(null, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', 'boolean'),
                     // `null` = use the deployment-profile default (local enables, cloud disables);
-                    // the swarm-heartbeat lane is the folded-in wake-substrate pulse (#11766).
+                    // the swarm-heartbeat lane emits wake-substrate pulses through bridge delivery.
                     swarmHeartbeatEnabled          : leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
                     // Reserved policy placeholder: no runtime consumer yet.
                     // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
@@ -404,9 +403,9 @@ class Config extends BaseConfig {
                  * @type {Object}
                  */
                 cloudOnly: {
-                    // tenant-repo-sync: cloud-deployable per ADR 0014 + #11740. Cloud
-                    // profile defaults enabled when tenant repos are configured; local
-                    // Neo-maintainer profile defaults disabled unless explicitly opted in.
+                    // Tenant-repo-sync is a cloud-deployable lane: cloud profile defaults enabled
+                    // when tenant repos are configured; local Neo-maintainer profile defaults
+                    // disabled unless explicitly opted in.
                     tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
                 },
                 /**
@@ -417,13 +416,14 @@ class Config extends BaseConfig {
                  */
                 devSyncRoots: leaf([], 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS', 'string'),
                 /**
-                 * Tenant-repo-sync per-repo scheduling parameters (#11942 AC1).
+                 * Tenant-repo-sync per-repo scheduling parameters.
                  *
                  * The cadence floor lives in `intervals.tenantRepoSyncMs` above (30min default).
                  * Per-repo cadence in `tenantRepos[].cadenceMs` (operator-set) overrides global.
                  *
                  * - `jitterRatio` caps the deterministic per-repo jitter offset as a fraction
-                 *   of the base cadence. Default `0.20` (≤20% of cadence per AC1 prescription).
+                 *   of the base cadence. Default `0.20` keeps jitter within the operator-visible
+                 *   cadence window.
                  *   Set `0` to disable jitter entirely (deterministic-cadence-only, no anti-
                  *   thundering-herd protection — only safe for low-tenant deployments).
                  * - `sweepCadenceMs` is the frequency at which the orchestrator wakes the
@@ -504,9 +504,9 @@ class Config extends BaseConfig {
                 },
                 /**
                  * Chroma defrag policy. Cadence here is operator policy only — no daemon
-                 * auto-spawns defrag from THIS value. (The one orchestrator path that auto-spawns
-                 * `ai:defrag-kb` is the #12138 max-runtime recycle, driven by
-                 * `orchestrator.chroma.maxRuntimeMs` — a distinct config, not this cadence.)
+                 * auto-spawns defrag from THIS value. The orchestrator's max-runtime recycle
+                 * path can auto-spawn `ai:defrag-kb`, driven by `orchestrator.chroma.maxRuntimeMs`;
+                 * that is a distinct config, not this cadence.
                  * @type {Object}
                  */
                 defrag: {
@@ -518,60 +518,61 @@ class Config extends BaseConfig {
                 }
             }),
             /**
-             * Knowledge Base operations configuration (Cloud-Native KB Ingestion, Epic #11624).
+             * Knowledge Base operations configuration for cloud-native ingestion, reconciliation,
+             * alerting, and garbage-collection policy.
              * @type {Object}
              */
             knowledgeBase: leaf({
                 /**
-                 * Phase 4D (#11642) — operator alert rules. Each entry is
-                 * `{metric, threshold, severity, channels, deliveryMode?}`; see the #11642
-                 * Contract Ledger. Empty by default — the alerting daemon no-ops with no rules.
+                 * Operator alert rules. Each entry is
+                 * `{metric, threshold, severity, channels, deliveryMode?}`. Empty by default —
+                 * the alerting daemon no-ops with no rules.
                  * @type {Object[]}
                  */
                 alertRules: [],
                 /**
-                 * Phase 4D (#11642) — master opt-in for the KB operator-alerting daemon.
+                 * Master opt-in for the KB operator-alerting daemon.
                  * Disabled by default; the daemon exits early when false.
                  * @type {Boolean}
                  */
                 alertingEnabled: false,
                 /**
-                 * Phase 4D (#11642) — alerting daemon poll interval in ms (default 15 min).
+                 * Alerting daemon poll interval in ms (default 15 min).
                  * @type {Number}
                  */
                 alertingIntervalMs: 15 * 60 * 1000,
                 /**
-                 * Phase 4D (#11642) — per-`(tenant, metric, severity, channel)` hysteresis
+                 * Per-`(tenant, metric, severity, channel)` hysteresis
                  * cooldown window in ms (default 1 h).
                  * @type {Number}
                  */
                 alertingCooldownMs: 60 * 60 * 1000,
                 /**
-                 * Phase 4D (#11642) — rolling look-back window in ms for the per-tenant
+                 * Rolling look-back window in ms for the per-tenant
                  * telemetry rollup the rule engine evaluates (default 1 h).
                  * @type {Number}
                  */
                 alertWindowMs: 60 * 60 * 1000,
                 /**
-                 * Phase 4B (#11640) — master opt-in for the KB reconciliation daemon.
+                 * Master opt-in for the KB reconciliation daemon.
                  * Disabled by default; the daemon exits early when false.
                  * @type {Boolean}
                  */
                 reconciliationEnabled: false,
                 /**
-                 * Phase 4B (#11640) — reconciliation daemon poll interval in ms (default 1 h).
+                 * Reconciliation daemon poll interval in ms (default 1 h).
                  * @type {Number}
                  */
                 reconciliationIntervalMs: 60 * 60 * 1000,
                 /**
-                 * Phase 4B (#11640) — opt-in for the destructive auto-tombstone reconciliation
+                 * Opt-in for the destructive auto-tombstone reconciliation
                  * action. Disabled by default — the daemon then detects config-stale chunks and
-                 * emits Phase 4A telemetry only, issuing no `collection.delete`.
+                 * emits config-stale telemetry only, issuing no `collection.delete`.
                  * @type {Boolean}
                  */
                 reconciliationAutoTombstone: false,
                 /**
-                 * Phase 4B (#11640) — config-version-gap threshold above which a config-stale
+                 * Config-version-gap threshold above which a config-stale
                  * chunk becomes auto-tombstone-eligible: a chunk is actioned when
                  * `currentConfigVersion - chunk.tenantConfigVersion >= this`. Default `2` gives
                  * one full config epoch of grace. Consulted only when `reconciliationAutoTombstone`.
@@ -579,18 +580,18 @@ class Config extends BaseConfig {
                  */
                 reconciliationOrphanVersionGap: 2,
                 /**
-                 * Phase 4C (#11641) — master opt-in for the KB garbage-collection daemon.
+                 * Master opt-in for the KB garbage-collection daemon.
                  * Disabled by default; the daemon exits early when false.
                  * @type {Boolean}
                  */
                 gcEnabled: false,
                 /**
-                 * Phase 4C (#11641) — GC daemon poll interval in ms (default 24 h).
+                 * GC daemon poll interval in ms (default 24 h).
                  * @type {Number}
                  */
                 gcIntervalMs: 24 * 60 * 60 * 1000,
                 /**
-                 * Phase 4C (#11641) — retention policy: `{maxAgeMs?, maxCount?}`. A chunk is
+                 * Retention policy: `{maxAgeMs?, maxCount?}`. A chunk is
                  * retention-expired if it is older than `maxAgeMs` (by its `ingestedAt` stamp) OR
                  * ranks beyond the `maxCount` most-recent of its `{tenantId, repoSlug}` bucket.
                  * Empty `{}` (the default) expires nothing — conservative.
@@ -598,14 +599,14 @@ class Config extends BaseConfig {
                  */
                 gcRetention: {},
                 /**
-                 * Phase 4C (#11641) — opt-in for the destructive GC delete. Disabled by default —
+                 * Opt-in for the destructive GC delete. Disabled by default —
                  * the daemon then detects retention-expired chunks and emits telemetry only,
                  * issuing no `collection.delete`.
                  * @type {Boolean}
                  */
                 gcAutoDelete: false,
                 /**
-                 * Phase 4C (#11641) — cumulative-deletion fraction above which a GC tick emits a
+                 * Cumulative-deletion fraction above which a GC tick emits a
                  * `defrag-recommended` signal (operators should then run `ai:defrag-kb`). `0`
                  * disables the signal. V1 emits the signal only — it does not spawn defrag.
                  * @type {Number}
