@@ -1,23 +1,17 @@
 /**
  * @summary Cross-adapter harness-process lifecycle primitive (PID tracking + termination).
  *
- * Owns the per-identity state-file format and termination logic so that all
- * `resumeHarness.mjs` adapter branches (claude-cli, antigravity-cli, future
- * codex-cli) consume a single primitive rather than duplicating cleanup logic.
+ * Owns the per-identity state-file format and termination logic for all
+ * `resumeHarness.mjs` adapter branches.
  *
- * Substrate-truth: harness restart spawns a fresh process for the recovering
- * identity. Without cleanup of the prior harness instance, repeated sunsets
- * accumulate stale processes and orphan windows. The OLD osascript Cmd+N
- * adapter did not have this surface because
- * Cmd+N spawned a new chat WITHIN the same app instance; the new CLI-based
- * adapters create distinct processes and DO need explicit cleanup.
+ * Harness restart spawns a fresh process for the recovering identity. Reaping
+ * the prior recorded process prevents repeated sunsets from accumulating stale
+ * processes and orphan windows.
  *
- * Per `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`, the
- * acute containment for runaway-spawn was the in-flight lock primitive
- * (`inflightLock.mjs`) — single-flight per identity at the START
- * of an action. This module is the dual: cleanup at the END of the
- * previous action's process when starting the next one.
+ * `inflightLock.mjs` is the start-of-action single-flight guard; this module
+ * is the end-of-action process reap before the next harness process starts.
  *
+ * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md
  * @see ai/scripts/lifecycle/inflightLock.mjs (sibling per-identity primitive)
  * @see ai/scripts/lifecycle/resumeHarness.mjs (consumer)
  */
@@ -34,7 +28,7 @@ function sanitize(identity) {
 
 /**
  * @summary Build the absolute state-file path for an identity.
- * Exposed for spec reach-in cleanup; consumers should use record/terminate APIs.
+ * Test cleanup uses this path; production consumers should use record/terminate APIs.
  */
 export function getStateFilePath(identity) {
     return path.join(STATE_DIR, `${sanitize(identity)}.json`);
@@ -44,8 +38,8 @@ export function getStateFilePath(identity) {
  * @summary Persist the spawned harness PID for the identity.
  *
  * Called by `resumeHarness.mjs` immediately after `child_process.spawn` returns
- * a process handle. The recorded PID is what the NEXT `resumeHarness` invocation
- * will SIGTERM during cleanup.
+ * a process handle. The next `resumeHarness` invocation terminates the recorded
+ * PID during cleanup.
  *
  * @param {string} identity        Agent identity (e.g. '@neo-opus-4-7').
  * @param {number} pid             Spawned process PID.
@@ -60,14 +54,14 @@ export async function recordHarnessProcess(identity, pid, spawnedAt = Date.now()
 /**
  * @summary Terminate the previously-spawned harness process for the identity.
  *
- * Called by `resumeHarness.mjs` BEFORE the adapter dispatch so the prior
- * process is reaped before the fresh process spawns. SIGTERM with grace
- * period, then SIGKILL probe.
+ * Called by `resumeHarness.mjs` before adapter dispatch so the prior process is
+ * reaped before the fresh process spawns. Sends SIGTERM, waits for the grace
+ * period, then probes before escalating to SIGKILL.
  *
- * Fail-safe behaviors:
- * - No prior state file → `{terminated: false, reason: 'no-prior-state'}` (first-run case)
- * - Process already dead (ESRCH) → `{terminated: false, reason: 'already-dead'}`
- * - Other kill error → `{terminated: false, reason: <error message>}`
+ * Fail-safe outcomes:
+ * - Missing state file: `{terminated: false, reason: 'no-prior-state'}`
+ * - ESRCH: `{terminated: false, reason: 'already-dead'}`
+ * - Other kill error: `{terminated: false, reason: <error message>}`
  *
  * @param {string} identity        Agent identity.
  * @param {object} [opts]
@@ -87,7 +81,6 @@ export async function terminatePreviousHarness(identity, { graceMs = 2000 } = {}
         process.kill(prev.pid, 'SIGTERM');
     } catch (e) {
         if (e.code === 'ESRCH') {
-            // Process already gone — clear stale state-file entry and return.
             try { await fs.unlink(file); } catch (_) { /* race-tolerant */ }
             return { terminated: false, reason: 'already-dead' };
         }
@@ -96,13 +89,13 @@ export async function terminatePreviousHarness(identity, { graceMs = 2000 } = {}
 
     await new Promise(resolve => setTimeout(resolve, graceMs));
 
-    // Probe: process.kill(pid, 0) throws ESRCH if dead; otherwise process is still alive.
+    // `process.kill(pid, 0)` throws ESRCH when the process is dead.
     let stillAlive = false;
     try {
         process.kill(prev.pid, 0);
         stillAlive = true;
     } catch (_) {
-        // ESRCH expected if SIGTERM caused exit during grace period.
+        // SIGTERM succeeded during the grace period.
     }
 
     if (stillAlive) {
