@@ -10,7 +10,7 @@ import {buildGraphProvider, resolveGraphModelProvider} from '../../services/grap
  *
  * **Why this exists**:
  *
- * V-B-A on the provider substrate (2026-05-27, branch `feature-12074-gemma4-bench`):
+ * V-B-A on the provider substrate:
  * - `ai/provider/Ollama.mjs` promotes caller-supplied `keep_alive` to the top-level
  *   native `/api/chat` payload and defaults to the configured keep-alive value.
  * - `ai/provider/OpenAiCompatible.mjs` sends top-level `keep_alive` for compatible
