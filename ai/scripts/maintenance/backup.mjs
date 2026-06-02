@@ -4,8 +4,8 @@ import path             from 'path';
 import {promisify}      from 'util';
 import {fileURLToPath}  from 'url';
 
-// Neo namespace bootstrap (entry-point invariant) — operator-runnable backup driver
-// + future BackupService spawn-child target. `Neo` + `core/_export` populate
+// Neo namespace bootstrap (entry-point invariant) for the operator-runnable backup driver.
+// `Neo` + `core/_export` populate
 // `globalThis.Neo`; `InstanceManager` binds Neo.find/findFirst/get aliases +
 // consumes pre-singleton `Neo.idMap`.
 import Neo              from '../../../src/Neo.mjs';
@@ -46,8 +46,9 @@ const execFileAsync = promisify(execFile);
  * orchestrator. Operators who want compacted backups chain commands at the shell layer:
  * `npm run ai:defrag-kb && npm run ai:backup`.
  *
- * All service calls route through `ai/services.mjs`, which applies Zod validation at the
- * SDK boundary via `makeSafe()` — no direct `ai/mcp/server/...` imports.
+ * Persistent-substrate service calls route through `ai/services.mjs`, which applies Zod
+ * validation at the SDK boundary via `makeSafe()`. MCP config singletons are imported
+ * only for backup coordinates and retention defaults.
  *
  * ## Retention Policy
  *
@@ -65,8 +66,8 @@ const execFileAsync = promisify(execFile);
  *   `graph-backup-*.jsonl`) — preserved as-is for archive / restore use. New bundles land in
  *   `backup-<ISO-ts>/` subfolders alongside them.
  * - Physical-copy directories at `dist/chromadb-backups/<target>/backup-<numeric-ts>/` — these
- *   remain **defrag-exclusive pre-nuke snapshots** (see `defragChromaDB.mjs` Phase 3 peer
- *   architecture note). They are orthogonal to this script's output.
+ *   remain **defrag-exclusive pre-nuke snapshots** under the defrag physical-copy
+ *   contract. They are orthogonal to this script's output.
  *
  * Operators who want to reclaim space can manually delete the legacy flat files or run
  * `defragChromaDB.cleanOldBackups` against `dist/chromadb-backups/<target>/`. No automated
@@ -126,7 +127,7 @@ export async function loadTopLevelAiConfig({
 }
 
 /**
- * Resolves atomic-bundle retention from Tier-1 AI config with legacy fallback.
+ * Resolves atomic-bundle retention from Tier-1 AI config with Memory Core fallback.
  * @param {Object} [options]
  * @param {Object} [options.aiConfig=AiConfig] Tier-1 AI config.
  * @param {Object} [options.memoryCoreConfig=mcConfig] Memory Core config fallback.
@@ -209,7 +210,7 @@ export async function runBackup({
     logger.log('[7/7] Applying retention sweep...');
     await loadTopLevelAiConfig();
     // Operator-configurable retention comes from Tier-1 AI maintenance policy when
-    // available. Missing keys fall through to legacy Memory Core config/defaults.
+    // available. Missing keys fall through to Memory Core config/defaults.
     await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger, resolveBackupRetention());
 
     logger.log('Verifying bundle integrity (row-count parity)...');
