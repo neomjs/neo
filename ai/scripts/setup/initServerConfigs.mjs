@@ -71,8 +71,12 @@ const MATERIALIZED_SERVER_IMPORTS = new Set([
  *   but kept as forward-compat surface — if templates evolve to add named-export
  *   blocks, the detector picks them up without code change.
  *
+ * - **Env-var literals**: UPPER_SNAKE string literals (the `env` arg of each `leaf(...)`). New
+ *   entries flag a template that added a config leaf — `data`-tree drift the import/export
+ *   projection cannot see. See the inline note in {@link projectSourceShape}.
+ *
  * @param {String} filePath  Absolute path to a readable `.mjs` file.
- * @returns {Promise<{imports: String[], exports: String[]}>}
+ * @returns {Promise<{imports: String[], exports: String[], envVars: String[]}>}
  */
 export function projectSourceShape(src) {
     const imports = [];
@@ -112,7 +116,18 @@ export function projectSourceShape(src) {
         .flatMap(m => m[1].split(',').map(s => s.trim()).filter(Boolean))
         .sort();
 
-    return {imports, exports}
+    // Env-var leaf projection. Every env-bound `leaf(default, 'NEO_FOO', type)` names its env var
+    // as an UPPER_SNAKE string literal. Projecting those literals lets the detector catch a template
+    // that added a NEW config leaf — a `data`-tree change the import/export projection is otherwise
+    // blind to (the dominant drift mode for non-import config evolution, e.g. a new auth mode flag) —
+    // without AST-parsing the nested data object. Dedup + sort for a stable shape. The UPPER_SNAKE
+    // shape excludes lowercase type tokens (`'string'`) and default values (`'oidc'`), so the
+    // projection isolates env names.
+    const envVars = [...new Set(
+        [...src.matchAll(/['"]([A-Z][A-Z0-9_]+)['"]/g)].map(m => m[1])
+    )].sort();
+
+    return {imports, exports, envVars}
 }
 
 export async function projectShape(filePath) {
@@ -152,6 +167,9 @@ export function isOnlyServerMaterializationDrift(drift) {
     return Boolean(
         drift.hasDrift &&
         drift.missingExports.length === 0 &&
+        // A new env-bound leaf (data-tree drift) needs the full template refresh, not an
+        // import-only patch — so env-var drift disqualifies the materialize-only fast path.
+        (drift.missingEnvVars?.length ?? 0) === 0 &&
         drift.missingImports.length > 0 &&
         drift.missingImports.every(i => MATERIALIZED_SERVER_IMPORTS.has(i))
     )
@@ -163,18 +181,21 @@ export function isOnlyServerMaterializationDrift(drift) {
  * config but not in template — operator-removed paths) is intentionally NOT
  * reported, since this is a one-way "template advanced, config stale" detector.
  *
- * @param {{imports: String[], exports: String[]}} templateShape
- * @param {{imports: String[], exports: String[]}} configShape
- * @returns {{missingImports: String[], missingExports: String[], hasDrift: Boolean}}
+ * @param {{imports: String[], exports: String[], envVars?: String[]}} templateShape
+ * @param {{imports: String[], exports: String[], envVars?: String[]}} configShape
+ * @returns {{missingImports: String[], missingExports: String[], missingEnvVars: String[], hasDrift: Boolean}}
  */
 export function detectDrift(templateShape, configShape) {
     const missingImports = templateShape.imports.filter(i => !configShape.imports.includes(i));
     const missingExports = templateShape.exports.filter(e => !configShape.exports.includes(e));
+    // `envVars` is optional on hand-built shapes (e.g. unit fixtures) → default to empty.
+    const missingEnvVars = (templateShape.envVars || []).filter(e => !(configShape.envVars || []).includes(e));
 
     return {
         missingImports,
         missingExports,
-        hasDrift: missingImports.length + missingExports.length > 0
+        missingEnvVars,
+        hasDrift: missingImports.length + missingExports.length + missingEnvVars.length > 0
     }
 }
 
@@ -259,6 +280,7 @@ export async function initConfigs({argv = process.argv, logger = console, server
             logger.warn(`[Neo AI] Stale config.mjs for '${serverName}' — template has evolved:`);
             drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
             drift.missingExports.forEach(e => logger.warn(`  + export: ${e}`));
+            drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
             logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
             processed.push({serverName, action: 'warn', drift});
         }
@@ -323,6 +345,7 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
     logger.warn('[Neo AI] Stale Tier-1 ai/config.mjs — template has evolved:');
     drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
     drift.missingExports.forEach(e => logger.warn(`  + export: ${e}`));
+    drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
     logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
 
     return {action: 'warn', drift}

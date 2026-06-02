@@ -343,7 +343,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
     test('same-source named import drift detected: template adds specifier to existing import block', async () => {
         // Empirical regression guard against the dominant config-template evolution mode
-        // (e.g., #10812 added `parseUrl` to the existing Env.mjs import block).
+        // (e.g., a template adding `parseUrl` to an existing Env.mjs import block).
         // Source path is unchanged, so source-path projection alone wouldn't catch it.
         const templateSrc = [
             `import path from 'path';`,
@@ -511,5 +511,98 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
         const shape = await projectShape(filePath);
         expect(shape.exports.sort()).toEqual(['first', 'only', 'second', 'third']);
+    });
+
+    test('env-var projection: leaf() UPPER_SNAKE env literals are projected, defaults/types are not (#12378)', async () => {
+        const src = [
+            `import {parsePort} from '../../../../src/util/Env.mjs';`,
+            `export default {auth: {`,
+            `    mode: leaf('oidc', 'NEO_AUTH_MODE', 'string'),`,
+            `    port: leaf(8080, 'NEO_AUTH_PORT', 'port'),`,
+            `    base: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')`,
+            `}};`,
+            ``
+        ].join('\n');
+        const filePath = path.join(workRoot, 'envvars.mjs');
+        fs.writeFileSync(filePath, src);
+
+        const shape = await projectShape(filePath);
+        expect(shape.envVars).toEqual(['NEO_AUTH_GITLAB_API_BASE_URL', 'NEO_AUTH_MODE', 'NEO_AUTH_PORT']);
+        // Lowercase default values + type tokens must NOT be mistaken for env vars.
+        expect(shape.envVars).not.toContain('oidc');
+        expect(shape.envVars).not.toContain('string');
+    });
+
+    test('detectDrift reports a new env-bound leaf as missingEnvVars (data-tree drift the import projection misses)', () => {
+        const templateShape = {imports: ['a'], exports: [], envVars: ['NEO_AUTH_HOST', 'NEO_AUTH_MODE']};
+        const configShape   = {imports: ['a'], exports: [], envVars: ['NEO_AUTH_HOST']};
+
+        const drift = detectDrift(templateShape, configShape);
+        expect(drift.hasDrift).toBe(true);
+        expect(drift.missingEnvVars).toEqual(['NEO_AUTH_MODE']);
+        expect(drift.missingImports).toEqual([]);
+        expect(drift.missingExports).toEqual([]);
+    });
+
+    test('a template that adds an env-bound config leaf warns the existing config (env drift)', async () => {
+        // Identical imports/exports — only a NEW leaf carrying NEO_AUTH_MODE is added. The
+        // import/export projection alone is blind to this; env-var projection catches it.
+        const templateSrc = [
+            `import {parsePort} from '../../../../src/util/Env.mjs';`,
+            `export default {auth: {host: leaf(null, 'NEO_AUTH_HOST', 'string'), mode: leaf('oidc', 'NEO_AUTH_MODE', 'string')}};`,
+            ``
+        ].join('\n');
+        const configSrc = [
+            `import {parsePort} from '../../../../src/util/Env.mjs';`,
+            `export default {auth: {host: leaf(null, 'NEO_AUTH_HOST', 'string')}};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'env-leaf-drift-warn',
+            templateContents: templateSrc,
+            configContents  : configSrc
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({argv: ['node', 'initServerConfigs.mjs'], logger, serversRoot: root});
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('warn');
+        expect(action.drift.missingEnvVars).toEqual(['NEO_AUTH_MODE']);
+        expect(logger.entries.warn.some(l => l.includes('+ env: NEO_AUTH_MODE'))).toBe(true);
+        // warn mode must not overwrite the operator config
+        expect(fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8')).toBe(configSrc);
+    });
+
+    test('env-leaf drift forces a full migrate (NOT the materialize-only fast path)', async () => {
+        // A config that BOTH still imports the Tier-1 TEMPLATE (materialization drift) AND lacks a
+        // new env leaf must take the full template refresh — the import-only fast path would leave
+        // the new leaf behind.
+        const templateSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: {host: leaf(null, 'NEO_AUTH_HOST', 'string'), mode: leaf('oidc', 'NEO_AUTH_MODE', 'string')}};`,
+            ``
+        ].join('\n');
+        const configSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: {host: leaf(null, 'NEO_AUTH_HOST', 'string')}};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'env-leaf-drift-migrate',
+            templateContents: templateSrc,
+            configContents  : configSrc
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({argv: ['node', 'initServerConfigs.mjs', '--migrate-config'], logger, serversRoot: root});
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('migrate');
+        expect(action.migration).toBeUndefined();   // NOT 'materialize-import-only'
+
+        const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
+        expect(onDisk).toBe(materializeServerConfigTemplate(templateSrc));
+        expect(onDisk).toContain('NEO_AUTH_MODE');
     });
 });
