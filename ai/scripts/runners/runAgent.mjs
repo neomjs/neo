@@ -19,9 +19,8 @@ async function startOrchestrator() {
     }
 }
 
-// Only run automatically if this is the main module
+// CLI entrypoint guard; tests can import helpers without launching the orchestrator.
 import { fileURLToPath } from 'url';
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     startOrchestrator();
 }
-
