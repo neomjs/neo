@@ -90,7 +90,7 @@ export async function runSandman({
     output           = console,
     exit             = code => process.exit(code)
 } = {}) {
-    // Enable debug logging to see progress
+    // Keep manual Sandman runs verbose so lease and REM progress are visible.
     Memory_Config.data.debug = true;
 
     output.log('⏳ Initializing Sandman REM Extraction Pipeline...');
