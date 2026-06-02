@@ -44,7 +44,7 @@ import {
  * - **Canonical SDK boundary only.** This script never reaches into `SQLiteVectorManager`,
  *   `ChromaManager`, or any other manager directly. All embedded-substrate writes go
  *   through `KB_DatabaseService` and `Memory_DatabaseService` so the destructive-operation
- *   guard (#10845) fires uniformly. The legacy `importBackupToSQLite.mjs` one-off, which
+ *   guard fires uniformly. The legacy `importBackupToSQLite.mjs` one-off, which
  *   did bypass the SDK, is retired alongside this script.
  * - **Pre-flight integrity validation BEFORE any write.** The bundle is fully validated —
  *   subdirs present, JSONL parseable, `bundle-meta.json` (if present) parsed — before any
@@ -58,16 +58,16 @@ import {
  *       backup-only IDs INSERT; live-existing IDs preserved (post-wipe re-ingestion stays
  *       authoritative). **Memory + summaries (Chroma)** preflight existing IDs in chunks
  *       via `collection.get({ids})` and `collection.add()` only the missing subset
- *       (#11144 parity with graph-side semantic). **Flat substrates** skip-if-target-non-empty
+ *       to mirror the graph-side semantic. **Flat substrates** skip-if-target-non-empty
  *       (preserves operator additions). No `--force` required.
- *       Per-#11141: graph-side preserve-live semantic was silently broken pre-#11141 (used
- *       `INSERT OR REPLACE`); 2026-05-10 graph-wipe incident was the empirical anchor.
+ *       The graph-side preserve-live semantic used to be silently broken by
+ *       `INSERT OR REPLACE`; the 2026-05-10 graph-wipe incident was the empirical anchor.
  *     - `--mode replace`: gated. Each embedded subsystem fires
  *       `assertDestructiveTargetAllowed()` before truncating + restoring. Flat substrates
  *       fire the guard against the target file/dir path before overwriting. Refuses if
  *       any target is non-empty without `--force`.
  *
- * - **Per-incident customization (#11141):**
+ * - **Per-incident customization:**
  *     - `--filter-labels=<csv>` — drop graph nodes with these labels (orphan-edge guard
  *       drops edges whose endpoint was filtered). Example: `FILE,DIRECTORY,KB_GAP,TOOLING_GAP`.
  *     - `--filter-edge-types=<csv>` — drop graph edges with these types. Example:
@@ -87,9 +87,8 @@ import {
  *   in the run summary for operator visibility, but no automatic migration is attempted.
  *
  * @see ai/scripts/maintenance/backup.mjs
- * @see https://github.com/neomjs/neo/issues/10871
- * @see https://github.com/neomjs/neo/issues/10845
- * @see https://github.com/neomjs/neo/issues/10129
+ * @see ai/mcp/server/shared/services/DestructiveOperationGuard.mjs
+ * @see ai/scripts/maintenance/defragChromaDB.mjs
  */
 
 const __filename   = fileURLToPath(import.meta.url);
@@ -115,8 +114,8 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
  * @param {String}  [options.conceptsTargetDir]            Override the default concepts target directory.
  * @param {String}  [options.trajectoriesTargetFile]       Override the default trajectories target file.
  * @param {String}  [options.sentToCullTargetFile]         Override the default sent-to-cull target file.
- * @param {String[]}[options.filterLabels=[]]              Per-incident #11141 customization: drop graph nodes with these labels. Orphan-edge guard auto-fires (drops edges whose endpoint was filtered). Empty list = no filter. Example today's-incident set: `['FILE', 'DIRECTORY', 'KB_GAP', 'TOOLING_GAP']` (FILE/DIRECTORY are regenerable via FileSystemIngestor; KB_GAP/TOOLING_GAP are operator-classified garbage from per-file hallucination).
- * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident #11141 customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
+ * @param {String[]}[options.filterLabels=[]]              Per-incident customization: drop graph nodes with these labels. Orphan-edge guard auto-fires (drops edges whose endpoint was filtered). Empty list = no filter. Example today's-incident set: `['FILE', 'DIRECTORY', 'KB_GAP', 'TOOLING_GAP']` (FILE/DIRECTORY are regenerable via FileSystemIngestor; KB_GAP/TOOLING_GAP are operator-classified garbage from per-file hallucination).
+ * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
  * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox']`). Null = all (existing behavior).
  * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
@@ -180,7 +179,7 @@ export async function runRestore({
 
     const subsystems = {};
 
-    // Per-substrate gate (#11141): null `onlySubstrate` = all subsystems (existing behavior).
+    // Per-substrate gate: null `onlySubstrate` = all subsystems (existing behavior).
     // Non-null array restricts to listed names. Validates against the known substrate set
     // so typos fail fast instead of silently no-op'ing the entire restore.
     const ALL_SUBSTRATES   = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox'];
@@ -213,7 +212,7 @@ export async function runRestore({
     }
 
     if (shouldRestore('graph') && await fs.pathExists(layout.graph)) {
-        // Apply per-incident filter (#11141): drop nodes/edges by label/type before SDK import.
+        // Apply per-incident filter: drop nodes/edges by label/type before SDK import.
         // Stream-filter into a temp dir matching the bundle layout. Idempotent on re-run.
         // Filter goes through the FK-safe Stage-1/2/3 algorithm (per @neo-gpt review).
         // Empty filter sets short-circuit to original layout.graph (no extra work / no live read).
@@ -286,7 +285,7 @@ export async function runRestore({
         });
     }
 
-    // Post-restore hook dispatch (#11141). Currently supported:
+    // Post-restore hook dispatch. Currently supported:
     //   - 'filesystem-ingestor': regenerates FILE/DIRECTORY/CONTAINS substrate from
     //     current filesystem state. Idempotent + deterministic. Recommended after a
     //     graph restore that filtered out FILE/DIRECTORY (avoids stale-path nodes
@@ -308,7 +307,7 @@ export async function runRestore({
  * Validates the bundle directory layout and JSONL parseability without writing any state.
  *
  * Required subdirs (`kb`, `mc`, `graph`, `concepts`, `trajectories`) MUST exist; missing
- * any one fails the bundle. Optional subdirs (`mailbox`, added in #10871 AC-A) are tolerated
+ * any one fails the bundle. Optional subdirs (`mailbox`) are tolerated
  * absent. JSONL files in any subdir are sample-parsed (first non-empty line) — full-file
  * parsing is the SDK's responsibility downstream. `bundle-meta.json` is parsed if present;
  * absence triggers a console warning but does not fail (legacy bundles).
@@ -396,7 +395,7 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
  * @returns {Promise<{bundleSharedTopology: Boolean|null, currentSharedTopology: Boolean, match: Boolean, forced: Boolean}>}
  */
 export async function checkTopology({meta, forceTopologyMismatch, logger}) {
-    // Post-#11011: We are permanently in unified mode.
+    // The restore path is permanently in unified mode.
     // If the bundle was taken under federated mode (chromaUnified=false), we should warn.
     const bundleChromaUnified  = meta?.topology?.chromaUnified;
     const bundleSharedTopology = meta?.topology?.shared_topology;
@@ -578,8 +577,7 @@ async function restoreFlatFile({sourceDir, targetFile, mode, force, confirmation
 }
 
 /**
- * #11141 — Pre-import filter for graph JSONL bundles. Three-stage FK-safe shape per
- * @neo-gpt's peer-review (commentId 4416007918):
+ * Pre-import filter for graph JSONL bundles. Three-stage FK-safe shape:
  *
  * **Stage 1** — Read ALL bundle JSONL files, classify each node as accepted (passed
  * labelSet) or dropped (matched labelSet). Build `acceptedBackupNodeIds` set.
@@ -605,7 +603,7 @@ async function restoreFlatFile({sourceDir, targetFile, mode, force, confirmation
  * @param {String}   options.sourceDir       Bundle's `graph/` directory containing JSONL files.
  * @param {String[]} options.filterLabels    Node labels to drop.
  * @param {String[]} options.filterEdgeTypes Edge types to drop.
- * @param {Set}      options.liveNodeIds     Set of node IDs currently in the live graph SQLite (#11141 / FK-safe edge filter; #11140 review feedback).
+ * @param {Set}      options.liveNodeIds     Set of node IDs currently in the live graph SQLite for FK-safe edge filtering.
  * @param {Object}   options.stats           Mutable counters: `{filteredNodes, filteredEdges, orphanEdges, acceptedNodes}`.
  * @param {Object}   [options.logger=console]
  * @returns {Promise<String>} Path to temp dir with filtered JSONL files.
@@ -677,7 +675,7 @@ export async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEd
 }
 
 /**
- * #11141 — Read live graph node IDs for FK-safe edge filtering (per @neo-gpt review).
+ * Read live graph node IDs for FK-safe edge filtering.
  *
  * Read-only better-sqlite3 access against the live `memory-core-graph.sqlite`. WAL mode
  * is the default for the live DB so concurrent reads don't block the running MC daemon.
@@ -698,8 +696,8 @@ export async function collectLiveGraphNodeIds({dbPath}) {
 }
 
 /**
- * #11141 — Post-restore hook dispatch. **Narrow allowlist** per @neo-gpt's peer-review
- * (commentId 4416007918): only deterministic, idempotent, recovery-safe hooks are accepted.
+ * Post-restore hook dispatch. **Narrow allowlist**: only deterministic,
+ * idempotent, recovery-safe hooks are accepted.
  *
  * **ALLOWED:**
  *   - `'filesystem-ingestor'`: regenerates FILE/DIRECTORY nodes + CONTAINS edges from
