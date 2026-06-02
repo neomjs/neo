@@ -24,6 +24,7 @@ import {
     resolveIdentityForFamily,
     revalidationSweep
 } from '../../../../../../ai/scripts/lifecycle/revalidationSweep.mjs';
+import {IDENTITIES} from '../../../../../../ai/graph/identityRoots.mjs';
 
 test.describe('Neo.ai.scripts.revalidationSweep', () => {
     test.describe('parseArgs (commander-backed)', () => {
@@ -130,6 +131,21 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         test('resolves claude family to @neo-opus-4-7', () => {
             const identity = resolveIdentityForFamily('claude');
             expect(identity.id).toBe('@neo-opus-4-7');
+        });
+
+        test('prefers the active Claude identity while another Claude activation is pending', () => {
+            const claudeIdentities = IDENTITIES.filter(identity =>
+                identity.type === 'AgentIdentity' &&
+                identity.properties?.modelFamily === 'claude'
+            );
+
+            expect(claudeIdentities.map(identity => identity.id)).toEqual(expect.arrayContaining([
+                '@neo-opus-4-7',
+                '@neo-claude-opus'
+            ]));
+            expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-4-7');
+            expect(claudeIdentities.find(identity => identity.id === '@neo-claude-opus')?.properties.participationStatus)
+                .toBe('temporarily_unreachable');
         });
 
         test('throws on unknown family', () => {
