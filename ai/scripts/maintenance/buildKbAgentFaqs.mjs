@@ -5,9 +5,10 @@ import KBRecorderService from '../../mcp/server/knowledge-base/services/KBRecord
 /**
  * @summary Materializes Agent FAQ clusters from Knowledge Base query telemetry.
  *
- * This operator CLI is the on-demand aggregation path for #10081. It rebuilds
- * `kb_query_faqs` from `kb_query_log` using the conservative exact-normalized
- * clustering baseline and prints a short JSON summary for automation.
+ * This operator CLI is the on-demand aggregation path for Knowledge Base query
+ * telemetry. It rebuilds `kb_query_faqs` from `kb_query_log` using the
+ * conservative exact-normalized clustering baseline and prints a short JSON
+ * summary for automation.
  *
  * Usage:
  *   node ai/scripts/maintenance/buildKbAgentFaqs.mjs --min-count 3 --limit 100
