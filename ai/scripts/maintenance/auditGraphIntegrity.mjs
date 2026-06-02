@@ -25,7 +25,7 @@ const SEVERITY_RANK = {
 /**
  * @summary Creates the Commander parser for the graph-integrity audit runner.
  *
- * The default threshold follows #10462: any non-zero divergence up to 5% is
+ * The default threshold treats any non-zero divergence up to 5% as
  * `soft`; divergence above 5% is `hard`. Operators can override it via
  * `--hard-threshold` or `GRAPH_INTEGRITY_HARD_THRESHOLD`.
  *
@@ -181,7 +181,7 @@ export async function collectSummarySessions(collection, {pageSize = 1000} = {})
 /**
  * @summary List SESSION graph nodes directly from the Memory Core graph store.
  *
- * #10462 is an observation-only runner. This direct SQLite read mirrors the
+ * This observation-only runner uses a direct SQLite read that mirrors the
  * graph observability helpers without adding a public service method before
  * the report contract has empirical mileage.
  *
@@ -358,7 +358,7 @@ export async function writeReport(report, {
  * @summary Count graph `ORIGINATES_IN` memory edges targeting one session.
  *
  * This is intentionally narrower than `GraphService.getSessionEntityCount()`,
- * which counts every inbound entity relation to the session. #10462's
+ * which counts every inbound entity relation to the session. The
  * `actualMemoryCount` contract compares raw Chroma memory rows with graph
  * `ORIGINATES_IN(Memory -> Session)` edges, so the edge-type filter is part
  * of the audit contract.
