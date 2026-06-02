@@ -157,6 +157,91 @@ test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
 });
 
 /**
+ * @summary Coverage for the #12382 request-fresh cached healthcheck snapshot.
+ *
+ * The live bug was in the healthy-cache fast path: direct healthcheck callers observed the cached
+ * payload's original `timestamp` and collection counts even after later writes. This pure helper
+ * covers the request-facing snapshot logic without booting ChromaDB.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#buildRequestFreshCachedHealth
+ */
+test.describe('HealthService #12382 — buildRequestFreshCachedHealth', () => {
+    let buildRequestFreshCachedHealth;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildRequestFreshCachedHealth = mod.buildRequestFreshCachedHealth;
+    });
+
+    test('refreshes timestamp and collection counts without mutating the cached payload', async () => {
+        const cachedHealth = {
+            status   : 'healthy',
+            timestamp: '2026-06-02T12:00:00.000Z',
+            database : {
+                connection: {
+                    connected  : true,
+                    collections: {
+                        memories : {name: 'neo-agent-memory', exists: true, count: 10},
+                        summaries: {name: 'neo-agent-sessions', exists: true, count: 20}
+                    },
+                    engines: {chroma: true}
+                },
+                topology: {mode: 'unified'}
+            },
+            details: ['cached']
+        };
+
+        const result = await buildRequestFreshCachedHealth(
+            cachedHealth,
+            new Date('2026-06-02T12:05:00.000Z'),
+            async () => ({
+                memories : {name: 'neo-agent-memory', exists: true, count: 11},
+                summaries: {name: 'neo-agent-sessions', exists: true, count: 21}
+            })
+        );
+
+        expect(result.timestamp).toBe('2026-06-02T12:05:00.000Z');
+        expect(result.database.connection.collections).toEqual({
+            memories : {name: 'neo-agent-memory', exists: true, count: 11},
+            summaries: {name: 'neo-agent-sessions', exists: true, count: 21}
+        });
+
+        expect(result).not.toBe(cachedHealth);
+        expect(result.database).not.toBe(cachedHealth.database);
+        expect(result.database.connection).not.toBe(cachedHealth.database.connection);
+        expect(cachedHealth.timestamp).toBe('2026-06-02T12:00:00.000Z');
+        expect(cachedHealth.database.connection.collections.memories.count).toBe(10);
+        expect(cachedHealth.database.connection.collections.summaries.count).toBe(20);
+    });
+
+    test('returns null when the collection refresh reports an unhealthy shape', async () => {
+        const cachedHealth = {
+            status  : 'healthy',
+            database: {connection: {collections: null}}
+        };
+
+        await expect(buildRequestFreshCachedHealth(
+            cachedHealth,
+            Date.now(),
+            async () => ({
+                memories : {name: 'neo-agent-memory', exists: true,  count: 1},
+                summaries: {name: 'neo-agent-sessions', exists: false, count: 0}
+            })
+        )).resolves.toBeNull();
+    });
+
+    test('returns null when collection refresh throws so callers can run a full healthcheck', async () => {
+        await expect(buildRequestFreshCachedHealth(
+            {status: 'healthy', database: {connection: {collections: null}}},
+            Date.now(),
+            async () => {
+                throw new Error('count failed');
+            }
+        )).resolves.toBeNull();
+    });
+});
+
+/**
  * @summary Coverage for Chroma migration observability after #11181.
  *
  * The live regression was not just "missing userId"; restored session summaries also had

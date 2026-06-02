@@ -112,6 +112,58 @@ export function buildTaskOutcomesBlock(taskOutcomes) {
 }
 
 /**
+ * @summary Builds a request-fresh healthcheck snapshot from a cached healthy payload.
+ *
+ * The broader healthcheck cache intentionally preserves expensive dependency probes for the
+ * `ensureHealthy()` gate. Direct operator healthcheck calls still need request-time observability:
+ * a fresh `timestamp` and live collection counts. This helper refreshes those cheap request-facing
+ * fields without mutating the cached payload; returning `null` tells the caller to fall through to a
+ * full healthcheck because the collection refresh indicates an unhealthy or ambiguous state.
+ *
+ * @param {Object} cachedHealth Previously cached healthy healthcheck payload.
+ * @param {Number|Date} now Request time used for the returned `timestamp`.
+ * @param {Function} refreshCollections Async function returning the collection-check payload.
+ * @returns {Promise<Object|null>} Fresh request snapshot or `null` when a full healthcheck is required.
+ */
+export async function buildRequestFreshCachedHealth(cachedHealth, now, refreshCollections) {
+    if (!cachedHealth || typeof refreshCollections !== 'function') {
+        return null;
+    }
+
+    let collectionsCheck;
+
+    try {
+        collectionsCheck = await refreshCollections();
+    } catch (e) {
+        return null;
+    }
+
+    if (collectionsCheck?.error ||
+        !collectionsCheck?.memories?.exists ||
+        !collectionsCheck?.summaries?.exists) {
+        return null;
+    }
+
+    const database   = cachedHealth.database || {};
+    const connection = database.connection || {};
+
+    return {
+        ...cachedHealth,
+        timestamp: new Date(now).toISOString(),
+        database : {
+            ...database,
+            connection: {
+                ...connection,
+                collections: {
+                    memories : {...collectionsCheck.memories},
+                    summaries: {...collectionsCheck.summaries}
+                }
+            }
+        }
+    };
+}
+
+/**
  * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
  *          observability block.
  *
@@ -1181,9 +1233,11 @@ class HealthService extends Base {
      * Recovery detection: If the status changes between checks (e.g., from 'unhealthy'
      * to 'healthy'), we log a clear message so users know their fix worked.
      *
+     * @param {Object} [options]
+     * @param {Boolean} [options.freshObservability=true] Refresh request-facing fields on cached healthy results.
      * @returns {Promise<object>} A health status payload with session information
      */
-    async healthcheck() {
+    async healthcheck({freshObservability = true} = {}) {
         try {
             const now = Date.now();
 
@@ -1194,10 +1248,26 @@ class HealthService extends Base {
                 this.#lastCheckTime) {
                 const age = now - this.#lastCheckTime;
 
-                // If the cache is still fresh (< 5 minutes old), return it immediately
+                // If the cache is still fresh (< 5 minutes old), reuse it while keeping
+                // direct healthcheck observability request-fresh when requested.
                 if (age < this.#cacheDuration) {
                     logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
-                    return this.#cachedHealth;
+
+                    if (!freshObservability) {
+                        return this.#cachedHealth;
+                    }
+
+                    const freshCachedHealth = await buildRequestFreshCachedHealth(
+                        this.#cachedHealth,
+                        now,
+                        () => this.#checkCollections()
+                    );
+
+                    if (freshCachedHealth) {
+                        return freshCachedHealth;
+                    }
+
+                    this.clearCache();
                 }
             }
 
@@ -1288,7 +1358,7 @@ class HealthService extends Base {
      * @returns {Promise<void>}
      */
     async ensureHealthy() {
-        const health = await this.healthcheck();
+        const health = await this.healthcheck({freshObservability: false});
 
         if (health.status !== 'healthy') {
             // Build a multi-line error message with all the issues detected
