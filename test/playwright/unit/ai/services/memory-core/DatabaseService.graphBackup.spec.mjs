@@ -85,6 +85,15 @@ test.describe('Memory_DatabaseService — graph backup import (#10949)', () => {
             reason: 'unit backup restore proof'
         });
 
+        const db = GraphService.db.storage.db;
+        const expectedRecordCount = db.prepare(`
+            SELECT
+                (SELECT count(*) FROM Nodes) +
+                (SELECT count(*) FROM Edges) AS c
+        `).get().c;
+
+        expect(expectedRecordCount).toBeGreaterThanOrEqual(3);
+
         const exportResult = await Memory_DatabaseService.manageDatabaseBackup({
             action    : 'export',
             include   : ['graph'],
@@ -98,12 +107,22 @@ test.describe('Memory_DatabaseService — graph backup import (#10949)', () => {
 
         expect(graphBackupFile).toBeTruthy();
 
-        const db = GraphService.db.storage.db;
+        const graphBackupPath    = path.join(tmpDir, graphBackupFile);
+        const graphBackupContent = fs.readFileSync(graphBackupPath, 'utf8');
+        const graphBackupLines   = graphBackupContent.trimEnd().split('\n');
+        const graphBackupRecords = graphBackupLines.map(line => JSON.parse(line));
+
+        expect(graphBackupContent.endsWith('\n')).toBe(true);
+        expect(graphBackupLines).toHaveLength(expectedRecordCount);
+        expect(graphBackupRecords.filter(record => record.type === 'node')).toHaveLength(2);
+        expect(graphBackupRecords.filter(record => record.type === 'edge')).toHaveLength(1);
+        expect(graphBackupRecords.some(record => record.type === 'edge' && record.data.type === 'TEST_RESTORE_EDGE')).toBe(true);
+
         db.exec('DELETE FROM Edges; DELETE FROM Nodes;');
 
         const importResult = await Memory_DatabaseService.manageDatabaseBackup({
             action: 'import',
-            file  : path.join(tmpDir, graphBackupFile),
+            file  : graphBackupPath,
             mode  : 'merge'
         });
 
