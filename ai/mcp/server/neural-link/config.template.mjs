@@ -37,9 +37,9 @@ class Config extends BaseConfig {
         data: {
             /**
              * Repo root, computed from this module's path. Exported for symmetry with the
-             * KB and Memory Core configs (#10584) so consumers (loggers, services, future)
-             * can read `aiConfig.neoRootDir` rather than recomputing the 4-level traversal
-             * locally. Module path is stable; the resolution is deterministic at boot.
+             * KB and Memory Core configs so consumers (loggers, services, future) can read
+             * `aiConfig.neoRootDir` rather than recomputing the 4-level traversal locally.
+             * Module path is stable; the resolution is deterministic at boot.
              * @type {string}
              */
             neoRootDir: leaf(neoRootDir),
@@ -69,9 +69,9 @@ class Config extends BaseConfig {
              */
             memoryCoreDbPath: leaf(path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
             /**
-             * Directory for the always-on Neural Link diagnostic log files (#10582). The NL
-             * server's `logger.mjs` writes daily-rotated entries here regardless of `debug`,
-             * so long-running inspection chains and DOM/VDOM introspection sweeps leave a
+             * Directory for the always-on Neural Link diagnostic log files. The NL server's
+             * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so
+             * long-running inspection chains and DOM/VDOM introspection sweeps leave a
              * tail-able diagnostic trail observable from the host shell. Default:
              * `<neoRootDir>/.neo-ai-data/logs/` — shared with the KB and Memory Core servers
              * (each uses a distinct filename prefix: `nl-server-`, `kb-server-`, `mc-server-`).

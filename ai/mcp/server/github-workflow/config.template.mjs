@@ -191,8 +191,8 @@ class Config extends BaseConfig {
                 /**
                  * The maximum number of issues to fetch from the GitHub API in a single sync.
                  * Defensive ceiling against runaway pagination on a misconfigured GraphQL pageInfo while
-                 * leaving enough headroom for clean-slate exhaustive emission under ADR 0004. The local
-                 * droppedLabels filter further trims the actual processed set.
+                 * leaving enough headroom for clean-slate exhaustive emission under the archive contract.
+                 * The local droppedLabels filter further trims the actual processed set.
                  * @type {number}
                  */
                 maxIssues: leaf(20000),
