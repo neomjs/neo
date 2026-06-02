@@ -4,6 +4,7 @@ import Neo from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import BaseConfig from '../../../../ai/BaseConfig.mjs';
 import {TIER1_DEFAULTS} from '../../fixtures/aiConfigDefaults.mjs';
+import {CHROMA_TEST_DATABASE} from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
     let Config;
@@ -94,9 +95,10 @@ test.describe('Tier 1 Config Immutability', () => {
             }
         });
         expect(Config.engines.chroma).toEqual({
-            dataDir: expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]unified$/),
-            host   : process.env.NEO_CHROMA_HOST || 'localhost',
-            port   : Number(process.env.NEO_CHROMA_PORT) || 8000
+            dataDir : expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]unified$/),
+            host    : process.env.NEO_CHROMA_HOST || 'localhost',
+            port    : Number(process.env.NEO_CHROMA_PORT) || 8000,
+            database: process.env.NEO_CHROMA_DATABASE || CHROMA_TEST_DATABASE
         });
     });
 
@@ -139,8 +141,8 @@ test.describe('Tier 1 Config Immutability', () => {
             wakeDispatchEnabled  : null
         });
 
-        // #12003: swarm-heartbeat candidate-discovery default is the activity-derived
-        // source per Discussion #11992 §5.1.1 "activity-derived signals" framing.
+        // The swarm-heartbeat candidate-discovery default is the activity-derived source
+        // ("activity-derived signals" framing).
         // Per-MC-instance derived; no team-registry coupling; tenant-safe for external
         // workspaces (each deployment's MC has its own A2A activity). `targets` is the
         // optional explicit-handle-list override (highest resolver precedence) — null by
