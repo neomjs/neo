@@ -3,13 +3,13 @@ import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotoc
 import Base                                            from '../../../src/core/Base.mjs';
 
 /**
- * @summary Common base class for all Neo MCP servers (M2 substrate, ticket #10965).
+ * @summary Common base class for all Neo MCP servers.
  *
- * Standardizes the per-server bootstrap pattern across the 5 MCP servers (knowledge-base,
- * memory-core, github-workflow, neural-link, file-system) by lifting common boilerplate
- * (`createMcpServer`, ListTools/CallTool handler wiring, result-formatting, transport-connect)
- * into shared template-method scaffolding. Per-server subclasses override a small set of
- * extension hooks rather than duplicating the full bootstrap sequence.
+ * Standardizes the per-server bootstrap pattern across Neo MCP servers by
+ * lifting common boilerplate (`createMcpServer`, ListTools/CallTool handler
+ * wiring, result-formatting, transport-connect) into shared template-method
+ * scaffolding. Per-server subclasses override a small set of extension hooks
+ * rather than duplicating the full bootstrap sequence.
  *
  * ## Extension model
  *
@@ -481,7 +481,7 @@ class BaseServer extends Base {
             this.transport = new StdioServerTransport();
 
             // Defensive: an async-boot failure could destroy the mcpServer mid-flight.
-            // Memory-core hit this in #10241; preserve the guard.
+            // Preserve the guard before connecting the stdio transport.
             if (!this.mcpServer) return;
 
             await this.mcpServer.connect(this.transport);

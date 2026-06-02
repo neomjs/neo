@@ -5,18 +5,11 @@
  * `resumeHarness.mjs` adapter branches (claude-cli, antigravity-cli, future
  * codex-cli) consume a single primitive rather than duplicating cleanup logic.
  *
- * Substrate-truth: harness restart spawns a fresh process for the recovering
- * identity. Without cleanup of the prior harness instance, repeated sunsets
- * accumulate stale processes and orphan windows. The OLD osascript Cmd+N
- * adapter did not have this surface because
- * Cmd+N spawned a new chat WITHIN the same app instance; the new CLI-based
- * adapters create distinct processes and DO need explicit cleanup.
- *
- * Per `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`, the
- * acute containment for runaway-spawn was the in-flight lock primitive
- * (`inflightLock.mjs`) — single-flight per identity at the START
- * of an action. This module is the dual: cleanup at the END of the
- * previous action's process when starting the next one.
+ * Restart recovery spawns a fresh process for the recovering identity. Without
+ * cleanup of the prior harness instance, repeated sunsets can accumulate stale
+ * processes and orphan windows. This module pairs with the in-flight lock:
+ * the lock prevents overlapping starts, while this primitive cleans up the
+ * previous process before the next adapter dispatch.
  *
  * @see ai/scripts/lifecycle/inflightLock.mjs (sibling per-identity primitive)
  * @see ai/scripts/lifecycle/resumeHarness.mjs (consumer)
@@ -34,7 +27,7 @@ function sanitize(identity) {
 
 /**
  * @summary Build the absolute state-file path for an identity.
- * Exposed for spec reach-in cleanup; consumers should use record/terminate APIs.
+ * Exposed for spec cleanup; runtime consumers should use record/terminate APIs.
  */
 export function getStateFilePath(identity) {
     return path.join(STATE_DIR, `${sanitize(identity)}.json`);
