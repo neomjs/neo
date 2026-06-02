@@ -124,6 +124,7 @@ test.describe('Tier 1 Config Immutability', () => {
             summarySweepMs  : 10 * 60 * 1000,
             kbSyncMs        : 30 * 60 * 1000,
             backupMs        : 24 * 60 * 60 * 1000,
+            graphLogCompactionMs: 24 * 60 * 60 * 1000,
             primaryDevSyncMs: 10 * 60 * 1000,
             dreamMs         : 60 * 60 * 1000,
             goldenPathMs    : 60 * 60 * 1000,
@@ -148,6 +149,15 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.orchestrator.swarmHeartbeat).toEqual({
             targetSource: 'active-a2a-participants',
             targets     : null
+        });
+        const graphLogCompactionEnabledEnv = process.env.NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_ENABLED?.trim().toLowerCase();
+        const graphLogCompactionVacuumEnv  = process.env.NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_VACUUM?.trim().toLowerCase();
+        const graphLogCompactionDisabled   = ['false', 'no', 'off', '0'].includes(graphLogCompactionEnabledEnv);
+        const graphLogCompactionVacuum     = ['true', 'yes', 'on', '1'].includes(graphLogCompactionVacuumEnv);
+
+        expect(Config.orchestrator.graphLogCompaction).toEqual({
+            enabled: graphLogCompactionEnabledEnv === undefined ? true : !graphLogCompactionDisabled,
+            vacuum : graphLogCompactionVacuum
         });
 
         // Provider-readiness probe parameters consumed by the orchestrator dream task

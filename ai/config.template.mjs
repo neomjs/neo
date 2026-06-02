@@ -338,6 +338,7 @@ class Config extends BaseConfig {
                     summarySweepMs        : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
                     kbSyncMs              : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
                     backupMs              : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    graphLogCompactionMs  : leaf(DAY_MS, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_INTERVAL_MS', 'number'),
                     primaryDevSyncMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
                     tenantRepoSyncMs      : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
                     dreamMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
@@ -361,6 +362,17 @@ class Config extends BaseConfig {
                  */
                 chroma: {
                     maxRuntimeMs: leaf(DAY_MS, 'NEO_CHROMA_MAX_RUNTIME_MS', 'number')
+                },
+                /**
+                 * GraphLog compaction policy. The scheduled lane invokes the existing
+                 * `compactGraphLog.mjs --apply` maintenance script; the script owns retention
+                 * safety and cursor handling. `vacuum` stays explicit because SQLite VACUUM is
+                 * heavier than logical GraphLog compaction and physically rewrites the DB file.
+                 * @type {Object}
+                 */
+                graphLogCompaction: {
+                    enabled: leaf(true, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_ENABLED', 'boolean'),
+                    vacuum : leaf(false, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_VACUUM', 'boolean')
                 },
                 /**
                  * Swarm-heartbeat target-resolver config. Controls which identity set

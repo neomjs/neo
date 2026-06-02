@@ -57,6 +57,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
             'dream',
+            'graphlog-compaction',
             'kbSync',
             'primary-dev-sync',
             'summary'
@@ -505,4 +506,3 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(result).toBe('gp-done');
     });
 });
-

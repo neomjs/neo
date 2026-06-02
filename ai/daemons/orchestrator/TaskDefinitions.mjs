@@ -38,6 +38,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
  * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
  * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
+ * @param {Boolean} [options.graphLogCompactionVacuum=false] Whether scheduled GraphLog compaction also runs SQLite VACUUM.
  * @returns {Object}
  */
 export function buildTaskDefinitions({
@@ -53,7 +54,8 @@ export function buildTaskDefinitions({
     lmsHost,
     lmsPort,
     lmsContextLengths,
-    providerReadiness
+    providerReadiness,
+    graphLogCompactionVacuum = false
 } = {}) {
     const tasks = {
         chroma: {
@@ -96,6 +98,17 @@ export function buildTaskDefinitions({
             args           : [path.join(scriptDir, 'maintenance', 'backup.mjs')],
             pidFileName    : 'backup.pid',
             expectedCommand: 'backup.mjs'
+        },
+        'graphlog-compaction': {
+            label          : 'GraphLog compaction',
+            command        : nodeBin,
+            args           : [
+                path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
+                '--apply',
+                ...(graphLogCompactionVacuum ? ['--vacuum'] : [])
+            ],
+            pidFileName    : 'graphlog-compaction.pid',
+            expectedCommand: 'compactGraphLog.mjs'
         },
         // One-shot KB defrag spawned by the chroma max-runtime recycle once the
         // freshly-restarted daemon is connection-ready. Unified-store-safe (rebuilds the KB
