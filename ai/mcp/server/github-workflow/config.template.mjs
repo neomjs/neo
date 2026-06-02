@@ -174,6 +174,12 @@ class Config extends BaseConfig {
                  */
                 versionDirectoryPrefix: leaf('v'),
                 /**
+                 * Whether closed issues and pull requests may use semver milestone titles as an
+                 * archive-bucket fallback when release-date bucketing finds no cut release.
+                 * @type {boolean}
+                 */
+                routeByMilestone: leaf(false),
+                /**
                  * The maximum number of items per chunk directory in the archive.
                  * @type {number}
                  */

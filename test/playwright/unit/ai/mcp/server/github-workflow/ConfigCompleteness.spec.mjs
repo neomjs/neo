@@ -126,6 +126,12 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         }
     });
 
+    test('config.template.mjs keeps milestone archive routing opt-in by default', async () => {
+        const config = (await importTemplateConfig()).default;
+
+        expect(config.issueSync.routeByMilestone).toBe(false);
+    });
+
     test('NEO_LOG_LEVEL overrides config.logLevel with validation', async () => {
         // Env binding + its parser-based validation run at construction, so each case uses a
         // fresh instance built from the template's meta-leaf tree (the singleton is already
