@@ -8,6 +8,7 @@ import {
     chromaDeleteCollection,
     createSilentExecutor
 } from '../../shared/vector/chromaClientPrimitives.mjs';
+import {ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
 
 /**
  * Predicate suppression filter for MC: the four Chroma library messages that surface noisily
@@ -78,14 +79,18 @@ class ChromaManager extends AbstractVectorManager {
         super.construct(config);
 
         // The client is constructed here; heartbeat/connection is evaluated lazily by `connect()`.
-        const {host, port} = this.resolveChromaClientConfig(aiConfig);
-        this.client        = new ChromaClient({host, port, ssl: false});
+        // Under UNIT_TEST_MODE `database` resolves to a dedicated, droppable test database, so test
+        // collections never enter the production `default_database` by construction.
+        const {host, port, database} = this.resolveChromaClientConfig(aiConfig);
+        this.client                  = new ChromaClient({host, port, ssl: false, database});
     }
 
     /**
      * @summary Resolves and validates Memory Core's Chroma client coordinates before boot continues.
      * @param {Object} config aiConfig-shaped configuration object.
-     * @returns {{host: String, port: Number}}
+     * @returns {{host: String, port: Number, database: String}} `database` is read verbatim from
+     *     config (the SSOT): `default_database` in production, the dedicated test database under
+     *     `UNIT_TEST_MODE`. No fallback substitution — config owns the value.
      * @throws {Error} When `engines.chroma.{host, port}` is missing or malformed.
      */
     resolveChromaClientConfig(config) {
@@ -101,8 +106,9 @@ class ChromaManager extends AbstractVectorManager {
         }
 
         return {
-            host: chroma.host,
-            port
+            host    : chroma.host,
+            port,
+            database: chroma.database
         }
     }
 
@@ -121,6 +127,16 @@ class ChromaManager extends AbstractVectorManager {
      */
     async connect() {
         this.connected = await chromaConnect({client: this.client, logger});
+
+        // Under UNIT_TEST_MODE the client targets a dedicated test database. chromadb 3.x has no
+        // getOrCreateDatabase and the ChromaClient constructor does not create the database, so it
+        // must be ensured-to-exist here — after the heartbeat proves the server is reachable, before the
+        // first lazy getOrCreateCollection. Idempotent; the production path (default_database) is untouched.
+        if (this.connected && process.env.UNIT_TEST_MODE === 'true') {
+            const {host, port, database} = this.resolveChromaClientConfig(aiConfig);
+            await ensureChromaTestDatabase({host, port, database});
+        }
+
         return this.connected
     }
 
