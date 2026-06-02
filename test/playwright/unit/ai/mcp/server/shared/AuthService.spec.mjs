@@ -38,6 +38,31 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         }
     };
 
+    function withAuth(overrides) {
+        return {auth: {...aiConfig.auth, ...overrides}}
+    }
+
+    function stubFetchQueue(responses) {
+        const calls = [];
+
+        globalThis.fetch = async (url, opts = {}) => {
+            calls.push({url, headers: opts.headers});
+
+            const response = responses.shift();
+            if (!response) {
+                throw new Error(`Unexpected fetch call: ${url}`)
+            }
+
+            return {
+                ok    : response.ok ?? true,
+                status: response.status ?? 200,
+                json  : async () => response.body ?? {}
+            }
+        };
+
+        return calls
+    }
+
     test.beforeAll(async () => {
         AuthService = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
     });
@@ -83,6 +108,97 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
 
         expect(info.username).toBe('anon');
         expect(info.userId).toBe('anon');
+    });
+
+    test('allows a configured GitLab username and rejects an unlisted user without caching the failure', async () => {
+        let calls = 0;
+
+        globalThis.fetch = async () => {
+            calls++;
+            return {ok: true, json: async () => ({username: calls < 3 ? 'outsider' : 'neo-gpt'})}
+        };
+
+        const verifier = AuthService.createGitlabPatVerifier({
+            aiConfig         : withAuth({allowedUsers: ['neo-gpt']}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        await expect(verifier.verifyAccessToken('same-token')).rejects.toBeInstanceOf(FakeInvalidTokenError);
+        await expect(verifier.verifyAccessToken('same-token')).rejects.toBeInstanceOf(FakeInvalidTokenError);
+        expect(calls).toBe(2);
+
+        const info = await verifier.verifyAccessToken('same-token');
+
+        expect(info.userId).toBe('neo-gpt');
+        expect(calls).toBe(3);
+    });
+
+    test('binds an OAuth access token to an allowed GitLab application client id', async () => {
+        const calls = stubFetchQueue([
+            {body: {id: 7, username: 'neo-gpt', name: 'Neo GPT'}},
+            {body: {application: {uid: 'mcp-oauth-app'}, scope: ['read_user', 'api']}}
+        ]);
+        const logEntries = [];
+
+        const verifier = AuthService.createGitlabPatVerifier({
+            aiConfig         : withAuth({allowedClientIds: ['mcp-oauth-app']}),
+            logger           : {...logger, info: message => logEntries.push(String(message))},
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        const info = await verifier.verifyAccessToken('secret-token-value');
+
+        expect(calls.map(call => call.url)).toEqual([
+            'https://gitlab.example.com/api/v4/user',
+            'https://gitlab.example.com/oauth/token/info'
+        ]);
+        expect(calls[0].headers.Authorization).toBe('Bearer secret-token-value');
+        expect(calls[1].headers.Authorization).toBe('Bearer secret-token-value');
+        expect(info.userId).toBe('neo-gpt');          // Memory Core tenant identity remains GitLab username.
+        expect(info.username).toBe('Neo GPT');
+        expect(info.clientId).toBe('mcp-oauth-app');
+        expect(info.scopes).toEqual(['read_user', 'api']);
+        expect(logEntries.join('\n')).not.toContain('secret-token-value');
+    });
+
+    test('rejects tokens from non-listed GitLab OAuth apps', async () => {
+        stubFetchQueue([
+            {body: {username: 'neo-gpt'}},
+            {body: {application: {uid: 'other-app'}, scope: 'read_user'}}
+        ]);
+
+        const verifier = AuthService.createGitlabPatVerifier({
+            aiConfig         : withAuth({allowedClientIds: ['mcp-oauth-app']}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        await expect(verifier.verifyAccessToken('wrong-app-token')).rejects.toBeInstanceOf(FakeInvalidTokenError);
+    });
+
+    test('rejects bare PATs when OAuth app binding is enabled and does not cache the failure', async () => {
+        let calls = 0;
+
+        globalThis.fetch = async (url) => {
+            calls++;
+
+            if (String(url).endsWith('/api/v4/user')) {
+                return {ok: true, json: async () => ({username: 'neo-gpt'})}
+            }
+
+            return {ok: false, status: 404, json: async () => ({})}
+        };
+
+        const verifier = AuthService.createGitlabPatVerifier({
+            aiConfig         : withAuth({allowedClientIds: ['mcp-oauth-app']}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        await expect(verifier.verifyAccessToken('bare-pat')).rejects.toBeInstanceOf(FakeInvalidTokenError);
+        await expect(verifier.verifyAccessToken('bare-pat')).rejects.toBeInstanceOf(FakeInvalidTokenError);
+        expect(calls).toBe(4); // /user + /oauth/token/info for each attempt; failed gates are not cached.
     });
 
     test('throws InvalidTokenError on a non-OK GitLab response and does NOT cache the failure', async () => {
@@ -199,11 +315,11 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
 
     // Installs the REAL SDK requireBearerAuth via setupGitlabPat; returns the captured middleware.
     // The single-middleware assertion also confirms the naked-401 shape (no mcpAuthMetadataRouter).
-    function installPatMiddleware() {
+    function installPatMiddleware(config = aiConfig) {
         const middlewares = [],
               app         = {use: mw => middlewares.push(mw)};
 
-        AuthService.setupGitlabPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
+        AuthService.setupGitlabPat({app, aiConfig: config, logger}, {requireBearerAuth, InvalidTokenError});
 
         expect(middlewares.length).toBe(1);
         return middlewares[0];
@@ -246,6 +362,79 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
 
         const mw  = installPatMiddleware(),
               req = mockReq('Bearer glpat-bad'),
+              res = mockRes();
+
+        let nextCalled = false;
+        await mw(req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(401);
+    });
+
+    test('allowedUsers gate passes through real requireBearerAuth with GitLab username identity intact', async () => {
+        globalThis.fetch = async () => ({ok: true, json: async () => ({username: 'neo-gpt', name: 'Neo GPT'})});
+
+        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-gpt']}}),
+              req = mockReq('Bearer glpat-valid'),
+              res = mockRes();
+
+        let nextErr = 'unset';
+        await mw(req, res, err => { nextErr = err; });
+
+        expect(nextErr).toBeUndefined();
+        expect(res.ended).toBe(false);
+        expect(req.auth?.userId).toBe('neo-gpt');
+        expect(req.auth?.username).toBe('Neo GPT');
+    });
+
+    test('allowedUsers gate rejects an unlisted user through real requireBearerAuth', async () => {
+        globalThis.fetch = async () => ({ok: true, json: async () => ({username: 'outsider'})});
+
+        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-gpt']}}),
+              req = mockReq('Bearer glpat-outsider'),
+              res = mockRes();
+
+        let nextCalled = false;
+        await mw(req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(401);
+    });
+
+    test('allowedClientIds gate passes through real requireBearerAuth and preserves GitLab username', async () => {
+        globalThis.fetch = async (url) => {
+            if (String(url).endsWith('/api/v4/user')) {
+                return {ok: true, json: async () => ({username: 'neo-gpt', name: 'Neo GPT'})}
+            }
+
+            return {ok: true, json: async () => ({application: {uid: 'mcp-oauth-app'}, scope: 'read_user'})}
+        };
+
+        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedClientIds: ['mcp-oauth-app']}}),
+              req = mockReq('Bearer oauth-token'),
+              res = mockRes();
+
+        let nextErr = 'unset';
+        await mw(req, res, err => { nextErr = err; });
+
+        expect(nextErr).toBeUndefined();
+        expect(res.ended).toBe(false);
+        expect(req.auth?.userId).toBe('neo-gpt');
+        expect(req.auth?.clientId).toBe('mcp-oauth-app');
+        expect(req.auth?.scopes).toEqual(['read_user']);
+    });
+
+    test('allowedClientIds gate rejects a non-listed OAuth app through real requireBearerAuth', async () => {
+        globalThis.fetch = async (url) => {
+            if (String(url).endsWith('/api/v4/user')) {
+                return {ok: true, json: async () => ({username: 'neo-gpt'})}
+            }
+
+            return {ok: true, json: async () => ({application: {uid: 'other-app'}, scope: 'read_user'})}
+        };
+
+        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedClientIds: ['mcp-oauth-app']}}),
+              req = mockReq('Bearer oauth-token'),
               res = mockRes();
 
         let nextCalled = false;
