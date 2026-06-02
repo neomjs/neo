@@ -9,13 +9,13 @@
  *
  * @summary Seeds initial system, AgentIdentity, and BroadcastSentinel nodes into the Neo.mjs Memory Core Native Graph.
  *
- * These nodes form the **addressable identity surface** for the A2A Mailbox substrate (#10139):
+ * These nodes form the **addressable identity surface** for the A2A Mailbox substrate:
  * the lifecycle system sender (`@system`), human owners (`@tobiu`), model-backed agents
  * (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`), and the `AGENT:*` broadcast sentinel that carries
  * fan-out `SENT_TO` edges emitted by {@link Neo.ai.services.memory-core.MailboxService#addMessage}
  * for broadcast traffic.
  *
- * **Why the broadcast sentinel needs to be a real graph node (#10174):** `GraphService.linkNodes`
+ * **Why the broadcast sentinel needs to be a real graph node:** `GraphService.linkNodes`
  * enforces an FK-style guard that culls edges whose endpoints aren't present in the Nodes table.
  * The guard is correct defense-in-depth against hallucinated LLM-generated edges but wrongly
  * dropped every broadcast `SENT_TO` edge while this sentinel was merely a sentinel string. Seeding
