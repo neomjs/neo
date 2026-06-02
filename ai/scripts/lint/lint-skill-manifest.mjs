@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @summary Lints the Neo.mjs skill capability manifest (#11275).
+ * @summary Lints the Neo.mjs skill capability manifest.
  *
  * `SKILL.md` frontmatter stays runtime-canonical. The manifest mirrors that
  * data for CI and governance checks; this script enforces one-way consistency
