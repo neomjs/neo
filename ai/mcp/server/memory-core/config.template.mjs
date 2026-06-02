@@ -17,9 +17,10 @@ function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-const neoRootDir = path.resolve(__dirname, '../../../../');
-const cwd        = neoRootDir;
-const DAY_MS     = 24 * 60 * 60 * 1000;
+const neoRootDir        = path.resolve(__dirname, '../../../../');
+const cwd               = neoRootDir;
+const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.resolve(cwd, '.neo-ai-data/wake-daemon'));
+const DAY_MS            = 24 * 60 * 60 * 1000;
 
 /**
  * @summary Configuration manager for the Memory Core MCP server.
@@ -110,6 +111,14 @@ class Config extends BaseConfig {
              */
             storagePaths: {
                 graph: leaf(process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string')
+            },
+            /**
+             * Durable wake-daemon watermarks consumed by GraphLog maintenance.
+             */
+            wakeDaemon: {
+                dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
+                bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
+                wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
             },
             /**
              * Data Schema/Table Names
