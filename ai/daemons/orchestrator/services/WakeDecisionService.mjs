@@ -4,10 +4,10 @@ import Base from '../../../../src/core/Base.mjs';
 
 /**
  * Default activity window (3h) within which any sent-or-received A2A keeps the
- * identity in the `active` set. See Epic #11993 — substrate cannot depend on
- * session-boundary signals (subscription updatedAt, boot markers) because Neo
- * agent sessions routinely run 10h+ with multiple in-session context-compactions
- * invisible to the orchestrator. A2A activity is the only durable signal.
+ * identity in the `active` set. The substrate cannot depend on session-boundary
+ * signals (subscription updatedAt, boot markers) because Neo agent sessions
+ * routinely run 10h+ with multiple in-session context-compactions invisible to
+ * the orchestrator. A2A activity is the only durable signal.
  * @type {Number}
  */
 export const DEFAULT_ACTIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
@@ -23,9 +23,9 @@ export const DEFAULT_IDLE_WINDOW_MS = 15 * 60 * 1000;
 /**
  * Default location for orchestrator-local backoff state. Sibling to
  * `.neo-ai-data/wake-daemon/heartbeat.alive` and `trioWakeCooldown` precedent.
- * Per Sub-ii AC2 / Epic #11993 OQ3 resolution: backoff state lives in
- * orchestrator-local persisted file, NOT on `WAKE_SUBSCRIPTION` properties
- * (would pollute client-deployment graph substrate), NOT a new graph node type.
+ * Backoff state lives in orchestrator-local persisted file, NOT on
+ * `WAKE_SUBSCRIPTION` properties (would pollute client-deployment graph
+ * substrate), NOT a new graph node type.
  * @type {String}
  */
 export const DEFAULT_BACKOFF_STATE_FILE = path.resolve(
@@ -38,26 +38,25 @@ export const DEFAULT_BACKOFF_STATE_FILE = path.resolve(
 /**
  * @summary 3-signal wake-decision substrate for orchestrator-driven harness wakes.
  *
- * Substrate-correct successor to the rejected MC HealthService projection
- * (#11982) and the rejected "harness-side heartbeat workaround" framing
- * (#11872). Implements the cycle-3 model from Discussion #11992 graduated to
- * Epic #11993: **Wake = active AND idle AND ready** with each signal derived
- * purely from existing graph activity + orchestrator-local persisted state.
+ * Substrate-correct successor to designs that projected wake liveness through
+ * Memory Core health checks or harness-side heartbeat workarounds. Implements
+ * **Wake = active AND idle AND ready** with each signal derived purely from
+ * existing graph activity + orchestrator-local persisted state.
  *
  * **Decision function** (`decideWake`) is pure: takes empirical inputs
  * (current time, recent A2A timestamps, active readiness sentinel, active
- * backoff window) and returns a wake-decision object. Caller (Sub-iii's
- * `SwarmHeartbeatService.pulse()`) gathers the inputs and invokes this
+ * backoff window) and returns a wake-decision object. The heartbeat service's
+ * pulse path gathers the inputs and invokes this
  * function; no graph or filesystem access inside the decision path.
  *
  * **Readiness sentinel parsing** (`parseReadinessSentinel` +
  * `parseActiveReadinessSentinels`) reads structured A2A `task` envelope
- * metadata; subject-only spoofing is rejected. Per Sub-ii AC5.
+ * metadata; subject-only spoofing is rejected.
  *
  * **Backoff state** (instance methods) persists per-identity backoff windows
  * to orchestrator-local file (mirror of `TaskStateService` pattern). Survives
  * orchestrator restart, gracefully degrades on corrupt state, applies TTL
- * expiry on read, isolates per-identity. Per Sub-ii AC3.
+ * expiry on read, isolates per-identity.
  *
  * @class Neo.ai.daemons.services.WakeDecisionService
  * @extends Neo.core.Base
@@ -103,8 +102,8 @@ export class WakeDecisionService extends Base {
     /**
      * Pure decision function — `Wake = active AND idle AND ready`.
      *
-     * Each signal is independently necessary; dropping any one yields a
-     * documented pathological case (see Epic #11993 "drop-X" table). Returns
+     * Each signal is independently necessary; dropping any one yields a known
+     * pathological case. Returns
      * a structured wake-decision envelope so callers can log specific reasons.
      *
      * @param {Object} input
@@ -175,12 +174,13 @@ export class WakeDecisionService extends Base {
      * line. Subject + taggedConcepts remain human-visible for mailbox UI but
      * are not parser inputs — subject-only spoofing is rejected (returns null).
      *
-     * **Dual-shape support** (PR #11999 cycle-2):
+     * **Dual-shape support**:
      * - **Raw MESSAGE node** (graph-level read): `{id, properties: {task: {...}, ...}}`
      * - **`MailboxService.listMessages()` summary** (mailbox-API read): `{messageId, task: {...}, ...}`
      *
-     * The parser reads from either shape. Sub-iii's `getReadinessSentinelMessages`
-     * helper passes summary objects; direct graph reads pass raw node objects.
+     * The parser reads from either shape. The heartbeat service's
+     * `getReadinessSentinelMessages` helper passes summary objects; direct graph
+     * reads pass raw node objects.
      *
      * @param {Object} message Mailbox message — raw node or listMessages summary.
      * @param {Number} currentTimeMs Caller-supplied current time (purity).
@@ -220,7 +220,7 @@ export class WakeDecisionService extends Base {
      *   - Returns `null` if no active sentinels exist.
      *
      * Operator-set vs self-set sentinels compose by the same rule — author
-     * identity is not consulted in the merge (per Epic OQ4+OQ5).
+     * identity is not consulted in the merge.
      *
      * @param {Object[]} messages Candidate mailbox message nodes.
      * @param {Number} currentTimeMs Caller-supplied current time.
