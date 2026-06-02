@@ -183,7 +183,7 @@ export function detectDrift(templateShape, configShape) {
  * `config.mjs` exists. Three branches per server:
  *
  *   1. Template absent — skip (log warning).
- *   2. Config missing — clone materialized template (preserves pre-#10815 behavior).
+ *   2. Config missing — clone materialized template (preserves legacy first-run behavior).
  *   3. Config present + drift detected — warn-only (default) OR migrate when
  *      invoked with `--migrate-config`. Pure Tier-1 import materialization
  *      patches the existing file in place; broader drift overwrites from the
