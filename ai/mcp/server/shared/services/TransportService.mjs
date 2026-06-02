@@ -87,8 +87,9 @@ class TransportService extends Base {
 
     /**
      * Computes the Host-header allowlist for the SDK's DNS-rebinding protection
-     * (`createMcpExpressApp({allowedHosts})`). Pure + static so it is unit-testable without a live
-     * transport. The localhost set is ALWAYS included — the container healthcheck hits
+     * (`createMcpExpressApp({allowedHosts})`). Pure + side-effect-free so it is unit-testable
+     * (an instance method on the singleton, callable as `TransportService.computeAllowedHosts(...)`)
+     * without a live transport. The localhost set is ALWAYS included — the container healthcheck hits
      * `http://127.0.0.1:<port>`, so dropping it would fail the healthcheck (restart loop). The
      * public hostname is derived from `aiConfig.publicUrl` (the existing `NEO_PUBLIC_URL` leaf) and
      * augmented by the comma-separated `aiConfig.allowedHosts` (`NEO_MCP_ALLOWED_HOSTS`) for
