@@ -21,7 +21,10 @@ At the end of this tutorial, a fresh operator has:
 
 The commands below use local demo endpoints. Replace the URLs, tenant id, repo
 slug, and tokens with deployment values once the same path is run behind Caddy
-or another production ingress.
+or another production ingress. When a connection behind that ingress does not
+work, the [Connection Troubleshooting](./Troubleshooting.md) guide maps each
+connect-error (Invalid Host, missing `Accept` header, the auth layers, the
+`initialize` handshake) to its fix.
 
 When using the optional ingress profile, `ai/deploy/Caddyfile` binds
 `tls internal` to `NEO_DEPLOY_HOSTNAME`, defaulting to `localhost`. Set
@@ -71,6 +74,15 @@ as a Docker CLI plugin before continuing.
 For local macOS VM runtimes such as Colima, size the VM for the Agent OS stack:
 use roughly 16 GiB as the practical minimum for Chroma + KB + MC +
 Orchestrator, and 24+ GiB when loading local chat models alongside the stack.
+
+> **Colima bind-mount gotcha (macOS).** Colima only bind-mounts paths the VM is
+> configured to share — your home directory by default. If the deployment (and its
+> bind-mounted data dirs) sits **outside** a mounted path, the mounts silently resolve
+> to empty VM-local directories: containers start, but your data is not where you expect
+> and does not persist on the host — and a `colima restart` does **not** fix it. Keep the
+> deployment under a mounted path (somewhere under `$HOME`), or add its parent to Colima's
+> mounts (`colima start --mount <path>:w`) before deploying. Verify with
+> `colima list`/the mount table that your deploy path is actually shared.
 
 Failure signatures:
 
@@ -707,6 +719,7 @@ only, or intentionally deferred.
 
 ## Related
 
+- [Connection Troubleshooting](./Troubleshooting.md) - the connect-error ladder + deployment gotchas (Caddyfile rebuild, network-internal ports, the two auth layers) for when a connection does not work.
 - [Deployment Cookbook](../DeploymentCookbook.md) - deployment authority and service topology.
 - [Overview](./Overview.md) - cloud ingestion concepts and tenant/Neo-shared split.
 - [llama.cpp Profile](./LlamaCppProfile.md) - OpenAI-compatible llama.cpp provider profile and dual-residency smoke.
