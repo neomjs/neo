@@ -12,7 +12,6 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import Database       from 'better-sqlite3';
 import fs             from 'fs-extra';
 import path           from 'path';
-import MemoryCoreConfigTemplate from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 
 import {
     compactGraphLogRows,
@@ -35,6 +34,56 @@ import {
  */
 test.describe('compactGraphLog maintenance guard', () => {
     let tmpRoot, dbPath, bridgeStateFile, wakeStateFile, db;
+
+    async function withMemoryCoreConfigTemplate(callback) {
+        const originalTier1Config         = Neo.ai?.Config;
+        const originalTier1ClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.Config'];
+        const originalConfig              = Neo.ai?.mcp?.server?.['memory-core']?.Config;
+        const originalClassHierarchy      = Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config'];
+
+        if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+        if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
+        if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
+            delete Neo.ai.mcp.server['memory-core'].Config;
+        }
+        if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'];
+        }
+
+        const config = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
+
+        try {
+            return await callback(config);
+        } finally {
+            if (originalTier1Config !== undefined) {
+                Neo.ai.Config = originalTier1Config;
+            } else if (Neo.ai?.Config) {
+                delete Neo.ai.Config;
+            }
+
+            if (originalTier1ClassHierarchy !== undefined) {
+                Neo.classHierarchyMap['Neo.ai.Config'] = originalTier1ClassHierarchy;
+            } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+                delete Neo.classHierarchyMap['Neo.ai.Config'];
+            }
+
+            if (originalConfig !== undefined) {
+                Neo.ai.mcp.server['memory-core'].Config = originalConfig;
+            } else if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
+                delete Neo.ai.mcp.server['memory-core'].Config;
+            }
+
+            if (originalClassHierarchy !== undefined) {
+                Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'] = originalClassHierarchy;
+            } else if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config']) {
+                delete Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'];
+            }
+        }
+    }
 
     test.beforeEach(async () => {
         tmpRoot         = path.resolve(process.cwd(), 'tmp', `compact-graphlog-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -83,19 +132,21 @@ test.describe('compactGraphLog maintenance guard', () => {
         }));
     }
 
-    test('resolves CLI defaults from the Memory Core template config in tests', () => {
-        const defaults = getDefaultGraphLogCompactionOptions({aiConfig: MemoryCoreConfigTemplate});
-        const command  = createCommand({aiConfig: MemoryCoreConfigTemplate});
+    test('resolves CLI defaults from the Memory Core template config in tests', async () => {
+        await withMemoryCoreConfigTemplate(async MemoryCoreConfigTemplate => {
+            const defaults = getDefaultGraphLogCompactionOptions({aiConfig: MemoryCoreConfigTemplate});
+            const command  = createCommand({aiConfig: MemoryCoreConfigTemplate});
 
-        command.parse([], {from: 'user'});
+            command.parse([], {from: 'user'});
 
-        expect(defaults.dbPath).toBe(MemoryCoreConfigTemplate.storagePaths.graph);
-        expect(defaults.bridgeStateFile).toBe(MemoryCoreConfigTemplate.wakeDaemon.bridgeLastSyncIdPath);
-        expect(defaults.wakeStateFile).toBe(MemoryCoreConfigTemplate.wakeDaemon.wakeSubscriptionLiveCursorPath);
+            expect(defaults.dbPath).toBe(MemoryCoreConfigTemplate.storagePaths.graph);
+            expect(defaults.bridgeStateFile).toBe(MemoryCoreConfigTemplate.wakeDaemon.bridgeLastSyncIdPath);
+            expect(defaults.wakeStateFile).toBe(MemoryCoreConfigTemplate.wakeDaemon.wakeSubscriptionLiveCursorPath);
 
-        expect(command.opts().db).toBe(defaults.dbPath);
-        expect(command.opts().bridgeStateFile).toBe(defaults.bridgeStateFile);
-        expect(command.opts().wakeStateFile).toBe(defaults.wakeStateFile);
+            expect(command.opts().db).toBe(defaults.dbPath);
+            expect(command.opts().bridgeStateFile).toBe(defaults.bridgeStateFile);
+            expect(command.opts().wakeStateFile).toBe(defaults.wakeStateFile);
+        });
     });
 
     test('computes cutoff from the minimum known consumer watermark plus safety margin', () => {
