@@ -152,20 +152,28 @@ test.describe('Portal.view.news.discussions.Component - Discussion markdown pars
 
     test('renders replies inside the parent comment bubble without timeline section records', () => {
         const html = renderReplies.call({
-            repoUserUrl    : 'https://github.com/',
-            formatTimestamp: value => value
+            repoUserUrl       : 'https://github.com/',
+            formatTimestamp   : value => value,
+            wrapMarkdownTables: Component.prototype.wrapMarkdownTables
         }, [{
             depth: 1,
             user : 'child',
             date : '2026-05-20T18:00:00Z',
-            body : 'Reply body.'
+            body : [
+                'Reply body.',
+                '',
+                '| Key | Value |',
+                '| --- | --- |',
+                '| mode | nested reply |'
+            ].join('\n')
         }]);
 
         expect(html).toContain('neo-discussion-replies');
         expect(html).toContain('neo-discussion-reply depth-1');
         expect(html).toContain('https://github.com/child');
         expect(html).toContain('replied on 2026-05-20T18:00:00Z');
-        expect(html).toContain('<p>Reply body.</p>')
+        expect(html).toContain('<p>Reply body.</p>');
+        expect(html).toContain('<div class="neo-markdown-table-wrapper"><table>')
     });
 
     test('category and closed-state badges render stable semantic classes', () => {

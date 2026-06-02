@@ -244,6 +244,25 @@ class Markdown extends Component {
     }
 
     /**
+     * @summary Wraps Markdown-generated tables in a scroll container while preserving manual frontmatter tables.
+     *
+     * Mirrors the image-wrapper post-processing step: the rendered content keeps native table layout, while
+     * overflow is scoped to the table region instead of the surrounding Markdown body.
+     * @param {String} html Rendered Markdown HTML.
+     * @returns {String}
+     */
+    wrapMarkdownTables(html) {
+        // Marked-generated tables do not nest, keeping this post-process scoped and deterministic.
+        return html.replace(/<table\b([^>]*)>([\s\S]*?)<\/table>/g, (match, attrs, body) => {
+            if (/\bclass=["'][^"']*\bneo-frontmatter-table\b/.test(attrs)) {
+                return match
+            }
+
+            return `<div class="neo-markdown-table-wrapper"><table${attrs}>${body}</table></div>`
+        })
+    }
+
+    /**
      * Modifies the markdown content before rendering.
      * Default implementation parses headlines to add specific classes.
      * @param {String} content
@@ -552,6 +571,8 @@ class Markdown extends Component {
         content = content.replace(/\\```/g, '```');
         
         html = marked.parse(content);
+
+        html = me.wrapMarkdownTables(html);
 
         // Wrap raw HTML img tags in a scrollable container
         html = html.replace(/<img([^>]*)>/g, '<div class="neo-markdown-image-wrapper"><img$1></div>');
