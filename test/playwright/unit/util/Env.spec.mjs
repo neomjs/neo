@@ -79,6 +79,30 @@ test.describe('Neo.util.Env', () => {
         });
     });
 
+    test.describe('parseCsv', () => {
+        test('returns undefined for absent / null / empty', () => {
+            expect(Env.parseCsv('X', opts({}))).toBe(undefined);
+            expect(Env.parseCsv('X', opts({X: null}))).toBe(undefined);
+            expect(Env.parseCsv('X', opts({X: ''}))).toBe(undefined);
+            expect(warns.length).toBe(0);
+        });
+
+        test('decodes comma-separated values into a trimmed string array', () => {
+            expect(Env.parseCsv('X', opts({X: 'client-a, client-b,client-c'}))).toEqual([
+                'client-a',
+                'client-b',
+                'client-c'
+            ]);
+            expect(warns.length).toBe(0);
+        });
+
+        test('drops blank entries without warning', () => {
+            expect(Env.parseCsv('X', opts({X: ' user-a, , user-b ,, '}))).toEqual(['user-a', 'user-b']);
+            expect(Env.parseCsv('X', opts({X: ' , '}))).toEqual([]);
+            expect(warns.length).toBe(0);
+        });
+    });
+
     test.describe('parseBool', () => {
         test('returns undefined for absent / null / empty', () => {
             expect(Env.parseBool('X', opts({}))).toBe(undefined);

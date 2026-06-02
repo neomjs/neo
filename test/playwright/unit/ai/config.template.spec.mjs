@@ -183,6 +183,20 @@ test.describe('Tier 1 Config Immutability', () => {
         });
     });
 
+    test('ships default-off GitLab-PAT hardening leaves as CSV-backed arrays', () => {
+        expect(Config.auth.allowedClientIds).toEqual([]);
+        expect(Config.auth.allowedUsers).toEqual([]);
+
+        Config.setEnvOverride('NEO_AUTH_ALLOWED_CLIENT_IDS', ['mcp-oauth-app']);
+        Config.setEnvOverride('NEO_AUTH_ALLOWED_USERS', ['neo-gpt']);
+
+        expect(Config.auth.allowedClientIds).toEqual(['mcp-oauth-app']);
+        expect(Config.auth.allowedUsers).toEqual(['neo-gpt']);
+
+        Config.setEnvOverride('NEO_AUTH_ALLOWED_CLIENT_IDS', []);
+        Config.setEnvOverride('NEO_AUTH_ALLOWED_USERS', []);
+    });
+
     test('keeps config ledgers inside config classes', async () => {
         const templateUrls = [
             '../../../../ai/config.template.mjs',

@@ -109,7 +109,11 @@ class Config extends BaseConfig {
                 // GitLab API base URL used by 'gitlab-pat' mode for token validation (self-managed configurable).
                 gitlabApiBaseUrl  : leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string'),
                 // Bounded TTL (seconds) for the per-token PAT validation cache → a revoked PAT clears within this window.
-                patCacheTtlSeconds: leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number')
+                patCacheTtlSeconds: leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number'),
+                // Optional GitLab OAuth app binding for 'gitlab-pat' mode. Empty means no app gate.
+                allowedClientIds  : leaf([], 'NEO_AUTH_ALLOWED_CLIENT_IDS', 'csv'),
+                // Optional GitLab username allowlist for 'gitlab-pat' mode. Empty means any resolved GitLab user.
+                allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv')
             },
             /**
              * @summary Deployment-wide chat / generation model provider.
