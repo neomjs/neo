@@ -250,8 +250,14 @@
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Troubleshooting</loc>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/LlamaCppProfile</loc>
     <lastmod>2026-05-28T22:13:31+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/McpInspectorCompatibility</loc>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/TenantIngestionModel</loc>
@@ -275,17 +281,20 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/HookWiring</loc>
+    <lastmod>2026-05-22T20:41:49+02:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/PipelineWiring</loc>
-    <lastmod>2026-05-22T20:41:49+02:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/Security</loc>
     <lastmod>2026-05-22T17:03:24+02:00</lastmod>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/ClientAuthentication</loc>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/MigrationPath</loc>
@@ -779,7 +788,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-06-02T14:36:41Z</lastmod>
+    <lastmod>2026-06-02T19:04:39Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
