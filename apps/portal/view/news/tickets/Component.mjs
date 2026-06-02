@@ -343,7 +343,7 @@ ${fullHtml}
                     tag  : 'comment'
                 });
 
-                let body = marked.parse(commentBuf.join('\n'));
+                let body = me.wrapMarkdownTables(marked.parse(commentBuf.join('\n')));
                 html += `
                     <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
                         <div id="${id}-target" class="neo-timeline-avatar">

@@ -222,7 +222,7 @@ class Component extends ContentComponent {
                 id,
                 user    : entry.user,
                 date    : entry.date,
-                bodyHtml: marked.parse(entry.body),
+                bodyHtml: me.wrapMarkdownTables(marked.parse(entry.body)),
                 extraCls: isReview ? `comment review ${stateCls}` : 'comment',
                 action  : isReview ? `${badge} reviewed` : 'commented',
                 meta    : entry.meta

@@ -237,7 +237,6 @@
 
                     .neo-timeline-body {
                         font-size    : 14px;
-                        overflow-x   : auto;
                         overflow-wrap: anywhere;
                         padding      : 16px;
 
@@ -250,6 +249,11 @@
                             overflow-x: auto;
                         }
 
+                        .neo-markdown-table-wrapper {
+                            max-width : 100%;
+                            overflow-x: auto;
+                        }
+
                         table {
                             border         : 1px solid var(--gh-timeline-border);
                             border-collapse: separate;
@@ -257,7 +261,6 @@
                             border-spacing : 0;
                             color          : var(--gh-text-primary);
                             margin         : 12px 0;
-                            max-width      : none;
                             min-width      : 100%;
                             overflow       : hidden;
                             width          : max-content;
@@ -267,6 +270,8 @@
                         td {
                             border-bottom: 1px solid var(--gh-timeline-border);
                             border-right : 1px solid var(--gh-timeline-border);
+                            max-width    : 48ch;
+                            overflow-wrap: anywhere;
                             padding      : 8px 12px;
                             text-align   : left;
                             vertical-align: top;
