@@ -67,11 +67,30 @@ jobs:
             const missingVisible   = VISIBLE_PR_BODY_ANCHORS  .filter(a => !body.includes(a));
             const missingInvisible = INVISIBLE_PR_BODY_ANCHORS.filter(a => !body.includes(a));
 
-            // Ticket-reference is a separate visible check (regex pattern, not substring)
-            const ticketRegex   = /(Resolves|Closes|Fixes|Related:|Refs)\s+#\d+/i;
-            const missingTicket = !ticketRegex.test(body);
-            if (missingTicket) {
-              missingVisible.push("Ticket reference (e.g., Resolves #N, Related: #N)");
+            // Ticket-reference is a separate visible check (regex pattern, not substring).
+            //
+            // Operator rule (#12367): every agent PR body MUST contain at least one `Resolves #N`
+            // — the ONLY sanctioned closing keyword (it means *delivered work*). This mechanically
+            // enforces the 1-PR-per-ticket model: a ticket that needs N PRs cannot have N valid
+            // `Resolves` (only one PR can resolve it), so it must become an epic + subs or be split.
+            //   - `Closes #N` is FORBIDDEN: "Closes" = closed-without-delivery (not-planned /
+            //     superseded / dropped) — that outcome needs NO PR, so a PR must never carry it.
+            //   - `Fixes #N`  is FORBIDDEN: ambiguous; use `Resolves` (bug fixes included).
+            //   - `Refs #N` / `Related: #N` are allowed as ADDITIONAL references (e.g. a parent
+            //     epic), and multiple `Resolves` lines are fine — but they never substitute for
+            //     the mandatory `Resolves`.
+            const hasResolves    = /\bResolves:?\s+#\d+/i.test(body);
+            const forbiddenClose = body.match(/\b(Closes|Fixes):?\s+#\d+/i);
+
+            if (forbiddenClose) {
+              missingVisible.push(
+                "`" + forbiddenClose[1] + " #N` is forbidden — use `Resolves #N` " +
+                "(`Closes` = closed-without-delivery → no PR needed; `Fixes` is ambiguous)"
+              );
+            }
+
+            if (!hasResolves) {
+              missingVisible.push("`Resolves #N` (mandatory closing keyword — `Refs`/`Related` alone is NOT sufficient)");
             }
 
             if (missingVisible.length === 0 && missingInvisible.length === 0) {
