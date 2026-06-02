@@ -8,7 +8,10 @@ export const BOOT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 export const MAX_ABANDONED_ACTIONS = 3;
 
 /**
- * Returns the path to the lock file.
+ * @summary Build the absolute in-flight lock-file path for one identity/mode pair.
+ * @param {string} mode Recovery action mode.
+ * @param {string} identity Agent identity.
+ * @returns {string} Absolute lock-file path.
  */
 export function getLockPath(mode, identity) {
     const cleanIdentity = identity.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -16,14 +19,17 @@ export function getLockPath(mode, identity) {
 }
 
 /**
- * Check if the lock is active, abandoned, or cleared.
- * If cleared by fresh memory, deletes the lock file.
- * If abandoned >= N times, auto-trips the wake safety gate.
+ * @summary Resolve whether a recovery action is already in flight, abandoned, or cleared.
  *
- * @param {string} identity The agent identity
- * @param {string} mode 'sunset_restart' or 'idle_out_nudge'
- * @param {number} latestMemoryTimestampMs The timestamp of the latest AGENT_MEMORY for this identity
- * @returns {Promise<{inFlight: boolean, abandoned: boolean}>}
+ * Fresh AGENT_MEMORY newer than the lock timestamp proves the target agent
+ * responded after dispatch, so the lock is cleared. Locks older than
+ * BOOT_TIMEOUT_MS are treated as abandoned; repeated abandonment trips the wake
+ * safety gate after MAX_ABANDONED_ACTIONS.
+ *
+ * @param {string} identity Agent identity.
+ * @param {string} mode Recovery mode, usually `sunset_restart` or `idle_out_nudge`.
+ * @param {number} latestMemoryTimestampMs Timestamp of the latest AGENT_MEMORY for this identity.
+ * @returns {Promise<{inFlight: boolean, abandoned: boolean, abandonedCount?: number}>}
  */
 export async function checkInflightLock(identity, mode, latestMemoryTimestampMs) {
     const lockPath = getLockPath(mode, identity);
@@ -33,7 +39,7 @@ export async function checkInflightLock(identity, mode, latestMemoryTimestampMs)
         const lockData = JSON.parse(content);
 
         if (latestMemoryTimestampMs > lockData.timestamp) {
-            // Memory is newer than lock! The agent successfully booted/responded.
+            // Fresh memory proves the target agent responded after this lock was written.
             await fs.unlink(lockPath);
             return { inFlight: false, abandoned: false };
         }
@@ -50,12 +56,12 @@ export async function checkInflightLock(identity, mode, latestMemoryTimestampMs)
                     reason: `${newAbandonedCount} consecutive abandoned actions for ${mode} on ${identity}`,
                     trippedBy: 'inflight-lock-monitor'
                 });
-                return { inFlight: false, abandoned: true }; // Let action proceed (it will be blocked by safety gate anyway)
+                // Let callers continue; the safety gate blocks the next recovery action.
+                return { inFlight: false, abandoned: true };
             }
 
-            // Rewrite lock to reset timestamp and increment abandoned count?
-            // "allow next interval to retry" -> so we return inFlight: false, abandoned: true
-            // Then the caller can try again, which will call `writeInflightLock` with the new count.
+            // Allow the caller to retry; the next write carries the incremented
+            // abandoned count into the replacement lock.
             return { inFlight: false, abandoned: true, abandonedCount: newAbandonedCount };
         }
 
@@ -64,13 +70,17 @@ export async function checkInflightLock(identity, mode, latestMemoryTimestampMs)
         if (err.code === 'ENOENT') {
             return { inFlight: false, abandoned: false };
         }
-        // If unparseable, assume no lock to recover safely
+        // Non-parseable lock files should not pin recovery forever.
         return { inFlight: false, abandoned: false };
     }
 }
 
 /**
- * Write the inflight lock before invoking an action.
+ * @summary Write an in-flight lock before invoking a recovery action.
+ * @param {string} identity Agent identity.
+ * @param {string} mode Recovery action mode.
+ * @param {number} [abandonedCount=0] Prior abandoned-action count to carry forward.
+ * @returns {Promise<void>}
  */
 export async function writeInflightLock(identity, mode, abandonedCount = 0) {
     const lockPath = getLockPath(mode, identity);
@@ -84,7 +94,10 @@ export async function writeInflightLock(identity, mode, abandonedCount = 0) {
 }
 
 /**
- * Explicitly clear a lock if needed outside of the implicit check.
+ * @summary Clear an in-flight lock outside the implicit freshness check.
+ * @param {string} identity Agent identity.
+ * @param {string} mode Recovery action mode.
+ * @returns {Promise<void>}
  */
 export async function clearInflightLock(identity, mode) {
     const lockPath = getLockPath(mode, identity);
