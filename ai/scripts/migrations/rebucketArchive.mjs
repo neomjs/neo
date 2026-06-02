@@ -1,5 +1,5 @@
 /**
- * @summary One-time, non-destructive re-bucket migration for the issue archive (#12194).
+ * @summary One-time, non-destructive re-bucket migration for the issue archive.
  *
  * Relocates mis-bucketed issue markdown into the correct release folders using the current bucketing
  * logic + the FULL release history, then rewrites the issues `_index.json`. This corrects historical
