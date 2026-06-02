@@ -1,6 +1,7 @@
 import aiConfig                   from '../../../mcp/server/github-workflow/config.mjs';
 import Base                       from '../../../../src/core/Base.mjs';
 import crypto                     from 'crypto';
+import {existsSync}               from 'fs';
 import fs                         from 'fs/promises';
 import logger                     from '../../../mcp/server/github-workflow/logger.mjs';
 import matter                     from 'gray-matter';
@@ -49,6 +50,46 @@ class PullRequestSyncer extends Base {
      */
     #calculateContentHash(content) {
         return crypto.createHash('sha256').update(content).digest('hex');
+    }
+
+    /**
+     * @summary Resolves a closed or merged pull request's release-date bucket.
+     * @param {Object} pr GitHub pull request node or cached pull entry.
+     * @returns {String|null} Version bucket, or null when no cut release follows the close/merge date.
+     * @private
+     */
+    #deriveClosedAtVersion(pr) {
+        if (!pr.mergedAt && !pr.closedAt) return null;
+
+        const closed  = new Date(pr.mergedAt || pr.closedAt);
+        const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+
+        if (!release) return null;
+
+        return release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+            ? release.tagName
+            : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+    }
+
+    /**
+     * @summary Resolves an opt-in milestone archive bucket without pre-staging future releases.
+     * @param {Object} pr GitHub pull request node or cached pull entry.
+     * @returns {String|null} Existing milestone bucket, or null when disabled, invalid, or uncut.
+     * @private
+     */
+    #deriveMilestoneVersion(pr) {
+        const title = pr.milestone?.title;
+
+        if (!issueSyncConfig.routeByMilestone || !title || !semver.valid(semver.clean(title))) {
+            return null;
+        }
+
+        const candidate = title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+            ? title
+            : issueSyncConfig.versionDirectoryPrefix + title;
+        const archiveDir = path.join(issueSyncConfig.archiveRoot, 'pulls', candidate);
+
+        return existsSync(archiveDir) ? candidate : null;
     }
 
     /**
@@ -109,20 +150,12 @@ class PullRequestSyncer extends Base {
 
         for (const pr of combined.values()) {
             let version = null;
-            // Treat a milestone as a version bucket ONLY when its title is valid semver — a
-            // descriptive milestone must not become a version folder (mirrors IssueSyncer).
-            if (pr.milestone?.title && semver.valid(semver.clean(pr.milestone.title))) {
-                version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? pr.milestone.title
-                    : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
-            } else if (pr.mergedAt || pr.closedAt) {
-                const closed = new Date(pr.mergedAt || pr.closedAt);
-                const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
-                if (release) {
-                    version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                        ? release.tagName
-                        : issueSyncConfig.versionDirectoryPrefix + release.tagName;
-                }
+            if (pr.mergedAt || pr.closedAt) {
+                version = this.#deriveClosedAtVersion(pr);
+            }
+
+            if (!version) {
+                version = this.#deriveMilestoneVersion(pr);
             }
 
             if (pr.state !== 'CLOSED' && pr.state !== 'MERGED' || !version) {

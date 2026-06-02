@@ -25,12 +25,12 @@ import path            from 'path';
  *
  * Two axes of coverage:
  *
- * 1. **Timeline pagination (#10090).** Builds a mocked GitHub issue whose `timelineItems`
+     * 1. **Timeline pagination.** Builds a mocked GitHub issue whose `timelineItems`
  *    connection has 75 events split across two pages — more than `maxTimelineItemsPerIssue` (50) —
  *    and drives the refetch path to confirm that every comment body and structural event makes
  *    it into the rendered markdown. Before the fix, the second-page tail was silently dropped.
  *
- * 2. **Timeline-derived `commentsTotal` (#10110).** Asserts that the `commentsTotal` metadata
+     * 2. **Timeline-derived `commentsTotal`.** Asserts that the `commentsTotal` metadata
  *    field and the frontmatter `commentsCount` are both derived from `timelineItems.nodes`
  *    filtered for `__typename === 'IssueComment'` — the authoritative post-exhaust count — not
  *    from the dropped `issue.comments.totalCount` scalar. Guards against regression back to the
@@ -46,6 +46,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let originalArchiveRoot;
     let originalIssuesDir;
     let originalContentRoot;
+    let originalRouteByMilestone;
     let tmpRoot;
     let logger;
 
@@ -55,6 +56,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         originalArchiveRoot = issueSyncConfig.archiveRoot;
         originalIssuesDir   = issueSyncConfig.issuesDir;
         originalContentRoot = issueSyncConfig.contentRoot;
+        originalRouteByMilestone = issueSyncConfig.routeByMilestone;
 
         tmpRoot = path.resolve(process.cwd(), 'tmp', `issue-syncer-test-${process.pid}-${Date.now()}`);
         await fs.ensureDir(tmpRoot);
@@ -78,6 +80,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         issueSyncConfig.archiveRoot = originalArchiveRoot;
         issueSyncConfig.issuesDir   = originalIssuesDir;
         issueSyncConfig.contentRoot = originalContentRoot;
+        issueSyncConfig.routeByMilestone = originalRouteByMilestone;
         await fs.remove(tmpRoot).catch(() => {});
     });
 
@@ -148,7 +151,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const eventLines = written.match(/^- 2026-04-19T[^ ]+ @tobiu cross-referenced by #\d+$/gm) || [];
         expect(eventLines).toHaveLength(TOTAL_EVENTS - PAGE_SIZE);
 
-        // Frontmatter commentsCount is now derived from timelineItems (#10110) — authoritative
+        // Frontmatter commentsCount is now derived from timelineItems — authoritative
         // against what the markdown actually renders in its Timeline section.
         expect(written).toContain(`id: ${mockIssue.number}`);
         expect(written).toContain(`commentsCount: ${PAGE_SIZE}`);
@@ -200,18 +203,18 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     });
 
     test('closed-post-latest-release issue lands in active when no archive-version applies (#11360 supersedes #11288 unversioned-target scenario)', async () => {
-        // PRE-#11360: closed-post-latest-release issues with no matching release
+        // Before the archive fallback cleanup: closed-post-latest-release issues with no matching release
         // would fall through to `'unversioned'` archive bucket. That fallback was the
-        // architectural bug fixed by #11360 — pre-staging items into a not-yet-existing
-        // version archive violates Epic #11187 sealed-chunk semantics.
+        // architectural bug fixed by the cleanup — pre-staging items into a not-yet-existing
+        // version archive violates sealed-chunk semantics.
         //
-        // POST-#11360: such items land in ACTIVE path; archive folders for vN.M.K are
+        // After the cleanup: such items land in ACTIVE path; archive folders for vN.M.K are
         // created at release-cut by publish.mjs, never pre-staged.
         //
-        // The #11288 anomaly-hook contract (warn on closedAt-shift across buckets) is
+        // The anomaly-hook contract (warn on closedAt-shift across buckets) is
         // preserved for shifts between REAL release buckets (e.g., v11.0.0 → v12.0.0).
         // The "shift to 'unversioned'" / "archive → active" anomaly variant needs to be
-        // re-established in a follow-up sub-ticket; deliberately not in scope for #11360.
+        // re-established in a follow-up sub-ticket; deliberately not in scope here.
         const mockIssue = buildMockIssue({
             number       : 50001,
             title        : 'Mock issue — closed-post-latest-release lands in active #11360',
@@ -247,10 +250,10 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(stats.refetched.count).toBe(1);
         expect(stats.errors).toHaveLength(0);
 
-        // Item lands in active (per Epic #11187 mental model: closed-for-next-release stays in active).
+        // Item lands in active: closed-for-next-release stays in active.
         // Assert via configured active root (issuesDir) rather than literal '/issues/' substring —
         // the test rewrites issuesDir to a tmp dir, so the literal substring no longer matches even
-        // when behavior is correct. Per @neo-gpt PR #11362 Cycle 1 review correction.
+        // when behavior is correct.
         const targetPath           = metadata.issues['50001'].path;
         const absoluteTargetPath   = path.resolve(aiConfig.projectRoot, targetPath);
         const relativeToIssuesDir  = path.relative(issueSyncConfig.issuesDir, absoluteTargetPath);
@@ -261,7 +264,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
     test('non-semver milestone is not a version bucket — falls through to closedAt→release (#12184)', async () => {
         // A descriptive (non-semver) milestone must NOT become a `v<title>` archive folder. Empirical:
-        // #3286/#3287 carried milestones like "neo.d.ts - Typescript definitions ..." and were archived
+        // Real issues carried milestones like "neo.d.ts - Typescript definitions ..." and were archived
         // as garbage version folders. With the semver guard, such a closed issue falls through to the
         // closedAt→release resolution and buckets into the real release that shipped after it closed.
         const mockIssue = buildMockIssue({
@@ -299,6 +302,102 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
             expect(bucketPath).not.toContain('neo.d.ts');
         } finally {
             ReleaseNotesSyncer.sortedReleases = originalSorted;
+        }
+    });
+
+    test('routeByMilestone=false ignores semver milestones and keeps post-latest closed issues active', async () => {
+        const mockIssue = buildMockIssue({
+            number       : 50004,
+            title        : 'Mock post-latest issue with future semver milestone',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        mockIssue.state     = 'CLOSED';
+        mockIssue.closedAt  = '2026-01-15T00:00:00Z';
+        mockIssue.milestone = {title: 'v99.0.0'};
+
+        const originalSorted           = ReleaseNotesSyncer.sortedReleases;
+        const originalRouteByMilestone = issueSyncConfig.routeByMilestone;
+        ReleaseNotesSyncer.sortedReleases = [];
+        issueSyncConfig.routeByMilestone  = false;
+        await fs.ensureDir(path.join(issueSyncConfig.archiveRoot, 'issues', 'v99.0.0'));
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(mockIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        try {
+            const metadata = {issues: {}};
+            const stats    = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+            const targetPath = metadata.issues[mockIssue.number].path;
+
+            expect(stats.refetched.count).toBe(1);
+            expect(stats.errors).toHaveLength(0);
+            expect(targetPath).not.toContain('/archive/');
+            expect(path.relative(issueSyncConfig.issuesDir, path.resolve(aiConfig.projectRoot, targetPath)).startsWith('..')).toBe(false);
+        } finally {
+            ReleaseNotesSyncer.sortedReleases = originalSorted;
+            issueSyncConfig.routeByMilestone  = originalRouteByMilestone;
+        }
+    });
+
+    test('routeByMilestone=true only routes semver milestones into already-cut archive buckets', async () => {
+        const missingBucketIssue = buildMockIssue({
+            number       : 50005,
+            title        : 'Mock issue with uncut milestone',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        missingBucketIssue.state     = 'CLOSED';
+        missingBucketIssue.closedAt  = '2026-01-15T00:00:00Z';
+        missingBucketIssue.milestone = {title: 'v97.0.0'};
+
+        const cutBucketIssue = buildMockIssue({
+            number       : 50006,
+            title        : 'Mock issue with cut milestone bucket',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        cutBucketIssue.state     = 'CLOSED';
+        cutBucketIssue.closedAt  = '2026-01-15T00:00:00Z';
+        cutBucketIssue.milestone = {title: 'v98.0.0'};
+
+        const originalSorted           = ReleaseNotesSyncer.sortedReleases;
+        const originalRouteByMilestone = issueSyncConfig.routeByMilestone;
+        ReleaseNotesSyncer.sortedReleases = [];
+        issueSyncConfig.routeByMilestone  = true;
+        await fs.ensureDir(path.join(issueSyncConfig.archiveRoot, 'issues', 'v98.0.0'));
+
+        GraphqlService.query = async (query, variables) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {
+                    repository: {
+                        issue: variables.number === cutBucketIssue.number
+                            ? structuredClone(cutBucketIssue)
+                            : structuredClone(missingBucketIssue)
+                    }
+                };
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        try {
+            const metadata = {issues: {}};
+            const stats    = await IssueSyncer.refetchIssuesByNumber([missingBucketIssue.number, cutBucketIssue.number], metadata);
+
+            expect(stats.refetched.count).toBe(2);
+            expect(stats.errors).toHaveLength(0);
+            expect(metadata.issues[missingBucketIssue.number].path).not.toContain('/archive/');
+            expect(metadata.issues[cutBucketIssue.number].path).toContain(path.join('archive', 'issues', 'v98.0.0'));
+        } finally {
+            ReleaseNotesSyncer.sortedReleases = originalSorted;
+            issueSyncConfig.routeByMilestone  = originalRouteByMilestone;
         }
     });
 
@@ -432,7 +531,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     });
 
     test('formatTimelineEvent null-safety: null assignee / label / subIssue / source produce fallback markers, no crash (#11474)', async () => {
-        // Empirical anchor: post-#11470-merge sync_all crashed at IssueSyncer.mjs:202 on
+        // Empirical anchor: sync_all crashed at IssueSyncer.mjs:202 on
         // `event.assignee.login` when a GitHub user had been deleted. Same null-deref risk
         // exists across the entire #formatTimelineEvent switch (label, subIssue, parent,
         // blockingIssue, blockedIssue, commit, source). This test exercises four representative
@@ -502,10 +601,10 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     });
 
     test('formatIssueMarkdown null-safety: ghost issue (null author + null label/assignee/subIssue nodes) renders without crash (#11481)', async () => {
-        // Empirical anchor: post-#11476-merge sync_all crashed at IssueSyncer.mjs:145 on
+        // Empirical anchor: sync_all crashed at IssueSyncer.mjs:145 on
         // `issue.author.login` when the GitHub author had been deleted (Ghost user). This is
-        // the whack-a-mole companion to the #11474 timeline-event fix — same null-deref class
-        // in the FRONTMATTER ASSEMBLY method (#formatIssueMarkdown) that PR #11476 didn't sweep.
+        // the whack-a-mole companion to the timeline-event fix — same null-deref class
+        // in the FRONTMATTER ASSEMBLY method (#formatIssueMarkdown) that the prior sweep missed.
         // This test exercises EVERY nullable frontmatter site simultaneously ("ghost issue")
         // to prevent future whack-a-mole regressions.
         const ghostIssue = {
@@ -579,11 +678,11 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
     test('ARCHIVE ANOMALY WARN: only fires when both buckets parse as valid semver tags (#11486)', async () => {
         // Empirical anchor: operator 2026-05-16T19:33Z paste — `npm run ai:sync-github-workflow`
-        // post-#11485-merge produced thousands of `[WARN] 🚨 [ARCHIVE ANOMALY]` lines, dominated by
+        // sync produced thousands of `[WARN] 🚨 [ARCHIVE ANOMALY]` lines, dominated by
         // migration-shape false positives (oldVersion = title-derived garbage like
         // 'vneo.d.ts - Typescript definitions for all neo framework classes') where sealed-chunk
         // semantics already prevent any actual move. Only genuine vX.Y.Z → vX.Y.Z shifts (e.g.
-        // #7910 v11.12.0 → v11.13.0) are actionable anomalies and should retain WARN level.
+        // a v11.12.0 → v11.13.0 shift) are actionable anomalies and should retain WARN level.
         //
         // This test exercises two issues simultaneously:
         // - Issue A: cached path bucket is title-derived garbage → semver.valid returns null →
@@ -674,6 +773,8 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Pre-create the two cached files so sealed-chunk path-resolution works.
         await fs.ensureDir(path.dirname(issueAOldAbsolutePath));
         await fs.ensureDir(path.dirname(issueBOldAbsolutePath));
+        await fs.ensureDir(path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0'));
+        await fs.ensureDir(path.join(issueSyncConfig.archiveRoot, 'issues', 'v11.13.0'));
         await fs.writeFile(issueAOldAbsolutePath, 'mock content A', 'utf8');
         await fs.writeFile(issueBOldAbsolutePath, 'mock content B', 'utf8');
 
@@ -682,14 +783,17 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const debugCalls = [];
         const originalWarn  = logger.warn;
         const originalDebug = logger.debug;
+        const originalRouteByMilestone = issueSyncConfig.routeByMilestone;
         logger.warn  = (...args) => { warnCalls.push(args[0]); };
         logger.debug = (...args) => { debugCalls.push(args[0]); };
+        issueSyncConfig.routeByMilestone = true;
 
         try {
             await IssueSyncer.pullFromGitHub(metadata);
         } finally {
             logger.warn  = originalWarn;
             logger.debug = originalDebug;
+            issueSyncConfig.routeByMilestone = originalRouteByMilestone;
             await fs.unlink(issueAOldAbsolutePath).catch(() => {});
             await fs.unlink(issueBOldAbsolutePath).catch(() => {});
         }
@@ -710,9 +814,9 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     });
 
     test('planBuckets oldVersion precedence: unchanged closed issue with no milestone skips closedAt timestamp fallback (#11594 AC4(b))', async () => {
-        // Regression #11594 AC4(b) per @neo-gpt PR #11607 Cycle 2 review:
+        // Regression coverage for oldVersion precedence:
         // Legacy archived issues seeded from existing serialized metadata may lack milestone data
-        // (pre-#11594-persistence-fix entries). When such an issue is NOT in the delta fetch (it
+        // (pre-persistence-fix entries). When such an issue is NOT in the delta fetch (it
         // hasn't been modified since lastSync), `#planBuckets` receives `milestone: null/undefined`
         // and previously fell through to closedAt-based timestamp inference, which could re-emit
         // ARCHIVE ANOMALY WARN for issues already at their canonical on-disk bucket.
@@ -722,7 +826,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // valid-semver oldVersion + no milestone → version = oldVersion → no WARN, no closedAt
         // heuristic invocation.
         //
-        // Empirical anchor: #7910 (CLOSED 2025-11-29, milestone v11.12.0) was re-bucketed to
+        // Empirical anchor: a closed issue with milestone v11.12.0 was re-bucketed to
         // v11.13.0 every sync because the persistence-shape bug meant milestone data was missing
         // post-persist (Cycle 1 fix), AND planBuckets had no oldVersion precedence even when the
         // cached path WAS the canonical bucket (this Cycle 2 fix).
@@ -976,7 +1080,7 @@ function buildCrossRef(i) {
 
 /**
  * Builds the minimal GraphQL issue shape that `IssueSyncer.#formatIssueMarkdown` accepts.
- * Post-#10110 the `comments` subselect is gone from the query, so the mock omits it too.
+     * The `comments` subselect is gone from the query, so the mock omits it too.
  */
 function buildMockIssue({number, title, timelineFirst, hasNextPage, endCursor}) {
     return {
