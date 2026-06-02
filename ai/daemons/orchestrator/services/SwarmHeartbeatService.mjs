@@ -252,8 +252,8 @@ class SwarmHeartbeatService extends Base {
      *        reality rather than by the Orchestrator process owner's env var.
      *   4. All-agent-idle detection via `checkAllAgentIdle.mjs` direct export.
      *      - allIdle=true + gate-open → `trioWakeCooldown.mjs` direct export.
-     *   5. Per-identity 3-signal-decision-gated heartbeat-pulse emit (Epic #11993
-     *      Sub-iii). For each identity in `pulseIdentities`, query A2A activity
+     *   5. Per-identity 3-signal-decision-gated heartbeat-pulse emit. For each
+     *      identity in `pulseIdentities`, query A2A activity
      *      timestamps + readiness sentinels + orchestrator-local backoff window,
      *      compose via `WakeDecisionService.decideWake({active, idle, ready})`, and
      *      emit a Shape B `WakeSubscriptionService.emitHeartbeatPulse({targetIdentity})`
@@ -341,8 +341,8 @@ class SwarmHeartbeatService extends Base {
         }
 
         // Step 5: Per-identity 3-signal-decision-gated heartbeat-pulse emit.
-        // Per Epic #11993 Sub-iii (#11996): replaces old push-capability bypass +
-        // token-economy gate + tmux-inject with a unified Shape B emit path.
+        // Replaces old push-capability bypass + token-economy gate + tmux-inject
+        // with a unified Shape B emit path.
         // Wake = active AND idle AND ready (per WakeDecisionService.decideWake).
         const now = Date.now();
         for (const identity of pulseIdentities) {
@@ -539,9 +539,8 @@ class SwarmHeartbeatService extends Base {
      *
      * Per-MC-instance derived candidate-discovery — no team-registry coupling. External
      * workspaces only ever see their own MC's A2A activity, so default fan-out is
-     * tenant-safe. Implements the activity-derived discovery side of the 3-signal model
-     * (Discussion #11992 §5.1.1 + Epic #11993 cycle-3 "activity-derived signals are durable"
-     * framing) — sibling to per-identity `getRecentActivityTimestamps`.
+     * tenant-safe. Implements the activity-derived discovery side of the 3-signal
+     * model — sibling to per-identity `getRecentActivityTimestamps`.
      *
      * **3-branch UNION mirrors mailbox semantics:**
      * - `SENT_TO` → direct-message recipients (`AGENT:*` sentinel excluded — broadcasts don't
@@ -735,9 +734,9 @@ class SwarmHeartbeatService extends Base {
     /**
      * Query A2A graph for recent message-activity timestamps adjacent to the identity.
      *
-     * Sub-iii (#11996) implementation of the activity-signal input for
-     * `WakeDecisionService.decideWake`. Returns millisecond timestamps of any A2A
-     * activity (sent OR received) by this identity within the last 3h, archived-excluded.
+     * Activity-signal input for `WakeDecisionService.decideWake`. Returns millisecond
+     * timestamps of any A2A activity (sent OR received) by this identity within the
+     * last 3h, archived-excluded.
      *
      * `MailboxService.listMessages()` is caller-identity-scoped: it reads
      * `RequestContextService.getAgentIdentityNodeId()` at entry and throws if
