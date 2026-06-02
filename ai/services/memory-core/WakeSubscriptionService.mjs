@@ -1,4 +1,6 @@
 import crypto                 from 'crypto';
+import fs                     from 'fs-extra';
+import path                   from 'path';
 import Base                   from '../../../src/core/Base.mjs';
 import GraphService           from './GraphService.mjs';
 import RequestContextService  from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -10,7 +12,7 @@ import CoalescingEngineService from './CoalescingEngineService.mjs';
  * `manage_wake_subscription` MCP tool surface — the graph-backed substrate for
  * cross-harness autonomous wake delivery.
  *
- * Subscriptions are graph-resident (durable across MCP server restarts per ADR 0002 §6.6.2)
+ * Subscriptions are graph-resident (durable across MCP server restarts per ADR 0002 §6.6.2; ticket-ref-ok: decision-record authority, not issue archaeology)
  * with a write-through in-memory cache for sub-millisecond trigger evaluation.
  * Per-agent ownership is enforced via `RequestContextService.getAgentIdentityNodeId()`
  * and an explicit `SUBSCRIBES_TO` edge from the AgentIdentity node to the WAKE_SUBSCRIPTION
@@ -95,6 +97,12 @@ class WakeSubscriptionService extends Base {
     liveCursor = 0
 
     /**
+     * @member {String} liveCursorStateFile='.neo-ai-data/wake-daemon/wakeSubscriptionLiveCursor'
+     * @protected
+     */
+    liveCursorStateFile = path.resolve(process.env.NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE || '.neo-ai-data/wake-daemon/wakeSubscriptionLiveCursor')
+
+    /**
      * Sets the initial live cursor to the current graph log head to prevent
      * replaying historical events on boot.
      */
@@ -104,7 +112,7 @@ class WakeSubscriptionService extends Base {
         if (storage?.db) {
             try {
                 const row = storage.db.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get();
-                this.liveCursor = row.maxId || 0;
+                this._setLiveCursor(row.maxId || 0);
             } catch (e) {
                 logger.warn('[WakeSubscription] Failed to read max log_id on init', e);
             }
@@ -137,7 +145,7 @@ class WakeSubscriptionService extends Base {
 
             const delta = storage.getDeltaLog(this.liveCursor);
             if (delta.invalidEdges.length === 0 && delta.invalidNodes.length === 0) {
-                this.liveCursor = delta.lastLogId;
+                this._setLiveCursor(delta.lastLogId);
                 return;
             }
 
@@ -149,7 +157,7 @@ class WakeSubscriptionService extends Base {
                 .filter(sub => sub.harnessTarget === 'mcp-notifications' && sub.status === 'active');
 
             if (activeSubs.length === 0) {
-                this.liveCursor = delta.lastLogId;
+                this._setLiveCursor(delta.lastLogId);
                 return;
             }
 
@@ -167,11 +175,48 @@ class WakeSubscriptionService extends Base {
             }
 
 
-            this.liveCursor = delta.lastLogId;
+            this._setLiveCursor(delta.lastLogId);
         } catch (e) {
             logger.error('[WakeSubscription] Background pump failed:', e);
         } finally {
             this._pumping = false;
+        }
+    }
+
+    /**
+     * @summary Advances the in-process GraphLog cursor and mirrors it to an operator-readable file.
+     *
+     * The file is the durable watermark consumed by `ai:compact-graphlog`; it is intentionally
+     * outside the graph so persisting the cursor does not recursively append another GraphLog row.
+     *
+     * @param {Number} logId
+     * @protected
+     */
+    _setLiveCursor(logId) {
+        const next = Number.isFinite(Number(logId)) ? Number(logId) : 0;
+
+        this.liveCursor = next;
+        this._persistLiveCursor();
+    }
+
+    /**
+     * @summary Persists the WakeSubscriptionService GraphLog cursor for maintenance compaction.
+     *
+     * Unit tests skip the default repo-local state write unless they provide an explicit
+     * `NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE` override.
+     *
+     * @protected
+     */
+    _persistLiveCursor() {
+        if (process.env.UNIT_TEST_MODE === 'true' && !process.env.NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE) {
+            return;
+        }
+
+        try {
+            fs.ensureDirSync(path.dirname(this.liveCursorStateFile));
+            fs.writeFileSync(this.liveCursorStateFile, String(this.liveCursor), 'utf8');
+        } catch (e) {
+            logger.warn(`[WakeSubscription] Failed to persist live cursor at ${this.liveCursorStateFile}`, e);
         }
     }
 
@@ -195,7 +240,7 @@ class WakeSubscriptionService extends Base {
 
     /**
      * Unified entry point for the `manage_wake_subscription` MCP tool. Dispatches to
-     * action-specific handlers per ADR 0002 §6.6.
+     * action-specific handlers per ADR 0002 §6.6. ticket-ref-ok: decision-record authority, not issue archaeology
      *
      * @param {Object} opts
      * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync'
@@ -414,7 +459,7 @@ class WakeSubscriptionService extends Base {
         const now            = new Date().toISOString();
 
         // Shape B requires an HMAC signing key for webhook authenticity.
-        // Per ADR 0002 §6.2.3 the server generates and returns it once at subscribe-time;
+            // Per ADR 0002 §6.2.3 the server generates and returns it once at subscribe-time; ticket-ref-ok: decision-record authority, not issue archaeology
         // it is stored in the node's harnessTargetMetadata for subsequent verification.
         let signingKey;
         if (harnessTarget === 'a2a-webhook') {
@@ -653,7 +698,7 @@ class WakeSubscriptionService extends Base {
      * starting from `sinceLogId`. Returns the matching event payloads as data; the
      * channel-specific re-emission (MCP notifications / webhook POST / daemon dispatch)
      * is the responsibility of Shape A/B/C consumers wiring this output to their
-     * delivery surfaces. Per ADR 0002 §6.1.6 + §6.6.2.
+     * delivery surfaces. Per ADR 0002 §6.1.6 + §6.6.2. ticket-ref-ok: decision-record authority, not issue archaeology
      *
      * @param {Object} opts
      * @param {String} opts.subscriptionId
@@ -708,7 +753,7 @@ class WakeSubscriptionService extends Base {
 
     /**
      * Retrieves the specific GraphLog log_id for an entity, to anchor the wake event
-     * per ADR 0002 §6.1.6.
+     * per ADR 0002 §6.1.6. ticket-ref-ok: decision-record authority, not issue archaeology
      * @protected
      * @param {String} entityId
      * @returns {Number|null}
@@ -853,7 +898,7 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * Wraps a payload in the standard wake notification envelope per ADR 0002 §6.1.1-§6.1.3.
+     * Wraps a payload in the standard wake notification envelope per ADR 0002 §6.1.1-§6.1.3. ticket-ref-ok: decision-record authority, not issue archaeology
      * @protected
      * @param {String} eventType One of `wake/sent_to_me`, `wake/task_state_changed`, `wake/permission_granted`, `wake/heartbeat_pulse`
      * @param {Object} subscription Cached WAKE_SUBSCRIPTION entry (provides `id` + `agentIdentity`)

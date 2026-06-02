@@ -24,6 +24,7 @@
         "ai:check-identity-facts"      : "node ./ai/scripts/diagnostics/check-identity-facts.mjs",
         "ai:check-retired-primitives"  : "node ./ai/scripts/diagnostics/check-retired-primitives.mjs",
         "ai:check-substrate-size"      : "node ./ai/scripts/diagnostics/check-substrate-size.mjs",
+        "ai:compact-graphlog"          : "node ./ai/scripts/maintenance/compactGraphLog.mjs",
         "ai:restore"                   : "node ./ai/scripts/maintenance/restore.mjs",
         "ai:build-kb-faqs"             : "node ./ai/scripts/maintenance/buildKbAgentFaqs.mjs",
         "ai:defrag-kb"                 : "node ./ai/scripts/maintenance/defragChromaDB.mjs --target knowledge-base",
