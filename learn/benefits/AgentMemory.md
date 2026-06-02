@@ -12,16 +12,16 @@ This is the memory half of the [Agent OS](ArchitectureOverview.md) — and it is
 flowchart TD
     classDef agent fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
     classDef mem fill:#4a1942,stroke:#e74c3c,stroke-width:1px,color:#eee
-    classDef graph fill:#3d1f00,stroke:#f39c12,stroke-width:1px,color:#eee
+    classDef edgegraph fill:#3d1f00,stroke:#f39c12,stroke-width:1px,color:#eee
 
     Memory["Memory Core (episodic, cross-session)"]:::mem
     KB["Knowledge Base (semantic RAG)"]:::mem
-    Graph["Native Edge Graph (Active Hybrid GraphRAG)"]:::graph
+    EdgeGraph["Native Edge Graph (Active Hybrid GraphRAG)"]:::edgegraph
     Agent["Agent reasoning (any model family)"]:::agent
 
     Memory --> Agent
     KB --> Agent
-    Graph --> Agent
+    EdgeGraph --> Agent
     Agent -->|"persist decisions"| Memory
 ```
 
