@@ -21386,6 +21386,7 @@
   "repo:gkd-kit/gkd",
   "repo:gkd-kit/subscription",
   "repo:gkjohnson/three-bvh-csg",
+  "repo:gkjohnson/three-edge-projection",
   "repo:gkjohnson/three-gpu-pathtracer",
   "repo:gkjohnson/three-mesh-bvh",
   "repo:gkjohnson/threejs-sandbox",
