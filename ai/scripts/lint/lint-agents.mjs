@@ -2,29 +2,25 @@
 /**
  * @summary PR-diff-scoped lint that flags NEW `<a id="...">` / `<a name="...">` HTML
  * anchor-tag insertions in turn-loaded Map substrate, `.agents/skills/**` skill substrate,
- * and `learn/agentos/**` Agent OS substrate per Discussion #11577 graduation.
+ * and `learn/agentos/**` Agent OS substrate.
  *
- * **Graduation context:** Discussion #11577 graduated 2026-05-18 under operator-corrected
- * substrate (DC_kwDODSospM4BAt-P). The graduated form is a substrate-discipline statement,
- * NOT a migration plan: `§<ref>` text-only stable identifiers are correct; HTML `<a id>` /
- * `<a name>` anchor-tag scaffolding is damage. Operator forward-rule: ANY new `<a>` anchor
- * tags in substrate PRs are review blockers unless a narrow rendered-consumer exception is
- * explicitly justified + operator-approved.
+ * **Rule context:** `§<ref>` text-only stable identifiers are the supported substrate
+ * primitive; HTML `<a id>` / `<a name>` anchor-tag scaffolding is substrate damage. Any
+ * new `<a>` anchor tags in substrate PRs are review blockers unless a narrow
+ * rendered-consumer exception is explicitly justified and operator-approved.
  *
- * **Inverts the original #11560 design.** The prior pattern (block positional `§\d+` refs in
- * skill files) inverted the substrate-correct direction. PR #11571 demonstrated the damage
- * empirically: +4,358 bytes / 36 `<a id>` tags / 46 markdown-link refs landed on `dev` across
- * `AGENTS.md` (+1,543b / 13 tags), `AGENTS_STARTUP.md` (+409b / 0 tags), and
- * `learn/agentos/AGENTS_ATLAS.md` (+2,406b / 23 tags) before substrate-correction caught it.
+ * **Directionality:** This lint preserves text-only section identifiers in prose substrate.
+ * The HTML-anchor failure mode bloats always-loaded instruction surfaces and adds duplicate
+ * rendered-navigation scaffolding where renderer-generated heading IDs already cover the
+ * clickability contract.
  *
  * **Diff-scoped + historical-marker discipline preserved.** Lint operates on NEW added lines
  * only; same-line historical / archaeology / errata classification keeps existing
  * substrate-archaeology references legitimate. Authors who genuinely need to insert an
  * anchor tag for a narrow rendered-consumer reason can mark the line with `rendered-consumer`
- * (operator-approved exception per Discussion #11577 forward-rule).
+ * (operator-approved exception marker).
  *
  * @see learn/agentos/decisions/0011-substrate-numbering-convention.md (amendment in progress)
- * @see #11584 (this inversion) / #11577 (graduating discussion) / #11571 (damage PR)
  * @see feedback_agents_md_24kib_hard_cap (review discipline anchor)
  */
 import {execFileSync}    from 'node:child_process';
@@ -56,7 +52,7 @@ const SKILL_PREFIX = '.agents/skills/';
 /**
  * Agent OS substrate (mixed turn-load + skill-load + reference-load). Includes
  * `AGENTS_ATLAS.md` (World Atlas Map) and the ADR set under `decisions/`. Subject to
- * the operator forward-rule per #11577 graduation.
+ * the text-only substrate numbering convention.
  */
 const AGENTOS_PREFIX = 'learn/agentos/';
 
@@ -76,8 +72,8 @@ const SCOPE_SUFFIX = '.md';
 const ANCHOR_TAG_PATTERN = /<a\b[^>]*\s(?:id|name)\s*=/gi;
 
 /**
- * Same-line classification cues that explicitly exempt a line per Discussion #11577
- * forward-rule. `historical` / `archaeology` / `errata` preserve substrate-archaeology
+ * Same-line classification cues that explicitly exempt a line per the anchor-tag exception
+ * contract. `historical` / `archaeology` / `errata` preserve substrate-archaeology
  * references; `rendered-consumer` covers the narrow operator-approved exception for
  * specific rendered-consumer needs. Case-insensitive substring match.
  */
@@ -205,7 +201,7 @@ function parseAddedLines(diffText) {
 
 /**
  * Returns true when the line text contains a same-line exemption marker per
- * Discussion #11577 forward-rule. Match is case-insensitive substring; intentionally
+ * the anchor-tag exception contract. Match is case-insensitive substring; intentionally
  * permissive so authors can mark lines without learning a strict syntax.
  * @param {string} text
  * @returns {boolean}
