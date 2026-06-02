@@ -108,33 +108,26 @@ When challenging a specific architectural pattern or complex implementation deta
 
 ### 5.2 Close-Target Audit
 
-When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against the target issue's labels AND syntax validity.
+When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against labels, syntax, and branch-history safety. For Neo agent / `ai` PRs, `Resolves #N` is the only valid closing keyword; `Closes #N` / `Fixes #N` are invalid, and `Refs #N` / `Related: #N` are non-closing extras only.
 
 **Squash-merge commit-body hazard:** branch commit bodies are merge-time close-target surfaces. GitHub's squash merge can concatenate commit bodies into the default-branch commit; a stale `Resolves #N` inside any branch commit body can auto-close `#N` even when the PR body has been corrected to `Refs #N` and `gh pr view --json closingIssuesReferences` returns `[]`. Provenance: #11185 / PR #11183.
 
-**Rule 1: Validity (Epics are not valid close-targets)**
-Epics represent a body of work delivered across multiple sub-issues; closing an epic is a *project-management* event that fires when the last sub closes (or when the epic is explicitly retired with rationale). PRs deliver subs, not epics. GitHub's auto-close-on-merge semantics fire indiscriminately on any magic-keyword reference, so the discipline-layer enforcement is the reviewer's job.
-
-**Rule 2: Syntax-Exact Keyword Mandate**
-Author-side discipline (`pull-request §2`) mandates strict newline-isolated PR closing syntax. Prose-embedded closures or comma-separated lists are forbidden. The reviewer MUST enforce this syntax to prevent automated parsing failures during Retrospective ingestion.
+**Rules:**
+- **Epics are invalid close-targets:** PRs deliver leaf sub-issues; epics close only when their sub-issue topology is complete or explicitly retired.
+- **Resolves-only for agent PRs:** author-side discipline (`pull-request §9`) mandates newline-isolated `Resolves #N`; `Closes` means no-delivery/no-PR, `Fixes` is ambiguous, and `Refs` / `Related` do not satisfy the close-target requirement.
+- **Syntax-exact:** prose-embedded close targets and comma-separated lists are forbidden.
 
 **Reviewer-side check:**
 
 1. Parse the PR body + commit messages for `Closes #N` / `Resolves #N` / `Fixes #N` patterns (case-insensitive). For local checkout reviews, use `git log origin/dev..HEAD --format='%h%x09%s%n%b'` or an equivalent exact-head commit-message fetch; do not rely on PR body or `closingIssuesReferences` alone.
-2. **Syntax Check:** If the keyword is embedded in prose (e.g., "This PR closes #123 by adding...") or uses a comma-separated list (e.g., "Resolves #123, #124"), flag as **Required Action**:
-   > *"PR uses prose-embedded or comma-separated close targets. Required: apply the Syntax-Exact Keyword Mandate by isolating each `Resolves #N` declaration on its own independent line."*
-3. **Validity Check:** For each `#N`, fetch the issue's labels (via the appropriate `github-workflow` MCP tool).
-4. If the issue carries the `epic` label → flag as **Required Action**:
-
-   > *"PR names epic #N as close-target via `Closes`/`Resolves`/`Fixes` keyword. Epics close when their last sub-issue closes, not on PR-merge. Required: change close-target to a specific sub-issue this PR resolves, or remove the magic-close keyword and reference the epic via `Related: #N` instead."*
-5. **Partial-resolution / stale commit-body check:** If the PR body uses `Refs #N` / `Related: #N` because `#N` must remain open, but any branch commit body still contains `Closes #N`, `Fixes #N`, or `Resolves #N`, flag as **Required Action**:
-
-   > *"PR is a partial-resolution PR for #N, but branch commit history still contains a magic-close keyword for #N. Required: use a clean superseding branch/PR, or obtain operator-explicit authorization for amend/rebase/force-push cleanup. Do not approve while stale branch commit bodies can survive squash merge and auto-close the issue."*
+2. For Neo agent / `ai` PRs, flag any missing PR-body `Resolves #N`, any `Closes #N` / `Fixes #N`, prose-embedded close target, or comma-separated close target as a **Required Action**. Required shape: one newline-isolated `Resolves #N` per delivered leaf ticket; use `Refs #N` / `Related: #N` only for additional references.
+3. Fetch labels for every close-target issue. If any target carries `epic`, flag as **Required Action**: change the close-target to the delivered leaf sub-issue, or move the epic reference to `Related: #N`.
+4. If a referenced ticket must stay open (`Refs` / `Related` in the PR body), but any branch commit body still contains `Closes #N`, `Fixes #N`, or `Resolves #N`, flag as **Required Action**: use a clean superseding branch/PR, or obtain operator-explicit authorization before amend/rebase/force-push cleanup.
 
 **Author response options** when these Required Actions fire:
 - **Syntax:** Isolate the keyword to a separate line per ticket.
-- **Validity:** Change `Closes #N` → `Closes #M` where `#M` is the specific sub-issue the PR resolves.
-- **Validity:** Remove the close-target entirely if the PR is an incremental contribution toward the epic without fully closing any single issue.
+- **Validity:** Change the close target to `Resolves #M` where `#M` is the specific leaf sub-issue the PR fully delivers.
+- **Validity:** Split broad work into an epic + leaf subs if the PR cannot honestly name one fully delivered leaf ticket.
 - **Validity:** Move the epic reference to `Related: #N` (no magic-close behavior).
 - **Partial-resolution stale commit body:** Prefer Drop+Supersede / clean branch when no operator authorization exists for history rewrite. If preserving the PR is preferred, get operator-explicit authorization before amend/rebase/force-push cleanup.
 
