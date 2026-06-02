@@ -4,6 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
+import os from 'os';
 import { collapseDuplicateShapeCRoutes, getNodesData, getEdgesData } from '../../../../../../ai/daemons/bridge/queries.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../../ai/graph/storage/constants.mjs';
 
@@ -15,8 +16,10 @@ test.describe('Bridge Daemon', () => {
 
     test.beforeEach(() => {
         const testId = crypto.randomUUID().substring(0, 8);
-        DB_PATH = `.neo-ai-data/sqlite/test-daemon-${testId}.sqlite`;
-        DAEMON_DIR = `.neo-ai-data/wake-daemon-test-${testId}`;
+        // Route to the OS temp dir so even crashed/interrupted runs (which skip afterEach)
+        // never leak test daemon dbs into the production `.neo-ai-data/` store.
+        DB_PATH    = path.join(os.tmpdir(), 'neo-test-daemon', `test-daemon-${testId}.sqlite`);
+        DAEMON_DIR = path.join(os.tmpdir(), `neo-wake-daemon-test-${testId}`);
 
         fs.ensureDirSync(path.dirname(DB_PATH));
         fs.ensureDirSync(DAEMON_DIR);
@@ -145,7 +148,7 @@ test.describe('Bridge Daemon', () => {
         expect(output).not.toContain('priority: normal');
         expect(output).not.toContain('\nWindow:');
 
-        // Per #10419 — verify the diagnostic log file was persisted to disk and contains
+        // Verify the diagnostic log file was persisted to disk and contains
         // structured entries (ISO timestamp + PID + INFO/ERROR level prefix). Persistence
         // is the substrate for post-hoc wake-failure investigation; without this audit
         // trail every diagnostic depends on terminal-scrollback luck.
@@ -794,7 +797,7 @@ test.describe('Bridge Daemon', () => {
     });
 
     test('Codex UI wake fails closed when no validated focusSeedKey is configured (#10664)', async () => {
-        // Per #10664: PR #10663's hypothesis (Codex Space-seed mirrors Claude's #10661 fix)
+        // An earlier hypothesis — that a Codex Space-seed could mirror the Claude focus-seed fix —
         // was empirically falsified by manual matrix validation 2026-05-03. Space and Enter
         // apply only a focus outline; printable keys can focus but mutate prompt content —
         // updated evidence shows the probe char APPENDS to the existing draft rather than
@@ -804,14 +807,14 @@ test.describe('Bridge Daemon', () => {
         // Codex without an explicit `meta.focusSeedKey` opt-in (single-key non-mutating
         // primitive only) — refusing to proceed past the destructive Cmd+A / Cmd+X clear
         // sequence — until either operator opts in via verified single-key metadata, OR
-        // the Codex app-server adapter (#10517) supersedes UI-keystroke delivery. The
+        // the Codex app-server adapter supersedes UI-keystroke delivery. The
         // probe-and-undo candidate `r → Cmd+Z → Cmd+A → Cmd+X` under @neo-gpt's 5-row
         // matrix investigation is a multi-step SEQUENCE, NOT a single-key seed; if it
         // proves safe it needs a distinct implementation path (sequence primitive or
         // app-server route), NOT a `focusSeedKey: 'r'` opt-in.
         //
         // This test is a defense-in-depth check: even if @neo-gpt's WAKE_SUBSCRIPTION is
-        // accidentally re-enabled (currently set to harnessTarget:'disabled' per #10664
+        // accidentally re-enabled (currently set to harnessTarget:'disabled' as an
         // operator mitigation), the bridge refuses to send any osascript keystroke for a
         // Codex subscription that lacks an explicit composer-focus primitive.
         const subId = 'sub_' + crypto.randomUUID();
@@ -1136,14 +1139,14 @@ test.describe('Bridge Daemon', () => {
         // Coalesce window 1s + safety margin matches the wakeSuppressed-test pattern.
         await new Promise(resolve => setTimeout(resolve, 5500));
 
-        // Same-sender broadcast must NOT wake the sender (the #10668 bug).
+        // Same-sender broadcast must NOT wake the sender (the self-fanout bug).
         expect(senderDeliveryCount).toBe(0);
         // Cross-sender broadcast must still wake the peer (preserves broadcast value).
         expect(peerDeliveryCount).toBe(1);
     });
 
     test('preserves wake delivery for direct self-DM addressed to self (#10668)', async () => {
-        // The #10668 fix gates on `entity.target === 'AGENT:*'` to suppress only broadcast
+        // The fix gates on `entity.target === 'AGENT:*'` to suppress only broadcast
         // self-fanout. Direct self-DMs (target === agentIdentity AND from === agentIdentity)
         // remain delivered for deliberate self-handoff flows like sunset protocol DMs.
         const subId   = 'sub_' + crypto.randomUUID();
