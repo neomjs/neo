@@ -361,7 +361,7 @@ class Component extends ContentComponent {
                 `<span class="neo-timeline-date">commented on ${me.formatTimestamp(comment.date)}</span>`,
                 '</div>',
                 '<div class="neo-timeline-body">',
-                marked.parse(comment.body),
+                me.wrapMarkdownTables(marked.parse(comment.body)),
                 me.renderReplies(comment.replies),
                 '</div>',
                 '</div>',
@@ -382,7 +382,8 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     renderReplies(replies = []) {
-        let {repoUserUrl} = this;
+        let me            = this,
+            {repoUserUrl} = me;
 
         if (!replies.length) {
             return ''
@@ -394,9 +395,9 @@ class Component extends ContentComponent {
                 `<div class="neo-discussion-reply depth-${reply.depth}">`,
                 '<div class="neo-discussion-reply-header">',
                 `<a class="neo-timeline-user" href="${repoUserUrl}${reply.user}" target="_blank">${reply.user}</a>`,
-                `<span class="neo-timeline-date">replied on ${this.formatTimestamp(reply.date)}</span>`,
+                `<span class="neo-timeline-date">replied on ${me.formatTimestamp(reply.date)}</span>`,
                 '</div>',
-                `<div class="neo-discussion-reply-body">${marked.parse(reply.body)}</div>`,
+                `<div class="neo-discussion-reply-body">${me.wrapMarkdownTables(marked.parse(reply.body))}</div>`,
                 '</div>'
             ].join('')).join(''),
             '</div>'

@@ -252,6 +252,7 @@ class Markdown extends Component {
      * @returns {String}
      */
     wrapMarkdownTables(html) {
+        // Marked-generated tables do not nest, keeping this post-process scoped and deterministic.
         return html.replace(/<table\b([^>]*)>([\s\S]*?)<\/table>/g, (match, attrs, body) => {
             if (/\bclass=["'][^"']*\bneo-frontmatter-table\b/.test(attrs)) {
                 return match
