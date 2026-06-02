@@ -30,7 +30,7 @@
  * files by path, and `path.resolve` traverses symlinks transparently without canonical-path
  * side effects.
  *
- * **Symlinking gitignored SINGLE FILES (per #10591):** Some cross-clone substrates live
+ * **Symlinking gitignored SINGLE FILES:** Some cross-clone substrates live
  * outside `.neo-ai-data/` — most notably `resources/content/sandman_handoff.md`, the
  * Sandman strategic-priming handoff that `runSandman.mjs` writes only inside the
  * canonical clone. Without symlink mediation, the other trio members' clones can't read
@@ -48,18 +48,17 @@
  * ```
  *
  * Everything inside `.neo-ai-data/` is gitignored EXCEPT `concepts/` which IS git-tracked.
- * Symlinking the parent `.neo-ai-data/` directory atomically (the pre-#10432 behavior)
+ * Symlinking the parent `.neo-ai-data/` directory atomically (the retired parent-level behavior)
  * hides the worktree's tracked `concepts/` files behind canonical's view; using `--force`
  * clobbers them entirely. Both outcomes break the worktree-local concepts substrate.
  *
- * The granular fix (per #10432): symlink each gitignored substrate-data subdir individually
+ * The granular fix: symlink each gitignored substrate-data subdir individually
  * via the `DATA_SUBDIRS_TO_LINK` allowlist. `concepts/` is never in the allowlist → never
  * touched. This unifies the Memory Core substrate ({@link symlinkDataDir}) so AgentIdentity
  * nodes seeded once are visible to every worktree's MCP server, A2A mailbox handoffs span
- * harnesses, AND the bridge daemon's PID-lock singleton (#10423) plus persistent log
- * (#10425) span worktrees too — without the tracked `concepts/` clobber risk that
- * empirically broke 10 of 11 worktrees in the 2026-04-27 cross-process coherence gap
- * diagnosis.
+ * harnesses, AND the bridge daemon's PID-lock singleton plus persistent log
+ * span worktrees too — without the tracked `concepts/` clobber risk that
+ * empirically broke most active worktrees during cross-process coherence diagnosis.
  *
  * **Usage:**
  * ```
@@ -71,7 +70,7 @@
  *                                                    # opt-in; never touches concepts/)
  * node ai/scripts/migrations/bootstrapWorktree.mjs --link-data --canonical-root /path/to/canonical
  *                                                    # independent-clone topology: explicit
- *                                                    # canonical-root override (per #10435)
+ *                                                    # canonical-root override
  * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale
  *                                                    # dry-run stale .claude/worktrees cleanup
  * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --apply
@@ -84,9 +83,9 @@
  * flag, useful for CI / shell aliases.
  *
  * **Topology support:**
- * - **Git worktrees** (the original #10095 use case): canonical is resolved automatically
+ * - **Git worktrees:** canonical is resolved automatically
  *   via `git worktree list --porcelain`.
- * - **Independent clones** (per #10435): a separate clone (e.g., an Antigravity-side clone
+ * - **Independent clones:** a separate clone (e.g., an Antigravity-side clone
  *   that mirrors the canonical github-side clone) is NOT a git worktree, so `git worktree
  *   list` returns the clone itself. Pass `--canonical-root <path>` (or set
  *   `NEO_AI_CANONICAL_ROOT`) to point at the canonical sibling explicitly. Same per-subdir
@@ -98,13 +97,9 @@
  * {@link materializeServerConfigTemplate}, so stale canonical overlays that still import
  * `../../../config.template.mjs` point at the worktree-local `../../../config.mjs` instead.
  *
- * @see https://github.com/neomjs/neo/issues/10095
- * @see https://github.com/neomjs/neo/issues/10224 (closed predecessor — coarse-grained symlink)
- * @see https://github.com/neomjs/neo/issues/10424 (cross-process coherence gap empirically anchored)
- * @see https://github.com/neomjs/neo/issues/10432 / #10433 (granular per-subdir refinement)
- * @see https://github.com/neomjs/neo/issues/10435 (independent-clone topology extension)
- * @see https://github.com/neomjs/neo/issues/10591 (gitignored single-file symlink extension)
- * @see https://github.com/neomjs/neo/issues/12051 (Tier-1 config + materialize-on-copy)
+ * @see AGENTS_STARTUP.md
+ * @see .gitignore
+ * @see {@link materializeServerConfigTemplate}
  */
 import {execFile}       from 'child_process';
 import fs               from 'fs/promises';
@@ -138,7 +133,7 @@ export const BOOTSTRAP_CONFIGS = [
 export const DATA_SUBDIRS_TO_LINK = [
     'sqlite',       // Memory Core graph DB (memory-core-graph.sqlite + WAL/SHM)
     'chroma',       // Vector DBs (knowledge-base + memory-core)
-    'wake-daemon',  // PID-lock + bridge.log + lastSyncId — unifies #10423 singleton across worktrees
+    'wake-daemon',  // PID-lock + bridge.log + lastSyncId shared across worktrees
     'backups',      // JSONL backups (Memory Core message + node history)
     'datasets',     // Canonical CSVs ingested by knowledge-base sync
     'neo-sqlite'    // Legacy DB (still referenced by older code paths)
@@ -169,7 +164,7 @@ export const DATA_SUBDIRS_TO_LINK = [
  * @see {@link symlinkGitignoredFiles} for the per-file symlink-or-skip-or-warn logic.
  */
 export const GITIGNORED_FILES_TO_LINK = [
-    'resources/content/sandman_handoff.md'  // Sandman strategic-priming handoff (#10591)
+    'resources/content/sandman_handoff.md'  // Sandman strategic-priming handoff
 ];
 
 export const DEFAULT_CLAUDE_WORKTREES_ROOT = path.join('.claude', 'worktrees');
@@ -184,14 +179,14 @@ export const PRUNABLE_WORKTREE_STATUSES = new Set([
  *
  * Two resolution paths, in priority order:
  *
- * 1. **Explicit override** (per #10435) — when an `explicitRoot` is supplied (typically
+ * 1. **Explicit override** — when an `explicitRoot` is supplied (typically
  *    via the `--canonical-root` CLI flag or `NEO_AI_CANONICAL_ROOT` env var), use it
  *    directly. Required for **independent clone** topologies (e.g., a separate
  *    `antigravity/neomjs/neo` clone that mirrors the canonical `github/neomjs/neo`
  *    clone — not a git worktree, so `git worktree list` returns the clone itself
  *    rather than the canonical sibling).
  *
- * 2. **Git worktree resolution** (the original #10095 path) — `git worktree list
+ * 2. **Git worktree resolution** — `git worktree list
  *    --porcelain` returns the primary working tree as its first entry, which is the
  *    canonical-shared-checkout for any worktree spawned off it. For independent clones
  *    this returns the clone's own root, which signals "main checkout mode" downstream
@@ -299,11 +294,11 @@ async function exists(p) {
  * canonical, unifying the Memory Core substrate across concurrent worktree MCP server
  * processes while leaving the git-tracked `concepts/` subdir untouched.
  *
- * **Why granular per-subdir, not parent-level (per #10432):**
+ * **Why granular per-subdir, not parent-level:**
  *
  * The `.gitignore` boundary inside `.neo-ai-data/` is `.neo-ai-data` (gitignored) plus
  * `!.neo-ai-data/concepts/` (tracked exception). Symlinking the parent atomically (the
- * pre-#10432 behavior) hides the worktree's tracked `concepts/` files behind canonical's
+ * retired parent-level behavior) hides the worktree's tracked `concepts/` files behind canonical's
  * view; `--force` clobbers them entirely. Both outcomes break the worktree-local
  * concepts substrate.
  *
@@ -321,10 +316,10 @@ async function exists(p) {
  * semantic: `better-sqlite3` opens by path, Chroma dumps read/write through `fs`, and
  * `path.resolve` transparently traverses symlinks without canonical-path side effects.
  *
- * The `wake-daemon/` subdir is critical for PID-lock singleton enforcement (#10423) to
+ * The `wake-daemon/` subdir is critical for PID-lock singleton enforcement to
  * span worktrees — without symlinking, each worktree has its own `bridge-daemon.pid` and
  * daemons spawned from different worktrees can't see each other's locks. Same logic for
- * the persistent `bridge.log` substrate (#10425).
+ * the persistent `bridge.log` substrate.
  *
  * Idempotent per-subdir by design: an existing symlink reports `'already-linked'`; a
  * missing canonical source reports `'skip-no-source'` (graceful for fresh repos that
@@ -409,7 +404,7 @@ export async function symlinkDataDir({
  * inside a heavily git-tracked parent — `resources/content/` holds issue files, PR
  * conversations, discussion threads, and release notes that all three trio members
  * generate independently. Symlinking the parent atomically would hide every clone's
- * locally-tracked contributions behind canonical's view (the same anti-pattern #10432
+ * locally-tracked contributions behind canonical's view (the same parent-symlink anti-pattern
  * fixed for `.neo-ai-data/` parent symlinks before the per-subdir refinement). The
  * gitignore boundary is single-file granular, so the symlink primitive must be too.
  *
@@ -513,8 +508,7 @@ export async function symlinkGitignoredFiles({
  * symlinked from main, or manual `npm i`). Always runs `npm run bundle-parse5`
  * because the bundle output lives under `dist/` (gitignored) and is cheap to rebuild.
  *
- * Cost anchor: ~17s for `npm install` on a populated local cache (808 packages,
- * empirically observed during #10339 implementation, 2026-04-26). `bundle-parse5`
+ * Cost anchor: ~17s for `npm install` on a populated local cache (808 packages). `bundle-parse5`
  * adds ~1-2s. Friction-free when `node_modules` already exists (skip path is sub-millisecond).
  *
  * @param {object}   options
@@ -549,10 +543,10 @@ export async function installDependencies({projectRoot, log = console.log, exec 
 /**
  * @summary Runs the full `npm run build-all` after ensuring dependencies are installed.
  *
- * Implies {@link installDependencies}. Default behavior for fresh worktrees (per #11163).
+ * Implies {@link installDependencies}. Default behavior for fresh worktrees.
  *
- * **Scope Decision (#11163):** Rather than generating only `parse5` minimally, the operator
- * preferred a full `build-all` invocation as the default bootstrap step to ensure *all*
+ * **Scope Decision:** Rather than generating only `parse5` minimally, the default bootstrap
+ * runs full `build-all` to ensure *all*
  * distributions (ESM, themes, workers, highlight, parse5) are ready. It resolves "Cannot find
  * module dist/parse5.mjs" friction for test suites in <30s on M-series hardware.
  *
@@ -928,7 +922,7 @@ if (isMain) {
     // `--canonical-root <path>` flag wins; `NEO_AI_CANONICAL_ROOT` env var is the fallback.
     // Both are no-ops when running in an actual git worktree (the existing
     // git-worktree-list resolution path is the natural primary). They activate the
-    // independent-clone topology (per #10435) where canonical lives in a sibling
+    // independent-clone topology where canonical lives in a sibling
     // checkout that `git worktree list` doesn't surface.
     const flagIdx       = argv.indexOf('--canonical-root');
     const explicitRoot  = (flagIdx !== -1 && argv[flagIdx + 1])
@@ -971,7 +965,7 @@ if (isMain) {
                 if (skippedNoSourceN > 0) console.log(`  skipped-no-src:   ${symlinkResult.skippedNoSource.join(', ')}`);
             }
 
-            // Cross-clone single-file symlinks (#10591). Same --link-data flag, narrower
+            // Cross-clone single-file symlinks. Same --link-data flag, narrower
             // shape: each entry in GITIGNORED_FILES_TO_LINK is a single artifact rather
             // than a tree of state. Currently sandman_handoff.md only.
             const fileResult = await symlinkGitignoredFiles({mainCheckout, projectRoot});
