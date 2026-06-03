@@ -599,6 +599,63 @@ function spawnAsync(command, args) {
 }
 
 /**
+ * @summary Delivers a wake digest via osascript, retrying transient frontmost-loss races.
+ *
+ * macOS focus-stealing prevention makes a background daemon's `activate` / `set frontmost`
+ * best-effort: when another app holds frontmost during the multi-second activate → paste →
+ * restore sequence, `assertTargetFrontmost` aborts the osascript with a `-2700`
+ * "lost frontmost status" error. Focus contention is transient, so we re-attempt the whole
+ * delivery a few times before giving up.
+ *
+ * Phase-aware idempotency guard: the wake payload is submitted (`key code 36` / Enter) BEFORE
+ * the "user input restore" phases. A frontmost-loss reported for a restore phase therefore means
+ * the wake already landed — only the user's draft-restore failed (cosmetic). We must NOT retry
+ * that case (it would double-submit the wake). Non-race errors (syntax/permissions) re-throw
+ * immediately.
+ * @param {String[]} osascriptArgs The fully-built `osascript -e …` argument list.
+ * @param {String} subscriptionId For log attribution.
+ * @param {String} appName For log attribution.
+ * @returns {Promise<void>}
+ */
+async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appName) {
+    const maxAttempts = 4,
+          backoffMs   = 800;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            await spawnAsync('osascript', osascriptArgs);
+            writeLog('INFO',
+                `[Bridge Daemon] Delivered ${subscriptionId} via osascript to ${appName}` +
+                (attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ''));
+            return
+        } catch (err) {
+            const message         = err.message || '',
+                  isFrontmostRace = /lost frontmost status|-2700/.test(message),
+                  afterSubmit     = /user input restore/.test(message);
+
+            // Wake already submitted; only the draft-restore lost frontmost → delivered, do not retry.
+            if (isFrontmostRace && afterSubmit) {
+                writeLog('WARN',
+                    `[Bridge Daemon] ${subscriptionId} wake landed but draft-restore lost frontmost; ` +
+                    `not retrying (avoids double-send). ${message}`);
+                return
+            }
+
+            // Lost frontmost before submit → transient focus contention → retry the whole delivery.
+            if (attempt < maxAttempts && isFrontmostRace) {
+                writeLog('WARN',
+                    `[Bridge Daemon] Wake delivery ${subscriptionId} attempt ${attempt}/${maxAttempts} ` +
+                    `lost frontmost before submit (focus contention); retrying in ${backoffMs}ms. ${message}`);
+                await wait(backoffMs);
+                continue
+            }
+
+            throw err
+        }
+    }
+}
+
+/**
  * @summary Escapes values interpolated into AppleScript string literals.
  * @param {String} value
  * @returns {String}
@@ -774,9 +831,17 @@ async function deliverDigest(subscription, digest) {
                 '-e', '    set savedClipboard to ""',
                 '-e', '  end try',
                 '-e', '  try',
+                '-e', '  set targetRaised to false',
+                '-e', '  repeat 12 times',
                 '-e', activateLine,
-                '-e', '  delay 0.5',
-                '-e', '  my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
+                '-e', '    delay 0.25',
+                '-e', '    try',
+                '-e', '      my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
+                '-e', '      set targetRaised to true',
+                '-e', '      exit repeat',
+                '-e', '    end try',
+                '-e', '  end repeat',
+                '-e', '  if not targetRaised then my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
                 '-e', '    tell frontmostProcess'
@@ -863,8 +928,7 @@ async function deliverDigest(subscription, digest) {
                 digest
             );
 
-            await spawnAsync('osascript', osascriptArgs);
-            writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via osascript to ${appName}`);
+            await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName);
         } else if (adapter === 'test') {
             writeLog('INFO', `[Bridge Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
         } else {
