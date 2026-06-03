@@ -30,7 +30,7 @@
 import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
-import AiConfig        from '../../config.mjs';
+import MemoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -50,11 +50,10 @@ import {
 } from './queries.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
-const AI_DATA_ROOT             = AiConfig.aiDataRoot;
-const DB_PATH                  = process.env.NEO_AI_DB_PATH || path.join(AI_DATA_ROOT, 'sqlite', 'memory-core-graph.sqlite');
-const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || path.join(AI_DATA_ROOT, 'wake-daemon');
-const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
-const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'bridge.log');
+const DB_PATH                  = MemoryCoreConfig.storagePaths.graph;
+const DAEMON_DATA_DIR          = MemoryCoreConfig.wakeDaemon.dataDir;
+const STATE_FILE               = MemoryCoreConfig.wakeDaemon.bridgeLastSyncIdPath;
+const LOG_FILE                 = MemoryCoreConfig.wakeDaemon.logFile;
 const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
@@ -154,7 +153,7 @@ function writeLog(level, message) {
 // One-shot prune at startup; reaper for archived logs older than retention window
 pruneOldLogs();
 
-const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
+const PID_FILE = MemoryCoreConfig.wakeDaemon.pidFile;
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function enforceSingleton() {

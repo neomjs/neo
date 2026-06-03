@@ -37,16 +37,16 @@ test.describe('Memory Core Config (#10010)', () => {
             delete Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'];
         }
 
-        config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-
         // Deterministic realm root: MC declares no realm leaves locally and inherits them
         // up the getParent() chain, so these tests need Neo.ai.Config present. The MC template's
         // side-effect import only registers it on FIRST module-eval — in a reused Playwright worker
-        // (cached module) that's a no-op — so install a fresh Tier-1 root built from the canonical
-        // template tree, making inheritance deterministic across workers.
+        // (cached module) that's a no-op. Install a fresh Tier-1 root before constructing the
+        // child template so formula leaves can resolve inherited paths during setupClass().
         const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
         Neo.ai = Neo.ai || {};
         Neo.ai.Config = Neo.create(BaseConfig, {data: tier1Template._data});
+
+        config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
     });
 
     test.afterAll(() => {
@@ -159,6 +159,8 @@ test.describe('Memory Core Config (#10010)', () => {
                 wakeDataDir: cfg.wakeDaemon.dataDir,
                 bridgeLastSyncIdPath: cfg.wakeDaemon.bridgeLastSyncIdPath,
                 wakeSubscriptionLiveCursorPath: cfg.wakeDaemon.wakeSubscriptionLiveCursorPath,
+                bridgePidFile: cfg.wakeDaemon.pidFile,
+                bridgeLogFile: cfg.wakeDaemon.logFile,
                 trajectories: cfg.datasets.rlaif.trajectories,
                 remRunStateDir: cfg.remRunStateDir,
                 logPath: cfg.logPath
@@ -177,10 +179,37 @@ test.describe('Memory Core Config (#10010)', () => {
             wakeDataDir                       : path.join(aiDataRoot, 'wake-daemon'),
             bridgeLastSyncIdPath              : path.join(aiDataRoot, 'wake-daemon', 'lastSyncId'),
             wakeSubscriptionLiveCursorPath    : path.join(aiDataRoot, 'wake-daemon', 'wakeSubscriptionLiveCursor'),
+            bridgePidFile                     : path.join(aiDataRoot, 'wake-daemon', 'bridge-daemon.pid'),
+            bridgeLogFile                     : path.join(aiDataRoot, 'wake-daemon', 'bridge.log'),
             trajectories                      : path.join(aiDataRoot, 'datasets', 'rlaif', 'trajectories.jsonl'),
             remRunStateDir                    : path.join(aiDataRoot, 'rem-runs'),
             logPath                           : path.join(aiDataRoot, 'logs')
         });
+    });
+
+    test('legacy NEO_AI_DB_PATH alias resolves inside Memory Core config, not bridge consumers', () => {
+        const dbPath = path.join(os.tmpdir(), `neo-memory-core-${Date.now()}.sqlite`);
+        const env = {
+            ...process.env,
+            NEO_AI_DB_PATH: dbPath,
+            UNIT_TEST_MODE: 'false'
+        };
+
+        delete env.NEO_MEMORY_DB_PATH;
+
+        const script = `
+            import './src/Neo.mjs';
+            import './src/core/_export.mjs';
+            const cfg = (await import('./ai/mcp/server/memory-core/config.template.mjs')).default;
+            process.stdout.write(JSON.stringify({graph: cfg.storagePaths.graph}));
+        `;
+        const actual = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: path.resolve(process.cwd()),
+            env,
+            encoding: 'utf8'
+        }));
+
+        expect(actual.graph).toBe(dbPath);
     });
 
     test('env overrides GraphLog compaction watermark paths', () => {

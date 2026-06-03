@@ -51,8 +51,8 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  * `HealthService` reads the repo-root `.neo-ai-data/wake-daemon/heartbeat.alive`
  * mtime to project `features.wake.daemonRunning`. This producer must touch the
  * same path or health checks can remain stale while pulses execute. Tests and
- * operator probes can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`, matching
- * the consumer-side override contract.
+ * operator probes isolate the path through the Tier-1 AiConfig
+ * `wakeDaemonHeartbeatAlivePath` leaf.
  *
  * @returns {String}
  * @see ai/services/memory-core/HealthService.mjs
@@ -375,9 +375,9 @@ class SwarmHeartbeatService extends Base {
      * @summary Touch the heartbeat-liveness file `HealthService` reads for `daemonRunning`.
      *
      * Produces the `.neo-ai-data/wake-daemon/heartbeat.alive` mtime signal used by
-     * `HealthService`. Path resolution mirrors `HealthService.heartbeatAlivePath()`:
-     * `NEO_HEARTBEAT_ALIVE_PATH` override first, then the canonical path. A touch
-     * failure is swallowed because a missing liveness signal must never abort a pulse.
+     * `HealthService`. The Tier-1 AiConfig Provider owns the path formula and optional
+     * override; this consumer reads the resolved leaf. A touch failure is swallowed
+     * because a missing liveness signal must never abort a pulse.
      * @protected
      * @returns {Promise<void>}
      */

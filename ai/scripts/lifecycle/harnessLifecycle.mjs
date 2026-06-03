@@ -16,11 +16,11 @@
  */
 import fs   from 'fs/promises';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import AiConfig from '../../config.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
-const STATE_DIR = path.join(AI_DATA_ROOT, 'harness-state');
+const STATE_DIR = AiConfig.harnessStateDir;
 
 function sanitize(identity) {
     return identity.replace(/[^a-zA-Z0-9_-]/g, '');

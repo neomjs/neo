@@ -195,8 +195,6 @@ class BaseConfig extends Provider {
      * is not actually listening on (the DB only moves on a coordinated restart). Live env that
      * drives coordinated restart/reconnection is a separate Body-tier concern, out of scope here.
      *
-     * Subclasses may implement `afterApplyEnvLeaf(leafPath, value, meta)` to derive dependent
-     * defaults from a resolved env leaf without re-reading that env var through a second helper.
      * @param {Object} [env=process.env]
      * @param {Function} [warn=console.warn]
      */
@@ -217,7 +215,6 @@ class BaseConfig extends Provider {
 
             if (value !== undefined) {
                 this.setData(leafPath, value);
-                this.afterApplyEnvLeaf?.(leafPath, value, meta)
             }
         }
     }

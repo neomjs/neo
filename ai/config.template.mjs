@@ -68,6 +68,16 @@ class Config extends BaseConfig {
              */
             wakeDaemonHeartbeatAlivePath: leaf(path.join(aiDataRoot, 'wake-daemon', 'heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
             /**
+             * Path to the concurrency lock that suppresses overlapping swarm-heartbeat work.
+             * @type {string}
+             */
+            heartbeatConcurrencyLockPath: leaf(path.join(aiDataRoot, 'heartbeat-concurrency.lock'), 'NEO_HEARTBEAT_LOCK_PATH', 'string'),
+            /**
+             * Directory for per-identity harness lifecycle state files.
+             * @type {string}
+             */
+            harnessStateDir: leaf(path.join(aiDataRoot, 'harness-state'), 'NEO_HARNESS_STATE_DIR', 'string'),
+            /**
              * Global debug flag for all AI processes.
              * @type {boolean}
              */
@@ -321,6 +331,38 @@ class Config extends BaseConfig {
              * @type {Object}
              */
             orchestrator: {
+                /**
+                 * Orchestrator daemon state directory. Defaults below the shared Agent OS
+                 * data root; `NEO_AI_ORCHESTRATOR_DIR` isolates only this daemon-local
+                 * state without requiring consumers to rebuild the path.
+                 * @type {String}
+                 */
+                dataDir: leaf(path.join(aiDataRoot, 'orchestrator-daemon'), 'NEO_AI_ORCHESTRATOR_DIR', 'string'),
+                /**
+                 * Daemon singleton PID file.
+                 * @type {String}
+                 */
+                pidFile: leaf(path.join(aiDataRoot, 'orchestrator-daemon', 'orchestrator-daemon.pid')),
+                /**
+                 * Orchestrator process log file.
+                 * @type {String}
+                 */
+                logFile: leaf(path.join(aiDataRoot, 'orchestrator-daemon', 'orchestrator.log')),
+                /**
+                 * Persisted task-state file.
+                 * @type {String}
+                 */
+                stateFile: leaf(path.join(aiDataRoot, 'orchestrator-daemon', 'orchestrator-state.json')),
+                /**
+                 * Cross-process heavy-maintenance lease file.
+                 * @type {String}
+                 */
+                heavyMaintenanceLeasePath: leaf(path.join(aiDataRoot, 'orchestrator-daemon', 'heavy-maintenance-lease.json')),
+                /**
+                 * Orchestrator-local wake backoff state.
+                 * @type {String}
+                 */
+                wakeDecisionBackoffStateFile: leaf(path.join(aiDataRoot, 'wake-daemon', 'backoff.json')),
                 /**
                  * Deployment profile for Agent OS maintenance ownership.
                  * `local` preserves maintainer-checkout behavior; `cloud` disables local-only
@@ -685,34 +727,31 @@ class Config extends BaseConfig {
                     })
                 }
             })
+        },
+        formulas: {
+            backupPath: data => hasEnvValue('NEO_BACKUP_PATH')
+                ? data.backupPath
+                : path.join(data.aiDataRoot, 'backups'),
+            wakeDaemonHeartbeatAlivePath: data => hasEnvValue('NEO_HEARTBEAT_ALIVE_PATH')
+                ? data.wakeDaemonHeartbeatAlivePath
+                : path.join(data.aiDataRoot, 'wake-daemon', 'heartbeat.alive'),
+            heartbeatConcurrencyLockPath: data => hasEnvValue('NEO_HEARTBEAT_LOCK_PATH')
+                ? data.heartbeatConcurrencyLockPath
+                : path.join(data.aiDataRoot, 'heartbeat-concurrency.lock'),
+            harnessStateDir: data => hasEnvValue('NEO_HARNESS_STATE_DIR')
+                ? data.harnessStateDir
+                : path.join(data.aiDataRoot, 'harness-state'),
+            'engines.chroma.dataDir': data => path.join(data.aiDataRoot, 'chroma', 'unified'),
+            'orchestrator.dataDir': data => hasEnvValue('NEO_AI_ORCHESTRATOR_DIR')
+                ? data.orchestrator.dataDir
+                : path.join(data.aiDataRoot, 'orchestrator-daemon'),
+            'orchestrator.pidFile': data => path.join(data.orchestrator.dataDir, 'orchestrator-daemon.pid'),
+            'orchestrator.logFile': data => path.join(data.orchestrator.dataDir, 'orchestrator.log'),
+            'orchestrator.stateFile': data => path.join(data.orchestrator.dataDir, 'orchestrator-state.json'),
+            'orchestrator.heavyMaintenanceLeasePath': data => path.join(data.orchestrator.dataDir, 'heavy-maintenance-lease.json'),
+            'orchestrator.wakeDecisionBackoffStateFile': data => path.join(data.aiDataRoot, 'wake-daemon', 'backoff.json')
         }
     };
-
-    /**
-     * @summary Keeps data-root-derived leaves aligned when `NEO_AI_DATA_ROOT`
-     * or an overlay changes the canonical Agent OS data root.
-     *
-     * `leaf(default, env, type)` owns env decoding for `aiDataRoot`; this hook
-     * derives sibling defaults from the resolved value without re-reading the
-     * same env var through a second helper path.
-     *
-     * @param {String} leafPath Env-applied leaf path.
-     * @param {String} value Resolved Agent OS data root.
-     * @returns {void}
-     */
-    afterApplyEnvLeaf(leafPath, value) {
-        if (leafPath !== 'aiDataRoot') return;
-        if (!value) return;
-
-        if (!hasEnvValue('NEO_BACKUP_PATH')) {
-            this.setData('backupPath', path.join(value, 'backups'));
-        }
-        if (!hasEnvValue('NEO_HEARTBEAT_ALIVE_PATH')) {
-            this.setData('wakeDaemonHeartbeatAlivePath', path.join(value, 'wake-daemon', 'heartbeat.alive'));
-        }
-
-        this.setData('engines.chroma.dataDir', path.join(value, 'chroma', 'unified'));
-    }
 }
 
 const instance = Neo.setupClass(Config);

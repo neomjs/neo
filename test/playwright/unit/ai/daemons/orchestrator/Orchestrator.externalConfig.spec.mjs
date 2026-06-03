@@ -1,15 +1,15 @@
 import {test, expect} from '@playwright/test';
+import {execFileSync} from 'child_process';
 import fs   from 'fs/promises';
 import os   from 'os';
 import path from 'path';
-import {fileURLToPath, pathToFileURL} from 'url';
+import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
 
 const DAEMON_DIR = path.join(REPO_ROOT, 'ai/daemons');
-const TASK_DEFINITIONS_URL = pathToFileURL(path.join(REPO_ROOT, 'ai/daemons/orchestrator/TaskDefinitions.mjs')).href;
 
 const NEO_TEAM_IDENTITY_LITERAL_RE   = /['"`]@neo-(?:opus-4-7|gpt|gemini-3-1-pro)['"`]/g;
 const NEO_TEAM_PROJECT_LITERAL_RE    = /['"`]Project 12['"`]|['"`]v13['"`]|['"`]release:v\d+['"`]/g;
@@ -200,13 +200,28 @@ test.describe('Orchestrator shared data-root defaults (#12417)', () => {
         delete process.env.NEO_AI_DB_PATH;
         delete process.env.NEO_AI_ORCHESTRATOR_DIR;
 
-        const taskDefinitions = await import(`${TASK_DEFINITIONS_URL}?root=${Date.now()}`);
-        const tasks = taskDefinitions.buildTaskDefinitions({chromaPort: 9123});
+        const script = `
+            import './src/Neo.mjs';
+            import './src/core/_export.mjs';
+            const taskDefinitions = await import('./ai/daemons/orchestrator/TaskDefinitions.mjs');
+            const tasks = taskDefinitions.buildTaskDefinitions({chromaPort: 9123});
+            process.stdout.write(JSON.stringify({
+                dbPath: taskDefinitions.DEFAULT_DB_PATH,
+                dataDir: taskDefinitions.DEFAULT_DATA_DIR,
+                chromaDataDir: taskDefinitions.DEFAULT_CHROMA_DATA_DIR,
+                chromaArgs: tasks.chroma.args
+            }));
+        `;
+        const actual = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: REPO_ROOT,
+            env: process.env,
+            encoding: 'utf8'
+        }));
 
-        expect(taskDefinitions.DEFAULT_DB_PATH).toBe(path.join(aiDataRoot, 'sqlite', 'memory-core-graph.sqlite'));
-        expect(taskDefinitions.DEFAULT_DATA_DIR).toBe(path.join(aiDataRoot, 'orchestrator-daemon'));
-        expect(taskDefinitions.DEFAULT_CHROMA_DATA_DIR).toBe(path.join(aiDataRoot, 'chroma', 'unified'));
-        expect(tasks.chroma.args).toEqual([
+        expect(actual.dbPath).toBe(path.join(aiDataRoot, 'sqlite', 'memory-core-graph.sqlite'));
+        expect(actual.dataDir).toBe(path.join(aiDataRoot, 'orchestrator-daemon'));
+        expect(actual.chromaDataDir).toBe(path.join(aiDataRoot, 'chroma', 'unified'));
+        expect(actual.chromaArgs).toEqual([
             'run',
             '--path',
             path.join(aiDataRoot, 'chroma', 'unified'),

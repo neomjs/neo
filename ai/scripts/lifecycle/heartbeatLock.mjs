@@ -20,12 +20,24 @@ import {spawn} from 'child_process';
 import fs      from 'fs-extra';
 import path    from 'path';
 import {fileURLToPath} from 'url';
+import '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import AiConfig from '../../config.mjs';
 
-const __dirname    = path.dirname(fileURLToPath(import.meta.url));
-const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
-
-export const HEARTBEAT_LOCK_PATH = path.join(AI_DATA_ROOT, 'heartbeat-concurrency.lock');
+export const HEARTBEAT_LOCK_PATH = AiConfig.heartbeatConcurrencyLockPath;
 export const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000;
+
+/**
+ * @summary Reads the configured heartbeat concurrency lock path.
+ *
+ * The Tier-1 AiConfig Provider owns the shared-data-root formula and optional
+ * `NEO_HEARTBEAT_LOCK_PATH` override; consumers read the resolved leaf.
+ *
+ * @returns {String}
+ */
+export function heartbeatLockPath() {
+    return AiConfig.heartbeatConcurrencyLockPath;
+}
 
 /**
  * @summary Creates the heartbeat concurrency lock before expensive Agent OS work starts.
@@ -40,7 +52,7 @@ export const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000;
  * @returns {Promise<string>} The created lock path.
  */
 export async function acquireHeartbeatLock({
-    lockPath = HEARTBEAT_LOCK_PATH,
+    lockPath = heartbeatLockPath(),
     metadata = {}
 } = {}) {
     await fs.ensureDir(path.dirname(lockPath));
@@ -63,7 +75,7 @@ export async function acquireHeartbeatLock({
  * @param {string} [options.lockPath=HEARTBEAT_LOCK_PATH] Lock file path to remove.
  * @returns {Promise<void>}
  */
-export async function releaseHeartbeatLock({lockPath = HEARTBEAT_LOCK_PATH} = {}) {
+export async function releaseHeartbeatLock({lockPath = heartbeatLockPath()} = {}) {
     await fs.remove(lockPath)
 }
 
@@ -80,7 +92,7 @@ export async function releaseHeartbeatLock({lockPath = HEARTBEAT_LOCK_PATH} = {}
  * @returns {Promise<{active: Boolean, stale: Boolean, ageMs: Number|null}>}
  */
 export async function inspectHeartbeatLock({
-    lockPath = HEARTBEAT_LOCK_PATH,
+    lockPath = heartbeatLockPath(),
     staleAfterMs = DEFAULT_STALE_LOCK_MS,
     now = new Date()
 } = {}) {

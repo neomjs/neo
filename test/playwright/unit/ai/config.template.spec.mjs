@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
+import {execFileSync} from 'child_process';
 import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import Neo from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import BaseConfig from '../../../../ai/BaseConfig.mjs';
@@ -99,6 +102,61 @@ test.describe('Tier 1 Config Immutability', () => {
             host    : process.env.NEO_CHROMA_HOST || 'localhost',
             port    : Number(process.env.NEO_CHROMA_PORT) || 8000,
             database: process.env.NEO_CHROMA_DATABASE || CHROMA_TEST_DATABASE
+        });
+    });
+
+    test('NEO_AI_DATA_ROOT relocates Tier-1 derived leaves through Provider formulas', async () => {
+        const aiDataRoot = path.join(os.tmpdir(), `neo-ai-data-root-${Date.now()}`);
+        const env = {
+            ...process.env,
+            NEO_AI_DATA_ROOT: aiDataRoot,
+            UNIT_TEST_MODE  : 'false'
+        };
+
+        delete env.NEO_BACKUP_PATH;
+        delete env.NEO_HEARTBEAT_ALIVE_PATH;
+        delete env.NEO_HEARTBEAT_LOCK_PATH;
+        delete env.NEO_HARNESS_STATE_DIR;
+        delete env.NEO_AI_ORCHESTRATOR_DIR;
+
+        const script = `
+            import './src/Neo.mjs';
+            import './src/core/_export.mjs';
+            const cfg = (await import('./ai/config.template.mjs')).default;
+            process.stdout.write(JSON.stringify({
+                aiDataRoot: cfg.aiDataRoot,
+                backupPath: cfg.backupPath,
+                heartbeat: cfg.wakeDaemonHeartbeatAlivePath,
+                heartbeatLockPath: cfg.heartbeatConcurrencyLockPath,
+                harnessStateDir: cfg.harnessStateDir,
+                chromaDataDir: cfg.engines.chroma.dataDir,
+                orchestratorDataDir: cfg.orchestrator.dataDir,
+                orchestratorPidFile: cfg.orchestrator.pidFile,
+                orchestratorLogFile: cfg.orchestrator.logFile,
+                orchestratorStateFile: cfg.orchestrator.stateFile,
+                heavyMaintenanceLeasePath: cfg.orchestrator.heavyMaintenanceLeasePath,
+                wakeDecisionBackoffStateFile: cfg.orchestrator.wakeDecisionBackoffStateFile
+            }));
+        `;
+        const actual = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: path.resolve(process.cwd()),
+            env,
+            encoding: 'utf8'
+        }));
+
+        expect(actual).toEqual({
+            aiDataRoot,
+            backupPath                      : path.join(aiDataRoot, 'backups'),
+            heartbeat                       : path.join(aiDataRoot, 'wake-daemon', 'heartbeat.alive'),
+            heartbeatLockPath               : path.join(aiDataRoot, 'heartbeat-concurrency.lock'),
+            harnessStateDir                 : path.join(aiDataRoot, 'harness-state'),
+            chromaDataDir                   : path.join(aiDataRoot, 'chroma', 'unified'),
+            orchestratorDataDir             : path.join(aiDataRoot, 'orchestrator-daemon'),
+            orchestratorPidFile             : path.join(aiDataRoot, 'orchestrator-daemon', 'orchestrator-daemon.pid'),
+            orchestratorLogFile             : path.join(aiDataRoot, 'orchestrator-daemon', 'orchestrator.log'),
+            orchestratorStateFile           : path.join(aiDataRoot, 'orchestrator-daemon', 'orchestrator-state.json'),
+            heavyMaintenanceLeasePath       : path.join(aiDataRoot, 'orchestrator-daemon', 'heavy-maintenance-lease.json'),
+            wakeDecisionBackoffStateFile    : path.join(aiDataRoot, 'wake-daemon', 'backoff.json')
         });
     });
 

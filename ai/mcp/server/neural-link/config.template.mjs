@@ -1,12 +1,12 @@
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import '../../../config.template.mjs';
 import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
-const cwd        = process.cwd();
 const aiDataRoot = path.join(neoRootDir, '.neo-ai-data');
 
 
@@ -44,12 +44,6 @@ class Config extends BaseConfig {
              * @type {string}
              */
             neoRootDir: leaf(neoRootDir),
-            /**
-             * Canonical Agent OS runtime data root shared with Memory Core, Knowledge Base,
-             * and local daemon logs.
-             * @type {string}
-             */
-            aiDataRoot: leaf(aiDataRoot, 'NEO_AI_DATA_ROOT', 'string'),
             /**
              * Automatically connect to the bridge on startup.
              * @type {boolean}
@@ -104,19 +98,10 @@ class Config extends BaseConfig {
              * @type {number}
              */
             pruneLogsAfterDays: leaf(14, 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', 'number')
+        },
+        formulas: {
+            logPath: data => path.join(data.aiDataRoot, 'logs')
         }
-    };
-
-    /**
-     * @summary Keeps NL-local paths aligned with the resolved shared AI data root.
-     * @param {String} leafPath Env-applied leaf path.
-     * @param {String} value Resolved Agent OS data root.
-     * @returns {void}
-     */
-    afterApplyEnvLeaf(leafPath, value) {
-        if (leafPath !== 'aiDataRoot') return;
-        if (!value) return;
-        this.setData('logPath', path.join(value, 'logs'));
     }
 }
 const instance = Neo.setupClass(Config);

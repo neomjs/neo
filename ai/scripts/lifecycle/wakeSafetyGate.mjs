@@ -43,17 +43,15 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-function defaultAiDataRoot() {
-    return process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
-}
+import '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import MemoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 
 /**
  * Resolve the canonical state-file path under the wake-daemon data directory.
- * Resolved from `__dirname` rather than `process.cwd()` so the path is stable
- * under cron / launchd / sub-process invocations that don't inherit the
- * working directory of the operator's shell.
+ * Resolved from the Memory Core config Provider so the path follows the
+ * canonical wake-daemon data directory under cron / launchd / sub-process
+ * invocations that don't inherit the operator shell's working directory.
  *
  * Tests may override the path via the `WAKE_GATE_FILE_PATH` environment
  * variable so parallel specs don't collide on the singleton on-disk state.
@@ -62,7 +60,7 @@ function defaultAiDataRoot() {
  * @returns {string} Absolute path to the gate state file.
  */
 export function gateFilePath() {
-    return process.env.WAKE_GATE_FILE_PATH || path.join(defaultAiDataRoot(), 'wake-daemon', 'wake-safety-gate.json');
+    return process.env.WAKE_GATE_FILE_PATH || path.join(MemoryCoreConfig.wakeDaemon.dataDir, 'wake-safety-gate.json');
 }
 
 /**

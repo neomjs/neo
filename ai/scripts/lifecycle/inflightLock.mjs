@@ -1,15 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { writeGateState } from './wakeSafetyGate.mjs';
-import { fileURLToPath } from 'url';
+import '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import MemoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const BOOT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 export const MAX_ABANDONED_ACTIONS = 3;
-
-function defaultAiDataRoot() {
-    return process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
-}
 
 /**
  * @summary Build the absolute in-flight lock-file path for one identity/mode pair.
@@ -19,7 +16,7 @@ function defaultAiDataRoot() {
  */
 export function getLockPath(mode, identity) {
     const cleanIdentity = identity.replace(/[^a-zA-Z0-9_-]/g, '');
-    return path.join(defaultAiDataRoot(), 'wake-daemon', `inflight-${mode}-${cleanIdentity}.txt`);
+    return path.join(MemoryCoreConfig.wakeDaemon.dataDir, `inflight-${mode}-${cleanIdentity}.txt`);
 }
 
 /**

@@ -1,14 +1,12 @@
 import crypto from 'crypto';
 import fs     from 'fs-extra';
 import path   from 'path';
-import {fileURLToPath} from 'url';
 import Neo    from '../../../../src/Neo.mjs';
+import '../../../../src/core/_export.mjs';
 import Base   from '../../../../src/core/Base.mjs';
+import AiConfig from '../../../config.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-export const DEFAULT_AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../../../'), '.neo-ai-data');
-export const DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH = path.join(DEFAULT_AI_DATA_ROOT, 'orchestrator-daemon', 'heavy-maintenance-lease.json');
+export const DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH = AiConfig.orchestrator.heavyMaintenanceLeasePath;
 export const DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS = 6 * 60 * 60 * 1000;
 
 /**

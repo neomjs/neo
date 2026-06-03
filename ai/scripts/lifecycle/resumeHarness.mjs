@@ -21,10 +21,10 @@ import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 import { createSpawnRequest } from './windowsBatchSpawn.mjs';
+import MemoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const defaultAiDataRoot = () => process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
 
 /**
  * @summary Spawn a child process and (optionally) record its PID for later harness cleanup.
@@ -288,7 +288,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
 
     // Idempotency: resolve the cooldown beside this script so cron/launchd callers
     // share the same 600s re-fire window regardless of their current working directory.
-    const cooldownDir = path.join(defaultAiDataRoot(), 'wake-daemon');
+    const cooldownDir = MemoryCoreConfig.wakeDaemon.dataDir;
     const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
 
     try {

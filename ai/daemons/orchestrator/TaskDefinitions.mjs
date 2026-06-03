@@ -1,14 +1,16 @@
 import path from 'path';
 import {fileURLToPath} from 'url';
+import '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import AiConfig from '../../config.mjs';
+import MemoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const neoRootDir = path.resolve(__dirname, '../../..');
 
-export const DEFAULT_AI_DATA_ROOT    = process.env.NEO_AI_DATA_ROOT || path.join(neoRootDir, '.neo-ai-data');
-export const DEFAULT_DB_PATH         = process.env.NEO_AI_DB_PATH || path.join(DEFAULT_AI_DATA_ROOT, 'sqlite', 'memory-core-graph.sqlite');
-export const DEFAULT_DATA_DIR        = process.env.NEO_AI_ORCHESTRATOR_DIR || path.join(DEFAULT_AI_DATA_ROOT, 'orchestrator-daemon');
-export const DEFAULT_CHROMA_DATA_DIR = path.join(DEFAULT_AI_DATA_ROOT, 'chroma', 'unified');
+export const DEFAULT_DB_PATH         = MemoryCoreConfig.storagePaths.graph;
+export const DEFAULT_DATA_DIR        = AiConfig.orchestrator.dataDir;
+export const DEFAULT_CHROMA_DATA_DIR = AiConfig.engines.chroma.dataDir;
 export const DEFAULT_SCRIPT_DIR      = path.resolve(__dirname, '../../scripts');
 
 /**
@@ -65,7 +67,6 @@ export function buildTaskDefinitions({
             label          : 'chroma daemon',
             command        : 'chroma',
             // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir.
-            // The default preserves the historical relative path unless `NEO_AI_DATA_ROOT` is set;
             // Orchestrator passes the concrete config value after local config overlays are loaded.
             args           : ['run', '--path', chromaDataDir, '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',

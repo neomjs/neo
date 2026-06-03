@@ -28,15 +28,13 @@ import InstanceManager from '../../../src/manager/Instance.mjs';
 
 import {fileURLToPath, pathToFileURL} from 'url';
 import fs from 'fs-extra';
-import path from 'path';
 import {execSync} from 'child_process';
 import AiConfig from '../../config.mjs';
 import Orchestrator from './Orchestrator.mjs';
 
-const AI_DATA_ROOT    = AiConfig.aiDataRoot;
-const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || path.join(AI_DATA_ROOT, 'orchestrator-daemon');
-const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
-const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
+const DAEMON_DATA_DIR = AiConfig.orchestrator.dataDir;
+const PID_FILE        = AiConfig.orchestrator.pidFile;
+const LOG_FILE        = AiConfig.orchestrator.logFile;
 const ORCHESTRATOR_DAEMON_PATH_TAIL = 'ai/daemons/orchestrator/daemon.mjs';
 export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../../config.mjs', import.meta.url));
 
@@ -185,6 +183,9 @@ export async function startOrchestrator(options = {}) {
 
     return Orchestrator.start({
         dataDir: DAEMON_DATA_DIR,
+        logFile: LOG_FILE,
+        stateFile: AiConfig.orchestrator.stateFile,
+        heavyMaintenanceLeasePath: AiConfig.orchestrator.heavyMaintenanceLeasePath,
         primaryDevSyncRootsConfig: AiConfig.orchestrator?.devSyncRoots,
         ...options
     });

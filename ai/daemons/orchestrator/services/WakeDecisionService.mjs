@@ -1,10 +1,9 @@
 import fs   from 'fs-extra';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import '../../../../src/Neo.mjs';
+import '../../../../src/core/_export.mjs';
 import Base from '../../../../src/core/Base.mjs';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../../../'), '.neo-ai-data');
+import AiConfig from '../../../config.mjs';
 
 /**
  * Default activity window (3h) within which any sent-or-received A2A keeps the
@@ -32,11 +31,7 @@ export const DEFAULT_IDLE_WINDOW_MS = 15 * 60 * 1000;
  * substrate), NOT a new graph node type.
  * @type {String}
  */
-export const DEFAULT_BACKOFF_STATE_FILE = path.resolve(
-    DEFAULT_AI_DATA_ROOT,
-    'wake-daemon',
-    'backoff.json'
-);
+export const DEFAULT_BACKOFF_STATE_FILE = AiConfig.orchestrator.wakeDecisionBackoffStateFile;
 
 /**
  * @summary 3-signal wake-decision substrate for orchestrator-driven harness wakes.

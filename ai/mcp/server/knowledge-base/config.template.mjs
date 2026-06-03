@@ -40,11 +40,6 @@ class Config extends BaseConfig {
         data: {
             neoRootDir: leaf(neoRootDir),
             /**
-             * Canonical Agent OS runtime data root shared with Memory Core and the Chroma daemon.
-             * @type {string}
-             */
-            aiDataRoot: leaf(aiDataRoot, 'NEO_AI_DATA_ROOT', 'string'),
-            /**
              * Global debug flag for all MCP servers.
              *
              * Operator env var: `NEO_DEBUG`.
@@ -364,19 +359,11 @@ class Config extends BaseConfig {
                 inheritanceBoost : 80,
                 inheritanceDecay : 0.6
             })
+        },
+        formulas: {
+            path: data => data.engines.chroma.dataDir,
+            logPath: data => path.join(data.aiDataRoot, 'logs')
         }
-    };
-
-    /**
-     * @summary Keeps KB-local paths aligned with the resolved shared AI data root.
-     * @param {String} leafPath Env-applied leaf path.
-     * @param {String} value Resolved Agent OS data root.
-     * @returns {void}
-     */
-    afterApplyEnvLeaf(leafPath, value) {
-        if (leafPath !== 'aiDataRoot') return;
-        if (!value) return;
-        this.setData('logPath', path.join(value, 'logs'));
     }
 }
 const instance = Neo.setupClass(Config);

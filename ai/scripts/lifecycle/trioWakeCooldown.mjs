@@ -10,6 +10,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import Neo from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';
+import MemoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 import { withHeartbeatLock } from './heartbeatLock.mjs';
 import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
@@ -17,10 +18,8 @@ import GraphService from '../../services/memory-core/GraphService.mjs';
 import MailboxService from '../../services/memory-core/MailboxService.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
-const COOLDOWN_STATE_PATH = path.join(AI_DATA_ROOT, 'wake-daemon', 'trio-wake-cooldown.json');
-const COOLDOWN_LOCK_PATH = path.join(AI_DATA_ROOT, 'wake-daemon', 'trio-wake-cooldown.lock');
+const COOLDOWN_STATE_PATH = path.join(MemoryCoreConfig.wakeDaemon.dataDir, 'trio-wake-cooldown.json');
+const COOLDOWN_LOCK_PATH = path.join(MemoryCoreConfig.wakeDaemon.dataDir, 'trio-wake-cooldown.lock');
 
 /**
  * @summary Dispatch the cooldown-bounded swarm-wide wake for an all-agent-idle signal.

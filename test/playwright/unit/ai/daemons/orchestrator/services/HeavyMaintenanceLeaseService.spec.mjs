@@ -324,8 +324,8 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     });
 
     test('withLease release-timing invariant: task inner finally runs INSIDE the lease window (#11515)', async () => {
-        // Empirical anchor: PR #11509 cycles 1 + 2 surfaced the same root failure-mode at two
-        // different surfaces — substrate mutation placed AFTER `await withHeavyMaintenanceLease(...)`
+        // Empirical anchor: review cycles surfaced the same root failure-mode at two different
+        // surfaces — substrate mutation placed AFTER `await withHeavyMaintenanceLease(...)`
         // runs OUTSIDE the lease window because the helper's own `finally` (release) fires before
         // the awaited promise settles.
         //
@@ -352,7 +352,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 await Promise.resolve();
             } finally {
                 // Substrate-protected side effect (canonical inner-finally pattern from
-                // ai/scripts/runners/runSandman.mjs post-PR #11509).
+                // ai/scripts/runners/runSandman.mjs).
                 order.push('task-finally');
                 leaseDuringFinally = await inspectHeavyMaintenanceLease({leasePath, now});
             }
@@ -716,8 +716,8 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     test('default singleton delegates to the reusable helpers', async () => {
         const leasePath = createLeasePath('service');
         const service   = Neo.create(HeavyMaintenanceLeaseService, {
-            leasePath_: leasePath,
-            staleAfterMs_: 60000
+            leasePath,
+            staleAfterMs: 60000
         });
 
         const acquired = await service.acquire({

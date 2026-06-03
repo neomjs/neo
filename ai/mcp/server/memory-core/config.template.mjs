@@ -20,7 +20,7 @@ const __dirname  = path.dirname(__filename);
 const neoRootDir        = path.resolve(__dirname, '../../../../');
 const cwd               = neoRootDir;
 const aiDataRoot        = path.join(cwd, '.neo-ai-data');
-const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.join(aiDataRoot, 'wake-daemon'));
+const wakeDaemonDataDir = path.join(aiDataRoot, 'wake-daemon');
 const DAY_MS            = 24 * 60 * 60 * 1000;
 
 function hasEnvValue(name) {
@@ -60,15 +60,6 @@ class Config extends BaseConfig {
              * @type {string}
              */
             neoRootDir: leaf(neoRootDir),
-            /**
-             * @summary Canonical Agent OS runtime data root for Memory Core-owned files.
-             *
-             * Defaults to `<neoRootDir>/.neo-ai-data`; setting `NEO_AI_DATA_ROOT` relocates
-             * graph SQLite, wake-daemon watermarks, REM state, logs, and datasets together
-             * without requiring each sibling path to be overridden separately.
-             * @type {string}
-             */
-            aiDataRoot: leaf(aiDataRoot, 'NEO_AI_DATA_ROOT', 'string'),
             /**
              * Global debug flag for all MCP servers.
              * @type {boolean}
@@ -141,7 +132,9 @@ class Config extends BaseConfig {
             wakeDaemon: {
                 dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
                 bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
-                wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
+                wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string'),
+                pidFile: leaf(path.join(wakeDaemonDataDir, 'bridge-daemon.pid')),
+                logFile: leaf(path.join(wakeDaemonDataDir, 'bridge.log'))
             },
             /**
              * Data Schema/Table Names
@@ -336,45 +329,39 @@ class Config extends BaseConfig {
              * @type {string}
              */
             lazyEdgesQueuePath: leaf(path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
+        },
+        formulas: {
+            'storagePaths.graph': data => {
+                if (process.env.UNIT_TEST_MODE === 'true') {
+                    return ':memory:'
+                }
+                if (hasEnvValue('NEO_MEMORY_DB_PATH')) {
+                    return data.storagePaths.graph
+                }
+                if (hasEnvValue('NEO_AI_DB_PATH')) {
+                    return process.env.NEO_AI_DB_PATH
+                }
+                return path.join(data.aiDataRoot, 'sqlite', 'memory-core-graph.sqlite')
+            },
+            'wakeDaemon.dataDir': data => hasEnvValue('NEO_AI_DAEMON_DIR')
+                ? data.wakeDaemon.dataDir
+                : path.join(data.aiDataRoot, 'wake-daemon'),
+            'wakeDaemon.bridgeLastSyncIdPath': data => hasEnvValue('NEO_BRIDGE_LAST_SYNC_ID_PATH')
+                ? data.wakeDaemon.bridgeLastSyncIdPath
+                : path.join(data.wakeDaemon.dataDir, 'lastSyncId'),
+            'wakeDaemon.wakeSubscriptionLiveCursorPath': data => hasEnvValue('NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE')
+                ? data.wakeDaemon.wakeSubscriptionLiveCursorPath
+                : path.join(data.wakeDaemon.dataDir, 'wakeSubscriptionLiveCursor'),
+            'wakeDaemon.pidFile': data => path.join(data.wakeDaemon.dataDir, 'bridge-daemon.pid'),
+            'wakeDaemon.logFile': data => path.join(data.wakeDaemon.dataDir, 'bridge.log'),
+            'datasets.rlaif.trajectories': data => hasEnvValue('NEO_RLAIF_PATH')
+                ? data.datasets.rlaif.trajectories
+                : path.join(data.aiDataRoot, 'datasets', 'rlaif', 'trajectories.jsonl'),
+            remRunStateDir: data => hasEnvValue('NEO_REM_RUN_STATE_DIR')
+                ? data.remRunStateDir
+                : path.join(data.aiDataRoot, 'rem-runs'),
+            logPath: data => path.join(data.aiDataRoot, 'logs')
         }
-    };
-
-    /**
-     * @summary Keeps Memory Core-owned path defaults aligned with the resolved
-     * shared AI data root while preserving narrower env overrides.
-     *
-     * @param {String} leafPath Env-applied leaf path.
-     * @param {String} value Resolved Agent OS data root.
-     * @returns {void}
-     */
-    afterApplyEnvLeaf(leafPath, value) {
-        if (leafPath !== 'aiDataRoot') return;
-        if (!value) return;
-
-        const wakeDataDir = path.resolve(hasEnvValue('NEO_AI_DAEMON_DIR')
-            ? process.env.NEO_AI_DAEMON_DIR
-            : path.join(value, 'wake-daemon'));
-
-        if (!hasEnvValue('NEO_MEMORY_DB_PATH') && process.env.UNIT_TEST_MODE !== 'true') {
-            this.setData('storagePaths.graph', path.join(value, 'sqlite', 'memory-core-graph.sqlite'));
-        }
-        if (!hasEnvValue('NEO_AI_DAEMON_DIR')) {
-            this.setData('wakeDaemon.dataDir', wakeDataDir);
-        }
-        if (!hasEnvValue('NEO_BRIDGE_LAST_SYNC_ID_PATH')) {
-            this.setData('wakeDaemon.bridgeLastSyncIdPath', path.join(wakeDataDir, 'lastSyncId'));
-        }
-        if (!hasEnvValue('NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE')) {
-            this.setData('wakeDaemon.wakeSubscriptionLiveCursorPath', path.join(wakeDataDir, 'wakeSubscriptionLiveCursor'));
-        }
-        if (!hasEnvValue('NEO_RLAIF_PATH')) {
-            this.setData('datasets.rlaif.trajectories', path.join(value, 'datasets', 'rlaif', 'trajectories.jsonl'));
-        }
-        if (!hasEnvValue('NEO_REM_RUN_STATE_DIR')) {
-            this.setData('remRunStateDir', path.join(value, 'rem-runs'));
-        }
-
-        this.setData('logPath', path.join(value, 'logs'));
     }
 }
 const instance = Neo.setupClass(Config);

@@ -19,16 +19,12 @@ import {readRecentRemRunStates} from './helpers/RemRunStateStore.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Heartbeat-liveness file path resolution. Mirrors `wakeSafetyGate.gateFilePath()` env-override
- * pattern so parallel test specs can isolate from the canonical on-disk path. Production
- * deployments leave `NEO_HEARTBEAT_ALIVE_PATH` unset; the canonical path under `.neo-ai-data/wake-daemon/`
- * applies. Counterpart producer: `SwarmHeartbeatService.touchLivenessFile()`, called once per
- * `pulse()` by the Orchestrator's swarm-heartbeat lane.
+ * Heartbeat-liveness file path resolution. The Tier-1 AiConfig Provider owns the
+ * `NEO_HEARTBEAT_ALIVE_PATH` env layer and shared-data-root derivation; consumers
+ * read the resolved leaf instead of re-deriving the path.
  */
 function heartbeatAlivePath() {
-    return process.env.NEO_HEARTBEAT_ALIVE_PATH
-        || aiConfig.wakeDaemonHeartbeatAlivePath
-        || path.join(aiConfig.aiDataRoot, 'wake-daemon', 'heartbeat.alive');
+    return aiConfig.wakeDaemonHeartbeatAlivePath;
 }
 
 /**
@@ -389,6 +385,9 @@ export function buildAuthProviderBlock(cfg) {
  * Aligns with the "surface, don't obscure" principle.
  *
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
+ * @param {Object} [options]
+ * @param {String} [options.livenessPath=aiConfig.wakeDaemonHeartbeatAlivePath]
+ *     Explicit heartbeat-liveness path for tests and callers with an already-resolved path.
  * @returns {Promise<{gateState: String, gateReason: String, gateTrippedAt: String|null,
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
  *     secondsSinceLastPulse: Number|null}>}
@@ -396,7 +395,7 @@ export function buildAuthProviderBlock(cfg) {
  * @see ai/daemons/SwarmHeartbeatService.mjs — the swarm-heartbeat lane that touches the liveness file
  * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
  */
-export async function buildWakeFeaturesBlock(now = Date.now()) {
+export async function buildWakeFeaturesBlock(now = Date.now(), {livenessPath = heartbeatAlivePath()} = {}) {
     const nowMs = typeof now === 'number' ? now : now.getTime();
 
     let gateBlock = {
@@ -428,7 +427,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
     };
 
     try {
-        const stat       = await fs.stat(heartbeatAlivePath());
+        const stat       = await fs.stat(livenessPath);
         const mtimeMs    = stat.mtime.getTime();
         const ageMs      = Math.max(0, nowMs - mtimeMs);
         livenessBlock = {
