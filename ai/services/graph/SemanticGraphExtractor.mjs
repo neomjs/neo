@@ -56,6 +56,23 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
+     * @summary Builds the exact document envelope sent for one Tri-Vector chunk.
+     * @param {Object} session Wrapped session object containing meta.sessionId.
+     * @param {Object} chunk Chunk metadata with index, document, turnStart and turnEnd.
+     * @param {Number} chunkCount Total chunk count used in the human-readable header.
+     * @returns {String}
+     */
+    buildTriVectorChunkDocument(session, chunk, chunkCount) {
+        return [
+            `Chunk ${chunk.index + 1}/${chunkCount}`,
+            `Original session: ${session.meta.sessionId}`,
+            `Source turns: ${chunk.turnStart}-${chunk.turnEnd}`,
+            '',
+            chunk.document
+        ].join('\n')
+    }
+
+    /**
      * @summary Splits DreamService raw-memory payloads on the turn separator it uses when
      * joining raw Memory Core documents.
      * @param {String} document Raw session document.
@@ -103,30 +120,45 @@ class SemanticGraphExtractor extends Base {
         const chunks = [];
         let chunkTurns = [];
         let chunkStart = 0;
+        const planningChunkCountReserve = 9999;
 
         const pushChunk = (endIndex) => {
             if (chunkTurns.length === 0) return;
 
             const index    = chunks.length;
             const document = chunkTurns.join('\n\n---\n\n');
-
-            chunks.push({
-                id                 : `${session.meta.sessionId}:chunk:${index}`,
+            const chunk    = {
+                id       : `${session.meta.sessionId}:chunk:${index}`,
                 index,
                 document,
-                inputTokensEstimate: this.estimateTriVectorPromptTokens(systemInstruction, document),
-                turnStart          : chunkStart,
-                turnEnd            : endIndex
-            });
+                turnStart: chunkStart,
+                turnEnd  : endIndex
+            };
+
+            chunk.inputTokensEstimate = this.estimateTriVectorPromptTokens(
+                systemInstruction,
+                this.buildTriVectorChunkDocument(session, chunk, planningChunkCountReserve)
+            );
+
+            chunks.push(chunk);
         };
 
         for (let i = 0; i < turns.length; i++) {
             const candidateTurns = [...chunkTurns, turns[i]];
             const candidateText  = candidateTurns.join('\n\n---\n\n');
+            const candidateChunk = {
+                index    : chunks.length,
+                document : candidateText,
+                turnStart: chunkStart,
+                turnEnd  : i
+            };
 
             if (
                 chunkTurns.length > 0 &&
-                this.estimateTriVectorPromptTokens(systemInstruction, candidateText) > safeProcessingLimitTokens
+                this.estimateTriVectorPromptTokens(
+                    systemInstruction,
+                    this.buildTriVectorChunkDocument(session, candidateChunk, planningChunkCountReserve)
+                ) > safeProcessingLimitTokens
             ) {
                 pushChunk(i - 1);
                 chunkTurns = [turns[i]];
@@ -396,13 +428,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         const chunkPayload = await this.executeTriVectorExtraction({
                             ...session,
                             meta    : {...session.meta, sessionId: chunk.id},
-                            document: [
-                                `Chunk ${chunk.index + 1}/${chunks.length}`,
-                                `Original session: ${session.meta.sessionId}`,
-                                `Source turns: ${chunk.turnStart}-${chunk.turnEnd}`,
-                                '',
-                                chunk.document
-                            ].join('\n')
+                            document: this.buildTriVectorChunkDocument(session, chunk, chunks.length)
                         }, {
                             ...options,
                             commit       : false,

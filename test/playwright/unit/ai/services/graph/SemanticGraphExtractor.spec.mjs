@@ -51,12 +51,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         aiConfig.autoIngestFileSystem = false;
         aiConfig.engines.chroma.database = CHROMA_TEST_DATABASE;
 
-        // #11965 Sub-2 cycle-3: graph services now dispatch provider via
-        // aiConfig.modelProvider through buildGraphProvider. Memory Core's
-        // default modelProvider is 'gemini' which is out of Sub-2 graph scope
-        // (gemini-graph dispatch deferred to Sub-3 / follow-up). This test
-        // stubs OpenAiCompatible.prototype.generate, so force the dispatch
-        // path to 'openAiCompatible'.
+        // Graph services dispatch providers through buildGraphProvider. This test
+        // stubs OpenAiCompatible.prototype.generate, so force that dispatch path.
         aiConfig.modelProvider = 'openAiCompatible';
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -429,6 +425,58 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
             OpenAiCompatible.prototype.generate                = baseGenerate;
         }
+    });
+
+    test('includes chunk headers in Tri-Vector chunk token estimates (#12073)', () => {
+        const systemInstruction = 'Extract graph facts.';
+        const turns = [
+            'First session turn. '.repeat(180),
+            'Second session turn. '.repeat(180)
+        ];
+        const session = {
+            id      : 'mock-header-estimate-vector-id',
+            meta    : {sessionId: 'header-estimate-session'},
+            document: turns.join('\n\n---\n\n')
+        };
+        const firstChunk = {
+            index    : 0,
+            document : turns[0],
+            turnStart: 0,
+            turnEnd  : 0
+        };
+        const bothTurnsChunk = {
+            index    : 0,
+            document : session.document,
+            turnStart: 0,
+            turnEnd  : 1
+        };
+        const firstHeaderEstimate = SemanticGraphExtractor.estimateTriVectorPromptTokens(
+            systemInstruction,
+            SemanticGraphExtractor.buildTriVectorChunkDocument(session, firstChunk, 9999)
+        );
+        const bothHeaderEstimate = SemanticGraphExtractor.estimateTriVectorPromptTokens(
+            systemInstruction,
+            SemanticGraphExtractor.buildTriVectorChunkDocument(session, bothTurnsChunk, 9999)
+        );
+        const safeProcessingLimitTokens = firstHeaderEstimate + 1;
+
+        expect(SemanticGraphExtractor.estimateTriVectorPromptTokens(systemInstruction, session.document)).toBeGreaterThan(safeProcessingLimitTokens);
+        expect(bothHeaderEstimate).toBeGreaterThan(safeProcessingLimitTokens);
+
+        const chunks = SemanticGraphExtractor.createTriVectorChunks(session, {
+            systemInstruction,
+            safeProcessingLimitTokens
+        });
+
+        expect(chunks.length).toBe(2);
+
+        const expectedChunkDocument = SemanticGraphExtractor.buildTriVectorChunkDocument(session, chunks[0], 9999);
+        const bodyOnlyEstimate = SemanticGraphExtractor.estimateTriVectorPromptTokens(systemInstruction, chunks[0].document);
+
+        expect(chunks[0].inputTokensEstimate).toBe(
+            SemanticGraphExtractor.estimateTriVectorPromptTokens(systemInstruction, expectedChunkDocument)
+        );
+        expect(chunks[0].inputTokensEstimate).toBeGreaterThan(bodyOnlyEstimate);
     });
 
     test('runs turn-aligned chunks in deterministic order and deduplicates reduce payloads (#12073)', async () => {
