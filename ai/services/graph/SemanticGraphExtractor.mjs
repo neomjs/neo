@@ -28,18 +28,272 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
+     * @summary Returns bounded metadata for the most recent Tri-Vector extraction run.
+     *
+     * DreamService consumes this after `executeTriVectorExtraction()` to copy
+     * chunking/failure details into the REM run-state writer. The value is intentionally
+     * metadata-only: no prompt bodies or model output are retained here.
+     *
+     * @returns {Object|null}
+     */
+    getLastTriVectorRunInfo() {
+        return this.lastTriVectorRunInfo || null
+    }
+
+    /**
+     * @summary Estimates the token envelope sent to the Tri-Vector consumer.
+     * @param {String} systemInstruction The system instruction text.
+     * @param {String} document The session or chunk document.
+     * @returns {Number}
+     */
+    estimateTriVectorPromptTokens(systemInstruction, document) {
+        const prompt = [
+            systemInstruction || '',
+            `--- Session Episodic Memory ---\n${document || ''}`
+        ].join('\n');
+
+        return Math.ceil(Buffer.byteLength(prompt, 'utf8') / 4)
+    }
+
+    /**
+     * @summary Splits DreamService raw-memory payloads on the turn separator it uses when
+     * joining raw Memory Core documents.
+     * @param {String} document Raw session document.
+     * @returns {String[]}
+     */
+    splitSessionTurns(document) {
+        return String(document || '')
+            .split(/\n{2,}---\n{2,}/)
+            .map(turn => turn.trim())
+            .filter(Boolean)
+    }
+
+    /**
+     * @summary Creates deterministic, turn-aligned chunks when the full prompt exceeds the
+     * configured safe processing limit.
+     *
+     * If a single turn exceeds the limit, it remains intact and the existing guardrail path
+     * handles the failure. This preserves source-turn integrity instead of slicing through
+     * an episodic memory body.
+     *
+     * @param {Object} session Wrapped session object containing document and meta.sessionId.
+     * @param {Object} options
+     * @param {String} options.systemInstruction Tri-Vector system instruction.
+     * @param {Number} options.safeProcessingLimitTokens Safe local-model processing threshold.
+     * @returns {Object[]} Chunk metadata with document bodies.
+     */
+    createTriVectorChunks(session, {
+        systemInstruction,
+        safeProcessingLimitTokens
+    }) {
+        if (!Number.isFinite(safeProcessingLimitTokens) || safeProcessingLimitTokens <= 0) {
+            return []
+        }
+
+        if (this.estimateTriVectorPromptTokens(systemInstruction, session.document) <= safeProcessingLimitTokens) {
+            return []
+        }
+
+        const turns = this.splitSessionTurns(session.document);
+
+        if (turns.length < 2) {
+            return []
+        }
+
+        const chunks = [];
+        let chunkTurns = [];
+        let chunkStart = 0;
+
+        const pushChunk = (endIndex) => {
+            if (chunkTurns.length === 0) return;
+
+            const index    = chunks.length;
+            const document = chunkTurns.join('\n\n---\n\n');
+
+            chunks.push({
+                id                 : `${session.meta.sessionId}:chunk:${index}`,
+                index,
+                document,
+                inputTokensEstimate: this.estimateTriVectorPromptTokens(systemInstruction, document),
+                turnStart          : chunkStart,
+                turnEnd            : endIndex
+            });
+        };
+
+        for (let i = 0; i < turns.length; i++) {
+            const candidateTurns = [...chunkTurns, turns[i]];
+            const candidateText  = candidateTurns.join('\n\n---\n\n');
+
+            if (
+                chunkTurns.length > 0 &&
+                this.estimateTriVectorPromptTokens(systemInstruction, candidateText) > safeProcessingLimitTokens
+            ) {
+                pushChunk(i - 1);
+                chunkTurns = [turns[i]];
+                chunkStart = i;
+            } else {
+                chunkTurns = candidateTurns;
+            }
+        }
+
+        pushChunk(turns.length - 1);
+
+        return chunks.length > 1 ? chunks : []
+    }
+
+    /**
+     * @summary Reduces chunk-level Tri-Vector payloads into one deterministic session payload.
+     *
+     * The graph reducer deduplicates nodes by `(type, name)` and rewrites intra-payload edges to
+     * the first canonical node id for that tuple. This keeps chunk output order stable while
+     * preventing repeated mentions of the same entity from creating duplicate graph nodes.
+     *
+     * @param {Object} session Original session.
+     * @param {Object[]} chunks Chunk metadata.
+     * @param {Object[]} payloads Valid chunk-level Tri-Vector payloads.
+     * @returns {Object}
+     */
+    reduceTriVectorChunkPayloads(session, chunks, payloads) {
+        const basePayload    = payloads[0] || {};
+        const baseArtifact   = basePayload.session_artifact || {};
+        const nodeByTuple    = new Map();
+        const edgeByTuple    = new Map();
+        const summaries      = [];
+        const roadmapImpacts = [];
+        let featureNamespace = null;
+
+        const addUnique = (collection, value) => {
+            if (typeof value === 'string') {
+                const clean = value.trim();
+                if (clean && clean.toLowerCase() !== 'null' && !collection.includes(clean)) {
+                    collection.push(clean);
+                }
+            }
+        };
+
+        payloads.forEach((payload, chunkIndex) => {
+            const artifact = payload.session_artifact || {};
+            const idMap    = new Map();
+
+            featureNamespace ||= artifact.feature_namespace || null;
+            addUnique(summaries, artifact.human_readable_summary);
+            addUnique(roadmapImpacts, artifact.roadmap_impact);
+
+            for (const node of artifact.graph?.nodes || []) {
+                const nodeType = typeof node.type === 'string' ? node.type.toUpperCase() : 'CONCEPT';
+                const nodeName = node.name || node.id || 'Unknown';
+                const tupleKey = `${nodeType}|${nodeName}`;
+                const existing = nodeByTuple.get(tupleKey);
+
+                if (existing) {
+                    idMap.set(node.id, existing.id);
+
+                    const existingTags = Array.isArray(existing.tags) ? existing.tags : [];
+                    const incomingTags = Array.isArray(node.tags) ? node.tags : [];
+                    existing.tags = [...new Set([...existingTags, ...incomingTags])];
+
+                    if (typeof node.confidence === 'number') {
+                        existing.confidence = Math.max(existing.confidence || 0, node.confidence);
+                    }
+                    if (typeof node.strategic_weight === 'number') {
+                        existing.strategic_weight = Math.max(existing.strategic_weight || 0, node.strategic_weight);
+                    }
+                } else {
+                    const canonical = {...node, type: nodeType, name: nodeName};
+                    nodeByTuple.set(tupleKey, canonical);
+                    idMap.set(node.id, canonical.id);
+                }
+            }
+
+            for (const edge of artifact.graph?.edges || []) {
+                const source       = idMap.get(edge.source) || edge.source;
+                const target       = idMap.get(edge.target) || edge.target;
+                const relationship = edge.relationship || 'RELATES_TO';
+                const tupleKey     = `${source}|${relationship}|${target}`;
+
+                if (!edgeByTuple.has(tupleKey)) {
+                    edgeByTuple.set(tupleKey, {
+                        ...edge,
+                        source,
+                        target,
+                        chunkSources: [chunks[chunkIndex]?.id].filter(Boolean)
+                    });
+                } else {
+                    const existing = edgeByTuple.get(tupleKey);
+                    existing.weight = Math.max(
+                        Number.isFinite(parseFloat(existing.weight)) ? parseFloat(existing.weight) : 1,
+                        Number.isFinite(parseFloat(edge.weight)) ? parseFloat(edge.weight) : 1
+                    );
+                    if (chunks[chunkIndex]?.id && !existing.chunkSources.includes(chunks[chunkIndex].id)) {
+                        existing.chunkSources.push(chunks[chunkIndex].id);
+                    }
+                }
+            }
+        });
+
+        return {
+            ...basePayload,
+            session_artifact: {
+                ...baseArtifact,
+                feature_namespace     : featureNamespace,
+                human_readable_summary: summaries.length <= 1 ? (summaries[0] || baseArtifact.human_readable_summary || '') : summaries.join(' '),
+                roadmap_impact        : roadmapImpacts.length === 0 ? null : roadmapImpacts.join('\n'),
+                graph                 : {
+                    nodes: [...nodeByTuple.values()],
+                    edges: [...edgeByTuple.values()]
+                },
+                chunking: {
+                    strategy         : 'turn-aligned-safe-processing-limit',
+                    activated        : true,
+                    originalSessionId: session.meta.sessionId,
+                    chunkCount       : chunks.length,
+                    chunks           : chunks.map(({document, ...metadata}) => metadata)
+                }
+            }
+        }
+    }
+
+    /**
      * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
      * from the session memory log via JSON schema extraction.
      *
      * @summary Anchor & Echo: Employs a relaxed schema validation strategy. Missing or truncated
      * `graph.nodes` and `graph.edges` default to empty arrays rather than triggering strict validation
-     * failures. This graceful degradation prevents token-exhaustion crash-loops under peak payload sizes.
+     * failures. When the full session prompt exceeds the safe local-model processing band and the
+     * payload contains multiple turn-aligned memory bodies, the extractor runs chunk-level Tri-Vector
+     * extraction and deterministically reduces the chunk payloads before committing the final graph.
+     * This graceful degradation prevents token-exhaustion crash-loops under peak payload sizes.
      *
      * @param {Object} session Wrapped session object containing id, document, and meta
+     * @param {Object} options={} Internal/test options.
+     * @param {Boolean} options.skipChunking=false True bypasses chunk activation for recursive chunk extraction.
+     * @param {Boolean} options.commit=true False returns the payload without writing graph side effects.
+     * @param {Boolean} options.recordRunInfo=true False prevents recursive chunks from replacing parent run metadata.
      * @returns {Promise<Object|null>} The extracted payload, or null on failure
      */
-    async executeTriVectorExtraction(session) {
+    async executeTriVectorExtraction(session, options={}) {
         logger.info(`[SemanticGraphExtractor] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
+
+        const recordRunInfo = options.recordRunInfo !== false;
+        const setRunInfo = (patch) => {
+            if (recordRunInfo) {
+                this.lastTriVectorRunInfo = {
+                    ...(this.lastTriVectorRunInfo || {}),
+                    ...patch
+                };
+            }
+        };
+
+        if (recordRunInfo) {
+            this.lastTriVectorRunInfo = {
+                sessionId         : session.meta.sessionId,
+                status            : 'running',
+                mode              : 'single-pass',
+                chunkingActivated : false,
+                chunks            : [],
+                failures          : []
+            };
+        }
 
         const systemInstruction = `You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
 Your task is to analyze the following episodic development session history and extract three vital vectors of intelligence into a strict A2A 2026 JSON object:
@@ -111,13 +365,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             let payload = null;
             let result = null;
 
-            // Wrap each LLM invocation with the Consumer-Friction guardrail. The upstream
-            // pre-check skips invocation when the composed messages' estimated token count
-            // exceeds the consumer's safe processing band (default 75% of the consumer's
-            // context limit). The downstream try/catch categorizes engine-level failures
-            // into friction symptoms. Friction is emitted into the in-memory aggregator
-            // (with `serviceDomain: 'dream-pipeline'`) for handoff rendering by
-            // `GoldenPathSynthesizer.synthesizeGoldenPath`.
             // consumerModel reflects the active graph-generation provider for accurate
             // telemetry; localModels.chat.* provides the role-keyed context-limit
             // threshold (model-role axis, not provider-namespace — remote providers like
@@ -127,7 +374,73 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             const consumerContextTokens  = aiConfig.localModels.chat.contextLimitTokens;
             const consumerSafeTokens     = aiConfig.localModels.chat.safeProcessingLimitTokens;
 
-            while (attempt < maxRetries && !payload) {
+            if (!options.skipChunking) {
+                const chunks = this.createTriVectorChunks(session, {
+                    systemInstruction,
+                    safeProcessingLimitTokens: consumerSafeTokens
+                });
+
+                if (chunks.length > 1) {
+                    logger.info(`[SemanticGraphExtractor] Activating turn-aligned chunking for session ${session.meta.sessionId}: ${chunks.length} chunks.`);
+                    setRunInfo({
+                        mode             : 'chunked',
+                        chunkingActivated: true,
+                        chunks           : chunks.map(({document, ...metadata}) => metadata),
+                        attempts         : chunks.length,
+                        failures         : []
+                    });
+
+                    const chunkPayloads = [];
+
+                    for (const chunk of chunks) {
+                        const chunkPayload = await this.executeTriVectorExtraction({
+                            ...session,
+                            meta    : {...session.meta, sessionId: chunk.id},
+                            document: [
+                                `Chunk ${chunk.index + 1}/${chunks.length}`,
+                                `Original session: ${session.meta.sessionId}`,
+                                `Source turns: ${chunk.turnStart}-${chunk.turnEnd}`,
+                                '',
+                                chunk.document
+                            ].join('\n')
+                        }, {
+                            ...options,
+                            commit       : false,
+                            skipChunking : true,
+                            recordRunInfo: false
+                        });
+
+                        if (!chunkPayload) {
+                            const failure = {
+                                chunkId   : chunk.id,
+                                chunkIndex: chunk.index,
+                                reason    : 'tri-vector chunk extraction returned null'
+                            };
+
+                            setRunInfo({
+                                status       : 'failed',
+                                failureReason: failure.reason,
+                                failures     : [failure]
+                            });
+
+                            return null;
+                        }
+
+                        chunkPayloads.push(chunkPayload);
+                    }
+
+                    payload = this.reduceTriVectorChunkPayloads(session, chunks, chunkPayloads);
+                }
+            }
+
+            // Wrap each LLM invocation with the Consumer-Friction guardrail. The upstream
+            // pre-check skips invocation when the composed messages' estimated token count
+            // exceeds the consumer's safe processing band (default 75% of the consumer's
+            // context limit). The downstream try/catch categorizes engine-level failures
+            // into friction symptoms. Friction is emitted into the in-memory aggregator
+            // (with `serviceDomain: 'dream-pipeline'`) for handoff rendering by
+            // `GoldenPathSynthesizer.synthesizeGoldenPath`.
+            while (!payload && attempt < maxRetries) {
                 attempt++;
 
                 const inputPayloadText = messages.map(m => m.content).join('\n');
@@ -145,6 +458,15 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
                 if (!guardrailed.result) {
                     logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${session.meta.sessionId}; aborting retry loop.`);
+                    setRunInfo({
+                        status       : 'failed',
+                        attempts     : attempt,
+                        failureReason: guardrailed.friction?.symptom || 'guardrail-null-result',
+                        failures     : [{
+                            reason : guardrailed.friction?.symptom || 'guardrail-null-result',
+                            symptom: guardrailed.friction?.symptom
+                        }]
+                    });
                     return null;
                 }
 
@@ -172,6 +494,16 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         contextLimitTokens       : consumerContextTokens,
                         safeProcessingLimitTokens: consumerSafeTokens,
                         note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}. Attempt ${attempt}/${maxRetries}.`
+                    });
+
+                    setRunInfo({
+                        status       : 'failed',
+                        attempts     : attempt,
+                        failureReason: 'context-overflow',
+                        failures     : [{
+                            reason : 'empty provider response',
+                            symptom: 'context-overflow'
+                        }]
                     });
 
                     return null;
@@ -209,12 +541,29 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
 
             if (!payload) {
+                setRunInfo({
+                    status       : 'failed',
+                    attempts     : attempt,
+                    failureReason: 'schema-validation-exhausted',
+                    failures     : [{
+                        reason: 'schema-validation-exhausted'
+                    }]
+                });
                 return null;
             }
 
             logger.debug(`[SemanticGraphExtractor] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId} after ${attempt} attempts.`);
 
             const artifact = payload.session_artifact;
+
+            if (options.commit === false) {
+                setRunInfo({
+                    status  : 'completed',
+                    attempts: this.lastTriVectorRunInfo?.attempts || attempt || 1
+                });
+
+                return payload;
+            }
 
             // --- VECTOR 1: SEMANTIC GRAPH ---
             // Ensure frontier exists, if not, stub it so we can link to it
@@ -331,9 +680,22 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 logger.info(`[SemanticGraphExtractor] Extracted Strategy impact to roadmap_audits.log`);
             }
 
+            setRunInfo({
+                status  : 'completed',
+                attempts: this.lastTriVectorRunInfo?.attempts || attempt || 1
+            });
+
             return payload;
 
         } catch (error) {
+            setRunInfo({
+                status       : 'failed',
+                failureReason: error.message || String(error),
+                failures     : [{
+                    reason: error.message || String(error)
+                }]
+            });
+
             if (error.message && error.message.includes('fetch failed')) {
                 logger.debug(`[SemanticGraphExtractor] Skipping extraction (API provider offline).`);
             } else {

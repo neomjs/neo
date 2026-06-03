@@ -21,6 +21,7 @@ import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
 import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
+import {CHROMA_TEST_DATABASE} from '../../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 
 test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let GraphService;
@@ -56,6 +57,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         aiConfig.storagePaths.graph = testDbPath;
         aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
+        aiConfig.engines.chroma.database = CHROMA_TEST_DATABASE;
         kbConfig.data.memoryCoreDbPath = testDbPath;
 
         GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -774,6 +776,112 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             StorageRouter.getMemoryCollection                 = orig.getMemory;
             logger.info                                      = orig.loggerInfo;
             logger.warn                                      = orig.loggerWarn;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
+    test('processUndigestedSessions records Tri-Vector chunk failures in REM phase state (#12073)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        const mockSession = {
+            id      : 'chroma-summary-chunk-failure',
+            document: 'Turn A\n\n---\n\nTurn B',
+            meta    : {sessionId: 'rem-chunk-session', title: 'Chunk failure session'}
+        };
+
+        const triVectorRunInfo = {
+            sessionId        : 'rem-chunk-session',
+            status           : 'failed',
+            mode             : 'chunked',
+            chunkingActivated: true,
+            attempts         : 2,
+            chunks           : [
+                {id: 'rem-chunk-session:chunk:0', index: 0, inputTokensEstimate: 20, turnStart: 0, turnEnd: 0},
+                {id: 'rem-chunk-session:chunk:1', index: 1, inputTokensEstimate: 20, turnStart: 1, turnEnd: 1}
+            ],
+            failureReason: 'tri-vector chunk extraction returned null',
+            failures     : [
+                {
+                    chunkId   : 'rem-chunk-session:chunk:1',
+                    chunkIndex: 1,
+                    reason    : 'tri-vector chunk extraction returned null'
+                }
+            ]
+        };
+
+        let sessionUpdates = 0;
+
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            triVectorRunInfo  : SemanticGraphExtractor.getLastTriVectorRunInfo,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            getMemory         : StorageRouter.getMemoryCollection,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {
+                update: async () => { sessionUpdates++; }
+            };
+            DreamService.inferTestGapsFromSession = async () => {};
+            DreamService.inferConceptGraphGaps    = async () => {};
+            DreamService.runGarbageCollection     = async () => {};
+
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => null;
+            SemanticGraphExtractor.getLastTriVectorRunInfo    = () => triVectorRunInfo;
+
+            MemorySessionIngestor.syncSessionToGraph = async () => ({
+                errors          : [],
+                memoriesSkipped : 0,
+                memoriesUpserted: 2
+            });
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+            StorageRouter.getMemoryCollection       = async () => null;
+
+            const result = await DreamService.processUndigestedSessions();
+            const triVectorPhase = result.perPhaseStates.find(item => item.phase === 'triVector');
+            const sessionState   = result.perSessionStates.find(item => item.sessionId === 'rem-chunk-session');
+
+            expect(triVectorPhase.status).toBe('failed');
+            expect(triVectorPhase.details.runInfo).toEqual(triVectorRunInfo);
+            expect(sessionState.triVector.attempts).toBe(2);
+            expect(sessionState.triVector.errorKind).toBe('tri-vector chunk extraction returned null');
+            expect(sessionState.triVector.runInfo).toEqual(triVectorRunInfo);
+            expect(sessionState.failureReasons).toContain('tri-vector extraction returned null');
+            expect(sessionState.failureReasons).toContain('tri-vector chunk failure: rem-chunk-session:chunk:1');
+            expect(sessionUpdates).toBe(0);
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            SemanticGraphExtractor.getLastTriVectorRunInfo    = orig.triVectorRunInfo;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            StorageRouter.getMemoryCollection                 = orig.getMemory;
             DreamService.isProcessing                         = orig.isProcessing;
         }
     });

@@ -336,30 +336,43 @@ class DreamService extends Base {
                     try {
                         success = await SemanticGraphExtractor.executeTriVectorExtraction(session);
                     } catch (e) {
+                        const triVectorRunInfo = SemanticGraphExtractor.getLastTriVectorRunInfo?.();
                         sessionState.triVector = {
                             status   : 'failed',
-                            attempts : 1,
-                            errorKind: toErrorMessage(e)
+                            attempts : triVectorRunInfo?.attempts || 1,
+                            errorKind: toErrorMessage(e),
+                            runInfo  : triVectorRunInfo || undefined
                         };
                         sessionState.failureReasons.push(toErrorMessage(e));
                         perPhaseStates.push(finishPhase('triVector', startTime, 'failed', {
                             sessionId: session.meta.sessionId,
-                            error    : toErrorMessage(e)
+                            error    : toErrorMessage(e),
+                            runInfo  : triVectorRunInfo || undefined
                         }));
                         throw e;
                     }
                     const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Tri-Vector Synthesis took: ${triVectorTime}s`);
+                    const triVectorRunInfo = SemanticGraphExtractor.getLastTriVectorRunInfo?.();
                     sessionState.triVector = {
                         status   : success ? 'completed' : 'failed',
-                        attempts : 1,
-                        errorKind: success ? undefined : 'null-result'
+                        attempts : triVectorRunInfo?.attempts || 1,
+                        errorKind: success ? undefined : (triVectorRunInfo?.failureReason || 'null-result'),
+                        runInfo  : triVectorRunInfo || undefined
                     };
                     if (!success) {
                         sessionState.failureReasons.push('tri-vector extraction returned null');
+                        for (const failure of triVectorRunInfo?.failures || []) {
+                            sessionState.failureReasons.push(
+                                failure.chunkId
+                                    ? `tri-vector chunk failure: ${failure.chunkId}`
+                                    : `tri-vector failure: ${failure.reason}`
+                            );
+                        }
                     }
                     perPhaseStates.push(finishPhase('triVector', startTime, success ? 'completed' : 'failed', {
-                        sessionId: session.meta.sessionId
+                        sessionId: session.meta.sessionId,
+                        runInfo  : triVectorRunInfo || undefined
                     }));
 
                     const topoStart = Date.now();
