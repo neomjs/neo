@@ -1,6 +1,10 @@
 import path                                  from 'path';
 import {fileURLToPath}                       from 'url';
 import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
+import {
+    CHROMA_PRODUCTION_DATABASE,
+    CHROMA_TEST_DATABASE
+}                                            from './services/shared/vector/chromaTestIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -283,9 +287,18 @@ class Config extends BaseConfig {
              */
             engines: {
                 chroma: {
-                    dataDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
-                    host   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
-                    port   : leaf(8000, 'NEO_CHROMA_PORT', 'port')
+                    dataDir : leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
+                    host    : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
+                    port    : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
+                    /**
+                     * Chroma database the client connects to. Under `UNIT_TEST_MODE` this resolves to a
+                     * dedicated, droppable test database so unit-test collections never enter the
+                     * production `default_database` by construction (the prevention half of the
+                     * store-isolation cluster); production is `default_database` verbatim. Consumed by
+                     * the Memory Core `ChromaManager`. The Knowledge Base ChromaManager currently reads
+                     * only host/port, so this field is inert for it until separately migrated.
+                     */
+                    database: leaf(process.env.UNIT_TEST_MODE === 'true' ? CHROMA_TEST_DATABASE : CHROMA_PRODUCTION_DATABASE, 'NEO_CHROMA_DATABASE', 'string')
                 }
             },
             /**
