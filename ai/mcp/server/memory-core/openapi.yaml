@@ -1341,7 +1341,7 @@ paths:
                   description: Required for subscribe; specifies how wake events are delivered.
                 harnessTargetMetadata:
                   type: object
-                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon/osascript routing target; url is required for a2a-webhook; coalesceWindow is an optional override.
+                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon/osascript routing target; url is required for a2a-webhook; coalesceWindow is an optional override. userDataDir (local bridge-daemon only) addresses one specific same-bundle GUI instance when two harnesses of the same app run in parallel — the daemon resolves that instance's pid from its --user-data-dir and raises only that process.
                   required: [appName]
                   properties:
                     url:              {type: string}
@@ -1349,6 +1349,7 @@ paths:
                     daemonSocketPath: {type: string}
                     adapter:          {type: string, enum: [osascript, tmux]}
                     appName:          {type: string}
+                    userDataDir:      {type: string, nullable: true}
                     tabShortcut:      {type: string, nullable: true}
                     focusSeedKey:     {type: string, nullable: true}
                     tmuxSession:      {type: string}

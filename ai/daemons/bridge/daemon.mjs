@@ -670,13 +670,26 @@ async function deliverDigest(subscription, digest) {
             // Instance-addressable wake — LOCAL deployment only. When the subscription carries a
             // userDataDir, two same-bundle GUI harnesses may be running; resolve the intended
             // instance's pid and raise THAT process — never the ambiguous app-activate / frontmost
-            // guess. Fail closed (skip the wake) if the instance cannot be located, so a wake never
-            // lands in the wrong one. Gated on AiConfig.orchestrator.deploymentMode !== 'cloud' (the
-            // canonical local-vs-cloud signal, mirroring the orchestrator's deployment-lane gate), so
-            // this local macOS GUI/osascript route never runs under cloud deployment and adds no
-            // cloud-deployment surface.
+            // guess. Fail closed (skip the wake) if the instance cannot be located, so a targeted
+            // wake never lands in the wrong one.
+            //
+            // Instance addressing is a local-only primitive: this daemon delivers desktop-harness
+            // wakes via osascript/tmux, which a headless cloud deployment has no GUI harness to
+            // receive, so the daemon does not run under cloud at all. The deploymentMode === 'cloud'
+            // branch below is therefore DEFENSE-IN-DEPTH, not a live path: if the gate is ever
+            // evaluated under a cloud deploymentMode, REFUSE (fail closed) rather than fall through to
+            // app-activate — a targeted wake must never silently degrade to an untargeted one. Uses
+            // the canonical AiConfig.orchestrator.deploymentMode signal.
             let instancePid = null;
-            if (meta.userDataDir && AiConfig.orchestrator.deploymentMode !== 'cloud') {
+            if (meta.userDataDir) {
+                if (AiConfig.orchestrator.deploymentMode === 'cloud') {
+                    writeLog('ERROR',
+                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `userDataDir targeting requires local deployment (deploymentMode='cloud'). ` +
+                        `Failing closed — instance-addressed GUI wakes are local-only (ADR 0014).`
+                    );
+                    return;
+                }
                 instancePid = await getInstancePid({userDataDir: meta.userDataDir});
                 if (!instancePid) {
                     writeLog('ERROR',
