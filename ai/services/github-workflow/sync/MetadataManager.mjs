@@ -32,6 +32,34 @@ class MetadataManager extends Base {
     }
 
     /**
+     * @summary Returns a clone of metadata without root-level telemetry timestamps.
+     * @param {object} metadata The pruned metadata object.
+     * @returns {object} The comparable metadata payload.
+     * @private
+     */
+    #withoutRootTelemetryTimestamps(metadata) {
+        const clone = structuredClone(metadata);
+
+        delete clone.lastSync;
+        delete clone.releasesLastFetched;
+
+        return clone;
+    }
+
+    /**
+     * @summary Detects when saving would only update root-level telemetry timestamps.
+     * @param {object} existingMetadata The currently persisted metadata.
+     * @param {object} nextMetadata The next pruned metadata payload.
+     * @returns {boolean}
+     * @private
+     */
+    #onlyRootTelemetryTimestampsChanged(existingMetadata, nextMetadata) {
+        return JSON.stringify(this.#withoutRootTelemetryTimestamps(existingMetadata)) ===
+            JSON.stringify(this.#withoutRootTelemetryTimestamps(nextMetadata)) &&
+            JSON.stringify(existingMetadata) !== JSON.stringify(nextMetadata);
+    }
+
+    /**
      * Loads the synchronization metadata file from disk.
      * If the file doesn't exist, it returns a default empty metadata object.
      * @returns {Promise<object>} The parsed metadata object.
@@ -139,6 +167,20 @@ class MetadataManager extends Base {
 
         const dir = path.dirname(issueSyncConfig.metadataFile);
         await fs.mkdir(dir, { recursive: true });
+
+        try {
+            const existingData     = await fs.readFile(issueSyncConfig.metadataFile, 'utf-8');
+            const existingMetadata = JSON.parse(existingData);
+
+            if (this.#onlyRootTelemetryTimestampsChanged(existingMetadata, prunedMetadata)) {
+                return;
+            }
+        } catch (error) {
+            if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) {
+                throw error;
+            }
+        }
+
         await fs.writeFile(issueSyncConfig.metadataFile, JSON.stringify(prunedMetadata, null, 2), 'utf-8');
     }
 }

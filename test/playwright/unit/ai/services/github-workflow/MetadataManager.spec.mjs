@@ -58,7 +58,7 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
                     commentsTotal: 5,
                     extraFieldShouldBePruned: true
                 },
-                // Regression #11594 — object form (freshly fetched, post-API hydrate):
+                // Milestone metadata regression — object form (freshly fetched, post-API hydrate):
                 // closed issue with milestone object persists as string title.
                 '7910': {
                     state: 'CLOSED',
@@ -69,12 +69,11 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
                     commentsTotal: 1,
                     milestone: {title: '11.12.0'}
                 },
-                // Regression #11594 — string form (cached, carried forward from previous save):
+                // Milestone metadata regression — string form (cached, carried forward from previous save):
                 // `IssueSyncer.pullFromGitHub` seeds newMetadata.issues from existing serialized
                 // metadata, then only overwrites fetched issues. Unchanged cached entries arrive at
                 // save() with milestone already as a string. Naive `value.milestone?.title || null`
-                // would prune to `null` here (regression of regression — caught by @neo-gpt PR #11607
-                // Cycle 1). String form MUST pass through verbatim.
+                // would prune to `null` here. String form MUST pass through verbatim.
                 '7911': {
                     state: 'CLOSED',
                     path: 'issues/v11.13.0/issue-7911.md',
@@ -132,13 +131,13 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
         // Open issue without milestone persists as null (defensive)
         expect(loaded.issues['123'].milestone).toBeNull();
 
-        // Regression #11594: closed issue with milestone object form persists as string title only.
+        // Milestone metadata regression: closed issue with object form persists as string title only.
         // Symmetric with IssueSyncer hydrate-from-disk path which wraps string back to {title: ...} object.
         expect(loaded.issues['7910'].milestone).toBe('11.12.0');
         expect(loaded.issues['7910'].state).toBe('CLOSED');
         expect(loaded.issues['7910'].path).toBe('issues/v11.12.0/issue-7910.md');
 
-        // Regression #11594 (PR #11607 Cycle 1): cached string-form milestone passes through verbatim.
+        // Milestone metadata regression: cached string-form milestone passes through verbatim.
         // Unchanged issues seeded from existing serialized metadata arrive as strings, not objects.
         // The prune MUST handle both shapes.
         expect(loaded.issues['7911'].milestone).toBe('11.13.0');
@@ -160,7 +159,7 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
         expect(loaded.pulls['789'].extraFieldShouldBePruned).toBeUndefined();
         expect(loaded.pulls['789'].mergedAt).toBe('2026-05-13T00:00:00Z');
         expect(loaded.pulls['789'].milestone).toBe('v1.0.0');
-        // #11364: `archiveVersion` is retired — `save()` must prune it, never persist it.
+        // `archiveVersion` is retired — `save()` must prune it, never persist it.
         expect(loaded.pulls['789'].archiveVersion).toBeUndefined();
         expect(loaded.pulls['789'].contentHash).toBe('hash3');
 
@@ -168,5 +167,56 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
         expect(loaded.pulls['790'].mergedAt).toBeUndefined();
         expect(loaded.pulls['790'].milestone).toBeUndefined();
         expect(loaded.pulls['790'].contentHash).toBe('hash3_legacy');
+    });
+
+    test('save() skips timestamp-only metadata writes (#10267)', async () => {
+        const metadata = {
+            lastSync: '2026-04-23T22:00:00Z',
+            releasesLastFetched: '2026-04-23T22:00:00Z',
+            pushFailures: [],
+            issues: {
+                '10267': {
+                    state: 'OPEN',
+                    path: 'issues/10267.md',
+                    closedAt: null,
+                    updatedAt: '2026-04-23T22:03:18Z',
+                    contentHash: 'hash-10267',
+                    commentsTotal: 0
+                }
+            },
+            releases: {},
+            pulls: {},
+            discussions: {}
+        };
+
+        await MetadataManager.save(metadata);
+        const originalContent = await fs.readFile(testMetadataFile, 'utf-8');
+
+        await MetadataManager.save({
+            ...metadata,
+            lastSync: '2026-06-03T00:00:00Z',
+            releasesLastFetched: '2026-06-03T00:00:00Z'
+        });
+
+        expect(await fs.readFile(testMetadataFile, 'utf-8')).toBe(originalContent);
+
+        await MetadataManager.save({
+            ...metadata,
+            lastSync: '2026-06-03T00:00:00Z',
+            releasesLastFetched: '2026-06-03T00:00:00Z',
+            issues: {
+                ...metadata.issues,
+                '10267': {
+                    ...metadata.issues['10267'],
+                    contentHash: 'hash-10267-updated'
+                }
+            }
+        });
+
+        const loaded = await MetadataManager.load();
+
+        expect(loaded.lastSync).toBe('2026-06-03T00:00:00Z');
+        expect(loaded.releasesLastFetched).toBe('2026-06-03T00:00:00Z');
+        expect(loaded.issues['10267'].contentHash).toBe('hash-10267-updated');
     });
 });
