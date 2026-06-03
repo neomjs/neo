@@ -57,37 +57,52 @@ function heartbeatLivenessStaleMs() {
  * @summary Projects the stdio identity state into the healthcheck-payload shape.
  *
  * Pure function: takes the cached stdioIdentity context (or null) and returns the
- * observability block the healthcheck response exposes — `{source, bound, nodeId}`.
+ * observability block the healthcheck response exposes — `{source, bound, nodeId, warning}`.
  * Extracted as a module-scope function so unit tests can exercise the projection
  * logic without bootstrapping the full Memory Core runtime.
  *
  * Three input shapes matter:
  * 1. `null` — stdioIdentity never populated (SSE transport, or resolver ran before the
- *    setter was invoked). Projects to `{source: 'unresolved', bound: false, nodeId: null}`.
- * 2. Resolved without graph node — `gh-cli` / `env-var` yielded a userId but no seeded
- *    AgentIdentity graph node matched. Projects to `{source: <resolved>, bound: false, nodeId: null}`.
- *    Diagnostic: agent needs seeding via `ai/scripts/setup/seedAgentIdentities.mjs` OR the boot-time
- *    self-seed did not run.
- * 3. Resolved with graph node — fully bound identity. Projects to `{source: <resolved>, bound: true, nodeId: '@login'}`.
+ *    setter was invoked). Projects to `{source: 'unresolved', bound: false, nodeId: null, warning: null}`.
+ * 2. Resolved without graph node — a resolver yielded a userId but no seeded
+ *    AgentIdentity graph node matched. Projects to `{source: <resolved>, bound: false, nodeId: null, warning}`.
+ *    Diagnostic: only an env-pinned stdio identity is a harness/operator intent signal; surface
+ *    that via `identity.warning` so healthcheck consumers do not need to mine boot logs.
+ * 3. Resolved with graph node — fully bound identity. Projects to
+ *    `{source: <resolved>, bound: true, nodeId: '@login', warning: null}`.
  *    The success shape that A2A operation requires.
+ *
+ * Cloud / multi-tenant request identities (`proxy-header`, `oidc`) intentionally do not warn:
+ * tenant users are not expected to have AgentIdentity graph nodes, and SSE healthcheck boot state
+ * normally remains unresolved because request identity flows through `RequestContextService`.
  *
  * `status` is NOT flipped by this projection. Unbound identity is a valid single-tenant
  * fallthrough per the MemoryCoreMcpAuth contract — this block is pure observability, not
  * a health gate. The architectural choice matches "surface, don't obscure".
  *
  * @param {Object|null} stdioIdentityState Either `null` or `{userId, agentIdentityNodeId, source}`
- * @returns {{source: String, bound: Boolean, nodeId: String|null}}
+ * @returns {{source: String, bound: Boolean, nodeId: String|null, warning: String|null}}
  */
 export function buildIdentityBlock(stdioIdentityState) {
     if (!stdioIdentityState) {
-        return {source: 'unresolved', bound: false, nodeId: null};
+        return {source: 'unresolved', bound: false, nodeId: null, warning: null};
     }
 
-    const {agentIdentityNodeId, source} = stdioIdentityState;
+    const {agentIdentityNodeId, source, userId} = stdioIdentityState,
+          resolvedSource = source || 'unresolved',
+          isEnvPinnedUnbound = resolvedSource === 'env-var' && !agentIdentityNodeId,
+          warning = isEnvPinnedUnbound
+              ? `NEO_AGENT_IDENTITY is pinned to '${userId || 'unknown'}' but resolved to no ` +
+                `AgentIdentity graph node (bound:false). Check for a stale checkout, run ` +
+                `ai/scripts/setup/seedAgentIdentities.mjs, or confirm the identity exists in ` +
+                `ai/graph/identityRoots.mjs.`
+              : null;
+
     return {
-        source: source || 'unresolved',
-        bound : !!agentIdentityNodeId,
-        nodeId: agentIdentityNodeId || null
+        source : resolvedSource,
+        bound  : !!agentIdentityNodeId,
+        nodeId : agentIdentityNodeId || null,
+        warning
     };
 }
 
@@ -1202,6 +1217,10 @@ class HealthService extends Base {
         if (!apiKeyConfigured) {
             payload.status = 'degraded';
             payload.details.push('GEMINI_API_KEY not set - summarization features unavailable');
+        }
+
+        if (payload.identity.warning) {
+            payload.details.push(`WARN: ${payload.identity.warning}`);
         }
 
         // If we made it here with no errors, report success
