@@ -34,6 +34,13 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.backup.args).toEqual([path.join(scriptDir, 'maintenance', 'backup.mjs')]);
         expect(tasks.backup.label).toBe('agent OS backup');
         expect(tasks.backup.expectedCommand).toBe('backup.mjs');
+
+        expect(tasks['graphlog-compaction'].command).toBe('/test/node');
+        expect(tasks['graphlog-compaction'].args).toEqual([
+            path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
+            '--apply'
+        ]);
+        expect(tasks['graphlog-compaction'].expectedCommand).toBe('compactGraphLog.mjs');
     });
 
     test('buildTaskDefinitions is pure: tasks.mlx is omitted when mlxEnabled is false', () => {
@@ -239,6 +246,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(taskDefSource).toContain('summarize-sessions.mjs');
         expect(taskDefSource).toContain('syncKnowledgeBase.mjs');
         expect(taskDefSource).toContain('backup.mjs');
+        expect(taskDefSource).toContain('compactGraphLog.mjs');
     });
 
     test('matches only the orchestrator daemon path-tail for singleton self-detection', () => {

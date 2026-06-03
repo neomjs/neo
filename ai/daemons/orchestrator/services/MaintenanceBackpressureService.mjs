@@ -19,6 +19,7 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'kbSync',
     'backup',
+    'graphlog-compaction',
     'primary-dev-sync',
     'dream'
 ]);

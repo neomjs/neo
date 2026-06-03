@@ -16,6 +16,8 @@ let testOrchestratorSeq = 0;
 let savedIntervals = null;
 let savedLocalOnly = null;
 let savedCloudOnly = null;
+let savedGraphLogCompaction = null;
+let savedGraphLogCompactionMissing = false;
 let savedDeploymentMode = null;
 
 /**
@@ -31,7 +33,8 @@ let savedDeploymentMode = null;
 function createTestOrchestrator(config = {}) {
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
         scriptDir: '/repo/ai/scripts',
-        nodeBin  : '/node'
+        nodeBin  : '/node',
+        graphLogCompactionVacuum: config.graphLogCompactionVacuum ?? false
     });
 
     const heavyMaintenanceLeasePath = config.heavyMaintenanceLeasePath
@@ -53,6 +56,10 @@ function createTestOrchestrator(config = {}) {
     savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
     savedLocalOnly = savedLocalOnly || {...AiConfig.orchestrator.localOnly};
     savedCloudOnly = savedCloudOnly || {...AiConfig.orchestrator.cloudOnly};
+    if (savedGraphLogCompaction === null) {
+        savedGraphLogCompactionMissing = AiConfig.orchestrator.graphLogCompaction === undefined;
+        savedGraphLogCompaction = {...(AiConfig.orchestrator.graphLogCompaction || {})};
+    }
     savedDeploymentMode = savedDeploymentMode ?? AiConfig.orchestrator.deploymentMode;
 
     // Class D operator policy values — AiConfig.data mutation reaches lazy getters.
@@ -60,6 +67,7 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.intervals.summarySweepMs   = config.summarySweepIntervalMs   ?? 600000;
     AiConfig.orchestrator.intervals.kbSyncMs         = config.kbSyncIntervalMs         ?? 600000;
     AiConfig.orchestrator.intervals.backupMs         = config.backupIntervalMs         ?? 86400000;
+    AiConfig.orchestrator.intervals.graphLogCompactionMs = config.graphLogCompactionIntervalMs ?? 86400000;
     AiConfig.orchestrator.intervals.primaryDevSyncMs = config.primaryDevSyncIntervalMs ?? 600000;
     AiConfig.orchestrator.intervals.tenantRepoSyncMs = config.tenantRepoSyncIntervalMs ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.dreamMs          = config.dreamIntervalMs          ?? Number.MAX_SAFE_INTEGER;
@@ -76,6 +84,10 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.goldenPathRepoEnrichmentEnabled = config.goldenPathRepoEnrichmentEnabled ?? true;
 
     AiConfig.orchestrator.cloudOnly.tenantRepoSyncEnabled = config.tenantRepoSyncEnabled ?? false;
+    AiConfig.setData('orchestrator.graphLogCompaction', {
+        enabled: config.graphLogCompactionEnabled ?? true,
+        vacuum : config.graphLogCompactionVacuum ?? false
+    });
 
     const orchestrator = Neo.create(Orchestrator, {
         dataDir                  : '/tmp/orchestrator-test',
@@ -94,6 +106,7 @@ function createTestOrchestrator(config = {}) {
     // collaborators stay object-typed (class singletons / per-instance services).
     orchestrator.summaryGetDueTask        = config.summaryGetDueTask        || (() => null);
     orchestrator.backupGetDueTask         = config.backupGetDueTask         || (() => null);
+    orchestrator.graphLogCompactionGetDueTask = config.graphLogCompactionGetDueTask || (() => null);
     orchestrator.primaryDevSyncGetDueTask = config.primaryDevSyncGetDueTask || (() => null);
     orchestrator.primaryRepoSyncService   = config.primaryRepoSyncService   || {runTask: () => null};
     orchestrator.tenantRepoSyncService    = config.tenantRepoSyncService    || {runTask: () => null};
@@ -122,6 +135,15 @@ test.afterEach(() => {
         restoreConfigObject(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
         savedCloudOnly = null;
     }
+    if (savedGraphLogCompaction) {
+        if (savedGraphLogCompactionMissing) {
+            AiConfig.setData('orchestrator.graphLogCompaction', undefined);
+        } else {
+            AiConfig.setData('orchestrator.graphLogCompaction', {...savedGraphLogCompaction});
+        }
+        savedGraphLogCompaction = null;
+        savedGraphLogCompactionMissing = false;
+    }
     if (savedDeploymentMode !== null) {
         AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
         savedDeploymentMode = null;
@@ -145,7 +167,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -573,6 +595,133 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
     });
 
+    test('defines graphlog-compaction as compactGraphLog --apply child task (#12394)', () => {
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        });
+
+        expect(taskDefinitions['graphlog-compaction']).toEqual({
+            label          : 'GraphLog compaction',
+            command        : '/node',
+            args           : ['/repo/ai/scripts/maintenance/compactGraphLog.mjs', '--apply'],
+            pidFileName    : 'graphlog-compaction.pid',
+            expectedCommand: 'compactGraphLog.mjs'
+        });
+
+        expect(buildTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node',
+            graphLogCompactionVacuum: true
+        })['graphlog-compaction'].args).toEqual([
+            '/repo/ai/scripts/maintenance/compactGraphLog.mjs',
+            '--apply',
+            '--vacuum'
+        ]);
+    });
+
+    test('routes graphlog-compaction through Orchestrator.poll() in cloud deployment (#12394)', () => {
+        const started = [];
+        const dueCalls = [];
+        const orchestrator = createTestOrchestrator({
+            deploymentMode               : 'cloud',
+            kbSyncIntervalMs             : 0,
+            backupIntervalMs             : 0,
+            graphLogCompactionEnabled    : true,
+            graphLogCompactionIntervalMs : 600000,
+            graphLogCompactionGetDueTask : options => {
+                dueCalls.push(options);
+                return {
+                    taskName: 'graphlog-compaction',
+                    source  : 'periodic-sweep',
+                    reason  : 'periodic-graphlog-compaction:600000'
+                };
+            },
+            primaryDevSyncIntervalMs     : 0,
+            tenantRepoSyncIntervalMs     : 0,
+            dreamIntervalMs              : Number.MAX_SAFE_INTEGER,
+            goldenPathIntervalMs         : Number.MAX_SAFE_INTEGER,
+            swarmHeartbeatIntervalMs     : Number.MAX_SAFE_INTEGER
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(dueCalls).toEqual([expect.objectContaining({
+            graphLogCompactionIntervalMs: 600000,
+            enabled                     : true
+        })]);
+        expect(started).toEqual([{
+            taskName: 'graphlog-compaction',
+            reason  : 'periodic-graphlog-compaction:600000'
+        }]);
+    });
+
+    test('passes graphlog-compaction cadence from config verbatim (#12394 / #12061)', () => {
+        const dueCalls = [];
+        const orchestrator = createTestOrchestrator({
+            kbSyncIntervalMs             : 0,
+            backupIntervalMs             : 123456,
+            graphLogCompactionIntervalMs : 777777,
+            graphLogCompactionGetDueTask : options => {
+                dueCalls.push(options);
+                return null;
+            },
+            primaryDevSyncIntervalMs     : 0,
+            tenantRepoSyncIntervalMs     : 0,
+            dreamIntervalMs              : Number.MAX_SAFE_INTEGER,
+            goldenPathIntervalMs         : Number.MAX_SAFE_INTEGER,
+            swarmHeartbeatIntervalMs     : Number.MAX_SAFE_INTEGER
+        });
+
+        orchestrator.poll();
+
+        expect(dueCalls).toEqual([expect.objectContaining({
+            graphLogCompactionIntervalMs: 777777
+        })]);
+    });
+
+    test('skips graphlog-compaction when config disables the lane (#12394)', () => {
+        const started = [];
+        const dueCalls = [];
+        const orchestrator = createTestOrchestrator({
+            kbSyncIntervalMs             : 0,
+            backupIntervalMs             : 0,
+            graphLogCompactionEnabled    : false,
+            graphLogCompactionIntervalMs : 600000,
+            graphLogCompactionGetDueTask : options => {
+                dueCalls.push(options);
+                return options.enabled ? {
+                    taskName: 'graphlog-compaction',
+                    reason  : 'periodic-graphlog-compaction:600000'
+                } : null;
+            },
+            primaryDevSyncIntervalMs     : 0,
+            tenantRepoSyncIntervalMs     : 0,
+            dreamIntervalMs              : Number.MAX_SAFE_INTEGER,
+            goldenPathIntervalMs         : Number.MAX_SAFE_INTEGER,
+            swarmHeartbeatIntervalMs     : Number.MAX_SAFE_INTEGER
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(dueCalls).toEqual([expect.objectContaining({enabled: false})]);
+        expect(started).toEqual([]);
+    });
+
     test('resolves default paths correctly without configuration overrides', () => {
         // Post Sub 1 #11833: configure() removed; path resolution is direct instance-field
         // assignment + buildTaskDefinitions(), mirroring the substrate-correct shape used
@@ -766,6 +915,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         // sorted-set assertion to decouple from declaration order.
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
+            'graphlog-compaction',
             'kbSync',
             'primary-dev-sync',
             'dream',
@@ -808,6 +958,43 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(started.filter(s => s.taskName === 'backup')).toEqual([]);
         expect(outcomes).toContainEqual({
             taskName: 'backup',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'summary',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
+    });
+
+    test('defers due graphlog-compaction when another heavy maintenance task is already running (#12394)', () => {
+        const outcomes = [];
+        const started  = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            graphLogCompactionGetDueTask: () => ({
+                taskName: 'graphlog-compaction',
+                reason  : 'periodic-graphlog-compaction:test'
+            })
+        });
+
+        TaskStateService.taskState.summary.running = true;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started.filter(s => s.taskName === 'graphlog-compaction')).toEqual([]);
+        expect(outcomes).toContainEqual({
+            taskName: 'graphlog-compaction',
             status  : 'skipped',
             details : expect.objectContaining({
                 blockingTaskName: 'summary',
