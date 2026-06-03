@@ -8,6 +8,8 @@ After updating `ai/graph/identityRoots.mjs` to flip a family's `participationSta
 
 The sweep posts a notification comment on each matched artifact inviting the reactivated family to post a retroactive `[GRADUATION_APPROVED]` / `[GRADUATION_DEFERRED]` / `[GRADUATION_ABSTAIN]` signal. The reconciliation work itself is human/peer-judgment-driven — the sweep is the discoverability surface, not the resolver.
 
+Same-family sibling activation does not create a new family reactivation window when another identity in that family was already active. If an operator supplies an explicit `--since` for a multi-active family, the sweep fan-outs the notification to every active same-family identity in one comment; the family still counts once per §6.4 same-family aggregation.
+
 ## Mechanism (Option c sweep-script-notifies-only)
 
 Per Discussion #11793 OQ5 / sub #11803:
@@ -68,7 +70,7 @@ When the reactivated family responds to the notification:
 The mechanism is intentionally narrow per ticket #11803:
 
 - **One family at a time.** Multi-family revalidation is out-of-scope; invoke the sweep per family if multiple reactivations land together.
-- **One identity per family.** The MVP throws on multi-identity-per-family (e.g., when Discussion #11792 ships a `@neo-claude-opus` sibling identity). The §6.4 same-family aggregation extension must precede sweep extension.
+- **Family-keyed fan-out.** Multi-active same-family identities are notification targets, not separate quorum units. One sweep comment names all active same-family identities; the family-of-record signal follows §6.4 same-family aggregation.
 - **Manual invocation.** No automated `participationStatus`-watcher daemon. The operator invokes this script when flipping a family's status; future automation is a separate Discussion if friction materializes.
 - **No auto-reconciliation.** Matched artifacts' `## Unresolved Liveness` entries are NOT auto-rewritten; the reactivated family edits them as part of posting their retroactive signal.
 - **1000-candidate ceiling.** `gh search issues` is invoked with `--limit 1000` (the GitHub search API's hard max). For bench windows producing >1000 candidate Issues/PRs, run the sweep in narrower `--since`/`--until` segments and union the results. The body-match filter brings the result-set down sharply (e.g., a 100-candidate window typically narrows to 1-3 Tier-2 matches), so the ceiling rarely binds in practice.

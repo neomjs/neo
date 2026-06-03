@@ -137,6 +137,22 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         }
     });
 
+    test('identityRoots marks @neo-claude-opus active without static wake-route leakage (#12413)', () => {
+        const identity = IDENTITIES.find(identity => identity.id === '@neo-claude-opus');
+
+        expect(identity).toBeDefined();
+
+        const {properties} = identity;
+
+        expect(properties.participationStatus).toBe('active');
+        expect(properties.statusReason).toBeNull();
+        expect(properties.since).toBeNull();
+        expect(properties.reactivationTrigger).toBeNull();
+        expect(properties).not.toHaveProperty('subscriptionTemplate');
+        expect(properties.identityContract.reviewSemantics.crossFamilyApprovalQualified).toBe(false);
+        expect(properties.swarmRole).toContain('Active Claude-family generalist maintainer identity');
+    });
+
     test('disabled — returns empty list + logs info', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({

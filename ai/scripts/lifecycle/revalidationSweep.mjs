@@ -104,15 +104,14 @@ export function parseArgs(argv) {
 }
 
 /**
- * @summary Resolve the representative AgentIdentity record for a model family.
+ * @summary Resolve the AgentIdentity notification targets for a model family.
  *
  * Multiple same-family identities make model-family membership one-to-many.
- * Revalidation notifications still need a single family representative when a
- * family has exactly one active identity and one or more inactive / pending
- * identities. If multiple active identities exist, the sweep refuses to choose
- * silently; that future state needs an explicit notification fan-out rule.
+ * Revalidation stays family-keyed, but notification fan-out targets every active
+ * same-family identity so §6.4 aggregation can collect one family signal without
+ * suppressing same-family DEFERRED / VETO pressure.
  */
-export function resolveIdentityForFamily(family) {
+export function resolveIdentitiesForFamily(family) {
     const matches = IDENTITIES.filter(node =>
         node.type === 'AgentIdentity' &&
         node.properties?.modelFamily === family
@@ -122,28 +121,30 @@ export function resolveIdentityForFamily(family) {
         throw new Error(`No AgentIdentity with modelFamily=${family} in identityRoots.mjs`);
     }
 
-    if (matches.length === 1) {
-        return matches[0];
-    }
-
     const activeMatches = matches.filter(node => node.properties?.participationStatus === 'active');
 
-    if (activeMatches.length === 1) {
-        return activeMatches[0];
+    if (activeMatches.length > 0) {
+        return activeMatches;
     }
 
-    if (activeMatches.length > 1) {
-        throw new Error(
-            `Multiple active identities for family=${family}; revalidation sweep needs an explicit ` +
-            `notification fan-out rule. Found: ${activeMatches.map(m => m.id).join(', ')}. ` +
-            `See the same-family aggregation rule before routing notifications.`
-        );
+    if (matches.length === 1) {
+        return matches;
     }
 
     throw new Error(
         `Multiple inactive identities for family=${family}; cannot infer revalidation representative. ` +
         `Found: ${matches.map(m => m.id).join(', ')}. Pass --since after selecting the intended family transition.`
     );
+}
+
+/**
+ * @summary Resolve a stable family representative for legacy callers that need
+ *   one identity record rather than the full same-family notification target
+ *   set. For multi-active families this returns the first active identity in
+ *   `identityRoots.mjs` order; use `resolveIdentitiesForFamily()` for routing.
+ */
+export function resolveIdentityForFamily(family) {
+    return resolveIdentitiesForFamily(family)[0];
 }
 
 /**
@@ -166,18 +167,27 @@ export function bodyMatches(body, family) {
     return section.includes('`' + family + '`');
 }
 
-export function buildNotificationBody({ family, identityLogin, since, sweepAt }) {
+export function buildNotificationBody({ family, identityLogin, identityLogins = null, since, sweepAt }) {
+    const targetLogins = identityLogins?.length ? identityLogins : [identityLogin];
+    const audience     = targetLogins.join(', ');
+    const aggregation  = targetLogins.length > 1
+        ? `\n\nSame-family aggregation note: ${audience} are all active \`${family}\` identities. ` +
+          'Per §6.4, the family contributes APPROVED when at least one active same-family ' +
+          'identity approves and no active same-family identity holds unresolved DEFERRED / VETO.'
+        : '';
+
     return `**Tier-2 revalidation sweep notification**
 
-This Tier-2 graduated substrate is flagged for retroactive ${identityLogin} (\`${family}\` family) signal review because the family was \`operator_benched\` / \`temporarily_unreachable\` at graduation time (since ${since}).
+This Tier-2 graduated substrate is flagged for retroactive ${audience} (\`${family}\` family) signal review because the family was \`operator_benched\` / \`temporarily_unreachable\` at graduation time (since ${since}).
 
 Per the \`revalidationTrigger\` AC in this artifact + Epic #11796 AC6 + sub #11803 mechanism, the reactivated family is invited to post one of:
 
-- \`[GRADUATION_APPROVED by ${identityLogin} @ <anchor>]\` — retroactive endorsement; this artifact's \`## Unresolved Liveness\` entry transitions to "resolved-by-retroactive-signal".
-- \`[GRADUATION_DEFERRED by ${identityLogin} @ <anchor> — <reason>]\` — retroactive challenge; reconciliation cycle re-opens substantive concerns.
-- \`[GRADUATION_ABSTAIN by ${identityLogin} @ <anchor>]\` — explicit pass; \`## Unresolved Liveness\` entry transitions to "resolved-by-abstain".
+- \`[GRADUATION_APPROVED by @<notified-identity> @ <anchor>]\` — retroactive endorsement; this artifact's \`## Unresolved Liveness\` entry transitions to "resolved-by-retroactive-signal".
+- \`[GRADUATION_DEFERRED by @<notified-identity> @ <anchor> — <reason>]\` — retroactive challenge; reconciliation cycle re-opens substantive concerns.
+- \`[GRADUATION_ABSTAIN by @<notified-identity> @ <anchor>]\` — explicit pass; \`## Unresolved Liveness\` entry transitions to "resolved-by-abstain".
 
 Reconciliation closes this artifact's \`revalidationTrigger\` AC. No-signal-on-this-comment is liveness-failure, not consent (per \`ideation-sandbox-workflow.md §6.2(b)\`).
+${aggregation}
 
 Source: \`ai/scripts/lifecycle/revalidationSweep.mjs\` v${SWEEP_VERSION}, executed at ${sweepAt}. See [\`learn/agentos/Tier2RevalidationSweep.md\`](../../learn/agentos/Tier2RevalidationSweep.md) for runbook.`;
 }
@@ -219,13 +229,15 @@ export async function revalidationSweep({
 } = {}) {
     if (!family) throw new Error('revalidationSweep requires --family');
 
-    const identity      = resolveIdentityForFamily(family);
-    const resolvedSince = since || identity.properties.since;
+    const identities     = resolveIdentitiesForFamily(family);
+    const representative = identities[0];
+    const identityLogins = identities.map(identity => identity.id);
+    const resolvedSince  = since || representative.properties.since;
     const resolvedUntil = until || sweepAt;
 
     if (!resolvedSince) {
         throw new Error(
-            `No --since provided and ${identity.id} has no participationStatus.since; ` +
+            `No --since provided and ${representative.id} has no participationStatus.since; ` +
             `family is currently active (no bench window to sweep).`
         );
     }
@@ -237,7 +249,8 @@ export async function revalidationSweep({
     for (const match of matches) {
         const notification = buildNotificationBody({
             family,
-            identityLogin: identity.id,
+            identityLogin : representative.id,
+            identityLogins,
             since        : resolvedSince,
             sweepAt
         });
@@ -262,7 +275,8 @@ export async function revalidationSweep({
     return {
         sweepVersion: SWEEP_VERSION,
         family,
-        identityLogin: identity.id,
+        identityLogin : representative.id,
+        identityLogins,
         since        : resolvedSince,
         until        : resolvedUntil,
         repo,

@@ -11,6 +11,8 @@ The mechanism is **Option (c) sweep-script-notifies-only**:
 - **(b)** Automated substrate re-open → rejected as too strong (churn risk).
 - **(c)** Sweep-script-notifies-only → **adopted**. Substrate provides a loud-but-non-destructive notification surface; the reactivated family then engages via normal peer-review discipline.
 
+Same-family sibling activation does not create a new family reactivation window when another identity in that family was already active. If an operator supplies an explicit `--since` for a multi-active family, the sweep fan-outs the notification to every active same-family identity in one comment; the family still counts once per §6.4 same-family aggregation.
+
 ## §invocation — CLI Invocation
 
 ```bash
@@ -52,7 +54,7 @@ When the reactivated family responds to the notification:
 The mechanism is intentionally narrow:
 
 - **One family at a time.** Multi-family revalidation is out-of-scope; invoke the sweep per family if multiple reactivations land together.
-- **One identity per family.** The MVP throws on multi-identity-per-family (e.g., when Discussion #11792 ships a `@neo-claude-opus` sibling identity). The §6.4 same-family aggregation extension must precede sweep extension.
+- **Family-keyed fan-out.** Multi-active same-family identities are notification targets, not separate quorum units. One sweep comment names all active same-family identities; the family-of-record signal follows §6.4 same-family aggregation.
 - **Manual invocation.** No automated `participationStatus`-watcher daemon. The operator invokes this script when flipping a family's status; future automation = separate Discussion if friction materializes.
 - **No auto-reconciliation.** Matched artifacts' `## Unresolved Liveness` entries are NOT auto-rewritten; the reactivated family edits them as part of posting their retroactive signal.
 - **1000-candidate ceiling.** `gh search issues` is invoked with `--limit 1000` (GitHub search API hard max). For bench windows producing >1000 candidate Issues/PRs, run the sweep in narrower `--since`/`--until` segments and union the results.

@@ -122,7 +122,7 @@ export const IDENTITIES = [
         id: '@neo-claude-opus',
         type: 'AgentIdentity',
         name: 'Neo Claude Opus',
-        description: 'Anthropic Claude-family generalist maintainer identity reserved for activation.',
+        description: 'Anthropic Claude-family generalist maintainer identity.',
         properties: {
             githubLogin: '@neo-claude-opus',
             displayName: 'Neo Claude Opus',
@@ -153,10 +153,9 @@ export const IDENTITIES = [
                     'A minimal identity-specific wake route is defined and verified before participationStatus flips to active.'
                 ]
             },
-            // No subscriptionTemplate yet: the minimal identity-specific wake route is still
-            // pending. Reusing the
-            // existing `appName: "Claude"` route here would make same-bundle Desktop delivery
-            // ambiguous before the wake substrate can prove the target instance.
+            // No subscriptionTemplate yet: generalized same-app wake addressing is deferred
+            // to the same-app wake-routing discussion. Do not encode instance-specific
+            // filesystem paths here.
             // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
             // §neo_claude_opus, which mirrors the Claude Opus model-class row until activation.
             contextWindowInput: 1048576,
@@ -168,13 +167,13 @@ export const IDENTITIES = [
             releaseDate       : '2026-04-16',
             pricingInput      : 5.00,
             pricingOutput     : 25.00,
-            swarmRole         : 'Pending Claude-family generalist maintainer identity; no active routing, quorum participation, or review coverage until activation.',
+            swarmRole         : 'Active Claude-family generalist maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
             sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
-            participationStatus : 'temporarily_unreachable',
-            statusReason        : 'Operator-created GitHub account and identity-specific wake route pending; identity root is seeded so mailbox, provenance, and review-family semantics are stable before activation.',
-            authority           : '@tobiu',
-            since               : '2026-06-02T21:35:48.405Z',
-            reactivationTrigger : 'Operator creates the @neo-claude-opus GitHub account and a minimal identity-specific wake route is verified; then flip participationStatus to active.',
+            participationStatus : 'active',
+            statusReason        : null,
+            authority           : null,
+            since               : null,
+            reactivationTrigger : null,
             createdAt           : new Date().toISOString()
         }
     },
