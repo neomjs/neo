@@ -285,6 +285,131 @@ declared capabilities. Per-identity capability detection happens at boot:
 Shape A/B can coexist: an agent can declare both, in which case MCP
 notifications are preferred (lower latency, no HTTP overhead).
 
+### 5.2 Presence and wake-policy layer
+
+Shape D selects a delivery channel. It does not, by itself, decide whether a
+wake should interrupt an active harness turn, wait for the next turn, or remain
+stored-only. That decision needs a small overlay that keeps receiver state and
+delivery intent separate from transport capability and message priority.
+
+#### 5.2.1 `HarnessPresence`
+
+`HarnessPresence` describes the receiving harness state independently from the
+wake event's semantic importance. It is a routing input, not a new transport.
+
+Baseline state vocabulary:
+
+| State | Meaning | Routing implication |
+|---|---|---|
+| `unknown` | No trustworthy presence signal exists for this harness/session. | Default to non-interrupting delivery; store unread and rely on next-turn mailbox checks unless a native channel can prove safe handling. |
+| `idle` | The harness can accept a new turn without clobbering active work or user input. | `wakePolicy: 'immediate'` may start a turn through the harness-native control plane when available. |
+| `active` | A model turn is in progress. | `wakePolicy: 'immediate'` may steer the active turn only if the harness exposes a native active-turn API and the caller can provide the active turn id. |
+| `waitingOnApproval` | The active turn is blocked on an approval / user decision. | Treat as active; never overwrite the approval prompt. Native steering may be safe only when it appends context without changing the approval surface. |
+| `userTyping` | The operator has unsent input in the harness. | Do not inject. Preserve the input and route through `next_turn` / stored unread delivery. |
+
+Suggested metadata:
+
+```ts
+type HarnessPresence = {
+  state        : 'unknown' | 'idle' | 'active' | 'waitingOnApproval' | 'userTyping',
+  activeTurnId?: string,
+  capabilities?: string[],
+  lastSeenAt  : string,
+  source      : 'codex-app-server' | 'mcp-client' | 'a2a-webhook' | 'bridge-daemon' | 'os-ui-probe' | 'unknown'
+}
+```
+
+Codex app-server is the current native-control-plane example: it exposes thread
+runtime status (`notLoaded`, `idle`, `systemError`, or `active` with
+`activeFlags`) via thread reads and `thread/status/changed`, and it exposes
+`turn/start` for idle threads plus `turn/steer` for active turns with an
+`expectedTurnId` guard. That lets Codex routes prove presence through a native
+API rather than inferring it from UI widgets.
+
+For harnesses without a native presence API, `unknown` is the safe default. A
+bridge daemon may eventually infer coarse presence from UI state, but that is a
+fallback adapter, not the architecture.
+
+#### 5.2.2 `wakePolicy`
+
+`wakePolicy` describes delivery behavior independently from semantic `priority`
+and `harnessTarget`.
+
+| Policy | Behavior | Notes |
+|---|---|---|
+| `silent` | Store only; do not emit a wake. | Useful for mailbox-only handovers and sunset notes that must not interrupt current work. |
+| `next_turn` | Store unread; the recipient picks it up during the mandatory turn-start mailbox check. | Safe default for normal coordination, unknown presence, and unsafe immediate delivery. |
+| `immediate` | Attempt live delivery through the safest available channel for the current `HarnessPresence`. | Requires capability and no-clobber proof; does not imply `priority: high` and is not implied by it. |
+
+`priority` remains the semantic importance signal (`high | normal | low`).
+`wakePolicy` is the delivery contract. A high-priority message may still be
+`next_turn` when interrupting would corrupt active work, and a short guardrail
+message may be `immediate` even when its semantic priority is not high. Reviewers
+MUST reject PRs that collapse these fields.
+
+#### 5.2.3 Routing examples
+
+The routing order remains Shape D, now filtered through presence and policy:
+
+1. `wakePolicy: 'silent'`
+   - Persist the message / task transition only.
+   - Do not enqueue MCP, A2A, bridge, or heartbeat wake delivery.
+
+2. `wakePolicy: 'next_turn'`
+   - Persist unread state.
+   - The recipient's turn-start mailbox check is the delivery point.
+   - No native push is required, even if the subscription is push-capable.
+
+3. `wakePolicy: 'immediate'` + Codex native control plane
+   - `HarnessPresence.state === 'active'` and `activeTurnId` known:
+     use Codex app-server `turn/steer` with `expectedTurnId`.
+   - `HarnessPresence.state === 'idle'` on a loaded thread:
+     use Codex app-server `turn/start`.
+   - `notLoaded` / no current thread:
+     load or start the thread via the app-server thread APIs only when the
+     calling workflow has explicit authority to create that turn; otherwise
+     degrade to `next_turn`.
+
+4. `wakePolicy: 'immediate'` + standards push
+   - Use Shape A (`harnessTarget: 'mcp-notifications'`) when the MCP client
+     negotiated wake notification support.
+   - Else use Shape B (`harnessTarget: 'a2a-webhook'`) when the harness
+     registered a webhook endpoint.
+   - The receiver still applies local presence rules before mutating an active
+     prompt surface.
+
+5. `wakePolicy: 'immediate'` + bridge fallback
+   - Use Shape C (`harnessTarget: 'bridge-daemon'`) only after native / standards
+     routes are unavailable or insufficient.
+   - If the bridge cannot prove the harness is idle or safely append-only,
+     degrade to `next_turn`.
+
+6. `harnessTarget: 'disabled' | 'none'` or degraded delivery
+   - Persist unread state and rely on mailbox checks / heartbeat fallback.
+   - Do not treat failed push as permission to clobber a local UI surface.
+
+#### 5.2.4 OS-level presence probes are last resort
+
+OS UI polling can be useful empirically, but it is brittle: button labels such
+as `Send`, `Stop`, or `Cancel` are vendor UI details, not protocol state. They
+can drift without an API version, can race with user typing, and may require
+focus changes that conflict with the AppleScript focus-safety work owned by
+#10422.
+
+If a bridge fallback implements button-state probing, the initial polling
+interval MUST be conservative: 5 seconds, with focus checks, timeout limits,
+and a hard no-clobber guard for active user input. Failure to read UI state
+safely means `HarnessPresence.state = 'unknown'` and the route degrades to
+`next_turn`.
+
+Scope boundaries:
+
+- This section does not implement the polling adapter.
+- This section does not change wake subscription persistence, GC, or integrity
+  semantics owned by #10515.
+- This section does not solve AppleScript focus-steal mechanics from #10422; it
+  only states the routing constraint those mechanics must satisfy.
+
 ---
 
 ## 6. Concrete Specifications
