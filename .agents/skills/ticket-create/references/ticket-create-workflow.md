@@ -41,7 +41,7 @@ If the proposed ticket involves modifying any agent skill (i.e., any file within
 2. **Inline divergence-matrix substance** preempting the cited Discussion's expected gap. The matrix should include at least the recommended option + 2 alternative shapes with falsifying sources.
 3. **Acknowledgment that downstream amendments may be required** once the cited Discussion graduates — the ticket explicitly states which sections may need refresh post-Discussion-graduation, so future agents do not treat the early-filing as final.
 
-For source anchors (#11078/#11082/#11083/#11084), Discussion #11091 authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
+For source anchors (`#11078` / `#11082` / `#11083` / `#11084`), Discussion `#11091` authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 
 ### 1d. Project Attachment Pre-Flight (during release cycle)
 
@@ -55,7 +55,7 @@ Apply at creation time — not just at intake. Every stage must pass before the 
 2. **Prescription** — is the stated fix the right substrate for the problem, or does it treat a symptom? Could a different layer (config, service, daemon, schema) solve it better?
    **Verify-Before-Assert Integration:** Before making architectural claims or prescribing solutions in your Fat Ticket body (Stage 2 Prescription), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §2.3). You cannot assert that a bug exists or a pattern is flawed without empirical confirmation (a falsifying tool call) prior to filing the ticket.
 3. **Substrate** — where does this work belong? Service layer? Build script? CI workflow? Framework core? Documentation? Match the fix to the substrate that owns the concern.
-   **Structural Pre-Flight Integration:** when the prescription introduces or relocates a `.mjs` file, the directory choice MUST be validated via `.agents/skills/structural-pre-flight/` before drafting the ticket body. Stage 0 mechanical trigger fires; Stage 1 fast-path handles sibling-pattern matches in 30 seconds; novel directory choices route through full Pre-Flight (ArchitectureOverview.md + ADR consultation). The empirical anchors PR #11008 (`orchestrator-daemon.mjs` misplaced in `ai/scripts/`) and earlier `bridge-daemon.mjs` demonstrate the cost of skipping this check at ticket-creation time.
+   **Structural Pre-Flight Integration:** when the prescription introduces or relocates a `.mjs` file, the directory choice MUST be validated via `.agents/skills/structural-pre-flight/` before drafting the ticket body. Stage 0 mechanical trigger fires; Stage 1 fast-path handles sibling-pattern matches in 30 seconds; novel directory choices route through full Pre-Flight (ArchitectureOverview.md + ADR consultation). The empirical anchors PR `#11008` (`orchestrator-daemon.mjs` misplaced in `ai/scripts/`) and earlier `bridge-daemon.mjs` demonstrate the cost of skipping this check at ticket-creation time.
 4. **Consumer** — who reads the output of this change? Human developer, agent, Memory Core, Native Edge Graph, Knowledge Base? Different consumers need different shapes (markdown prose vs structured metadata vs MCP payload).
 5. **Service-Boundary** — does the fix cross a service boundary it shouldn't? Config added to the wrong owning service creates future migration debt.
 6. **Decision Record impact** — for architecture/substrate tickets, declare whether the work is `none`, `aligned-with`, `depends-on`, `amends`, `supersedes`, or `challenges` an ADR. If it challenges or supersedes an accepted ADR, apply the ADR successor-risk audit in [`../../ticket-intake/references/adr-successor-risk-audit.md`](../../ticket-intake/references/adr-successor-risk-audit.md) before filing.
@@ -83,7 +83,7 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 - **Primary — exactly one:** `epic`, `enhancement`, or `bug`.
 - **Secondary — as applicable:** `architecture`, `performance`, `regression`, `refactoring`, `documentation`, `testing`, plus domain labels (`core`, `grid`, `build`, etc.).
 - Before filing: call `list_labels` to confirm the labels exist. Do not invent label names.
-- **Project attachment is MANDATORY on every ticket during the v13 release cycle.** Visibility primitive: every new ticket goes onto Project 12 ([Neo v13 Release board](https://github.com/orgs/neomjs/projects/12)) so the swarm + operator have a single overview. ProjectV2 memberships supersede the deprecated `release:v*` label family per [#11233](https://github.com/neomjs/neo/issues/11233).
+- **Project attachment is MANDATORY on every ticket during the v13 release cycle.** Visibility primitive: every new ticket goes onto Project 12 ([Neo v13 Release board](https://github.com/orgs/neomjs/projects/12)) so the swarm + operator have a single overview. ProjectV2 memberships supersede the deprecated `release:v*` label family per [ProjectV2 migration ticket](https://github.com/neomjs/neo/issues/11233).
   - **`create_issue` MCP tool path:** pass `projects: [{projectNumber: 12}]` atomically with the create.
   - **`gh issue create` CLI bypass path:** ALWAYS follow with `gh project item-add 12 --owner neomjs --url <new-issue-url>` immediately. Treat the two-step as inseparable.
   - **Project anchor** is currently `12` (v13). When v14 release work begins, update the project number in this section AND any hard-coded `create_issue` examples or call-sites that name the release project (the MCP tool's `projects` parameter is caller-supplied with `[]` default — not a configurable tool-side default to update). Sunset condition: once v13 release ships, this rule needs disposition review (`keep` with updated project number, OR `compress-to-trigger` if mid-release ambiguity arises).
@@ -105,6 +105,10 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **Related** — sibling tickets, superseded tickets, dependencies, PRs.
 - **Origin Session ID** — Memory Core session ID that produced the ticket. **Optional, but highly recommended** for genuinely single-session tickets. Serves as a direct pointer for the A2A Contextual Bridge Protocol (`AGENTS.md §14`). Format: `Origin Session ID: <uuid>` on its own line near the end of the body.
 - **Handoff Retrieval Hints** — Semantic query patterns (`query_raw_memories`, `query_summaries`) or exact Git commit-range anchors to assist subsequent agents in resuming the workstream across fragmented session IDs post-restart. **REQUIRED for architecturally substantive tickets or multi-session workflows.** Example: `Retrieval Hint: "cross-harness MCP singleton cache divergence"` or `Retrieval Hint: Commit SHA 1234abcd..5678efgh`.
+
+### 5.1 Reference Hygiene: Backtick-Escape for Descriptive `#N`
+
+When drafting ticket bodies, read [`learn/agentos/reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): structural issue references stay bare; descriptive prose references use backticks.
 
 ## 6. Linkage
 
@@ -137,7 +141,7 @@ If the "ticket" is really an architectural question, brainstorming, or pre-PR ex
 
 The `create_issue` tool returns the new issue number. Typical immediate follow-ups:
 
-- **`manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])`** — **MANDATORY** if you intend to start working immediately (AGENTS.md §0 Invariant 7). Do this *before* editing any tracked files. (Note: once #11308 is resolved, atomic assignee injection at creation will replace this post-hoc call).
+- **`manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])`** — **MANDATORY** if you intend to start working immediately (AGENTS.md §0 Invariant 7). Do this *before* editing any tracked files. (Note: once `#11308` is resolved, atomic assignee injection at creation will replace this post-hoc call).
 - **`manage_issue_labels(action: 'add', ...)`** — only if the label set needs adjustment post-creation (e.g., label list was incomplete at `create_issue` time). Prefer getting labels right in the initial call.
 - **`manage_issue_projects(action: 'add', issue_number, projectNumbers: [12])`** — only if project membership needs adjustment post-creation. Prefer the `projects` parameter on `create_issue` for atomic attach. Use `action: 'update_field'` to set Status/Priority on the project board after creation.
 - **`update_issue_relationship(parent_id: N, child_id: M, type: 'SUB_ISSUE')`** — required when filing sub-issues under an Epic. Native graph linkage only; do NOT rely on inline `- [ ] #N` markdown checkboxes (see §6).
