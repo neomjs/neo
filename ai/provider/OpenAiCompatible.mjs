@@ -50,9 +50,9 @@ class OpenAiCompatibleProvider extends Base {
 
     /**
      * Helper to prepare the payload for the OpenAI compatible format.
-     * @param {String|Array} input 
-     * @param {Object} options 
-     * @param {Boolean} stream 
+     * @param {String|Array} input
+     * @param {Object} options
+     * @param {Boolean} stream
      * @returns {Object}
      * @protected
      */
@@ -133,7 +133,7 @@ class OpenAiCompatibleProvider extends Base {
         let fullContent = '';
 
         try {
-            // Internally delegate to the streaming API to bypass LM Studio/llama.cpp 
+            // Internally delegate to the streaming API to bypass LM Studio/llama.cpp
             // monolithic buffer serialization penalties (~30% faster on Apple Silicon)
             for await (const chunk of this.stream(input, options)) {
                 fullContent += chunk;
@@ -146,6 +146,74 @@ class OpenAiCompatibleProvider extends Base {
             };
         } catch (error) {
             throw error;
+        }
+    }
+
+    /**
+     * @summary Extracts generated content from OpenAI-compatible chat completion chunks.
+     *
+     * Streaming SSE frames expose text as `choices[0].delta.content`; non-SSE
+     * JSON chat-completions responses expose the final text as
+     * `choices[0].message.content`.
+     *
+     * @param {Object} data Parsed OpenAI-compatible response payload.
+     * @returns {String|null}
+     * @private
+     */
+    #getChoiceContent(data) {
+        const choice = data?.choices?.[0],
+              deltaContent = choice?.delta?.content,
+              messageContent = choice?.message?.content;
+
+        if (typeof deltaContent === 'string') {
+            return deltaContent;
+        }
+
+        return typeof messageContent === 'string' ? messageContent : null;
+    }
+
+    /**
+     * @summary Parses one streaming line or a complete single-line JSON response.
+     *
+     * @param {String} line SSE `data:` line or JSON response line.
+     * @returns {String|null}
+     * @private
+     */
+    #parseCompletionLine(line) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') {
+            return null;
+        }
+
+        try {
+            const jsonStr = trimmed.replace(/^data:\s*/, '');
+            return jsonStr ? this.#getChoiceContent(JSON.parse(jsonStr)) : null;
+        } catch (e) {
+            // Safe to ignore if JSON.parse fails on malformed LLM outputs.
+            return null;
+        }
+    }
+
+    /**
+     * @summary Parses a plain JSON chat-completions body after the stream ends.
+     *
+     * Pretty-printed JSON can span multiple lines, so this fallback operates on
+     * the full body only when no content has already been yielded.
+     *
+     * @param {String} bodyText Full decoded response body.
+     * @returns {String|null}
+     * @private
+     */
+    #parseCompletionBody(bodyText) {
+        const trimmed = bodyText.trim();
+        if (!trimmed || trimmed.startsWith('data:')) {
+            return null;
+        }
+
+        try {
+            return this.#getChoiceContent(JSON.parse(trimmed));
+        } catch (e) {
+            return null;
         }
     }
 
@@ -179,35 +247,47 @@ class OpenAiCompatibleProvider extends Base {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
-            let buffer = '';
+            let buffer = '',
+                bodyText = '',
+                yieldedContent = false;
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                buffer += decoder.decode(value, { stream: true });
+                const chunkText = decoder.decode(value, { stream: true });
+                bodyText += chunkText;
+                buffer += chunkText;
                 const lines = buffer.split('\n');
 
                 // Keep the last partial line in the buffer for the next chunk
                 buffer = lines.pop();
 
                 for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || trimmed === 'data: [DONE]') continue;
-
-                    try {
-                        const jsonStr = trimmed.replace(/^data:\s*/, '');
-                        if (!jsonStr) continue;
-
-                        const data = JSON.parse(jsonStr);
-                        const delta = data.choices?.[0]?.delta;
-                        if (typeof delta?.content === 'string') {
-                            yield delta.content;
-                        }
-                    } catch (e) {
-                        // Safe to ignore if JSON.parse fails on malformed LLM outputs
-                        // We have handled TCP boundaries via the buffer!
+                    const content = this.#parseCompletionLine(line);
+                    if (content) {
+                        yieldedContent = true;
+                        yield content;
                     }
+                }
+            }
+
+            const flushText = decoder.decode();
+            if (flushText) {
+                bodyText += flushText;
+                buffer += flushText;
+            }
+
+            const finalContent = this.#parseCompletionLine(buffer);
+            if (finalContent) {
+                yieldedContent = true;
+                yield finalContent;
+            }
+
+            if (!yieldedContent) {
+                const bodyContent = this.#parseCompletionBody(bodyText);
+                if (bodyContent) {
+                    yield bodyContent;
                 }
             }
         } catch (error) {
