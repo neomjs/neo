@@ -422,7 +422,9 @@ class WakeSubscriptionService extends Base {
      * @param {Object} [opts.filters] taggedConcepts | priority | senderFilter | inReplyToFilter
      * @param {String} opts.harnessTarget One of validHarnessTargets
      * @param {Object} [opts.harnessTargetMetadata] appName | url | coalesceWindow |
-     *     daemonSocketPath | adapter | tabShortcut | focusSeedKey | tmuxSession
+     *     daemonSocketPath | adapter | tabShortcut | focusSeedKey | tmuxSession | userDataDir
+     *     (userDataDir: instance address for a same-bundle GUI harness — the bridge daemon resolves
+     *     it to that instance's pid and raises that process, instead of the ambiguous frontmost guess)
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, signingKey?}
      */
     async subscribe({trigger, filters = {}, harnessTarget, harnessTargetMetadata = {}} = {}) {
