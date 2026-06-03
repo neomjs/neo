@@ -33,6 +33,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     let SystemLifecycleService;
     let OpenAiCompatible;
     let aiConfig;
+    let originalChromaDatabase;
 
     const testDbName = `memory-core-semantic-extractor-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
@@ -49,6 +50,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.lazyEdgesQueuePath   = path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`);
         aiConfig.autoIngestFileSystem = false;
+        originalChromaDatabase        = aiConfig.engines.chroma.database;
         aiConfig.engines.chroma.database = CHROMA_TEST_DATABASE;
 
         // Graph services dispatch providers through buildGraphProvider. This test
@@ -104,6 +106,10 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+
+        if (aiConfig?.engines?.chroma) {
+            aiConfig.engines.chroma.database = originalChromaDatabase;
+        }
     });
 
     test('should extract provenance edges and queue unresolved targets to lazy back-fill (#10152)', async () => {

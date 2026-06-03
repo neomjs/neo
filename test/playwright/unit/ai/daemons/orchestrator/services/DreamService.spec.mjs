@@ -36,6 +36,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let logger;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath; // Reassigned in beforeAll
+    let originalChromaDatabase;
 
     let originalGenerate;
     let originalAppendFile;
@@ -57,6 +58,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         aiConfig.storagePaths.graph = testDbPath;
         aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
+        originalChromaDatabase        = aiConfig.engines.chroma.database;
         aiConfig.engines.chroma.database = CHROMA_TEST_DATABASE;
         kbConfig.data.memoryCoreDbPath = testDbPath;
 
@@ -172,6 +174,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Restore patches
         if (originalGenerate)   OpenAiCompatible.prototype.generate = originalGenerate;
         if (originalAppendFile) fs.writeFileSync = originalAppendFile;
+
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig.engines.chroma.database = originalChromaDatabase;
     });
 
     test('should extract Graph nodes and flag deterministic capability gaps without mutating physical files', async () => {
