@@ -1,7 +1,7 @@
 # Ideation Sandbox Workflow
 
 ## 1. Context
-When engaging in deep architectural design, brainstorming, or encountering "Unknown Unknowns", it is counter-productive to generate highly speculative GitHub Issues that pollute the actionable task tracker. The Ideation Sandbox directs speculative thought processes into GitHub Discussions. Canonical case studies include **#10119** (Agent harness as Neo app) and **#10137** (MX Model Experience).
+When engaging in deep architectural design, brainstorming, or encountering "Unknown Unknowns", route speculative work to GitHub Discussions. Case studies: **`#10119`** (Agent harness as Neo app) and **`#10137`** (MX Model Experience).
 
 **Crucial Mindset Shift:** The Ideation Sandbox is NOT meant to serve as a holding pen or a "second shot" before blindly creating an Epic. It is a dedicated space to discuss, brainstorm back-and-forth, and rigorously apply **PR Depth Challenges**. As a reviewer, you are expected to actively challenge assumptions and push back on architectural proposals (just as you would in a PR), rather than merely rubber-stamping the idea for graduation.
 *For skill-authoring discipline including Progressive Disclosure (why SKILL.md is a lightweight router pointing here), see `.agents/skills/create-skill/`.*
@@ -15,7 +15,7 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
    - **No Standard:** If no standard surfaces, document the search in your Author's Note ("I searched for [keywords] and found no canonical industry standard; proposing Neo-native design").
    - **Distinction from Industry Friction Radar:** The precedent-sweep targets *established standards* to align with. The `industry-friction-radar` skill targets *frontier friction* where standards are failing. They are complementary, opposite directions.
 3. **Use Discussions.** Call the `create_discussion` tool to post your proposal.
-4. **Agent Notification (Swarm Specific):** If you are operating in a multi-agent swarm environment (i.e., other agents are available), you MUST use the `add_message` tool to ping your peers immediately after creating or significantly updating the discussion. Ideation thrives on cross-family peer review. The A2A body MUST literally name the skill the peer should engage (`Requested action: use /peer-role on Discussion #X` for design-review context, or `/ideation-sandbox` if co-authoring divergence) — naming the skill mechanically loads the receiving peer's discipline payload; vague `review my discussion` relies on semantic-match and is the rubber-stamp anti-pattern's surface (PR #11127 empirical anchor, #11136). (Skip this step if you are the only agent operating in the workspace).
+4. **Agent Notification (Swarm Specific):** If you are operating in a multi-agent swarm environment (i.e., other agents are available), you MUST use the `add_message` tool to ping your peers immediately after creating or significantly updating the discussion. Ideation thrives on cross-family peer review. The A2A body MUST literally name the skill the peer should engage (`Requested action: use /peer-role on Discussion #X` for design-review context, or `/ideation-sandbox` if co-authoring divergence) — naming the skill mechanically loads the receiving peer's discipline payload; vague `review my discussion` relies on semantic-match and is the rubber-stamp anti-pattern's surface (PR `#11127` empirical anchor, `#11136`). (Skip this step if you are the only agent operating in the workspace).
 5. **Set the Category.** Map the discussion to the `Ideas` category.
 6. **Format the Proposal.** The body of the discussion should clearly articulate:
    - **Self-Identification (Mandatory):** You **MUST** begin the body by explicitly identifying yourself and your underlying model. (e.g., `> **Author's Note:** This proposal was autonomously synthesized by **[Agent Name] ([Model Name])** during an Ideation session.`)
@@ -23,9 +23,13 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
    - **The Rationale:** Why is this valuable?
    - **Open Questions (OQs):** What unknowns still need to be addressed?
 
-## 3. Author's Note Convention (The #10119 Annotation Pattern)
+### 2.1 Reference Hygiene
+
+Before Discussion prose, read [`reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): relationships stay bare; descriptive tokens use backticks.
+
+## 3. Author's Note Convention (The `#10119` Annotation Pattern)
 Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself.
-- Use **"the #10119 annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly with `manage_discussion({action: 'update_body', discussion_number, body})` (like a force-push).
+- Use **"the `#10119` annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly with `manage_discussion({action: 'update_body', discussion_number, body})` (like a force-push).
 - Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed.
 - You may add a brief comment to notify thread participants, but the body remains the single source of truth.
 
@@ -44,7 +48,7 @@ To enable the Retrospective daemon to ingest this negotiation, the author MUST u
 ## 5. Per-Domain Graduation Criteria
 A Discussion cannot graduate until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
 - If you cannot articulate what "ready for graduation" looks like for this specific proposal, it isn't ready.
-- **Graduation target depends on scope:** the convergent shape may justify a full Epic (multi-sub coordination required), a single standalone ticket (`[GRADUATED_TO_TICKET]` per §4 — bounded artifact, often 1 PR's worth of work), or in rare cases a direct PR with no tracker when the operator approves and no follow-up coordination is needed. Empirical anchor: Discussion #10697 graduated to ticket #10698 (single bounded artifact: 1 new skill + amendments + 1 reference file) rather than an Epic.
+- **Graduation target depends on scope:** the convergent shape may justify a full Epic (multi-sub coordination required), a single standalone ticket (`[GRADUATED_TO_TICKET]` per §4 — bounded artifact, often 1 PR's worth of work), or in rare cases a direct PR with no tracker when the operator approves and no follow-up coordination is needed. Empirical anchor: Discussion `#10697` graduated to ticket `#10698` (single bounded artifact: 1 new skill + amendments + 1 reference file) rather than an Epic.
 
 ### 5.1. Double Diamond Divergence Guard (High-Blast-Radius Mandatory)
 
@@ -79,7 +83,7 @@ For source anchors, exception semantics, and substrate-decay review, read [`../a
 
 ### 5.2. Step 2.5: Architectural Step-Back (High-Blast-Radius Convergence Gate)
 
-§5.1 is the **divergence-phase** gate (matrix must be in body before convergence). §5.2 is the **convergence-phase** gate (cross-substrate sweep must run before graduation). Empirical anchor: Discussion #11180 → Epic #11187 arc (3-way convergence + matrix-in-body still produced 2 epic-review blockers caught only post-graduation; both would have surfaced via §5.2 sweep pre-graduation).
+§5.1 is the **divergence-phase** gate (matrix must be in body before convergence). §5.2 is the **convergence-phase** gate (cross-substrate sweep must run before graduation). Empirical anchor: Discussion `#11180` → Epic `#11187` arc (3-way convergence + matrix-in-body still produced 2 epic-review blockers caught only post-graduation; both would have surfaced via §5.2 sweep pre-graduation).
 
 **Trigger — high-blast-radius (any ONE qualifies)**:
 - Modifies durable content layout (`resources/content/`, `learn/`, `.agents/`)
@@ -91,7 +95,7 @@ For source anchors, exception semantics, and substrate-decay review, read [`../a
 
 **Gate**: Before any `[RESOLVED_TO_AC]` or `[GRADUATED_TO_TICKET]` marker, one peer MUST post a `STEP_BACK` comment running the 8-point cross-substrate sweep. Comment exit criterion: peers acknowledge each point (✓ pass / ⚠ partial / ✗ blocker). Blockers reshape the proposal; partials get explicit acknowledgment ACs in the graduation ticket.
 
-**8-point cross-substrate sweep checklist** (canonical; adopted from Discussion #11188 OQ4):
+**8-point cross-substrate sweep checklist** (canonical; adopted from Discussion `#11188` OQ4):
 
 1. **Authority sweep** — Which artifact will future agents treat as canonical: discussion body, latest comment, epic body, ticket AC? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation.
 2. **Consumer sweep** — Which readers consume the proposed shape? Include syncers, local lookup services, health/readiness, release scripts, workflows, docs, external mirrors (pages/portal).
@@ -108,11 +112,11 @@ For source anchors, exception semantics, and substrate-decay review, read [`../a
 
 **Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal.
 
-**Empirical anchor**: Discussion #11180 → Epic #11187 arc (2026-05-11) — 3-way convergence + matrix-in-body still produced 2 epic-review blockers (Discussion body authority drift + AC6/AC7 active-tier ordinal chunk-N breaking `LocalFileService#getIssueById` O(1) determinism) caught post-graduation. §5.2 sweep pre-graduation would have caught both via authority + path-determinism + active/archive-boundary sweeps.
+**Empirical anchor**: Discussion `#11180` → Epic `#11187` arc (2026-05-11) — 3-way convergence + matrix-in-body still produced 2 epic-review blockers (Discussion body authority drift + AC6/AC7 active-tier ordinal chunk-N breaking `LocalFileService#getIssueById` O(1) determinism) caught post-graduation. §5.2 sweep pre-graduation would have caught both via authority + path-determinism + active/archive-boundary sweeps.
 
 ## 6. Graduation Trigger (Consensus-Gated)
 
-*(Codified per #11217, graduated from Discussion #11216 under its own dogfooded protocol — recursive substrate validation)*
+*(Codified per `#11217`, graduated from Discussion `#11216` under its own dogfooded protocol — recursive substrate validation)*
 
 Graduation is the transition from speculative Discussion to actionable Epic / ticket / PR. The author proposes graduation by adding a `[GRADUATION_PROPOSED]` marker near the top of the body. **For high-blast classes**, graduation is BLOCKED until cross-family consensus is reached per the explicit Signal Ledger protocol below. **For low-blast classes**, the original author-declared `GRADUATED` shape (with §5.1 Double Diamond peer-review-cycle satisfied) suffices.
 
@@ -127,7 +131,7 @@ Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-
 
 ### 6.2 Signal Patterns + Quorum Rule (high-blast only)
 
-**Quorum rule** (per Epic #11796 / Discussion #11793 — family-keyed, membership-derived): graduation requires **(a)** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus`) signing with ANY signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`), AND **(b)** ≥ 1 *non-author* active family signing `[GRADUATION_APPROVED]`. **Tier 2** (core-value / §critical_gates / consensus-gate mutations) additionally requires explicit `## Unresolved Liveness` entry for any benched family + capability-grounded `revalidationTrigger` AC in the graduating Epic. Family-keying replaces the prior hardcoded "3× cross-family signals" because active membership is variable (operator-benched families, same-family siblings); same-family aggregation (§6.4) resolves multi-identity families. Full rationale + background: [`audits/consensus-mandate.md §quorum-rule`](../audits/consensus-mandate.md).
+**Quorum rule** (per Epic `#11796` / Discussion `#11793` — family-keyed, membership-derived): graduation requires **(a)** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus`) signing with ANY signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`), AND **(b)** ≥ 1 *non-author* active family signing `[GRADUATION_APPROVED]`. **Tier 2** (core-value / §critical_gates / consensus-gate mutations) additionally requires explicit `## Unresolved Liveness` entry for any benched family + capability-grounded `revalidationTrigger` AC in the graduating Epic. Family-keying replaces the prior hardcoded "3× cross-family signals" because active membership is variable (operator-benched families, same-family siblings); same-family aggregation (§6.4) resolves multi-identity families. Full rationale + background: [`audits/consensus-mandate.md §quorum-rule`](../audits/consensus-mandate.md).
 
 **Four signal patterns** (full definitions + VETO collapse rule: [`audits/consensus-mandate.md §signal-patterns-table`](../audits/consensus-mandate.md)):
 
@@ -154,7 +158,7 @@ When a peer signals DEFERRED, the **burden of convergence falls on the APPROVED-
 
 The DEFERRED peer is NOT obligated to either prove their case or update their signal unilaterally — they hold the substantive divergence position. The inversion ("what would change your signal?" framing) is an anti-pattern that re-introduces author-pressure on dissenters.
 
-**Same-family aggregation** (per Epic #11796 / Discussion #11793 OQ7): a family contributes `APPROVED` when ≥ 1 active identity APPROVES AND no active identity holds unresolved `DEFERRED`/`VETO` at the same anchor. The §6.4 burden-of-convergence clause applies to same-family APPROVED-signalers as well as cross-family ones. Full rule + multi-identity rationale: [`audits/consensus-mandate.md §same-family-aggregation`](../audits/consensus-mandate.md).
+**Same-family aggregation** (per Epic `#11796` / Discussion `#11793` OQ7): a family contributes `APPROVED` when ≥ 1 active identity APPROVES AND no active identity holds unresolved `DEFERRED`/`VETO` at the same anchor. The §6.4 burden-of-convergence clause applies to same-family APPROVED-signalers as well as cross-family ones. Full rule + multi-identity rationale: [`audits/consensus-mandate.md §same-family-aggregation`](../audits/consensus-mandate.md).
 
 **Reconciliation cycles**: typically resolve in 1-3 substantive cycles. If reconciliation stalls after ~20 comments, route the design back through peer-owned convergence substrate (fresh Step-Back, lead-role facilitation, or a narrower follow-up Discussion). Ask the operator only for Tier-4 human-owned intent clarification per AGENTS.md §15.6; do not convert a stalled sandbox into a human graduation approval gate.
 
@@ -164,13 +168,13 @@ Ideation Sandbox graduation is a peer-owned substrate transition. The operator c
 
 The graduated Issue / Epic / PR body MUST archive any non-empty dissent or liveness gap in `## Unresolved Dissent` / `## Unresolved Liveness` with commentId/state anchors and the peer-owned disposition. Future Discussions can re-open the risk if it materializes.
 
-Inactive families (`participationStatus ∈ {operator_benched, temporarily_unreachable}` per `ai/graph/identityRoots.mjs`) are archived in `## Unresolved Liveness` per §6.6; Tier-2 substrate additionally carries a `revalidationTrigger` AC (per Epic #11796 AC6 + sub #11803 — **Tier-2 Revalidation Sweep**, see [`audits/tier-2-revalidation.md`](../audits/tier-2-revalidation.md)) re-opening the substrate for retroactive signal review when the benched family reactivates. Unresolved no-signal never becomes implicit approval.
+Inactive families (`participationStatus ∈ {operator_benched, temporarily_unreachable}` per `ai/graph/identityRoots.mjs`) are archived in `## Unresolved Liveness` per §6.6; Tier-2 substrate additionally carries a `revalidationTrigger` AC (per Epic `#11796` AC6 + sub `#11803` — **Tier-2 Revalidation Sweep**, see [`audits/tier-2-revalidation.md`](../audits/tier-2-revalidation.md)) re-opening the substrate for retroactive signal review when the benched family reactivates. Unresolved no-signal never becomes implicit approval.
 
 ### 6.6 Graduated-Artifact Required Sections (AC11)
 
 The graduated Issue / Epic / PR body MUST include four explicit sections, even if empty: `## Signal Ledger` (family-keyed per §6.2), `## Unresolved Dissent`, `## Unresolved Liveness`, and `## Discussion Criteria Mapping`. Empty sections are positive signals (no dissent, no liveness gaps). Non-empty sections preserve the divergence trail per §15.6 transparent A2A introspection, and enable future Discussions to re-open if residual risks materialize.
 
-For the canonical markdown template (post-Epic #11796 family-keyed shape, same-family aggregation nesting, AUTHOR_SIGNAL distinction, Tier-2 revalidationTrigger placement), see [`audits/consensus-mandate.md §template-block`](../audits/consensus-mandate.md).
+For the canonical markdown template (post-Epic `#11796` family-keyed shape, same-family aggregation nesting, AUTHOR_SIGNAL distinction, Tier-2 revalidationTrigger placement), see [`audits/consensus-mandate.md §template-block`](../audits/consensus-mandate.md).
 
 ### 6.7 Author Actions Post-Consensus
 
@@ -184,8 +188,8 @@ Axis 1 (this section, §6) is the Discussion-graduation gate; Axis 2 is the PR-m
 
 ### 6.9 Empirical Anchors
 
-Empirical anchors for §6 consensus-mandate behavior — including the original #11216 graduation (the rule's own dogfooded recursion), the #11210 → #11213 + PR #11212 / #11215 axis-1+2 enforcement cases, the #11214 → #11218 dogfood example, the #11782 → #11731 first-empirical-hit-of-hardcoded-3× failure mode, and the Epic #11796 / Discussion #11793 family-keyed-quorum extension (recursive substrate validation depth-2) — are archived in [`audits/consensus-mandate.md §empirical-anchors`](../audits/consensus-mandate.md).
+Empirical anchors for §6 consensus-mandate behavior — including the original `#11216` graduation (the rule's own dogfooded recursion), the `#11210` → `#11213` + PR `#11212` / `#11215` axis-1+2 enforcement cases, the `#11214` → `#11218` dogfood example, the `#11782` → `#11731` first-empirical-hit-of-hardcoded-3× failure mode, and the Epic `#11796` / Discussion `#11793` family-keyed-quorum extension (recursive substrate validation depth-2) — are archived in [`audits/consensus-mandate.md §empirical-anchors`](../audits/consensus-mandate.md).
 
 ### 6.10 30-Day Post-Merge Validation (AC10)
 
-Per #11195 30-day Step 2.5 validation tracker, signal-ledger compliance + PR-merge-gate cite-compliance are audited prospectively on the next 3 high-blast graduations + 3 follow-up PRs. Full framing (compliance thresholds, escalation paths) in [`audits/consensus-mandate.md §post-merge-validation`](../audits/consensus-mandate.md).
+Per `#11195` 30-day Step 2.5 validation tracker, signal-ledger compliance + PR-merge-gate cite-compliance are audited prospectively on the next 3 high-blast graduations + 3 follow-up PRs. Full framing (compliance thresholds, escalation paths) in [`audits/consensus-mandate.md §post-merge-validation`](../audits/consensus-mandate.md).

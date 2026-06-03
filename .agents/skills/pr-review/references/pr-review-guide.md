@@ -31,7 +31,7 @@ If you are an AI Agent tasked with writing a PR review directly on GitHub (actin
     - **Minor Gaps:** If you uncover minor misses (e.g., missed JSDoc, missing Anchor & Echo context), push rapid successive commits to the PR to polish the execution.
     - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to cram it into the active PR. Secure the "good enough" PR, and instead propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original PR to avoid scope creep.
 6. **Verify-Before-Assert Integration (Premise-Risk Check):** Before asserting any claim in your PR Review (especially under §7 Depth Floor) OR accepting the premise of the PR itself, you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §3.5). You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant"). You must explicitly counteract this regression drift: do NOT assume the PR's architectural premises or claims about the codebase are true. You MUST execute falsifying tool calls (e.g., `ask_knowledge_base`, `grep_search`, `view_file`) to empirically validate the premise before generating review feedback. You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
-7. **Execution:** Post the substantive review via `manage_pr_review` (action: `create`, state: `APPROVED`/`REQUEST_CHANGES`/`COMMENT`). This is a single atomic call that posts the review body AND flips GitHub's `reviewDecision` surface — closes the historical formal-state-gap pattern (PR #11234 + PR #11271 empirical anchors) where agents posted review prose via `manage_issue_comment` then forgot the second `gh pr review --approve` step. `manage_pr_review` returns `reviewId` (PRR_* node ID) for A2A propagation per `review-response-protocol.md §14`. **Fallback (only when `manage_pr_review` is unavailable in harness)**: the legacy two-step `manage_issue_comment` create + `gh pr review` CLI chain still works; the cross-family mandate gate (`pull-request §6.1` `reviewDecision: APPROVED`) is what must be satisfied either way.
+7. **Execution:** Post the substantive review via `manage_pr_review` (action: `create`, state: `APPROVED`/`REQUEST_CHANGES`/`COMMENT`). This is a single atomic call that posts the review body AND flips GitHub's `reviewDecision` surface — closes the historical formal-state-gap pattern (PR `#11234` + PR `#11271` empirical anchors) where agents posted review prose via `manage_issue_comment` then forgot the second `gh pr review --approve` step. `manage_pr_review` returns `reviewId` (PRR_* node ID) for A2A propagation per `review-response-protocol.md §14`. **Fallback (only when `manage_pr_review` is unavailable in harness)**: the legacy two-step `manage_issue_comment` create + `gh pr review` CLI chain still works; the cross-family mandate gate (`pull-request §6.1` `reviewDecision: APPROVED`) is what must be satisfied either way.
 
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
@@ -98,6 +98,10 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 
 **Author-side response tags (`pull-request` §6):** The `.agents/skills/pull-request/references/review-response-protocol.md` document defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
 
+### 4.1 Reference Hygiene
+
+Before review prose/tags, read [`reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): structural tokens stay bare; descriptive tokens use backticks.
+
 ## 5. Required Actions & Cross-Linking
 *   **Related Graph Nodes:** Every PR review MUST list related graph nodes (e.g., `Target Epic ID`, `Issue ID`) to ensure the Native Edge Graph links the evaluation to the overarching goal.
 *   **Required Actions:** Clearly list a bulleted checklist of mandatory changes required before the PR can be accepted.
@@ -110,7 +114,7 @@ When challenging a specific architectural pattern or complex implementation deta
 
 When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against labels, syntax, and branch-history safety. For Neo agent / `ai` PRs, `Resolves #N` is the only valid closing keyword; `Closes #N` / `Fixes #N` are invalid, and `Refs #N` / `Related: #N` are non-closing extras only.
 
-**Squash-merge commit-body hazard:** branch commit bodies are merge-time close-target surfaces. GitHub's squash merge can concatenate commit bodies into the default-branch commit; a stale `Resolves #N` inside any branch commit body can auto-close `#N` even when the PR body has been corrected to `Refs #N` and `gh pr view --json closingIssuesReferences` returns `[]`. Provenance: #11185 / PR #11183.
+**Squash-merge commit-body hazard:** branch commit bodies are merge-time close-target surfaces. GitHub's squash merge can concatenate commit bodies into the default-branch commit; a stale `Resolves #N` inside any branch commit body can auto-close `#N` even when the PR body has been corrected to `Refs #N` and `gh pr view --json closingIssuesReferences` returns `[]`. Provenance: `#11185` / PR `#11183`.
 
 **Rules:**
 - **Epics are invalid close-targets:** PRs deliver leaf sub-issues; epics close only when their sub-issue topology is complete or explicitly retired.
@@ -131,7 +135,7 @@ When reviewing a PR, audit every issue named as a close-target via GitHub's magi
 - **Validity:** Move the epic reference to `Related: #N` (no magic-close behavior).
 - **Partial-resolution stale commit body:** Prefer Drop+Supersede / clean branch when no operator authorization exists for history rewrite. If preserving the PR is preferred, get operator-explicit authorization before amend/rebase/force-push cleanup.
 
-Provenance: #9999 auto-close incident and #10323 duplicate chain. The stable rule is reviewer-side close-target validation before merge.
+Provenance: `#9999` auto-close incident and `#10323` duplicate chain. The stable rule is reviewer-side close-target validation before merge.
 
 **Out of scope for this audit:**
 - Leaf tickets without `epic` label — close-target is valid.
@@ -252,7 +256,7 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 1. **PR description** — does the architectural narrative accurately describe the boundaries and capabilities of the code? Or does the prose claim more than the diff substantiates?
 2. **Anchor & Echo summaries** (`AGENTS.md §15.2`) — does new JSDoc reuse precise codebase terminology, or does it lean on metaphor / source-comment archaeology that overshoots durable intent?
 3. **`[RETROSPECTIVE]` tags** (§4) — does the takeaway accurately characterize what shipped, or does it inflate the architectural significance of a routine change?
-4. **Linked-anchor accuracy** — when prose claims "implements pattern X from #N" or "similar to PR #M", does the cited reference actually establish that pattern, or is it being cited for borrowed authority?
+4. **Linked-anchor accuracy** — when prose claims "implements pattern X from `#N`" or "similar to PR `#M`", does the cited reference actually establish that pattern, or is it being cited for borrowed authority?
 
 #### What this audit is NOT
 
@@ -301,19 +305,19 @@ Formal reviews assume CI is already green. Verify the current PR check state bef
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
 | Approving `[EXECUTION_QUALITY]` without executing the author's test evidence or checking test locations | §7.5 Test-Execution & Location Audit violated; reviewers must independently verify testing claims and canonical file placement |
 | Approving a PR with failing CI or security checks (like CodeQL) | §7.6 CI / Security Checks Audit violated; fundamentally unsafe code |
-| PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
+| PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see `#9999` sabotage chain) |
 | Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
-| Substantive review comment posted via `manage_issue_comment` without atomic `manage_pr_review` OR fallback `gh pr review` chain | Cross-family gate ungated despite the visible review prose; §2.7 violated. Prefer `manage_pr_review` atomic primitive (#11273); fallback to two-step only when MCP tool unavailable |
+| Substantive review comment posted via `manage_issue_comment` without atomic `manage_pr_review` OR fallback `gh pr review` chain | Cross-family gate ungated despite the visible review prose; §2.7 violated. Prefer `manage_pr_review` atomic primitive (`#11273`); fallback to two-step only when MCP tool unavailable |
 | PR adds env-var deprecation chain | Read `pull-request/references/env-var-rename-rule.md` |
 | Cycle-1 Request Changes with iterative Required Actions when PR premise is structurally invalid | §9.0 Cycle-1 Premise Pre-Flight violated; reviewer normalized "fix-these-N" as merge-path when Drop+Supersede framing was substrate-correct (Velocity-Preservation Bias) |
-| Approving substrate touching multi-loaded agent-memory files by FILE-COMPLETENESS dimension only without auditing RUNTIME-LOAD EFFECT | **Loading-runtime-effect substitution** — see **§7.8 Audit Spec: Loading-Runtime-Effect Substitution** for full DIMENSION-vs-ENGAGEMENT framing, PR #11244 empirical anchor, and reviewer mechanical pre-flight. Proactive companion: `/turn-memory-pre-flight`. |
+| Approving substrate touching multi-loaded agent-memory files by FILE-COMPLETENESS dimension only without auditing RUNTIME-LOAD EFFECT | **Loading-runtime-effect substitution** — see **§7.8 Audit Spec: Loading-Runtime-Effect Substitution** for full DIMENSION-vs-ENGAGEMENT framing, PR `#11244` empirical anchor, and reviewer mechanical pre-flight. Proactive companion: `/turn-memory-pre-flight`. |
 | PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`, `pr-review-guide.md`, `pull-request-workflow.md`, `AGENTS.md`) instead of conditionally loaded `references/` payload | **Progressive Disclosure violation** — Map (always-loaded) vs World Atlas (conditional reference) split bypassed; bloats per-turn token budget. Default disposition for new rules is `compress-to-trigger` per `pull-request-workflow.md §1.1`. Proactive companion: `/create-skill`. Required Action: reshape to Map (trigger line) → Atlas (rule body in `references/`) split, or cite per-turn frequency + irreversibility justifying `keep` slot |
 | PR body missing FAIR-band stance declaration (or declaration mismatches live `gh search prs` query) | **`pull-request-workflow.md §1.3` FAIR-Band Pre-Flight Gate violated** — see [`audits/fair-band-declaration-audit.md`](./audits/fair-band-declaration-audit.md) for the reviewer-side verification protocol + Required Action template. <!-- trigger: PR body missing FAIR-band declaration → read audit payload --> |
 
 ## 7.8 Audit Spec: Loading-Runtime-Effect Substitution
 
-Reactive-side audit fired during `/pr-review`. The **proactive** counterpart `/turn-memory-pre-flight` skill (Epic #11256 substrate) owns the canonical substrate-effect framing, IN-SCOPE file list, mechanical pre-flight protocol, and decision tree. This audit defines the **reviewer-side discipline only** — what to recognize at PR-review time + the Required-Action shape when the pattern fires.
+Reactive-side audit fired during `/pr-review`. The **proactive** counterpart `/turn-memory-pre-flight` skill (Epic `#11256` substrate) owns the canonical substrate-effect framing, IN-SCOPE file list, mechanical pre-flight protocol, and decision tree. This audit defines the **reviewer-side discipline only** — what to recognize at PR-review time + the Required-Action shape when the pattern fires.
 
 ### Authoritative substrate (do NOT duplicate here)
 
@@ -322,7 +326,7 @@ See [`.agents/skills/turn-memory-pre-flight/references/turn-memory-pre-flight-wo
 - IN-SCOPE / OUT-OF-SCOPE / CARVE-OUT file list (Substrate Boundary section)
 - 5-step Placement Decision Tree
 - 4-step Mechanical Pre-Flight Protocol (`cat .codex/hooks.json` etc.)
-- PR #11244 empirical anchor + PR #11250 + Epic #11256 anchors
+- PR `#11244` empirical anchor + PR `#11250` + Epic `#11256` anchors
 
 ### When this audit fires (reviewer-side)
 
@@ -332,7 +336,7 @@ At `/pr-review` time, when a PR modifies any file listed in `/turn-memory-pre-fl
 
 **Loading-runtime-effect substitution**: PR approves on FILE-COMPLETENESS dimension *("3 harness files have the block, cross-harness symmetry achieved")* without verifying RUNTIME-LOAD EFFECT *("does content load once or twice per turn?")*.
 
-Distinct from rubber-stamping (§7.7 row 3): the failure is **DIMENSION** (effect-surface unaudited) not **ENGAGEMENT** (content-surface reviewed). Substantive feedback can be given across multiple cycles while the load-effect dimension stays invisible. Specific instance of **Flattening-Bias** from Discussion #11259's 4-sub-mode enumeration (Deference / Action / Approval / Flattening). PR #11244's 6-cycle arc (3 reviewers / 4 missed cycles / operator V-B-A) is the canonical empirical anchor — see `/turn-memory-pre-flight` atlas for full detail.
+Distinct from rubber-stamping (§7.7 row 3): the failure is **DIMENSION** (effect-surface unaudited) not **ENGAGEMENT** (content-surface reviewed). Substantive feedback can be given across multiple cycles while the load-effect dimension stays invisible. Specific instance of **Flattening-Bias** from Discussion `#11259`'s 4-sub-mode enumeration (Deference / Action / Approval / Flattening). PR `#11244`'s 6-cycle arc (3 reviewers / 4 missed cycles / operator V-B-A) is the canonical empirical anchor — see `/turn-memory-pre-flight` atlas for full detail.
 
 ### Required Action template (reviewer-side)
 
@@ -340,9 +344,9 @@ Distinct from rubber-stamping (§7.7 row 3): the failure is **DIMENSION** (effec
 
 ### Cross-skill bridge
 
-- **Proactive companion (substrate-creation time)**: `/turn-memory-pre-flight` (Epic #11256 substrate; `turn-memory-pre-flight` skill trigger)
-- **Architectural router (ambiguous cases)**: `/architecture-pre-flight` (Epic #11256 substrate)
-- **Helpful-Assistant 4-sub-mode context**: Discussion #11259 (CLOSED RESOLVED) → ticket #11262 → PR #11263 (substrate-load-time XML salience metadata)
+- **Proactive companion (substrate-creation time)**: `/turn-memory-pre-flight` (Epic `#11256` substrate; `turn-memory-pre-flight` skill trigger)
+- **Architectural router (ambiguous cases)**: `/architecture-pre-flight` (Epic `#11256` substrate)
+- **Helpful-Assistant 4-sub-mode context**: Discussion `#11259` (CLOSED RESOLVED) → ticket `#11262` → PR `#11263` (substrate-load-time XML salience metadata)
 
 
 ## 8. Cross-Skill Integration Audit
@@ -409,11 +413,11 @@ If the author's rationale holds up to empirical scrutiny—even if it doesn't ma
 
 This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
 
-## 10. A2A Comment-ID Hand-off Protocol (#10272)
+## 10. A2A Comment-ID Hand-off Protocol (`#10272`)
 
 **Problem:** Without commentId-scoped fetch, every review cycle N+1 incurs **cumulative-thread context cost** — full-thread fetch reads all prior cycles, not just the delta. This breaks linear-cost scaling: by cycle three of an Architectural Pillar review, fetching the full conversation burns more tokens on prior rounds than on the new substance. Compounds silently across the swarm — every reviewer pays the cumulative cost per cycle, not just once. **Treat as invariant discipline, not optional optimization** — the cost asymmetry diverges with thread length, and missed pings cascade across reviewers.
 
-Provenance: PR #10371 showed cumulative-thread fetch cost diverging with thread length. The stable rule is commentId-scoped hand-off for warm-cache review cycles.
+Provenance: PR `#10371` showed cumulative-thread fetch cost diverging with thread length. The stable rule is commentId-scoped hand-off for warm-cache review cycles.
 
 **Solution:** `manage_issue_comment` action:`create` returns `{message, commentId, url, createdAt}`. The reviewer captures `commentId` from that response and relays it to the next reviewer (peer or author) via A2A mailbox — the recipient fetches just-this-comment via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`, scaling linearly with new-comment volume rather than cumulative thread size.
 
@@ -448,7 +452,7 @@ Provenance: PR #10371 showed cumulative-thread fetch cost diverging with thread 
 
 ### 10.4 Pre-Flight Check (operational reflex)
 
-The §10 hand-off protocol is mechanical — but reviewers empirically miss it across cycles even after reading this guide (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap explicitly). The discipline is reflex-application, not knowledge.
+The §10 hand-off protocol is mechanical — but reviewers empirically miss it across cycles even after reading this guide (PR `#10371` + `#10375`, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap explicitly). The discipline is reflex-application, not knowledge.
 
 **Pre-Flight Check shape** (mirrors `AGENTS.md §3 / §4.2` proven primitives). After every `manage_issue_comment` create, before yielding turn, you MUST explicitly state in your internal reasoning:
 

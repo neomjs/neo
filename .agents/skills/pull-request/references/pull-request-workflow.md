@@ -38,7 +38,7 @@ ADR conflict trigger: add `Decision Record impact:` naming the ADR update or pen
 
 Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. This is the enforcement mechanism for **AGENTS.md §0 Invariant 7**. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
 
-### 1.3 The FAIR-Band Pre-Flight Gate (#11433 — bypass-resistant choke-point for #11432)
+### 1.3 The FAIR-Band Pre-Flight Gate (`#11433` — bypass-resistant choke-point for `#11432`)
 
 <!-- trigger: PR-open → read ./fair-band-pre-flight-gate.md for FAIR-band stance declaration shapes + verifier query -->
 
@@ -77,7 +77,7 @@ git branch --show-current
 
 If it returns `main` or `dev`, STOP and branch off using the §2.2 procedure. This check costs nothing and catches edge cases where a harness's isolation assumption has broken (e.g. symlink detach, manual `git checkout`).
 
-### 2.3.1 Branch Freshness Check (pre-push) *(Codified per #10212)*
+### 2.3.1 Branch Freshness Check (pre-push) *(Codified per `#10212`)*
 
 Before the first `git push` that opens a PR, AND before every force-push that would update the PR branch:
 
@@ -92,7 +92,7 @@ git fetch origin
 
 **Exception — first push of a freshly-branched feature:** skip ONLY after confirming via `git log origin/dev..HEAD` that no sibling PRs have merged and the log reflects your own commits exclusively. The branch-point IS `origin/dev`'s tip.
 
-### 2.3.2 Branch-Discipline Check (pre-push) *(#11133)*
+### 2.3.2 Branch-Discipline Check (pre-push) *(`#11133`)*
 
 `.husky/pre-push` blocks `chore(data):` commits on feature branches: [`audits/branch-discipline-check.md`](../audits/branch-discipline-check.md).
 
@@ -177,7 +177,7 @@ You MUST follow this exact handoff protocol:
 
 ### 6.1 The Cross-Family Mandate
 
-*(Codified per #10208)*
+*(Codified per `#10208`)*
 
 **No PR may be merged without at least one cross-family Approved review** (Claude-family ↔ Gemini-family, identified by the `agent` field in the Approved review comment). See `pr-review §7.2` for the empirical rationale. Note: To satisfy this gate, reviewers MUST chain a formal GitHub PR Review state (`reviewDecision: APPROVED`) via `gh pr review --approve` per `pr-review-guide.md §2.7`. A substantive review comment alone via `manage_issue_comment` is insufficient.
 
@@ -186,11 +186,11 @@ You MUST follow this exact handoff protocol:
 - **7-day-open fallback**: The PR itself has been OPEN for >= 7 days AND no cross-family reviewer has engaged on the thread. Any cross-family thread engagement (review, comment, or status) resets the 7-day-open clock; only an `Approved` status satisfies the mandate. Deterministically verifiable via `get_conversation(pr_number)`: (a) `now - createdAt >= 7 days`, (b) `comments.nodes` contains no entry whose `author.login` resolves to the cross-family pattern. Fallback invocation MUST include the PR's `createdAt` timestamp + explicit confirmation that no cross-family engagement has occurred, embedded in the self-review comment.
 - **Emergency hotfix escalator**: `priority: P0` label OR an explicit Tobi-override comment on the PR; post-merge cross-family retrospective review REQUIRED within 7 days.
 
-**Invitation Layer (`manage_pr_reviewers`):** the cross-family mandate is the **validation** mechanism (Approved-status before merge). The MCP tool `manage_pr_reviewers` (`github-workflow` server) is the corresponding **invitation** mechanism — surfaces GitHub's `requested_reviewers` API for active review-requests. If no cross-family reviewer has engaged ~2 hours after the PR has a green current-head CI state, the author SHOULD formally invite the opposite family via `manage_pr_reviewers({action: 'add', pr_number, reviewers: ['<opposite-family-login>']})`. Invitation precedes the 7-day-open fallback — it's the natural escalation step BEFORE that fallback fires. Codified per #10217.
+**Invitation Layer (`manage_pr_reviewers`):** the cross-family mandate is the **validation** mechanism (Approved-status before merge). The MCP tool `manage_pr_reviewers` (`github-workflow` server) is the corresponding **invitation** mechanism — surfaces GitHub's `requested_reviewers` API for active review-requests. If no cross-family reviewer has engaged ~2 hours after the PR has a green current-head CI state, the author SHOULD formally invite the opposite family via `manage_pr_reviewers({action: 'add', pr_number, reviewers: ['<opposite-family-login>']})`. Invitation precedes the 7-day-open fallback — it's the natural escalation step BEFORE that fallback fires. Codified per `#10217`.
 
 ### 6.1.1 The Consensus-Gate (PR-Merge-Gate for Discussion-Graduated Substrate)
 
-*(Codified per #11217, graduated from Discussion #11216; operationalizes operator directive 2026-05-11: "premature PRs → reject". Post-#11796 family-keyed shape: [`audits/consensus-gate-mirror.md`](../audits/consensus-gate-mirror.md). §6.1.1 below = pre-#11796 per-peer shape pending follow-up.)*
+*(Codified per `#11217`, graduated from Discussion `#11216`; operationalizes operator directive 2026-05-11: "premature PRs → reject". Post-`#11796` family-keyed shape: [`audits/consensus-gate-mirror.md`](../audits/consensus-gate-mirror.md). §6.1.1 below = pre-`#11796` per-peer shape pending follow-up.)*
 
 **Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md §6` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches the §6.2 quorum (canonical: audit pointer above).
 
@@ -210,9 +210,9 @@ You MUST follow this exact handoff protocol:
 **Operator merge-gate**: PRs that bypass the consensus-gate get rejected at the merge boundary by `@tobiu` regardless of CI green or cross-family approval. This is the structural enforcement of §0 Invariant 1 extended to consensus-gated substrate.
 
 **Empirical anchors** (2026-05-11):
-- **PR #11212** (Gemini's first sunset PR) — rejected by `@tobiu` at ~14:27Z; opened before Discussion #11210 reached 100% APPROVED
-- **PR #11215 (first iteration)** — rejected by `@tobiu` at ~14:37Z; same root cause
-- **PR #11215 (post-rework)** — Discussion #11210 graduated (3× APPROVED); GPT's Cycle 1 /pr-review nonetheless cited PR-hygiene contamination (15 of 17 files unrelated) → CHANGES_REQUESTED. The Consensus-Gate (this section) is distinct from PR-hygiene gates; both block merge independently.
+- **PR `#11212`** (Gemini's first sunset PR) — rejected by `@tobiu` at ~14:27Z; opened before Discussion `#11210` reached 100% APPROVED
+- **PR `#11215` (first iteration)** — rejected by `@tobiu` at ~14:37Z; same root cause
+- **PR `#11215` (post-rework)** — Discussion `#11210` graduated (3× APPROVED); GPT's Cycle 1 /pr-review nonetheless cited PR-hygiene contamination (15 of 17 files unrelated) → CHANGES_REQUESTED. The Consensus-Gate (this section) is distinct from PR-hygiene gates; both block merge independently.
 
 **Distinction from §6.1 Cross-Family Mandate**: §6.1 enforces approval-before-merge. §6.1.1 enforces consensus-source-before-approval for substrate-PRs. The reviewer's `/pr-review` Substantive Validation checklist is extended by §6.1.1 with the Signal Ledger verification step.
 
@@ -228,9 +228,9 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
    - **GitHub Layer (Assignment):** Author chooses exactly ONE `primary-reviewer` and calls the `manage_pr_reviewers` MCP tool (`action: 'add'`) only after the CI-green gate passes.
    - **A2A Layer (Wake):** Author sends ONE actionable A2A ping *only* to that same primary reviewer.
      - Include `Review role: primary-reviewer`.
-     - Include `Requested action: use /pr-review on PR #N` — naming the skill literally is mandatory; mechanically loads the receiving peer's `pr-review-template.md` + structured-eval discipline + graph-ingestion section structure. Vague `review PR #N` relies on semantic-match and is the empirical anchor for the rubber-stamp / template-adherence-gap pattern (PR #11127 cycle-1, 2026-05-10). Mirror of §6.4's remediation idiom applied at initial routing time.
+     - Include `Requested action: use /pr-review on PR #N` — naming the skill literally is mandatory; mechanically loads the receiving peer's `pr-review-template.md` + structured-eval discipline + graph-ingestion section structure. Vague `review PR #N` relies on semantic-match and is the empirical anchor for the rubber-stamp / template-adherence-gap pattern (PR `#11127` cycle-1, 2026-05-10). Mirror of §6.4's remediation idiom applied at initial routing time.
      - Do NOT send an actionable request to the second peer (unless using the `AGENT:*` broadcast primitive for general awareness, which does not convey primary ownership).
-   - *Primary-reviewer selection heuristic:* Default to round-robin (rotation) to prevent static silos (provenance: #10483). Subsystem familiarity should only be used as an explicit override with stated rationale (e.g., "Assigning @neo-gpt because they authored this abstraction in PR #X"). Do not use pure random selection.
+   - *Primary-reviewer selection heuristic:* Default to round-robin (rotation) to prevent static silos (provenance: `#10483`). Subsystem familiarity should only be used as an explicit override with stated rationale (e.g., "Assigning @neo-gpt because they authored this abstraction in PR `#X`"). Do not use pure random selection.
    - *FAIR-band follow-up:* Authors request one primary reviewer; the reviewer then follows the FAIR-band pickup discipline after the review handoff (see `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`).
 
 2. **Reviewer SLA & Decline Protocol:**
@@ -267,7 +267,7 @@ This strict role-based feedback loop prevents duplicated work and confusion over
 
 ### 6.2.1 Cross-Family Corrective-Authorship Rotation
 
-*(Codified per #11267 to institutionalize Layer 2 rotation tracking)*
+*(Codified per `#11267` to institutionalize Layer 2 rotation tracking)*
 
 When correcting substrate errors, resolving merge conflicts, or handling complex architectural alignment across model families, we enforce a **cross-family corrective-authorship rotation**. This ensures symmetric burden sharing and mitigates "helpful assistant" compliance drift where one family perpetually cleans up another's PRs without substrate consequence.
 
@@ -278,7 +278,7 @@ The workload is distributed across the three swarm participants (`@neo-opus-4-7`
 - **Narrow Activation (AC-CycleC):** Corrective rotation activates ONLY on explicit operator-direction (e.g., Tobi assigning a peer) OR explicit author-yield (the original author declaring exhaustion/handoff via A2A).
 
 **Layer 2 Tracking Contract (5 Signals):**
-To ensure visibility within the Memory Core (and tying into the L1 capability manifest tracking per #11275), all cross-family authorship rotations MUST emit the following signals:
+To ensure visibility within the Memory Core (and tying into the L1 capability manifest tracking per `#11275`), all cross-family authorship rotations MUST emit the following signals:
 1. **Duplicate close-target prevention:** Evaluated prior to PR creation by checking active PRs and A2A `[lane-claim]` events.
 2. **Same-author correction check:** Tracked via cross-session aggregation to prevent a single agent from looping on the same correction multiple times.
 3. **Operator-direction / Author-yield:** Explicit A2A audit trail required for targeted assignment.
@@ -324,26 +324,30 @@ until shape is correct.
 
 Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
 
+### 9.1 Reference Hygiene
+
+Before PR prose, read [`reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): relationships stay bare; descriptive tokens use backticks.
+
 **The Epic Close-Target Ban (Mandatory):**
 You are strictly FORBIDDEN from pointing `Resolves #N` at an Epic ticket. GitHub's auto-close-on-merge semantics would prematurely close the entire epic when the PR merges. PRs deliver sub-issues, not epics.
 - `Resolves` only the leaf sub-issue the PR fully implements.
 - To reference the parent epic without closing it, use `Related: #N` (or `Refs #N`).
 
-**The `Resolves`-Only Mandate (Mandatory, CI-enforced — #12367):**
+**The `Resolves`-Only Mandate (Mandatory, CI-enforced — `#12367`):**
 Every PR body MUST contain ≥1 `Resolves #N` — the only sanctioned closing keyword (= delivered work); `agent-pr-body-lint.yml` rejects agent/`ai` PRs without one. `Closes #N` is forbidden (closed-without-delivery needs no PR); `Fixes #N` is forbidden (ambiguous). `Refs #N` / `Related: #N` are allowed only as *additional* references. This makes 1-PR-per-ticket mechanical: N PRs cannot share N valid `Resolves`, so split the work into subs.
 You are strictly FORBIDDEN from embedding the keyword in a conversational sentence (e.g., "Resolves Sub 3 of Epic #X (#Y)"). GitHub's parser requires strict syntax to establish the automatic close link. If you fail to use the exact syntax, the ticket will remain open after merge.
 **Multiple Tickets Loophole:** While we strive for a 1-Ticket-to-1-PR ratio, if your PR fully resolves multiple tickets, you MUST flag each one individually. Do NOT use comma-separated lists like `Resolves #X, #Y`. Instead, use a distinct line for each ticket:
 `Resolves #X`
 `Resolves #Y`
 
-**Branch-history close-keyword hygiene (#11185):**
+**Branch-history close-keyword hygiene (`#11185`):**
 For any *additional* ticket your PR references but must NOT close (e.g. a parent epic via `Refs #N` / `Related: #N`), the entire branch history must agree it stays open. Before handoff, run:
 
 ```bash
 git log origin/dev..HEAD --format='%h%x09%s%n%b'
 ```
 
-If any branch commit body still contains `Closes #N`, `Fixes #N`, or `Resolves #N`, do not open or hand off the PR as merge-ready. GitHub squash-merge can concatenate branch commit bodies into the default-branch commit; stale magic-close text can auto-close `#N` even when the PR body says `Refs` and `closingIssuesReferences` is empty. Clean-path resolution is a fresh superseding branch/PR; preserving the same PR requires operator-explicit authorization before amend/rebase/force-push cleanup. Empirical anchor: PR #11183 squash-merged as `5c7c5a2f4`, preserving stale `Resolves #11182` from branch commit `deb022d0c` and auto-closing #11182.
+If any branch commit body still contains `Closes #N`, `Fixes #N`, or `Resolves #N`, do not open or hand off the PR as merge-ready. GitHub squash-merge can concatenate branch commit bodies into the default-branch commit; stale magic-close text can auto-close `#N` even when the PR body says `Refs` and `closingIssuesReferences` is empty. Clean-path resolution is a fresh superseding branch/PR; preserving the same PR requires operator-explicit authorization before amend/rebase/force-push cleanup. Empirical anchor: PR `#11183` squash-merged as `5c7c5a2f4`, preserving stale `Resolves #11182` from branch commit `deb022d0c` and auto-closing `#11182`.
 
 **Minimum-viable PR body structure:**
 ```markdown
@@ -369,7 +373,7 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 <one compressed paragraph per pivot — why direction changed, not the old text>
 ```
 
-**Evidence declaration discipline (#10698 graduation artifact):**
+**Evidence declaration discipline (`#10698` graduation artifact):**
 
 The `Evidence:` line is a 1-line greppable declaration of what evidence class was achieved vs what the close-target requires. Reference: [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md) for L1-L4 ladder + sandbox-ceiling vs achievable-ceiling distinction.
 
