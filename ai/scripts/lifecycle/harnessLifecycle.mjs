@@ -17,10 +17,10 @@
 import fs   from 'fs/promises';
 import path from 'path';
 import {fileURLToPath} from 'url';
-import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE_DIR = path.join(resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../..')}), 'harness-state');
+const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
+const STATE_DIR = path.join(AI_DATA_ROOT, 'harness-state');
 
 function sanitize(identity) {
     return identity.replace(/[^a-zA-Z0-9_-]/g, '');

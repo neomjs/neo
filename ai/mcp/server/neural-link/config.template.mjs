@@ -2,13 +2,12 @@ import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
-import {resolveAiDataRoot}                     from '../shared/helpers/DeploymentConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
 const cwd        = process.cwd();
-const aiDataRoot = resolveAiDataRoot({neoRootDir});
+const aiDataRoot = path.join(neoRootDir, '.neo-ai-data');
 
 
 
@@ -106,6 +105,18 @@ class Config extends BaseConfig {
              */
             pruneLogsAfterDays: leaf(14, 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', 'number')
         }
+    };
+
+    /**
+     * @summary Keeps NL-local paths aligned with the resolved shared AI data root.
+     * @param {String} leafPath Env-applied leaf path.
+     * @param {String} value Resolved Agent OS data root.
+     * @returns {void}
+     */
+    afterApplyEnvLeaf(leafPath, value) {
+        if (leafPath !== 'aiDataRoot') return;
+        if (!value) return;
+        this.setData('logPath', path.join(value, 'logs'));
     }
 }
 const instance = Neo.setupClass(Config);

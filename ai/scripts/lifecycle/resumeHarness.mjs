@@ -21,11 +21,10 @@ import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 import { createSpawnRequest } from './windowsBatchSpawn.mjs';
-import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const defaultAiDataRoot = () => resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../..')});
+const defaultAiDataRoot = () => process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
 
 /**
  * @summary Spawn a child process and (optionally) record its PID for later harness cleanup.

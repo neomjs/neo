@@ -2,14 +2,13 @@ import os              from 'os';
 import path            from 'path';
 import AiConfig        from '../../../config.template.mjs';
 import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
-import {resolveAiDataRoot}                     from '../shared/helpers/DeploymentConfig.mjs';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
-const aiDataRoot = resolveAiDataRoot({neoRootDir});
+const aiDataRoot = path.join(neoRootDir, '.neo-ai-data');
 
 
 
@@ -366,6 +365,18 @@ class Config extends BaseConfig {
                 inheritanceDecay : 0.6
             })
         }
+    };
+
+    /**
+     * @summary Keeps KB-local paths aligned with the resolved shared AI data root.
+     * @param {String} leafPath Env-applied leaf path.
+     * @param {String} value Resolved Agent OS data root.
+     * @returns {void}
+     */
+    afterApplyEnvLeaf(leafPath, value) {
+        if (leafPath !== 'aiDataRoot') return;
+        if (!value) return;
+        this.setData('logPath', path.join(value, 'logs'));
     }
 }
 const instance = Neo.setupClass(Config);

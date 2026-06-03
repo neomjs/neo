@@ -3,7 +3,6 @@
 import '../../../config.template.mjs';
 import path                                  from 'path';
 import BaseConfig, {createConfigProxy, leaf} from '../../../BaseConfig.mjs';
-import {resolveAiDataRoot}                   from '../shared/helpers/DeploymentConfig.mjs';
 import {fileURLToPath}                       from 'url';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
@@ -20,9 +19,13 @@ const __dirname  = path.dirname(__filename);
 
 const neoRootDir        = path.resolve(__dirname, '../../../../');
 const cwd               = neoRootDir;
-const aiDataRoot        = resolveAiDataRoot({neoRootDir: cwd});
+const aiDataRoot        = path.join(cwd, '.neo-ai-data');
 const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.join(aiDataRoot, 'wake-daemon'));
 const DAY_MS            = 24 * 60 * 60 * 1000;
+
+function hasEnvValue(name) {
+    return process.env[name] !== undefined && process.env[name] !== null && process.env[name] !== '';
+}
 
 /**
  * @summary Configuration manager for the Memory Core MCP server.
@@ -334,6 +337,44 @@ class Config extends BaseConfig {
              */
             lazyEdgesQueuePath: leaf(path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
         }
+    };
+
+    /**
+     * @summary Keeps Memory Core-owned path defaults aligned with the resolved
+     * shared AI data root while preserving narrower env overrides.
+     *
+     * @param {String} leafPath Env-applied leaf path.
+     * @param {String} value Resolved Agent OS data root.
+     * @returns {void}
+     */
+    afterApplyEnvLeaf(leafPath, value) {
+        if (leafPath !== 'aiDataRoot') return;
+        if (!value) return;
+
+        const wakeDataDir = path.resolve(hasEnvValue('NEO_AI_DAEMON_DIR')
+            ? process.env.NEO_AI_DAEMON_DIR
+            : path.join(value, 'wake-daemon'));
+
+        if (!hasEnvValue('NEO_MEMORY_DB_PATH') && process.env.UNIT_TEST_MODE !== 'true') {
+            this.setData('storagePaths.graph', path.join(value, 'sqlite', 'memory-core-graph.sqlite'));
+        }
+        if (!hasEnvValue('NEO_AI_DAEMON_DIR')) {
+            this.setData('wakeDaemon.dataDir', wakeDataDir);
+        }
+        if (!hasEnvValue('NEO_BRIDGE_LAST_SYNC_ID_PATH')) {
+            this.setData('wakeDaemon.bridgeLastSyncIdPath', path.join(wakeDataDir, 'lastSyncId'));
+        }
+        if (!hasEnvValue('NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE')) {
+            this.setData('wakeDaemon.wakeSubscriptionLiveCursorPath', path.join(wakeDataDir, 'wakeSubscriptionLiveCursor'));
+        }
+        if (!hasEnvValue('NEO_RLAIF_PATH')) {
+            this.setData('datasets.rlaif.trajectories', path.join(value, 'datasets', 'rlaif', 'trajectories.jsonl'));
+        }
+        if (!hasEnvValue('NEO_REM_RUN_STATE_DIR')) {
+            this.setData('remRunStateDir', path.join(value, 'rem-runs'));
+        }
+
+        this.setData('logPath', path.join(value, 'logs'));
     }
 }
 const instance = Neo.setupClass(Config);

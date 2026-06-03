@@ -31,7 +31,6 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 import AiConfig        from '../../config.mjs';
-import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -51,7 +50,7 @@ import {
 } from './queries.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
-const AI_DATA_ROOT             = resolveAiDataRoot({config: AiConfig});
+const AI_DATA_ROOT             = AiConfig.aiDataRoot;
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || path.join(AI_DATA_ROOT, 'sqlite', 'memory-core-graph.sqlite');
 const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || path.join(AI_DATA_ROOT, 'wake-daemon');
 const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');

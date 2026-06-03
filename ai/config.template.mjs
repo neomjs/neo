@@ -1,7 +1,6 @@
 import path                                  from 'path';
 import {fileURLToPath}                       from 'url';
 import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
-import {resolveAiDataRoot}                  from './mcp/server/shared/helpers/DeploymentConfig.mjs';
 import {
     CHROMA_PRODUCTION_DATABASE,
     CHROMA_TEST_DATABASE
@@ -12,10 +11,14 @@ const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
 const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
-const aiDataRoot  = resolveAiDataRoot({neoRootDir});
+const aiDataRoot  = path.join(neoRootDir, '.neo-ai-data');
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
+
+function hasEnvValue(name) {
+    return process.env[name] !== undefined && process.env[name] !== null && process.env[name] !== '';
+}
 
 /**
  * @class Neo.ai.Config
@@ -683,6 +686,32 @@ class Config extends BaseConfig {
                 }
             })
         }
+    };
+
+    /**
+     * @summary Keeps data-root-derived leaves aligned when `NEO_AI_DATA_ROOT`
+     * or an overlay changes the canonical Agent OS data root.
+     *
+     * `leaf(default, env, type)` owns env decoding for `aiDataRoot`; this hook
+     * derives sibling defaults from the resolved value without re-reading the
+     * same env var through a second helper path.
+     *
+     * @param {String} leafPath Env-applied leaf path.
+     * @param {String} value Resolved Agent OS data root.
+     * @returns {void}
+     */
+    afterApplyEnvLeaf(leafPath, value) {
+        if (leafPath !== 'aiDataRoot') return;
+        if (!value) return;
+
+        if (!hasEnvValue('NEO_BACKUP_PATH')) {
+            this.setData('backupPath', path.join(value, 'backups'));
+        }
+        if (!hasEnvValue('NEO_HEARTBEAT_ALIVE_PATH')) {
+            this.setData('wakeDaemonHeartbeatAlivePath', path.join(value, 'wake-daemon', 'heartbeat.alive'));
+        }
+
+        this.setData('engines.chroma.dataDir', path.join(value, 'chroma', 'unified'));
     }
 }
 

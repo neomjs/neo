@@ -2,14 +2,13 @@ import fs from 'fs/promises';
 import path from 'path';
 import { writeGateState } from './wakeSafetyGate.mjs';
 import { fileURLToPath } from 'url';
-import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const BOOT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 export const MAX_ABANDONED_ACTIONS = 3;
 
 function defaultAiDataRoot() {
-    return resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../..')});
+    return process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
 }
 
 /**

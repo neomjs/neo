@@ -16,10 +16,9 @@ import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecyc
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import MailboxService from '../../services/memory-core/MailboxService.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
-import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AI_DATA_ROOT = resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../..')});
+const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || path.join(path.resolve(__dirname, '../../..'), '.neo-ai-data');
 const COOLDOWN_STATE_PATH = path.join(AI_DATA_ROOT, 'wake-daemon', 'trio-wake-cooldown.json');
 const COOLDOWN_LOCK_PATH = path.join(AI_DATA_ROOT, 'wake-daemon', 'trio-wake-cooldown.lock');
 

@@ -5,8 +5,7 @@ import Env      from '../src/util/Env.mjs';
 
 /**
  * Maps a {@link leaf} `type` token to the name-based `Neo.util.Env` parser that decodes its env
- * var. Reuses the Tier-1 Env primitive (Epic #12101 AC-Epic-1: extend, don't reinvent — no
- * parallel parser set).
+ * var. Reuses the Tier-1 Env primitive instead of maintaining a parallel parser set.
  * @type {Object<String,Function>}
  */
 const typeParsers = {
@@ -195,6 +194,9 @@ class BaseConfig extends Provider {
      * dangerous: e.g. a changed `NEO_CHROMA_PORT` would make new reads target a port the Chroma DB
      * is not actually listening on (the DB only moves on a coordinated restart). Live env that
      * drives coordinated restart/reconnection is a separate Body-tier concern, out of scope here.
+     *
+     * Subclasses may implement `afterApplyEnvLeaf(leafPath, value, meta)` to derive dependent
+     * defaults from a resolved env leaf without re-reading that env var through a second helper.
      * @param {Object} [env=process.env]
      * @param {Function} [warn=console.warn]
      */
@@ -214,7 +216,8 @@ class BaseConfig extends Provider {
             }
 
             if (value !== undefined) {
-                this.setData(leafPath, value)
+                this.setData(leafPath, value);
+                this.afterApplyEnvLeaf?.(leafPath, value, meta)
             }
         }
     }
