@@ -164,6 +164,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
     });
 
     test('registers Neo Chroma embedding functions before defrag collection hydration', async () => {
+        const {default: AiConfig} = await import('../../../../../../ai/config.mjs');
         const warnings     = [];
         const originalWarn = console.warn;
 
@@ -185,6 +186,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             });
 
             expect(dummy?.name).toBe('dummy_embedding_function');
+            expect(dummy).toBe(AiConfig.dummyEmbeddingFunction);
             expect(dynamic?.name).toBe('dynamic_text_embedding_service');
             expect(warnings).toEqual([]);
         } finally {

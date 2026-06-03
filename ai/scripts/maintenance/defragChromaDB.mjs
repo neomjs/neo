@@ -62,7 +62,9 @@ const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
 
-registerNeoChromaEmbeddingFunctions();
+registerNeoChromaEmbeddingFunctions({
+    dummyEmbeddingFunction: AiConfig.dummyEmbeddingFunction
+});
 
 // Configuration Mapping
 // Maps CLI target names to their collection-group config files. Both targets resolve
