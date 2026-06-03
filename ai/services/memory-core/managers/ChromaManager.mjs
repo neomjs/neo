@@ -6,7 +6,9 @@ import ChromaLifecycleService               from '../lifecycle/ChromaLifecycleSe
 import {
     chromaConnect,
     chromaDeleteCollection,
-    createSilentExecutor
+    createDynamicTextEmbeddingFunction,
+    createSilentExecutor,
+    registerNeoChromaEmbeddingFunctions
 } from '../../shared/vector/chromaClientPrimitives.mjs';
 import {CHROMA_PRODUCTION_DATABASE, ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
 
@@ -21,6 +23,10 @@ const MC_WARN_FILTER = msg =>
     msg.includes('Could not deserialize the collection metadata') ||
     msg.includes('dummy_embedding_function') ||
     msg.includes('dynamic_text_embedding_service');
+
+registerNeoChromaEmbeddingFunctions({
+    dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
+});
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches frequently used collections.
@@ -186,20 +192,9 @@ class ChromaManager extends AbstractVectorManager {
      * @returns {Object} A locally valid implementation of IEmbeddingFunction
      */
     #createEmbeddingFunction() {
-        return {
-            generate   : async (texts) => {
-                // Pass arrays of texts sequentially or via promise.all to TextEmbeddingService
-                const {default: TextEmbeddingService} = await import('../TextEmbeddingService.mjs');
-                const provider                        = aiConfig.embeddingProvider;
-                const vectors                         = await Promise.all(texts.map(text => TextEmbeddingService.embedText(text, provider)));
-                return vectors;
-            },
-            name       : 'dynamic_text_embedding_service',
-            getConfig  : () => ({}),
-            constructor: {
-                buildFromConfig: () => this.#createEmbeddingFunction()
-            }
-        };
+        return createDynamicTextEmbeddingFunction({
+            providerResolver: () => aiConfig.embeddingProvider
+        })
     }
 
     /**

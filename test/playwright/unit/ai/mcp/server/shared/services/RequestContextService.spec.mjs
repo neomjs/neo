@@ -153,6 +153,20 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
         expect(scriptUserIds).toEqual(CORE_SWARM_USER_IDS);
     });
 
+    test('migration runner uses the lightweight Chroma registry instead of suppressing schema warnings', async () => {
+        const fs   = await import('fs');
+        const path = await import('path');
+
+        const repoRoot   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../..');
+        const scriptPath = path.join(repoRoot, 'ai/scripts/migrations/backfillChromaSharedUserId.mjs');
+        const source     = fs.readFileSync(scriptPath, 'utf-8');
+
+        expect(source).toContain('createDynamicTextEmbeddingFunction');
+        expect(source).toContain('registerNeoChromaEmbeddingFunctions');
+        expect(source).not.toContain('console.warn = () => {}');
+        expect(source).not.toContain('origWarn');
+    });
+
     test('CORE_SWARM_AGENT_IDS mirrors user ids in AgentIdentity form', () => {
         expect(CORE_SWARM_AGENT_IDS).toEqual(CORE_SWARM_USER_IDS.map(userId => `@${userId}`));
     });
@@ -197,7 +211,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
     });
 
     test('canonical-form invariant — both prefix forms collapse to the same value', () => {
-        // The load-bearing assertion for #10556: any code path that ever produces both forms
+        // The load-bearing assertion: any code path that ever produces both forms
         // must converge on a single canonical comparison value at boundary time. Without this
         // invariant, a write tagging `userId: 'x'` would be invisible to a read filtering
         // `userId: '@x'` — the silent-self-filter trap.

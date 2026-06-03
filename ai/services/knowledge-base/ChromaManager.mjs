@@ -6,12 +6,17 @@ import DatabaseLifecycleService             from './DatabaseLifecycleService.mjs
 import {
     chromaConnect,
     chromaDeleteCollection,
-    createSilentExecutor
+    createSilentExecutor,
+    registerNeoChromaEmbeddingFunctions
 } from '../shared/vector/chromaClientPrimitives.mjs';
 
 const COLLECTION_ALREADY_EXISTS_RE = /already exists|already contains|conflict/i;
 const COLLECTION_NOT_FOUND_RE      = /does not exist|not found|not be found|could not be found|404/i;
 const SWAP_ACTIVE_PHASES           = ['parking', 'shadow'];
+
+registerNeoChromaEmbeddingFunctions({
+    dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
+});
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches the knowledge-base collection.
@@ -72,7 +77,7 @@ class ChromaManager extends Base {
     }
 
     /**
-     * Establishes connection to ChromaDB via the shared `chromaConnect` primitive (#11111).
+     * Establishes connection to ChromaDB via the shared `chromaConnect` primitive.
      * @returns {Promise<boolean>} True if connected, false otherwise
      */
     async connect() {
@@ -95,7 +100,7 @@ class ChromaManager extends Base {
     }
 
     /**
-     * Per-instance silent-execution function from the shared primitive (#11111).
+     * Per-instance silent-execution function from the shared primitive.
      * Each consumer gets its own isolated sequential lock. KB uses blanket suppression
      * (no `filter` passed at call sites); MC's per-message filter is unaffected.
      * @member {Function} #executeSilently
@@ -257,7 +262,7 @@ class ChromaManager extends Base {
 
     /**
      * Guarded delete-collection wrapper. Delegates to the shared `chromaDeleteCollection`
-     * primitive (#11111) which routes through `assertCanonicalCollectionDeleteAllowed` with
+     * primitive which routes through `assertCanonicalCollectionDeleteAllowed` with
      * `subsystem: 'knowledge-base'`. Refuses canonical production collection names unless
      * `UNIT_TEST_MODE=true` or a valid production `confirmation` token is supplied.
      *

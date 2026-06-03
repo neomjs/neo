@@ -1,15 +1,146 @@
-import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {knownEmbeddingFunctions, registerEmbeddingFunction} from 'chromadb';
+
+export const CHROMA_DYNAMIC_TEXT_EMBEDDING_FUNCTION_NAME = 'dynamic_text_embedding_service';
+
+/**
+ * @summary Local Chroma embedding placeholder for collections that always provide raw vectors.
+ *
+ * Chroma 3.x serializes embedding functions as named "known" configs and later
+ * resolves them through its process-local registry while hydrating collection
+ * schemas. The Neo dummy function is intentionally not an npm package, so it must
+ * be registered locally before defrag / list / get-collection paths touch schema
+ * deserialization.
+ */
+class NeoDummyEmbeddingFunction {
+    static embeddingFunction = null;
+
+    /**
+     * @param {Object} embeddingFunction
+     * @returns {void}
+     */
+    static configure(embeddingFunction) {
+        assertEmbeddingFunction(embeddingFunction, 'dummyEmbeddingFunction');
+        this.embeddingFunction = embeddingFunction;
+    }
+
+    /**
+     * @returns {Object}
+     */
+    static buildFromConfig() {
+        return this.embeddingFunction
+    }
+}
+
+/**
+ * @summary Creates the canonical Memory Core dynamic text embedding function wrapper.
+ *
+ * Existing Memory Core collections serialize this name into their Chroma schema. The
+ * returned object satisfies Chroma's `IEmbeddingFunction` duck-type for both live
+ * collection creation and registry `buildFromConfig()` hydration.
+ *
+ * @param {Object} [options]
+ * @param {Function} [options.providerResolver] Returns the active embedding provider.
+ * @returns {Object}
+ */
+export function createDynamicTextEmbeddingFunction({providerResolver = null} = {}) {
+    const embeddingFunction = {
+        generate: async (texts) => {
+            const {default: TextEmbeddingService} = await import('../../memory-core/TextEmbeddingService.mjs');
+            const {default: aiConfig}             = await import('../../../mcp/server/memory-core/config.mjs');
+            const provider                        = providerResolver?.() ?? aiConfig.embeddingProvider;
+
+            return Promise.all(texts.map(text => TextEmbeddingService.embedText(text, provider)))
+        },
+        name       : CHROMA_DYNAMIC_TEXT_EMBEDDING_FUNCTION_NAME,
+        getConfig  : () => ({}),
+        constructor: {
+            buildFromConfig: () => createDynamicTextEmbeddingFunction({providerResolver})
+        }
+    };
+
+    return embeddingFunction
+}
+
+/**
+ * @summary Registry-backed wrapper for Memory Core's dynamic text embedding service.
+ *
+ * Registering it keeps SDK schema hydration on the local implementation path
+ * instead of falling through to `@chroma-core/dynamic_text_embedding_service`.
+ */
+class NeoDynamicTextEmbeddingService {
+    /**
+     * @returns {Object}
+     */
+    static buildFromConfig() {
+        return createDynamicTextEmbeddingFunction()
+    }
+}
+
+/**
+ * @summary Registers Neo-local Chroma embedding functions for SDK schema hydration.
+ *
+ * The dummy embedding function remains owned by the Tier-1 `AiConfig.dummyEmbeddingFunction`
+ * leaf. Callers that already own a config object pass that leaf in, keeping this registry
+ * free of local `ai/config.mjs` overlay coupling while still hydrating Chroma's process registry.
+ *
+ * @param {Object} [options]
+ * @param {Object|null} [options.dummyEmbeddingFunction=null] Tier-1 dummy EF leaf.
+ * @param {Boolean} [options.includeDynamicTextEmbedding=true] Register the Memory Core dynamic EF.
+ * @returns {String[]} Names registered during this call.
+ */
+export function registerNeoChromaEmbeddingFunctions({
+    dummyEmbeddingFunction      = null,
+    includeDynamicTextEmbedding = true
+} = {}) {
+    const registered = [];
+    const entries    = [];
+
+    if (dummyEmbeddingFunction) {
+        NeoDummyEmbeddingFunction.configure(dummyEmbeddingFunction);
+        entries.push([dummyEmbeddingFunction.name, NeoDummyEmbeddingFunction]);
+    }
+
+    if (includeDynamicTextEmbedding) {
+        entries.push([CHROMA_DYNAMIC_TEXT_EMBEDDING_FUNCTION_NAME, NeoDynamicTextEmbeddingService]);
+    }
+
+    for (const [name, EmbeddingFunction] of entries) {
+        if (!knownEmbeddingFunctions.has(name)) {
+            registerEmbeddingFunction(name, EmbeddingFunction);
+            registered.push(name);
+        }
+    }
+
+    return registered
+}
+
+/**
+ * @param {Object} embeddingFunction
+ * @param {String} label
+ * @returns {void}
+ * @throws {TypeError} When the value is not a Chroma embedding-function duck-type.
+ */
+function assertEmbeddingFunction(embeddingFunction, label) {
+    if (
+        !embeddingFunction ||
+        typeof embeddingFunction.name !== 'string' ||
+        typeof embeddingFunction.getConfig !== 'function' ||
+        typeof embeddingFunction.generate !== 'function'
+    ) {
+        throw new TypeError(`[ChromaClientPrimitives] ${label} must provide name, getConfig(), and generate().`)
+    }
+}
 
 /**
  * @summary Stateless helpers for the Chroma-client connection lifecycle, shared between the
- * Knowledge Base ChromaManager and Memory Core ChromaManager (#11111).
+ * Knowledge Base ChromaManager and Memory Core ChromaManager.
  *
  * Each per-subsystem ChromaManager remains the owner of its `this.client` (the chromadb
  * library's `ChromaClient` instance) so tests that mock-replace `ChromaManager.client =
  * fakeClient` continue to work without modification. This module exports plain functions
  * that read the client at call-time from the caller's argument list.
  *
- * **What this module owns (the dedup-eligible shared layer per #11111):**
+ * **What this module owns (the dedup-eligible shared layer):**
  *
  * 1. **`chromaConnect({client, logger})`** — heartbeat-based readiness check. Returns a
  *    boolean (true on success, false on failure). Non-throwing — the caller decides how to
@@ -20,14 +151,14 @@ import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared
  *    once (typically as a private field) so its `executeSilently` calls don't race each
  *    other's `console.warn` restore. Two filter shapes accepted:
  *      - `{filter: null}` (default) — blanket suppression of all `console.warn` for the
- *        duration of `fn`. Matches pre-#11111 KB behavior.
+ *        duration of `fn`. Matches the previous KB behavior.
  *      - `{filter: (msg) => boolean}` — predicate suppression; only messages whose joined-args
- *        string returns true are suppressed. Matches pre-#11111 MC behavior which filters
+ *        string returns true are suppressed. Matches the previous MC behavior which filters
  *        for four specific Chroma library warnings.
  *
  * 3. **`chromaDeleteCollection({client, name, subsystem, confirmation})`** — guarded delete
  *    wrapper. Routes through `assertCanonicalCollectionDeleteAllowed` with subsystem-scoped
- *    canonical-name refusal. The substrate-level invariant (#11652) fires regardless of
+ *    canonical-name refusal. The substrate-level invariant fires regardless of
  *    harness or config state.
  *
  * **What this module does NOT own (per V-B-A on the ticket's prescription):**
@@ -37,9 +168,8 @@ import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared
  *   `Neo.ai.services.knowledge-base.ChromaManager#resolveKnowledgeBaseCollection`) and MC
  *   (plain `getOrCreateCollection` for three named collections). Sharing would either flatten
  *   KB's swap safety or balloon the primitive with KB-specific phase awareness MC doesn't need.
- * - `ensureDummyEmbedding` — KB uses `aiConfig.dummyEmbeddingFunction` (static); MC instantiates
- *   a `TextEmbeddingService`-backed dynamic function per-call. Neither is shareable at the
- *   client-wrapper layer.
+ * - `ensureDummyEmbedding` — the dummy EF remains the Tier-1 `AiConfig.dummyEmbeddingFunction`
+ *   leaf. This module only registers that leaf with Chroma when a config owner passes it in.
  * - `disconnect()` — neither consumer currently has a disconnect path; the chromadb client is
  *   GC-managed. Speculative substrate per `feedback_truth_in_code`.
  *
@@ -63,7 +193,7 @@ import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared
  * plain module for stateless utility" idiom, and produce a smaller, easier-to-review diff.
  *
  * @module ai/services/shared/vector/chromaClientPrimitives
- * @see #11111
+ * @see chromaConnect
  */
 
 /**
@@ -156,6 +286,8 @@ export function createSilentExecutor() {
  * @see https://github.com/neomjs/neo/issues/11652
  */
 export async function chromaDeleteCollection({client, name, subsystem, confirmation} = {}) {
+    const {assertCanonicalCollectionDeleteAllowed} = await import('../../../mcp/server/shared/services/DestructiveOperationGuard.mjs');
+
     assertCanonicalCollectionDeleteAllowed({name, subsystem, confirmation});
     return await client.deleteCollection({name})
 }
