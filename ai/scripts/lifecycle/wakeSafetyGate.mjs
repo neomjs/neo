@@ -46,6 +46,10 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function defaultAiDataRoot() {
+    return path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(__dirname, '../../../.neo-ai-data'));
+}
+
 /**
  * Resolve the canonical state-file path under the wake-daemon data directory.
  * Resolved from `__dirname` rather than `process.cwd()` so the path is stable
@@ -59,7 +63,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @returns {string} Absolute path to the gate state file.
  */
 export function gateFilePath() {
-    return process.env.WAKE_GATE_FILE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/wake-safety-gate.json');
+    return process.env.WAKE_GATE_FILE_PATH || path.join(defaultAiDataRoot(), 'wake-daemon', 'wake-safety-gate.json');
 }
 
 /**

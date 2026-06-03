@@ -4,9 +4,13 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
-export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
+export const DEFAULT_AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT
+    ? path.resolve(process.env.NEO_AI_DATA_ROOT)
+    : '.neo-ai-data';
+export const DEFAULT_DB_PATH         = process.env.NEO_AI_DB_PATH || path.join(DEFAULT_AI_DATA_ROOT, 'sqlite', 'memory-core-graph.sqlite');
+export const DEFAULT_DATA_DIR        = process.env.NEO_AI_ORCHESTRATOR_DIR || path.join(DEFAULT_AI_DATA_ROOT, 'orchestrator-daemon');
+export const DEFAULT_CHROMA_DATA_DIR = path.join(DEFAULT_AI_DATA_ROOT, 'chroma', 'unified');
+export const DEFAULT_SCRIPT_DIR      = path.resolve(__dirname, '../../scripts');
 
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
@@ -28,6 +32,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
  * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
+ * @param {String} [options.chromaDataDir] Chroma persist directory.
  * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
@@ -44,6 +49,7 @@ export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
     chromaPort,
+    chromaDataDir = DEFAULT_CHROMA_DATA_DIR,
     mlxEnabled = false,
     mlxModel,
     mlxPort,
@@ -59,12 +65,10 @@ export function buildTaskDefinitions({
         chroma: {
             label          : 'chroma daemon',
             command        : 'chroma',
-            // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir
-            // — the SSOT that KB/MC configs + defragChromaDB read — under the standard
-            // cwd==repoRoot. Kept as a relative literal here (not SSOT-sourced) for daemon-launch
-            // resilience: a stale config.mjs lacking the SSOT key would otherwise launch the daemon
-            // with `--path undefined`. Keep this value in sync with engines.chroma.dataDir.
-            args           : ['run', '--path', '.neo-ai-data/chroma/unified', '--port', String(chromaPort)],
+            // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir.
+            // The default preserves the historical relative path unless `NEO_AI_DATA_ROOT` is set;
+            // Orchestrator passes the concrete config value after local config overlays are loaded.
+            args           : ['run', '--path', chromaDataDir, '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma',
             singletonPort  : chromaPort

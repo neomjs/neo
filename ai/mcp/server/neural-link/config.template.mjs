@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
 const cwd        = process.cwd();
+const aiDataRoot = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(neoRootDir, '.neo-ai-data'));
 
 
 
@@ -44,6 +45,12 @@ class Config extends BaseConfig {
              */
             neoRootDir: leaf(neoRootDir),
             /**
+             * Canonical Agent OS runtime data root shared with Memory Core, Knowledge Base,
+             * and local daemon logs.
+             * @type {string}
+             */
+            aiDataRoot: leaf(aiDataRoot, 'NEO_AI_DATA_ROOT', 'string'),
+            /**
              * Automatically connect to the bridge on startup.
              * @type {boolean}
              */
@@ -73,12 +80,12 @@ class Config extends BaseConfig {
              * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so
              * long-running inspection chains and DOM/VDOM introspection sweeps leave a
              * tail-able diagnostic trail observable from the host shell. Default:
-             * `<neoRootDir>/.neo-ai-data/logs/` — shared with the KB and Memory Core servers
+             * `<aiDataRoot>/logs/` — shared with the KB and Memory Core servers
              * (each uses a distinct filename prefix: `nl-server-`, `kb-server-`, `mc-server-`).
              * Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
+            logPath: leaf(path.join(aiDataRoot, 'logs')),
             /**
              * @summary Shared MCP logger policy for Neural Link.
              *

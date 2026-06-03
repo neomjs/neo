@@ -7,6 +7,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const BOOT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 export const MAX_ABANDONED_ACTIONS = 3;
 
+function defaultAiDataRoot() {
+    return path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(__dirname, '../../../.neo-ai-data'));
+}
+
 /**
  * @summary Build the absolute in-flight lock-file path for one identity/mode pair.
  * @param {string} mode Recovery action mode.
@@ -15,7 +19,7 @@ export const MAX_ABANDONED_ACTIONS = 3;
  */
 export function getLockPath(mode, identity) {
     const cleanIdentity = identity.replace(/[^a-zA-Z0-9_-]/g, '');
-    return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/inflight-${mode}-${cleanIdentity}.txt`);
+    return path.join(defaultAiDataRoot(), 'wake-daemon', `inflight-${mode}-${cleanIdentity}.txt`);
 }
 
 /**

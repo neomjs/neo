@@ -50,8 +50,9 @@ import {
 } from './queries.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
-const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
+const AI_DATA_ROOT             = process.env.NEO_AI_DATA_ROOT || '.neo-ai-data';
+const DB_PATH                  = process.env.NEO_AI_DB_PATH || path.join(AI_DATA_ROOT, 'sqlite', 'memory-core-graph.sqlite');
+const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || path.join(AI_DATA_ROOT, 'wake-daemon');
 const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
 const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'bridge.log');
 const LOG_RETENTION_DAYS       = 30;

@@ -29,8 +29,7 @@ export const DEFAULT_IDLE_WINDOW_MS = 15 * 60 * 1000;
  * @type {String}
  */
 export const DEFAULT_BACKOFF_STATE_FILE = path.resolve(
-    process.cwd(),
-    '.neo-ai-data',
+    process.env.NEO_AI_DATA_ROOT || path.join(process.cwd(), '.neo-ai-data'),
     'wake-daemon',
     'backoff.json'
 );

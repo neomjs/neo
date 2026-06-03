@@ -26,7 +26,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * `pulse()` by the Orchestrator's swarm-heartbeat lane.
  */
 function heartbeatAlivePath() {
-    return process.env.NEO_HEARTBEAT_ALIVE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/heartbeat.alive');
+    return process.env.NEO_HEARTBEAT_ALIVE_PATH
+        || aiConfig.wakeDaemonHeartbeatAlivePath
+        || path.join(path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(__dirname, '../../../.neo-ai-data')), 'wake-daemon', 'heartbeat.alive');
 }
 
 /**

@@ -11,6 +11,7 @@ const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
 const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
+const aiDataRoot  = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(neoRootDir, '.neo-ai-data'));
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
@@ -42,16 +43,26 @@ class Config extends BaseConfig {
             neoRootDir : leaf(neoRootDir),
             projectRoot: leaf(projectRoot),
             /**
+             * @summary Canonical Agent OS runtime data root.
+             *
+             * All local Agent OS runtime data that must survive across sibling worktrees
+             * resolves below this root unless a narrower path-specific env override is set.
+             * Operators can bind independent clones to one shared substrate by setting
+             * `NEO_AI_DATA_ROOT` to the canonical checkout's `.neo-ai-data` directory.
+             * @type {string}
+             */
+            aiDataRoot: leaf(aiDataRoot, 'NEO_AI_DATA_ROOT', 'string'),
+            /**
              * Universal JSONL backup/export directory for Agent OS databases.
              * @type {string}
              */
-            backupPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/backups'), 'NEO_BACKUP_PATH', 'string'),
+            backupPath: leaf(path.join(aiDataRoot, 'backups'), 'NEO_BACKUP_PATH', 'string'),
             /**
              * Path to the wake-daemon liveness sentinel touched on every swarm-heartbeat
              * pulse. Operators / tests can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`.
              * @type {string}
              */
-            wakeDaemonHeartbeatAlivePath: leaf(path.resolve(neoRootDir, '.neo-ai-data/wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
+            wakeDaemonHeartbeatAlivePath: leaf(path.join(aiDataRoot, 'wake-daemon', 'heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
             /**
              * Global debug flag for all AI processes.
              * @type {boolean}
@@ -287,7 +298,7 @@ class Config extends BaseConfig {
              */
             engines: {
                 chroma: {
-                    dataDir : leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
+                    dataDir : leaf(path.join(aiDataRoot, 'chroma', 'unified')),
                     host    : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     port    : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
                     /**

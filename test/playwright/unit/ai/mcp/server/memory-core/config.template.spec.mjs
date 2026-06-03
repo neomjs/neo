@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import {execFileSync} from 'child_process';
+import os from 'os';
 import path from 'path';
 import Neo from '../../../../../../../src/Neo.mjs';
 import BaseConfig, {createConfigProxy} from '../../../../../../../ai/BaseConfig.mjs';
@@ -130,6 +132,55 @@ test.describe('Memory Core Config (#10010)', () => {
     test('declares GraphLog compaction watermark paths', () => {
         expect(config.wakeDaemon.bridgeLastSyncIdPath).toContain('.neo-ai-data/wake-daemon/lastSyncId');
         expect(config.wakeDaemon.wakeSubscriptionLiveCursorPath).toContain('.neo-ai-data/wake-daemon/wakeSubscriptionLiveCursor');
+    });
+
+    test('NEO_AI_DATA_ROOT relocates Memory Core graph, wake, REM, dataset, and log defaults at boot', () => {
+        const aiDataRoot = path.join(os.tmpdir(), `neo-ai-data-root-${Date.now()}`);
+        const env = {
+            ...process.env,
+            NEO_AI_DATA_ROOT: aiDataRoot,
+            UNIT_TEST_MODE  : 'false'
+        };
+
+        delete env.NEO_MEMORY_DB_PATH;
+        delete env.NEO_AI_DAEMON_DIR;
+        delete env.NEO_BRIDGE_LAST_SYNC_ID_PATH;
+        delete env.NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE;
+        delete env.NEO_RLAIF_PATH;
+        delete env.NEO_REM_RUN_STATE_DIR;
+
+        const script = `
+            import './src/Neo.mjs';
+            import './src/core/_export.mjs';
+            const cfg = (await import('./ai/mcp/server/memory-core/config.template.mjs')).default;
+            process.stdout.write(JSON.stringify({
+                aiDataRoot: cfg.aiDataRoot,
+                graph: cfg.storagePaths.graph,
+                wakeDataDir: cfg.wakeDaemon.dataDir,
+                bridgeLastSyncIdPath: cfg.wakeDaemon.bridgeLastSyncIdPath,
+                wakeSubscriptionLiveCursorPath: cfg.wakeDaemon.wakeSubscriptionLiveCursorPath,
+                trajectories: cfg.datasets.rlaif.trajectories,
+                remRunStateDir: cfg.remRunStateDir,
+                logPath: cfg.logPath
+            }));
+        `;
+        const output = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: path.resolve(process.cwd()),
+            env,
+            encoding: 'utf8'
+        });
+        const actual = JSON.parse(output);
+
+        expect(actual).toEqual({
+            aiDataRoot,
+            graph                             : path.join(aiDataRoot, 'sqlite', 'memory-core-graph.sqlite'),
+            wakeDataDir                       : path.join(aiDataRoot, 'wake-daemon'),
+            bridgeLastSyncIdPath              : path.join(aiDataRoot, 'wake-daemon', 'lastSyncId'),
+            wakeSubscriptionLiveCursorPath    : path.join(aiDataRoot, 'wake-daemon', 'wakeSubscriptionLiveCursor'),
+            trajectories                      : path.join(aiDataRoot, 'datasets', 'rlaif', 'trajectories.jsonl'),
+            remRunStateDir                    : path.join(aiDataRoot, 'rem-runs'),
+            logPath                           : path.join(aiDataRoot, 'logs')
+        });
     });
 
     test('env overrides GraphLog compaction watermark paths', () => {

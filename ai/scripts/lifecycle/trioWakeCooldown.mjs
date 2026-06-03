@@ -17,8 +17,9 @@ import GraphService from '../../services/memory-core/GraphService.mjs';
 import MailboxService from '../../services/memory-core/MailboxService.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
-const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
-const COOLDOWN_LOCK_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.lock';
+const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || '.neo-ai-data';
+const COOLDOWN_STATE_PATH = path.join(AI_DATA_ROOT, 'wake-daemon', 'trio-wake-cooldown.json');
+const COOLDOWN_LOCK_PATH = path.join(AI_DATA_ROOT, 'wake-daemon', 'trio-wake-cooldown.lock');
 
 /**
  * @summary Dispatch the cooldown-bounded swarm-wide wake for an all-agent-idle signal.

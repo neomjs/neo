@@ -19,7 +19,8 @@ const __dirname  = path.dirname(__filename);
 
 const neoRootDir        = path.resolve(__dirname, '../../../../');
 const cwd               = neoRootDir;
-const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.resolve(cwd, '.neo-ai-data/wake-daemon'));
+const aiDataRoot        = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(cwd, '.neo-ai-data'));
+const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.join(aiDataRoot, 'wake-daemon'));
 const DAY_MS            = 24 * 60 * 60 * 1000;
 
 /**
@@ -55,6 +56,15 @@ class Config extends BaseConfig {
              * @type {string}
              */
             neoRootDir: leaf(neoRootDir),
+            /**
+             * @summary Canonical Agent OS runtime data root for Memory Core-owned files.
+             *
+             * Defaults to `<neoRootDir>/.neo-ai-data`; setting `NEO_AI_DATA_ROOT` relocates
+             * graph SQLite, wake-daemon watermarks, REM state, logs, and datasets together
+             * without requiring each sibling path to be overridden separately.
+             * @type {string}
+             */
+            aiDataRoot: leaf(aiDataRoot, 'NEO_AI_DATA_ROOT', 'string'),
             /**
              * Global debug flag for all MCP servers.
              * @type {boolean}
@@ -119,7 +129,7 @@ class Config extends BaseConfig {
              * Physical file paths for embedded/local datasets.
              */
             storagePaths: {
-                graph: leaf(process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string')
+                graph: leaf(process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : path.join(aiDataRoot, 'sqlite', 'memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string')
             },
             /**
              * Durable wake-daemon watermarks consumed by GraphLog maintenance.
@@ -144,14 +154,14 @@ class Config extends BaseConfig {
              */
             datasets: {
                 rlaif: {
-                    trajectories: leaf(path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string')
+                    trajectories: leaf(path.join(aiDataRoot, 'datasets', 'rlaif', 'trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string')
                 }
             },
             /**
              * Directory for per-cycle REM run/stage JSONL state artifacts.
              * @type {string}
              */
-            remRunStateDir: leaf(path.resolve(cwd, '.neo-ai-data/rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
+            remRunStateDir: leaf(path.join(aiDataRoot, 'rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
             /**
              * Number of recent REM cycles projected by `get_rem_pipeline_state`.
              * @type {number}
@@ -233,12 +243,12 @@ class Config extends BaseConfig {
              * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-
              * running operations (summarization, ingestion sweeps, ChromaDB lifecycle) leave
              * a tail-able diagnostic trail observable from the host shell.
-             * Default: `<neoRootDir>/.neo-ai-data/logs/` — shared with the KB and Neural
+             * Default: `<aiDataRoot>/logs/` — shared with the KB and Neural
              * Link servers (each uses a distinct filename prefix: `mc-server-`, `kb-server-`,
              * `nl-server-`). Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs')),
+            logPath: leaf(path.join(aiDataRoot, 'logs')),
             /**
              * @summary Shared MCP logger policy for Memory Core.
              *

@@ -23,7 +23,7 @@ import Neo               from '../../../../../../src/Neo.mjs';
 import * as core         from '../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Validation for the Wake Safety Gate primitive (#10648, child of #10647).
+ * @summary Validation for the Wake Safety Gate primitive.
  *
  * Covers the deny-by-default discipline (missing file → tripped), state-file
  * round-trip (enable / disable / trip), CLI surface (check / reason / show),
@@ -97,6 +97,26 @@ test.describe('ai/scripts/wakeSafetyGate', () => {
         expect(written.state).toBe('enabled');
 
         expect(runCli(['check']).status).toBe(0);
+    });
+
+    test('NEO_AI_DATA_ROOT relocates the default gate file when no path-specific override is set', () => {
+        const aiDataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-ai-data-root-'));
+        const env = {...process.env, NEO_AI_DATA_ROOT: aiDataRoot};
+        delete env.WAKE_GATE_FILE_PATH;
+
+        try {
+            execFileSync(process.execPath, [scriptPath, 'enable'], {
+                encoding: 'utf-8',
+                stdio   : 'pipe',
+                env
+            });
+
+            const rootedGatePath = path.join(aiDataRoot, 'wake-daemon', 'wake-safety-gate.json');
+            const written = JSON.parse(fs.readFileSync(rootedGatePath, 'utf-8'));
+            expect(written.state).toBe('enabled');
+        } finally {
+            fs.rmSync(aiDataRoot, {recursive: true, force: true});
+        }
     });
 
     test('CLI trip writes tripped state with reason and trippedBy', () => {

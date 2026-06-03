@@ -19,7 +19,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE_DIR = path.resolve(__dirname, '../../../.neo-ai-data/harness-state');
+const STATE_DIR = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(__dirname, '../../../.neo-ai-data'), 'harness-state');
 
 function sanitize(identity) {
     return identity.replace(/[^a-zA-Z0-9_-]/g, '');

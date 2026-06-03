@@ -41,6 +41,9 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // Mock the SQLite target path to a safe pure temporary location
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         aiConfig.storagePaths.graph = testDbPath;
+        if (!aiConfig.engines) aiConfig.engines = {};
+        if (!aiConfig.engines.chroma) aiConfig.engines.chroma = {};
+        aiConfig.engines.chroma.database = aiConfig.engines.chroma.database || `graph-service-test-${process.pid}-${Date.now()}`;
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory = `test-memory-${Date.now()}`;
         aiConfig.collections.session = `test-session-${Date.now()}`;
@@ -580,7 +583,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     // ----------------------------------------------------------------------------------------
-    // linkNodesAsync + ensureNodeExists + normalizeGraphNodeId (#10153) — lazy back-fill path.
+    // linkNodesAsync + ensureNodeExists + normalizeGraphNodeId — lazy back-fill path.
     // Sync `linkNodes` preserved unchanged for existing callers; these tests exercise the
     // async path that resolves missing endpoints via `MemorySessionIngestor.ingestSingleRow`.
     // ----------------------------------------------------------------------------------------
@@ -752,6 +755,39 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         const broadcast = await GraphService.getNode({id: 'AGENT:*'});
         expect(broadcast).toBeTruthy();
         expect(broadcast.type).toBe('BroadcastSentinel');
+    });
+
+    test('boot identity seeding is additive and does not garbage-collect existing AgentIdentity nodes (#12417)', async () => {
+        const legacyIdentityId = '@legacy-clone-only';
+
+        await GraphService.upsertNode({
+            id        : legacyIdentityId,
+            type      : 'AgentIdentity',
+            name      : 'Legacy Clone Only',
+            properties: {
+                githubLogin        : 'legacy-clone-only',
+                participationStatus: 'inactive',
+                createdAt          : '2026-06-03T00:00:00.000Z'
+            }
+        });
+
+        // Let the SQLite write land, then simulate a fresh Memory Core boot on the
+        // same shared DB from a checkout whose identityRoots source does not contain
+        // this legacy identity.
+        await new Promise(resolve => setTimeout(resolve, 50));
+        GraphService._initPromise = null;
+        GraphService.db = null;
+
+        await GraphService.initAsync();
+
+        const preserved = await GraphService.getNode({id: legacyIdentityId});
+        const row = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(legacyIdentityId);
+        const preservedRecord = JSON.parse(row.data);
+
+        expect(preserved).toBeTruthy();
+        expect(preserved.type).toBe('AgentIdentity');
+        expect(preservedRecord.properties.githubLogin).toBe('legacy-clone-only');
+        expect(preservedRecord.properties.createdAt).toBe('2026-06-03T00:00:00.000Z');
     });
 
     test('cross-tenant data isolation and identity stamping', async () => {

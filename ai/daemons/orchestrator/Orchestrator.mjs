@@ -440,16 +440,17 @@ export class Orchestrator extends Base {
         const lmsPreloadConfig = this.lmsPreloadConfig;
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
-            nodeBin   : options.nodeBin || process.argv[0],
-            chromaPort: AiConfig.engines.chroma?.port,
-            mlxEnabled: this.mlxEnabled,
-            mlxModel  : AiConfig.orchestrator.mlx?.model,
-            mlxPort   : AiConfig.orchestrator.mlx?.port,
-            lmsEnabled: this.lmsEnabled,
-            lmsModel  : AiConfig.orchestrator.lms?.model,
-            lmsModels : lmsPreloadConfig.models,
-            lmsHost   : AiConfig.openAiCompatible?.host,
-            lmsPort   : AiConfig.orchestrator.lms?.port,
+            nodeBin      : options.nodeBin || process.argv[0],
+            chromaPort   : AiConfig.engines.chroma?.port,
+            chromaDataDir: AiConfig.engines.chroma?.dataDir,
+            mlxEnabled   : this.mlxEnabled,
+            mlxModel     : AiConfig.orchestrator.mlx?.model,
+            mlxPort      : AiConfig.orchestrator.mlx?.port,
+            lmsEnabled   : this.lmsEnabled,
+            lmsModel     : AiConfig.orchestrator.lms?.model,
+            lmsModels    : lmsPreloadConfig.models,
+            lmsHost      : AiConfig.openAiCompatible?.host,
+            lmsPort      : AiConfig.orchestrator.lms?.port,
             lmsContextLengths: lmsPreloadConfig.contextLengths,
             providerReadiness: AiConfig.orchestrator.providerReadiness
         });

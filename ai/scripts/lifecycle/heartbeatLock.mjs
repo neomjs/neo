@@ -21,7 +21,9 @@ import fs      from 'fs-extra';
 import path    from 'path';
 import {fileURLToPath} from 'url';
 
-export const HEARTBEAT_LOCK_PATH = '.neo-ai-data/heartbeat-concurrency.lock';
+const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || '.neo-ai-data';
+
+export const HEARTBEAT_LOCK_PATH = path.join(AI_DATA_ROOT, 'heartbeat-concurrency.lock');
 export const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000;
 
 /**

@@ -94,6 +94,10 @@ node ai/scripts/bootstrapWorktree.mjs --link-data --build-all
 
 It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`) and — with `--link-data` — symlinks gitignored shared data substrates from the main checkout: `.neo-ai-data/` subdirs plus gitignored single-file handoffs such as `resources/content/sandman_handoff.md`. Independent sibling clones (Codex / Antigravity style) cannot infer the canonical checkout from `git worktree list`; pass `--canonical-root <canonical-checkout>` or set `NEO_AI_CANONICAL_ROOT`. Idempotent; no-op from the main checkout.
 
+`NEO_AI_DATA_ROOT` is the tracked config/runtime equivalent of the data symlink for independent clones: set it to the canonical checkout's `.neo-ai-data` directory to make Memory Core graph SQLite, Chroma, wake-daemon state, REM state, and shared Agent OS logs resolve against one durable substrate. Narrower path-specific overrides still win (`NEO_AI_DB_PATH`, `NEO_MEMORY_DB_PATH`, `NEO_AI_DAEMON_DIR`, `NEO_HEARTBEAT_ALIVE_PATH`, etc.). `--link-data` remains the default for true git worktrees; `NEO_AI_DATA_ROOT` covers clone layouts where symlinking the data directories is not practical.
+
+Identity root seeding is additive: Memory Core upserts identities present in the current checkout's `ai/graph/identityRoots.mjs`, but does not delete AgentIdentity nodes absent from that source. This makes a shared data root robust against stale clone seed sources after a canonical checkout has seeded a new identity. It also means identity-node cleanup is a separate reconcile/GC concern, not part of routine worktree bootstrap.
+
 **Per-task-class invocation guidance (per #10351):**
 - **Docs-only tickets** — `--link-data` is sufficient (no `node_modules` needed; the worktree filesystem itself + the data unification covers everything).
 - **Backend / MCP / unit-test tickets** — add `--install`. Empirical anchor: ~17s for `npm install` on a populated local cache (808 packages observed); `bundle-parse5` adds ~1-2s and IS required for the unit-test runner. Skips both if `node_modules/` already exists in the worktree.

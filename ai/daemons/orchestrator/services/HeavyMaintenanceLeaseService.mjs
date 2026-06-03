@@ -4,7 +4,8 @@ import path   from 'path';
 import Neo    from '../../../../src/Neo.mjs';
 import Base   from '../../../../src/core/Base.mjs';
 
-export const DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH = '.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json';
+export const DEFAULT_AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || '.neo-ai-data';
+export const DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH = path.join(DEFAULT_AI_DATA_ROOT, 'orchestrator-daemon', 'heavy-maintenance-lease.json');
 export const DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS = 6 * 60 * 60 * 1000;
 
 /**
@@ -594,7 +595,7 @@ export class HeavyMaintenanceLeaseService extends Base {
          */
         singleton: true,
         /**
-         * @member {String} leasePath_='.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json'
+         * @member {String} leasePath_=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH
          * @protected
          * @reactive
          */

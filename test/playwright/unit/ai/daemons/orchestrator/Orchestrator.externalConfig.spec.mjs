@@ -1,13 +1,15 @@
 import {test, expect} from '@playwright/test';
 import fs   from 'fs/promises';
+import os   from 'os';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import {fileURLToPath, pathToFileURL} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
 
 const DAEMON_DIR = path.join(REPO_ROOT, 'ai/daemons');
+const TASK_DEFINITIONS_URL = pathToFileURL(path.join(REPO_ROOT, 'ai/daemons/orchestrator/TaskDefinitions.mjs')).href;
 
 const NEO_TEAM_IDENTITY_LITERAL_RE   = /['"`]@neo-(?:opus-4-7|gpt|gemini-3-1-pro)['"`]/g;
 const NEO_TEAM_PROJECT_LITERAL_RE    = /['"`]Project 12['"`]|['"`]v13['"`]|['"`]release:v\d+['"`]/g;
@@ -171,5 +173,45 @@ test.describe('Orchestrator external-config audit invariants (#11837 AC1-3)', ()
             findings,
             `Operator-specific absolute paths break on every external checkout (forks, CI runners, npx neo-app workspaces, cloud containers). All paths in daemon code MUST resolve relative to checkout root via existing Neo path helpers (path.resolve(...), path.join(neoRootDir, ...), etc.). Offending lines:\n${findings.map(f => `  ${f.file}:${f.line} — ${f.match}`).join('\n')}`
         ).toEqual([]);
+    });
+});
+
+test.describe('Orchestrator shared data-root defaults (#12417)', () => {
+    let originalEnv;
+
+    test.beforeEach(() => {
+        originalEnv = {...process.env};
+    });
+
+    test.afterEach(() => {
+        Object.keys(process.env).forEach(key => {
+            if (!(key in originalEnv)) {
+                delete process.env[key];
+            } else {
+                process.env[key] = originalEnv[key];
+            }
+        });
+    });
+
+    test('NEO_AI_DATA_ROOT relocates SQLite, orchestrator state, and Chroma task defaults', async () => {
+        const aiDataRoot = path.join(os.tmpdir(), `neo-ai-data-root-${Date.now()}`);
+
+        process.env.NEO_AI_DATA_ROOT = aiDataRoot;
+        delete process.env.NEO_AI_DB_PATH;
+        delete process.env.NEO_AI_ORCHESTRATOR_DIR;
+
+        const taskDefinitions = await import(`${TASK_DEFINITIONS_URL}?root=${Date.now()}`);
+        const tasks = taskDefinitions.buildTaskDefinitions({chromaPort: 9123});
+
+        expect(taskDefinitions.DEFAULT_DB_PATH).toBe(path.join(aiDataRoot, 'sqlite', 'memory-core-graph.sqlite'));
+        expect(taskDefinitions.DEFAULT_DATA_DIR).toBe(path.join(aiDataRoot, 'orchestrator-daemon'));
+        expect(taskDefinitions.DEFAULT_CHROMA_DATA_DIR).toBe(path.join(aiDataRoot, 'chroma', 'unified'));
+        expect(tasks.chroma.args).toEqual([
+            'run',
+            '--path',
+            path.join(aiDataRoot, 'chroma', 'unified'),
+            '--port',
+            '9123'
+        ]);
     });
 });

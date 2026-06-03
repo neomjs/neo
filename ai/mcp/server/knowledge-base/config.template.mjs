@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
+const aiDataRoot = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(neoRootDir, '.neo-ai-data'));
 
 
 
@@ -38,6 +39,11 @@ class Config extends BaseConfig {
          */
         data: {
             neoRootDir: leaf(neoRootDir),
+            /**
+             * Canonical Agent OS runtime data root shared with Memory Core and the Chroma daemon.
+             * @type {string}
+             */
+            aiDataRoot: leaf(aiDataRoot, 'NEO_AI_DATA_ROOT', 'string'),
             /**
              * Global debug flag for all MCP servers.
              *
@@ -151,10 +157,10 @@ class Config extends BaseConfig {
              * Directory for the always-on KB server diagnostic log files. The KB server's
              * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-running
              * operations (sync, embedding loops, ChromaDB lifecycle) leave a tail-able diagnostic
-             * trail observable from the host shell. Default: `<neoRootDir>/.neo-ai-data/logs/`.
+             * trail observable from the host shell. Default: `<aiDataRoot>/logs/`.
              * @type {string}
              */
-            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
+            logPath: leaf(path.join(aiDataRoot, 'logs')),
             /**
              * @summary Shared MCP logger policy for Knowledge Base.
              *
