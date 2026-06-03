@@ -5,6 +5,7 @@ import {listTools, callTool}       from './toolService.mjs';
 import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
 import RequestContextService       from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';
+import BootEnvelopeResolver        from '../shared/services/BootEnvelopeResolver.mjs';
 import {
     formatHarnessGroups,
     groupProcessesByHarness
@@ -175,11 +176,20 @@ class Server extends BaseServer {
             if (this.stdioIdentity?.agentIdentityNodeId) {
                 (async () => {
                     try {
+                        // Per-instance wake address from the boot envelope (machine-specific). Null
+                        // for the default instance; throws on a misconfigured envelope, which the
+                        // boundary below logs and skips — fail-closed (no subscription beats a
+                        // misrouted one).
+                        const overrideMetadata = BootEnvelopeResolver.resolveOverrideMetadata();
+
                         const result = await RequestContextService.run(
                             this.stdioIdentity,
-                            () => WakeSubscriptionService.bootstrap()
+                            () => WakeSubscriptionService.bootstrap(overrideMetadata ? {overrideMetadata} : {})
                         );
-                        logger.info(`[neo-memory-core MCP] Wake subscription auto-bootstrap: ${result.status} (${result.subscriptionId})`);
+
+                        // Log the address kind only, never the address value (no path leakage).
+                        const addressNote = overrideMetadata ? ` [address: ${overrideMetadata.addressType}]` : '';
+                        logger.info(`[neo-memory-core MCP] Wake subscription auto-bootstrap: ${result.status} (${result.subscriptionId})${addressNote}`);
                     } catch (err) {
                         logger.warn(`[neo-memory-core MCP] Wake subscription auto-bootstrap skipped (non-fatal): ${err.message}`);
                     }
