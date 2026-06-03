@@ -22,6 +22,18 @@ Two properties fall out of "each layer owns only its slice":
 
 A config's `data` is a *meta-leaf tree* — each leaf is `leaf(default, env?, type?)`. `BaseConfig.compileMetaLeaves` walks it into (a) plain reactive data and (b) a metadata registry keyed by dotted path. A bounded **env layer** then overlays environment variables onto env-bound leaves — re-resolved at construction and on explicit refresh, never live-per-read (a port that silently moves without a coordinated restart is a footgun, not a feature). See `ai/BaseConfig.mjs`.
 
+## Runtime access and test seams
+
+The singleton configs are the source-of-truth providers, not mutable scratchpads. Runtime code must read resolved leaves from the relevant provider (`AiConfig`, `MemoryCoreConfig`, and other server configs) instead of recomputing template defaults or writing ad-hoc fallbacks next to each consumer. Derived paths belong in template leaves/formulas, so a changed Tier-1 root updates every consumer through the Provider chain.
+
+Tests follow the same boundary. Do **not** mutate config singletons to steer behavior (`AiConfig.somePath = ...`, `memoryCoreConfig.somePath = ...`, etc.); that hides stale consumers and leaks state across import order. Use one of the explicit seams instead:
+
+- construct a fresh config/provider under controlled env before import;
+- run a subprocess with the intended env envelope when singleton import order matters;
+- pass the value through a narrow constructor/method/test option when the code under test already has a runtime seam.
+
+If none of those seams exists, add the seam or model the value as a leaf/formula first. Mutating the singleton is evidence that the configurable boundary is in the wrong layer.
+
 ## Templates, overlays, and why advancement is *inheritance*
 
 Each config exists as a pair: a tracked `config.template.mjs` (the canonical defaults) and a gitignored `config.mjs` (the operator overlay). The overlay's job is to carry the operator's **deltas** — nothing more.
