@@ -21,6 +21,7 @@ import PrimaryRepoSyncService from './services/PrimaryRepoSyncService.mjs';
 import TenantRepoSyncService             from './services/TenantRepoSyncService.mjs';
 import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary.mjs';
 import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
+import {getDueTask as graphLogCompactionGetDueTaskImport} from './scheduling/graphLogCompaction.mjs';
 import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
 import {getDueTask as dreamGetDueTaskImport}          from './scheduling/dream.mjs';
 import TaskStateService                  from './services/TaskStateService.mjs';
@@ -152,8 +153,8 @@ function resolveCloudOnlyEnabled(key) {
  * - **(C) Simple imported collaborator** — direct-import instance fields
  *   (`primaryRepoSyncService`, `dreamService`, etc.) for class-shaped execution
  *   collaborators, and function-typed instance fields
- *   (`summaryGetDueTask`, `backupGetDueTask`, `primaryDevSyncGetDueTask`,
- *   `dreamGetDueTask`) for
+ *   (`summaryGetDueTask`, `backupGetDueTask`, `graphLogCompactionGetDueTask`,
+ *   `primaryDevSyncGetDueTask`, `dreamGetDueTask`) for
  *   pure-function scheduling triggers from `./scheduling/<task>.mjs` — no
  *   class-system conversion, no parent-child propagation, no lifecycle side effect.
  *   The function-typed fields default to the imported pure functions so tests can
@@ -253,6 +254,7 @@ export class Orchestrator extends Base {
     initializeDatabaseFn     = initializeDatabaseSelfBootstrap
     summaryGetDueTask        = summaryGetDueTaskImport
     backupGetDueTask         = backupGetDueTaskImport
+    graphLogCompactionGetDueTask = graphLogCompactionGetDueTaskImport
     primaryDevSyncGetDueTask = primaryDevSyncGetDueTaskImport
     tenantRepoSyncGetDueTask = tenantRepoSyncGetDueTaskImport
     dreamGetDueTask          = dreamGetDueTaskImport
@@ -397,6 +399,7 @@ export class Orchestrator extends Base {
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
+    get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
 
     // MLX + LM Studio CLI inference-server lane config. Canonical defaults + env overrides
     // live in `ai/config.template.mjs::orchestrator.{mlx,lms}` + `envBindings.orchestrator.{mlx,lms}`.
@@ -451,7 +454,8 @@ export class Orchestrator extends Base {
             lmsHost   : AiConfig.openAiCompatible?.host,
             lmsPort   : AiConfig.orchestrator.lms?.port,
             lmsContextLengths: lmsPreloadConfig.contextLengths,
-            providerReadiness: AiConfig.orchestrator.providerReadiness
+            providerReadiness: AiConfig.orchestrator.providerReadiness,
+            graphLogCompactionVacuum: AiConfig.orchestrator.graphLogCompaction.vacuum
         });
 
         // Non-reactive boot-wrapper-provided instance state
@@ -714,6 +718,15 @@ export class Orchestrator extends Base {
                 state           : this.taskStateService.getState(),
                 now,
                 backupIntervalMs: AiConfig.orchestrator.intervals.backupMs
+            });
+        }, executeMaintenanceTask(executeTask), context);
+
+        this.cadenceEngine.runIfDue('graphlog-compaction', () => {
+            return this.graphLogCompactionGetDueTask({
+                state                        : this.taskStateService.getState(),
+                now,
+                graphLogCompactionIntervalMs: AiConfig.orchestrator.intervals.graphLogCompactionMs,
+                enabled                      : this.graphLogCompactionEnabled
             });
         }, executeMaintenanceTask(executeTask), context);
 

@@ -45,6 +45,11 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         ]));
     });
 
+    test('graphlog-compaction stays out until collectDueCandidates is wired into Orchestrator.poll()', () => {
+        const names = TASK_REGISTRY.map(d => d.taskName);
+        expect(names).not.toContain('graphlog-compaction');
+    });
+
     test('continuous tasks (chroma/bridgeDaemon/mlx) are intentionally NOT in registry', () => {
         const names = TASK_REGISTRY.map(d => d.taskName);
         expect(names).not.toContain('chroma');
