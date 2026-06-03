@@ -23,7 +23,7 @@ import ChromaLifecycleService from '../../../../../../ai/services/memory-core/li
 import MailboxService  from '../../../../../../ai/services/memory-core/MailboxService.mjs';
 
 /**
- * @summary Coverage for the #10176 identity observability block in the healthcheck payload.
+ * @summary Coverage for the identity observability block in the healthcheck payload.
  *
  * The integration test (HealthService.healthcheck() end-to-end) requires ChromaDB + StorageRouter
  * + multiple service singletons. Those are out of scope here — this spec pins the PURE projection
@@ -43,9 +43,10 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
 
     test('null state projects to unresolved + unbound', () => {
         expect(buildIdentityBlock(null)).toEqual({
-            source: 'unresolved',
-            bound : false,
-            nodeId: null
+            source : 'unresolved',
+            bound  : false,
+            nodeId : null,
+            warning: null
         });
     });
 
@@ -55,15 +56,16 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         // same observable state. This covers the explicit-shape path.
         const state = {userId: null, agentIdentityNodeId: null, source: 'unresolved'};
         expect(buildIdentityBlock(state)).toEqual({
-            source: 'unresolved',
-            bound : false,
-            nodeId: null
+            source : 'unresolved',
+            bound  : false,
+            nodeId : null,
+            warning: null
         });
     });
 
     test('env-var resolution with matching graph node projects to bound', () => {
         // The expected success shape for A2A operation: NEO_AGENT_IDENTITY env var pinned at
-        // harness level, graph node seeded (#10232 boot-time self-seed), bindAgentIdentity
+        // harness level, graph node seeded during boot-time self-seed, bindAgentIdentity
         // resolved the node at boot.
         const state = {
             userId             : 'neo-opus-4-7',
@@ -71,9 +73,10 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
             source             : 'env-var'
         };
         expect(buildIdentityBlock(state)).toEqual({
-            source: 'env-var',
-            bound : true,
-            nodeId: '@neo-opus-4-7'
+            source : 'env-var',
+            bound  : true,
+            nodeId : '@neo-opus-4-7',
+            warning: null
         });
     });
 
@@ -86,27 +89,62 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
             source             : 'gh-cli'
         };
         expect(buildIdentityBlock(state)).toEqual({
-            source: 'gh-cli',
-            bound : true,
-            nodeId: '@tobiu'
+            source : 'gh-cli',
+            bound  : true,
+            nodeId : '@tobiu',
+            warning: null
         });
     });
 
-    test('resolved userId without graph node projects to unbound (seed-state failure signal)', () => {
-        // Diagnostic shape: resolver worked (env-var or gh-cli yielded a login), but the
-        // AgentIdentity graph node for that login doesn't exist. This is THE signal #10176
-        // was filed to surface — operator immediately knows to run seedAgentIdentities.mjs
-        // OR verify #10232 self-seed fired on boot.
+    test('env-var userId without graph node projects a structured warning', () => {
+        // Diagnostic shape: resolver worked, but the AgentIdentity graph node for that
+        // login does not exist. The operator can immediately check identity seeding
+        // instead of mining boot logs.
         const state = {
-            userId             : 'neo-opus-4-7',
+            userId             : 'neo-claude-opus',
             agentIdentityNodeId: null,
             source             : 'env-var'
         };
+
+        const block = buildIdentityBlock(state);
+
+        expect(block.source).toBe('env-var');
+        expect(block.bound).toBe(false);
+        expect(block.nodeId).toBeNull();
+        expect(block.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
+        expect(block.warning).toContain('stale checkout');
+        expect(block.warning).toContain('ai/scripts/setup/seedAgentIdentities.mjs');
+        expect(block.warning).toContain('ai/graph/identityRoots.mjs');
+    });
+
+    test('gh-cli userId without graph node stays unbound without warning', () => {
+        const state = {
+            userId             : 'local-human',
+            agentIdentityNodeId: null,
+            source             : 'gh-cli'
+        };
+
         expect(buildIdentityBlock(state)).toEqual({
-            source: 'env-var',
-            bound : false,
-            nodeId: null
+            source : 'gh-cli',
+            bound  : false,
+            nodeId : null,
+            warning: null
         });
+    });
+
+    test('cloud request identity sources stay unbound without warning', () => {
+        for (const source of ['proxy-header', 'oidc']) {
+            expect(buildIdentityBlock({
+                userId             : 'tenant-user',
+                agentIdentityNodeId: null,
+                source
+            })).toEqual({
+                source,
+                bound  : false,
+                nodeId : null,
+                warning: null
+            });
+        }
     });
 
     test('missing source defaults to unresolved', () => {
@@ -119,15 +157,16 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
             // no source
         };
         expect(buildIdentityBlock(state)).toEqual({
-            source: 'unresolved',
-            bound : true,
-            nodeId: '@neo-opus-4-7'
+            source : 'unresolved',
+            bound  : true,
+            nodeId : '@neo-opus-4-7',
+            warning: null
         });
     });
 });
 
 /**
- * @summary Coverage for the #11009 orchestrator task outcome projection.
+ * @summary Coverage for the orchestrator task outcome projection.
  *
  * The end-to-end healthcheck path requires mounted Memory Core dependencies. This spec
  * pins the pure projection used by `HealthService.recordTaskOutcome()` so operators get
@@ -161,7 +200,7 @@ test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
 });
 
 /**
- * @summary Coverage for the #12382 request-fresh cached healthcheck path.
+ * @summary Coverage for the request-fresh cached healthcheck path.
  *
  * The live bug was in the healthy-cache fast path: direct healthcheck callers observed the cached
  * payload's original `timestamp` and collection counts even after later writes. The tests patch the
@@ -229,6 +268,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         MailboxService.getHealthcheckPreview     = async () => ({unreadCount: 0, latestPreview: null});
         process.env.GEMINI_API_KEY               = 'unit-test-key';
 
+        HealthService.setStdioIdentityState(null);
         HealthService.clearCache();
     });
 
@@ -249,6 +289,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
         MailboxService.getHealthcheckPreview     = originals.getHealthcheckPreview;
 
+        HealthService.setStdioIdentityState(null);
         HealthService.clearCache();
     });
 
@@ -282,6 +323,27 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
     });
 
+    test('healthy healthcheck echoes env-pinned unbound identity warning without changing status', async () => {
+        HealthService.setStdioIdentityState({
+            userId             : 'neo-claude-opus',
+            agentIdentityNodeId: null,
+            source             : 'env-var'
+        });
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.status).toBe('healthy');
+        expect(result.identity).toMatchObject({
+            source : 'env-var',
+            bound  : false,
+            nodeId : null
+        });
+        expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
+        expect(result.details).toContain('Connected to the orchestrator-managed ChromaDB instance');
+        expect(result.details).toContain(`WARN: ${result.identity.warning}`);
+        expect(result.details).toContain('All features are operational');
+    });
+
     test('unhealthy cached-refresh shape clears cache and falls through to a full healthcheck', async () => {
         const cached = await HealthService.healthcheck();
 
@@ -302,7 +364,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 });
 
 /**
- * @summary Coverage for Chroma migration observability after #11181.
+ * @summary Coverage for Chroma migration observability.
  *
  * The live regression was not just "missing userId"; restored session summaries also had
  * single-peer userIds while `participatingAgents` named another core swarm maintainer. This
@@ -355,9 +417,9 @@ test.describe('HealthService #11181 — buildChromaMigrationStats', () => {
 });
 
 /**
- * @summary Coverage for the #10127 topology observability block in the healthcheck payload.
+ * @summary Coverage for the topology observability block in the healthcheck payload.
  *
- * Mirrors the #10176 precedent above: the end-to-end integration path requires a live ChromaDB
+ * Mirrors the identity-observability precedent above: the end-to-end integration path requires a live ChromaDB
  * plus the full StorageRouter/ChromaManager singleton bootstrap, which is out of scope for a
  * pure-projection unit test. This spec pins the contract of `buildTopologyBlock` — the module-scope
  * pure function consumed from `#performHealthCheck` to fill `database.topology`. Integration
@@ -379,7 +441,7 @@ test.describe('HealthService #10127, #11011 — buildTopologyBlock', () => {
     });
 
     test('unified mode surfaces engines.chroma coordinates + resolvedVia path', () => {
-        // Post-#11011: The federated topology is retired. Memory Core reads the shared
+        // After federated-topology retirement, Memory Core reads the shared
         // unified instance coordinates directly from `engines.chroma`.
         const cfg = {
             engines: {
@@ -412,7 +474,7 @@ test.describe('HealthService #10127, #11011 — buildTopologyBlock', () => {
 });
 
 /**
- * @summary Coverage for the #10723/#10773/#10804 embedding-provider observability block in the healthcheck payload.
+ * @summary Coverage for the embedding-provider observability block in the healthcheck payload.
  *
  * Pins the pure-projection contract of `buildEmbeddingProviderBlock` — the module-scope function
  * that extracts active embedding-provider state from `aiConfig` for the
@@ -532,7 +594,7 @@ test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBloc
 });
 
 /**
- * @summary Coverage for the source-default embedding provider resolver (#11596).
+ * @summary Coverage for the source-default embedding provider resolver.
  *
  * The default must be coherent with the unified 4096-dimension Chroma substrate even when
  * standalone scripts run without `NEO_EMBEDDING_PROVIDER`.
@@ -553,9 +615,9 @@ test.describe('EmbeddingProviderConfig #11596 — resolveEmbeddingProvider', () 
 });
 
 /**
- * @summary Coverage for the #10724 summary-provider observability block in the healthcheck payload.
+ * @summary Coverage for the summary-provider observability block in the healthcheck payload.
  *
- * Mirrors the sibling `providers.embedding` block from #10723: the end-to-end healthcheck depends on
+ * Mirrors the sibling `providers.embedding` block: the end-to-end healthcheck depends on
  * live Memory Core services, while the load-bearing contract for operators is the pure projection of
  * active summary-provider config into a secret-free `providers.summary` shape.
  *
@@ -615,7 +677,7 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
 });
 
 /**
- * @summary Coverage for the #10770 auth-provider observability block in the healthcheck payload.
+ * @summary Coverage for the auth-provider observability block in the healthcheck payload.
  *
  * Pins the pure-projection contract of `buildAuthProviderBlock` — operators deploying the shared
  * MC/KB topology with multi-tenant identity isolation rely on this block to verify which auth
@@ -752,7 +814,7 @@ test.describe('HealthService #10770 — buildAuthProviderBlock', () => {
 });
 
 /**
- * @summary Coverage for the #10844 backup observability block in the healthcheck payload.
+ * @summary Coverage for the backup observability block in the healthcheck payload.
  *
  * Pins the pure-projection contract of `buildBackupStateBlock`. It relies on an injected `fs`
  * and `path` mock to avoid touching the real filesystem during the unit test, ensuring fast
@@ -836,7 +898,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
 });
 
 /**
- * @summary Coverage for the #10783 wake-substrate observability block.
+ * @summary Coverage for the wake-substrate observability block.
  *
  * The block has two independent file-I/O paths (gate-state via wakeSafetyGate + liveness
  * via direct fs.stat). Tests cover the cross-product of (gate-file: enabled / disabled / tripped /
