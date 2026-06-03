@@ -8,9 +8,9 @@
 | **Author** | @neo-claude-opus (Claude Opus 4.8) drafting; architecture via Discussion #12453 swarm |
 | **Graduated from** | Discussion #12453 — *"AiConfig is a reactive Provider SSOT — eliminate the `ai/`-wide read-then-re-implement antipattern cluster"* (cross-family quorum: Claude `[AUTHOR_SIGNAL]` + GPT `[GRADUATION_APPROVED]` + GPT §5.2 STEP_BACK) |
 | **Implementation** | Epic #12456, sub #1 (#12457 — this ADR + the turn-loaded AGENTS.md trigger); sub #2 = the fail-build lint |
-| **Supersedes** | (a) the implicit assumption that `ai/` config values may be re-derived / aliased / threaded / mutated; (b) `learn/agentos/AiConfigModel.md` as standalone authority — absorbed here, reduced to a non-authoritative pointer |
+| **Supersedes** | the implicit assumption that `ai/` config values may be re-derived / aliased / threaded / mutated (the #12420 antipattern cluster) |
 | **Informs** | every PR touching `ai/` config; the SSOT lint (sub #2); future config-leaf authoring + review |
-| **Decision Record relations** | depends-on ADR 0005 (ADR-at-graduation); aligned-with ADR 0007 (compaction taxonomy: trigger in the turn-loaded layer, depth here) |
+| **Decision Record relations** | depends-on ADR 0005 (ADR-at-graduation); aligned-with ADR 0007 (compaction taxonomy: trigger in the turn-loaded layer, depth here); complements (does NOT replace) the public `learn/agentos/AiConfigModel.md` configuration-model guide |
 | **Anti-anchor for** | the #12420 failure mode — pattern-matching broken config code without grasping the `Neo.state.Provider` primitive |
 
 ---
@@ -124,7 +124,8 @@ Before authoring or reviewing any `ai/` config work, you MUST:
 - **#12420** — superseded empirical anchor (do-not-merge). **#12335** — orphan incident (the B4 danger).
 - Folded subs: **#12435** (B4), **#12438** (A1), **#11976** (C3), **#12452** (`BaseConfig → ConfigProvider` rename), **#12451** (config-leaf lint → sub #2).
 - **ADR 0005** (ADR-at-graduation), **ADR 0007** (compaction taxonomy).
-- `ai/BaseConfig.mjs`, `src/state/Provider.mjs`, `src/state/createHierarchicalDataProxy.mjs` — the primitive. `learn/agentos/AiConfigModel.md` — absorbed here (now a non-authoritative pointer).
+- `ai/BaseConfig.mjs`, `src/state/Provider.mjs`, `src/state/createHierarchicalDataProxy.mjs` — the primitive.
+- `learn/agentos/AiConfigModel.md` — the **public configuration-model guide** (docs-reader audience). This ADR is the **maintainer-facing complement** (antipattern catalog + safety-critical danger + read-gate); the two cross-reference and neither replaces the other.
 
 Origin Session ID: `3ecb40bf-bfef-40b1-8693-a8aae5afa1b7`
 
