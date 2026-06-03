@@ -290,6 +290,40 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         expect(capturedPayload.num_ctx).toBeUndefined();
     });
 
+    test('OpenAiCompatible.stream() yields non-SSE JSON message content', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            expect(url).toBe('http://openai-compatible.test/v1/chat/completions');
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    JSON.stringify({choices: [{message: {content: 'json ok'}}]})
+                ])
+            };
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+        const chunks = [];
+
+        for await (const chunk of provider.stream('hello', {response_format: {type: 'json_object'}})) {
+            chunks.push(chunk);
+        }
+
+        expect(chunks).toEqual(['json ok']);
+        expect(capturedPayload).toMatchObject({
+            model          : 'gemma4-test',
+            stream         : true,
+            keep_alive     : -1,
+            response_format: {type: 'json_object'}
+        });
+    });
+
     test('OpenAiCompatible.generate() defaults keep_alive through the streaming payload', async () => {
         let capturedPayload;
 
@@ -320,5 +354,51 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             keep_alive : -1,
             temperature: 0.2
         });
+    });
+
+    test('OpenAiCompatible.generate() aggregates non-SSE JSON message content', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            expect(url).toBe('http://openai-compatible.test/v1/chat/completions');
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    JSON.stringify({
+                        choices: [{
+                            message: {
+                                role   : 'assistant',
+                                content: '{"status":"ok"}'
+                            }
+                        }]
+                    })
+                ])
+            };
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+
+        const result = await provider.generate('hello', {responseMimeType: 'application/json'});
+
+        expect(result).toEqual({
+            content: '{"status":"ok"}',
+            raw    : {
+                message: {
+                    content: '{"status":"ok"}'
+                }
+            }
+        });
+        expect(capturedPayload).toMatchObject({
+            model          : 'gemma4-test',
+            stream         : true,
+            keep_alive     : -1,
+            response_format: {type: 'json_object'}
+        });
+        expect(capturedPayload.responseMimeType).toBeUndefined();
     });
 });
