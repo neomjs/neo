@@ -8,6 +8,25 @@ import os from 'os';
 import { collapseDuplicateShapeCRoutes, getNodesData, getEdgesData } from '../../../../../../ai/daemons/bridge/queries.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../../ai/graph/storage/constants.mjs';
 
+/**
+ * @summary Stubs `ps` for subprocess daemon tests so instance-resolution branches do not depend
+ * on the host machine's live GUI process list.
+ *
+ * The bridge daemon resolves same-bundle harness instances by shelling out to `ps`. Unit tests that
+ * assert the default app-activate AppleScript path must force the resolver to return `null`,
+ * otherwise a developer machine with Claude.app already running can take the PID-targeted branch
+ * while CI takes the activate branch.
+ *
+ * @param {String} binDir
+ * @param {String} [psOutput='']
+ */
+function writeMockPs(binDir, psOutput = '') {
+    const mockPsPath = path.join(binDir, 'ps');
+
+    fs.writeFileSync(mockPsPath, `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(psOutput)});\n`);
+    fs.chmodSync(mockPsPath, 0o755);
+}
+
 test.describe('Bridge Daemon', () => {
     let db;
     let daemonProcess;
@@ -643,6 +662,7 @@ test.describe('Bridge Daemon', () => {
         // Create mock osascript to capture args without actually running AppleScript
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
         const mockOutPath = path.join(DAEMON_DIR, 'mock_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
@@ -731,6 +751,7 @@ test.describe('Bridge Daemon', () => {
 
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
         const mockOutPath = path.join(DAEMON_DIR, 'mock_claude_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
@@ -847,6 +868,7 @@ test.describe('Bridge Daemon', () => {
 
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
         const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_failclosed_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
@@ -939,6 +961,7 @@ test.describe('Bridge Daemon', () => {
 
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
         const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_cleanup_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
