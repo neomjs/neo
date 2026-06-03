@@ -34,18 +34,10 @@ Do not issue one query with many keywords. Issue 2–4 queries with **different 
 
 Choose the first memory surface by freshness, not by habit.
 
-1. **Recent / active-session investigations:** run **`query_raw_memories` first or in parallel with `query_summaries`** when the event is same-day, just happened, active-ticket / active-PR bound, wake/A2A coordination, or otherwise likely to live in unsummarized turns. `add_memory()` can persist raw turns before any session summary exists, so summaries can be stale or empty for fresh incidents.
+1. **Recent / active-session investigations:** run **`query_raw_memories` first or in parallel with `query_summaries`** when the event is same-day, just happened, active-ticket / active-PR bound, wake/A2A coordination, or otherwise likely to live in unsummarized turns. `add_memory()` can persist raw turns before any session summary exists, so a summary miss is not a memory miss until a freshness-shaped raw query also misses.
 2. **Older / stable history:** run **`query_summaries` first** for broad conceptual exploration, older decisions, and low-freshness historical context. Session-level topics surface cheaply when summarization has had time to digest the work.
 3. **`query_raw_memories` after a summary hit:** use raw memories to recover turn-level reasoning, exact commands, message IDs, or decision texture behind a relevant summary.
 4. **`ask_knowledge_base`** — only when the answer lives in indexed code/guides, not in session memory. If unsure, run memory first; KB is cheaper to skip than memory is. This is the Memory Core analogue of the GitHub/KB freshness gap corrected in #10646.
-
-### Freshness examples
-
-| Situation | First query | Companion query |
-|---|---|---|
-| Same-day wake/A2A regression | `query_raw_memories("bridge restart wake regression osascript exit 1")` | `query_summaries("wake substrate bridge restart regression")` |
-| Active PR review churn | `query_raw_memories("PR 12399 force push review reclassification approval")` | `query_summaries("PR review exact head re-check")` |
-| Older architecture pattern | `query_summaries("skill vs rule enforcement reliability")` | `query_raw_memories("state-transition gate for reflexes")` after a relevant summary hit |
 
 ### Good vs bad query shapes
 
@@ -62,8 +54,6 @@ Short framings rank better in semantic search. Reserve keyword-dense queries for
 Stop when you have either:
 - **Hit** — a memory summary or raw entry whose framing clearly overlaps your current task. Read it; cite it; proceed informed.
 - **Clear miss** — 2–4 queries with different framings all return low-relevance or off-topic hits. Memory has nothing; proceed with the caveat explicitly stated in your plan.
-
-For recent / active-session investigations, a summary miss is **not** a memory miss. Do not conclude "memory has no prior mapping" until `query_raw_memories` also misses with at least one freshness-shaped query.
 
 Do not keep querying past a clear miss. The absence of prior context is itself a useful signal.
 
