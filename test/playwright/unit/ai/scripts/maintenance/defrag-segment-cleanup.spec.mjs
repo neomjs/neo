@@ -21,6 +21,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import {execSync}     from 'child_process';
 import fs             from 'fs-extra';
 import path           from 'path';
+import {getEmbeddingFunction, knownEmbeddingFunctions} from 'chromadb';
 
 /**
  * Verifies the unified-store-safe physical orphan cleanup in
@@ -160,6 +161,37 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             'neo-agent-sessions',
             'neo-native-graph'
         ]);
+    });
+
+    test('registers Neo Chroma embedding functions before defrag collection hydration', async () => {
+        const {default: AiConfig} = await import('../../../../../../ai/config.mjs');
+        const warnings     = [];
+        const originalWarn = console.warn;
+
+        console.warn = (...args) => warnings.push(args.join(' '));
+
+        try {
+            expect(knownEmbeddingFunctions.has('dummy_embedding_function')).toBe(true);
+            expect(knownEmbeddingFunctions.has('dynamic_text_embedding_service')).toBe(true);
+
+            const dummy = await getEmbeddingFunction({
+                collectionName: 'schema deserialization',
+                client        : {},
+                efConfig      : {type: 'known', name: 'dummy_embedding_function', config: {}}
+            });
+            const dynamic = await getEmbeddingFunction({
+                collectionName: 'schema deserialization',
+                client        : {},
+                efConfig      : {type: 'known', name: 'dynamic_text_embedding_service', config: {}}
+            });
+
+            expect(dummy?.name).toBe('dummy_embedding_function');
+            expect(dummy).toBe(AiConfig.dummyEmbeddingFunction);
+            expect(dynamic?.name).toBe('dynamic_text_embedding_service');
+            expect(warnings).toEqual([]);
+        } finally {
+            console.warn = originalWarn;
+        }
     });
 
     test('skips UUID-named entries that are files, not directories', async () => {

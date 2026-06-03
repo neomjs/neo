@@ -42,6 +42,10 @@
 
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {
+    createDynamicTextEmbeddingFunction,
+    registerNeoChromaEmbeddingFunctions
+} from '../../services/shared/vector/chromaClientPrimitives.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -66,6 +70,8 @@ const CORE_SWARM_USER_IDS = Object.freeze([
 const COLLECTION_MEMORY  = 'neo-agent-memory';
 const COLLECTION_SESSION = 'neo-agent-sessions';
 const BATCH_SIZE         = 500;
+
+registerNeoChromaEmbeddingFunctions();
 
 function parseArgs(argv) {
     const args = {
@@ -260,56 +266,43 @@ async function processCollection(client, collectionName, args) {
     const apply = args.apply;
     console.log(`\n[${collectionName}]`);
 
-    // Suppress noisy chromadb-js deserialization warnings; the dummy embedding-function
-    // package isn't installed locally but `.get`/`.update` don't need it (metadata-only).
-    const origWarn   = console.warn;
-    console.warn     = () => {};
-    const dummyEmbFn = {
-        generate    : async () => [],
-        name        : 'dynamic_text_embedding_service',
-        getConfig   : () => ({}),
-        constructor : {buildFromConfig: () => dummyEmbFn}
-    };
+    const embeddingFunction = createDynamicTextEmbeddingFunction();
 
-    try {
-        const collection = await client.getOrCreateCollection({
-            name             : collectionName,
-            embeddingFunction: dummyEmbFn
-        });
+    const collection = await client.getOrCreateCollection({
+        name             : collectionName,
+        embeddingFunction
+    });
 
-        const total = await collection.count();
-        console.log(`  total records: ${total}`);
+    const total = await collection.count();
+    console.log(`  total records: ${total}`);
 
-        const promoteCoreSwarmSummaries = collectionName === COLLECTION_SESSION;
-        const {tagRecords: recordsToTag, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant} = await findRecordsToTag(collection, {
-            promoteCoreSwarmSummaries,
-            debugHidden: args.debugHidden
-        });
-        console.log(`  scanned:                  ${totalScanned}`);
-        console.log(`  already tagged:           ${alreadyTagged}`);
-        console.log(`  already shared:           ${alreadyShared}`);
-        console.log(`  untagged:                 ${untagged}`);
-        if (promoteCoreSwarmSummaries) {
-            console.log(`  core swarm participants:  ${coreSwarmParticipant}`);
-        }
-        console.log(`  to tag:                   ${recordsToTag.length}`);
-
-        if (recordsToTag.length === 0) {
-            console.log(`  → no work needed for this collection`);
-            return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: 0};
-        }
-
-        if (!apply) {
-            console.log(`  → DRY-RUN: would tag ${recordsToTag.length} records with userId='${SHARED_USER_ID}'`);
-            return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: recordsToTag.length};
-        }
-
-        console.log(`  → APPLY: tagging ${recordsToTag.length} records...`);
-        const tagged = await tagRecords(collection, recordsToTag);
-        return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged, plannedTags: recordsToTag.length};
-    } finally {
-        console.warn = origWarn;
+    const promoteCoreSwarmSummaries = collectionName === COLLECTION_SESSION;
+    const {tagRecords: recordsToTag, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant} = await findRecordsToTag(collection, {
+        promoteCoreSwarmSummaries,
+        debugHidden: args.debugHidden
+    });
+    console.log(`  scanned:                  ${totalScanned}`);
+    console.log(`  already tagged:           ${alreadyTagged}`);
+    console.log(`  already shared:           ${alreadyShared}`);
+    console.log(`  untagged:                 ${untagged}`);
+    if (promoteCoreSwarmSummaries) {
+        console.log(`  core swarm participants:  ${coreSwarmParticipant}`);
     }
+    console.log(`  to tag:                   ${recordsToTag.length}`);
+
+    if (recordsToTag.length === 0) {
+        console.log(`  → no work needed for this collection`);
+        return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: 0};
+    }
+
+    if (!apply) {
+        console.log(`  → DRY-RUN: would tag ${recordsToTag.length} records with userId='${SHARED_USER_ID}'`);
+        return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: recordsToTag.length};
+    }
+
+    console.log(`  → APPLY: tagging ${recordsToTag.length} records...`);
+    const tagged = await tagRecords(collection, recordsToTag);
+    return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged, plannedTags: recordsToTag.length};
 }
 
 async function main() {
