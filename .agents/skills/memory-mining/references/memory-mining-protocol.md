@@ -30,11 +30,14 @@ If you are about to narrate the organism's state, the organism has probably alre
 
 Do not issue one query with many keywords. Issue 2–4 queries with **different semantic framings**, each shorter and sharper.
 
-### Tool order
+### Tool order by freshness
 
-1. **`query_summaries`** (breadth first) — session-level topics surface cheapest. Start here.
-2. **`query_raw_memories`** (depth second) — turn-level detail; use when a summary looked relevant but you need the reasoning trail.
-3. **`ask_knowledge_base`** — only when the answer lives in indexed code/guides, not in session memory. If unsure, run memory first; KB is cheaper to skip than memory is.
+Choose the first memory surface by freshness, not by habit.
+
+1. **Recent / active-session investigations:** run **`query_raw_memories` first or in parallel with `query_summaries`** when the event is same-day, just happened, active-ticket / active-PR bound, wake/A2A coordination, or otherwise likely to live in unsummarized turns. `add_memory()` can persist raw turns before any session summary exists, so a summary miss is not a memory miss until a freshness-shaped raw query also misses.
+2. **Older / stable history:** run **`query_summaries` first** for broad conceptual exploration, older decisions, and low-freshness historical context. Session-level topics surface cheaply when summarization has had time to digest the work.
+3. **`query_raw_memories` after a summary hit:** use raw memories to recover turn-level reasoning, exact commands, message IDs, or decision texture behind a relevant summary.
+4. **`ask_knowledge_base`** — only when the answer lives in indexed code/guides, not in session memory. If unsure, run memory first; KB is cheaper to skip than memory is. This is the Memory Core analogue of the GitHub/KB freshness gap corrected in #10646.
 
 ### Good vs bad query shapes
 
