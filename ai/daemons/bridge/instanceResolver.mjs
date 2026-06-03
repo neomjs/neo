@@ -110,3 +110,71 @@ export async function getInstancePid({userDataDir, exec = execFileAsync} = {}) {
 
     return resolveInstancePid({userDataDir, psOutput});
 }
+
+/**
+ * @summary Pure resolver: given a `ps` snapshot, find the pid of the DEFAULT app instance — the one
+ * started as the normal macOS app, carrying NO `--user-data-dir`.
+ *
+ * Complement of {@link resolveInstancePid}. The default instance can never carry a `--user-data-dir`
+ * (launching the primary macOS app with that flag breaks its system app / menu-bar integration), so
+ * it is identified by the *absence* of the flag among the app's main processes.
+ *
+ * Disambiguates only when it is actually needed: returns the default pid solely when two or more main
+ * instances of the app are running and exactly one of them is arg-less. With a single instance, or
+ * when the default cannot be uniquely picked (zero or multiple arg-less mains), returns `null` so the
+ * caller keeps the unchanged legacy app-activate path.
+ *
+ * @param {Object} options
+ * @param {String} options.appName                            The app / bundle name (e.g. `Claude`).
+ * @param {String} options.psOutput                           `ps axww -o pid=,ppid=,command=` output.
+ * @param {String} [options.appExecutableMarker='Contents/MacOS/'] Marker identifying the main app executable.
+ * @returns {Number|null} The default instance's main-process pid, or null (caller keeps legacy activate).
+ */
+export function resolveDefaultInstancePid({appName, psOutput, appExecutableMarker = 'Contents/MacOS/'} = {}) {
+    if (!appName || !psOutput) {
+        return null;
+    }
+
+    const bundleMarker     = `/${appName}.app/${appExecutableMarker}`,
+          isMainExecutable = command =>
+              command.includes(appExecutableMarker) && !/Helper|Framework|crashpad/i.test(command),
+          appMains = psOutput.split('\n')
+              .map(line => line.trim())
+              .filter(Boolean)
+              .map(line => {
+                  const match = line.match(/^(\d+)\s+(\d+)\s+(.*)$/);
+                  return match ? {pid: Number(match[1]), command: match[3]} : null;
+              })
+              .filter(Boolean)
+              .filter(row => row.command.includes(bundleMarker) && isMainExecutable(row.command));
+
+    const argless = appMains.filter(row => !row.command.includes('--user-data-dir'));
+
+    // Disambiguate only when a sibling instance actually exists (>= 2 mains) and exactly one is
+    // arg-less (the default). Otherwise null -> caller keeps the legacy activate path unchanged, so
+    // single-instance behavior is untouched.
+    return appMains.length >= 2 && argless.length === 1 ? argless[0].pid : null;
+}
+
+/**
+ * @summary Runs `ps` and resolves the DEFAULT (arg-less) app-instance pid. Side-effect wrapper
+ * around {@link resolveDefaultInstancePid}.
+ * @param {Object} options
+ * @param {String} options.appName
+ * @param {Function} [options.exec=execFileAsync] Injectable `(cmd, args) => Promise<{stdout}>` for tests.
+ * @returns {Promise<Number|null>} The default instance pid, or null (caller keeps legacy activate).
+ */
+export async function getDefaultInstancePid({appName, exec = execFileAsync} = {}) {
+    if (!appName) {
+        return null;
+    }
+
+    let psOutput;
+    try {
+        ({stdout: psOutput} = await exec('ps', ['axww', '-o', 'pid=,ppid=,command=']));
+    } catch {
+        return null;
+    }
+
+    return resolveDefaultInstancePid({appName, psOutput});
+}

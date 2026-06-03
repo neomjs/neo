@@ -48,7 +48,7 @@ import {
     getEdgesData,
     getDbNode
 } from './queries.mjs';
-import {getInstancePid} from './instanceResolver.mjs';
+import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
@@ -699,6 +699,14 @@ async function deliverDigest(subscription, digest) {
                     );
                     return;
                 }
+            } else if (AiConfig.orchestrator.deploymentMode !== 'cloud') {
+                // No userDataDir = the DEFAULT instance, started as the normal macOS app (which can
+                // never carry --user-data-dir without breaking its system app / menu-bar integration).
+                // When a same-bundle sibling instance is running, "activate + frontmost" is ambiguous;
+                // the default is uniquely identifiable by the ABSENCE of the flag, so target its pid
+                // directly. Returns null for single-instance (or ambiguous) — the legacy activate path
+                // below is then kept unchanged, so single-instance behavior is untouched.
+                instancePid = await getDefaultInstancePid({appName});
             }
 
             // [Anchor & Echo] The Electron-Paradox Defense:
