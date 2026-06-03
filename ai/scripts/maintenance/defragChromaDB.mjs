@@ -6,6 +6,7 @@ import path            from 'path';
 import {fileURLToPath, pathToFileURL} from 'url';
 import Neo             from '../../../src/Neo.mjs';
 import AiConfig        from '../../config.mjs';
+import {registerNeoChromaEmbeddingFunctions} from '../../services/shared/vector/chromaClientPrimitives.mjs';
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
@@ -60,6 +61,8 @@ const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
+
+registerNeoChromaEmbeddingFunctions();
 
 // Configuration Mapping
 // Maps CLI target names to their collection-group config files. Both targets resolve

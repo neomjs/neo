@@ -1,15 +1,121 @@
+import {knownEmbeddingFunctions, registerEmbeddingFunction} from 'chromadb';
 import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 /**
+ * @summary Local Chroma embedding placeholder for collections that always provide raw vectors.
+ *
+ * Chroma 3.x serializes embedding functions as named "known" configs and later
+ * resolves them through its process-local registry while hydrating collection
+ * schemas. The Neo dummy function is intentionally not an npm package, so it must
+ * be registered locally before defrag / list / get-collection paths touch schema
+ * deserialization.
+ */
+class NeoDummyEmbeddingFunction {
+    /**
+     * @returns {String}
+     */
+    get name() {
+        return 'dummy_embedding_function'
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getConfig() {
+        return {}
+    }
+
+    /**
+     * @returns {Promise<null>}
+     */
+    async generate() {
+        return null
+    }
+
+    /**
+     * @returns {NeoDummyEmbeddingFunction}
+     */
+    static buildFromConfig() {
+        return new NeoDummyEmbeddingFunction()
+    }
+}
+
+/**
+ * @summary Registry-backed wrapper for Memory Core's dynamic text embedding service.
+ *
+ * Existing Memory Core collections serialize this name into their Chroma schema.
+ * Registering it keeps SDK schema hydration on the local implementation path
+ * instead of falling through to `@chroma-core/dynamic_text_embedding_service`.
+ */
+class NeoDynamicTextEmbeddingService {
+    /**
+     * @returns {String}
+     */
+    get name() {
+        return 'dynamic_text_embedding_service'
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getConfig() {
+        return {}
+    }
+
+    /**
+     * @param {String[]} texts
+     * @returns {Promise<Number[][]>}
+     */
+    async generate(texts) {
+        const {default: TextEmbeddingService} = await import('../../memory-core/TextEmbeddingService.mjs');
+        const {default: aiConfig}             = await import('../../../mcp/server/memory-core/config.mjs');
+        const provider                        = aiConfig.embeddingProvider;
+
+        return Promise.all(texts.map(text => TextEmbeddingService.embedText(text, provider)))
+    }
+
+    /**
+     * @returns {NeoDynamicTextEmbeddingService}
+     */
+    static buildFromConfig() {
+        return new NeoDynamicTextEmbeddingService()
+    }
+}
+
+/**
+ * @summary Registers Neo-local Chroma embedding functions for SDK schema hydration.
+ *
+ * @returns {String[]} Names registered during this call.
+ */
+export function registerNeoChromaEmbeddingFunctions() {
+    const registered = [];
+    const entries    = [
+        ['dummy_embedding_function', NeoDummyEmbeddingFunction],
+        ['dynamic_text_embedding_service', NeoDynamicTextEmbeddingService]
+    ];
+
+    for (const [name, EmbeddingFunction] of entries) {
+        if (!knownEmbeddingFunctions.has(name)) {
+            registerEmbeddingFunction(name, EmbeddingFunction);
+            registered.push(name);
+        }
+    }
+
+    return registered
+}
+
+registerNeoChromaEmbeddingFunctions();
+
+/**
  * @summary Stateless helpers for the Chroma-client connection lifecycle, shared between the
- * Knowledge Base ChromaManager and Memory Core ChromaManager (#11111).
+ * Knowledge Base ChromaManager and Memory Core ChromaManager.
  *
  * Each per-subsystem ChromaManager remains the owner of its `this.client` (the chromadb
  * library's `ChromaClient` instance) so tests that mock-replace `ChromaManager.client =
  * fakeClient` continue to work without modification. This module exports plain functions
  * that read the client at call-time from the caller's argument list.
  *
- * **What this module owns (the dedup-eligible shared layer per #11111):**
+ * **What this module owns (the dedup-eligible shared layer):**
  *
  * 1. **`chromaConnect({client, logger})`** — heartbeat-based readiness check. Returns a
  *    boolean (true on success, false on failure). Non-throwing — the caller decides how to
@@ -20,14 +126,14 @@ import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared
  *    once (typically as a private field) so its `executeSilently` calls don't race each
  *    other's `console.warn` restore. Two filter shapes accepted:
  *      - `{filter: null}` (default) — blanket suppression of all `console.warn` for the
- *        duration of `fn`. Matches pre-#11111 KB behavior.
+ *        duration of `fn`. Matches the previous KB behavior.
  *      - `{filter: (msg) => boolean}` — predicate suppression; only messages whose joined-args
- *        string returns true are suppressed. Matches pre-#11111 MC behavior which filters
+ *        string returns true are suppressed. Matches the previous MC behavior which filters
  *        for four specific Chroma library warnings.
  *
  * 3. **`chromaDeleteCollection({client, name, subsystem, confirmation})`** — guarded delete
  *    wrapper. Routes through `assertCanonicalCollectionDeleteAllowed` with subsystem-scoped
- *    canonical-name refusal. The substrate-level invariant (#11652) fires regardless of
+ *    canonical-name refusal. The substrate-level invariant fires regardless of
  *    harness or config state.
  *
  * **What this module does NOT own (per V-B-A on the ticket's prescription):**
@@ -63,7 +169,7 @@ import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared
  * plain module for stateless utility" idiom, and produce a smaller, easier-to-review diff.
  *
  * @module ai/services/shared/vector/chromaClientPrimitives
- * @see #11111
+ * @see chromaConnect
  */
 
 /**
