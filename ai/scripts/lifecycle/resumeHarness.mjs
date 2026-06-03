@@ -70,6 +70,9 @@ function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform)
 /**
  * @summary Resolve the embedded Claude Code CLI binary path inside Claude Desktop.
  *
+ * NOTE: retained as a non-routed fallback — Claude recovery routes to the `osascript`
+ * adapter (Claude Desktop Tab 3 / Code tab); see the HARNESS_REGISTRY note in `resumeHarness`.
+ *
  * Claude Desktop ships the `claude` CLI under
  * `~/Library/Application Support/Claude/claude-code/<version>/claude.app/Contents/MacOS/claude`.
  * The version segment changes with auto-updates, so we resolve the LATEST version
@@ -308,23 +311,31 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
 
     // Harness Registry: maps identity IDs to their restart adapters.
     // - antigravity-ide: native CLI `chat -n` through the `antigravity-cli` adapter.
-    // - claude-desktop: embedded Claude Code CLI through the `claude-cli` adapter;
-    //   no session-id flag is passed because a fresh process creates a fresh MCP client.
+    // - claude-desktop: Claude Desktop GUI through the `osascript` adapter — activate
+    //   Claude, Cmd+3 to the Code tab (Tab 3), Cmd+N for a fresh chat, then paste the
+    //   boot-grounding prompt. Locks the recovery target to Claude Desktop Tab 3 per
+    //   the operator calibration ("Claude Desktop in 2026, third tab = Claude Code;
+    //   that is the target, not terminal-attached CLI"). The fresh chat yields a fresh
+    //   `SessionService.currentSessionId` + transcript (the load-bearing recovery goal);
+    //   it reuses the running Claude Desktop app + its MCP server rather than spawning a
+    //   fresh OS process — the accepted trade-off for deterministic Tab-3 targeting. The
+    //   same osascript Cmd+3 path is empirically proven by live bridge-daemon wake delivery.
     // - codex-desktop: Codex Desktop app-server debug surface through
     //   `codex debug app-server send-message-v2`; live dispatch remains explicitly
     //   gated, while tests use CODEX_APP_SERVER_MOCK=1 + CODEX_CLI_PATH.
-    // The `osascript` adapter remains available as a fallback for harnesses that need
-    // UI-keystroke dispatch, but no production identity currently routes there.
+    // The `claude-cli` adapter (embedded `claude <prompt>` CLI) is retained as a
+    // non-routed fallback; no production identity routes there after the Tab-3 remap.
     const HARNESS_REGISTRY = {
         'antigravity-ide': { adapter: 'antigravity-cli' },
-        'claude-desktop':  { adapter: 'claude-cli' },
+        'claude-desktop':  { adapter: 'osascript', appName: 'Claude', tabShortcut: '3', freshSessionShortcut: 'n' },
         'codex-desktop':   { adapter: 'codex-app-server' }
     };
 
     const identityMap = {
         '@neo-gemini-3-1-pro': 'antigravity-ide',
         '@neo-gpt'           : 'codex-desktop',
-        '@neo-opus-4-7'      : 'claude-desktop'
+        '@neo-opus-4-7'      : 'claude-desktop',
+        '@neo-claude-opus'   : 'claude-desktop'
     };
 
     const targetId = identityMap[identity];
@@ -382,10 +393,12 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
              * Operator override `CLAUDE_CLI_PATH` env var supports test-mock injection.
              *
              * @todo Abstract for cross-platform execution (Windows/Linux).
-             * @todo Empirically verify whether `claude <prompt>` lands as Claude Desktop Tab 3
-             *   ("Code" tab) or a terminal-attached CLI session. Either satisfies the
-             *   fresh-process / fresh-MCP / fresh-session substrate goal, but the operator
-             *   surface differs. Document the observed shape post-verification.
+             *
+             * NOTE: the Tab-3-vs-terminal ambiguity this branch once carried is resolved.
+             * `claude-desktop` now routes to the `osascript` adapter, which deterministically
+             * targets Claude Desktop Tab 3 (Code tab) via Cmd+3 — see the Harness Registry
+             * note above. This `claude-cli` branch is retained only as a non-routed fallback;
+             * no identity maps to it.
              */
             const cliPath = await resolveClaudeCliPath();
             if (!cliPath) {
