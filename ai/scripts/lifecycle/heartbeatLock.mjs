@@ -20,8 +20,10 @@ import {spawn} from 'child_process';
 import fs      from 'fs-extra';
 import path    from 'path';
 import {fileURLToPath} from 'url';
+import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
-const AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT || '.neo-ai-data';
+const __dirname    = path.dirname(fileURLToPath(import.meta.url));
+const AI_DATA_ROOT = resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../..')});
 
 export const HEARTBEAT_LOCK_PATH = path.join(AI_DATA_ROOT, 'heartbeat-concurrency.lock');
 export const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000;

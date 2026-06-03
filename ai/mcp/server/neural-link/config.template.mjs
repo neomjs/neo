@@ -2,12 +2,13 @@ import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
+import {resolveAiDataRoot}                     from '../shared/helpers/DeploymentConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
 const cwd        = process.cwd();
-const aiDataRoot = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(neoRootDir, '.neo-ai-data'));
+const aiDataRoot = resolveAiDataRoot({neoRootDir});
 
 
 

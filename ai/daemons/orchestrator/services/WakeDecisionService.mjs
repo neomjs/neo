@@ -1,6 +1,10 @@
 import fs   from 'fs-extra';
 import path from 'path';
+import {fileURLToPath} from 'url';
 import Base from '../../../../src/core/Base.mjs';
+import {resolveAiDataRoot} from '../../../mcp/server/shared/helpers/DeploymentConfig.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Default activity window (3h) within which any sent-or-received A2A keeps the
@@ -29,7 +33,7 @@ export const DEFAULT_IDLE_WINDOW_MS = 15 * 60 * 1000;
  * @type {String}
  */
 export const DEFAULT_BACKOFF_STATE_FILE = path.resolve(
-    process.env.NEO_AI_DATA_ROOT || path.join(process.cwd(), '.neo-ai-data'),
+    resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../../../')}),
     'wake-daemon',
     'backoff.json'
 );

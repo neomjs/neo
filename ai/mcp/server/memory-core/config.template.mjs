@@ -3,6 +3,7 @@
 import '../../../config.template.mjs';
 import path                                  from 'path';
 import BaseConfig, {createConfigProxy, leaf} from '../../../BaseConfig.mjs';
+import {resolveAiDataRoot}                   from '../shared/helpers/DeploymentConfig.mjs';
 import {fileURLToPath}                       from 'url';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
@@ -19,7 +20,7 @@ const __dirname  = path.dirname(__filename);
 
 const neoRootDir        = path.resolve(__dirname, '../../../../');
 const cwd               = neoRootDir;
-const aiDataRoot        = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(cwd, '.neo-ai-data'));
+const aiDataRoot        = resolveAiDataRoot({neoRootDir: cwd});
 const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.join(aiDataRoot, 'wake-daemon'));
 const DAY_MS            = 24 * 60 * 60 * 1000;
 

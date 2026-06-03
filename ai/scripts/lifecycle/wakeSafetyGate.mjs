@@ -43,11 +43,11 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 function defaultAiDataRoot() {
-    return path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(__dirname, '../../../.neo-ai-data'));
+    return resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../..')});
 }
 
 /**

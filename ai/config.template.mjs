@@ -1,6 +1,7 @@
 import path                                  from 'path';
 import {fileURLToPath}                       from 'url';
 import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
+import {resolveAiDataRoot}                  from './mcp/server/shared/helpers/DeploymentConfig.mjs';
 import {
     CHROMA_PRODUCTION_DATABASE,
     CHROMA_TEST_DATABASE
@@ -11,7 +12,7 @@ const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
 const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
-const aiDataRoot  = path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(neoRootDir, '.neo-ai-data'));
+const aiDataRoot  = resolveAiDataRoot({neoRootDir});
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;

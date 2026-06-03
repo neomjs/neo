@@ -31,9 +31,10 @@ import fs from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';
 import AiConfig from '../../config.mjs';
+import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 import Orchestrator from './Orchestrator.mjs';
 
-const AI_DATA_ROOT    = process.env.NEO_AI_DATA_ROOT || '.neo-ai-data';
+const AI_DATA_ROOT    = resolveAiDataRoot({config: AiConfig});
 const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || path.join(AI_DATA_ROOT, 'orchestrator-daemon');
 const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
 const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');

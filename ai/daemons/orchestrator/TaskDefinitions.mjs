@@ -1,12 +1,11 @@
 import path from 'path';
 import {fileURLToPath} from 'url';
+import {resolveAiDataRoot} from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-export const DEFAULT_AI_DATA_ROOT = process.env.NEO_AI_DATA_ROOT
-    ? path.resolve(process.env.NEO_AI_DATA_ROOT)
-    : '.neo-ai-data';
+export const DEFAULT_AI_DATA_ROOT    = resolveAiDataRoot({neoRootDir: path.resolve(__dirname, '../../..')});
 export const DEFAULT_DB_PATH         = process.env.NEO_AI_DB_PATH || path.join(DEFAULT_AI_DATA_ROOT, 'sqlite', 'memory-core-graph.sqlite');
 export const DEFAULT_DATA_DIR        = process.env.NEO_AI_ORCHESTRATOR_DIR || path.join(DEFAULT_AI_DATA_ROOT, 'orchestrator-daemon');
 export const DEFAULT_CHROMA_DATA_DIR = path.join(DEFAULT_AI_DATA_ROOT, 'chroma', 'unified');

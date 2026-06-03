@@ -3,6 +3,7 @@ import fsExtra                  from 'fs-extra';
 import path                     from 'path';
 import {fileURLToPath}          from 'url';
 import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
+import {resolveAiDataRoot}      from '../../mcp/server/shared/helpers/DeploymentConfig.mjs';
 import Base                     from '../../../src/core/Base.mjs';
 import ChromaManager            from './managers/ChromaManager.mjs';
 import StorageRouter            from './managers/StorageRouter.mjs';
@@ -28,7 +29,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function heartbeatAlivePath() {
     return process.env.NEO_HEARTBEAT_ALIVE_PATH
         || aiConfig.wakeDaemonHeartbeatAlivePath
-        || path.join(path.resolve(process.env.NEO_AI_DATA_ROOT || path.resolve(__dirname, '../../../.neo-ai-data')), 'wake-daemon', 'heartbeat.alive');
+        || path.join(resolveAiDataRoot({config: aiConfig, neoRootDir: path.resolve(__dirname, '../../..')}), 'wake-daemon', 'heartbeat.alive');
 }
 
 /**

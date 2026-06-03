@@ -1,3 +1,30 @@
+import path from 'path';
+
+/**
+ * @summary Resolves the canonical Agent OS runtime data root from config + env.
+ *
+ * Centralizes the `.neo-ai-data` fallback so runtime consumers do not each rebuild the
+ * `NEO_AI_DATA_ROOT || <repo>/.neo-ai-data` contract. Pass an `AiConfig`-shaped config
+ * object when available; stale local config copies that predate `aiDataRoot` still inherit
+ * the env/default path from this single dependency-free helper.
+ *
+ * @param {Object} [options]
+ * @param {Object|null} [options.config=null] Config proxy carrying `aiDataRoot` / `neoRootDir`.
+ * @param {String|null} [options.neoRootDir=null] Repository root fallback.
+ * @param {Object} [options.env=process.env] Environment source.
+ * @returns {String}
+ */
+export function resolveAiDataRoot({
+    config     = null,
+    neoRootDir = null,
+    env        = process.env
+} = {}) {
+    const configuredRoot = config?.aiDataRoot;
+    const rootDir        = neoRootDir || config?.neoRootDir || process.cwd();
+
+    return path.resolve(configuredRoot || env.NEO_AI_DATA_ROOT || path.resolve(rootDir, '.neo-ai-data'));
+}
+
 /**
  * @summary Resolves the MCP server HTTP listening port.
  *
