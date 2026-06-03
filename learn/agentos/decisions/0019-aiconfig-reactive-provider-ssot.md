@@ -30,7 +30,7 @@ The empirical lesson is not "be more careful" — that is **falsified** (4/4 mis
 `ai/BaseConfig.mjs extends Neo.state.Provider` — every config **is** a reactive state provider; they compose into one tree. (Primitive line-anchors below are for someone changing the *primitive itself*; consumers do not need them.)
 
 - **`leaf(default, env, type)`** declares one value (`ai/BaseConfig.mjs:52`). `BaseConfig.#applyEnvLayer` (`:201`) already reads `process.env[env]`, decodes it by `type` (via `Neo.util.Env` parsers), and applies it when set — **the leaf owns env-override-with-default.** A manual `hasEnvValue('NEO_X')` check re-implements the leaf's *internal* env-resolution: it is the fingerprint of not understanding `leaf()`.
-- **Hierarchy / realm chain.** Tier-1 `Neo.ai.Config` is the realm root; each per-server config is a child — `ai/BaseConfig.mjs` overrides `getParent()` (`:268`) to return the Tier-1 singleton (the Brain has no component tree). `Provider#getOwnerOfDataProperty` (`src/state/Provider.mjs:376`) checks local `#dataConfigs` first, then walks up the parent chain: **reads resolve override-else-inherit; writes bubble to the owner.** No layer holds a copy of another's data.
+- **Hierarchy / realm chain.** Tier-1 `Neo.ai.Config` is the realm root; each per-server config is a child — `ai/BaseConfig.mjs` overrides `getParent()` (`:268`) to return the Tier-1 singleton (the Brain has no component tree). `Provider#getOwnerOfDataProperty` (`src/state/Provider.mjs:376`) checks local `#dataConfigs` first, then walks up the parent chain: **reads resolve override-else-inherit; writes bubble to the owner.** No layer holds a copy of another's data. (The same hierarchy the Body uses for component state — see [examples/stateProvider/advanced](../../examples/stateProvider/advanced/MainContainer.mjs): read-up, write-to-owner.)
 - **`formulas`** are lazy `Effect`s (`src/state/Provider.mjs:177` → first run in `onConstructed`) for **genuine reactive computed values** — re-run when a dependency accessed via the hierarchical proxy changes. They are NOT a place to re-derive a leaf with env-checks.
 - **The hierarchical data proxy** (`src/state/createHierarchicalDataProxy.mjs`) resolves nested paths; its get-trap registers `EffectManager.getActiveEffect()?.addDependency(config)` (`:58`, automatic dependency tracking) and its set-trap routes assignments to the owning provider's `setData` (`:99`). **Consumers read `AiConfig.engines.chroma.dataDir`** — the Provider resolves; you read. (This routing is *why* B4 writes are mechanically dangerous — see §4.)
 - **`data_` is a `merge: 'deep'` descriptor** (`src/state/Provider.mjs:61`). An operator overlay (`config.mjs`) is a *thin child of deltas* over the canonical template (`config.template.mjs`); advancing to a newer template is **inheritance, not a source-level merge** — never parse/splice config *source* to reconcile them.
@@ -43,7 +43,7 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 ### Group A — re-implementing the Provider's resolution
 | ID | Antipattern | Tag | Sanctioned form |
 |---|---|---|---|
-| A1 | module-level re-derivation (`const DB_PATH = process.env.X \|\| path.join(...)`) | `[live-on-dev]` | read `AiConfig.X.Y` at the use site |
+| A1 | module-level re-derivation (`const DB_PATH = process.env.X \|\| path.join(...)`) | `[live: daemons :53-54/:36, deploy]` | read `AiConfig.X.Y` at the use site |
 | A2 | imperative cascade hooks (`afterApplyEnvLeaf`) | `[#12420-proposed]` | a `formula` (only if genuinely computed) or a plain leaf derivation |
 | A3 | over-engineered resolution helpers (`resolveAiDataRoot`) | `[#12420-proposed]` | the leaf's env-binding already resolves |
 | A4 | inline `process.env.UNIT_TEST_MODE ? test : prod` inside a leaf | `[live: #12451]` | declarative leaf; test-mode resolved by construction |
@@ -65,9 +65,11 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 ### Group C — boundary / duplication
 | ID | Antipattern | Tag | Sanctioned form |
 |---|---|---|---|
-| C1 ⛔ | **NEO imports ONLY in thread-entrypoints** (ZERO tolerance — `import Neo`/`_export`/`AiConfig` in a non-entrypoint script can BREAK things) | `[live: daemons]` | pre-bootstrap consumers use a pure-defaults module (literals + env-names, no Neo import) — see §5 |
+| C1 ⛔ | **NEO imports ONLY in thread-entrypoints** (ZERO tolerance — `import Neo`/`_export`/`AiConfig` in a *non-entrypoint* script can BREAK things) | `[live: TaskDefinitions.mjs]` | genuine *non-entrypoint* consumers use a pure-defaults module (literals + env-names, no Neo import) — see §5.5 |
 | C2 | duplicated primitives (`chromaClientPrimitives` re-implements the embedding dummy-fn; `chromaTestIsolation` hidden default DB names) | `[live-on-dev]` | fold into the SSOT leaves |
 | C3 | tests import `config.mjs` (overlay) not `config.template.mjs` (canonical) | `[live: #11976]` | tests import the canonical template |
+
+> **V-B-A classification correction (@neo-opus-4-7, `dev` line-evidence — Discussion #12453 `DC_kwDODSospM4BBgm5`):** the `ai/` daemon *entrypoints* (`bridge/daemon.mjs:3-6`, `orchestrator/daemon.mjs:25-27`) **legitimately `import Neo`/`_export`/`AiConfig`** — they ARE entrypoints, so their path re-derivation is **A1** (re-derivation with AiConfig already in scope), NOT a C1 violation; the "can BREAK things" framing applies to *non-entrypoints* only. The **single genuine C1×B5 site is `TaskDefinitions.mjs`** (no Neo import; `export const DEFAULT_DB_PATH`). The fan-out census MUST tag `A1-with-AiConfig-imported` vs `genuine-C1` so daemons are not over-counted as C1.
 
 ### Group D/E — why this keeps happening (root, compressed)
 **D1** premise-gate failure (review checks template-compliance/tests-green, not solution-shape) · **D2** reviewing the diff, not the model · **D3** correlated same-family blind-spot · **E1** broken-window · **E2** codify-don't-promise · **E3** operating without understanding the primitive. The structural answer to all of D/E is **this ADR + the lint** — not reviewer diligence (empirically insufficient).
@@ -90,11 +92,11 @@ aiConfig.engines.chroma.database = `graph-service-test-${process.pid}-${Date.now
 2. **Leaves are declarative:** `leaf(default, env, type)`. No inline env-ternaries (A4), no `hasEnvValue` (A5).
 3. **Formulas only for genuine computed values** — reactive on real deps. Never to re-derive a leaf (A6/A7) or for a plain path-join (A9); a path-under-root is a derivation, not a formula.
 4. **Tests isolate by construction** (`UNIT_TEST_MODE` → the config resolves the test DB). Never mutate the shared singleton (B4).
-5. **The C1×B5 sanctioned shape** (resolving the tension — a non-entrypoint can't `import AiConfig` (C1) yet shouldn't receive threaded values (B5)):
-   - **Primary:** a consumer that can safely import `AiConfig` reads at the use site.
-   - **Pre-bootstrap / non-entrypoint consumers** (e.g. frequent lifecycle daemons): a **pure-defaults module** — literals + env-var *names* only, **no Neo import**. It carries the same defaults the leaves declare, so it stays the single declarative source even where Neo can't bootstrap.
-   - An **entrypoint-injected value object** is acceptable *only* at a narrow, explicitly-named bootstrap boundary — it is not license for generic pass-along plumbing.
-   - Do **not** introduce a read-only accessor unless it remains pure / no-Neo-import; otherwise it is a parallel config API. *(This folds @neo-opus-4-7's #12420 bootstrap-weight reframe: the lifecycle scripts CAN bootstrap Neo via `_export`-first, but a frequent lightweight lock SHOULD NOT pay full-framework bootstrap weight just to read a path.)*
+5. **The C1×B5 sanctioned shape** (V-B-A'd against `dev` — most "daemon C1" sites are actually A1):
+   - **Entrypoints (incl. the `ai/` daemons) import `AiConfig` and read at the use site.** The daemons already `import Neo`/`_export`/`AiConfig` and work — so a daemon re-deriving a path is **A1, not C1**. Fix: read `AiConfig.X.Y` directly.
+   - **Genuine non-entrypoint helpers** (e.g. `TaskDefinitions.mjs` — imported by the orchestrator entrypoint, with no Neo import of its own): a **pure-defaults module** — literals + env-var *names* only, **no Neo import** — carrying the same defaults the leaves declare. This is the one true C1×B5 locus.
+   - An **entrypoint-injected value object** is acceptable *only* at a narrow, explicitly-named bootstrap boundary — not license for generic pass-along plumbing. Do **not** add a read-only accessor unless it stays pure / no-Neo-import.
+   - *(Folds @neo-opus-4-7's bootstrap-weight reframe: the question was never "can it import?" — the daemons prove it can — but "should a frequent lightweight helper pay full-framework bootstrap weight to read a path?")*
 6. **Overlay = thin child of deltas** over the canonical template; never parse/splice config source to reconcile (deep-merge inheritance handles it).
 
 ## 6. V-B-A Pre-Flight for future authors (the read-gate)
@@ -117,7 +119,7 @@ Before authoring or reviewing any `ai/` config work, you MUST:
 
 ## 9. Related
 
-- **Discussion #12453** — full archaeology trail + the divergence matrix.
+- **Discussion #12453** — full archaeology trail + the divergence matrix (incl. @neo-opus-4-7's OQ3 C1=bootstrap-weight V-B-A, `DC_kwDODSospM4BBgm5`).
 - **Epic #12456** — workstream coordination; **#12457** — this sub.
 - **#12420** — superseded empirical anchor (do-not-merge). **#12335** — orphan incident (the B4 danger).
 - Folded subs: **#12435** (B4), **#12438** (A1), **#11976** (C3), **#12452** (`BaseConfig → ConfigProvider` rename), **#12451** (config-leaf lint → sub #2).
