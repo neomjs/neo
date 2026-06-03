@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Contract coverage for `GraphqlService.query` transient GitHub retry behavior (#11585).
+ * @summary Contract coverage for `GraphqlService.query` transient GitHub retry behavior.
  *
  * GitHub's GraphQL edge can return transient `502`/`503`/`504` gateway failures or
  * terminate a fetch mid-flight. The GitHub Workflow sync pipeline is long-running,
@@ -147,5 +147,74 @@ test.describe('Neo.ai.services.github-workflow.GraphqlService — transient retr
 
         await expect(GraphqlService.query(QUERY)).rejects.toThrow('GitHub API error: Field does not exist');
         expect(callCount).toBe(1);
+    });
+
+    test('strict mode throws when GraphQL errors include partial data (#10096)', async () => {
+        globalThis.fetch = async () => new Response(JSON.stringify({
+            data: {
+                repository: {
+                    issue42: {number: 42},
+                    issue43: null
+                }
+            },
+            errors: [{message: 'Could not resolve to an Issue with the number of 43'}]
+        }), {
+            status : 200,
+            headers: {'content-type': 'application/json'}
+        });
+
+        await expect(GraphqlService.query(QUERY)).rejects.toThrow(
+            'GitHub API error: Could not resolve to an Issue with the number of 43'
+        );
+    });
+
+    test('non-strict mode returns partial data with GraphQL errors (#10096)', async () => {
+        const errors = [{message: 'Could not resolve to an Issue with the number of 43'}];
+        const data   = {
+            repository: {
+                issue42: {number: 42},
+                issue43: null
+            }
+        };
+
+        globalThis.fetch = async () => new Response(JSON.stringify({data, errors}), {
+            status : 200,
+            headers: {'content-type': 'application/json'}
+        });
+
+        const result = await GraphqlService.query(QUERY, {}, {strict: false});
+
+        expect(result).toEqual({data, errors});
+    });
+
+    test('non-strict mode throws when GraphQL errors have no usable data (#10096)', async () => {
+        globalThis.fetch = async () => new Response(JSON.stringify({
+            data  : {repository: null},
+            errors: [{message: 'Could not resolve to a Repository'}]
+        }), {
+            status : 200,
+            headers: {'content-type': 'application/json'}
+        });
+
+        await expect(GraphqlService.query(QUERY, {}, {strict: false}))
+            .rejects.toThrow('GitHub API error: Could not resolve to a Repository');
+    });
+
+    test('legacy boolean option still enables the sub-issues header (#10096)', async () => {
+        let featureHeader;
+
+        globalThis.fetch = async (url, options) => {
+            featureHeader = options.headers['GraphQL-Features'];
+
+            return new Response(JSON.stringify({data: {ok: true}}), {
+                status : 200,
+                headers: {'content-type': 'application/json'}
+            });
+        };
+
+        const result = await GraphqlService.query(QUERY, {}, true);
+
+        expect(result).toEqual({ok: true});
+        expect(featureHeader).toBe('sub_issues');
     });
 });

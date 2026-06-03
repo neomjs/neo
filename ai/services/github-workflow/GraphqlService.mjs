@@ -204,14 +204,45 @@ class GraphqlService extends Base {
     }
 
     /**
-     * Executes a GraphQL query or mutation against the GitHub API.
-     * @param {string}  query                   The GraphQL query string.
-     * @param {object}  [variables={}]          Optional variables for the query.
-     * @param {boolean} [enableSubIssues=false] Whether to enable sub-issues feature header
-     * @returns {Promise<object>} The `data` object from the GraphQL response.
-     * @throws {Error} If the request fails or the API returns errors.
+     * @summary Detects whether a GraphQL response contains usable partial data.
+     *
+     * GitHub can return `{data, errors}` when only one aliased field fails. A top-level `data`
+     * object with at least one non-null field is useful partial data; `null`/empty/all-null data
+     * still represents a hard semantic failure.
+     *
+     * @param {*} data The GraphQL `data` payload.
+     * @returns {Boolean}
+     * @private
      */
-    async query(query, variables={}, enableSubIssues=false) {
+    #hasPartialData(data) {
+        if (data == null) {
+            return false;
+        }
+
+        if (Array.isArray(data)) {
+            return data.some(item => item != null);
+        }
+
+        if (typeof data === 'object') {
+            return Object.values(data).some(value => value != null);
+        }
+
+        return true;
+    }
+
+    /**
+     * Executes a GraphQL query or mutation against the GitHub API.
+     * @param {string}         query                         The GraphQL query string.
+     * @param {object}         [variables={}]                Optional variables for the query.
+     * @param {boolean|object} [options=false]               Legacy boolean enables sub-issues; object form configures behavior.
+     * @param {boolean}        [options.enableSubIssues=false] Whether to enable sub-issues feature header.
+     * @param {boolean}        [options.strict=true]         Whether any GraphQL `errors` entry is a hard failure.
+     * @returns {Promise<object>} The `data` object, or `{data, errors}` for non-strict partial-data responses.
+     * @throws {Error} If the request fails, or if strict GraphQL error handling rejects the response.
+     */
+    async query(query, variables={}, options=false) {
+        const enableSubIssues = typeof options === 'boolean' ? options : Boolean(options?.enableSubIssues);
+        const strict          = typeof options === 'object' ? options?.strict !== false : true;
         const token = await this.#getAuthToken();
 
         const headers = {
@@ -259,6 +290,14 @@ class GraphqlService extends Base {
         const json = await response.json();
 
         if (json.errors) {
+            if (!strict && this.#hasPartialData(json.data)) {
+                logger.warn('GitHub API returned partial data with GraphQL errors:', json.errors);
+                return {
+                    data  : json.data,
+                    errors: json.errors
+                };
+            }
+
             logger.error('GitHub API returned errors:', json.errors);
             throw new Error(`GitHub API error: ${json.errors.map(e => e.message).join(', ')}`);
         }
