@@ -21,6 +21,7 @@ import {
     bodyMatches,
     buildNotificationBody,
     parseArgs,
+    resolveIdentitiesForFamily,
     resolveIdentityForFamily,
     revalidationSweep
 } from '../../../../../../ai/scripts/lifecycle/revalidationSweep.mjs';
@@ -133,7 +134,7 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             expect(identity.id).toBe('@neo-opus-4-7');
         });
 
-        test('prefers the active Claude identity while another Claude activation is pending', () => {
+        test('fans out to all active Claude identities without double-counting the family', () => {
             const claudeIdentities = IDENTITIES.filter(identity =>
                 identity.type === 'AgentIdentity' &&
                 identity.properties?.modelFamily === 'claude'
@@ -144,8 +145,12 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 '@neo-claude-opus'
             ]));
             expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-4-7');
+            expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
+                '@neo-opus-4-7',
+                '@neo-claude-opus'
+            ]);
             expect(claudeIdentities.find(identity => identity.id === '@neo-claude-opus')?.properties.participationStatus)
-                .toBe('temporarily_unreachable');
+                .toBe('active');
         });
 
         test('throws on unknown family', () => {
@@ -170,6 +175,18 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             expect(body).toContain('[GRADUATION_ABSTAIN');
             expect(body).toContain('Epic #11796 AC6');
             expect(body).toContain(`v${SWEEP_VERSION}`);
+        });
+
+        test('includes same-family aggregation note for multi-active notification fan-out', () => {
+            const body = buildNotificationBody({
+                family       : 'claude',
+                identityLogins: ['@neo-opus-4-7', '@neo-claude-opus'],
+                since        : '2026-05-18T00:00:00.000Z',
+                sweepAt      : '2026-06-01T12:00:00.000Z'
+            });
+            expect(body).toContain('@neo-opus-4-7, @neo-claude-opus');
+            expect(body).toContain('Same-family aggregation note');
+            expect(body).toContain('no active same-family identity holds unresolved DEFERRED / VETO');
         });
     });
 
@@ -239,9 +256,29 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         });
 
         test('throws when neither --since nor identityRoots since is present (active family)', async () => {
-            // claude is currently `active` → properties.since is null
+            // claude is currently `active`; a same-family sibling activation is
+            // not a family reactivation window unless --since is explicit.
             await expect(revalidationSweep({ family: 'claude', io: { searchIssues: () => [], postComment: () => {} } }))
                 .rejects.toThrow(/no participationStatus\.since/);
+        });
+
+        test('notifies all active identities when a multi-active family sweep is explicit', async () => {
+            const fakeIo = {
+                searchIssues: () => [
+                    { number: 12400, title: 'Claude family liveness', body: '## Unresolved Liveness\n- `claude`: bench since X' }
+                ],
+                postComment : () => { throw new Error('should not post during dry-run'); }
+            };
+            const result = await revalidationSweep({
+                family : 'claude',
+                since  : '2026-05-18T00:00:00.000Z',
+                until  : '2026-06-01T00:00:00.000Z',
+                dryRun : true,
+                io     : fakeIo
+            });
+            expect(result.identityLogin).toBe('@neo-opus-4-7');
+            expect(result.identityLogins).toEqual(['@neo-opus-4-7', '@neo-claude-opus']);
+            expect(result.results[0].notification).toContain('@neo-opus-4-7, @neo-claude-opus');
         });
 
         test('returns empty results when no candidates match', async () => {
