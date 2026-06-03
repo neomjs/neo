@@ -21,6 +21,8 @@ import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 
 test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
+    test.describe.configure({mode: 'serial'});
+
     let MetadataManager;
     let aiConfig;
     let originalMetadataFile;
