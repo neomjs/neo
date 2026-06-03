@@ -599,6 +599,15 @@ function spawnAsync(command, args) {
 }
 
 /**
+ * @summary Escapes values interpolated into AppleScript string literals.
+ * @param {String} value
+ * @returns {String}
+ */
+function escapeAppleScriptString(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
  * Global mutex for serializing adapter deliveries.
  * Prevents concurrent osascript calls from colliding when multiple agents wake simultaneously.
  */
@@ -725,20 +734,49 @@ async function deliverDigest(subscription, digest) {
             // Instance-addressed wake raises the resolved pid's process to frontmost (verified
             // addressable via System Events `whose unix id`); single-instance wakes keep the
             // app-activate path unchanged.
+            const appleScriptAppName = escapeAppleScriptString(appName),
+                  targetProcessId    = instancePid ? String(instancePid) : '';
+
             const activateLine = instancePid
                 ? `  tell application "System Events" to set frontmost of (first process whose unix id is ${instancePid}) to true`
-                : `  tell application "${appName}" to activate`;
+                : `  tell application "${appleScriptAppName}" to activate`;
 
             const osascriptArgs = [
+                '-e', 'on assertTargetFrontmost(appName, targetBundleId, targetProcessId, phase)',
+                '-e', '  tell application "System Events"',
+                '-e', '    set frontmostProcess to first application process whose frontmost is true',
+                '-e', '    if targetProcessId is not "" then',
+                '-e', '      set currentPid to (unix id of frontmostProcess) as string',
+                '-e', '      if currentPid is not targetProcessId then error "Target app lost frontmost status " & phase & " (pid " & currentPid & " != " & targetProcessId & ")"',
+                '-e', '    else if targetBundleId is not "" then',
+                '-e', '      set currentBundleId to ""',
+                '-e', '      try',
+                '-e', '        set currentBundleId to (bundle identifier of frontmostProcess) as string',
+                '-e', '      end try',
+                '-e', '      if currentBundleId is not targetBundleId then error "Target app lost frontmost status " & phase & " (bundle " & currentBundleId & " != " & targetBundleId & ")"',
+                '-e', '    else',
+                '-e', '      set currentApp to name of frontmostProcess',
+                '-e', '      if currentApp is not appName then error "Target app lost frontmost status " & phase & " (" & currentApp & " != " & appName & ")"',
+                '-e', '    end if',
+                '-e', '  end tell',
+                '-e', 'end assertTargetFrontmost',
                 '-e', 'on run argv',
                 '-e', '  set wakePayload to (item 1 of argv)',
+                '-e', `  set targetAppName to "${appleScriptAppName}"`,
+                '-e', '  set targetBundleId to ""',
+                '-e', '  try',
+                '-e', `    set targetBundleId to id of application "${appleScriptAppName}"`,
+                '-e', '  end try',
+                '-e', `  set targetProcessId to "${targetProcessId}"`,
                 '-e', '  try',
                 '-e', '    set savedClipboard to the clipboard as string',
                 '-e', '  on error',
                 '-e', '    set savedClipboard to ""',
                 '-e', '  end try',
+                '-e', '  try',
                 '-e', activateLine,
                 '-e', '  delay 0.5',
+                '-e', '  my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
                 '-e', '    tell frontmostProcess'
@@ -777,6 +815,7 @@ async function deliverDigest(subscription, digest) {
             }
 
             osascriptArgs.push(
+                '-e', '      my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before prompt clear")',
                 '-e', '      set the clipboard to ""',
                 '-e', '      keystroke "a" using command down',
                 '-e', '      delay 0.2',
@@ -789,8 +828,10 @@ async function deliverDigest(subscription, digest) {
                 '-e', '  on error',
                 '-e', '    set userInput to ""',
                 '-e', '  end try',
+                '-e', '  my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake clipboard set")',
                 '-e', '  set the clipboard to wakePayload',
                 '-e', '  delay 0.2',
+                '-e', '  my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake paste")',
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
                 '-e', '    tell frontmostProcess',
@@ -801,8 +842,10 @@ async function deliverDigest(subscription, digest) {
                 '-e', '    end tell',
                 '-e', '  end tell',
                 '-e', '  if userInput is not "" then',
+                '-e', '    my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before user input restore clipboard set")',
                 '-e', '    set the clipboard to userInput',
                 '-e', '    delay 0.2',
+                '-e', '    my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before user input restore paste")',
                 '-e', '    tell application "System Events"',
                 '-e', '      set frontmostProcess to first application process whose frontmost is true',
                 '-e', '      tell frontmostProcess',
@@ -812,6 +855,10 @@ async function deliverDigest(subscription, digest) {
                 '-e', '  end if',
                 '-e', '  delay 0.5',
                 '-e', '  set the clipboard to savedClipboard',
+                '-e', '  on error errMsg',
+                '-e', '    set the clipboard to savedClipboard',
+                '-e', '    error errMsg',
+                '-e', '  end try',
                 '-e', 'end run',
                 digest
             );
