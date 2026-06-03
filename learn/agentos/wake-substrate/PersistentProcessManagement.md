@@ -14,7 +14,7 @@ The wake substrate (Epic [#10671](https://github.com/neomjs/neo/issues/10671)) s
 
 - `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs` — Neo-singleton swarm-heartbeat lane (5-minute pulse cadence by default; #10789). Folded into the Orchestrator daemon as a config-gated scheduled lane per [#11766](https://github.com/neomjs/neo/issues/11766).
 - `ai/scripts/checkSunsetted.mjs` — sunset / idle-out detector consumed by the heartbeat lane
-- `ai/scripts/resumeHarness.mjs` — recovery dispatcher invoked when a sunsetted agent is detected
+- `ai/scripts/resumeHarness.mjs` — recovery dispatcher invoked when a sunsetted agent is detected; Claude recovery targets Claude Desktop Tab 3 (Code tab) via the `osascript` adapter (Cmd+3 → fresh chat), not a terminal-attached CLI
 - `ai/scripts/wakeSafetyGate.mjs` — fail-closed safety gate consulted before any high-authority recovery action
 
 The heartbeat must run continuously. Rather than a dedicated daemon, the heartbeat `pulse()` is scheduled by the **Orchestrator** — the same persistent process that owns summarization, KB-sync, backup, dream, and golden-path lanes. macOS's native primitive for the long-lived per-user Orchestrator process is **launchd LaunchAgent** (per-user, lives in `~/Library/LaunchAgents/`). Linux's analog is a **systemd user service** (typically `~/.config/systemd/user/`).
