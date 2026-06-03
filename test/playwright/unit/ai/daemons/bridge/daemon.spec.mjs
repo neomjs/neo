@@ -701,7 +701,7 @@ test.describe('Bridge Daemon', () => {
         expect(args.join(' ')).not.toContain('key code 49');
     });
 
-    test('Claude default focus seed emits r -> Cmd+Z before prompt clear (#10987)', async () => {
+    test('Claude default focus seed emits r -> Cmd+Z before prompt clear and guards frontmost (#10987, #10422)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-claude';
 
@@ -787,12 +787,30 @@ test.describe('Bridge Daemon', () => {
         const rIndex        = scriptContent.indexOf('keystroke "r"');
         const zIndex        = scriptContent.indexOf('keystroke "z" using command down');
         const clearIndex    = scriptContent.indexOf('keystroke "a" using command down');
+        const guardAfterActivationIndex = scriptContent.indexOf('my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")');
+        const guardBeforeClearIndex     = scriptContent.indexOf('my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before prompt clear")');
+        const guardBeforeWakeSetIndex   = scriptContent.indexOf('my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake clipboard set")');
+        const wakePayloadIndex          = scriptContent.indexOf('set the clipboard to wakePayload');
+        const guardBeforeWakePasteIndex = scriptContent.indexOf('my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake paste")');
+        const pasteIndex                = scriptContent.indexOf('keystroke "v" using command down');
 
         expect(activateIndex).toBeGreaterThan(-1);
+        expect(scriptContent).toContain('on assertTargetFrontmost(appName, targetBundleId, targetProcessId, phase)');
+        expect(scriptContent).toContain('set targetBundleId to id of application "Claude"');
+        expect(scriptContent).toContain('bundle identifier of frontmostProcess');
+        expect(scriptContent).toContain('set the clipboard to savedClipboard\n    error errMsg');
         expect(tabIndex).toBeGreaterThan(activateIndex);
+        expect(guardAfterActivationIndex).toBeGreaterThan(activateIndex);
+        expect(guardAfterActivationIndex).toBeLessThan(tabIndex);
         expect(rIndex).toBeGreaterThan(tabIndex);
         expect(zIndex).toBeGreaterThan(rIndex);
+        expect(guardBeforeClearIndex).toBeGreaterThan(zIndex);
+        expect(guardBeforeClearIndex).toBeLessThan(clearIndex);
         expect(clearIndex).toBeGreaterThan(zIndex);
+        expect(guardBeforeWakeSetIndex).toBeGreaterThan(clearIndex);
+        expect(guardBeforeWakeSetIndex).toBeLessThan(wakePayloadIndex);
+        expect(guardBeforeWakePasteIndex).toBeGreaterThan(wakePayloadIndex);
+        expect(guardBeforeWakePasteIndex).toBeLessThan(pasteIndex);
         expect(scriptContent).not.toContain('key code 49');
     });
 
