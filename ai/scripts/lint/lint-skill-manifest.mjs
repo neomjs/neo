@@ -279,6 +279,225 @@ function checkSectionTriggers(filePath, text, rarePatterns = []) {
     return {errors, index};
 }
 
+function stripFencedCodeBlocks(text) {
+    let inFence = false;
+
+    return text.split('\n').map(line => {
+        if (/^\s*```/.test(line)) {
+            inFence = !inFence;
+            return '';
+        }
+
+        return inFence ? '' : line;
+    }).join('\n');
+}
+
+function normalizeRelPath(filePath) {
+    return path.normalize(filePath).replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+function extractHeadingAnchors(text) {
+    const anchors = new Set();
+
+    for (const line of text.split('\n')) {
+        const match = line.match(/^#{1,6}\s+(?:§)?(\d+(?:\.\d+)*)(?:\b|[^\d.])/);
+
+        if (match) {
+            anchors.add(match[1]);
+        }
+    }
+
+    return anchors;
+}
+
+function addBasenameIndexEntry(index, relPath) {
+    const basename = path.basename(relPath, '.md');
+    const current  = index.get(basename);
+
+    if (current === undefined) {
+        index.set(basename, relPath);
+    } else if (current !== relPath) {
+        index.set(basename, null);
+    }
+}
+
+function buildSkillReferenceIndex(files, extraMarkdownRelPaths = []) {
+    const byRelPath     = new Map();
+    const basenameIndex = new Map();
+    const headingIndex  = new Map();
+
+    for (const file of files) {
+        const relPath = normalizeRelPath(file.relPath);
+
+        byRelPath.set(relPath, file.text);
+
+        if (!relPath.endsWith('.md')) continue;
+
+        headingIndex.set(relPath, extractHeadingAnchors(file.text));
+
+        addBasenameIndexEntry(basenameIndex, relPath);
+    }
+
+    for (const relPath of extraMarkdownRelPaths.map(normalizeRelPath)) {
+        if (relPath.endsWith('.md')) {
+            addBasenameIndexEntry(basenameIndex, relPath);
+        }
+    }
+
+    return {basenameIndex, byRelPath, headingIndex};
+}
+
+function resolveSkillMarkdownTarget(rawTarget, sourceRelPath, index) {
+    if (!rawTarget || /^(https?:|mailto:|#)/.test(rawTarget)) return null;
+    if (rawTarget.includes('*')) return null;
+    if (/[<>{}[\]]/.test(rawTarget)) return null;
+
+    const target = rawTarget.replace(/^`|`$/g, '').replace(/[#?].*$/, '');
+    let relPath  = null;
+
+    if (target.startsWith('.agents/skills/')) {
+        relPath = target;
+    } else if (target.startsWith('./') || target.startsWith('../') || target.startsWith('references/')) {
+        relPath = path.join(path.dirname(sourceRelPath), target);
+    } else if (target.endsWith('.md') && target.includes('/')) {
+        relPath = target;
+    } else {
+        const basename = target.endsWith('.md') ? path.basename(target, '.md') : target;
+        relPath = index.basenameIndex.get(basename);
+    }
+
+    if (!relPath) return null;
+
+    relPath = normalizeRelPath(relPath);
+
+    return relPath.startsWith('.agents/skills/') ? relPath : null;
+}
+
+function collectMarkdownPointerTargets(line) {
+    const targets = new Set();
+    const patterns = [
+        /\[[^\]]+\]\(([^)\s]+\.md(?:#[^)]+)?)\)/g,
+        /<!--\s*trigger:[\s\S]*?\bread\s+([^\s]+\.md)\s*-->/g,
+        /`((?:\.agents\/skills\/|references\/|\.\/|\.\.\/)[^`\s]+\.md(?:#[^`]*)?)`/g,
+        /(?:^|[\s(])((?:references\/|\.\/|\.\.\/)[^\s)`]+\.md(?:#[^\s)`]+)?)/g
+    ];
+
+    for (const pattern of patterns) {
+        let match;
+
+        while ((match = pattern.exec(line))) {
+            targets.add(match[1]);
+        }
+    }
+
+    return [...targets];
+}
+
+/**
+ * @summary Checks changed skill substrate text for resolvable Markdown pointers and numeric section references.
+ *
+ * Manifest prose can be a source of references, but target anchors intentionally stay Markdown-only.
+ *
+ * @param {String[]} changedRelPaths
+ * @param {Array<{relPath: String, text: String}>} allMarkdownFiles
+ * @returns {String[]}
+ */
+function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles) {
+    const errors = [];
+    const index  = buildSkillReferenceIndex(allMarkdownFiles);
+
+    for (const sourceRelPath of changedRelPaths.map(normalizeRelPath).sort()) {
+        const sourceText = index.byRelPath.get(sourceRelPath);
+
+        if (!sourceText) continue;
+
+        const lines = stripFencedCodeBlocks(sourceText).split('\n');
+
+        lines.forEach((line, lineIndex) => {
+            const lineNo = lineIndex + 1;
+
+            for (const target of collectMarkdownPointerTargets(line)) {
+                const targetRelPath = resolveSkillMarkdownTarget(target, sourceRelPath, index);
+
+                if (targetRelPath && !index.byRelPath.has(targetRelPath)) {
+                    errors.push(`${sourceRelPath}:${lineNo} → broken file pointer ${target}`);
+                }
+            }
+
+            const sectionRefPattern = /(?:(\.agents\/skills\/[A-Za-z0-9_.\/-]+|(?:\.{1,2}\/|references\/)[A-Za-z0-9_.\/-]+|[A-Za-z0-9_.-]+(?:\.md)?)\s+)?§(\d+\.\d+(?:\.\d+)*)/g;
+            let match;
+
+            while ((match = sectionRefPattern.exec(line))) {
+                const targetRelPath = match[1]
+                    ? resolveSkillMarkdownTarget(match[1], sourceRelPath, index)
+                    : sourceRelPath.endsWith('.md')
+                        ? sourceRelPath
+                        : null;
+
+                if (!targetRelPath) continue;
+                if (!index.byRelPath.has(targetRelPath)) {
+                    errors.push(`${sourceRelPath}:${lineNo} → broken section-ref target ${match[1]} for §${match[2]}`);
+                    continue;
+                }
+
+                const anchors = index.headingIndex.get(targetRelPath);
+                if (!anchors) continue;
+                if (!anchors.has(match[2])) {
+                    const targetLabel = match[1] ? `${match[1]} ` : '';
+                    errors.push(`${sourceRelPath}:${lineNo} → dangling section ref ${targetLabel}§${match[2]} (target lacks matching heading)`);
+                }
+            }
+        });
+    }
+
+    return errors;
+}
+
+function checkRemovedSkillFileReferences(removedRelPaths, allTextFiles) {
+    const removed = new Set(removedRelPaths
+        .map(normalizeRelPath)
+        .filter(relPath => relPath.startsWith('.agents/skills/') && relPath.endsWith('.md')));
+
+    if (removed.size === 0) return [];
+
+    const errors = [];
+    const index  = buildSkillReferenceIndex(allTextFiles, [...removed]);
+
+    for (const sourceRelPath of allTextFiles.map(file => normalizeRelPath(file.relPath)).sort()) {
+        if (removed.has(sourceRelPath)) continue;
+
+        const sourceText = index.byRelPath.get(sourceRelPath);
+        if (!sourceText) continue;
+
+        const lines = stripFencedCodeBlocks(sourceText).split('\n');
+
+        lines.forEach((line, lineIndex) => {
+            const lineNo = lineIndex + 1;
+
+            for (const target of collectMarkdownPointerTargets(line)) {
+                const targetRelPath = resolveSkillMarkdownTarget(target, sourceRelPath, index);
+
+                if (targetRelPath && removed.has(targetRelPath)) {
+                    errors.push(`${sourceRelPath}:${lineNo} → reference to deleted file ${target}`);
+                }
+            }
+
+            const sectionRefPattern = /(\.agents\/skills\/[A-Za-z0-9_.\/-]+|(?:\.{1,2}\/|references\/)[A-Za-z0-9_.\/-]+|[A-Za-z0-9_.-]+(?:\.md)?)\s+§\d+\.\d+(?:\.\d+)*/g;
+            let match;
+
+            while ((match = sectionRefPattern.exec(line))) {
+                const targetRelPath = resolveSkillMarkdownTarget(match[1], sourceRelPath, index);
+
+                if (targetRelPath && removed.has(targetRelPath)) {
+                    errors.push(`${sourceRelPath}:${lineNo} → reference to deleted file ${match[1]}`);
+                }
+            }
+        });
+    }
+
+    return errors;
+}
+
 function validateManifestSchema(manifest, schema) {
     const errors = [];
     const rootKeys = new Set([...schema.required, '$schema']);
@@ -452,6 +671,33 @@ function changedFiles(base) {
     }
 }
 
+function removedFiles(base) {
+    if (!base) return [];
+
+    try {
+        const output = execFileSync('git', ['diff', '--name-status', `${base}...HEAD`], {
+            cwd     : ROOT_DIR,
+            encoding: 'utf8'
+        });
+        const removed = [];
+
+        for (const line of output.split('\n').filter(Boolean)) {
+            const parts  = line.split('\t');
+            const status = parts[0];
+
+            if (status === 'D') {
+                removed.push(parts[1]);
+            } else if (/^R\d+/.test(status)) {
+                removed.push(parts[1]);
+            }
+        }
+
+        return removed.sort();
+    } catch (error) {
+        throw new Error(`Unable to compute removed files${base ? ` against ${base}` : ''}: ${error.message}`);
+    }
+}
+
 function getBaseFileSize(base, filePath) {
     try {
         const output = execFileSync('git', ['cat-file', '-s', `${base}:${filePath}`], {
@@ -598,6 +844,32 @@ async function lint({base = null} = {}) {
         }
     }
 
+    if (base) {
+        const allSkillTextFiles = (await walkFiles(SKILLS_DIR))
+            .filter(filePath => filePath.endsWith('.md'))
+            .map(filePath => ({
+                relPath: path.relative(ROOT_DIR, filePath),
+                text   : requireText(filePath)
+            }));
+        const manifestPath = path.join(SKILLS_DIR, 'skills.manifest.json');
+
+        if (existsSync(manifestPath)) {
+            allSkillTextFiles.push({
+                relPath: path.relative(ROOT_DIR, manifestPath),
+                text   : requireText(manifestPath)
+            });
+        }
+
+        const changedSkillTextFiles = [...changed]
+            .filter(filePath => filePath === '.agents/skills/skills.manifest.json' ||
+                                (filePath.startsWith('.agents/skills/') && filePath.endsWith('.md')));
+        const removedSkillMarkdownFiles = removedFiles(base)
+            .filter(filePath => filePath.startsWith('.agents/skills/') && filePath.endsWith('.md'));
+
+        errors.push(...checkSkillReferenceIntegrity(changedSkillTextFiles, allSkillTextFiles));
+        errors.push(...checkRemovedSkillFileReferences(removedSkillMarkdownFiles, allSkillTextFiles));
+    }
+
     return errors;
 }
 
@@ -632,7 +904,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 export {
     checkOversizedWorkflowMaps,
     checkPerFileBudgets,
+    checkRemovedSkillFileReferences,
     checkSectionTriggers,
+    checkSkillReferenceIntegrity,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
     parseSectionTriggers,

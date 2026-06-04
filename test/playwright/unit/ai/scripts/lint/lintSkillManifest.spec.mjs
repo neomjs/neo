@@ -5,7 +5,9 @@ import path                      from 'path';
 import {
     checkOversizedWorkflowMaps,
     checkPerFileBudgets,
+    checkRemovedSkillFileReferences,
     checkSectionTriggers,
+    checkSkillReferenceIntegrity,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
     parseArgs,
@@ -465,5 +467,120 @@ ${padding}
 
         const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
         expect(errors).toEqual([]);
+    });
+
+    test('checkSkillReferenceIntegrity flags dangling numeric section refs (#12493)', () => {
+        const files = [{
+            relPath: '.agents/skills/pr-review/references/pr-review-guide.md',
+            text   : [
+                '## 9. Strategic Fit',
+                '### 9.0 Premise Pre-Flight',
+                'Valid same-file ref: §9.0.',
+                'Invalid same-file ref: §9.2.'
+            ].join('\n')
+        }, {
+            relPath: '.agents/skills/pull-request/references/review-response-protocol.md',
+            text   : [
+                'Valid: pr-review-guide §9.0.',
+                'Invalid: pr-review-guide §10.4.'
+            ].join('\n')
+        }];
+
+        const errors = checkSkillReferenceIntegrity([
+            '.agents/skills/pr-review/references/pr-review-guide.md',
+            '.agents/skills/pull-request/references/review-response-protocol.md'
+        ], files);
+
+        expect(errors).toHaveLength(2);
+        expect(errors[0]).toContain('pr-review-guide.md:4');
+        expect(errors[0]).toContain('dangling section ref §9.2');
+        expect(errors[1]).toContain('review-response-protocol.md:2');
+        expect(errors[1]).toContain('dangling section ref pr-review-guide §10.4');
+    });
+
+    test('checkSkillReferenceIntegrity scans manifest prose refs as source text (#12493)', () => {
+        const files = [{
+            relPath: '.agents/skills/pr-review/references/pr-review-guide.md',
+            text   : '## 10. A2A Comment-ID Hand-off\n'
+        }, {
+            relPath: '.agents/skills/skills.manifest.json',
+            text   : '{"description":"Review handoff per pr-review-guide §10.5"}'
+        }];
+
+        const errors = checkSkillReferenceIntegrity([
+            '.agents/skills/skills.manifest.json'
+        ], files);
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('skills.manifest.json:1');
+        expect(errors[0]).toContain('dangling section ref pr-review-guide §10.5');
+    });
+
+    test('checkSkillReferenceIntegrity flags broken relative markdown pointers (#12493)', () => {
+        const files = [{
+            relPath: '.agents/skills/pull-request/references/pull-request-workflow.md',
+            text   : [
+                'Valid: [response](./review-response-protocol.md).',
+                'Broken: [missing](./missing-rule.md).',
+                'Broken bare relative pointer: ./also-missing.md',
+                'Example fence ignored:',
+                '```md',
+                '[template](./fenced-missing.md)',
+                '```'
+            ].join('\n')
+        }, {
+            relPath: '.agents/skills/pull-request/references/review-response-protocol.md',
+            text   : '# Review Response Protocol\n'
+        }];
+
+        const errors = checkSkillReferenceIntegrity([
+            '.agents/skills/pull-request/references/pull-request-workflow.md'
+        ], files);
+
+        expect(errors).toHaveLength(2);
+        expect(errors[0]).toContain('pull-request-workflow.md:2');
+        expect(errors[0]).toContain('broken file pointer ./missing-rule.md');
+        expect(errors[1]).toContain('pull-request-workflow.md:3');
+        expect(errors[1]).toContain('broken file pointer ./also-missing.md');
+    });
+
+    test('checkSkillReferenceIntegrity ignores external refs, ticket refs, and unresolved prose (#12493)', () => {
+        const files = [{
+            relPath: '.agents/skills/example/references/example-workflow.md',
+            text   : [
+                'Ticket #12488 and ADR 0019 §A4 are descriptive refs.',
+                'External [doc](https://example.com/a.md) is out of scope.',
+                'Wildcard authoring prose like `references/*.md` is not a concrete pointer.',
+                'Generic guide §7 wording has no resolvable target and is ignored.'
+            ].join('\n')
+        }];
+
+        expect(checkSkillReferenceIntegrity([
+            '.agents/skills/example/references/example-workflow.md'
+        ], files)).toEqual([]);
+    });
+
+    test('checkRemovedSkillFileReferences flags surviving refs to deleted skill files (#12493)', () => {
+        const files = [{
+            relPath: '.agents/skills/pull-request/references/pull-request-workflow.md',
+            text   : [
+                'Deleted relative pointer: [old](./removed-rule.md).',
+                'Deleted basename section ref: removed-rule §2.1.',
+                'Live pointer: [response](./review-response-protocol.md).'
+            ].join('\n')
+        }, {
+            relPath: '.agents/skills/pull-request/references/review-response-protocol.md',
+            text   : '# Review Response Protocol\n'
+        }];
+
+        const errors = checkRemovedSkillFileReferences([
+            '.agents/skills/pull-request/references/removed-rule.md'
+        ], files);
+
+        expect(errors).toHaveLength(2);
+        expect(errors[0]).toContain('pull-request-workflow.md:1');
+        expect(errors[0]).toContain('reference to deleted file ./removed-rule.md');
+        expect(errors[1]).toContain('pull-request-workflow.md:2');
+        expect(errors[1]).toContain('reference to deleted file removed-rule');
     });
 });
