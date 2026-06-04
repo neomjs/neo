@@ -112,22 +112,28 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
 
         expect(Synthesizer.getCoreSwarmAgentFamilies()).toMatchObject({
+            'neo-claude-opus' : 'claude',
             'neo-gemini-3-1-pro': 'gemini',
             'neo-gpt'           : 'gpt',
-            'neo-opus-4-7'      : 'claude'
+            'neo-opus-4-7'      : 'claude',
+            'neo-opus-vega'     : 'claude'
         });
 
         expect(Synthesizer.getAgentLogins()).toEqual(expect.arrayContaining([
+            'neo-claude-opus',
             'neo-gemini-3-1-pro',
             'neo-gpt',
-            'neo-opus-4-7'
+            'neo-opus-4-7',
+            'neo-opus-vega'
         ]));
         expect(Synthesizer.getAgentLogins()).not.toContain('tobiu');
 
         expect(Synthesizer.getStaleAssignmentMaintainers()).toEqual(expect.arrayContaining([
+            'neo-claude-opus',
             'neo-gemini-3-1-pro',
             'neo-gpt',
             'neo-opus-4-7',
+            'neo-opus-vega',
             'tobiu'
         ]));
     });

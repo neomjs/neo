@@ -335,7 +335,8 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
         '@neo-gemini-3-1-pro': 'antigravity-ide',
         '@neo-gpt'           : 'codex-desktop',
         '@neo-opus-4-7'      : 'claude-desktop',
-        '@neo-claude-opus'   : 'claude-desktop'
+        '@neo-claude-opus'   : 'claude-desktop',
+        '@neo-opus-vega'     : 'claude-desktop'
     };
 
     const targetId = identityMap[identity];

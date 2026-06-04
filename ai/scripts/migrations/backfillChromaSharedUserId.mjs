@@ -63,6 +63,8 @@ const SHARED_USER_ID = 'shared';
 // the same no-Neo-bootstrap reason as SHARED_USER_ID above; unit tests enforce the sync.
 const CORE_SWARM_USER_IDS = Object.freeze([
     'neo-opus-4-7',
+    'neo-claude-opus',
+    'neo-opus-vega',
     'neo-gemini-3-1-pro',
     'neo-gpt'
 ]);
