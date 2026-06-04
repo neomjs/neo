@@ -54,7 +54,7 @@ class TransportService extends Base {
     resolveAuthContext(req, aiConfig) {
         let baseAuth = req.auth;
 
-        if (!baseAuth && aiConfig.auth?.trustProxyIdentity) {
+        if (!baseAuth && aiConfig.auth.trustProxyIdentity) {
             const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
             if (proxyUserId) {
                 baseAuth = {
