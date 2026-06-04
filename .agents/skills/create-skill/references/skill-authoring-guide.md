@@ -109,6 +109,15 @@ Instead, extract tool-specific constraints into dedicated, granular payload file
 - **The Map:** General routing, global lifecycle rules. Keep this clean and high-level to prevent context bloat.
 - **The Atlas:** Tool-specific quirks, edge cases, payload shapes, and strict operational constraints.
 
+### Tool Mechanics Live in the Tool Description, Not the Skill
+
+Map-vs-Atlas governs *where* a tool constraint loads. A stricter rule governs *whether it belongs in a skill at all*: a skill cites tool **behavior, when-to-use, and the surrounding discipline** — it MUST NOT re-document tool **mechanics** (parameters, return shapes, call sequences, selector precedence). Those are the MCP tool description's single source of truth; a skill copy rots when the tool changes and taxes every harness on every load.
+
+- **Before writing tool-usage into a skill, read the tool's description.** If it is already there, cite it (e.g. "scope the fetch per the `get_conversation` tool description") — never restate it.
+- **A thin tool description is fixed by enriching the *tool*, not by compensating in a skill** — even an Atlas payload. Placement never excuses duplication.
+- **Net-reduce ≠ relocate.** Moving mechanics from a Map to an Atlas payload optimizes *where* it loads but leaves the duplication intact. Ask "should this exist in a skill at all?", not just "where should it load?"
+- **Measure bloat against the smallest-context peer** (~258k tokens), not your own — the substrate tax is paid by the leanest harness, on every load.
+
 ### Recursive Application: Workflow Files Are Also Maps (per Discussion #11314 / Epic #11319)
 
 Map vs World Atlas applies **recursively**. A workflow file (`references/<workflow>.md`) itself becomes a Map for its own sub-rules when it grows beyond its natural load-frequency boundary.
