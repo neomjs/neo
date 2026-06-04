@@ -15,6 +15,7 @@ A maintainer family is **going cold in critical substrate** when, over a sustain
 - Read from existing provenance (merged-PR authorship + review participation per area) — **no dedicated substrate until recurrence proves it earns one** (per the create-skill discipline).
 - **Amber:** one family is the *sole* author in a critical area across the window (single-family bus-factor in state-mutating work).
 - **Telemetry, never a gate** — same contract as the author-concentration detector: it routes to capability-transfer (the stale-yield diagnostic, #12444), it never blocks, assigns, or throttles a lane.
+- **Capability-debt record:** when the stale-yield diagnostic finds that only the dominant author can produce even the context capsule / narrowed slice / avoided-traps artifact for a critical area, record that as a capability-floor observation. The remedy is bounded capability transfer, not reassignment or author throttling.
 
 ## Risk framing (what the floor protects against)
 
