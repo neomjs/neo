@@ -259,7 +259,7 @@ class TransportService extends Base {
             await RequestContextService.run(requestContext, () => transport.handleRequest(req, res, req.body));
         });
 
-        const port = aiConfig.mcpHttpPort || 3000;
+        const port = aiConfig.mcpHttpPort;
         await new Promise((resolve, reject) => {
             this.httpServer = app.listen(port, () => {
                 logger.info(`[${resourceName}] Server started on SSE transport (Port: ${port})`);
