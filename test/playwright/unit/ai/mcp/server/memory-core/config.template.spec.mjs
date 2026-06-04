@@ -207,4 +207,16 @@ test.describe('Memory Core Config (#10010)', () => {
             /\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/
         );
     });
+
+    test('storagePaths.graph resolves by construction from the useTestDatabase toggle (ADR 0019 §A4/A8; #12491)', () => {
+        // The reshape replaced the inline `process.env.UNIT_TEST_MODE ? ':memory:' : prod` leaf ternary
+        // with two declarative leaves + a formula. Under the unit suite (UNIT_TEST_MODE=true) the toggle
+        // resolves true and the `storagePaths.graph` formula returns `graphTest` — self-validating
+        // safe-by-construction isolation (the ~10 graph-path consumers read this one resolved value).
+        expect(config.storagePaths.useTestDatabase).toBe(true);
+        expect(config.storagePaths.graphTest).toBe(':memory:');
+        expect(config.storagePaths.graphProd).toContain('.neo-ai-data/sqlite/memory-core-graph.sqlite');
+        expect(config.storagePaths.graph).toBe(':memory:');
+        expect(config.storagePaths.graph).toBe(config.storagePaths.graphTest);
+    });
 });
