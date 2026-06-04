@@ -182,6 +182,29 @@ Halt is allowed only when it is explicit and true:
    - NOT criterion #5 triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
    - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, criterion #5 does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
 
+### Gated Own Lanes Are Not a Halt-State
+
+When the agent's current PRs or self-owned lanes are blocked on human merge,
+reviewer response, CI, or an operator `CHANGES_REQUESTED`, that state excludes
+only those lanes. It does **not** prove there is no work. The default next move
+is to pull an independent backlog lane, review request, or co-design surface
+after the normal collision checks.
+
+Before claiming `halt-state`, the positive backlog survey must name the surfaces
+checked. Minimum shape:
+
+- targeted unread review / re-review requests;
+- assigned issues and currently self-authored PR follow-ups;
+- recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
+  for collision state;
+- open unassigned current-epic or recently surfaced substrate lanes;
+- broader non-conflicting backlog if the current-epic surface is empty.
+
+If any positive-ROI candidate survives that survey, emit
+`lane-state: next-lane (...)` and start the intake/claim path. A human-gated
+own PR plus an unqueried backlog is the stale-yield/idle-out failure mode that
+Epic #12440 rejects.
+
 ### Broadcast-Suppressed Coordination Fallback
 
 `AGENT:*` broadcast is the canonical lane-visibility path, but temporary

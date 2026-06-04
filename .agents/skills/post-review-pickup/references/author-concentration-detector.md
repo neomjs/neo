@@ -23,3 +23,25 @@ Telemetry signal for authorship concentration across the swarm. **Successor to t
 ## What Firing Means — liveness, not fairness
 
 Concentration firing is a **liveness / capability signal**, not a fairness violation. The productive author is not the problem; the asleep or cold peers are. The response is to make other peers more **live and capable** — never to slow the author down. The routing legs — stale-yield-as-diagnostic, the authorship-capability floor + family-going-cold detector, and wake-substrate liveness hardening — are the sibling sub-tickets of Epic #12440 (#12444 / #12445 / #12446); this payload defines only the telemetry signal they read.
+
+## Self-Application When Peers Are Live
+
+If the concentrating author is about to claim another lane while other peer
+maintainers are live, the response is **surface, don't absorb**:
+
+1. Publish a `[lanes-available]` A2A signal before claiming another optional
+   lane.
+2. Include candidate lanes, dependency notes, current collision/assignee state,
+   and the reason each lane looks positive-ROI.
+3. Let peers self-select. The signal is routing substrate, not an assignment,
+   ranking, quota, throttle, or request that the productive author stop.
+
+This is the voluntary successor to the retired forced-yield shape. It keeps
+flat-peer-team agency intact while preventing the dominant author from silently
+absorbing every visible lane.
+
+**Live peer heuristic:** a peer is live when they have recent mailbox/wake,
+review, lane-claim, PR, or issue activity in the active work window. If peers
+are cold, asleep, benched, or unreachable, do not broadcast into a void and call
+it balance; route to the existing liveness/capability legs instead (#12444 /
+#12445 / #12446).
