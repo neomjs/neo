@@ -22,6 +22,13 @@ const cwd               = neoRootDir;
 const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.resolve(cwd, '.neo-ai-data/wake-daemon'));
 const DAY_MS            = 24 * 60 * 60 * 1000;
 
+// Per-worker-unique test collection names, generated at config-load. Each playwright worker is a
+// separate process that re-evaluates this module → its own unique names, so fullyParallel workers
+// never collide on a shared collection. Generated here (not inside a `process.env` leaf default) so
+// the leaves stay declarative; selection is the `collections.useTestDatabase` toggle + formulas below.
+const testMemoryCollection  = `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+const testSessionCollection = `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
 /**
  * @summary Configuration manager for the Memory Core MCP server.
  *
@@ -155,9 +162,20 @@ class Config extends BaseConfig {
              * This defines WHAT the tables/collections are called logically.
              */
             collections: {
-                memory : leaf(process.env.UNIT_TEST_MODE === 'true' ? `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-memory', 'NEO_MEMORY_COLLECTION_NAME', 'string'),
-                session: leaf(process.env.UNIT_TEST_MODE === 'true' ? `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-sessions', 'NEO_SESSION_COLLECTION_NAME', 'string'),
-                graph  : leaf('neo-native-graph', 'NEO_GRAPH_COLLECTION_NAME', 'string')
+                /**
+                 * `memory` / `session` (the active names consumers read) are formulas (below) resolving
+                 * `*Prod` / `*Test` by construction from `useTestDatabase` — no inline `process.env` in a
+                 * leaf default. The test names are per-worker-unique (module consts above) for fullyParallel
+                 * isolation; consumers (HealthService, ChromaManager, defragChromaDB) read `collections.memory`
+                 * / `session` unchanged.
+                 * @type {string}
+                 */
+                memoryProd     : leaf('neo-agent-memory', 'NEO_MEMORY_COLLECTION_NAME', 'string'),
+                memoryTest     : leaf(testMemoryCollection, 'NEO_MEMORY_COLLECTION_NAME_TEST', 'string'),
+                sessionProd    : leaf('neo-agent-sessions', 'NEO_SESSION_COLLECTION_NAME', 'string'),
+                sessionTest    : leaf(testSessionCollection, 'NEO_SESSION_COLLECTION_NAME_TEST', 'string'),
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                graph          : leaf('neo-native-graph', 'NEO_GRAPH_COLLECTION_NAME', 'string')
             },
             /**
              * Datasets Schema/Paths
@@ -348,15 +366,13 @@ class Config extends BaseConfig {
          * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
          */
         formulas: {
-            /**
-             * The active graph SQLite path, resolved BY CONSTRUCTION from the test-mode toggle.
-             * Consumers read `AiConfig.storagePaths.graph` (this) unchanged — the single resolution
-             * point, reactive on `storagePaths.useTestDatabase`. Replaces the prior inline-`process.env`
-             * leaf ternary so test isolation is by construction, not per-consumer.
-             * @param {Object} data Hierarchical data proxy.
-             * @returns {String}
-             */
-            'storagePaths.graph': data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest : data.storagePaths.graphProd
+            // The active graph SQLite path + memory/session collection names, resolved BY CONSTRUCTION
+            // from the `useTestDatabase` toggle. Consumers read `AiConfig.storagePaths.graph` /
+            // `collections.memory` / `collections.session` unchanged — the single resolution point.
+            // Replaces the prior inline-`process.env` leaf ternaries.
+            'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
+            'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest   : data.collections.memoryProd,
+            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest  : data.collections.sessionProd
         }
     }
 }

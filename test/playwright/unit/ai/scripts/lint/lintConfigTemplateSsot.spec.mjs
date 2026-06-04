@@ -65,15 +65,16 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
     const fileOf = (file, source) => ({file, source});
 
     test('a baselined violation is suppressed (no new violations)', () => {
-        // Derive the fixture from a live BASELINE row so this test does not churn each time a
-        // specific env is reshaped + dropped (it broke on NEO_CHROMA_DATABASE, then NEO_MEMORY_DB_PATH).
-        const [baselined] = BASELINE;
+        // Use a SYNTHETIC baseline so this test exercises the suppression logic independent of the live
+        // BASELINE contents — which empties as reshapes land (the live BASELINE is now empty / fully
+        // enforcing) and which churned this fixture each time a specific env was dropped.
+        const baseline = [{file: 'ai/mcp/server/x/config.template.mjs', env: 'NEO_FIXTURE_ENV', ticket: '#0', reshape: 'fixture'}];
         const files = [fileOf(
-            baselined.file,
-            `x: leaf(process.env.UNIT_TEST_MODE === 'true' ? 'a' : 'b', '${baselined.env}', 'string')`
+            'ai/mcp/server/x/config.template.mjs',
+            `x: leaf(process.env.UNIT_TEST_MODE === 'true' ? 'a' : 'b', 'NEO_FIXTURE_ENV', 'string')`
         )];
 
-        const {violations, newViolations} = lintConfigTemplateSsot({files});
+        const {violations, newViolations} = lintConfigTemplateSsot({files, baseline});
 
         expect(violations).toHaveLength(1);
         expect(newViolations).toHaveLength(0);
@@ -105,8 +106,8 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
     // ---- the shipped baseline is internally well-formed ----
 
     test('every shipped BASELINE row carries file, env, and a reshape note', () => {
-        expect(BASELINE.length).toBeGreaterThan(0);
-
+        // BASELINE may be empty once all instances are reshaped (fully-enforcing); the per-row shape
+        // assertions below still guard any future grandfathered row.
         for (const row of BASELINE) {
             expect(row.file).toMatch(/config\.template\.mjs$/);
             expect(row.env).toMatch(/^[A-Z][A-Z0-9_]+$/);
