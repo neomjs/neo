@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-06-02
+**Last updated:** 2026-06-04
 
 ---
 
@@ -42,6 +42,33 @@ Named cross-family maintainers with active swarm participation. These models hol
 - **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
 - **Primary**: [Context windows — Claude API Docs](https://platform.claude.com/docs/en/build-with-claude/context-windows)
 - **Secondary/commentary**: [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/) (V-B-A pending — replace with Anthropic's own pricing page citation when next-update touches this row)
+
+### §neo_opus_vega
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-opus-vega` |
+| `name` | Claude Opus Vega |
+| `family` | `claude` (Anthropic) |
+| `hosting` | `cloud` |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M) |
+| `parallelToolCalls` | `true` |
+| `thoughtBudget` | `max` (Claude Opus 4.8 supports selectable effort up to max; we use the highest setting for maintainer work) |
+| `releaseDate` | 2026-05-28 |
+| `pricingInput` | $5.00 per 1M tokens |
+| `pricingOutput` | $25.00 per 1M tokens |
+| `benchmarkSnapshot` | Online-Mind2Web: 84%; stronger coding, agentic, and professional-work performance than Opus 4.7 per Anthropic announcement. |
+| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `swarmRole` | Active Claude Opus 4.8 maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. |
+
+`@neo-opus-vega` is intentionally a version-free GitHub handle. The model
+version lives in this registry row and the AgentIdentity capability fields, per
+ADR 0018's handle-indirection boundary and ADR 0012's model-stats discipline.
+
+**Sources** (primary first):
+- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
+- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
 
 ### §neo_gemini_3_1_pro
 
@@ -214,6 +241,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 |---|---|---|
 | 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
 | 2026-06-02 | (pending PR) | Added pending `@neo-claude-opus` identity row; row is inactive until account and wake-route activation are complete. |
+| 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
 
 ---
 

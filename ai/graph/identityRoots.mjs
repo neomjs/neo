@@ -4,9 +4,9 @@
  * This shared list provides the definitive addressable identity surface for the A2A Mailbox
  * substrate.
  *
- * Capability fields (`contextWindowInput`, `hosting`, `tier`, etc.) per ADR 0012 Model-Stats
+ * Capability fields (`contextWindowInput`, `hosting`, `tier`, etc.) mirror the Model-Stats
  * Framework. Source-cited values mirror `learn/agentos/ModelStats.md`; the registry is the
- * canonical authority for capability-data drift detection. `trustTier` is the #10292 content
+ * canonical authority for capability-data drift detection. `trustTier` is the content
  * provenance taxonomy used by Memory Core consumers to distinguish system, owner, peer-trusted,
  * external, and unclassified authorship at ingestion/query boundaries.
  *
@@ -35,7 +35,7 @@ export const TRUST_TIERS = Object.freeze({
 });
 
 /**
- * @summary Highest-to-lowest trust ordering for the #10292 provenance taxonomy.
+ * @summary Highest-to-lowest trust ordering for the provenance taxonomy.
  *
  * The order is intentionally exported next to the enum so query-path slices can compare tiers
  * without duplicating ranking tables.
@@ -88,7 +88,7 @@ export const IDENTITIES = [
                     focusSeedKey: 'space'
                 }
             },
-            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
             // §neo_opus_4_7 — primary source: platform.claude.com/docs/en/about-claude/models/overview
             // (pricing currently from aipricing.guru secondary citation; replace with Anthropic's own
             // pricing-page link on next-update).
@@ -156,7 +156,7 @@ export const IDENTITIES = [
             // No subscriptionTemplate yet: generalized same-app wake addressing is deferred
             // to the same-app wake-routing discussion. Do not encode instance-specific
             // filesystem paths here.
-            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
             // §neo_claude_opus, which mirrors the Claude Opus model-class row until activation.
             contextWindowInput: 1048576,
             parallelToolCalls : true,
@@ -169,6 +169,53 @@ export const IDENTITIES = [
             pricingOutput     : 25.00,
             swarmRole         : 'Active Claude-family generalist maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
             sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
+            participationStatus : 'active',
+            statusReason        : null,
+            authority           : null,
+            since               : null,
+            reactivationTrigger : null,
+            createdAt           : new Date().toISOString()
+        }
+    },
+    {
+        id: '@neo-opus-vega',
+        type: 'AgentIdentity',
+        name: 'Claude Opus Vega',
+        description: 'Anthropic Claude Opus 4.8 maintainer identity with version-free handle.',
+        properties: {
+            githubLogin: '@neo-opus-vega',
+            displayName: 'Claude Opus Vega',
+            modelFamily: 'claude',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            identityContract: {
+                canonicalIdentityId      : '@neo-opus-vega',
+                requiredGithubLogin      : '@neo-opus-vega',
+                requiredA2aMailboxAddress: '@neo-opus-vega',
+                handlePolicy             : 'version-free-github-handle',
+                modelVersionSource       : 'learn/agentos/ModelStats.md §neo_opus_vega',
+                reviewSemantics: {
+                    modelFamily                  : 'claude',
+                    crossFamilyApprovalQualified : false,
+                    rationale                    : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs.'
+                }
+            },
+            // No subscriptionTemplate yet: same-app Claude wake routing remains instance-addressing
+            // substrate, not an identity-root default. Direct A2A identity and resumeHarness routing
+            // can still target the account once the operator wires the harness instance.
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
+            // §neo_opus_vega — primary source: Anthropic Claude Opus 4.8 announcement/product page.
+            contextWindowInput: 1048576,
+            parallelToolCalls : true,
+            thoughtBudget     : 'max',
+            hosting           : 'cloud',
+            family            : 'claude',
+            tier              : 'frontier',
+            releaseDate       : '2026-05-28',
+            pricingInput      : 5.00,
+            pricingOutput     : 25.00,
+            swarmRole         : 'Active Claude Opus 4.8 maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
+            sunsetTriggers    : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus : 'active',
             statusReason        : null,
             authority           : null,
@@ -201,7 +248,7 @@ export const IDENTITIES = [
                     tabShortcut: null
                 }
             },
-            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
             // §neo_gemini_3_1_pro (Google DeepMind model card + Google Blog Feb 2026).
             contextWindowInput : 1048576,
             contextWindowOutput: 65536,
@@ -262,7 +309,7 @@ export const IDENTITIES = [
                     focusSeedKey: 'r'
                 }
             },
-            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md §neo_gpt.
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md §neo_gpt.
             // 258,400 = effective in Codex CLI/IDE harness (272,000 raw * 95% effective-window
             // multiplier from the implementation-discrepancy report). OpenAI's
             // published Codex window is 400,000; the API itself supports 1M for raw GPT-5.5.

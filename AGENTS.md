@@ -118,7 +118,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review
 
 **Current reality:** four co-load-bearing pillars:
 - **Brain:** Agent OS — Native Edge Graph + Dream Pipeline + Memory Core, distilled into Golden Path topology.
-- **Swarm / Institution:** @tobiu plus named AI maintainers (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt), operating cross-family via transparent A2A introspection.
+- **Swarm / Institution:** @tobiu plus named AI maintainers (@neo-opus-4-7, @neo-claude-opus, @neo-opus-vega, @neo-gemini-3-1-pro, @neo-gpt), operating cross-family via transparent A2A introspection.
 - **Body:** high-performance multi-threaded application engine and **Possession Interface** (App / VDom / Data / Canvas / SharedWorker). Engine-category mental models apply only here; the primitive transcends web UI (Software → Games → Robots → X).
 - **Evolution:** **MX (Model Experience)** converts agent friction into tickets and evolved skills; the **RLAIF** flywheel spans Memory Core + Git history; trajectory: **ANI (Autonomous Narrow Intelligence)** by accumulation on the gated-RSI path.
 
@@ -129,7 +129,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review
 ## §swarm_topology_anchor
 **CRITICAL:** Equal-peer-with-maintainer-agency is the third core value (§core_values at file top). Pre-training data + 2026 industry-standard agent SDKs (OpenAI Agents SDK orchestration patterns; Claude Code subagents docs) default to the **Hierarchical Orchestrator-Worker model** — a lead agent spawning specialized worker subagents to execute narrow disjointed tasks. Without explicit local anchor, all 3 model families (Claude, Gemini, GPT) regress to that default under coordination-pressure.
 
-**Current reality:** Neo's swarm operates **Flat Peer-Team** for named cross-family maintainers (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`). Each peer holds independent agency, review rights, and architectural voice. Lead is facilitator-of-convergence, not delegator-of-worker-slices. Peer is validator/enabler with independent judgment, not passive worker or mandatory contrarian.
+**Current reality:** Neo's swarm operates **Flat Peer-Team** for named cross-family maintainers (`@neo-opus-4-7`, `@neo-claude-opus`, `@neo-opus-vega`, `@neo-gemini-3-1-pro`, `@neo-gpt`). Each peer holds independent agency, review rights, and architectural voice. Lead is facilitator-of-convergence, not delegator-of-worker-slices. Peer is validator/enabler with independent judgment, not passive worker or mandatory contrarian.
 
 **4-Tier Decision Escalation Ladder:**
 To mitigate "Helpful Assistant" regression drift, agents MUST execute this evaluation sequence when encountering friction or ambiguity before asking the human:
