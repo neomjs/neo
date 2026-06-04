@@ -390,7 +390,10 @@ class MemoryService extends Base {
                 if (policy === 'private') {
                     tenantScope = {userId};
                 } else if (policy === 'team') {
-                    tenantScope = {userId: SHARED_USER_ID};
+                    // Deployment-wide read: no restrictive userId filter; `where` reduces
+                    // to {sessionId}, returning all maintainers' records for the session. The
+                    // legacy-only post-filter below does not run for `team`.
+                    tenantScope = null;
                 } else {
                     tenantScope = null; // ChromaDB does not support $exists: false, handled post-query
                 }
@@ -488,8 +491,12 @@ class MemoryService extends Base {
                 if (policy === 'private') {
                     tenantScope = {userId};
                 } else if (policy === 'team') {
-                    // Team/deployment scope: Tagged records only.
-                    tenantScope = {userId: SHARED_USER_ID};
+                    // Team/deployment scope: deployment-wide read — no restrictive userId filter.
+                    // The Chroma collection is the deployment boundary, so every record in it is
+                    // in-team; an agent reads all maintainers' memories (transparent introspection).
+                    // The legacy-only post-filter below does not run for `team`. SaaS forks needing
+                    // per-org isolation set defaultPolicy='private'.
+                    tenantScope = null;
                 } else {
                     // legacy: Migration compatibility (caller owned + shared records + untagged)
                     // Note: {userId: {$exists: false}} is not supported by ChromaDB.
