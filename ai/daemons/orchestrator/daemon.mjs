@@ -184,7 +184,7 @@ export async function startOrchestrator(options = {}) {
 
     return Orchestrator.start({
         dataDir: DAEMON_DATA_DIR,
-        primaryDevSyncRootsConfig: AiConfig.orchestrator?.devSyncRoots,
+        primaryDevSyncRootsConfig: AiConfig.orchestrator.devSyncRoots,
         ...options
     });
 }

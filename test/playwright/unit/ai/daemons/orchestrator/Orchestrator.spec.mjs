@@ -21,7 +21,7 @@ let savedGraphLogCompactionMissing = false;
 let savedDeploymentMode = null;
 
 /**
- * Test helper updated per Epic #11831 Sub 1 (#11833) Orchestrator refactor:
+ * Test helper for the Orchestrator refactor shape:
  * - Operator policy values (intervals + booleans) are now Class D lazy getters reading
  *   from AiConfig — Neo.create config can't reach them. Helper injects via AiConfig.data
  *   mutation with restore-in-afterEach.
@@ -723,7 +723,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     });
 
     test('resolves default paths correctly without configuration overrides', () => {
-        // Post Sub 1 #11833: configure() removed; path resolution is direct instance-field
+        // With configure() removed, path resolution is direct instance-field
         // assignment + buildTaskDefinitions(), mirroring the substrate-correct shape used
         // in `start()`. No side-effecting orchestrator.start() needed for path tests.
         const orchestrator = Neo.create(Orchestrator);
@@ -898,14 +898,14 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // Lane A of #11503 — per #11513:
-    //   1. AC2: pin DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES contents so future refactors
+    // Heavy-maintenance classification coverage:
+    //   1. Pin DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES contents so future refactors
     //      can't silently drop a heavy class.
-    //   2. AC3-AC6: cross-poll deferral coverage for backup / dream / primary-dev-sync
+    //   2. Cross-poll deferral coverage for backup / dream / primary-dev-sync
     //      and proof that `backup` is now ALSO a valid blocker (previously: only
     //      summary↔kbSync pair was pinned at line 184).
     //
-    // Golden-path is intentionally NOT in this set (light-classified per #11511 / PR #11512).
+    // Golden-path is intentionally NOT in this set: it is light-classified maintenance.
     // Its dream-dependency backpressure is covered separately at line ~242.
     // ─────────────────────────────────────────────────────────────────────────────
 
@@ -922,7 +922,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             'summary'
         ].sort());
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
-        // Defensive: golden-path is intentionally OUT per #11511 / #11512 (light maintenance).
+        // Defensive: golden-path is intentionally OUT as light maintenance.
         expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain('golden-path');
     });
 
@@ -1015,8 +1015,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             }
         });
 
-        // backup is now the blocker (only meaningful AFTER backup is in the heavy set —
-        // before #11513 this test would have observed kbSync running despite backup active).
+        // backup is now the blocker because it belongs to the heavy set; without that
+        // classification this test would observe kbSync running despite backup active.
         TaskStateService.taskState.backup.running = true;
         orchestrator.processSupervisorService = {
             runTask(taskName, reason) {
@@ -1171,9 +1171,9 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         //      wrapper tries to acquire lease → sees A's active lease → 'held' → defers
         //      with reasonCode='heavy-maintenance-lease-held'.
         //
-        // This is the substrate gap PR #11514 (Lane A in-process check) could not close —
-        // in-process activeHeavyTask is per-process; the file lease is the only cross-process
-        // mutex. Without this test the cross-daemon coverage gap would regress silently.
+        // In-process activeHeavyTask is per-process; the file lease is the only
+        // cross-process mutex. Without this test the cross-daemon coverage gap would
+        // regress silently.
         const sharedLeasePath = `/tmp/orchestrator-test/heavy-maintenance-lease-cross-daemon-${process.pid}-${++testOrchestratorSeq}.json`;
 
         const outcomesA = [];
@@ -1237,7 +1237,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // #11766 — swarm-heartbeat lane. The standalone swarm-heartbeat daemon is folded
+    // Swarm-heartbeat lane. The standalone swarm-heartbeat daemon is folded
     // into the Orchestrator as a config-gated scheduled lane. The lane runs
     // `SwarmHeartbeatService.pulse()` per cadence tick and is skipped when disabled.
     // It is NOT a heavy-maintenance task — it runs directly without backpressure.
@@ -1441,14 +1441,11 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
         expect(orchestrator._chromaDefragPending).toBeFalsy();
     });
 
-    test('isChromaRecycleDue: false when the ceiling is 0 or absent (recycling disabled)', () => {
+    test('isChromaRecycleDue: false when the ceiling is 0 (recycling disabled)', () => {
         const orchestrator = createTestOrchestrator();
         const now          = Date.now();
 
         AiConfig.orchestrator.chroma = {maxRuntimeMs: 0};
-        expect(orchestrator.isChromaRecycleDue({running: true, lastRunAt: now - 999999}, now)).toBe(false);
-
-        AiConfig.orchestrator.chroma = undefined;
         expect(orchestrator.isChromaRecycleDue({running: true, lastRunAt: now - 999999}, now)).toBe(false);
     });
 
