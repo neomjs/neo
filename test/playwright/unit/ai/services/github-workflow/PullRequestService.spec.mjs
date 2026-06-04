@@ -812,6 +812,35 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(graphqlCallCount).toBe(0);
     });
 
+    test('#12448: ignores incidental premise-snapshot prose without making it partial', async () => {
+        // Bare phrases in review prose must not activate the optional snapshot contract; only the
+        // distinctive bold template labels should require the full three-field snapshot.
+        let graphqlCallCount = 0;
+        GraphqlService.query = async (queryString) => {
+            graphqlCallCount++;
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            return null;
+        };
+
+        const body = [
+            'The Patch Verdict from the prior cycle still stands.',
+            '',
+            VALID_REVIEW_BODY
+        ].join('\n');
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 12448,
+            state    : 'APPROVED',
+            body
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(graphqlCallCount).toBe(2);
+    });
+
     test('#11491: invisible-anchor enforcement is NOT discoverable from the error response', async () => {
         // Surface contract: the invisible-anchor strings MUST NOT appear in the error response
         // body (neither `message` prose nor programmatic field). Discovery from outside requires

@@ -86,15 +86,16 @@ const INVISIBLE_PR_REVIEW_ANCHORS = [
 /**
  * Optional-first premise-snapshot anchors for the patch-blind review migration.
  *
- * Absence of all three anchors is valid during the add-optional phase so in-flight reviews keep
+ * Absence of all three labels is valid during the add-optional phase so in-flight reviews keep
  * passing. If an author starts emitting the snapshot, all three fields must be present together;
  * otherwise a partial snapshot reintroduces the same back-rationalized theater the snapshot is
- * meant to expose. Later enforcement can promote these from optional-complete to required.
+ * meant to expose. Match the distinctive bold template labels, not bare prose, so incidental
+ * phrases like "Patch Verdict" do not activate the partial-snapshot gate.
  */
 const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
-    'Inputs Read Before Patch',
-    'Expected Solution Shape',
-    'Patch Verdict'
+    {label: 'Inputs Read Before Patch',  token: '**Inputs Read Before Patch:**'},
+    {label: 'Expected Solution Shape',   token: '**Expected Solution Shape:**'},
+    {label: 'Patch Verdict',             token: '**Patch Verdict:**'}
 ];
 
 /**
@@ -455,10 +456,12 @@ class PullRequestService extends Base {
         // to compose a substitute structure.
         const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
         const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
-        const presentPremiseSnapshot  = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS .filter(anchor =>  body.includes(anchor));
+        const presentPremiseSnapshot  = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS .filter(anchor =>  body.includes(anchor.token));
         const missingPremiseSnapshot  = presentPremiseSnapshot.length === 0
             ? []
-            : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS.filter(anchor => !body.includes(anchor));
+            : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS
+                .filter(anchor => !body.includes(anchor.token))
+                .map(anchor => anchor.label);
 
         if (missingVisible.length > 0 || missingInvisible.length > 0 || missingPremiseSnapshot.length > 0) {
             // Compose a message that guides toward the skill without enumerating invisible anchors.
