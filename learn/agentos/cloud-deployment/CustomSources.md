@@ -59,8 +59,8 @@ class ProtoSource extends Base {
 
     async extract(writeStream, createHashFn) {
         let count = 0;
-        // Path resolves from aiConfig.sourcePaths — falls through to a default when unset.
-        const dir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.ProtoSource ?? 'proto');
+        // Path resolves from aiConfig.sourcePaths; the config leaf owns the default.
+        const dir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths.ProtoSource);
 
         if (await fs.pathExists(dir)) {
             for (const file of (await fs.readdir(dir)).sort()) {
@@ -120,7 +120,7 @@ Graduate from `RawRepoSource` to a custom Source when a tenant needs semantic ch
 
 ## Path conventions
 
-A Source should not hard-code its territory path. Resolve it from `aiConfig.sourcePaths` keyed by the Source's registry name — `aiConfig.sourcePaths?.ProtoSource ?? '<fallback>'` — so a deployment whose layout differs overrides only that key. Each Source interprets its own entry shape (a string, a string-array, or a path→type object — see the built-in Source defaults in `config.template.mjs`).
+A Source should not hard-code its territory path. Resolve it from `aiConfig.sourcePaths` keyed by the Source's registry name — `aiConfig.sourcePaths.ProtoSource` — so a deployment whose layout differs overrides only that key. Defaults belong in `config.template.mjs`, not in consumer-side optional chains. Each Source interprets its own entry shape (a string, a string-array, or a path→type object — see the built-in Source defaults in `config.template.mjs`).
 
 ## Identity-tuple semantics
 
