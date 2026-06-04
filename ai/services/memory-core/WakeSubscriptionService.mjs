@@ -803,11 +803,9 @@ class WakeSubscriptionService extends Base {
 
         const owner = subscription.agentIdentity;
 
-        if (subscription.trigger === 'SENT_TO_ME' && edge.type === 'SENT_TO' && edge.target === owner) {
-            const messageNode = db.nodes.get(edge.source);
-            if (!messageNode) return null;
-            if (messageNode.properties?.wakeSuppressed) return null;
-            const payload = this._buildSentToMePayload(messageNode);
+        if (subscription.trigger === 'SENT_TO_ME') {
+            const payload = this._buildSentToMePayloadForEdge(edge, owner);
+            if (!payload) return null;
             if (!this._matchesFilters(payload, subscription.filters)) return null;
             return this._wrapEvent('wake/sent_to_me', subscription, payload, logIdAnchor);
         }
@@ -824,6 +822,78 @@ class WakeSubscriptionService extends Base {
         }
 
         return null;
+    }
+
+    /**
+     * @summary Builds a `SENT_TO_ME` wake payload only for unread recipient-visible edges.
+     *
+     * Mailbox unread state is split by delivery shape: direct DMs and legacy broadcasts store
+     * `readAt` on the MESSAGE node, while fan-out broadcasts store it on each recipient's
+     * `DELIVERED_TO` edge. Wake replay follows that same taxonomy so stale already-read
+     * messages do not reopen sunsetted or caught-up harnesses.
+     *
+     * @protected
+     * @param {Object} edge Candidate mailbox delivery edge from GraphLog.
+     * @param {String} owner Subscription owner AgentIdentity node id.
+     * @returns {Object|null} `wake/sent_to_me` payload or null when the edge is not wake-eligible.
+     */
+    _buildSentToMePayloadForEdge(edge, owner) {
+        const db = GraphService.db;
+
+        if (edge.type === 'DELIVERED_TO' && edge.target === owner) {
+            if (edge.properties?.readAt) return null;
+
+            const messageNode = db.nodes.get(edge.source);
+            if (!this._messageIsWakeEligible(messageNode)) return null;
+
+            return this._buildSentToMePayload(messageNode);
+        }
+
+        if (edge.type !== 'SENT_TO') return null;
+
+        const messageNode = db.nodes.get(edge.source);
+        if (!this._messageIsWakeEligible(messageNode)) return null;
+
+        if (edge.target === owner) {
+            return messageNode.properties?.readAt ? null : this._buildSentToMePayload(messageNode);
+        }
+
+        if (edge.target === 'AGENT:*') {
+            if (messageNode.properties?.from === owner) return null;
+            if (messageNode.properties?.readAt) return null;
+            if (this._messageHasDeliveryReceipts(messageNode.id)) return null;
+
+            return this._buildSentToMePayload(messageNode);
+        }
+
+        return null;
+    }
+
+    /**
+     * @summary Checks message-level wake suppressors shared by direct and broadcast delivery paths.
+     *
+     * @protected
+     * @param {Object|null} messageNode Candidate MESSAGE graph node.
+     * @returns {Boolean}
+     */
+    _messageIsWakeEligible(messageNode) {
+        return !!messageNode && messageNode.label === 'MESSAGE' && !messageNode.properties?.wakeSuppressed;
+    }
+
+    /**
+     * @summary Detects whether a broadcast MESSAGE has per-recipient delivery receipts.
+     *
+     * Receipt-backed broadcasts are evaluated through `DELIVERED_TO` edges only. The legacy
+     * `SENT_TO -> AGENT:*` path remains for old messages that predate receipt fan-out.
+     *
+     * @protected
+     * @param {String} messageId MESSAGE node id.
+     * @returns {Boolean}
+     */
+    _messageHasDeliveryReceipts(messageId) {
+        return (GraphService.db?.edges?.items || []).some(edge =>
+            edge.source === messageId && edge.type === 'DELIVERED_TO'
+        );
     }
 
     /**
