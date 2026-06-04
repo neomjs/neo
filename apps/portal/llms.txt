@@ -236,6 +236,7 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 - [The GitHub Workflow Server](https://neomjs.com/raw/learn/agentos/GitHubWorkflow.md)
 - [Code Execution (AI SDK)](https://neomjs.com/raw/learn/agentos/CodeExecution.md)
 - [Shared KB/MC Team Deployment](https://neomjs.com/raw/learn/agentos/SharedDeployment.md)
+- [Provision Your Own Agent Team](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)
 - [Deployment Cookbook](https://neomjs.com/raw/learn/agentos/DeploymentCookbook.md)
 - [Why Deploy the Agent OS](https://neomjs.com/raw/learn/agentos/cloud-deployment/WhyDeploy.md)
 - [Cloud-Native KB Ingestion Overview](https://neomjs.com/raw/learn/agentos/cloud-deployment/Overview.md)
