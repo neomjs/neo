@@ -41,7 +41,7 @@ class ApiSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         // Per-source sourceMap (path → type object) from the `sourcePaths` config (SSOT).
-        const sourceMap = aiConfig.sourcePaths?.ApiSource;
+        const sourceMap = aiConfig.sourcePaths.ApiSource;
 
         // Load the authoritative class hierarchy
         let hierarchy = {};
@@ -96,7 +96,7 @@ class ApiSource extends Base {
                 // Emit the neoRootDir-relative path as chunk metadata.source so the distributed
                 // Chroma zip shipped with each neo release stays portable across recipients'
                 // filesystems. SearchService resolves against its own neoRootDir at read time.
-                // See #10097 — absolute paths would hard-code tobi's FS layout into the zip.
+                // Absolute paths would hard-code the local FS layout into the distributed zip.
                 const chunks  = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy);
 
                 chunks.forEach(chunk => {

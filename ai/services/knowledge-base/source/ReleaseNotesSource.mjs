@@ -37,7 +37,7 @@ class ReleaseNotesSource extends Base {
     async extract(writeStream, createHashFn) {
         let count = 0;
         // Per-source path from the `sourcePaths` config (SSOT).
-        const releaseNotesPath = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.ReleaseNotesSource);
+        const releaseNotesPath = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths.ReleaseNotesSource);
 
         if (await fs.pathExists(releaseNotesPath)) {
             const releaseFiles = await fs.readdir(releaseNotesPath);
@@ -52,7 +52,7 @@ class ReleaseNotesSource extends Base {
                         kind   : 'release',
                         name   : file.replace('.md', ''),
                         content,
-                        // Relative path keeps the distributed Chroma zip portable (#10097).
+                        // Relative path keeps the distributed Chroma zip portable.
                         source : path.relative(aiConfig.neoRootDir, filePath)
                     };
 

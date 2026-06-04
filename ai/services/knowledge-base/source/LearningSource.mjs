@@ -42,7 +42,7 @@ class LearningSource extends Base {
         let count = 0;
         // Per-source path from the `sourcePaths` config (SSOT). The value points at the tree.json
         // file; the base directory containing the .md files is its containing directory.
-        const learnTreeRelative = aiConfig.sourcePaths?.LearningSource;
+        const learnTreeRelative = aiConfig.sourcePaths.LearningSource;
         const learnTreePath     = path.resolve(aiConfig.neoRootDir, learnTreeRelative);
         const learnBaseRelative = path.dirname(learnTreeRelative);
 
@@ -57,7 +57,7 @@ class LearningSource extends Base {
                     if (await fs.pathExists(filePath)) {
                         const content = await fs.readFile(filePath, 'utf-8');
                         // Pass the neoRootDir-relative path so stored chunk metadata stays
-                        // portable across distributed Chroma zips (#10097). fs.readFile above
+                        // portable across distributed Chroma zips. fs.readFile above
                         // still uses the absolute path internally.
                         const chunks  = DocumentationParser.parse(item, content, path.relative(aiConfig.neoRootDir, filePath));
 
