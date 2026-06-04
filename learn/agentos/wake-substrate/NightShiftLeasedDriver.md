@@ -97,7 +97,7 @@ On the third pulse, the recipient must:
 4. Broadcast `[critical-failure]` over A2A so peers can see the recovery state.
 
 A verified external blocker with a new next probe is progress evidence. Merely
-restating the same blocker, human gate, FAIR-band excuse, or no-candidate claim
+restating the same blocker, human gate, authorship-balance excuse, or no-candidate claim
 without a fresh falsifying check does not reset the counter.
 
 This threshold applies after a heartbeat is delivered to a recipient. It does
