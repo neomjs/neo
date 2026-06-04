@@ -263,15 +263,14 @@ class KbGarbageCollectionService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may lack the `gc*`
-     * keys, so a naked `aiConfig.knowledgeBase.gcEnabled` would throw. Returns `{}` when
-     * the `knowledgeBase` key is absent.
+     * Reads the resolved AiConfig Provider subtree directly; missing subtree shape must fail
+     * loud instead of being converted into a disabled garbage-collection daemon.
      *
      * @returns {Object}
      * @protected
      */
     getKbConfig() {
-        return aiConfig.knowledgeBase || {}
+        return aiConfig.knowledgeBase
     }
 
     /**

@@ -247,15 +247,14 @@ class KbReconciliationService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may have no
-     * `knowledgeBase` key (or lack the reconciliation keys), so a naked
-     * `aiConfig.knowledgeBase.reconciliationEnabled` would throw. Returns `{}` when absent.
+     * Reads the resolved AiConfig Provider subtree directly; missing subtree shape must fail
+     * loud instead of being converted into a disabled reconciliation daemon.
      *
      * @returns {Object}
      * @protected
      */
     getKbConfig() {
-        return aiConfig.knowledgeBase || {}
+        return aiConfig.knowledgeBase
     }
 
     /**
