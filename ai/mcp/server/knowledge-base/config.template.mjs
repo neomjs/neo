@@ -224,6 +224,7 @@ class Config extends BaseConfig {
                 SkillSource       : '.agents/skills',
                 TestSource        : 'test/playwright',
                 LearningSource    : 'learn/tree.json',
+                ProtoSource       : 'proto',
                 DiscussionSource  : ['resources/content/discussions',
                                      'resources/content/archive/discussions'],
                 PullRequestSource : ['resources/content/pulls',

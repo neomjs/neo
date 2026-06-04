@@ -7,7 +7,7 @@ import aiConfig            from 'neo.mjs/ai/mcp/server/knowledge-base/config.mjs
 /**
  * @summary Example custom Source — indexes a tenant's `.proto` schema files in the full-corpus build.
  *
- * Demonstrates the Source contract for Epic #11624: `extract(writeStream, createHashFn)`
+ * Demonstrates the Source contract: `extract(writeStream, createHashFn)`
  * writes one JSONL chunk record per file and returns the count. Registered via
  * `aiConfig.customSources` or `SourceRegistry.registerSource`; the territory path is read
  * from `aiConfig.sourcePaths.ProtoSource`. See learn/agentos/cloud-deployment/CustomSources.md.
@@ -38,9 +38,8 @@ class ProtoSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        // `sourcePaths.ProtoSource` is an absolute path when set; the fallback resolves
-        // `proto` against the deployment root for a co-located workspace.
-        const dir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.ProtoSource ?? 'proto');
+        // `sourcePaths.ProtoSource` defaults to `proto` and can be overridden per deployment.
+        const dir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths.ProtoSource);
 
         if (existsSync(dir)) {
             for (const file of (await readdir(dir)).sort()) {
