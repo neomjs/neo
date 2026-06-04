@@ -22,7 +22,7 @@ Telemetry signal for authorship concentration across the swarm. **Successor to t
 
 ## What Firing Means — liveness, not fairness
 
-Concentration firing is a **liveness / capability signal**, not a fairness violation. The productive author is not the problem; the asleep or cold peers are. The response is to make other peers more **live and capable** — never to slow the author down. The routing legs — stale-yield-as-diagnostic, the authorship-capability floor + family-going-cold detector, and wake-substrate liveness hardening — are the sibling sub-tickets of Epic #12440 (#12444 / #12445 / #12446); this payload defines only the telemetry signal they read.
+Concentration firing is a **liveness / capability signal**, not a fairness violation. The productive author is not the problem; the asleep or cold peers are. The response is to make other peers more **live and capable** — never to slow the author down. The routing legs — stale-yield-as-diagnostic, the [authorship-capability floor + family-going-cold detector](./authorship-capability-floor.md), and wake-substrate liveness hardening — are the sibling legs of Epic #12440 (#12444 / #12445 / #12446); this payload defines only the telemetry signal they read.
 
 ## Self-Application When Peers Are Live
 
