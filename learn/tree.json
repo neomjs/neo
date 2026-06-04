@@ -34,6 +34,7 @@
         {"name": "Strategic Workflows",                                "parentId": "AgentOS",                                             "id": "agentos/StrategicWorkflows"},
         {"name": "Swarm Intelligence & Sub-Agents",                    "parentId": "AgentOS",                                             "id": "agentos/SwarmIntelligence"},
         {"name": "Progressive Disclosure Skills",                      "parentId": "AgentOS",                                             "id": "agentos/ProgressiveDisclosureSkills"},
+        {"name": "Skill Compression Rollout Plan",                     "parentId": "AgentOS",                                             "id": "agentos/SkillCompressionRolloutPlan"},
         {"name": "The Dream Pipeline & Golden Path",                   "parentId": "AgentOS",                                             "id": "agentos/DreamPipeline"},
         {"name": "The Concept Ontology",                                "parentId": "AgentOS",                                             "id": "agentos/ConceptOntology"},
         {"name": "Neural Link: Live Application Mutability",           "parentId": "AgentOS",                                             "id": "agentos/NeuralLink"},
