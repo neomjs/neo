@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '../../../');
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 
-const DB_PATH = process.env.NEO_MEMORY_DB_PATH || aiConfig.storagePaths.graph;
+const DB_PATH = aiConfig.storagePaths.graph;
 const RLAIF_PATH = aiConfig.datasets.rlaif.trajectories;
 
 const sessionId = process.argv[2];
