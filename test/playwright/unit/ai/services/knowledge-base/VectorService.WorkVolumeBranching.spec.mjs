@@ -27,7 +27,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
- * Work-volume branching coverage for `VectorService.embed` (#10572).
+ * Work-volume branching coverage for `VectorService.embed`.
  *
  * Verifies the post-delta-pre-embed gate at the four meaningful states:
  *
@@ -219,8 +219,8 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     });
 
     test('zero-changes fast-path is unchanged (existing chunks dedup to empty queue)', async () => {
-        // Seed tenant-aware existing IDs that match the fixture exactly — chunksToProcess
-        // becomes empty under the Phase 0/1C write-side stamping contract (#11631).
+        // Seed tenant-aware existing IDs that match the fixture exactly so
+        // chunksToProcess becomes empty under the write-side stamping contract.
         const stamp = KB_VectorService.resolveTenantStamp();
         const ids   = ['chunk-0', 'chunk-1', 'chunk-2'].map((hash, i) => {
             return KB_VectorService.createTenantAwareChunkId({
@@ -450,13 +450,11 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(result.message).toContain('npm run ai:sync-kb');
         expect(spy.calls.upsert).toBe(0); // no embedding work attempted under the gate
 
-        // Tail-progress reference (#10576 RA1 from @neo-gpt cycle 2): rendered message
-        // must point operators at a usable log path with no `undefined` interpolation.
-        // Defensive fallback in VectorService kicks in when `aiConfig.logPath` is absent
-        // — proven by the no-undefined assertion under the canonical-config setup, then
-        // by the dedicated fallback test below that simulates a stale operator overlay.
+        // Rendered tail-progress guidance must use the provider-owned logPath
+        // leaf with no `undefined` interpolation.
         expect(result.message).toContain('tail -f');
         expect(result.message).toContain('kb-server-');
+        expect(result.message).toContain(KB_Config.data.logPath);
         expect(result.message).not.toContain('undefined');
 
         // Wire-format boundary (RA2 per @neo-gpt cycle 1): the KB Server's adapter at
@@ -468,29 +466,6 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         // before it reaches the gate — a test-env artifact, not a production path.)
         const isError = Neo.isObject(result) && 'error' in result;
         expect(isError).toBe(true);
-    });
-
-    test('above-threshold MCP gate-message renders fallback path when aiConfig.logPath unset (#10580 RA1)', async () => {
-        // Simulates an existing operator overlay without the new
-        // `logPath` template key. Naked `${aiConfig.logPath}` interpolation would
-        // render `undefined/kb-server-...`; the fallback in VectorService.embed should
-        // render `${neoRootDir}/.neo-ai-data/logs/kb-server-...` instead.
-        const spy = createSpyCollection({existingIds: []});
-        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
-        writeFixtureJsonl(fixturePath, 10);
-
-        const wasLogPath       = KB_Config.data.logPath;
-        KB_Config.data.logPath = undefined;
-
-        try {
-            const result = await KB_VectorService.embed(fixturePath, {viaMcp: true});
-
-            expect(result.code).toBe('KB_SYNC_VOLUME_EXCEEDED');
-            expect(result.message).not.toContain('undefined');
-            expect(result.message).toContain('.neo-ai-data/logs');
-        } finally {
-            KB_Config.data.logPath = wasLogPath;
-        }
     });
 
     test('above-threshold CLI invocation bypasses the gate (explicit opt-in to long work)', async () => {

@@ -136,8 +136,8 @@ class DreamService extends Base {
         // Since ChromaDB filtering on missing attributes can be tricky depending on version,
         // we'll fetch recent sessions and filter in memory if the dataset is reasonable.
         // For production, we will just query specifically.
-        const limit = aiConfig.summarizationBatchLimit || 2000;
-        const maxToProcess = aiConfig.remSleepBatchLimit || 10;
+        const limit = aiConfig.summarizationBatchLimit;
+        const maxToProcess = aiConfig.remSleepBatchLimit;
 
         try {
             const batch = await this.sessionsCollection.get({
@@ -194,7 +194,7 @@ class DreamService extends Base {
         if (aiConfig.modelProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
-                const url = new URL('/v1/models', aiConfig.openAiCompatible.host || 'http://127.0.0.1:8000');
+                const url = new URL('/v1/models', aiConfig.openAiCompatible.host);
                 const ping = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(5000) });
                 if (!ping.ok) throw new Error('API provider not running');
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'completed', {
