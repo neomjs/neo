@@ -323,7 +323,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
     });
 
-    test('healthy healthcheck echoes env-pinned unbound identity warning without changing status', async () => {
+    test('healthcheck degrades env-pinned unbound identity warning', async () => {
         HealthService.setStdioIdentityState({
             userId             : 'neo-claude-opus',
             agentIdentityNodeId: null,
@@ -332,16 +332,15 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         const result = await HealthService.healthcheck();
 
-        expect(result.status).toBe('healthy');
+        expect(result.status).toBe('degraded');
         expect(result.identity).toMatchObject({
             source : 'env-var',
             bound  : false,
             nodeId : null
         });
         expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
-        expect(result.details).toContain('Connected to the orchestrator-managed ChromaDB instance');
         expect(result.details).toContain(`WARN: ${result.identity.warning}`);
-        expect(result.details).toContain('All features are operational');
+        expect(result.details).not.toContain('All features are operational');
     });
 
     test('unhealthy cached-refresh shape clears cache and falls through to a full healthcheck', async () => {
