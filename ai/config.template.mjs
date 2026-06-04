@@ -1,10 +1,7 @@
 import path                                  from 'path';
 import {fileURLToPath}                       from 'url';
 import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
-import {
-    CHROMA_PRODUCTION_DATABASE,
-    CHROMA_TEST_DATABASE
-}                                            from './services/shared/vector/chromaTestIsolation.mjs';
+import {CHROMA_PRODUCTION_DATABASE}          from './services/shared/vector/chromaTestIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -291,14 +288,16 @@ class Config extends BaseConfig {
                     host    : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     port    : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
                     /**
-                     * Chroma database the client connects to. Under `UNIT_TEST_MODE` this resolves to a
-                     * dedicated, droppable test database so unit-test collections never enter the
-                     * production `default_database` by construction (the prevention half of the
-                     * store-isolation cluster); production is `default_database` verbatim. Consumed by
-                     * the Memory Core `ChromaManager`. The Knowledge Base ChromaManager currently reads
+                     * Chroma database the client connects to. Production is `CHROMA_PRODUCTION_DATABASE`
+                     * (`default_database`) verbatim — the declarative default. The unit suite overrides via
+                     * `NEO_CHROMA_DATABASE` (set to the dedicated, droppable test database in the `test-unit`
+                     * npm script) so test collections never enter the production namespace. `ChromaManager`
+                     * fails loud if the production database is ever resolved under `UNIT_TEST_MODE` — the
+                     * by-construction store-isolation backstop, so this leaf carries no test-branch itself.
+                     * Consumed by the Memory Core `ChromaManager`; the Knowledge Base ChromaManager reads
                      * only host/port, so this field is inert for it until separately migrated.
                      */
-                    database: leaf(process.env.UNIT_TEST_MODE === 'true' ? CHROMA_TEST_DATABASE : CHROMA_PRODUCTION_DATABASE, 'NEO_CHROMA_DATABASE', 'string')
+                    database: leaf(CHROMA_PRODUCTION_DATABASE, 'NEO_CHROMA_DATABASE', 'string')
                 }
             },
             /**
