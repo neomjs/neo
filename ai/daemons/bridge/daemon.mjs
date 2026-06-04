@@ -794,9 +794,16 @@ async function deliverDigest(subscription, digest) {
             const appleScriptAppName = escapeAppleScriptString(appName),
                   targetProcessId    = instancePid ? String(instancePid) : '';
 
-            const activateLine = instancePid
-                ? `  tell application "System Events" to set frontmost of (first process whose unix id is ${instancePid}) to true`
-                : `  tell application "${appleScriptAppName}" to activate`;
+            // Foreground strategy: `activate` is the robust bundle-level foregrounding — it works from
+            // the headless daemon AND reclaims focus from a same-bundle sibling that holds the front.
+            // For a multi-instance harness we then set frontmost on the resolved instance pid to
+            // disambiguate. `set frontmost of unix id` ALONE loses to a frontmost same-bundle sibling:
+            // the daemon cannot switch between same-bundle instances without first foregrounding the
+            // bundle via `activate`. `AXRaise` was empirically rejected (it de-raises the target).
+            const appActivateLine       = `  tell application "${appleScriptAppName}" to activate`,
+                  instanceFrontmostLine = instancePid
+                      ? `  tell application "System Events" to set frontmost of (first process whose unix id is ${instancePid}) to true`
+                      : null;
 
             const osascriptArgs = [
                 '-e', 'on assertTargetFrontmost(appName, targetBundleId, targetProcessId, phase)',
@@ -833,7 +840,8 @@ async function deliverDigest(subscription, digest) {
                 '-e', '  try',
                 '-e', '  set targetRaised to false',
                 '-e', '  repeat 12 times',
-                '-e', activateLine,
+                '-e', appActivateLine,
+                ...(instanceFrontmostLine ? ['-e', instanceFrontmostLine] : []),
                 '-e', '    delay 0.25',
                 '-e', '    try',
                 '-e', '      my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
