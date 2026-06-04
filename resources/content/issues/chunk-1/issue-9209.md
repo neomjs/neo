@@ -1,7 +1,7 @@
 ---
 id: 9209
 title: Benchmark Grid Scroll-to-Update Latency
-state: OPEN
+state: CLOSED
 labels:
   - stale
   - ai
@@ -11,16 +11,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-19T10:58:28Z'
-updatedAt: '2026-05-21T05:39:49Z'
+updatedAt: '2026-06-04T06:12:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9209'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-04T06:12:12Z'
 ---
 # Benchmark Grid Scroll-to-Update Latency
 
@@ -71,4 +72,9 @@ Create a deep telemetry benchmark that measures the "Input-to-Pixel" latency of 
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-05-21T05:39:49Z @github-actions added the `stale` label
+### @github-actions - 2026-06-04T06:12:11Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-06-04T06:12:12Z @github-actions closed this issue
 

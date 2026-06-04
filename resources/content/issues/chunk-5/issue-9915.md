@@ -4,13 +4,13 @@ title: '[Blocked Research] Moltbook API / identity feasibility for Neo AgentOS d
 state: OPEN
 labels:
   - enhancement
+  - question
+  - no auto close
   - ai
-  - 'agent-task:blocked'
   - architecture
-  - needs-re-triage
 assignees: []
 createdAt: '2026-04-12T11:37:27Z'
-updatedAt: '2026-05-26T03:43:57Z'
+updatedAt: '2026-06-03T08:05:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9915'
 author: tobiu
 commentsCount: 1
@@ -20,39 +20,65 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking:
+  - '[ ] 9297 External-agent identity/auth boundary after Moltbook API decision'
+  - '[ ] 9295 [Blocked Epic] Autonomous Neo Agent Demo after Moltbook API and identity research'
+  - '[ ] 9296 [Blocked] Autonomous agent action sandbox after cloud and Moltbook shape'
+  - '[ ] 9298 [Blocked] Moltbook demo agent after API and identity research'
   - '[ ] 9299 Implement Agent Self-Discovery via Neural Link Introspection'
 ---
 # [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo
 
-### Objective
-Evaluate the supported Moltbook integration path before any Neo AgentOS Moltbook demo-agent implementation starts.
+# Moltbook API / identity feasibility gate for Neo AgentOS demo
 
-### Current Official Evidence (2026-05-26)
-Verified live against official Moltbook pages before this rewrite:
-- Official developer docs: https://www.moltbook.com/developers
-  - Developer platform is **Early Access**.
+## Current Official Evidence (verified 2026-06-03)
+
+Verified against official Moltbook pages:
+
+- Developer docs: https://www.moltbook.com/developers
+  - Developer platform is still **Early Access**.
   - App creation yields an API key starting with `moltdev_`.
-  - Publicly documented endpoints are identity-focused:
-    - `POST /api/v1/agents/me/identity-token` using the bot API key.
-    - `POST /api/v1/agents/verify-identity` using `X-Moltbook-App-Key`.
-  - The documented flow is bot identity verification for third-party apps, not full public posting/comment/upvote automation.
-- Official help page: https://www.moltbook.com/help
-  - Operators can rotate an API key from the dashboard.
-  - Agent dashboard/account setup can require email/setup-link flow.
+  - The documented integration is identity/auth for bots authenticating to third-party apps.
+  - Publicly documented API reference exposes:
+    - `POST /api/v1/agents/me/identity-token`
+    - `POST /api/v1/agents/verify-identity`
+  - The docs do not expose supported post/comment/upvote/submolt endpoints.
+- Help page: https://www.moltbook.com/help
+  - API key rotation and dashboard login are operator/account flows.
+  - Setup can require email/dashboard access.
 
-### Current Verdict
-Moltbook does have an official API surface, but the public official source verified here only proves the identity/auth subset. It does **not** yet prove a supported posting/comment/upvote API sufficient for a Neo `neo-mjs-moltbook` integration.
+## Current Verdict
 
-Do not build the Moltbook demo agent from third-party mirrors or the old Chrome DevTools-first ticket text.
+Moltbook has an official API surface, but the public official source currently proves only the identity/auth subset. It does not prove a supported posting/comment/upvote API sufficient for a Neo `neo-mjs-moltbook` integration.
 
-### Remaining Research Gate
-Before implementation can proceed, verify one of these with an official or credentialed source:
+Keep this issue open as a parked research/credential gate, not as claimable implementation work.
+
+## Re-entry Gate
+
+Before any downstream Moltbook implementation ticket becomes claimable, verify one of these with an official or credentialed source:
+
 - Supported API endpoints for post/comment/upvote/submolt operations; or
 - Official instruction to use browser automation because no supported API exists; or
 - Negative-ROI conclusion that Moltbook is unsuitable as a deployment demo target.
 
-### Implementation Gate
-If the API path is supported, the likely Neo shape is a dedicated Moltbook integration service/MCP boundary with explicit auth configuration, not Neural Link and not an ad-hoc browser script. If the path requires dashboard/API keys or early-access approval, that is an operator-owned credential gate.
+## Implementation Boundary
+
+If the API path is supported, the likely Neo shape is a dedicated Moltbook integration service/MCP boundary with explicit auth configuration.
+
+Do not build from:
+
+- third-party mirrors;
+- the old Chrome DevTools-first ticket text;
+- Neural Link against Moltbook itself.
+
+If dashboard/API keys, early-access approval, email setup, or X verification are required, that is an operator-owned credential gate.
+
+## Downstream Tickets
+
+- #9297 — programmatic email / identity boundary; blocked by this gate and may need rewrite or closure based on Moltbook's real auth model.
+- #9298 — Moltbook demo agent implementation; blocked by this gate and #9297.
+- #9296 — external action sandbox; blocked by this gate and #9297 only if the resolved integration path requires a browser/action sandbox.
+- #9295 — parent demo epic; blocked until this gate and #9297 resolve.
+
 
 ## Timeline
 
@@ -79,4 +105,12 @@ Routing: keep open but blocked / needs re-triage. The next valid step requires o
 
 - 2026-05-26T03:43:57Z @neo-gpt added the `agent-task:blocked` label
 - 2026-05-26T03:43:57Z @neo-gpt added the `needs-re-triage` label
+- 2026-05-27T22:15:12Z @tobiu removed the `agent-task:blocked` label
+- 2026-05-28T05:24:31Z @neo-gpt marked this issue as blocking #9298
+- 2026-05-28T05:24:48Z @neo-gpt marked this issue as blocking #9296
+- 2026-05-28T05:25:09Z @neo-gpt marked this issue as blocking #9295
+- 2026-05-28T05:26:13Z @neo-gpt marked this issue as blocking #9297
+- 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
+- 2026-06-03T08:05:33Z @neo-gpt added the `no auto close` label
+- 2026-06-03T08:05:33Z @neo-gpt added the `question` label
 

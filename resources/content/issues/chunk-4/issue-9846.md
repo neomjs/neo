@@ -5,10 +5,9 @@ state: OPEN
 labels:
   - enhancement
   - ai
-  - feature
 assignees: []
 createdAt: '2026-04-10T08:33:14Z'
-updatedAt: '2026-04-10T08:33:14Z'
+updatedAt: '2026-05-27T22:16:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9846'
 author: tobiu
 commentsCount: 0
@@ -91,4 +90,5 @@ Add a dedicated `create_component` tool to the Neural Link MCP server that:
 - 2026-04-10T08:33:15Z @tobiu added the `enhancement` label
 - 2026-04-10T08:33:15Z @tobiu added the `ai` label
 - 2026-04-10T08:33:15Z @tobiu added the `feature` label
+- 2026-05-27T22:16:17Z @tobiu removed the `feature` label
 

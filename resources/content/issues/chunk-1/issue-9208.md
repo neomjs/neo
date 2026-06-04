@@ -1,7 +1,7 @@
 ---
 id: 9208
 title: Investigate Playwright OffscreenCanvas Performance on Desktop
-state: OPEN
+state: CLOSED
 labels:
   - stale
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-19T10:54:58Z'
-updatedAt: '2026-05-21T05:39:50Z'
+updatedAt: '2026-06-04T06:12:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9208'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-04T06:12:14Z'
 ---
 # Investigate Playwright OffscreenCanvas Performance on Desktop
 
@@ -52,4 +53,9 @@ Investigate why Playwright/Headless Chrome struggles to composite Worker-driven 
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-05-21T05:39:50Z @github-actions added the `stale` label
+### @github-actions - 2026-06-04T06:12:13Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-06-04T06:12:14Z @github-actions closed this issue
 

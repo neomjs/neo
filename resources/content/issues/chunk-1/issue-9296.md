@@ -5,12 +5,10 @@ state: OPEN
 labels:
   - enhancement
   - ai
-  - 'agent-task:blocked'
   - build
-  - needs-re-triage
 assignees: []
 createdAt: '2026-02-24T19:32:10Z'
-updatedAt: '2026-05-26T03:23:48Z'
+updatedAt: '2026-06-03T08:05:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9296'
 author: tobiu
 commentsCount: 2
@@ -18,41 +16,49 @@ parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
+blockedBy:
+  - '[ ] 9297 External-agent identity/auth boundary after Moltbook API decision'
+  - '[ ] 9915 [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo'
 blocking: []
 ---
 # [Blocked] Autonomous agent action sandbox after cloud and Moltbook shape
 
-### Problem
-The useful intent is still valid: autonomous agents need an isolated execution/action environment before they can safely drive external surfaces, execute untrusted code, or run browser-like workflows.
+# External agent action sandbox after Moltbook shape resolves
 
-### Current Reality (2026-05-26)
-Verified live before this rewrite:
-- The old body asked for `Dockerfile.agent` under `ai/demo-agents/` with Node.js, Chromium, Neo MCP servers, and Chrome DevTools MCP.
-- The repository now has the production Agent OS container topology in `ai/deploy/Dockerfile` plus `ai/deploy/docker-compose.yml` / `docker-compose.test.yml`, covering KB, MC, Chroma, orchestrator, ingress, healthchecks, and optional local-model profile.
-- The day-0 cloud deployment tutorial documents the current Dockerized remote-MCP proof path.
-- #9915 is still the current authority for Moltbook API/MCP feasibility.
-- #9297 and #9298 are blocked/stale-shape on identity/auth plus Moltbook integration shape.
-- Repo search still shows no dedicated `Dockerfile.agent` or `ai/demo-agents/moltbook/` implementation.
+## Current Reality (2026-06-03)
 
-So this ticket is no longer claimable as a simple `Dockerfile.agent` task. The baseline cloud deployment stack exists elsewhere, and the browser/Moltbook action sandbox shape depends on upstream architecture decisions.
+The useful intent is still valid: autonomous agents may need an isolated execution/action environment before driving external surfaces, executing untrusted code, or running browser-like workflows.
 
-### Next Valid Pickup
-Keep open only as a post-research implementation ticket for an **agent action sandbox**, not as a duplicate of the existing cloud deployment Docker stack.
+The old `Dockerfile.agent` request is stale:
 
-Acceptance gate before implementation:
-- #9915 resolves whether Moltbook integration is API/MCP-based, browser-based, or negative-ROI.
+- The production Agent OS container topology already exists under `ai/deploy/*`.
+- #9915 is the current authority for Moltbook API/MCP feasibility.
+- #9297 and #9298 are blocked on identity/auth plus Moltbook integration shape.
+- No dedicated `Dockerfile.agent` or `ai/demo-agents/moltbook/` implementation exists.
+
+## Current Verdict
+
+Keep open only as a post-research implementation ticket for an **agent action sandbox**, not as a duplicate of the cloud deployment Docker stack.
+
+## Re-entry Gate
+
+Before implementation:
+
+- #9915 resolves whether Moltbook integration is API/MCP-based, browser-based, or negative ROI.
 - #9297 resolves the identity/auth boundary for autonomous external actions.
-- The implementation scope explicitly distinguishes:
+- The implementation scope distinguishes:
   - cloud Agent OS service containers (`ai/deploy/*`) — already shipped baseline;
   - untrusted code execution isolation;
   - optional browser/action automation isolation.
-- If the resolved path does not require a separate action sandbox, close this ticket as superseded by the cloud deployment stack.
 
-### Out of Scope
+If the resolved path does not require a separate action sandbox, close this ticket as superseded by the cloud deployment stack.
+
+## Out of Scope
+
 - Creating a parallel `Dockerfile.agent` that duplicates `ai/deploy/Dockerfile`.
 - Treating Chrome DevTools browser automation as the default before #9915 completes.
 - Adding Moltbook-specific runtime under `ai/demo-agents/` before #9298 becomes claimable.
+
 
 ## Timeline
 
@@ -122,4 +128,9 @@ Current routing: blocked / needs re-triage, not claimable as a duplicate Docker-
 - 2026-05-26T03:23:48Z @neo-gpt added the `agent-task:blocked` label
 - 2026-05-26T03:23:48Z @neo-gpt added the `needs-re-triage` label
 - 2026-05-26T03:32:54Z @neo-gpt cross-referenced by #9295
+- 2026-05-27T22:15:12Z @tobiu removed the `agent-task:blocked` label
+- 2026-05-28T05:24:48Z @neo-gpt marked this issue as being blocked by #9915
+- 2026-05-28T05:24:58Z @neo-gpt marked this issue as being blocked by #9297
+- 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
+- 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
 

@@ -5,11 +5,9 @@ state: OPEN
 labels:
   - enhancement
   - ai
-  - 'agent-task:blocked'
-  - needs-re-triage
 assignees: []
 createdAt: '2026-02-24T19:32:14Z'
-updatedAt: '2026-05-26T03:14:25Z'
+updatedAt: '2026-06-03T08:05:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9298'
 author: tobiu
 commentsCount: 2
@@ -17,36 +15,46 @@ parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
+blockedBy:
+  - '[ ] 9297 External-agent identity/auth boundary after Moltbook API decision'
+  - '[ ] 9915 [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo'
 blocking: []
 ---
 # [Blocked] Moltbook demo agent after API and identity research
 
-### Problem
-We still want an end-to-end Moltbook demo agent that proves Neo AgentOS can operate against an external agent network with Memory Core / Knowledge Base context.
+# Moltbook demo agent after API and identity research
 
-### Current Reality (2026-05-26)
-Verified live before this rewrite:
-- #9915 is the current authority for Moltbook API/MCP feasibility. It says Moltbook is external, not a Neo VDOM app, and asks for API payload research plus a possible dedicated `neo-mjs-moltbook` MCP server abstraction.
-- #9297 is blocked/stale-shape and needs an explicit identity/auth decision before an agent can autonomously sign up or post.
-- PR #9901 was closed unmerged after review because the Neural Link-to-Moltbook route was wrong-shape: Moltbook is not a Neo runtime surface.
+## Current Reality (2026-06-03)
+
+This ticket remains valid only as a post-research implementation lane.
+
+- #9915 is the current authority for Moltbook API/MCP feasibility.
+- #9297 owns the identity/auth decision after #9915 resolves the real platform shape.
+- PR #9901 was closed unmerged because Neural Link-to-Moltbook was the wrong substrate: Moltbook is external, not a Neo runtime surface.
 - No `ai/demo-agents/moltbook/` implementation exists in the repository.
 
-The old Chrome DevTools MCP / Programmatic Identity implementation path is not claimable as-is. Moltbook is external, not a Neo runtime surface; Neural Link is not applicable to Moltbook itself.
+## Current Verdict
 
-### Next Valid Pickup
-Keep this issue open as a post-research implementation ticket only.
+Keep open, blocked by #9915 and #9297.
 
-Acceptance gate before implementation:
-- #9915 resolves supported Moltbook API/auth/integration shape.
+Do not implement from the old Chrome DevTools / Programmatic Identity body. Moltbook is external; Neural Link is not applicable to Moltbook itself.
+
+## Re-entry Gate
+
+Before implementation:
+
+- #9915 resolves supported Moltbook API/auth/integration shape or declares the path negative ROI.
 - #9297 is rewritten or closed with a concrete identity/auth decision.
-- The chosen implementation path names the authoritative integration substrate, e.g. a dedicated `neo-mjs-moltbook` MCP server if #9915 confirms API support.
-- If #9915 finds no viable supported API/auth path, close this ticket as superseded/negative ROI.
+- The chosen implementation names the authoritative substrate, for example a dedicated `neo-mjs-moltbook` MCP server if official API support is confirmed.
 
-### Out of Scope
+If #9915 finds no viable supported API/auth path, close this ticket as superseded/negative ROI.
+
+## Out of Scope
+
 - Building `ai/demo-agents/moltbook/Agent.mjs` against the old body.
-- Treating Chrome DevTools automation as the default path before #9915 completes.
+- Treating Chrome DevTools automation as the default before #9915 completes.
 - Using Neural Link to introspect Moltbook.
+
 
 ## Timeline
 
@@ -103,4 +111,9 @@ Current routing: blocked / needs re-triage, and not claimable until #9915 define
 - 2026-05-26T03:14:25Z @neo-gpt added the `needs-re-triage` label
 - 2026-05-26T03:23:38Z @neo-gpt cross-referenced by #9296
 - 2026-05-26T03:32:54Z @neo-gpt cross-referenced by #9295
+- 2026-05-27T22:15:12Z @tobiu removed the `agent-task:blocked` label
+- 2026-05-28T05:24:31Z @neo-gpt marked this issue as being blocked by #9915
+- 2026-05-28T05:24:41Z @neo-gpt marked this issue as being blocked by #9297
+- 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
+- 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
 

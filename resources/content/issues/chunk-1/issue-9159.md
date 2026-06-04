@@ -1,7 +1,7 @@
 ---
 id: 9159
 title: 'regression: Component Columns trigger insertNode operations during scrolling'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - stale
@@ -11,16 +11,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-15T00:45:23Z'
-updatedAt: '2026-05-16T04:46:05Z'
+updatedAt: '2026-05-30T05:04:39Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9159'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-05-30T05:04:39Z'
 ---
 # regression: Component Columns trigger insertNode operations during scrolling
 
@@ -55,4 +56,9 @@ This indicates a potential failure in component recycling or a VDOM diffing issu
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-05-16T04:46:05Z @github-actions added the `stale` label
+### @github-actions - 2026-05-30T05:04:38Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-05-30T05:04:39Z @github-actions closed this issue
 

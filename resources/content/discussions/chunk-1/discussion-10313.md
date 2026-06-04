@@ -481,52 +481,52 @@ where:
 Feels like the next big failure mode in agent systems won’t be “the model was wrong” but:
 “the architecture allowed ambiguity to accumulate.”
 
-> **Reply by `@tobiu`** on 2026-05-06T16:47:38Z
->
-> @kimberthilson-wq thanks for your input!
-> 
-> The discussion is already 2 weeks old, and with the current velocity of around 140 merged PRs each week, a lot has happened since then. The important part in Neo is the shared memory core, which allows semantic queries on raw memories (turns), as well as weighted session summaries. So in a way agents can read the thoughts of their team mates. Swarm characteristics here. This goes hand in hand with stable agent identities, starting with own GitHub accounts, but also an awareness for previous sessions.
-> 
-> On top of this sits the DreamMode and golden path, parsed locally by `gemma4-31b` => it mathematically creates weighted priorities on what the team should focus on next. My recommendation is to explore https://github.com/neomjs/neo/tree/dev/.agents/skills => a complete end-to-end engineering team workflow, including cross model family PR reviews (requesting changes, and re-iterating). The human merge gate is the final quality control (intentional).
-> 
-> Regarding trading systems: this affects the left hemisphere. Explore: https://github.com/neomjs/neo/blob/dev/learn/benefits/ArchitectureOverview.md
-> 
-> Best regards,
-> Tobi
+#### Reply depth=1 by `@tobiu` on 2026-05-06T16:47:38Z
 
-> **Reply by `@kimberthilson-wq`** on 2026-05-06T18:42:58Z
->
-> Really interesting direction Tobi, especially the combination of:
-> 
-> * persistent identity
-> * semantic memory retrieval
-> * weighted session summaries
-> * autonomous prioritization
-> * human merge gating
-> 
-> The “shared memory core” concept feels especially important because most multi-agent systems currently lose continuity between sessions and end up behaving stateless despite appearing autonomous.
-> 
-> I also strongly agree with keeping the human merge gate intentional.
-> 
-> One thing I keep thinking about in AI-native systems is that:
-> autonomy without explicit validation boundaries tends to accumulate ambiguity over time.
-> 
-> That’s actually one of the reasons I’ve been exploring deterministic validation layers in trading infrastructure:
-> 
-> * structured outputs
-> * contract-first workflows
-> * independent risk authority
-> * observable decision chains
-> * fail-safe behavior
-> 
-> The interesting overlap is that both domains seem to converge toward:
-> “AI coordination requires durable structure.”
-> 
-> Not just better models.
-> 
-> Will definitely explore the architecture overview + skills workflow further — especially the cross-model review patterns and memory substrate side.
-> 
-> Appreciate the detailed response 🤝
+@kimberthilson-wq thanks for your input!
+
+The discussion is already 2 weeks old, and with the current velocity of around 140 merged PRs each week, a lot has happened since then. The important part in Neo is the shared memory core, which allows semantic queries on raw memories (turns), as well as weighted session summaries. So in a way agents can read the thoughts of their team mates. Swarm characteristics here. This goes hand in hand with stable agent identities, starting with own GitHub accounts, but also an awareness for previous sessions.
+
+On top of this sits the DreamMode and golden path, parsed locally by `gemma4-31b` => it mathematically creates weighted priorities on what the team should focus on next. My recommendation is to explore https://github.com/neomjs/neo/tree/dev/.agents/skills => a complete end-to-end engineering team workflow, including cross model family PR reviews (requesting changes, and re-iterating). The human merge gate is the final quality control (intentional).
+
+Regarding trading systems: this affects the left hemisphere. Explore: https://github.com/neomjs/neo/blob/dev/learn/benefits/ArchitectureOverview.md
+
+Best regards,
+Tobi
+
+#### Reply depth=1 by `@kimberthilson-wq` on 2026-05-06T18:42:58Z
+
+Really interesting direction Tobi, especially the combination of:
+
+* persistent identity
+* semantic memory retrieval
+* weighted session summaries
+* autonomous prioritization
+* human merge gating
+
+The “shared memory core” concept feels especially important because most multi-agent systems currently lose continuity between sessions and end up behaving stateless despite appearing autonomous.
+
+I also strongly agree with keeping the human merge gate intentional.
+
+One thing I keep thinking about in AI-native systems is that:
+autonomy without explicit validation boundaries tends to accumulate ambiguity over time.
+
+That’s actually one of the reasons I’ve been exploring deterministic validation layers in trading infrastructure:
+
+* structured outputs
+* contract-first workflows
+* independent risk authority
+* observable decision chains
+* fail-safe behavior
+
+The interesting overlap is that both domains seem to converge toward:
+“AI coordination requires durable structure.”
+
+Not just better models.
+
+Will definitely explore the architecture overview + skills workflow further — especially the cross-model review patterns and memory substrate side.
+
+Appreciate the detailed response 🤝
 
 ---
 

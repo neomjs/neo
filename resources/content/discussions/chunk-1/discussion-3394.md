@@ -89,17 +89,17 @@ The support for shared workers is already live inside the Safari Technology Prev
 Best regards,
 Tobias
 
-> **Reply by `@HLeithner`** on 2022-08-19T15:34:13Z
->
-> Hi Tobias,
-> 
-> thanks for your reply. I already have seen this support tables. But it doesn't say anythig about Browser versions. I know neo.mjs requires ES8 but I didn't found which parts of ES8 and at least at caniuse is no clear answer to which browser version supports this standard completely. 
-> 
-> Multi tab (shared workers) is not really relevant for my first project with neo.mjs, it's basically a map with a table and a bunch of filters. And I thought neo.mjs would fit really good on this topic. (I have seen your issue on mapbox-gl-js repo, which would be used).
-> 
-> regards,
-> 
-> Harald
+#### Reply depth=1 by `@HLeithner` on 2022-08-19T15:34:13Z
+
+Hi Tobias,
+
+thanks for your reply. I already have seen this support tables. But it doesn't say anythig about Browser versions. I know neo.mjs requires ES8 but I didn't found which parts of ES8 and at least at caniuse is no clear answer to which browser version supports this standard completely. 
+
+Multi tab (shared workers) is not really relevant for my first project with neo.mjs, it's basically a map with a table and a bunch of filters. And I thought neo.mjs would fit really good on this topic. (I have seen your issue on mapbox-gl-js repo, which would be used).
+
+regards,
+
+Harald
 
 ---
 

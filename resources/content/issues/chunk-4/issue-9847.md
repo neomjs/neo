@@ -5,10 +5,9 @@ state: OPEN
 labels:
   - enhancement
   - ai
-  - feature
 assignees: []
 createdAt: '2026-04-10T08:33:25Z'
-updatedAt: '2026-04-10T08:33:25Z'
+updatedAt: '2026-05-27T22:16:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9847'
 author: tobiu
 commentsCount: 0
@@ -77,4 +76,5 @@ Add a `remove_component` tool that:
 - 2026-04-10T08:33:27Z @tobiu added the `enhancement` label
 - 2026-04-10T08:33:27Z @tobiu added the `ai` label
 - 2026-04-10T08:33:27Z @tobiu added the `feature` label
+- 2026-05-27T22:16:17Z @tobiu removed the `feature` label
 
