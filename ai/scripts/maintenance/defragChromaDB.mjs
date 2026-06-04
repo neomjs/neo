@@ -149,7 +149,7 @@ export async function loadTopLevelAiConfig({
 export function resolveDefragSnapshotRetention({
     aiConfig = AiConfig
 } = {}) {
-    return aiConfig.maintenance.defrag.snapshotRetention || {};
+    return aiConfig.maintenance.defrag.snapshotRetention;
 }
 
 /**

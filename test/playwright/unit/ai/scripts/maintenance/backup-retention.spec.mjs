@@ -209,7 +209,7 @@ test.describe('cleanOldBackups — configurable retention', () => {
         expect(remaining).toHaveLength(0);
     });
 
-    test('resolves backup retention from top-level maintenance config before legacy Memory Core fallback', () => {
+    test('resolves backup retention from top-level maintenance config', () => {
         expect(resolveBackupRetention({
             aiConfig: {
                 maintenance: {
@@ -220,12 +220,6 @@ test.describe('cleanOldBackups — configurable retention', () => {
                         }
                     }
                 }
-            },
-            memoryCoreConfig: {
-                backupRetention: {
-                    keepMinimum: 3,
-                    maxDays    : 30
-                }
             }
         })).toEqual({
             keepMinimum: 7,
@@ -235,13 +229,7 @@ test.describe('cleanOldBackups — configurable retention', () => {
 
     test('fails loud when top-level maintenance subtree is absent', () => {
         expect(() => resolveBackupRetention({
-            aiConfig: {},
-            memoryCoreConfig: {
-                backupRetention: {
-                    keepMinimum: 5,
-                    maxDays    : 20
-                }
-            }
+            aiConfig: {}
         })).toThrow('backup');
     });
 
