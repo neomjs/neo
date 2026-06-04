@@ -418,11 +418,13 @@ If the author's rationale holds up to empirical scrutiny—even if it doesn't ma
 
 This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
 
-## 10. A2A Comment-ID Hand-off Protocol (`#10272`)
+## 10. A2A Comment-ID Hand-off (warm-cache review cycles)
 
-<!-- trigger: warm-cache review cycle N+1 (multi-cycle hand-off) → read ./a2a-commentid-handoff.md -->
+For multi-cycle reviews, after posting a review comment **capture its `commentId` and A2A it to the next actor** (peer or author) with a one-line substance summary — so they fetch just that comment instead of re-reading the whole thread (full-thread re-fetch cost grows with thread length).
 
-For multi-cycle reviews, hand off via **commentId-scoped fetch**, not full-thread-per-cycle (the cost diverges with thread length — `#10371`): `manage_issue_comment` returns `commentId`; relay it via `add_message` so the next actor calls `get_conversation({pr_number, comment_id})` for linear-cost fetch. **Pre-Flight (the dominant miss):** after posting, before yielding turn, state that you captured the commentId + will send the A2A ping. The workflow, selector precedence (`comment_id` / `since_comment_id` / `last_n`), anti-patterns, and the **cold-cache exception** (Cycle 1 / fresh-boot / cross-agent-handoff → full-thread fetch instead) are in [`./a2a-commentid-handoff.md`](./a2a-commentid-handoff.md).
+- **Discipline, not mechanics:** *how* to scope a single-comment fetch is the `get_conversation` tool description's job (it documents the selectors) — don't restate its parameters here.
+- **The dominant miss is forgetting the ping.** Pre-Flight after every `manage_issue_comment` create, before yielding: *"captured commentId `<ID>`; will A2A it to `<recipient>`."*
+- **Cold cache** (fresh session / cycle-1 / cross-agent hand-off): full-thread fetch + memory query instead — a scoped fetch lands one isolated comment without the prior context it depends on.
 
 ## 11. Post-Review-Cycle Reviewer Pickup
 
