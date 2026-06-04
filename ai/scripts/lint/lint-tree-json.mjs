@@ -11,7 +11,7 @@
  * `id` referenced by its children's `parentId`.
  *
  * Because it is hand-edited JSON with no schema enforcement, drift is silent until it
- * breaks portal nav / SEO. This lint enforces four mechanical invariants:
+ * breaks portal nav / SEO. This lint enforces five mechanical invariants:
  *
  *   1. LEAF_FILE        — every leaf `id` resolves to an existing `learn/<id>.md`.
  *   2. PARENT_INTEGRITY — every non-null `parentId` references an existing group node.
@@ -19,6 +19,10 @@
  *                         (a nav group maps to at most one folder).
  *   4. FOLDER_UNIQUENESS — no two distinct groups own leaves of the same folder-prefix
  *                         (a folder maps to at most one nav group; the phantom-group guard).
+ *   5. EXPLORATION_ARTIFACT — no leaf whose basename is an exploration/process artifact
+ *                         (`*Audit`/`*Plan`/`*Sweep`/`*Census`/`*Forensics`/`*Benchmark`);
+ *                         learn/ is public docs, so these belong in a non-published subfolder
+ *                         or the owning ticket, never the portal nav.
  *
  * (3) + (4) together assert a group ↔ folder bijection for leaf-bearing groups: the
  * mechanical form of "the nav tree mirrors the folder layout." (1) transitively covers
@@ -40,6 +44,14 @@ const __dirname  = path.dirname(__filename);
 const ROOT_DIR   = path.resolve(__dirname, '../../..');
 const LEARN_DIR  = path.join(ROOT_DIR, 'learn');
 const TREE_PATH  = path.join(LEARN_DIR, 'tree.json');
+
+// Invariant 5: exploration/process-artifact basename suffixes that must never be published.
+// `learn/` is public docs; these are tracking/process outputs whose home is a non-published
+// subfolder or the owning ticket, not the public portal nav.
+const EXPLORATION_ARTIFACT_SUFFIXES = 'audit/plan/sweep/census/forensics/benchmark (any case)';
+// Case-insensitive: the on-disk artifact inventory mixes CamelCase (`ConfigSubstrateEnvVarAudit`)
+// and kebab/lowercase (`gemma4-rem-benchmark`, `sandman-silent-failure-forensics`) basenames.
+const EXPLORATION_ARTIFACT_RE       = /(?:audit|plan|sweep|census|forensics|benchmark)$/i;
 
 /**
  * Returns the folder-prefix (directory part) of a leaf `id`, using POSIX semantics so
@@ -151,6 +163,17 @@ function lintTree(treeData, {fileExists} = {}) {
         }
     }
 
+    // Invariant 5: no exploration/process artifact published in the public nav.
+    for (const node of nodes) {
+        if (isGroup(node) || node.id == null) continue;
+
+        const basename = node.id.split('/').pop();
+
+        if (EXPLORATION_ARTIFACT_RE.test(basename)) {
+            violations.push({code: 'EXPLORATION_ARTIFACT', message: `Leaf "${node.id}" is an exploration/process artifact (basename ends in ${EXPLORATION_ARTIFACT_SUFFIXES}). learn/ is public docs — these belong in a non-published subfolder or the owning ticket, not the portal nav. Remove it from tree.json.`});
+        }
+    }
+
     return violations;
 }
 
@@ -199,6 +222,7 @@ function main() {
         console.log('  2. PARENT_INTEGRITY  every parentId references an existing group');
         console.log('  3. GROUP_COHESION    a group\'s direct leaves share one folder');
         console.log('  4. FOLDER_UNIQUENESS each folder maps to one group (phantom-group guard)');
+        console.log('  5. EXPLORATION_ARTIFACT no audit/plan/sweep/census/forensics/benchmark leaf in nav');
         process.exit(0);
     }
 
