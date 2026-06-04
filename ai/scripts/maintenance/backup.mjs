@@ -137,7 +137,7 @@ export function resolveBackupRetention({
     aiConfig = AiConfig,
     memoryCoreConfig = mcConfig
 } = {}) {
-    return aiConfig.maintenance?.backup?.retention || memoryCoreConfig.backupRetention || {};
+    return aiConfig.maintenance.backup.retention || memoryCoreConfig.backupRetention || {};
 }
 
 /**
