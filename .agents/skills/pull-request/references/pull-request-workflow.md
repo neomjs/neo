@@ -38,12 +38,6 @@ ADR conflict trigger: add `Decision Record impact:` naming the ADR update or pen
 
 Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. This is the enforcement mechanism for **AGENTS.md §0 Invariant 7**. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
 
-### 1.3 The FAIR-Band Pre-Flight Gate (`#11433` — bypass-resistant choke-point for `#11432`)
-
-<!-- trigger: PR-open → read ./fair-band-pre-flight-gate.md for FAIR-band stance declaration shapes + verifier query -->
-
-Author-side bypass-resistant choke-point for the FAIR-band author-lane pickup discipline. Every PR body MUST include a FAIR-band stance declaration; granular payload at [`./fair-band-pre-flight-gate.md`](./fair-band-pre-flight-gate.md) defines the 4 declaration shapes (in-band / under-target / over-target-with-rationale / over-target-yield-candidate-FORBIDS-PR-open) + canonical verifier query.
-
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.
@@ -231,7 +225,7 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
      - Include `Requested action: use /pr-review on PR #N` — naming the skill literally is mandatory; mechanically loads the receiving peer's `pr-review-template.md` + structured-eval discipline + graph-ingestion section structure. Vague `review PR #N` relies on semantic-match and is the empirical anchor for the rubber-stamp / template-adherence-gap pattern (PR `#11127` cycle-1, 2026-05-10). Mirror of §6.4's remediation idiom applied at initial routing time.
      - Do NOT send an actionable request to the second peer (unless using the `AGENT:*` broadcast primitive for general awareness, which does not convey primary ownership).
    - *Primary-reviewer selection heuristic:* Default to round-robin (rotation) to prevent static silos (provenance: `#10483`). Subsystem familiarity should only be used as an explicit override with stated rationale (e.g., "Assigning @neo-gpt because they authored this abstraction in PR `#X`"). Do not use pure random selection.
-   - *FAIR-band follow-up:* Authors request one primary reviewer; the reviewer then follows the FAIR-band pickup discipline after the review handoff (see `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`).
+   - *Post-review pickup follow-up:* Authors request one primary reviewer; after the review handoff the reviewer follows the post-review author-lane pickup discipline, informed by the author-concentration detector telemetry (see `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`).
 
 2. **Reviewer SLA & Decline Protocol:**
    - **24-Hour Response Window:** The assigned `primary-reviewer` has 24 hours to provide an initial review.

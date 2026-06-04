@@ -53,7 +53,6 @@ jobs:
             // ──────────────────────────────────────────────────────────────────────
 
             const VISIBLE_PR_BODY_ANCHORS = [
-              "FAIR-band:",
               "Evidence:",
               "## Test Evidence",
               "## Post-Merge Validation"
