@@ -1574,6 +1574,32 @@ components:
                 dimensions:
                   type: integer
                   example: 4096
+                writeCanary:
+                  type: object
+                  description: "Write-side embedding canary result used to detect add_memory embedding-path degradation."
+                  properties:
+                    status:
+                      type: string
+                      enum: ["healthy", "failed"]
+                      example: "healthy"
+                    provider:
+                      type: string
+                      example: "openAiCompatible"
+                    dimensions:
+                      type: integer
+                      nullable: true
+                      example: 4096
+                    expectedDimensions:
+                      type: integer
+                      nullable: true
+                      example: 4096
+                    durationMs:
+                      type: integer
+                      example: 42
+                    error:
+                      type: string
+                      nullable: true
+                      example: null
                 error:
                   type: string
                   nullable: true
