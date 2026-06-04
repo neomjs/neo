@@ -387,6 +387,16 @@ paths:
           schema:
             type: string
             enum: [bugfix, feature, refactoring, documentation, new-app, analysis, other]
+        - name: agentIdentity
+          in: query
+          required: false
+          description: |
+            Optional author-identity scope for an own-vs-team boot ledger. `@me` resolves the bound
+            caller (fails closed if no identity is bound — never silently team-wide); `@<identity>`
+            scopes to that author; omitted or `all` returns the team-wide view (default,
+            backward-compatible). Filters on summary author provenance (`sourceAgentIdentities`).
+          schema:
+            type: string
       responses:
         '200':
           description: Summaries retrieved successfully
