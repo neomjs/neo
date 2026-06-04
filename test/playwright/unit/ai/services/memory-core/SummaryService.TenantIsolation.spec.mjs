@@ -155,7 +155,7 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
 
         // The load-bearing assertion: `collection.drop()` MUST NOT have been called. The legacy
         // drop+recreate path would have nuked Bob's data along with Alice's — the whole point of
-        // #10000's cloud-mode branching is to replace that call with the scoped `delete({where})`.
+        // the cloud-mode branching is to replace that call with the scoped `delete({where})`.
         expect(spy.calls.drop).toBe(0);
         expect(spy.calls.delete).toHaveLength(1);
         expect(spy.calls.delete[0].where).toEqual({userId: 'u-alice'});
@@ -246,7 +246,7 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
     });
 
     test('listSummaries returns the tenant\'s OWN records PLUS SHARED_USER_ID-tagged records PLUS untagged records', async () => {
-        // The load-bearing #10556 invariant: legacy pre-#10145 records (backfilled by the
+        // The load-bearing additive-access invariant: legacy pre-tenant-aware records (backfilled by the
         // migration runner with userId='shared' OR untagged) become accessible to every tenant via the
         // additive $or filter, alongside the tenant's own data.
         spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'Alice 1'}, document: 'A1'});
@@ -360,20 +360,27 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
         expect(queryCall.where).toEqual({userId: 'u-alice'});
     });
 
-    test('querySummaries with memorySharing=team returns only team-tagged records', async () => {
+    test('querySummaries with memorySharing=team is additive: own + shared + untagged commons, excludes other-tenant private (#12450)', async () => {
+        // Session summaries are untagged commons, so `team` is additive like `legacy` (own + shared +
+        // untagged), NOT a restrictive {userId:'shared'} DB-where — which matched nothing and returned
+        // empty. The JS post-filter still isolates other tenants' private records (Bob's stays hidden).
         spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'a1'}, document: 'a1'});
         spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared', timestamp: 200, title: 'L1'}, document: 'L1'});
         spy.rows.set('s-untagged', {id: 's-untagged', metadata: {timestamp: 300, title: 'pre-migration'}, document: 'P'});
+        spy.rows.set('s-bob', {id: 's-bob', metadata: {userId: 'u-bob', timestamp: 400, title: 'bob-private'}, document: 'B'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
             SummaryService.querySummaries({query: 'anything', nResults: 10, memorySharing: 'team'})
         );
 
-        expect(view.count).toBe(1);
-        expect(view.results[0].title).toBe('L1');
+        // own (a1) + shared (L1) + untagged (pre-migration); Bob's private record stays isolated.
+        expect(view.count).toBe(3);
+        expect(view.results.map(r => r.title).sort()).toEqual(['L1', 'a1', 'pre-migration']);
+        expect(view.results.some(r => r.title === 'bob-private')).toBe(false);
 
         const queryCall = spy.calls.query.at(-1);
-        expect(queryCall.where).toEqual({userId: 'shared'});
+        // Additive policy: NO restrictive {userId:'shared'} DB-where; over-fetch + JS post-filter.
+        expect(queryCall.where).toBeUndefined();
     });
 
     test('querySummaries with memorySharing=legacy returns tenant-owned plus team-tagged plus untagged', async () => {
