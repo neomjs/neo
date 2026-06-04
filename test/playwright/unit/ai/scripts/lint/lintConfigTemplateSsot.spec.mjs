@@ -65,9 +65,12 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
     const fileOf = (file, source) => ({file, source});
 
     test('a baselined violation is suppressed (no new violations)', () => {
+        // Derive the fixture from a live BASELINE row so this test does not churn each time a
+        // specific env is reshaped + dropped (it broke on NEO_CHROMA_DATABASE, then NEO_MEMORY_DB_PATH).
+        const [baselined] = BASELINE;
         const files = [fileOf(
-            'ai/mcp/server/memory-core/config.template.mjs',
-            `graph: leaf(process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : '/x.sqlite', 'NEO_MEMORY_DB_PATH', 'string')`
+            baselined.file,
+            `x: leaf(process.env.UNIT_TEST_MODE === 'true' ? 'a' : 'b', '${baselined.env}', 'string')`
         )];
 
         const {violations, newViolations} = lintConfigTemplateSsot({files});
