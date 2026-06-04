@@ -31,8 +31,8 @@ const neoRootDir = path.resolve(__dirname, '../../..');
  *   into another spec's assertion against the snapshot.
  * - Recursively frozen via the local `deepFreeze()` helper. Neo doesn't ship
  *   a recursive freeze counterpart to `Neo.clone`, so this helper stays
- *   in-fixture; the shallow `Object.freeze({...x})` failure mode caught in
- *   #11978 cycle-1 is the regression-anchor for why deep freeze is required.
+ *   in-fixture; the shallow `Object.freeze({...x})` failure mode is the
+ *   regression anchor for why deep freeze is required.
  *
  * **Why not import the template directly here?**
  * Importing `ai/config.template.mjs` registers `Neo.ai.Config`. This fixture is
@@ -108,14 +108,19 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         requireParallelModels: Number(process.env.NEO_OLLAMA_REQUIRE_PARALLEL_MODELS) || 2
     },
     openAiCompatible: {
-        host                 : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model                : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-        embeddingModel       : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-        apiKey               : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
-        unloadRetryCount     : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
-        unloadRetryDelayMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-        keep_alive           : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
-        requireParallelModels: Number(process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS) || 2
+        host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+        model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+        embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+        apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
+        unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
+        unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+        contentionRetryCount    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
+        contentionRetryDelayMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
+        contentionTimeoutMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
+        batchEmbeddingChunkSize: Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE) || 5,
+        batchEmbeddingYieldMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
+        keep_alive              : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
+        requireParallelModels   : Number(process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS) || 2
     },
     localModels: {
         chat: {
