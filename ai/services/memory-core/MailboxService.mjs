@@ -421,7 +421,7 @@ class MailboxService extends Base {
         // `CAN_READ_SESSIONS_OF`) is NOT affected by this setting — reading someone's
         // inbox is categorically different from sending them a message; asymmetric treatment
         // is intentional.
-        const strictReplyPolicy = aiConfig.mailbox?.defaultReplyPolicy === 'blocked';
+        const strictReplyPolicy = aiConfig.mailbox.defaultReplyPolicy === 'blocked';
 
         // @summary Defensive guard enforcing the "Block Wins" negative-intent primitive.
         // Fires in BOTH reply-policy modes ('open' and 'blocked').
