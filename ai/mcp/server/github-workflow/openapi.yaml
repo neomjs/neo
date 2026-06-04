@@ -1201,6 +1201,165 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /discussions/conversation:
+    get:
+      summary: Get Discussion Conversation
+      operationId: get_discussion_conversation
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a GitHub Discussion's title/body metadata plus top-level comments and nested replies.
+
+        **When to Use:**
+        Use this tool for Ideation Sandbox review/re-poll cycles where only a specific comment,
+        a delta after a known comment, or a small tail of recent comments is needed.
+
+        **Comment selectors (optional, first-match precedence):**
+        - `comment_id`: fetch ONLY the top-level discussion comment whose GitHub node ID matches.
+          Used for A2A hand-off after `manage_discussion_comment({action: 'create'})` returns
+          `commentId`.
+        - `since_comment_id`: fetch top-level discussion comments AFTER the one with the given ID
+          (exclusive). If the ID is not found, returns an empty comments list.
+        - `last_n`: fetch the last N top-level discussion comments.
+
+        Omitting all selectors returns the full bounded Discussion conversation shape.
+      tags: [Discussions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - discussion_number
+              properties:
+                discussion_number:
+                  type: integer
+                  description: The number of the discussion to retrieve.
+                  example: 10137
+                comment_id:
+                  type: string
+                  description: Return only the top-level discussion comment whose GitHub global node ID matches. Discussion title/body metadata is still returned.
+                  example: "DC_kwDOABcD1234567890"
+                since_comment_id:
+                  type: string
+                  description: Return only top-level discussion comments AFTER the one with this ID (exclusive). If the ID is not found, returns empty comments.
+                  example: "DC_kwDOABcD1234567890"
+                last_n:
+                  type: integer
+                  description: Return only the last N top-level discussion comments.
+                  example: 3
+      responses:
+        '200':
+          description: Discussion conversation data, optionally narrowed by selector.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: The canonical GitHub global node ID of the discussion.
+                  number:
+                    type: integer
+                    description: The GitHub Discussion number.
+                  title:
+                    type: string
+                  body:
+                    type: string
+                  url:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                  author:
+                    type: object
+                    properties:
+                      login:
+                        type: string
+                  category:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                  comments:
+                    type: object
+                    properties:
+                      nodes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              description: The GitHub global node ID of the discussion comment.
+                            author:
+                              type: object
+                              properties:
+                                login:
+                                  type: string
+                            body:
+                              type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
+                            url:
+                              type: string
+                            isAnswer:
+                              type: boolean
+                            replies:
+                              type: object
+                              properties:
+                                nodes:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      author:
+                                        type: object
+                                        properties:
+                                          login:
+                                            type: string
+                                      body:
+                                        type: string
+                                      createdAt:
+                                        type: string
+                                        format: date-time
+                                      updatedAt:
+                                        type: string
+                                        format: date-time
+                                      url:
+                                        type: string
+                                      isAnswer:
+                                        type: boolean
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Discussion not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /discussions/comments/manage:
     post:
       summary: Manage Discussion Comments (Create or Update)
@@ -1214,6 +1373,7 @@ paths:
         **Action: 'create'**
         - Creates a new comment on a discussion.
         - Requires `agent`, `body`, and `discussion_number`.
+        - Returns `commentId` for scoped hand-off via `get_discussion_conversation`.
 
         **Action: 'update'**
         - Updates an existing discussion comment.

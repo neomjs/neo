@@ -45,6 +45,74 @@ export const GET_DISCUSSION_ID = `
 `;
 
 /**
+ * Query to fetch a discussion conversation, including top-level comments and replies.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $discussionNumber: Int!
+ * - $maxComments: Int!
+ * - $maxReplies: Int!
+ */
+export const GET_DISCUSSION_CONVERSATION = `
+  query GetDiscussionConversation(
+    $owner: String!
+    $repo: String!
+    $discussionNumber: Int!
+    $maxComments: Int!
+    $maxReplies: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      discussion(number: $discussionNumber) {
+        id
+        number
+        title
+        body
+        url
+        createdAt
+        updatedAt
+
+        author {
+          login
+        }
+
+        category {
+          name
+        }
+
+        comments(first: $maxComments) {
+          nodes {
+            id
+            author {
+              login
+            }
+            body
+            createdAt
+            updatedAt
+            url
+            isAnswer
+
+            replies(first: $maxReplies) {
+              nodes {
+                id
+                author {
+                  login
+                }
+                body
+                createdAt
+                updatedAt
+                url
+                isAnswer
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Basic query to fetch discussions for local synchronization.
  * Includes nested comments and replies.
  *
