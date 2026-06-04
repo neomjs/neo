@@ -55,14 +55,6 @@ const SCAN_ROOT_REL            = 'ai';
  */
 export const BASELINE = Object.freeze([
     Object.freeze({
-        file   : 'ai/config.template.mjs',
-        env    : 'NEO_CHROMA_DATABASE',
-        ticket : '#12451',
-        reshape: 'Static. Fold CHROMA_PRODUCTION_DATABASE as the leaf default; the unit suite sets ' +
-                 'NEO_CHROMA_DATABASE=neo-unit-test via the test-unit npm script shell env. Fail-closed: ' +
-                 'ChromaManager refuses the production database under UNIT_TEST_MODE, so a missed override fails loud.'
-    }),
-    Object.freeze({
         file   : 'ai/mcp/server/memory-core/config.template.mjs',
         env    : 'NEO_MEMORY_DB_PATH',
         ticket : '#12451',

@@ -1,10 +1,6 @@
 import path                                  from 'path';
 import {fileURLToPath}                       from 'url';
 import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
-import {
-    CHROMA_PRODUCTION_DATABASE,
-    CHROMA_TEST_DATABASE
-}                                            from './services/shared/vector/chromaTestIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -291,14 +287,22 @@ class Config extends BaseConfig {
                     host    : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     port    : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
                     /**
-                     * Chroma database the client connects to. Under `UNIT_TEST_MODE` this resolves to a
-                     * dedicated, droppable test database so unit-test collections never enter the
-                     * production `default_database` by construction (the prevention half of the
-                     * store-isolation cluster); production is `default_database` verbatim. Consumed by
-                     * the Memory Core `ChromaManager`. The Knowledge Base ChromaManager currently reads
-                     * only host/port, so this field is inert for it until separately migrated.
+                     * Chroma database selection — three declarative leaves, all SSOT-inline (config.template
+                     * imports no config values):
+                     *   - `database`        — the production DB name (literal).
+                     *   - `databaseTest`    — the dedicated, droppable unit-test DB name (literal).
+                     *   - `useTestDatabase` — the toggle, resolved from `UNIT_TEST_MODE` via the leaf's
+                     *                         env-var argument (declarative — NOT an inline `process.env` read).
+                     * The consumer (`ChromaManager`) reads the resolved toggle and picks `databaseTest` when
+                     * true, else `database`. Both NAMES live in config, so the test path needs no env var the
+                     * runner must remember to set — `npx playwright` without `npm run test-unit` still toggles
+                     * to the test DB and CANNOT bleed unit collections into production by construction.
+                     * `ChromaManager` additionally fails loud if the resolved DB equals `database` while the
+                     * toggle is on (independent defense-in-depth). KB ChromaManager reads only host/port.
                      */
-                    database: leaf(process.env.UNIT_TEST_MODE === 'true' ? CHROMA_TEST_DATABASE : CHROMA_PRODUCTION_DATABASE, 'NEO_CHROMA_DATABASE', 'string')
+                    database       : leaf('default_database', 'NEO_CHROMA_DATABASE', 'string'),
+                    databaseTest   : leaf('neo-unit-test', 'NEO_CHROMA_DATABASE_TEST', 'string'),
+                    useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
                 }
             },
             /**

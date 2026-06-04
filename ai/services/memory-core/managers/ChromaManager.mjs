@@ -10,7 +10,7 @@ import {
     createSilentExecutor,
     registerNeoChromaEmbeddingFunctions
 } from '../../shared/vector/chromaClientPrimitives.mjs';
-import {CHROMA_PRODUCTION_DATABASE, ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
+import {ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
 
 /**
  * Predicate suppression filter for MC: the four Chroma library messages that surface noisily
@@ -111,15 +111,19 @@ class ChromaManager extends AbstractVectorManager {
             throw new Error(message);
         }
 
-        const database = chroma.database;
+        // Select the test database via the config-owned `useTestDatabase` toggle (a declarative env-driven
+        // leaf resolved from UNIT_TEST_MODE). Both DB names are config literals, so the test path depends on
+        // no env var the runner must remember to set — `npx playwright` without `npm run test-unit` still
+        // toggles to the test DB and cannot bleed unit collections into production by construction.
+        const useTestDatabase = chroma.useTestDatabase === true;
+        const database        = useTestDatabase ? chroma.databaseTest : chroma.database;
 
-        // Fail-closed test-isolation guard: under UNIT_TEST_MODE the client must never resolve to the
-        // production database, even via a NEO_CHROMA_DATABASE override — refuse to construct/connect
-        // rather than risk a unit run touching the production namespace. Production override behavior
-        // remains intact outside UNIT_TEST_MODE.
-        if (process.env.UNIT_TEST_MODE === 'true' && database === CHROMA_PRODUCTION_DATABASE) {
-            const message = `ChromaManager: refusing the production database "${CHROMA_PRODUCTION_DATABASE}" under ` +
-                `UNIT_TEST_MODE — unit-test isolation must not be overridable into the production namespace.`;
+        // Fail-closed defense-in-depth: when the test toggle is on, the resolved DB must never equal the
+        // production database (e.g. a misconfigured databaseTest) — refuse rather than risk a unit run
+        // touching the production namespace.
+        if (useTestDatabase && database === chroma.database) {
+            const message = `ChromaManager: refusing the production database "${chroma.database}" under ` +
+                `the test-database toggle — unit-test isolation must not resolve into the production namespace.`;
 
             logger.error(`[ChromaManager] Test-isolation guard: ${message}`);
 
@@ -149,11 +153,11 @@ class ChromaManager extends AbstractVectorManager {
     async connect() {
         this.connected = await chromaConnect({client: this.client, logger});
 
-        // Under UNIT_TEST_MODE the client targets a dedicated test database. chromadb 3.x has no
-        // getOrCreateDatabase and the ChromaClient constructor does not create the database, so it
+        // When the test-database toggle is on, the client targets a dedicated test database. chromadb 3.x
+        // has no getOrCreateDatabase and the ChromaClient constructor does not create the database, so it
         // must be ensured-to-exist here — after the heartbeat proves the server is reachable, before the
-        // first lazy getOrCreateCollection. Idempotent; the production path (default_database) is untouched.
-        if (this.connected && process.env.UNIT_TEST_MODE === 'true') {
+        // first lazy getOrCreateCollection. Idempotent; the production path is untouched.
+        if (this.connected && aiConfig.engines.chroma.useTestDatabase === true) {
             const {host, port, database} = this.resolveChromaClientConfig(aiConfig);
             await ensureChromaTestDatabase({host, port, database});
         }

@@ -66,8 +66,8 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
 
     test('a baselined violation is suppressed (no new violations)', () => {
         const files = [fileOf(
-            'ai/config.template.mjs',
-            `database: leaf(process.env.UNIT_TEST_MODE === 'true' ? T : P, 'NEO_CHROMA_DATABASE', 'string')`
+            'ai/mcp/server/memory-core/config.template.mjs',
+            `graph: leaf(process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : '/x.sqlite', 'NEO_MEMORY_DB_PATH', 'string')`
         )];
 
         const {violations, newViolations} = lintConfigTemplateSsot({files});

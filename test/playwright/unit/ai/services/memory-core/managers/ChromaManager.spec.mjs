@@ -58,32 +58,36 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         // The spec runs with unitTestMode:true, so the config leaf must resolve to the dedicated
         // test database — never default_database — by construction. No crashed/npx-bypassed run can
         // create collections in the production namespace because the client never points there.
-        expect(aiConfig.engines.chroma.database).toBe(CHROMA_TEST_DATABASE);
-        expect(aiConfig.engines.chroma.database).not.toBe(CHROMA_PRODUCTION_DATABASE);
+        // The test-database toggle is ON (declaratively resolved from UNIT_TEST_MODE), so the resolver
+        // selects the dedicated test database — never default_database — by construction. Both NAMES are
+        // config literals; the toggle (not an env var the runner must remember to set) drives selection.
+        expect(aiConfig.engines.chroma.useTestDatabase).toBe(true);
+        expect(aiConfig.engines.chroma.databaseTest).toBe(CHROMA_TEST_DATABASE);
+        expect(aiConfig.engines.chroma.database).toBe(CHROMA_PRODUCTION_DATABASE);
 
-        // …and the resolver carries that isolated namespace through to the client coordinates.
+        // …and the resolver carries the isolated namespace (databaseTest) through to the client coordinates.
         const {database} = ChromaManager.resolveChromaClientConfig(aiConfig);
         expect(database).toBe(CHROMA_TEST_DATABASE);
+        expect(database).not.toBe(CHROMA_PRODUCTION_DATABASE);
     });
 
     test('the constructed ChromaClient targets the isolated test database', () => {
-        // construct() wires resolveChromaClientConfig(...).database into `new ChromaClient({database})`,
-        // so the live client's database getter reflects the isolated namespace, not default_database.
-        expect(ChromaManager.client.database).toBe(aiConfig.engines.chroma.database);
+        // construct() wires resolveChromaClientConfig(...).database (the toggle-selected test DB) into
+        // `new ChromaClient({database})`, so the live client targets the isolated namespace, not prod.
+        expect(ChromaManager.client.database).toBe(aiConfig.engines.chroma.databaseTest);
         expect(ChromaManager.client.database).not.toBe(CHROMA_PRODUCTION_DATABASE);
     });
 
-    test('resolveChromaClientConfig fails closed: refuses the production database under UNIT_TEST_MODE (#12335 AC1)', () => {
-        // The spec runs with UNIT_TEST_MODE=true. Even an inherited NEO_CHROMA_DATABASE=default_database
-        // override must not let a unit run resolve into the production namespace — the resolver throws
-        // fail-closed before any ChromaClient construct/connect, so no test can touch production.
+    test('resolveChromaClientConfig fails closed: refuses the production database under the test toggle (#12335 AC1)', () => {
+        // With the test toggle ON, a misconfigured databaseTest that resolves into the production namespace
+        // must fail closed before any ChromaClient construct/connect — so no unit run can touch production.
         expect(() => ChromaManager.resolveChromaClientConfig({
-            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_PRODUCTION_DATABASE}}
-        })).toThrow(/refusing the production database .* under\s+UNIT_TEST_MODE/);
+            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_PRODUCTION_DATABASE, databaseTest: CHROMA_PRODUCTION_DATABASE, useTestDatabase: true}}
+        })).toThrow(/refusing the production database .* test-database toggle/);
 
-        // A normal isolated test database resolves cleanly (the guard only fires for the production name).
+        // A correctly isolated test database resolves cleanly (the guard fires only when the resolved DB is prod).
         expect(ChromaManager.resolveChromaClientConfig({
-            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_TEST_DATABASE}}
+            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_PRODUCTION_DATABASE, databaseTest: CHROMA_TEST_DATABASE, useTestDatabase: true}}
         }).database).toBe(CHROMA_TEST_DATABASE);
     });
 
