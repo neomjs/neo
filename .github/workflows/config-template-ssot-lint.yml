@@ -1,0 +1,34 @@
+name: Config Template SSOT Lint
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'ai/**/config.template.mjs'
+      - 'ai/scripts/lint/lint-config-template-ssot.mjs'
+      - '.github/workflows/config-template-ssot-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/**/config.template.mjs'
+      - 'ai/scripts/lint/lint-config-template-ssot.mjs'
+      - '.github/workflows/config-template-ssot-lint.yml'
+
+concurrency:
+  group: config-template-ssot-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Lint config.template.mjs leaves for inline process.env reads
+        run: node ai/scripts/lint/lint-config-template-ssot.mjs
