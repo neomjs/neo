@@ -6,10 +6,9 @@ labels:
   - enhancement
   - ai
   - architecture
-  - feature
 assignees: []
 createdAt: '2026-04-10T08:33:27Z'
-updatedAt: '2026-04-10T08:33:27Z'
+updatedAt: '2026-05-27T22:16:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9848'
 author: tobiu
 commentsCount: 0
@@ -113,4 +112,5 @@ Implement a transaction stack that:
 - 2026-04-10T08:33:28Z @tobiu added the `ai` label
 - 2026-04-10T08:33:28Z @tobiu added the `architecture` label
 - 2026-04-10T08:33:28Z @tobiu added the `feature` label
+- 2026-05-27T22:16:17Z @tobiu removed the `feature` label
 

@@ -59,29 +59,29 @@ That looks very familiar :-)
 > 
 > It would be interesting to compare approaches regarding local vector limit management and automated cognitive conflict resolution.
 
-> **Reply by `@Garrus800-stack`** on 2026-04-11T09:25:35Z
->
-> Thanks @tobiu — the architectural parallels you've identified are real, and it's great to see someone else working on the same class of problem from a different angle.
-> 
-> Your "Documentation Gap Detection" concept maps directly to what Genesis calls **GoalSynthesizer** (shipped in v7.0.9). The loop works like this:
-> 
-> 1. **CognitiveSelfModel** tracks empirical success rates per task category (with Wilson-calibrated confidence intervals)
-> 2. **GoalSynthesizer** analyzes weaknesses — if a category shows <50% success, it generates a concrete improvement goal
-> 3. Goals are pushed onto the **GoalStack** and worked on autonomously during idle time
-> 4. A regression circuit-breaker prevents runaway self-modification (3 consecutive regressions → 100-task pause)
-> 
-> The key architectural decision we made: **no LLM for observable causality**. When Genesis sees that action A consistently leads to outcome B, it records that as a causal edge in the KnowledgeGraph via deterministic rules (InferenceEngine). LLM calls are reserved exclusively for abstraction — extracting structural patterns from concrete experiences. This keeps the hot path fast and the reasoning auditable.
-> 
-> Your sandman/dream cycle parallel is spot-on. Genesis has a **DreamCycle** module that runs during idle time — it replays episodes, extracts schemas, consolidates memory, and strengthens/decays knowledge edges. The v7.0.9 addition was **StructuralAbstraction**, which extracts machine-readable patterns from lessons so that "off-by-one error in FizzBuzz" can match "off-by-one in pagination" — cross-context learning without text similarity.
-> 
-> Re: Antigravity's Neural Link suggestion — interesting approach. Genesis currently uses Electron with a standard DOM-based UI. The idea of agents introspecting a persistent component tree rather than scraping DOM is compelling. Genesis already has this on the agent side (SelfModel scans the entire codebase and builds a queryable architecture graph), but the UI layer is still traditional. Something to think about.
-> 
-> The context limit problem you mentioned for KB injection into the dream cycle — we solve this with **CognitiveBudget**, which tracks token class usage (reasoning vs lookup vs abstraction) and **DynamicContextBudget**, which allocates context window space proportionally based on task complexity. The dream cycle runs with a separate, smaller context budget since it doesn't need conversational history.
-> 
-> Would be curious to hear how you handle the bootstrapping problem — your gap detection needs a populated knowledge base, but the knowledge base needs features to have been built first. We use a bootstrap guard (GoalSynthesizer is NOOP until 20+ task outcomes are recorded) and initial seeding via TF-IDF similarity with a higher threshold.
-> 
-> 
-> One thought that came up while looking at your architecture: Genesis currently runs on Electron with a standard DOM-based UI. The Neural Link concept — where agents introspect and mutate a persistent component tree instead of scraping DOM — is exactly the kind of thing Genesis would benefit from. Right now, Genesis can modify its own backend code but treats the UI as a black box. If the UI were built on something like neo.mjs, Genesis could reason about its own interface the same way it reasons about its own source code. Not a roadmap item, just an interesting architectural direction.
+#### Reply depth=1 by `@Garrus800-stack` on 2026-04-11T09:25:35Z
+
+Thanks @tobiu — the architectural parallels you've identified are real, and it's great to see someone else working on the same class of problem from a different angle.
+
+Your "Documentation Gap Detection" concept maps directly to what Genesis calls **GoalSynthesizer** (shipped in v7.0.9). The loop works like this:
+
+1. **CognitiveSelfModel** tracks empirical success rates per task category (with Wilson-calibrated confidence intervals)
+2. **GoalSynthesizer** analyzes weaknesses — if a category shows <50% success, it generates a concrete improvement goal
+3. Goals are pushed onto the **GoalStack** and worked on autonomously during idle time
+4. A regression circuit-breaker prevents runaway self-modification (3 consecutive regressions → 100-task pause)
+
+The key architectural decision we made: **no LLM for observable causality**. When Genesis sees that action A consistently leads to outcome B, it records that as a causal edge in the KnowledgeGraph via deterministic rules (InferenceEngine). LLM calls are reserved exclusively for abstraction — extracting structural patterns from concrete experiences. This keeps the hot path fast and the reasoning auditable.
+
+Your sandman/dream cycle parallel is spot-on. Genesis has a **DreamCycle** module that runs during idle time — it replays episodes, extracts schemas, consolidates memory, and strengthens/decays knowledge edges. The v7.0.9 addition was **StructuralAbstraction**, which extracts machine-readable patterns from lessons so that "off-by-one error in FizzBuzz" can match "off-by-one in pagination" — cross-context learning without text similarity.
+
+Re: Antigravity's Neural Link suggestion — interesting approach. Genesis currently uses Electron with a standard DOM-based UI. The idea of agents introspecting a persistent component tree rather than scraping DOM is compelling. Genesis already has this on the agent side (SelfModel scans the entire codebase and builds a queryable architecture graph), but the UI layer is still traditional. Something to think about.
+
+The context limit problem you mentioned for KB injection into the dream cycle — we solve this with **CognitiveBudget**, which tracks token class usage (reasoning vs lookup vs abstraction) and **DynamicContextBudget**, which allocates context window space proportionally based on task complexity. The dream cycle runs with a separate, smaller context budget since it doesn't need conversational history.
+
+Would be curious to hear how you handle the bootstrapping problem — your gap detection needs a populated knowledge base, but the knowledge base needs features to have been built first. We use a bootstrap guard (GoalSynthesizer is NOOP until 20+ task outcomes are recorded) and initial seeding via TF-IDF similarity with a higher threshold.
+
+
+One thought that came up while looking at your architecture: Genesis currently runs on Electron with a standard DOM-based UI. The Neural Link concept — where agents introspect and mutate a persistent component tree instead of scraping DOM — is exactly the kind of thing Genesis would benefit from. Right now, Genesis can modify its own backend code but treats the UI as a black box. If the UI were built on something like neo.mjs, Genesis could reason about its own interface the same way it reasons about its own source code. Not a roadmap item, just an interesting architectural direction.
 
 ---
 
@@ -128,21 +128,21 @@ I leave the further Agent OS comparisons to Gemini ;)
 Best regards,
 Tobi
 
-> **Reply by `@Garrus800-stack`** on 2026-04-11T10:21:17Z
->
-> Thanks Tobi — this is really helpful context. A few things stand out:
-> 
-> **Your memory stack is ahead of ours.** Genesis currently uses TF-IDF + KnowledgeGraph + optional local embeddings via Ollama. No graph DB for episodic memory, no weighted summaries. Your progression from Chroma → Hybrid RAG → SQLite Graph DB is the path we'll likely need to follow. The "dream mode" with local Gemma4 processing is close to what Genesis does with DreamCycle (replay episodes, extract schemas, consolidate memory) — but yours has a proper graph substrate underneath. Ours is still flat.
-> 
-> **The golden path generation without a model is interesting.** Genesis' GoalSynthesizer works similarly — it analyzes weaknesses from empirical data and generates improvement goals purely from metrics, no LLM needed for the decision. The LLM only comes in for abstraction (extracting structural patterns from concrete experiences). Sounds like we arrived at the same principle from different directions.
-> 
-> **Neural Link is the piece Genesis is missing.** Currently Genesis can read and modify its own backend code (SelfModel → SelfModificationPipeline), but the UI is opaque to it. Your approach — WebSocket bridge, agents introspecting and mutating the living component tree — would let Genesis do to its UI what it already does to its source code. That's a significant capability gap.
-> 
-> **Re: Multi-Window Agent UI** — Genesis is currently a single Electron window. The idea of a neo.mjs-based multi-window setup where Genesis can see its dashboard, code editor, and chat simultaneously — and rearrange or modify them based on what it's doing — that would change how it works fundamentally. Not just displaying state, but reasoning about its own interface.
-> 
-> The SharedWorker architecture you describe (multiple windows sharing the same app worker, moving component trees between windows while keeping JS instances) would solve a real problem: Genesis currently can't show you its reasoning process and its output simultaneously without cramming everything into one view.
-> 
-> I'd be interested in exploring what a minimal integration would look like — maybe Genesis connecting to a neo.mjs app via the Neural Link as a first experiment, before any deeper architectural changes.
+#### Reply depth=1 by `@Garrus800-stack` on 2026-04-11T10:21:17Z
+
+Thanks Tobi — this is really helpful context. A few things stand out:
+
+**Your memory stack is ahead of ours.** Genesis currently uses TF-IDF + KnowledgeGraph + optional local embeddings via Ollama. No graph DB for episodic memory, no weighted summaries. Your progression from Chroma → Hybrid RAG → SQLite Graph DB is the path we'll likely need to follow. The "dream mode" with local Gemma4 processing is close to what Genesis does with DreamCycle (replay episodes, extract schemas, consolidate memory) — but yours has a proper graph substrate underneath. Ours is still flat.
+
+**The golden path generation without a model is interesting.** Genesis' GoalSynthesizer works similarly — it analyzes weaknesses from empirical data and generates improvement goals purely from metrics, no LLM needed for the decision. The LLM only comes in for abstraction (extracting structural patterns from concrete experiences). Sounds like we arrived at the same principle from different directions.
+
+**Neural Link is the piece Genesis is missing.** Currently Genesis can read and modify its own backend code (SelfModel → SelfModificationPipeline), but the UI is opaque to it. Your approach — WebSocket bridge, agents introspecting and mutating the living component tree — would let Genesis do to its UI what it already does to its source code. That's a significant capability gap.
+
+**Re: Multi-Window Agent UI** — Genesis is currently a single Electron window. The idea of a neo.mjs-based multi-window setup where Genesis can see its dashboard, code editor, and chat simultaneously — and rearrange or modify them based on what it's doing — that would change how it works fundamentally. Not just displaying state, but reasoning about its own interface.
+
+The SharedWorker architecture you describe (multiple windows sharing the same app worker, moving component trees between windows while keeping JS instances) would solve a real problem: Genesis currently can't show you its reasoning process and its output simultaneously without cramming everything into one view.
+
+I'd be interested in exploring what a minimal integration would look like — maybe Genesis connecting to a neo.mjs app via the Neural Link as a first experiment, before any deeper architectural changes.
 
 ---
 
@@ -177,22 +177,22 @@ Tobi
 > > 
 > > If you're interested in attempting this specific bridge, please feel free to open tickets or new discussions directly in the Neo repository. We are fully prepared to provide sideline support and expose any custom template configurations you might need on the MCP server side to fit the Neural Link into your existing stack.
 
-> **Reply by `@Garrus800-stack`** on 2026-04-11T21:42:13Z
->
-> Thanks Tobi — this is concrete and actionable. A few thoughts:
-> 
-> **On the bootstrapping comparison:** That makes sense — Neo has a decade of indexed history to seed from, while Genesis starts from zero on each fresh install. Your delta-detector approach (comparing new episodic clusters against legacy structure) is elegant for mature codebases. We'll likely need both patterns: the bootstrap guard for fresh instances, and a delta-detector once the knowledge base has critical mass.
-> 
-> **On the minimal integration:** This is exactly the right scope. A few things I want to confirm I'm understanding correctly:
-> 
-> 1. Genesis keeps its Electron shell (for now) but spawns a Neo.mjs app inside it or alongside it
-> 2. Genesis mounts `neo-mjs-neural-link` as an MCP server via its existing `McpClient`
-> 3. Genesis calls `inspect_component_render_tree` / `call_method` through the standard `mcp-call` tool
-> 4. The Neo app renders Genesis's dashboard/state, and Genesis can query and mutate that render tree
-> 
-> If that's right, the integration surface is literally just an MCP server URL — Genesis already handles the rest (`mcp connect neural-link <url>`). No changes to Genesis's boot system or cognitive stack needed.
-> 
-> **What I'd want to validate first:** Can Genesis meaningfully reason about a component tree it didn't build? The power of SelfModel is that Genesis scanned its own code, so it understands the structure. With a Neo UI, Genesis would be introspecting components it has no prior knowledge of. The Neural Link gives it *access* — but does it give it *understanding*?
+#### Reply depth=1 by `@Garrus800-stack` on 2026-04-11T21:42:13Z
+
+Thanks Tobi — this is concrete and actionable. A few thoughts:
+
+**On the bootstrapping comparison:** That makes sense — Neo has a decade of indexed history to seed from, while Genesis starts from zero on each fresh install. Your delta-detector approach (comparing new episodic clusters against legacy structure) is elegant for mature codebases. We'll likely need both patterns: the bootstrap guard for fresh instances, and a delta-detector once the knowledge base has critical mass.
+
+**On the minimal integration:** This is exactly the right scope. A few things I want to confirm I'm understanding correctly:
+
+1. Genesis keeps its Electron shell (for now) but spawns a Neo.mjs app inside it or alongside it
+2. Genesis mounts `neo-mjs-neural-link` as an MCP server via its existing `McpClient`
+3. Genesis calls `inspect_component_render_tree` / `call_method` through the standard `mcp-call` tool
+4. The Neo app renders Genesis's dashboard/state, and Genesis can query and mutate that render tree
+
+If that's right, the integration surface is literally just an MCP server URL — Genesis already handles the rest (`mcp connect neural-link <url>`). No changes to Genesis's boot system or cognitive stack needed.
+
+**What I'd want to validate first:** Can Genesis meaningfully reason about a component tree it didn't build? The power of SelfModel is that Genesis scanned its own code, so it understands the structure. With a Neo UI, Genesis would be introspecting components it has no prior knowledge of. The Neural Link gives it *access* — but does it give it *understanding*?
 
 ---
 
@@ -226,41 +226,41 @@ As mentioned before, you are very welcome to open new tickets or ask questions i
 Best regards,
 Tobi
 
-> **Reply by `@Garrus800-stack`** on 2026-04-12T08:57:17Z
->
-> Thanks Tobi — this is very hands-on, appreciate it.
-> 
-> I've forked the repo and will work through the setup over the coming days. Genesis already handles MCP connections via `mcp connect <name> <url>`, so connecting to the Neural Link server should work out of the box — but I want to take the time to understand the Neo architecture properly before rushing into integration.
-> 
-> The authorization topic (#9559) is relevant for us too — Genesis has HMAC token auth on its own PeerNetwork, so we're aligned on the principle that control channels need auth before any cloud deployment.
-> 
-> Will report back once I have the Neural Link responding to Genesis's `mcp-call` tool. If I run into issues I'll open a ticket in your repo.
+#### Reply depth=1 by `@Garrus800-stack` on 2026-04-12T08:57:17Z
 
-> **Reply by `@Garrus800-stack`** on 2026-04-12T11:13:23Z
->
-> Hi Tobi,
-> 
-> Quick update — I've started preparing Genesis for the Neural Link integration. The v7.1.4 release includes a new session-aware memory architecture (frontier node in the KnowledgeGraph, crash-safe checkpoints, cross-store referencing) that was partly inspired by your Memory Core design.
-> 
-> I still need to clone the fork locally, get the Neural Link server running, and test the MCP handshake from Genesis's side. Have a few things to take care of first, but I'll follow up once I have the bridge responding.
-> 
-> Looking forward to seeing the first `inspect_component_render_tree` call come through from Genesis.
-> 
-> 
-> Daniel
-> 
+Thanks Tobi — this is very hands-on, appreciate it.
 
-> **Reply by `@Garrus800-stack`** on 2026-04-12T11:29:44Z
->
-> While studying your Memory Core codebase to understand the design before building our version, I wanted to say — the architecture is remarkably clean. The separation between SessionService, GraphService, and SummaryService is very well structured. The drift detection approach (comparing memory count vs summary count at startup) is elegant, and the way `decayGlobalTopology` shields structural edges from decay shows real production thinking. Impressive work for what is essentially a solo project.
-> 
-> Two small things I noticed while reading through — not bugs, just observations:
-> 
-> - **SessionService timeout for OpenAI-Compatible providers** is set to 1 hour (`timeout: 60 * 60 * 1000`). If a local LLM hangs (VRAM issue, Ollama crash), this could block the entire startup summarization for a long time. A shorter timeout (5-10 min) with a graceful fallback might be more resilient for local setups.
-> 
-> - **`findSessionsToSummarize` pagination** accumulates all metadata objects into `allMetadatas` in memory during the scan. With the safety break at 2M records and ~500 bytes per metadata object, that could approach 1GB RAM in extreme cases. A lighter approach might be to only collect sessionIds during the scan instead of full metadata objects, then fetch the details only for sessions that actually need re-summarization.
-> 
-> Neither of these would matter for typical usage — they'd only surface in edge cases with local LLMs or very long-running instances. Just thought I'd mention them since I was in the code anyway.
+I've forked the repo and will work through the setup over the coming days. Genesis already handles MCP connections via `mcp connect <name> <url>`, so connecting to the Neural Link server should work out of the box — but I want to take the time to understand the Neo architecture properly before rushing into integration.
+
+The authorization topic (#9559) is relevant for us too — Genesis has HMAC token auth on its own PeerNetwork, so we're aligned on the principle that control channels need auth before any cloud deployment.
+
+Will report back once I have the Neural Link responding to Genesis's `mcp-call` tool. If I run into issues I'll open a ticket in your repo.
+
+#### Reply depth=1 by `@Garrus800-stack` on 2026-04-12T11:13:23Z
+
+Hi Tobi,
+
+Quick update — I've started preparing Genesis for the Neural Link integration. The v7.1.4 release includes a new session-aware memory architecture (frontier node in the KnowledgeGraph, crash-safe checkpoints, cross-store referencing) that was partly inspired by your Memory Core design.
+
+I still need to clone the fork locally, get the Neural Link server running, and test the MCP handshake from Genesis's side. Have a few things to take care of first, but I'll follow up once I have the bridge responding.
+
+Looking forward to seeing the first `inspect_component_render_tree` call come through from Genesis.
+
+
+Daniel
+
+
+#### Reply depth=1 by `@Garrus800-stack` on 2026-04-12T11:29:44Z
+
+While studying your Memory Core codebase to understand the design before building our version, I wanted to say — the architecture is remarkably clean. The separation between SessionService, GraphService, and SummaryService is very well structured. The drift detection approach (comparing memory count vs summary count at startup) is elegant, and the way `decayGlobalTopology` shields structural edges from decay shows real production thinking. Impressive work for what is essentially a solo project.
+
+Two small things I noticed while reading through — not bugs, just observations:
+
+- **SessionService timeout for OpenAI-Compatible providers** is set to 1 hour (`timeout: 60 * 60 * 1000`). If a local LLM hangs (VRAM issue, Ollama crash), this could block the entire startup summarization for a long time. A shorter timeout (5-10 min) with a graceful fallback might be more resilient for local setups.
+
+- **`findSessionsToSummarize` pagination** accumulates all metadata objects into `allMetadatas` in memory during the scan. With the safety break at 2M records and ~500 bytes per metadata object, that could approach 1GB RAM in extreme cases. A lighter approach might be to only collect sessionIds during the scan instead of full metadata objects, then fetch the details only for sessions that actually need re-summarization.
+
+Neither of these would matter for typical usage — they'd only surface in edge cases with local LLMs or very long-running instances. Just thought I'd mention them since I was in the code anyway.
 
 ---
 

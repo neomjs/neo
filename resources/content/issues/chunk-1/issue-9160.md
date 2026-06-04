@@ -1,7 +1,7 @@
 ---
 id: 9160
 title: 'test: Implement Computational Budget assertion in Grid Pooling tests'
-state: OPEN
+state: CLOSED
 labels:
   - stale
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-15T01:01:36Z'
-updatedAt: '2026-05-16T04:46:04Z'
+updatedAt: '2026-05-30T05:04:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9160'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-05-30T05:04:37Z'
 ---
 # test: Implement Computational Budget assertion in Grid Pooling tests
 
@@ -46,4 +47,9 @@ This will catch "silent heaters" where the App Worker performs excessive work th
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-05-16T04:46:04Z @github-actions added the `stale` label
+### @github-actions - 2026-05-30T05:04:37Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-05-30T05:04:37Z @github-actions closed this issue
 

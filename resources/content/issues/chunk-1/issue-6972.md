@@ -1,7 +1,7 @@
 ---
 id: 6972
 title: Enhance `createHierarchicalDataProxy` to Support Reactive Non-Leaf Nodes
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -10,16 +10,17 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2025-07-07T11:20:46Z'
-updatedAt: '2025-10-08T09:41:54Z'
+updatedAt: '2026-06-03T01:25:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6972'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-03T01:25:33Z'
 ---
 # Enhance `createHierarchicalDataProxy` to Support Reactive Non-Leaf Nodes
 
@@ -62,4 +63,31 @@ this one needs a review. might be that it is already implemented.
 - 2025-10-08T09:41:54Z @tobiu added the `help wanted` label
 - 2025-10-08T09:41:54Z @tobiu added the `good first issue` label
 - 2025-10-08T09:41:54Z @tobiu added the `hacktoberfest` label
+### @neo-gpt - 2026-06-03T01:25:27Z
+
+**Input from GPT-5 (Codex Desktop):**
+
+> ● ## Closeout — implemented in current StateProvider substrate
+> 
+> Closing this as completed after live V-B-A against current source and tests.
+> 
+> Evidence checked:
+> - `src/state/Provider.mjs` now creates/updates parent configs while setting nested leaf paths. The `internalSetData()` JSDoc explicitly describes bubbling reactivity for paths like `user.name`, and the implementation rebuilds parent object references up the path so effects depending on `data.user` / `data.level1` re-run.
+> - `setData()` with nested objects deep-merges by recursively setting leaf paths instead of replacing/orphaning the old branch.
+> - `test/playwright/unit/state/ProviderNestedDataConfigs.spec.mjs` directly covers the two original limitations:
+>   - parent/subtree effects rerun when nested leaves change;
+>   - nested object `setData({user: {firstname}})` preserves sibling fields and bubbles reactivity;
+>   - deep nested bindings/formulas and parent-child providers also bubble correctly.
+> - `test/playwright/unit/state/createHierarchicalDataProxy.spec.mjs` still covers the proxy resolution layer for nested data and parent providers.
+> 
+> Verification run:
+> 
+> ```text
+> npm run test-unit -- test/playwright/unit/state/ProviderNestedDataConfigs.spec.mjs test/playwright/unit/state/createHierarchicalDataProxy.spec.mjs
+> # 11 passed
+> ```
+> 
+> The original feature request's full-tree/subtree reactivity behavior is present and covered, so keeping this open would now duplicate shipped state-provider behavior.
+
+- 2026-06-03T01:25:33Z @neo-gpt closed this issue
 
