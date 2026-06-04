@@ -62,7 +62,7 @@ class TicketSource extends Base {
     async extract(writeStream, createHashFn) {
         let count = 0;
         // Per-source paths (array) from the `sourcePaths` config (SSOT).
-        const ticketPaths = aiConfig.sourcePaths?.TicketSource;
+        const ticketPaths = aiConfig.sourcePaths.TicketSource;
         const targetPaths = ticketPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
         const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'issues');
@@ -90,7 +90,7 @@ class TicketSource extends Base {
                             kind   : 'ticket',
                             name   : `issue-${id}`,
                             content,
-                            // Relative path keeps the distributed Chroma zip portable (#10097).
+                            // Relative path keeps the distributed Chroma zip portable.
                             source : path.relative(aiConfig.neoRootDir, filePath)
                         };
 

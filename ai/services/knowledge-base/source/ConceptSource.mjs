@@ -37,7 +37,7 @@ class ConceptSource extends Base {
     async extract(writeStream, createHashFn) {
         let count = 0;
         // Per-source path from the `sourcePaths` config (SSOT).
-        const conceptsDir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.ConceptSource);
+        const conceptsDir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths.ConceptSource);
 
         if (await fs.pathExists(conceptsDir)) {
             const files = await fs.readdir(conceptsDir);

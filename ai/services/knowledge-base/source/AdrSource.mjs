@@ -37,7 +37,7 @@ class AdrSource extends Base {
         let count = 0;
         // Per-source path from the `sourcePaths` config (SSOT — the leaf in the KB config template
         // defines every Source's default path).
-        const adrDir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.AdrSource);
+        const adrDir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths.AdrSource);
 
         if (await fs.pathExists(adrDir)) {
             const files = await fs.readdir(adrDir);

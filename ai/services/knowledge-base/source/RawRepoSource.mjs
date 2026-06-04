@@ -77,7 +77,7 @@ class RawRepoSource extends Base {
      * @returns {Promise<Number>} Number of file chunks extracted.
      */
     async extract(writeStream, createHashFn) {
-        const config   = this.normalizeConfig(aiConfig.sourcePaths?.RawRepoSource),
+        const config   = this.normalizeConfig(aiConfig.sourcePaths.RawRepoSource),
               rootPath = path.resolve(aiConfig.neoRootDir, config.root);
 
         if (!await fs.pathExists(rootPath)) {
