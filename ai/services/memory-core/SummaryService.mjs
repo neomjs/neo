@@ -151,15 +151,12 @@ class SummaryService extends Base {
             const userId = normalizeUserId(RequestContextService.getUserId());
             const policy = aiConfig?.memorySharing?.defaultPolicy || 'legacy';
 
+            // See querySummaries: 'private' restricts via DB-where; 'team'/'legacy' are additive
+            // (own + 'shared' + untagged commons) and rely on the JS post-filter below.
+            const additivePolicy = policy === 'team' || policy === 'legacy';
             let tenantScope = null;
-            if (userId) {
-                if (policy === 'private') {
-                    tenantScope = {userId};
-                } else if (policy === 'team') {
-                    tenantScope = {userId: SHARED_USER_ID};
-                } else {
-                    tenantScope = null; // ChromaDB does not support $exists: false, handled post-query
-                }
+            if (userId && policy === 'private') {
+                tenantScope = {userId};
             }
 
             const where = tenantScope ? tenantScope : undefined;
@@ -199,7 +196,7 @@ class SummaryService extends Base {
             }
 
             // Step 2: Filter, sort, and slice.
-            if (userId && policy === 'legacy') {
+            if (userId && additivePolicy) {
                 allRecords = allRecords.filter(r => !r.metadata.userId || r.metadata.userId === userId || r.metadata.userId === SHARED_USER_ID);
             }
 
@@ -317,22 +314,20 @@ class SummaryService extends Base {
             const userId = normalizeUserId(RequestContextService.getUserId());
             const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';
 
+            // 'private' restricts to the caller's own records via a DB-where. 'team' and 'legacy' are
+            // additive (caller-owned + 'shared' + untagged commons): the team commons is currently
+            // untagged (summaries carry no userId metadata), so a {userId:'shared'} DB-where would
+            // wrongly exclude it. Both fetch without a restrictive userId filter and rely on
+            // the JS post-filter below; {userId:{$exists:false}} is unsupported by ChromaDB. The
+            // post-filter is mandatory for additive policies — skipping it would return other tenants'
+            // private records unfiltered.
+            const additivePolicy = policy === 'team' || policy === 'legacy';
             let tenantScope = null;
-            if (userId) {
-                if (policy === 'private') {
-                    tenantScope = {userId};
-                } else if (policy === 'team') {
-                    // Team/deployment scope: Tagged records only.
-                    tenantScope = {userId: SHARED_USER_ID};
-                } else {
-                    // legacy: Migration compatibility (caller owned + shared records + untagged)
-                    // Note: {userId: {$exists: false}} is not supported by ChromaDB.
-                    // We must fetch without a userId DB-filter and apply JS post-filtering.
-                    tenantScope = null;
-                }
+            if (userId && policy === 'private') {
+                tenantScope = {userId};
             }
 
-            if ((tenantScope === null && userId && policy === 'legacy') || minTrustTier) {
+            if ((tenantScope === null && userId && additivePolicy) || minTrustTier) {
                 queryArgs.nResults = nResults * 5;
             }
 
@@ -351,11 +346,11 @@ class SummaryService extends Base {
             let metadatas = searchResult.metadatas?.[0] || [];
             let documents = searchResult.documents?.[0] || [];
 
-            if ((userId && policy === 'legacy') || minTrustTier) {
+            if ((userId && additivePolicy) || minTrustTier) {
                 const filteredIndices = [];
                 for (let i = 0; i < metadatas.length; i++) {
                     const metaUserId = metadatas[i]?.userId;
-                    const tenantMatch = !userId || policy !== 'legacy' || !metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID;
+                    const tenantMatch = !userId || !additivePolicy || !metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID;
                     const trustMatch  = this.constructor.matchesMinTrustTier(metadatas[i], minTrustTier);
 
                     if (tenantMatch && trustMatch) {
