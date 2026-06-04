@@ -298,18 +298,18 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/ClientAuthentication</loc>
+    <lastmod>2026-05-02T13:12:50+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/MigrationPath</loc>
-    <lastmod>2026-05-02T13:12:50+02:00</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/ConfigSubstrateEnvVarAudit</loc>
+    <lastmod>2026-05-22T19:28:26+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/ConfigSubstrateDeadConfigAudit</loc>
-    <lastmod>2026-05-22T19:28:26+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/measurements/pr-review-baseline-2026-04</loc>
@@ -329,17 +329,17 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/tooling/AgentAgnosticMcpConfig</loc>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/MemoryCoreMcpApi</loc>
     <lastmod>2026-05-07T19:22:00+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/agentos/tooling/MemoryCoreMcpApi</loc>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/agentos/tooling/MemoryCoreMcpAuth</loc>
+    <lastmod>2026-05-09T12:33:18+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/tooling/GraphBackfill</loc>
-    <lastmod>2026-05-09T12:33:18+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/tooling/ChromeDevToolsMcpServer</loc>
@@ -383,11 +383,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/CodebaseOverview</loc>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/ApplicationBootstrap</loc>
-    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -791,7 +791,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-06-04T09:14:32Z</lastmod>
+    <lastmod>2026-06-04T12:27:05Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -1327,6 +1327,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12480</loc>
+    <lastmod>2026-05-28T00:03:07+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12479</loc>
@@ -1810,7 +1811,6 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12114</loc>
-    <lastmod>2026-05-28T00:03:07+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12109</loc>
