@@ -106,6 +106,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).toContain("'claude-desktop':  { adapter: 'osascript', appName: 'Claude', tabShortcut: '3', freshSessionShortcut: 'n' }");
         expect(scriptContent).toContain("'@neo-opus-4-7'      : 'claude-desktop'");
         expect(scriptContent).toContain("'@neo-claude-opus'   : 'claude-desktop'");
+        expect(scriptContent).toContain("'@neo-opus-vega'     : 'claude-desktop'");
     });
 
     test('normalizes GitHub-login identity form before harness dispatch (#11797)', async () => {

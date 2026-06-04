@@ -142,14 +142,18 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
 
             expect(claudeIdentities.map(identity => identity.id)).toEqual(expect.arrayContaining([
                 '@neo-opus-4-7',
-                '@neo-claude-opus'
+                '@neo-claude-opus',
+                '@neo-opus-vega'
             ]));
             expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-4-7');
             expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
                 '@neo-opus-4-7',
-                '@neo-claude-opus'
+                '@neo-claude-opus',
+                '@neo-opus-vega'
             ]);
             expect(claudeIdentities.find(identity => identity.id === '@neo-claude-opus')?.properties.participationStatus)
+                .toBe('active');
+            expect(claudeIdentities.find(identity => identity.id === '@neo-opus-vega')?.properties.participationStatus)
                 .toBe('active');
         });
 
@@ -180,11 +184,11 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         test('includes same-family aggregation note for multi-active notification fan-out', () => {
             const body = buildNotificationBody({
                 family       : 'claude',
-                identityLogins: ['@neo-opus-4-7', '@neo-claude-opus'],
+                identityLogins: ['@neo-opus-4-7', '@neo-claude-opus', '@neo-opus-vega'],
                 since        : '2026-05-18T00:00:00.000Z',
                 sweepAt      : '2026-06-01T12:00:00.000Z'
             });
-            expect(body).toContain('@neo-opus-4-7, @neo-claude-opus');
+            expect(body).toContain('@neo-opus-4-7, @neo-claude-opus, @neo-opus-vega');
             expect(body).toContain('Same-family aggregation note');
             expect(body).toContain('no active same-family identity holds unresolved DEFERRED / VETO');
         });
@@ -277,8 +281,8 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 io     : fakeIo
             });
             expect(result.identityLogin).toBe('@neo-opus-4-7');
-            expect(result.identityLogins).toEqual(['@neo-opus-4-7', '@neo-claude-opus']);
-            expect(result.results[0].notification).toContain('@neo-opus-4-7, @neo-claude-opus');
+            expect(result.identityLogins).toEqual(['@neo-opus-4-7', '@neo-claude-opus', '@neo-opus-vega']);
+            expect(result.results[0].notification).toContain('@neo-opus-4-7, @neo-claude-opus, @neo-opus-vega');
         });
 
         test('returns empty results when no candidates match', async () => {
