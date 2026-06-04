@@ -35,6 +35,10 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Lint learn/tree.json against the learn/ folder structure
         run: node ai/scripts/lint/lint-tree-json.mjs
