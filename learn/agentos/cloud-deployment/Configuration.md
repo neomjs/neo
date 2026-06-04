@@ -131,7 +131,7 @@ Before the orchestrator runs a model-dependent task (e.g. the REM/Sandman dream 
 | `NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS` | `1000` | Wait between probe attempts (ms). |
 | `NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS` | `3000` | Per-probe HTTP timeout (ms). |
 
-These three are orchestrator-config-scoped (`ai/config.template.mjs` `orchestrator.providerReadiness`) and are not read by the MCP server processes, so — unlike the two `keep_alive` vars above — they do not appear in the MCP-server-scoped [Config Substrate Env-Var Audit](../ConfigSubstrateEnvVarAudit.md).
+These three are orchestrator-config-scoped (`ai/config.template.mjs` `orchestrator.providerReadiness`) and are not read by the MCP server processes, so — unlike the two `keep_alive` vars above — they are scoped to the orchestrator, not the MCP server env surface.
 
 For llama.cpp deployments, keep the provider selector as `openAiCompatible` and
 follow the dedicated [llama.cpp profile](./LlamaCppProfile.md). It documents the
