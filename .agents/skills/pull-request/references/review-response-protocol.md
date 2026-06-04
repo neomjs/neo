@@ -116,7 +116,7 @@ When performing self-reviews or responding to feedback across multiple rounds, y
 
 ## 14. A2A Comment-ID Propagation (Author Side)
 
-Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
+Symmetric with `pr-review §10` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
 
 **Reviewer atomic-primitive note (#11273):** when the *reviewer* uses `manage_pr_review` instead of the legacy two-step `manage_issue_comment` + `gh pr review` chain, they receive `reviewId` (PRR_* node ID). This is the canonical artifact identifier for the formal review entity (the surface that flipped `reviewDecision`). Reviewers SHOULD relay `reviewId` + the response payload (`url`, `state`, `submittedAt`) when handing off to the next actor in the review cycle.
 
