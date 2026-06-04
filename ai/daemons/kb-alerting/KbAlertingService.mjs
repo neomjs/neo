@@ -10,22 +10,9 @@ import RequestContextService          from '../../mcp/server/shared/services/Req
 import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
 import {normalizeAgentIdentityNodeId} from '../../scripts/lifecycle/resumeHarness.mjs';
 import {
-    DEFAULT_COOLDOWN_MS,
     evaluateAlertRules,
     formatAlertMessage
 } from '../../services/knowledge-base/helpers/KbAlertRuleEngine.mjs';
-
-/**
- * @summary Poll interval fallback when `aiConfig.knowledgeBase.alertingIntervalMs` is unset.
- * @type {Number}
- */
-const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
-
-/**
- * @summary Rollup look-back fallback when `aiConfig.knowledgeBase.alertWindowMs` is unset.
- * @type {Number}
- */
-const DEFAULT_WINDOW_MS = 60 * 60 * 1000;
 
 /**
  * @summary Sender identity fallback for A2A alert dispatch when `NEO_AGENT_IDENTITY` is unset.
@@ -92,11 +79,12 @@ class KbAlertingService extends Base {
         pollHandle_: null,
         /**
          * Interval between alerting pulses in milliseconds.
-         * @member {Number} pollIntervalMs_=900000
+         * Populated from `aiConfig.knowledgeBase.alertingIntervalMs` when the daemon starts.
+         * @member {Number|null} pollIntervalMs_=null
          * @protected
          * @reactive
          */
-        pollIntervalMs_: DEFAULT_INTERVAL_MS
+        pollIntervalMs_: null
     }
 
     /**
@@ -130,7 +118,7 @@ class KbAlertingService extends Base {
             return;
         }
 
-        this.pollIntervalMs = pollIntervalMs || kbConfig.alertingIntervalMs || DEFAULT_INTERVAL_MS;
+        this.pollIntervalMs = pollIntervalMs ?? kbConfig.alertingIntervalMs;
         this.cooldownState  = {};
 
         await KBRecorderService.ready();
@@ -191,7 +179,7 @@ class KbAlertingService extends Base {
                 return // no rules configured → nothing to evaluate
             }
 
-            const windowMs = kbConfig.alertWindowMs || DEFAULT_WINDOW_MS;
+            const windowMs = kbConfig.alertWindowMs;
             const rollup   = await this.fetchRollup(windowMs);
 
             const {alerts, cooldownState, skippedRules} = evaluateAlertRules({
@@ -199,7 +187,7 @@ class KbAlertingService extends Base {
                 rollup,
                 cooldownState: this.cooldownState,
                 now          : Date.now(),
-                cooldownMs   : kbConfig.alertingCooldownMs || DEFAULT_COOLDOWN_MS
+                cooldownMs   : kbConfig.alertingCooldownMs
             });
 
             this.cooldownState = cooldownState;
@@ -224,15 +212,14 @@ class KbAlertingService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may lack the
-     * `knowledgeBase` key, so a naked `aiConfig.knowledgeBase.alertRules` would throw.
-     * Returns `{}` when the key is absent.
+     * Reads the resolved AiConfig Provider subtree directly; missing subtree shape must fail
+     * loud instead of being converted into a disabled alerting daemon.
      *
      * @returns {Object}
      * @protected
      */
     getKbConfig() {
-        return aiConfig.knowledgeBase || {}
+        return aiConfig.knowledgeBase
     }
 
     /**
@@ -333,4 +320,4 @@ class KbAlertingService extends Base {
 
 export default Neo.setupClass(KbAlertingService);
 
-export {DEFAULT_INTERVAL_MS, DEFAULT_WINDOW_MS, DEFAULT_SENDER};
+export {DEFAULT_SENDER};

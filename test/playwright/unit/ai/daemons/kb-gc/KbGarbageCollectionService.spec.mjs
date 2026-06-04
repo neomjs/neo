@@ -15,14 +15,14 @@ setup({
 
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before the
 // dynamic KbGarbageCollectionService import below. Required because the class file no longer
-// imports Neo itself (#11058-style class+wrapper split). Mirrors KbReconciliationService.spec.
+// imports Neo itself (class+wrapper split). Mirrors KbReconciliationService.spec.
 import Neo       from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 
 import {test, expect} from '@playwright/test';
 
 /**
- * Phase 4C (#11641) — unit coverage for `ai/daemons/kb-gc/KbGarbageCollectionService.mjs`, the KB
+ * Unit coverage for `ai/daemons/kb-gc/KbGarbageCollectionService.mjs`, the KB
  * garbage-collection daemon.
  *
  * Stubbing strategy mirrors `KbReconciliationService.spec.mjs`: the daemon exposes
@@ -32,7 +32,7 @@ import {test, expect} from '@playwright/test';
  * Chroma I/O. The `collectTenant` tests keep the real method + the real pure
  * `KbGarbageCollectionEngine` so the retention-diff branching is genuinely exercised.
  *
- * Covers the #11641 Contract Ledger Evidence columns: the opt-in gate, the destructive
+ * Covers the Contract Ledger Evidence columns: the opt-in gate, the destructive
  * auto-delete gating, the clean-tenant telemetry suppression, the `defrag-recommended`
  * threshold signal, and pulse resilience. The pure retention logic is covered separately in
  * `KbGarbageCollectionEngine.spec.mjs`.
@@ -42,7 +42,7 @@ import {test, expect} from '@playwright/test';
  * @see test/playwright/unit/ai/daemons/kb-reconciliation/KbReconciliationService.spec.mjs — the sibling pattern.
  */
 test.describe('Neo.ai.daemons.KbGarbageCollectionService (#11641)', () => {
-    let KbGarbageCollectionService, DEFAULT_INTERVAL_MS;
+    let KbGarbageCollectionService;
     let KBRecorderService, logger;
     let originals = {};
 
@@ -51,8 +51,14 @@ test.describe('Neo.ai.daemons.KbGarbageCollectionService (#11641)', () => {
         id, metadata: {ingestedAt, tenantId: 'tenant-x', repoSlug}
     });
 
+    /** Resolved AiConfig subtree fixture — mirrors Provider-inherited template leaves. */
+    const defaultConfig = () => ({
+        gcEnabled   : true,
+        gcIntervalMs: 24 * 60 * 60 * 1000
+    });
+
     test.beforeAll(async () => {
-        ({default: KbGarbageCollectionService, DEFAULT_INTERVAL_MS} =
+        ({default: KbGarbageCollectionService} =
             await import('../../../../../../ai/daemons/kb-gc/KbGarbageCollectionService.mjs'));
 
         KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
@@ -81,7 +87,7 @@ test.describe('Neo.ai.daemons.KbGarbageCollectionService (#11641)', () => {
     test.afterEach(() => {
         KbGarbageCollectionService.stop();
         KbGarbageCollectionService.isPolling      = false;
-        KbGarbageCollectionService.pollIntervalMs = DEFAULT_INTERVAL_MS;
+        KbGarbageCollectionService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the
         // next test — an instance override otherwise leaks across tests in the worker.
@@ -101,13 +107,13 @@ test.describe('Neo.ai.daemons.KbGarbageCollectionService (#11641)', () => {
 
     /** Deterministic seam baseline — `scheduleNext` neutralized so no real timer leaks. */
     function applyStubs({config} = {}) {
-        KbGarbageCollectionService.getKbConfig  = () => config || {gcEnabled: true};
+        KbGarbageCollectionService.getKbConfig  = () => config ?? defaultConfig();
         KbGarbageCollectionService.scheduleNext = function () {};
     }
 
     test.describe('start / stop', () => {
         test('start() is a no-op when gcEnabled is false', async () => {
-            applyStubs({config: {gcEnabled: false}});
+            applyStubs({config: {...defaultConfig(), gcEnabled: false}});
             let scheduled = 0;
             KbGarbageCollectionService.scheduleNext = () => { scheduled++ };
 
@@ -131,7 +137,7 @@ test.describe('Neo.ai.daemons.KbGarbageCollectionService (#11641)', () => {
         });
 
         test('start() honors a configured gcIntervalMs', async () => {
-            applyStubs({config: {gcEnabled: true, gcIntervalMs: 54321}});
+            applyStubs({config: {...defaultConfig(), gcIntervalMs: 54321}});
 
             await KbGarbageCollectionService.start();
 
