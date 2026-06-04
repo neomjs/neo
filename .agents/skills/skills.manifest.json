@@ -68,6 +68,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "epic-create": {
+      "name": "epic-create",
+      "description": "Authoritative protocol for authoring an Epic body — the creation-side dual of `ticket-create` + entry partner of `epic-review`/`epic-resolution`. Enforces: epic body = problem-scope + intended-solution (NOT pseudo-subs / ACs); ACs live in the SUB tickets; subs are LINKED via `update_issue_relationship` + added incrementally; the body MUST NOT hardcode a sub-list (it stales out → FAIL). Triggers: before creating an Epic (a parent issue labeled `epic`) via `create_issue`, or before decomposing one into sub-tickets.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "epic-resolution": {
       "name": "epic-resolution",
       "description": "Closeout protocol for parent epics — answers \"we resolved all epic subs, are we done now?\" with a structured matrix + verdict recommendation (close / keep open / create missing subs / retire-supersede). Sibling to epic-review (which handles entry); this is the exit gate. Triggers: Use this skill when the last required sub of an epic closes, when a team member claims an epic is complete or substrate-side complete, before closing an epic as COMPLETED, or when a peer broadcasts an epic-readiness signal that needs reconciliation against parent ACs.",
