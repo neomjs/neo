@@ -287,17 +287,22 @@ class Config extends BaseConfig {
                     host    : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     port    : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
                     /**
-                     * Chroma database the client connects to. Production is `'default_database'` verbatim —
-                     * the declarative default, defined inline here (config.template is the SSOT; it imports
-                     * no config values). The unit suite overrides via `NEO_CHROMA_DATABASE` (set to the
-                     * dedicated, droppable test database in the `test-unit` npm script) so test collections
-                     * never enter the production namespace. `ChromaManager` fails loud if the production
-                     * database is ever resolved under `UNIT_TEST_MODE` (an independent defense-in-depth guard),
-                     * so this leaf carries no test-branch itself. Consumed by the Memory Core `ChromaManager`;
-                     * the Knowledge Base ChromaManager reads only host/port, so this field is inert for it
-                     * until separately migrated.
+                     * Chroma database selection — three declarative leaves, all SSOT-inline (config.template
+                     * imports no config values):
+                     *   - `database`        — the production DB name (literal).
+                     *   - `databaseTest`    — the dedicated, droppable unit-test DB name (literal).
+                     *   - `useTestDatabase` — the toggle, resolved from `UNIT_TEST_MODE` via the leaf's
+                     *                         env-var argument (declarative — NOT an inline `process.env` read).
+                     * The consumer (`ChromaManager`) reads the resolved toggle and picks `databaseTest` when
+                     * true, else `database`. Both NAMES live in config, so the test path needs no env var the
+                     * runner must remember to set — `npx playwright` without `npm run test-unit` still toggles
+                     * to the test DB and CANNOT bleed unit collections into production by construction.
+                     * `ChromaManager` additionally fails loud if the resolved DB equals `database` while the
+                     * toggle is on (independent defense-in-depth). KB ChromaManager reads only host/port.
                      */
-                    database: leaf('default_database', 'NEO_CHROMA_DATABASE', 'string')
+                    database       : leaf('default_database', 'NEO_CHROMA_DATABASE', 'string'),
+                    databaseTest   : leaf('neo-unit-test', 'NEO_CHROMA_DATABASE_TEST', 'string'),
+                    useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
                 }
             },
             /**
