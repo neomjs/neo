@@ -76,9 +76,9 @@ function heartbeatLivenessStaleMs() {
  * tenant users are not expected to have AgentIdentity graph nodes, and SSE healthcheck boot state
  * normally remains unresolved because request identity flows through `RequestContextService`.
  *
- * `status` is NOT flipped by this projection. Unbound identity is a valid single-tenant
- * fallthrough per the MemoryCoreMcpAuth contract — this block is pure observability, not
- * a health gate. The architectural choice matches "surface, don't obscure".
+ * The projection itself stays pure and does not assign top-level health. The healthcheck
+ * caller treats env-pinned unbound identity as degraded readiness because a named harness
+ * cannot safely receive A2A/wake routing while `bound:false`.
  *
  * @param {Object|null} stdioIdentityState Either `null` or `{userId, agentIdentityNodeId, source}`
  * @returns {{source: String, bound: Boolean, nodeId: String|null, warning: String|null}}
@@ -1220,6 +1220,9 @@ class HealthService extends Base {
         }
 
         if (payload.identity.warning) {
+            if (payload.status === 'healthy') {
+                payload.status = 'degraded';
+            }
             payload.details.push(`WARN: ${payload.identity.warning}`);
         }
 

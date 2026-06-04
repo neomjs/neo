@@ -1,6 +1,6 @@
 # Session Sunset Workflow
 
-This document outlines the authoritative protocol for gracefully terminating an agent session (the **Sunset Protocol**). 
+This document outlines the authoritative protocol for gracefully terminating an agent session (the **Sunset Protocol**).
 
 Because the Neo.mjs Swarm operates across fragmented sessions and multiple agent identities, simply halting execution creates "Zero-State Amnesia" (`AGENTS.md §14`). The next agent starts blind. The Sunset Protocol guarantees the next agent has a perfect "cold-pickup" ramp.
 
@@ -10,7 +10,7 @@ Because the Neo.mjs Swarm operates across fragmented sessions and multiple agent
 > - **AGENTS.md §14 PRE-DECISION SUNSET GATE** is the load-bearing constraint that this workflow exists *under*. The Gate is loaded at session boot; this workflow describes the *post-decision* execution flow. If the Gate's pre-conditions aren't met, you are FORBIDDEN from entering this workflow regardless of how natural the "completion narrative" feels. Empirical anchor: 13+ premature-sunset occurrences logged on [#10564](https://github.com/neomjs/neo/issues/10564) where this workflow was entered despite the Gate explicitly forbidding it.
 > - **Auto-Wakeup Substrate (Epic [#10601](https://github.com/neomjs/neo/issues/10601), corrective [#10611](https://github.com/neomjs/neo/issues/10611) PR-B)** — sunset is **terminal** for the old transcript. Trio coordination is preserved by **fresh-session recovery**, not in-place wake injection. The substrate (`swarm-heartbeat.sh` → `checkSunsetted.mjs` → `resumeHarness.mjs`) opens a NEW chat session in the target harness via `freshSessionShortcut` (Cmd+N for Antigravity IDE + Claude Desktop) and the new agent boots via `AGENTS_STARTUP.md`, picking up prior context via Memory Core context-priming (using the forwarded `originSessionId`) + sandman_handoff.md + A2A mailbox. **Stale-wake invariant:** if a wake-shaped payload arrives in an OLD sunsetted transcript, treat it as noise — DO NOT continue substantive work there. The canonical execution target is the fresh session that recovery spawns. Identity coverage: `@neo-gemini-3-1-pro` and `@neo-opus-4-7` shipped via #10611 PR-B; `@neo-gpt` deferred until Codex Desktop fresh-session shortcut + osascript receptiveness are empirically verified. For uncovered identities, sunset still requires manual @tobiu intervention. Each spurious sunset spawns a fresh boot ramp (Memory Core context-priming + sandman_handoff parse + mailbox check), which drains attention + introduces stale-state risk. Recovery is a safety net, not a license.
 
-To an LLM, yielding a prompt resolution feels like a "termination," but to a Human Commander, it is merely a **Turn** within a longer continuous **Session**. 
+To an LLM, yielding a prompt resolution feels like a "termination," but to a Human Commander, it is merely a **Turn** within a longer continuous **Session**.
 
 You are strictly **FORBIDDEN** from executing the Sunset Protocol simply because you finished a prompt and yielded control back to the human. You MUST only execute the Sunset Protocol when a true **Session Boundary** is reached.
 
@@ -119,7 +119,7 @@ Summarize the scope of your session. How many PRs were merged? How many skills w
 To preserve "hot" thread visibility across sessions (Option B), agents do NOT `mark_read` messages immediately during active processing. Now that handovers are drafted (and have read your inbox state), you MUST explicitly use the `mark_read` MCP tool on all processed messages in your inbox. This ensures the inbox is clean for the next agent session.
 
 ### Step 8: The A2A Continuity Ping & Reward Signal (Future-Self Routing)
-You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-6), alongside the `Origin Session ID`. 
+You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-6), alongside the `Origin Session ID`.
 
 Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow. Note: Peer broadcasts can be conditionally suppressed for `scope: solo-refresh` unless cross-peer handoff coordination is actively required.
 
@@ -157,16 +157,17 @@ or human-triggered recovery assigns lead.
 
 Crucially, from an "LLM Psychology" perspective, this message must include a **Conceptual Priming / Reward Signal**. If you formulated new architectural concepts or achieved a major milestone, summarize the *actual content and value* of that breakthrough in the ping. Reading this high-density, successful content acts as a mathematical "dopamine hit" for your future self—it primes the next session's token probabilities for high-agency, expert-level continuity. This drastically improves the Model Experience (MX) by ensuring the agent wakes up not just with tasks, but with immediate, rich, "exciting" context.
 
-### Step 9: Disable Harness Routing (The Unsubscribe Primitive)
-As the penultimate operational step, you MUST sever the active wake routing to prevent "False Continuity" (processing new events with stale context while waiting for the daemon to reboot the harness).
-Invoke the `manage_wake_subscription(action: 'unsubscribe', subscriptionId: '<current-sub-id>')` tool. (The `subscriptionId` is available in the payload of the WAKE events you received, or by querying `manage_wake_subscription(action: 'list')`). This cleanly severs the wake loop, transitioning the harness into a truly dormant state.
+### Step 9: Preserve Harness Wake Eligibility
+As the penultimate operational step, preserve the durable wake route unless the operator explicitly decommissions this harness or a replacement route is verified active. `manage_wake_subscription(action: 'unsubscribe')` is a decommission primitive, not the default sunset primitive: removing the subscription strands future heartbeat and A2A delivery for that identity after the old transcript terminates.
+
+False continuity is prevented by the old-transcript stale-wake invariant and the wake-suppressed continuity ping from Step 8. Any post-sunset wake-shaped payload delivered into the old transcript is noise; the canonical execution target is the fresh session that recovery spawns.
 
 ### Step 10: Memory Persistence (The Sandman Memory)
-This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-10), including the declared `scope: solo-refresh | convergent` and successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent. Sandman persistence is strictly REQUIRED for both `solo-refresh` and `convergent` scopes.
+This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-10), including the declared `scope: solo-refresh | convergent` and preserved/decommissioned wake-route state. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent. Sandman persistence is strictly REQUIRED for both `solo-refresh` and `convergent` scopes.
 
 ## 3. Terminating the Session
 
-After completing the 10 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
+After completing the 10 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander.
 
 **Format the final response as follows:**
 
@@ -192,11 +193,11 @@ After completing the 10 steps above, you must drop your final Sunset Protocol pa
 
 **Closing:**
 [Brief reflection on the session's success/failures].
-The organism is healing. Future-self entry point preserved in Sandman memory [UUID/SessionID]. 
+The organism is healing. Future-self entry point preserved in Sandman memory [UUID/SessionID].
 
 Next session: read that memory FIRST, then pick up carry-over starting with #[N].
 
-Routing severed via unsubscribe primitive. Halting per Sunset Protocol.
+Wake eligibility preserved unless explicitly decommissioned. Halting per Sunset Protocol.
 
 lane-state: halt-state (session sunset executed)
 ```
