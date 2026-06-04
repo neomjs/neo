@@ -30,7 +30,7 @@ Before Discussion prose, read [`reference-hygiene.md`](../../../../learn/agentos
 ## 3. Author's Note Convention (The `#10119` Annotation Pattern)
 Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself.
 - Use **"the `#10119` annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly with `manage_discussion({action: 'update_body', discussion_number, body})` (like a force-push).
-- Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed.
+- Add annotation markers at the **bottom of the body** (or use re-poll-comment deltas) so the **proposal leads** — e.g. `> **Update 2026-04-24:** Refined a section per feedback.`
 - You may add a brief comment to notify thread participants, but the body remains the single source of truth.
 
 ## 4. Iterative Review Workflow
@@ -54,21 +54,18 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 
 **Trigger — mandatory cases:** if the Discussion intends to graduate to (a) an Epic, (b) a new skill / rule / workflow change, or (c) a substrate-level architecture change, the divergence matrix below is **MANDATORY** before graduation. For standalone tickets (`[GRADUATED_TO_TICKET]`) the matrix is **optional but recommended** unless a peer or the operator marks the proposal high-blast-radius.
 
-**Matrix floor (5 columns, mandatory):**
+**Divergence matrix floor (3 columns — pure-divergence, mandatory):**
 
-| Option | When this would be right | Evidence / falsifier (≥1 source per rejected option) | Adoption or rejection rationale | Residual risk |
-|---|---|---|---|---|
+| Option | When this would be right | Evidence / falsifier (≥1 source per option) |
+|---|---|---|
 
-- Each rejected option MUST cite at least one falsifying source, and at least 2 alternative shapes must be enumerated beside the recommendation.
+- **No adopt/reject + no author-lean column**; the matrix is **open for peer-added rows** (peers ADD options, not pressure the author's), ≥2 alternatives each with ≥1 falsifying source. Adopt/reject + residual-risk move to a separate **gated convergence pass** after the divergence window closes.
 
-**Process gate — matrix authored BEFORE convergence:**
-
-- The matrix MUST appear in the Discussion body **before any `[RESOLVED_TO_AC]` tags are applied**. Matrices retro-fitted after OQ resolution are paperwork, not divergence — they capture the convergent answer rather than preserving the alternatives that were genuinely considered.
-- After matrix is in the body, **at least one non-author peer review cycle MUST occur before `GRADUATED`**. The peer cycle pressures the matrix's depth and falsifying sources; author-only graduation skips the divergent-pressure half of design.
+**Process gate:** divergence matrix in the body before any `[RESOLVED_TO_AC]` tag; ≥1 non-author peer cycle during the **divergence window** (peers ADD options); the **gated convergence pass** opens only after the window closes.
 
 **Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks the §6.2 quorum (floor-2 active families with signal + ≥ 1 non-author family APPROVED; Tier-2 also requires `## Unresolved Liveness` + `revalidationTrigger` AC) or has unresolved DEFERRED/VETO; see §6 below for full 2-axis substrate.
 
-For source anchors, exception semantics, and substrate-decay review, read [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
+The full divergence rules (valid-options-only, correlation-ceiling, option-cards, gated convergence columns), source anchors, and exception semantics are in [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
 ### 5.1.1. Reflective Pause Trigger (Friction-Driven Proposals)
 

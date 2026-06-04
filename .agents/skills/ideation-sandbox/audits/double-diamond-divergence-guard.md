@@ -22,17 +22,30 @@ Empirical anchors:
 
 Mandatory high-blast-radius Discussion graduations cover Epics, new skill/rule/workflow changes, and substrate-level architecture changes. Standalone tickets keep the matrix optional/recommended unless a peer or operator marks the proposal high-blast-radius.
 
-Matrix floor:
+Divergence matrix floor (pure-divergence — NO adopt/reject, NO author-lean column):
 
-| Option | When this would be right | Evidence / falsifier | Rationale | Residual risk |
-|---|---|---|---|---|
+| Option | When this would be right | Evidence / falsifier |
+|---|---|---|
 
-Rejected options require at least one falsifying source: prior commit, precedent code, KB result, Memory Core result, prior issue / PR / discussion, or explicit `"no source found after query X"`. Include at least two alternative shapes beside the recommended one.
+Each option (incl. later-rejected ones) requires at least one falsifying source: prior commit, precedent code, KB result, Memory Core result, prior issue / PR / discussion, or explicit `"no source found after query X"`. Include at least two alternative shapes beside the recommended one. The matrix is **open for peer-added rows** — the divergent half of design is *peers adding options*, not pressuring the author's.
+
+**Valid options only (reject-at-entry).** A matrix row must be a plausible/valid candidate. Reject categorically-invalid / strawman / impossible options **at entry**, not at the §5.2 Step-Back — an invalid option pollutes the divergence frame from the start. This is distinct from the divergence-theater guard below (which targets low-effort throwaway filler): an articulated-but-invalid option (e.g. "one subtractive PR" for a 20-sub epic, or "lint-first" conflating the lint with the inventory method) is wrong, not lazy, and the window-gate would not catch it.
+
+**Divergence window, not per-peer count.** Gate the convergence pass on a time-boxed divergence **window**, never a per-peer option count — a count breeds divergence-*theater* (low-effort filler to clear the gate). Quality is enforced at the §5.2 Step-Back. Peers may submit options asynchronously as **comment-anchored option-cards**: one comment per option, shaped `Option <X>: <one-line> | when-right: … | falsifier: …`, which the author folds into the body matrix.
+
+**Correlation-ceiling.** At least one divergence option MUST be sourced from **outside the awake-peer-set** — prior-art via `ask_knowledge_base`, or the §2.2 precedent sweep elevated to a required option-source. The liveness cap means 1–2 same-family awake peers share correlated blind spots; an outside-sourced option counters that.
+
+Gated convergence pass (opens only after the window closes):
+
+| Option | Adoption / rejection rationale | Residual risk |
+|---|---|---|
+
+The convergence columns (adopt/reject + author-lean + residual-risk) are filled **after** the divergence window closes. Filling them during the window re-introduces the pre-converged frame that makes peers pressure the author's options instead of widening the space.
 
 Process gate:
 
-- Matrix appears in the Discussion body before any `[RESOLVED_TO_AC]` tags.
-- At least one non-author peer review cycle occurs after matrix insertion and before `GRADUATED`.
+- The divergence matrix appears in the Discussion body before any `[RESOLVED_TO_AC]` tags.
+- At least one non-author peer cycle occurs during the divergence window (after matrix insertion, before the window closes and `GRADUATED`).
 - Retro-fitted matrices after OQ resolution are paperwork; they capture convergence, not divergence.
 
 ## Ticket-Create Exception
