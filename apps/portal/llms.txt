@@ -270,6 +270,7 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 - [Restoration Runbook](https://neomjs.com/raw/learn/agentos/tooling/RestorationRunbook.md)
 - [Wake Substrate Incident Protocol](https://neomjs.com/raw/learn/agentos/tooling/WakeSubstrateIncidentProtocol.md)
 - [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
+- [0019 — AiConfig Reactive Provider SSOT](https://neomjs.com/raw/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md)
 
 ## Guides
 
