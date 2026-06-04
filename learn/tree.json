@@ -43,6 +43,7 @@
         {"name": "The GitHub Workflow Server",                         "parentId": "AgentOS",                                             "id": "agentos/GitHubWorkflow"},
         {"name": "Code Execution (AI SDK)",                            "parentId": "AgentOS",                                             "id": "agentos/CodeExecution"},
         {"name": "Shared KB/MC Team Deployment",                       "parentId": "AgentOS",                                             "id": "agentos/SharedDeployment"},
+        {"name": "Provision Your Own Agent Team",                      "parentId": "AgentOS",                                             "id": "agentos/OwnAgentTeam"},
         {"name": "Deployment Cookbook",                                "parentId": "AgentOS",                                             "id": "agentos/DeploymentCookbook"},
         {"name": "Deploying the Agent OS",                             "parentId": "AgentOS",                            "isLeaf": false, "id": "AgentOS/CloudDeployment", "collapsed": true},
             {"name": "Why Deploy the Agent OS",                        "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/WhyDeploy"},
