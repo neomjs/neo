@@ -29,7 +29,7 @@ A concept exists if:
 
 **Where the gold is:**
 - Epic bodies: core architectural problem statements and phased solutions.
-- PR review comments: \`[ARCH_ALIGNMENT]\`, \`[RETROSPECTIVE]\`, \`[KB_GAP]\`, \`[TOOLING_GAP]\` sections; "Gold Standards Leveraged / Traps Avoided" lists; rationale prose explaining WHY a pattern was chosen.
+- PR review comments: \`[ARCH_ALIGNMENT]\`, \`[RETROSPECTIVE]\`, \`[KB_GAP]\`, \`[TOOLING_GAP]\` sections; "Inputs Read Before Patch" / "Expected Solution Shape" / "Patch Verdict" premise-snapshot fields; "Gold Standards Leveraged / Traps Avoided" lists; rationale prose explaining WHY a pattern was chosen.
 - Discussion about mid-term architecture direction, service boundaries, substrate choices.
 
 **DO NOT include:**

@@ -78,10 +78,23 @@ jobs:
               "Strategic-Fit Decision"
             ];
 
-            const missingVisible   = VISIBLE_PR_REVIEW_ANCHORS  .filter(a => !body.includes(a));
-            const missingInvisible = INVISIBLE_PR_REVIEW_ANCHORS.filter(a => !body.includes(a));
+            // OPTIONAL-FIRST migration anchors for #12442/#12448. Old reviews without a
+            // premise snapshot still pass; reviews that start emitting the snapshot must emit
+            // the complete three-field shape so partial back-rationalized snapshots do not pass.
+            const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
+              "Inputs Read Before Patch",
+              "Expected Solution Shape",
+              "Patch Verdict"
+            ];
 
-            if (missingVisible.length === 0 && missingInvisible.length === 0) {
+            const missingVisible         = VISIBLE_PR_REVIEW_ANCHORS         .filter(a => !body.includes(a));
+            const missingInvisible       = INVISIBLE_PR_REVIEW_ANCHORS       .filter(a => !body.includes(a));
+            const presentPremiseSnapshot = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS.filter(a =>  body.includes(a));
+            const missingPremiseSnapshot = presentPremiseSnapshot.length === 0
+              ? []
+              : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS.filter(a => !body.includes(a));
+
+            if (missingVisible.length === 0 && missingInvisible.length === 0 && missingPremiseSnapshot.length === 0) {
               console.log("✅ Review body contains all required anchors.");
               return;
             }
@@ -90,7 +103,7 @@ jobs:
             // anchors. Even visible-list naming is bounded — at most ONE diagnostic
             // anchor in the prose (the full visible-miss list goes in the collapsed
             // details block for programmatic access; invisible misses are NEVER named).
-            const diagnosticAnchor = missingVisible[0] || null;
+            const diagnosticAnchor = missingVisible[0] || missingPremiseSnapshot[0] || null;
 
             const skillPath    = '.agents/skills/pr-review/SKILL.md';
             const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
@@ -110,6 +123,10 @@ jobs:
               `Do NOT compose a substitute template or hallucinate section headings. The validator`,
               `checks more structural anchors than this comment names. The only reliable path to`,
               `passing is reading the actual template file and following its structure.`,
+              ``,
+              missingPremiseSnapshot.length > 0
+                ? `**Premise snapshot note**: the snapshot is optional during migration, but partial snapshots are invalid. Either omit it entirely or include all three fields.`
+                : ``,
               ``,
               diagnosticAnchor
                 ? `**Diagnostic hint**: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`

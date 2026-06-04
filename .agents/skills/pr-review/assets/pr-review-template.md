@@ -18,6 +18,16 @@ Per §9 Strategic-Fit Step-Back:
 
 ---
 
+### 🧭 Patch-Blind Premise Snapshot
+
+*Source this from the ticket, changed-file list, current `dev` source, sibling precedent, and source-of-authority substrate — not from the PR's own self-description as the primary premise.*
+
+*   **Inputs Read Before Patch:** [Ticket / issue, changed-file list, current `dev` source, sibling precedent, source-of-authority substrate read before treating the patch as evidence.]
+*   **Expected Solution Shape:** [1-3 sentences: expected surface, simplest acceptable shape, what boundary this must NOT hardcode, and what test isolation should exist.]
+*   **Patch Verdict:** [Matches / improves / contradicts the expected shape, with the specific diff/source evidence that confirmed or changed your premise.]
+
+---
+
 ### 🕸️ Context & Graph Linking
 *   **Target Epic / Issue ID:** Resolves #[Issue Number]
 *   **Related Graph Nodes:** [Any other related node IDs or conceptual tags]

@@ -672,11 +672,11 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Atomic create or update of a formal PR review. Single call posts body + flips reviewDecision. create requires pr_number + state (APPROVED/REQUEST_CHANGES/COMMENT) + body. update requires review_id (PRR_*) + body; state cannot transition. Returns reviewId + state + url + submittedAt.
+        Atomic create/update of a formal PR review. `create` posts body + flips reviewDecision and requires `pr_number`, `state` (APPROVED/REQUEST_CHANGES/COMMENT), and `body`; `update` requires `review_id` (PRR_*) + `body` and cannot change state. Returns reviewId, state, url, and submittedAt.
 
-        **MANDATORY pre-step:** read `.agents/skills/pr-review/SKILL.md` — this skill contains the authoritative protocol and template structure for conducting pull request reviews. You MUST NOT execute a formal review without adhering to the depth floor and evidence audit guidelines outlined in the skill.
+        Mandatory pre-step: read `.agents/skills/pr-review/SKILL.md` and use the cycle-appropriate template.
 
-        **Mechanical body validation (#11491):** the `body` parameter is mechanically validated against two layers — visible 7 evaluation-metric anchor tags (`[ARCH_ALIGNMENT]`, `[CONTENT_COMPLETENESS]`, `[EXECUTION_QUALITY]`, `[PRODUCTIVITY]`, `[IMPACT]`, `[COMPLEXITY]`, `[EFFORT_PROFILE]`) AND additional structural-template anchors checked silently. The metric tags are the wire-format contract with the Retrospective-daemon graph ingestor (`ai/daemons/services/ConceptDiscoveryService.mjs`). On validation failure, error `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` points the caller at the canonical primitive (`.agents/skills/pr-review/SKILL.md` + `assets/pr-review-template.md`) — the **only** reliable path to passing is reading the actual template file. The validator deliberately does NOT enumerate every required anchor; do NOT compose a substitute template or hallucinate section headings. The agent can fix-and-resubmit in-turn before bad data reaches GitHub. This is the depth-floor enforcement; content quality remains the peer-V-B-A reviewer's responsibility.
+        Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. #12448 premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`) are optional during migration: omit all three or include all three together.
       tags: [PullRequests]
       parameters:
         - name: pr_number
