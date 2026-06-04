@@ -95,7 +95,7 @@ If you need to [do this task], you MUST immediately use the `view_file` tool to 
 
 ## 2. Writing the Payload (references/*.md)
 
-This file contains the actual "meat" of the skill. 
+This file contains the actual "meat" of the skill.
 Since the agent relies on this when executing the specific task, make it detailed:
 - Include step-by-step Standard Operating Procedures.
 - Provide explicit JSON payloads or tool-chaining examples.
@@ -171,3 +171,12 @@ Before pushing your new skill, check:
 - [ ] Is `.agents/skills/skills.manifest.json` updated to mirror the frontmatter and governance fields?
 - [ ] Is there a corresponding symlink for the new skill in `.claude/skills/`?
 - [ ] Does `node ai/scripts/lint-skill-manifest.mjs --base origin/dev` pass locally?
+
+## PR-Open Gates for Skill Changes (create OR modify)
+
+Any PR that **creates OR modifies** `.agents/skills/**` substrate is an **agent-consumed governance-surface** change. Beyond the skill-shape checks above, the `pr-review` Contract-Completeness + load-effect audits require **two PR-open gates** — author both **up-front** (each is documentation-only: no diff, head, or CI impact):
+
+1. **Contract Ledger on the SOURCE TICKET** — not just the PR body. Post the T3 matrix (`learn/agentos/contract-ledger.md`) as a comment on the ticket / epic; the Contract-Completeness audit checks the *originating ticket*, so a PR-body-only ledger does not satisfy it.
+2. **`/turn-memory-pre-flight` load-effect audit in the PR body** — document the load-runtime-effect placement: which file is the always-loaded **Map** (SKILL.md router / hot workflow §) vs the conditional **World-Atlas** payload, and that the net always-loaded delta is minimal or negative (rule bodies belong in the conditional audit, never the always-loaded Map).
+
+Doing both up-front avoids the predictable single-cycle `CHANGES_REQUESTED` this gate otherwise fires.
