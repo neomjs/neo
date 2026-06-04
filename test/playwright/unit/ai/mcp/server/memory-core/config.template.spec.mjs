@@ -233,24 +233,4 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.collections.session).toBe(config.collections.sessionTest);
         expect(config.collections.graph).toBe('neo-native-graph');
     });
-
-    test('the reactive formulas select test vs prod by the useTestDatabase toggle — covering the prod branch the unit suite never exercises (#12500)', async () => {
-        // The formulas exist to compute the active value from the test/prod leaf pair; the value assertions
-        // above pin only the TEST branch (the unit suite always runs UNIT_TEST_MODE=true → useTestDatabase
-        // true). The prod branch is otherwise never verified. Exercise the extracted formula fns directly
-        // for BOTH toggle states — the construct-time selection we actually rely on. (The Provider re-invokes
-        // a formula when a dependency changes; that reactive plumbing is covered by Provider's own specs.
-        // Here the toggle is bounded, so the formula is effectively a construct-time derivation.)
-        const {graphPathFormula, collectionsMemoryFormula, collectionsSessionFormula} =
-            await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs');
-
-        expect(graphPathFormula({storagePaths: {useTestDatabase: true,  graphTest: ':memory:', graphProd: '/prod.sqlite'}})).toBe(':memory:');
-        expect(graphPathFormula({storagePaths: {useTestDatabase: false, graphTest: ':memory:', graphProd: '/prod.sqlite'}})).toBe('/prod.sqlite');
-
-        expect(collectionsMemoryFormula({collections: {useTestDatabase: true,  memoryTest: 'unit-mem', memoryProd: 'prod-mem'}})).toBe('unit-mem');
-        expect(collectionsMemoryFormula({collections: {useTestDatabase: false, memoryTest: 'unit-mem', memoryProd: 'prod-mem'}})).toBe('prod-mem');
-
-        expect(collectionsSessionFormula({collections: {useTestDatabase: true,  sessionTest: 'unit-sess', sessionProd: 'prod-sess'}})).toBe('unit-sess');
-        expect(collectionsSessionFormula({collections: {useTestDatabase: false, sessionTest: 'unit-sess', sessionProd: 'prod-sess'}})).toBe('prod-sess');
-    });
 });

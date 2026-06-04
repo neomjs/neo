@@ -30,17 +30,6 @@ const testMemoryCollection  = `test-memory-${Date.now()}-${Math.random().toStrin
 const testSessionCollection = `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
 /**
- * Test-mode value selectors for the reactive `formulas` below — extracted as named exports so the
- * reactive contract (re-resolution when `useTestDatabase` flips) is directly testable. Each picks the
- * active value from its test/prod leaf pair, driven by the resolved `useTestDatabase` toggle.
- * @param {Object} data Hierarchical data proxy.
- * @returns {String}
- */
-export const graphPathFormula          = data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd;
-export const collectionsMemoryFormula  = data => data.collections.useTestDatabase  ? data.collections.memoryTest   : data.collections.memoryProd;
-export const collectionsSessionFormula = data => data.collections.useTestDatabase  ? data.collections.sessionTest  : data.collections.sessionProd;
-
-/**
  * @summary Configuration manager for the Memory Core MCP server.
  *
  * Supports loading configuration from a custom file and merging with defaults.
@@ -378,12 +367,12 @@ class Config extends BaseConfig {
          */
         formulas: {
             // The active graph SQLite path + memory/session collection names, resolved BY CONSTRUCTION
-            // from the `useTestDatabase` toggle via the reactive selectors above. Consumers read
-            // `AiConfig.storagePaths.graph` / `collections.memory` / `collections.session` unchanged —
-            // the single resolution point. Replaces the prior inline-`process.env` leaf ternaries.
-            'storagePaths.graph' : graphPathFormula,
-            'collections.memory' : collectionsMemoryFormula,
-            'collections.session': collectionsSessionFormula
+            // from the `useTestDatabase` toggle. Consumers read `AiConfig.storagePaths.graph` /
+            // `collections.memory` / `collections.session` unchanged — the single resolution point.
+            // Replaces the prior inline-`process.env` leaf ternaries.
+            'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
+            'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest   : data.collections.memoryProd,
+            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest  : data.collections.sessionProd
         }
     }
 }
