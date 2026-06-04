@@ -105,7 +105,12 @@ test.describe('ai/scripts/lint-tree-json (#12247 — learn/tree.json mirrors lea
     });
 
     test('EXPLORATION_ARTIFACT: each artifact-suffix leaf is flagged; real guides are spared (#12511)', () => {
-        for (const id of ['agentos/SkillCompressionRolloutPlan', 'agentos/ConfigSubstrateEnvVarAudit', 'agentos/Tier2RevalidationSweep', 'agentos/SomeCensus', 'agentos/SomeForensics', 'agentos/gemma4Benchmark']) {
+        for (const id of [
+            // CamelCase basenames
+            'agentos/SkillCompressionRolloutPlan', 'agentos/ConfigSubstrateEnvVarAudit', 'agentos/Tier2RevalidationSweep', 'agentos/SomeCensus', 'agentos/SomeForensics', 'agentos/gemma4Benchmark',
+            // kebab/lowercase basenames — the on-disk file-naming style must be caught too (case-insensitive)
+            'agentos/gemma4-rem-benchmark', 'agentos/sandman-silent-failure-forensics', 'agentos/config-substrate-env-var-audit'
+        ]) {
             expect(codes([
                 {id: 'AgentOS', isLeaf: false, parentId: null},
                 {id, parentId: 'AgentOS'}

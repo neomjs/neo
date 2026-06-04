@@ -48,8 +48,10 @@ const TREE_PATH  = path.join(LEARN_DIR, 'tree.json');
 // Invariant 5: exploration/process-artifact basename suffixes that must never be published.
 // `learn/` is public docs; these are tracking/process outputs whose home is a non-published
 // subfolder or the owning ticket, not the public portal nav.
-const EXPLORATION_ARTIFACT_SUFFIXES = 'Audit/Plan/Sweep/Census/Forensics/Benchmark';
-const EXPLORATION_ARTIFACT_RE       = /(?:Audit|Plan|Sweep|Census|Forensics|Benchmark)$/;
+const EXPLORATION_ARTIFACT_SUFFIXES = 'audit/plan/sweep/census/forensics/benchmark (any case)';
+// Case-insensitive: the on-disk artifact inventory mixes CamelCase (`ConfigSubstrateEnvVarAudit`)
+// and kebab/lowercase (`gemma4-rem-benchmark`, `sandman-silent-failure-forensics`) basenames.
+const EXPLORATION_ARTIFACT_RE       = /(?:audit|plan|sweep|census|forensics|benchmark)$/i;
 
 /**
  * Returns the folder-prefix (directory part) of a leaf `id`, using POSIX semantics so
