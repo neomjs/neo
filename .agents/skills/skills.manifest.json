@@ -202,7 +202,7 @@
     },
     "pr-review": {
       "name": "pr-review",
-      "description": "Standardized guidelines and templates for structuring Pull Request reviews so feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure. Triggers: Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments, FAIR-band declaration verification.",
+      "description": "Standardized guidelines and templates for structuring Pull Request reviews so feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure. Triggers: Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "perFilePayloadBudget": 66000,
@@ -214,7 +214,7 @@
     },
     "pull-request": {
       "name": "pull-request",
-      "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. CRITICAL: Do NOT run default `npx playwright test` (use custom configs). MANDATORY ROI WARNING: Skipping the PR body template guarantees CI lint failure. Triggers: Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md), FAIR-band stance declaration per §1.3.",
+      "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. CRITICAL: Do NOT run default `npx playwright test` (use custom configs). MANDATORY ROI WARNING: Skipping the PR body template guarantees CI lint failure. Triggers: Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md).",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "perFilePayloadBudget": 38000,

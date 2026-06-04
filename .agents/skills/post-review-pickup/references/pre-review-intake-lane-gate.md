@@ -63,7 +63,7 @@ passes and the blocker is named.
 
 | Anti-pattern | Why it harms |
 |---|---|
-| Entering `/pr-review` from fresh boot without checking for an author lane | Recreates reviewer-only cycles before FAIR-band or post-review pickup can fire |
-| Treating FAIR-band as a scoreboard | Replaces enablement with quota pressure |
+| Entering `/pr-review` from fresh boot without checking for an author lane | Recreates reviewer-only cycles before post-review author-lane pickup can fire |
+| Treating the author-concentration detector as a scoreboard or throttle | Replaces liveness telemetry with quota pressure — the exact FAIR-band-as-policy failure mode that was retired |
 | Loading `/lead-role` or `/peer-role` without a real trigger | Creates fake hierarchy or fake convergence work |
 | Blocking all reviews until a PR exists | Breaks urgent peer-unblock and human-directed review paths |

@@ -159,11 +159,11 @@ author MUST choose one of these next states before ending the turn:
 | Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `lane-state: halt-state (awaiting reviewer response on #NNNN; no independent lane assigned.)` |
 | Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
 
-## 4. FAIR-Band Author-Lane Pickup Discipline
+## 4. Author-Concentration Detector (Telemetry)
 
-<!-- trigger: lane-discovery moment (post-review, post-completion, fresh-boot, peer-role-exit) → read ./fair-band-author-lane-pickup.md for the 4 Self-Selection Rules + decay-detector metric + over-target-yield discipline -->
+<!-- trigger: lane-discovery moment (post-review, post-completion, fresh-boot, peer-role-exit) → read ./author-concentration-detector.md for the telemetry signal (NOT a band/scoreboard/throttle) -->
 
-Primary codification of the FAIR-band author-lane pickup discipline: [`./fair-band-author-lane-pickup.md`](./fair-band-author-lane-pickup.md). Defines the soft sliding-window band (target ±3 over last 30 merged PRs), 4 Self-Selection Rules (under-target bias / no-lead-assignment / no-marginal-tickets / over-target-yield-via-A2A), decay-detector framing per AGENTS.md §13.1, and canonical verifier query. Cited by `pull-request/references/fair-band-pre-flight-gate.md` (author-side PR-open mandate) + `pr-review/audits/fair-band-declaration-audit.md` (reviewer-side enforcement).
+Authorship balance is **telemetry, not policy** (FAIR-band-as-policy retired per Epic #12440 → #12443). The author-concentration detector is defined in [`./author-concentration-detector.md`](./author-concentration-detector.md): a merged-window concentration signal (open-pipeline as amber) read at lane-discovery, with **no band, no scoreboard, no throttle, and no PR-body declaration**. Flat-peer-team self-selection is preserved; when concentration fires it is a liveness/capability signal (route to making cold peers live — the sibling legs #12444 / #12445 / #12446), never a reason to slow the productive author.
 
 ## 5. Legitimate Halt States
 
