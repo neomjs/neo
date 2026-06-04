@@ -49,6 +49,57 @@ class SummaryService extends Base {
     }
 
     /**
+     * @summary Resolves the optional author-identity scope for {@link listSummaries}.
+     *
+     * `get_all_summaries` defaults to a team-wide, newest-first boot ledger — which, under an
+     * asymmetric-liveness swarm, steeps every identity in the most-active author's trajectory and
+     * erodes per-identity continuity. This resolves an optional `agentIdentity` filter so a caller
+     * can scope the ledger to its OWN sessions.
+     *
+     * Filter semantics — filters on the chroma `sourceAgentIdentities` provenance metadata already
+     * carried by every summary row, NOT a cross-store `AUTHORED_BY` graph read. The `AUTHORED_BY`
+     * edge is *derived from* `sourceAgentIdentities` (`SessionService` stamps one edge per
+     * trust-tiered source), so the metadata filter is equivalent for any trust-tiered maintainer
+     * while keeping `listSummaries` a pure chroma read — consistent with the sibling `userId`
+     * post-filter. (They diverge only for an UNCLASSIFIED source identity, which is never a boot
+     * ledger subject.)
+     *
+     * Identity-namespace match — `sourceAgentIdentities` entries are `@`-prefixed (`@neo-opus-4-7`)
+     * and `getAgentIdentityNodeId()` returns the same `@`-prefixed node those edges terminate on.
+     * The leading `@` is stripped symmetrically on both sides so a format drift can never silently
+     * zero the result.
+     *
+     * @param {String} [agentIdentity] `'@me'` (bound caller), `'@<id>'` / `'<id>'` (explicit), or
+     *   omitted / `'all'` (team-wide — no filter, backward-compatible default).
+     * @returns {String|null} The canonical (`@`-stripped) identity to match, or `null` for no filter.
+     * @throws {Error} when `'@me'` is requested but no caller identity is bound — fail-closed, so a
+     *   scoped request never silently degrades to the team-wide view.
+     */
+    static resolveAuthorScope(agentIdentity) {
+        if (!agentIdentity || agentIdentity === 'all') {
+            return null;
+        }
+
+        let resolved;
+
+        if (agentIdentity === '@me') {
+            resolved = RequestContextService.getAgentIdentityNodeId();
+
+            if (!resolved) {
+                throw new Error(
+                    'SummaryService.listSummaries: agentIdentity "@me" requires a bound caller ' +
+                    'identity, but RequestContextService.getAgentIdentityNodeId() resolved none. ' +
+                    'Failing closed rather than returning the team-wide view.'
+                );
+            }
+        } else {
+            resolved = agentIdentity;
+        }
+
+        return String(resolved).replace(/^@/, '');
+    }
+
+    /**
      * @summary Resolves a summary row's provenance trust tier from source-memory metadata.
      *
      * Summaries are derived content. Their filterable tier is the most restrictive source tier
@@ -139,7 +190,11 @@ class SummaryService extends Base {
      * @param {Number} options.offset=0 The number of summaries to skip.
      * @returns {Promise<{count: number, total: number, summaries: Object[]}>}
      */
-    async listSummaries({limit=50, offset=0} = {}) {
+    async listSummaries({limit=50, offset=0, agentIdentity} = {}) {
+        // Resolve the optional author-identity scope BEFORE the storage try/catch: a fail-closed
+        // `@me` (no bound identity) must throw, not be swallowed into the SUMMARY_LIST_ERROR envelope.
+        const authorScope = this.constructor.resolveAuthorScope(agentIdentity);
+
         try {
             const collection = await StorageRouter.getSummaryCollection();
 
@@ -198,6 +253,16 @@ class SummaryService extends Base {
             // Step 2: Filter, sort, and slice.
             if (userId && additivePolicy) {
                 allRecords = allRecords.filter(r => !r.metadata.userId || r.metadata.userId === userId || r.metadata.userId === SHARED_USER_ID);
+            }
+
+            // Optional author-identity scope (own vs team boot ledger): post-filter on the chroma
+            // sourceAgentIdentities provenance — see resolveAuthorScope for the AUTHORED_BY
+            // equivalence + the @-namespace canonicalization.
+            if (authorScope !== null) {
+                allRecords = allRecords.filter(r =>
+                    this.constructor.splitMetadataList(r.metadata.sourceAgentIdentities)
+                        .some(identity => identity.replace(/^@/, '') === authorScope)
+                );
             }
 
             // Sort by timestamp DESC
