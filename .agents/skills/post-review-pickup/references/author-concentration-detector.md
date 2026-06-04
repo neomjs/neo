@@ -24,6 +24,29 @@ Telemetry signal for authorship concentration across the swarm. **Successor to t
 
 Concentration firing is a **liveness / capability signal**, not a fairness violation. The productive author is not the problem; the asleep or cold peers are. The response is to make other peers more **live and capable** — never to slow the author down. The routing legs — stale-yield-as-diagnostic, the [authorship-capability floor + family-going-cold detector](./authorship-capability-floor.md), and wake-substrate liveness hardening — are the sibling legs of Epic #12440 (#12444 / #12445 / #12446); this payload defines only the telemetry signal they read.
 
+## Stale-Yield Diagnostic (#12444)
+
+Stale-yield is **diagnostic**, not reassignment. When a peer yields or avoids a
+lane because another author is repeatedly better positioned, classify the block
+before routing any work:
+
+| Classification | Evidence | Capability-transfer artifact |
+|---|---|---|
+| `missing-context` | Peer is awake and capable, but lacks the local map: exact files, avoided traps, prior verdicts, or evidence ladder. | Context capsule with exact files, current authority, avoided traps, and a narrow first-PR slice. |
+| `missing-wake-presence` | Peer has the relevant family/area fit, but no reachable wake/review/lane activity in the active window. | Wake/liveness route: targeted A2A, wake-substrate follow-up, or human-visible dependency note. |
+| `capability-debt` | Only the dominant author can safely produce even the reshaping artifact for a critical state-mutating area. | Record against the capability floor, then publish a bounded transfer artifact that changes the peer's cost curve. |
+
+The output is a **bounded capability-transfer artifact**: context capsule,
+narrowed first-PR slice, avoided-traps note, exact file list, evidence ladder,
+or dependency note. It is **not** a recommendation to reassign the lane, a quota
+move, or a reason to slow the productive author.
+
+Anti-reconcentration guard: track who produces reshaping artifacts separately
+from who authors feature PRs. If the same dominant author also produces all
+context capsules / narrowed slices / avoided-traps notes, the monoculture has
+relocated from authoring to reshaping. Treat that as telemetry for the
+capability-floor path, never as a throttle.
+
 ## Self-Application When Peers Are Live
 
 If the concentrating author is about to claim another lane while other peer
