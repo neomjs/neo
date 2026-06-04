@@ -15,14 +15,14 @@ setup({
 
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before
 // the dynamic KbReconciliationService import below. Required because the class file no
-// longer imports Neo itself (#11058-style class+wrapper split). Mirrors KbAlertingService.spec.
+// longer imports Neo itself (class+wrapper split). Mirrors KbAlertingService.spec.
 import Neo       from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 
 import {test, expect} from '@playwright/test';
 
 /**
- * Phase 4B (#11640) — unit coverage for `ai/daemons/kb-reconciliation/KbReconciliationService.mjs`, the KB
+ * Unit coverage for `ai/daemons/kb-reconciliation/KbReconciliationService.mjs`, the KB
  * reconciliation daemon.
  *
  * Stubbing strategy mirrors `KbAlertingService.spec.mjs`: the daemon exposes test-stubbable
@@ -32,7 +32,7 @@ import {test, expect} from '@playwright/test';
  * Chroma I/O. The orchestration tests keep the real `reconcileTenant` + the real pure
  * `KbReconciliationEngine` so the diff-driven branching is genuinely exercised.
  *
- * Covers the #11640 Contract Ledger Evidence columns: the opt-in gate, the destructive
+ * Covers the Contract Ledger Evidence columns: the opt-in gate, the destructive
  * auto-tombstone gating, the clean-tenant telemetry suppression, the tenant-scoped delete,
  * and pulse resilience. The pure diff logic is covered separately in
  * `KbReconciliationEngine.spec.mjs`.
@@ -42,7 +42,7 @@ import {test, expect} from '@playwright/test';
  * @see test/playwright/unit/ai/daemons/kb-alerting/KbAlertingService.spec.mjs — the sibling pattern.
  */
 test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
-    let KbReconciliationService, DEFAULT_INTERVAL_MS;
+    let KbReconciliationService;
     let KBRecorderService, logger;
     let originals = {};
 
@@ -59,8 +59,14 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
         }
     });
 
+    /** Resolved AiConfig subtree fixture — mirrors Provider-inherited template leaves. */
+    const defaultConfig = () => ({
+        reconciliationEnabled   : true,
+        reconciliationIntervalMs: 60 * 60 * 1000
+    });
+
     test.beforeAll(async () => {
-        ({default: KbReconciliationService, DEFAULT_INTERVAL_MS} =
+        ({default: KbReconciliationService} =
             await import('../../../../../../ai/daemons/kb-reconciliation/KbReconciliationService.mjs'));
 
         KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
@@ -88,7 +94,7 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
     test.afterEach(() => {
         KbReconciliationService.stop();
         KbReconciliationService.isPolling      = false;
-        KbReconciliationService.pollIntervalMs = DEFAULT_INTERVAL_MS;
+        KbReconciliationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for
         // the next test — an instance override otherwise leaks across tests in the worker.
@@ -107,14 +113,14 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
 
     /** Deterministic seam baseline — `scheduleNext` neutralized so no real timer leaks. */
     function applyStubs({config} = {}) {
-        KbReconciliationService.getKbConfig          = () => config || {reconciliationEnabled: true};
+        KbReconciliationService.getKbConfig          = () => config ?? defaultConfig();
         KbReconciliationService.fetchTenantManifests = async () => ({});
         KbReconciliationService.scheduleNext         = function () {};
     }
 
     test.describe('start / stop', () => {
         test('start() is a no-op when reconciliationEnabled is false', async () => {
-            applyStubs({config: {reconciliationEnabled: false}});
+            applyStubs({config: {...defaultConfig(), reconciliationEnabled: false}});
             let scheduled = 0;
             KbReconciliationService.scheduleNext = () => { scheduled++ };
 
@@ -138,7 +144,7 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
         });
 
         test('start() honors a configured reconciliationIntervalMs', async () => {
-            applyStubs({config: {reconciliationEnabled: true, reconciliationIntervalMs: 12345}});
+            applyStubs({config: {...defaultConfig(), reconciliationIntervalMs: 12345}});
 
             await KbReconciliationService.start();
 
