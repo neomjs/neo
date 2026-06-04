@@ -386,7 +386,7 @@ export class Orchestrator extends Base {
      * @returns {String[]|null}
      */
     get swarmHeartbeatExplicitTargets() {
-        const raw = AiConfig.orchestrator.swarmHeartbeat?.targets;
+        const raw = AiConfig.orchestrator.swarmHeartbeat.targets;
         if (!raw) return null;
         const list = String(raw).split(',').map(s => s.trim()).filter(Boolean);
         return list.length > 0 ? list : null;
@@ -403,8 +403,8 @@ export class Orchestrator extends Base {
 
     // MLX + LM Studio CLI inference-server lane config. Canonical defaults + env overrides
     // live in `ai/config.template.mjs::orchestrator.{mlx,lms}` + `envBindings.orchestrator.{mlx,lms}`.
-    get mlxEnabled() { return !!AiConfig.orchestrator.mlx?.enabled; }
-    get lmsEnabled() { return !!AiConfig.orchestrator.lms?.enabled; }
+    get mlxEnabled() { return !!AiConfig.orchestrator.mlx.enabled; }
+    get lmsEnabled() { return !!AiConfig.orchestrator.lms.enabled; }
     get lmsPreloadConfig() { return buildLmsPreloadConfig(AiConfig); }
     get lmsModels()        { return this.lmsPreloadConfig.models;      }
 
@@ -444,15 +444,15 @@ export class Orchestrator extends Base {
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
-            chromaPort: AiConfig.engines.chroma?.port,
+            chromaPort: AiConfig.engines.chroma.port,
             mlxEnabled: this.mlxEnabled,
-            mlxModel  : AiConfig.orchestrator.mlx?.model,
-            mlxPort   : AiConfig.orchestrator.mlx?.port,
+            mlxModel  : AiConfig.orchestrator.mlx.model,
+            mlxPort   : AiConfig.orchestrator.mlx.port,
             lmsEnabled: this.lmsEnabled,
-            lmsModel  : AiConfig.orchestrator.lms?.model,
+            lmsModel  : AiConfig.orchestrator.lms.model,
             lmsModels : lmsPreloadConfig.models,
-            lmsHost   : AiConfig.openAiCompatible?.host,
-            lmsPort   : AiConfig.orchestrator.lms?.port,
+            lmsHost   : AiConfig.openAiCompatible.host,
+            lmsPort   : AiConfig.orchestrator.lms.port,
             lmsContextLengths: lmsPreloadConfig.contextLengths,
             providerReadiness: AiConfig.orchestrator.providerReadiness,
             graphLogCompactionVacuum: AiConfig.orchestrator.graphLogCompaction.vacuum
@@ -508,7 +508,7 @@ export class Orchestrator extends Base {
                 // is sufficient. Order matches the JSDoc contract on the service class.
                 this.swarmHeartbeatService.identity        = this.swarmHeartbeatIdentity;
                 this.swarmHeartbeatService.pollIntervalMs  = AiConfig.orchestrator.intervals.swarmHeartbeatMs;
-                this.swarmHeartbeatService.targetSource    = AiConfig.orchestrator.swarmHeartbeat?.targetSource ?? null;
+                this.swarmHeartbeatService.targetSource    = AiConfig.orchestrator.swarmHeartbeat.targetSource ?? null;
                 this.swarmHeartbeatService.explicitTargets = this.swarmHeartbeatExplicitTargets;
                 await this.swarmHeartbeatService.ready();
             } catch (e) {
@@ -599,7 +599,7 @@ export class Orchestrator extends Base {
      * @returns {Boolean}
      */
     isChromaRecycleDue(state, now) {
-        const maxRuntimeMs = AiConfig.orchestrator.chroma?.maxRuntimeMs;
+        const maxRuntimeMs = AiConfig.orchestrator.chroma.maxRuntimeMs;
         const lastRunAt    = state?.lastRunAt || 0;
         // lastRunAt === 0 means no recorded spawn (uninitialized / never started): uptime is
         // undefined, so never recycle. A genuinely running daemon always carries a real start
@@ -617,7 +617,7 @@ export class Orchestrator extends Base {
      */
     probeChromaReady({timeoutMs = 2000} = {}) {
         return new Promise(resolve => {
-            const socket = net.connect({host: 'localhost', port: AiConfig.engines.chroma?.port});
+            const socket = net.connect({host: 'localhost', port: AiConfig.engines.chroma.port});
             const finish = result => { socket.destroy(); resolve(result); };
             socket.setTimeout(timeoutMs);
             socket.once('connect', () => finish(true));
@@ -657,7 +657,7 @@ export class Orchestrator extends Base {
             // once the fresh daemon is connection-ready. Implicitly gated by chromaDaemonEnabled
             // (chroma is only a continuousTask when that lane is enabled).
             if (taskName === 'chroma' && this.isChromaRecycleDue(state, now)) {
-                this.processSupervisorService.killTask('chroma', `max-runtime:${now - (state.lastRunAt || 0)}ms>${AiConfig.orchestrator.chroma?.maxRuntimeMs}ms`);
+                this.processSupervisorService.killTask('chroma', `max-runtime:${now - (state.lastRunAt || 0)}ms>${AiConfig.orchestrator.chroma.maxRuntimeMs}ms`);
                 this._chromaDefragPending = true;
                 continue;
             }
