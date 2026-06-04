@@ -56,14 +56,6 @@ const SCAN_ROOT_REL            = 'ai';
 export const BASELINE = Object.freeze([
     Object.freeze({
         file   : 'ai/mcp/server/memory-core/config.template.mjs',
-        env    : 'NEO_MEMORY_DB_PATH',
-        ticket : '#12451',
-        reshape: 'Static. Fold the sqlite path as the leaf default; the unit suite sets NEO_MEMORY_DB_PATH=:memory:. ' +
-                 'Verify a UNIT_TEST_MODE guard on the graph store before relocating — unlike Chroma, a missed ' +
-                 'override here may write the real graph db rather than fail loud.'
-    }),
-    Object.freeze({
-        file   : 'ai/mcp/server/memory-core/config.template.mjs',
         env    : 'NEO_MEMORY_COLLECTION_NAME',
         ticket : '#12451',
         reshape: 'Dynamic (harder sub-case). The per-worker-unique test collection name (Date.now()/Math.random()) ' +
