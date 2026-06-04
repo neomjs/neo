@@ -329,6 +329,69 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
     });
 
+    test('direct healthcheck reuses a recent healthy embedding write canary', async () => {
+        let embedCalls = 0;
+        TextEmbeddingService.embedText = async () => {
+            embedCalls++;
+            return new Array(4096).fill(0.1);
+        };
+
+        const firstNow = originalDateNow();
+        Date.now = () => firstNow;
+
+        const cached = await HealthService.healthcheck();
+
+        expect(cached.status).toBe('healthy');
+        expect(embedCalls).toBe(1);
+
+        memoryCount  = 11;
+        summaryCount = 21;
+        Date.now = () => firstNow + 30_000;
+
+        const fresh = await HealthService.healthcheck();
+
+        expect(fresh.status).toBe('healthy');
+        expect(fresh.database.connection.collections.memories.count).toBe(11);
+        expect(fresh.providers.embedding.writeCanary).toMatchObject({
+            status  : 'healthy',
+            provider: 'openAiCompatible'
+        });
+        expect(embedCalls).toBe(1);
+    });
+
+    test('expired embedding write canary cache probes again and degrades on failure', async () => {
+        let embedCalls = 0;
+        TextEmbeddingService.embedText = async () => {
+            embedCalls++;
+            if (embedCalls === 1) {
+                return new Array(4096).fill(0.1);
+            }
+            throw new Error('embedding provider busy');
+        };
+
+        const firstNow = originalDateNow();
+        Date.now = () => firstNow;
+
+        const cached = await HealthService.healthcheck();
+
+        expect(cached.status).toBe('healthy');
+        expect(embedCalls).toBe(1);
+
+        Date.now = () => firstNow + 61_000;
+
+        const refreshed = await HealthService.healthcheck();
+
+        expect(embedCalls).toBe(2);
+        expect(refreshed.status).toBe('degraded');
+        expect(refreshed.providers.embedding.writeCanary).toMatchObject({
+            status  : 'failed',
+            provider: 'openAiCompatible',
+            error   : 'embedding provider busy'
+        });
+        expect(refreshed.details).toContain('Embedding write canary failed: embedding provider busy');
+        expect(refreshed.details).not.toContain('All features are operational');
+    });
+
     test('healthcheck degrades env-pinned unbound identity warning', async () => {
         HealthService.setStdioIdentityState({
             userId             : 'neo-claude-opus',
