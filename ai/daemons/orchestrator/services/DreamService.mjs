@@ -72,6 +72,21 @@ function finishPhase(phase, startedAt, status, details = {}) {
 }
 
 /**
+ * @summary Reads a required numeric AiConfig leaf and fails loud when the imported config is stale.
+ * @param {String} leafName The AiConfig leaf name.
+ * @returns {Number}
+ */
+function readRequiredNumberLeaf(leafName) {
+    const value = aiConfig[leafName];
+
+    if (!Number.isFinite(value)) {
+        throw new Error(`[DreamService] Required AiConfig leaf "${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
+    }
+
+    return value;
+}
+
+/**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
  *
  * Scans recent session summaries from the `neo-agent-sessions` collection that have not
@@ -136,8 +151,8 @@ class DreamService extends Base {
         // Since ChromaDB filtering on missing attributes can be tricky depending on version,
         // we'll fetch recent sessions and filter in memory if the dataset is reasonable.
         // For production, we will just query specifically.
-        const limit = aiConfig.summarizationBatchLimit;
-        const maxToProcess = aiConfig.remSleepBatchLimit;
+        const limit = readRequiredNumberLeaf('summarizationBatchLimit');
+        const maxToProcess = readRequiredNumberLeaf('remSleepBatchLimit');
 
         try {
             const batch = await this.sessionsCollection.get({
