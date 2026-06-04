@@ -92,6 +92,45 @@ class WakeSubscriptionService extends Base {
     subscriptionCache = new Map()
 
     /**
+     * @member {String[]} validHarnessPresenceStates
+     * @protected
+     */
+    validHarnessPresenceStates = ['unknown', 'idle', 'active', 'waitingOnApproval', 'userTyping']
+
+    /**
+     * @member {String[]} validWakePolicies
+     * @protected
+     */
+    validWakePolicies = ['silent', 'next_turn', 'immediate']
+
+    /**
+     * @member {String[]} validAddressTypes
+     * @protected
+     */
+    validAddressTypes = ['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']
+
+    /**
+     * @member {Number} harnessPresenceFreshMs
+     * Presence older than one heartbeat is not fresh enough for immediate targeted delivery.
+     * @protected
+     */
+    harnessPresenceFreshMs = 5 * 60 * 1000
+
+    /**
+     * @member {Number} harnessPresenceTtlMs
+     * TTL backstop for stale HarnessPresence records, approximately 2x swarm heartbeat.
+     * @protected
+     */
+    harnessPresenceTtlMs = 10 * 60 * 1000
+
+    /**
+     * @member {String} bootId
+     * Per-process boot identity used to supersede stale HarnessPresence rows.
+     * @protected
+     */
+    bootId = crypto.randomUUID()
+
+    /**
      * @member {Number} liveCursor=0
      * @protected
      */
@@ -273,10 +312,15 @@ class WakeSubscriptionService extends Base {
      * agent even while mailbox storage remains healthy.
      *
      * @param {Object} [opts]
-     * @param {Object} [opts.overrideMetadata] Optional metadata to override template defaults
+     * @param {Object} [opts.overrideMetadata] Optional metadata to override template defaults.
+     * @param {Object} [opts.presence] Optional HarnessPresence state override, used by tests and
+     *     future native-control-plane adapters.
+     * @param {String} [opts.bootId] Optional boot id override for deterministic tests.
+     * @param {Number} [opts.pid] Optional process id override for deterministic tests.
+     * @param {Date|String|Number} [opts.now] Optional clock override for deterministic tests.
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, status: 'existing'|'created'}
      */
-    async bootstrap({overrideMetadata} = {}) {
+    async bootstrap({overrideMetadata, presence = {}, bootId = this.bootId, pid = process.pid, now = new Date()} = {}) {
         const owner = RequestContextService.getAgentIdentityNodeId();
         if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
 
@@ -316,6 +360,8 @@ class WakeSubscriptionService extends Base {
                 harnessTargetMetadata: mergedMetadata
             });
 
+            this.upsertHarnessPresence({owner, subscriptionId: refreshed.id, metadata: mergedMetadata, presence, bootId, pid, now});
+
             return {subscriptionId: refreshed.id, harnessTarget: refreshed.harnessTarget, status: 'existing'};
         }
 
@@ -327,7 +373,138 @@ class WakeSubscriptionService extends Base {
             harnessTargetMetadata: mergedMetadata
         });
 
+        this.upsertHarnessPresence({owner, subscriptionId: result.subscriptionId, metadata: mergedMetadata, presence, bootId, pid, now});
+
         return {...result, status: result.status === 'existing' ? 'existing' : 'created'};
+    }
+
+    /**
+     * @summary Upserts the volatile HarnessPresence overlay for a bootstrapped wake route.
+     *
+     * The durable WAKE_SUBSCRIPTION node records interest in a wake channel. HarnessPresence records
+     * the currently booted receiver's live routing input: receiver state vocabulary plus the
+     * boot-envelope address tuple. Presence is intentionally separate from subscription metadata so
+     * stale receiver state can retire without deleting the durable subscription.
+     *
+     * @param {Object} opts
+     * @param {String} opts.owner AgentIdentity node id.
+     * @param {String} opts.subscriptionId Durable WAKE_SUBSCRIPTION id this presence overlays.
+     * @param {Object} [opts.metadata={}] Merged harnessTargetMetadata.
+     * @param {Object} [opts.presence={}] Presence state overrides.
+     * @param {String} [opts.bootId=this.bootId] Per-process boot id.
+     * @param {Number} [opts.pid=process.pid] Process id used for stale-pid probes.
+     * @param {Date|String|Number} [opts.now=new Date()] Clock source.
+     * @returns {Object} Persisted HarnessPresence properties.
+     */
+    upsertHarnessPresence({
+        owner,
+        subscriptionId,
+        metadata = {},
+        presence = {},
+        bootId = this.bootId,
+        pid = process.pid,
+        now = new Date()
+    } = {}) {
+        if (!owner || !subscriptionId) return null;
+
+        const nowDate = this._coerceDate(now),
+              nowIso  = nowDate.toISOString();
+
+        this.retireStaleHarnessPresence({owner, bootId, now: nowDate});
+
+        const {instanceAddress, addressType} = this._resolvePresenceAddress(metadata);
+        const presencePid = this._normalizePresencePid(presence.pid ?? (addressType === 'pid' ? instanceAddress : pid));
+        const state       = this.validHarnessPresenceStates.includes(presence.state) ? presence.state : 'unknown';
+        const wakePolicy  = this.validWakePolicies.includes(presence.wakePolicy) ? presence.wakePolicy : 'next_turn';
+
+        const properties = {
+            agentIdentity: owner,
+            subscriptionId,
+            state,
+            activeTurnId   : presence.activeTurnId || null,
+            wakePolicy,
+            source         : presence.source || 'mcp-client',
+            instanceAddress: instanceAddress || null,
+            addressType    : addressType || null,
+            pid            : presencePid,
+            bootId,
+            lastSeenAt     : nowIso,
+            capabilities   : Array.isArray(presence.capabilities) ? presence.capabilities : [],
+            freshUntil     : new Date(nowDate.getTime() + this.harnessPresenceFreshMs).toISOString(),
+            expiresAt      : new Date(nowDate.getTime() + this.harnessPresenceTtlMs).toISOString(),
+            updatedAt      : nowIso,
+            status         : 'active',
+            userId         : owner,
+            sharedEntity   : false
+        };
+
+        GraphService.upsertNode({
+            id         : this._buildHarnessPresenceId(owner, bootId),
+            type       : 'HARNESS_PRESENCE',
+            name       : `HarnessPresence ${owner}`,
+            description: 'Volatile wake-routing presence overlay for a booted harness instance.',
+            properties
+        });
+
+        return properties;
+    }
+
+    /**
+     * @summary Retires stale HarnessPresence rows for an identity.
+     *
+     * Primary stale signal: a prior boot id plus a dead pid. TTL is a backstop for harnesses whose
+     * pid cannot be trusted or was never recorded.
+     *
+     * @param {Object} opts
+     * @param {String} opts.owner AgentIdentity node id.
+     * @param {String} opts.bootId Current boot id.
+     * @param {Date|String|Number} [opts.now=new Date()] Clock source.
+     * @returns {Number} Count of retired rows.
+     */
+    retireStaleHarnessPresence({owner, bootId, now = new Date()} = {}) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite || !owner) return 0;
+
+        const nowMs = this._coerceDate(now).getTime();
+        const rows = sqlite.prepare(`
+            SELECT id, data FROM Nodes
+            WHERE json_extract(data, '$.label') = 'HARNESS_PRESENCE'
+              AND json_extract(data, '$.properties.agentIdentity') = ?
+              AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+        `).all(owner);
+
+        let retired = 0;
+
+        for (const row of rows) {
+            let node;
+            try {
+                node = JSON.parse(row.data);
+            } catch (error) {
+                logger.warn(`[WakeSubscription] Failed to parse HarnessPresence row ${row.id}: ${error.message}`);
+                continue;
+            }
+
+            const props        = node.properties || {};
+            const bootMismatch = props.bootId && props.bootId !== bootId;
+            const ttlExpired   = this._isPresenceTtlExpired(props, nowMs);
+            const pidDead      = props.pid ? !this._isPidAlive(props.pid) : false;
+
+            if (!ttlExpired && !(bootMismatch && pidDead)) continue;
+
+            GraphService.upsertNode({
+                id        : row.id || node.id,
+                type      : 'HARNESS_PRESENCE',
+                properties: {
+                    ...props,
+                    status      : 'retired',
+                    retiredAt   : new Date(nowMs).toISOString(),
+                    retireReason: ttlExpired ? 'ttl-expired' : 'boot-mismatch-pid-dead'
+                }
+            });
+            retired++;
+        }
+
+        return retired;
     }
 
     /**
@@ -422,9 +599,10 @@ class WakeSubscriptionService extends Base {
      * @param {Object} [opts.filters] taggedConcepts | priority | senderFilter | inReplyToFilter
      * @param {String} opts.harnessTarget One of validHarnessTargets
      * @param {Object} [opts.harnessTargetMetadata] appName | url | coalesceWindow |
-     *     daemonSocketPath | adapter | tabShortcut | focusSeedKey | tmuxSession | userDataDir
-     *     (userDataDir: instance address for a same-bundle GUI harness — the bridge daemon resolves
-     *     it to that instance's pid and raises that process, instead of the ambiguous frontmost guess)
+     *     daemonSocketPath | adapter | tabShortcut | focusSeedKey | tmuxSession |
+     *     instanceAddress | addressType | userDataDir
+     *     (`instanceAddress` + `addressType`: boot-envelope instance address for bridge-daemon
+     *     dispatch; `userDataDir` remains a legacy compatibility field for existing subscriptions)
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, signingKey?}
      */
     async subscribe({trigger, filters = {}, harnessTarget, harnessTargetMetadata = {}} = {}) {
@@ -612,6 +790,14 @@ class WakeSubscriptionService extends Base {
         }
         if (metadata.appName && !this.validAppNames.includes(metadata.appName)) {
             throw new Error(`Invalid appName '${metadata.appName}'. Must be one of: ${this.validAppNames.join(', ')}`);
+        }
+        if (metadata.instanceAddress || metadata.addressType) {
+            if (!metadata.instanceAddress || !metadata.addressType) {
+                throw new Error('Shape C generic instance addressing requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType.');
+            }
+            if (!this.validAddressTypes.includes(metadata.addressType)) {
+                throw new Error(`Invalid addressType '${metadata.addressType}'. Must be one of: ${this.validAddressTypes.join(', ')}`);
+            }
         }
     }
 
@@ -1446,6 +1632,93 @@ class WakeSubscriptionService extends Base {
         this.subscriptionCache.set(id, refreshed);
 
         return refreshed;
+    }
+
+    /**
+     * @summary Builds a deterministic HarnessPresence node id for one identity boot.
+     * @param {String} owner AgentIdentity node id.
+     * @param {String} bootId Per-process boot id.
+     * @returns {String}
+     * @protected
+     */
+    _buildHarnessPresenceId(owner, bootId) {
+        return `HARNESS_PRESENCE:${owner}:${bootId}`;
+    }
+
+    /**
+     * @summary Resolves generic and legacy route metadata into a presence address tuple.
+     * @param {Object} metadata Merged harnessTargetMetadata.
+     * @returns {{instanceAddress:String|null,addressType:String|null}}
+     * @protected
+     */
+    _resolvePresenceAddress(metadata = {}) {
+        const addressType = metadata.addressType
+            || (metadata.userDataDir ? 'userDataDir' : null);
+
+        const instanceAddress = metadata.instanceAddress
+            || (addressType === 'userDataDir' ? metadata.userDataDir : null);
+
+        return {
+            instanceAddress: instanceAddress || null,
+            addressType    : addressType || null
+        };
+    }
+
+    /**
+     * @summary Normalizes a process id candidate for HarnessPresence storage.
+     * @param {*} pid Process id candidate.
+     * @returns {Number|null}
+     * @protected
+     */
+    _normalizePresencePid(pid) {
+        const numericPid = Number(pid);
+
+        return Number.isInteger(numericPid) && numericPid > 0 ? numericPid : null;
+    }
+
+    /**
+     * @summary Coerces test-injected and production clock values to a valid Date.
+     * @param {Date|String|Number} value Clock value.
+     * @returns {Date}
+     * @protected
+     */
+    _coerceDate(value) {
+        const date = value instanceof Date ? value : new Date(value);
+
+        return Number.isNaN(date.getTime()) ? new Date() : date;
+    }
+
+    /**
+     * @summary Tests whether a HarnessPresence row has exceeded its TTL backstop.
+     * @param {Object} props HarnessPresence properties.
+     * @param {Number} nowMs Current timestamp in milliseconds.
+     * @returns {Boolean}
+     * @protected
+     */
+    _isPresenceTtlExpired(props, nowMs) {
+        const expiresAt = props.expiresAt ? new Date(props.expiresAt).getTime() : NaN;
+        if (Number.isFinite(expiresAt)) return expiresAt <= nowMs;
+
+        const lastSeenAt = props.lastSeenAt ? new Date(props.lastSeenAt).getTime() : NaN;
+        return Number.isFinite(lastSeenAt) && nowMs - lastSeenAt > this.harnessPresenceTtlMs;
+    }
+
+    /**
+     * @summary Checks pid liveness for stale HarnessPresence retirement.
+     * @param {Number|String} pid Process id candidate.
+     * @returns {Boolean}
+     * @protected
+     */
+    _isPidAlive(pid) {
+        const numericPid = this._normalizePresencePid(pid);
+        if (!numericPid) return false;
+
+        try {
+            process.kill(numericPid, 0);
+            return true;
+        } catch (error) {
+            return error.code === 'EPERM';
+        }
     }
 
     /**

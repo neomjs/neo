@@ -25,13 +25,13 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
     test.beforeAll(async () => {
         // Import the config and apply any required setup
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        
+
         // Setup temporary directory for db paths to avoid crashing
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
         }
-        
+
         aiConfig.storagePaths.graph = path.join(tmpDir, `tool-limits-test-${Date.now()}.sqlite`);
 
         const ToolServiceModule = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs');
@@ -66,16 +66,19 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
         expect(metadata.required).toContain('appName');
         expect(Object.keys(metadata.properties)).toEqual(expect.arrayContaining([
+            'addressType',
             'adapter',
             'appName',
             'coalesceWindow',
             'daemonSocketPath',
             'focusSeedKey',
+            'instanceAddress',
             'tabShortcut',
             'tmuxSession',
             'url'
         ]));
         expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux']);
+        expect(metadata.properties.addressType.enum).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
     });
 
     test('get_neighbors output schema exposes semanticVectorId contract (#11680)', async () => {

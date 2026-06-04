@@ -24,9 +24,9 @@ import BootEnvelopeResolver from '../../../../../../../../ai/mcp/server/shared/s
  * The resolver maps the boot instance-address envelope (`NEO_HARNESS_INSTANCE_ADDRESS` +
  * `NEO_HARNESS_INSTANCE_ADDRESS_TYPE`) into wake-subscription `overrideMetadata`. The critical
  * behaviors: a fully-omitted envelope is the default instance (null, routed by absence); a complete
- * `userDataDir` envelope yields the address override the bridge daemon reads; and every degenerate
- * shape (partial config, unknown type, recognized-but-not-yet-dispatchable type) fails closed so a
- * non-default instance can never silently fall back to the default route and misroute its wakes.
+ * `userDataDir` envelope yields the generic address override the bridge daemon reads; and every
+ * degenerate shape (partial config, unknown type) fails closed so a non-default instance can never
+ * silently fall back to the default route and misroute its wakes.
  */
 
 test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)', () => {
@@ -43,7 +43,7 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
         })).toBeNull();
     });
 
-    test('userDataDir envelope yields the address override the daemon reads', () => {
+    test('userDataDir envelope yields the generic address override the daemon reads', () => {
         const result = BootEnvelopeResolver.resolveOverrideMetadata({
             NEO_HARNESS_INSTANCE_ADDRESS     : NEO_DIR,
             NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'userDataDir'
@@ -51,8 +51,7 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
 
         expect(result).toEqual({
             instanceAddress: NEO_DIR,
-            addressType    : 'userDataDir',
-            userDataDir    : NEO_DIR
+            addressType    : 'userDataDir'
         });
     });
 
@@ -64,8 +63,7 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
 
         expect(result).toEqual({
             instanceAddress: NEO_DIR,
-            addressType    : 'userDataDir',
-            userDataDir    : NEO_DIR
+            addressType    : 'userDataDir'
         });
     });
 
@@ -88,19 +86,25 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
         })).toThrow(/Invalid NEO_HARNESS_INSTANCE_ADDRESS_TYPE/);
     });
 
-    test('fails closed on a recognized-but-not-yet-dispatchable type (pid)', () => {
-        expect(() => BootEnvelopeResolver.resolveOverrideMetadata({
+    test('pid envelope yields the generic address override', () => {
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({
             NEO_HARNESS_INSTANCE_ADDRESS     : '20001',
             NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'pid'
-        })).toThrow(/not yet implemented/);
+        })).toEqual({
+            instanceAddress: '20001',
+            addressType    : 'pid'
+        });
     });
 
-    test('fails closed on the remaining reserved types (tmuxSession, webhookUrl)', () => {
+    test('remaining graduated address types yield generic address overrides', () => {
         for (const addressType of ['tmuxSession', 'webhookUrl']) {
-            expect(() => BootEnvelopeResolver.resolveOverrideMetadata({
+            expect(BootEnvelopeResolver.resolveOverrideMetadata({
                 NEO_HARNESS_INSTANCE_ADDRESS     : 'reserved-value',
                 NEO_HARNESS_INSTANCE_ADDRESS_TYPE: addressType
-            })).toThrow(/not yet implemented/);
+            })).toEqual({
+                instanceAddress: 'reserved-value',
+                addressType
+            });
         }
     });
 
@@ -114,8 +118,7 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
 
             expect(BootEnvelopeResolver.resolveOverrideMetadata()).toEqual({
                 instanceAddress: NEO_DIR,
-                addressType    : 'userDataDir',
-                userDataDir    : NEO_DIR
+                addressType    : 'userDataDir'
             });
         } finally {
             if (prevAddress === undefined) delete process.env.NEO_HARNESS_INSTANCE_ADDRESS;
@@ -128,6 +131,6 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
 
     test('validAddressTypes documents the graduated address-kind set', () => {
         expect(BootEnvelopeResolver.validAddressTypes).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
-        expect(BootEnvelopeResolver.dispatchableAddressTypes).toEqual(['userDataDir']);
+        expect(BootEnvelopeResolver.dispatchableAddressTypes).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
     });
 });

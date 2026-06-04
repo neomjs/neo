@@ -33,12 +33,11 @@ import Base from '../../../../../src/core/Base.mjs';
  *
  * ## Dispatch coverage
  *
- * The bridge daemon currently dispatches the `userDataDir` address kind. The `pid`, `tmuxSession`,
- * and `webhookUrl` kinds are recognized envelope values reserved for the forthcoming generic
- * address-type dispatch; until that lands they fail closed here rather than produce a subscription
- * the daemon would misroute. For `userDataDir`, the address is also mirrored onto the legacy
- * `userDataDir` metadata field the daemon reads today; that mirror is a transitional bridge and is
- * retired once dispatch reads the generic `addressType` directly.
+ * The bridge daemon dispatches the generic `{instanceAddress, addressType}` pair directly:
+ * `userDataDir` resolves to a same-bundle GUI process, `pid` targets that process directly,
+ * `tmuxSession` sends to tmux, and `webhookUrl` posts the wake digest. The earlier transitional
+ * `userDataDir` mirror is retired here; legacy subscriptions that already carry that field remain
+ * a bridge-daemon compatibility read concern, not a boot-envelope output.
  *
  * Pure resolution is intentionally side-effect-free (reads `process.env` only) so the mapping is
  * unit-testable with injected environments.
@@ -65,8 +64,7 @@ class BootEnvelopeResolver extends Base {
 
     /**
      * @member {String[]} validAddressTypes
-     * The recognized instance-address kinds. `userDataDir` is dispatched today; the remainder are
-     * reserved for generic address-type dispatch and currently fail closed.
+     * The recognized instance-address kinds.
      */
     validAddressTypes = ['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']
 
@@ -74,7 +72,7 @@ class BootEnvelopeResolver extends Base {
      * @member {String[]} dispatchableAddressTypes
      * The subset of {@link validAddressTypes} the bridge daemon can route today.
      */
-    dispatchableAddressTypes = ['userDataDir']
+    dispatchableAddressTypes = ['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']
 
     /**
      * Resolves the boot instance-address envelope into wake-subscription `overrideMetadata`.
@@ -123,16 +121,7 @@ class BootEnvelopeResolver extends Base {
             );
         }
 
-        const overrideMetadata = {instanceAddress, addressType};
-
-        // Transitional daemon-compat: the live bridge daemon resolves the target instance from the
-        // `userDataDir` metadata field. Mirror the address there so wake routing is functional now;
-        // the mirror is retired once dispatch reads `addressType` directly.
-        if (addressType === 'userDataDir') {
-            overrideMetadata.userDataDir = instanceAddress;
-        }
-
-        return overrideMetadata;
+        return {instanceAddress, addressType};
     }
 }
 
