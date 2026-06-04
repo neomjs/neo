@@ -26,6 +26,14 @@ An Epic body is **problem-scope + intended-solution** — the durable "why + wha
 - A `## Sub-tickets` registry that enumerates subs with content. The body MAY reference a sub by `#N` in prose where load-bearing, but must not be the canonical sub registry (that is the `update_issue_relationship` graph).
 - **Pseudo-subs** — placeholder sub descriptions the body pretends to own before the real subs exist.
 
+## Sub-decomposition: the leaf-sub close-target contract
+
+Each sub the decomposition creates MUST be a **leaf that a single PR can FULLY deliver and `Resolves`** — a hard contract, because the `lint-pr-body` CI requires every PR body to carry a `Resolves #N` where N is a fully-delivered leaf.
+
+- **Each sub = one-PR-deliverable leaf.** Never bundle separable deliverables (e.g. "declarative reshape" + "lint guard", or "fix" + "observability") into one sub. A bundled sub cannot be cleanly `Resolves`'d by either PR → it forces mid-review leaf-splitting churn.
+- **The Epic is the umbrella, never a PR close-target.** It carries the `epic` label, is `Refs`'d (never `Resolves`/`Closes`) by its subs' PRs, and must NEVER be a PR close-target — the `pr-review` close-target audit forbids closing an `epic`-labeled issue (an epic auto-closed while subs are still open is the canonical close-target sabotage). The Epic closes via `epic-resolution` once its leaf subs are done.
+- **Multi-cause symptom tickets** → one leaf per cause; each PR `Resolves` its own leaf and `Refs` the symptom.
+
 ## Lifecycle position
 
 | Skill | Phase | Owns |
@@ -46,3 +54,4 @@ An Epic body is **problem-scope + intended-solution** — the durable "why + wha
    - [ ] Body contains **no** hardcoded sub-registry (subs discoverable via parent-child relationship instead).
    - [ ] Body answers "why an Epic (multi-sub coordination), not a single ticket?".
    - [ ] If Discussion-graduated: §6.6 Signal Ledger present + quorum met.
+   - [ ] Each planned sub is a one-PR-deliverable **leaf** (no bundled separable deliverables); the Epic is `Refs`'d by subs, never a PR close-target.
