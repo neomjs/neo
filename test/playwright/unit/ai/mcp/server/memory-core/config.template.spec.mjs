@@ -219,4 +219,18 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.storagePaths.graph).toBe(':memory:');
         expect(config.storagePaths.graph).toBe(config.storagePaths.graphTest);
     });
+
+    test('collections.memory/session resolve by construction to per-worker-unique test names under the toggle (#12499)', () => {
+        // The reshape replaced the inline `process.env.UNIT_TEST_MODE ? test-... : prod` leaf ternaries
+        // with *Prod/*Test leaves + formulas; the test names are per-worker-unique module consts. Under
+        // the unit suite (UNIT_TEST_MODE=true) the formulas resolve the test names (never prod).
+        expect(config.collections.useTestDatabase).toBe(true);
+        expect(config.collections.memoryProd).toBe('neo-agent-memory');
+        expect(config.collections.sessionProd).toBe('neo-agent-sessions');
+        expect(config.collections.memory).toMatch(/^test-memory-/);
+        expect(config.collections.session).toMatch(/^test-session-/);
+        expect(config.collections.memory).toBe(config.collections.memoryTest);
+        expect(config.collections.session).toBe(config.collections.sessionTest);
+        expect(config.collections.graph).toBe('neo-native-graph');
+    });
 });
