@@ -45,6 +45,7 @@
         "ai:prune-worktrees"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
         "ai:purge-test-collections"    : "node ./ai/scripts/maintenance/purgeTestCollections.mjs",
         "ai:lint-agents"               : "node ./ai/scripts/lint/lint-agents.mjs",
+        "ai:lint-config-template-ssot" : "node ./ai/scripts/lint/lint-config-template-ssot.mjs",
         "ai:lint-mcp-test-locations"   : "node ./ai/scripts/lint/lint-mcp-test-locations.mjs",
         "ai:lint-skill-manifest"       : "node ./ai/scripts/lint/lint-skill-manifest.mjs",
         "ai:lint-tree-json"            : "node ./ai/scripts/lint/lint-tree-json.mjs",
