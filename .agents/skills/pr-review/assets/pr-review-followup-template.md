@@ -8,6 +8,16 @@
 
 ---
 
+### Patch-Blind Premise Snapshot
+
+*For follow-ups, ground the expected shape in the prior review anchor plus the current delta. Do not let the author's response framing replace the source-of-authority substrate.*
+
+*   **Inputs Read Before Patch:** [Prior review anchor / author response / changed-file list / current `dev` source / source-of-authority substrate checked before treating the delta as evidence.]
+*   **Expected Solution Shape:** [1-3 sentences naming the expected delta shape, what boundary this must NOT hardcode, and what test isolation should exist.]
+*   **Patch Verdict:** [Matches / improves / contradicts the expected shape, with the evidence that confirmed or changed your premise.]
+
+---
+
 ### Strategic-Fit Decision
 
 Per §9 Strategic-Fit Step-Back:

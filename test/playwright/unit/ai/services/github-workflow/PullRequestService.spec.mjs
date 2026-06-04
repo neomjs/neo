@@ -20,12 +20,12 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 /**
- * @summary Contract coverage for `PullRequestService.getConversation` comment-selector params (#10272 §2.2).
+ * @summary Contract coverage for `PullRequestService.getConversation` comment-selector params.
  *
- * Prior to #10272, `getConversation(prNumber)` always returned the full PR conversation —
- * every review cycle N+1 paid context-fetch cost proportional to cumulative thread size.
- * This ticket added three optional selectors (`comment_id`, `since_comment_id`, `last_n`)
- * that narrow the returned comments array at the cost of one client-side filter pass.
+ * Before selector support, `getConversation(prNumber)` always returned the full PR conversation;
+ * every review cycle N+1 paid context-fetch cost proportional to cumulative thread size. The
+ * service now exposes three optional selectors (`comment_id`, `since_comment_id`, `last_n`) that
+ * narrow the returned comments array at the cost of one client-side filter pass.
  *
  * These tests pin the selector contract:
  * 1. No selectors → full conversation (backward-compat path).
@@ -84,7 +84,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getConvers
     });
 
     test('accepts legacy positional prNumber form (backward-compat migration path)', async () => {
-        // Existing callers predating #10272 may pass `prNumber` positionally. The new
+        // Existing callers may pass `prNumber` positionally. The object-form
         // signature must tolerate both forms to avoid a breaking change. Same result as
         // the object form, just demonstrating the calling convention still works.
         const result = await PullRequestService.getConversation(10272);
@@ -229,7 +229,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
     let fs;
     let path;
     let aiConfig;
-    
+
     test.beforeAll(async () => {
         PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
         aiConfig           = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
@@ -242,7 +242,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
             pr_number : 10747,
             files_only: true
         });
-        
+
         expect(Array.isArray(result.files)).toBe(true);
         expect(result.files.some(f => f.path.includes('cognitive-load-baseline'))).toBe(true);
     });
@@ -252,7 +252,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
             pr_number: 10747,
             file     : 'learn/agentos/measurements/cognitive-load-baseline-2026-05.md'
         });
-        
+
         expect(typeof result.result).toBe('string');
         expect(result.result).toContain('Sub 4 Payload Audit Results');
     });
@@ -266,7 +266,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
 
         // 1. Capture baseline output
         const baseline = await PullRequestService.getPullRequestDiff(params);
-        
+
         // 2. Mutate local working tree
         const targetFilePath  = path.join(aiConfig.projectRoot, params.file);
         const originalContent = await fs.readFile(targetFilePath, 'utf-8');
@@ -276,7 +276,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
         try {
             // 3. Re-run
             const rerunning = await PullRequestService.getPullRequestDiff(params);
-            
+
             // 4. Assert byte-identical output
             expect(rerunning.result).toBe(baseline.result);
         } finally {
@@ -291,7 +291,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
             file     : 'some/file.md',
             sha      : 'invalid-sha-xyz; touch /tmp/pwned'
         });
-        
+
         expect(result.error).toBe('Bad Request');
         expect(result.code).toBe('INVALID_ARGUMENTS');
     });
@@ -301,7 +301,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
             pr_number: 10747,
             sha      : 'd8913f1fa89f585a237a5e54992b2d12865e4fb6'
         });
-        
+
         expect(result.error).toBe('Bad Request');
         expect(result.code).toBe('INVALID_ARGUMENTS');
     });
@@ -319,7 +319,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
 });
 
 /**
- * @summary Contract coverage for `PullRequestService.managePrReview` (#11273).
+ * @summary Contract coverage for `PullRequestService.managePrReview`.
  *
  * Closes the formal-state gap: atomic create or update of a formal pull request review
  * via the `addPullRequestReview` / `updatePullRequestReview` GraphQL mutations.
@@ -350,7 +350,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         databaseId : 12345
     };
 
-    // Minimal review body that passes BOTH layers of the #11491 tool-boundary template-anchor validator:
+    // Minimal review body that passes BOTH layers of the tool-boundary template-anchor validator:
     // - VISIBLE layer: the 7 evaluation-metric tags from pr-review-template.md / pr-review-followup-template.md
     // - INVISIBLE layer: structural anchors NOT enumerated in error responses; see
     //   `INVISIBLE_PR_REVIEW_ANCHORS` constant in `ai/services/github-workflow/PullRequestService.mjs`
@@ -597,19 +597,18 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     });
 
     // ────────────────────────────────────────────────────────────────────────
-    // #11491 — tool-boundary mechanical body-shape validation
+    // Tool-boundary mechanical body-shape validation
     //   Visible layer: 7 metric tags, misses named in error
     //   Invisible layer: structural anchors, checked but NOT named in error
     //                    (defeats Goodhart anchor-stuffing — operator-directed 2026-05-16)
     // ────────────────────────────────────────────────────────────────────────
 
     test('#11491: rejects body missing all 7 visible metric anchors AND structural anchors', async () => {
-        // The empirical recurrence: Gemini's PR #11488/#11489 reviews (2026-05-16T20:14Z) shipped
-        // a hallucinated "Structural Evaluation Matrix" with 5 invented metric names on a 1-10
-        // scale, completely bypassing the template's 7 evaluation-metric tags. The Retrospective
-        // daemon's regex parser (`ConceptDiscoveryService.mjs:32`) saw zero ingest signal — two
-        // PRs worth of review-substrate data silently lost from the Native Edge Graph. This test
-        // pins the new tool-boundary gate that prevents this class of substrate loss.
+        // The empirical recurrence: prior reviews shipped a hallucinated "Structural Evaluation
+        // Matrix" with 5 invented metric names on a 1-10 scale, completely bypassing the template's
+        // 7 evaluation-metric tags. The Retrospective daemon's regex parser saw zero ingest signal,
+        // losing review-substrate data from the Native Edge Graph. This test pins the tool-boundary
+        // gate that prevents this class of substrate loss.
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
@@ -648,12 +647,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     });
 
     test('#11491: Goodhart-stuffed body — all 7 metric tags present but missing structural anchors — still REJECTED', async () => {
-        // Empirical anchor: Gemini's review `4304287893` on PR #11499 (2026-05-16T21:16:25Z)
-        // contained ALL 7 metric tags but missed the structural template anchors. The pre-
-        // enhancement validator would have PASSED this body (the canonical Goodhart-stuffing
-        // failure mode the operator-directed invisible layer prevents). This test asserts that
-        // post-enhancement, structural-only-stuffing IS rejected — without naming the invisible
-        // anchors in test prose to preserve the safeguard surface.
+        // Empirical anchor: a prior review contained ALL 7 metric tags but missed the structural
+        // template anchors. The visible-only validator would have PASSED this body (the canonical
+        // Goodhart-stuffing failure mode the invisible layer prevents). This test asserts that
+        // structural-only-stuffing IS rejected without naming the invisible anchors in test prose.
         const stuffedBody = [
             'Approval granted.',
             '[ARCH_ALIGNMENT]: 100',
@@ -749,6 +746,98 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.error).toBeUndefined();
         expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
         // Two GraphQL queries: GetPullRequestId + AddPullRequestReview
+        expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#12448: accepts complete optional premise snapshot during add-first migration', async () => {
+        // Premise-snapshot anchors are optional-first: old review bodies still pass,
+        // but migrated templates may emit all three fields together before a later enforcement PR.
+        let graphqlCallCount = 0;
+        GraphqlService.query = async (queryString) => {
+            graphqlCallCount++;
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            return null;
+        };
+
+        const body = [
+            '### Patch-Blind Premise Snapshot',
+            '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
+            '* **Expected Solution Shape:** optional validator recognition without hard enforcement.',
+            '* **Patch Verdict:** matches expected optional-first migration.',
+            '',
+            VALID_REVIEW_BODY
+        ].join('\n');
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 12448,
+            state    : 'APPROVED',
+            body
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#12448: rejects partial premise snapshot without making a GitHub call', async () => {
+        // Omit-all remains valid in the add-optional phase, but once the snapshot appears it must
+        // include the complete three-field shape. A partial snapshot is the exact theater risk the
+        // migration is meant to expose.
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const body = [
+            '### Patch-Blind Premise Snapshot',
+            '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
+            '',
+            VALID_REVIEW_BODY
+        ].join('\n');
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 12448,
+            state    : 'APPROVED',
+            body
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing_visible).toEqual([]);
+        expect(result.missing_premise_snapshot).toEqual(['Expected Solution Shape', 'Patch Verdict']);
+        expect(result.message).toContain('Premise snapshot note');
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#12448: ignores incidental premise-snapshot prose without making it partial', async () => {
+        // Bare phrases in review prose must not activate the optional snapshot contract; only the
+        // distinctive bold template labels should require the full three-field snapshot.
+        let graphqlCallCount = 0;
+        GraphqlService.query = async (queryString) => {
+            graphqlCallCount++;
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            return null;
+        };
+
+        const body = [
+            'The Patch Verdict from the prior cycle still stands.',
+            '',
+            VALID_REVIEW_BODY
+        ].join('\n');
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 12448,
+            state    : 'APPROVED',
+            body
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
         expect(graphqlCallCount).toBe(2);
     });
 

@@ -84,6 +84,21 @@ const INVISIBLE_PR_REVIEW_ANCHORS = [
 ];
 
 /**
+ * Optional-first premise-snapshot anchors for the patch-blind review migration.
+ *
+ * Absence of all three labels is valid during the add-optional phase so in-flight reviews keep
+ * passing. If an author starts emitting the snapshot, all three fields must be present together;
+ * otherwise a partial snapshot reintroduces the same back-rationalized theater the snapshot is
+ * meant to expose. Match the distinctive bold template labels, not bare prose, so incidental
+ * phrases like "Patch Verdict" do not activate the partial-snapshot gate.
+ */
+const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
+    {label: 'Inputs Read Before Patch',  token: '**Inputs Read Before Patch:**'},
+    {label: 'Expected Solution Shape',   token: '**Expected Solution Shape:**'},
+    {label: 'Patch Verdict',             token: '**Patch Verdict:**'}
+];
+
+/**
  * @summary Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
  *
  * This service acts as a unified interface for Pull Request operations.
@@ -439,14 +454,20 @@ class PullRequestService extends Base {
         // Both layers point the agent at `.agents/skills/pr-review/SKILL.md` — the canonical
         // primitive for resolving any validation failure is to read the skill + template, not
         // to compose a substitute structure.
-        const missingVisible   = VISIBLE_PR_REVIEW_ANCHORS  .filter(anchor => !body.includes(anchor));
-        const missingInvisible = INVISIBLE_PR_REVIEW_ANCHORS.filter(anchor => !body.includes(anchor));
+        const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
+        const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
+        const presentPremiseSnapshot  = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS .filter(anchor =>  body.includes(anchor.token));
+        const missingPremiseSnapshot  = presentPremiseSnapshot.length === 0
+            ? []
+            : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS
+                .filter(anchor => !body.includes(anchor.token))
+                .map(anchor => anchor.label);
 
-        if (missingVisible.length > 0 || missingInvisible.length > 0) {
+        if (missingVisible.length > 0 || missingInvisible.length > 0 || missingPremiseSnapshot.length > 0) {
             // Compose a message that guides toward the skill without enumerating invisible anchors.
             // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
             // full list — to reduce the "stuff just these tags" attack surface further.
-            const diagnosticAnchor = missingVisible[0] ?? null;
+            const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? null;
 
             const skillPath    = '.agents/skills/pr-review/SKILL.md';
             const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
@@ -462,6 +483,9 @@ class PullRequestService extends Base {
                 `Do NOT compose a substitute template or hallucinate section headings. The validator`,
                 `checks more structural anchors than this error names. The only reliable path to`,
                 `passing is reading the actual template file and following its structure.`,
+                missingPremiseSnapshot.length > 0
+                    ? `\nPremise snapshot note: the snapshot is optional during migration, but partial snapshots are invalid. Either omit it entirely or include all three fields.`
+                    : ``,
                 diagnosticAnchor
                     ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
                     : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
@@ -474,9 +498,10 @@ class PullRequestService extends Base {
                 // `missing_visible` lists the named-in-message visible misses. Invisible misses
                 // are intentionally NOT enumerated in the response body — even programmatic
                 // callers should be nudged toward the skill rather than the anchor list.
-                missing_visible: missingVisible,
-                skill          : skillPath,
-                template       : templatePath
+                missing_visible         : missingVisible,
+                missing_premise_snapshot: missingPremiseSnapshot,
+                skill                   : skillPath,
+                template                : templatePath
             };
         }
 
