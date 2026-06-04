@@ -15,14 +15,14 @@ setup({
 
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before
 // the dynamic KbAlertingService import below. Required because the class file no longer
-// imports Neo itself (#11058-style class+wrapper split). Mirrors SwarmHeartbeatService.spec.
+// imports Neo itself (class+wrapper split). Mirrors SwarmHeartbeatService.spec.
 import Neo       from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 
 import {test, expect} from '@playwright/test';
 
 /**
- * Phase 4D (#11642) — unit coverage for `ai/daemons/kb-alerting/KbAlertingService.mjs`, the KB
+ * Unit coverage for `ai/daemons/kb-alerting/KbAlertingService.mjs`, the KB
  * operator-alerting daemon.
  *
  * Stubbing strategy mirrors `SwarmHeartbeatService.spec.mjs`: the daemon exposes
@@ -32,7 +32,7 @@ import {test, expect} from '@playwright/test';
  * singletons (`MailboxService.addMessage`, `RequestContextService.run`, `logger`) are
  * saved + restored around each test for the `dispatchA2A` / `dispatchConsole` cases.
  *
- * Covers the #11642 Contract Ledger Evidence columns for channel dispatch (direct-DM,
+ * Covers the Contract Ledger Evidence columns for channel dispatch (direct-DM,
  * explicit broadcast, invalid-target rejection, wake vs. audit) and the daemon poll loop;
  * the pure threshold/cooldown logic is covered separately in `KbAlertRuleEngine.spec.mjs`.
  *
@@ -41,7 +41,7 @@ import {test, expect} from '@playwright/test';
  * @see test/playwright/unit/ai/daemons/SwarmHeartbeatService.spec.mjs — the sibling pattern.
  */
 test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
-    let KbAlertingService, DEFAULT_INTERVAL_MS;
+    let KbAlertingService;
     let MailboxService, RequestContextService, logger;
     let originals = {};
 
@@ -51,8 +51,17 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
     /** A one-tenant rollup whose errorRate (0.3) breaches RULE's 0.1 threshold. */
     const ROLLUP = [{tenantId: 'tenant-x', repoSlug: 'repo-x', eventCount: 10, errorEvents: 3, errorRate: 0.3}];
 
+    /** Resolved AiConfig subtree fixture — mirrors Provider-inherited template leaves. */
+    const defaultConfig = () => ({
+        alertingEnabled   : true,
+        alertRules        : [RULE],
+        alertingIntervalMs: 15 * 60 * 1000,
+        alertWindowMs     : 60 * 60 * 1000,
+        alertingCooldownMs: 60 * 60 * 1000
+    });
+
     test.beforeAll(async () => {
-        ({default: KbAlertingService, DEFAULT_INTERVAL_MS} =
+        ({default: KbAlertingService} =
             await import('../../../../../../ai/daemons/kb-alerting/KbAlertingService.mjs'));
 
         MailboxService        = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
@@ -83,7 +92,7 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
     test.afterEach(() => {
         KbAlertingService.stop();
         KbAlertingService.isPolling      = false;
-        KbAlertingService.pollIntervalMs = DEFAULT_INTERVAL_MS;
+        KbAlertingService.pollIntervalMs = null;
         KbAlertingService.cooldownState  = {};
 
         // Drop instance-method seam overrides so the real prototype methods resurface for
@@ -110,14 +119,14 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
      * `scheduleNext` is neutralized so tests never leave a real timer in the event loop.
      */
     function applyStubs({config, rollup} = {}) {
-        KbAlertingService.getKbConfig  = () => config || {alertingEnabled: true, alertRules: [RULE]};
+        KbAlertingService.getKbConfig  = () => config ?? defaultConfig();
         KbAlertingService.fetchRollup  = async () => rollup || ROLLUP;
         KbAlertingService.scheduleNext = function () {};
     }
 
     test.describe('start / stop', () => {
         test('start() is a no-op when alertingEnabled is false', async () => {
-            applyStubs({config: {alertingEnabled: false, alertRules: [RULE]}});
+            applyStubs({config: {...defaultConfig(), alertingEnabled: false}});
             let scheduled = 0;
             KbAlertingService.scheduleNext = () => { scheduled++ };
 
@@ -138,6 +147,14 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
 
             await KbAlertingService.start();
             expect(scheduled).toBe(1); // second start() is a no-op
+        });
+
+        test('start() honors a configured alertingIntervalMs', async () => {
+            applyStubs({config: {...defaultConfig(), alertingIntervalMs: 12345}});
+
+            await KbAlertingService.start();
+
+            expect(KbAlertingService.pollIntervalMs).toBe(12345);
         });
 
         test('start() resets cooldown state', async () => {
@@ -165,7 +182,7 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
 
     test.describe('pulse', () => {
         test('dispatches nothing when no rules are configured', async () => {
-            applyStubs({config: {alertingEnabled: true, alertRules: []}});
+            applyStubs({config: {...defaultConfig(), alertRules: []}});
             const dispatched = [];
             KbAlertingService.dispatchAlert = async (a) => { dispatched.push(a) };
 
@@ -206,7 +223,7 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
         });
 
         test('logs a warning for a malformed alert rule and still dispatches valid ones', async () => {
-            applyStubs({config: {alertingEnabled: true, alertRules: [{metric: 'bogus', threshold: 1, severity: 'warning', channels: ['console']}, RULE]}});
+            applyStubs({config: {...defaultConfig(), alertRules: [{metric: 'bogus', threshold: 1, severity: 'warning', channels: ['console']}, RULE]}});
             const warns = [];
             logger.warn = (msg) => { warns.push(msg) };
             const dispatched = [];
@@ -324,8 +341,8 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
         });
 
         test('skips an unresolvable A2A target before dispatch — no addMessage call', async () => {
-            // #11642 Contract Ledger / @neo-gpt PR #11709 review: an unresolvable target
-            // (not a registered @<identity>, not AGENT:*) must be rejected before dispatch.
+            // An unresolvable target (not a registered @<identity>, not AGENT:*) must be
+            // rejected before dispatch.
             const {sent} = captureA2A();
             MailboxService.isReachableTarget = () => false; // simulate an unregistered target
             const warns = [];
