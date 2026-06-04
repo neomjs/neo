@@ -5,12 +5,18 @@ on:
     branches: [dev]
     paths:
       - 'learn/**'
+      - 'apps/portal/llms.txt'
+      - 'apps/portal/sitemap.xml'
+      - 'buildScripts/docs/seo/generate.mjs'
       - 'ai/scripts/lint/lint-tree-json.mjs'
       - '.github/workflows/tree-json-lint.yml'
   push:
     branches: [dev]
     paths:
       - 'learn/**'
+      - 'apps/portal/llms.txt'
+      - 'apps/portal/sitemap.xml'
+      - 'buildScripts/docs/seo/generate.mjs'
       - 'ai/scripts/lint/lint-tree-json.mjs'
       - '.github/workflows/tree-json-lint.yml'
 
