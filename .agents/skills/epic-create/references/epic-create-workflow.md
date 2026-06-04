@@ -1,0 +1,48 @@
+# Epic Creation Workflow
+
+Authoritative protocol for authoring an **Epic** body — the creation-side dual of `ticket-create`, and the entry partner of `epic-review` (pre-work review) + `epic-resolution` (closeout). An Epic is a parent issue (label `epic`) that coordinates multiple sub-tickets toward one shared outcome.
+
+## The Core Rule: an Epic body describes the PROBLEM, not the plan
+
+An Epic body is **problem-scope + intended-solution** — the durable "why + what-shape." It is NOT a container for the sub-decomposition or the acceptance criteria.
+
+- **ACs live in the SUB tickets, never the Epic body.** Each sub owns its own acceptance criteria + Contract Ledger (per `ticket-create`).
+- **Subs are LINKED, not listed.** Attach each sub to the Epic via `update_issue_relationship` (parent-child). The live sub-set is the linked relationship graph, queried on demand — NOT prose in the body.
+- **The Epic body MUST NOT hardcode a sub-list or sub-content.** A body that enumerates "Sub 1 / Sub 2 / …" or bakes their ACs goes stale the moment a sub is added, split, renamed, or dropped → the body contradicts the relationship graph → **FAIL**. Subs are added incrementally at any time; the body must stay valid across that churn.
+
+**Empirical anti-pattern (why this skill exists):** epics #12440 + #12442 baked full AC lists + a sub-decomposition into the body, then created the subs separately — the body now duplicates (and will out-stale) the linked subs. `epic-review`/`epic-resolution` (the entry/exit duals) existed, but no creation-side discipline did.
+
+## What an Epic body SHOULD contain
+
+1. **Problem scope** — the friction / antipattern-cluster / goal, with empirical anchors. State why this needs an Epic (multi-sub coordination) rather than a single ticket.
+2. **Intended solution shape** — the architectural direction (the "what-shape"), NOT the per-sub task breakdown. Enough that a reader knows the convergent shape the subs will serve.
+3. **(If Discussion-graduated) the §6.6 Signal Ledger** — the graduation consensus record (family-keyed quorum, unresolved dissent / liveness, criteria-mapping) per `ideation-sandbox-workflow.md §6`. This is the one structured matrix that belongs in an Epic body, because it records the graduation event, not the sub-plan.
+4. **Out of scope** — sibling efforts + explicitly-deferred directions.
+5. **Avoided traps / rejected shapes** — the divergence preserved from the source Discussion (if any).
+
+## What an Epic body MUST NOT contain
+
+- A `## Acceptance Criteria` checklist — those are per-sub.
+- A `## Sub-tickets` registry that enumerates subs with content. The body MAY reference a sub by `#N` in prose where load-bearing, but must not be the canonical sub registry (that is the `update_issue_relationship` graph).
+- **Pseudo-subs** — placeholder sub descriptions the body pretends to own before the real subs exist.
+
+## Lifecycle position
+
+| Skill | Phase | Owns |
+|---|---|---|
+| **`epic-create`** (here) | Creation | Problem-scope + intended-solution body; `epic` label; title hygiene |
+| `epic-review` | Pre-work entry | Roadmap fit, approach elegance, source-Discussion mapping, sub-structure coherence; seeds the Stage 3.1 closeout matrix |
+| `epic-resolution` | Closeout exit | Reconciles delivered subs against the parent ACs (which live in the subs) |
+
+## Procedure
+
+1. **Confirm Epic-shape.** The work needs ≥2 coordinated subs. A single bounded artifact (≈1 PR's worth) is a standalone ticket (`ticket-create`), not an Epic.
+2. **Graduation gate (if from a Discussion).** High-blast Epics require the §6.2 family-keyed quorum + the §5.1 divergence matrix in the source Discussion before filing (per `ideation-sandbox-workflow.md` + `ideation-sandbox/audits/double-diamond-divergence-guard.md`). Carry the §6.6 ledger into the body.
+3. **Author the body** = problem-scope + intended-solution (+ ledger if graduated). NO ACs, NO sub-list.
+4. **Label `epic`** + apply title hygiene (per `ticket-create`).
+5. **Create subs separately** (via `ticket-create` — each with its own ACs + Contract Ledger) and **link each via `update_issue_relationship`** (parent = the Epic). Add subs incrementally as the decomposition clarifies — never block Epic creation on a complete sub-list.
+6. **Verify** (pre-flight, before `create_issue`):
+   - [ ] Body contains **no** `## Acceptance Criteria` block.
+   - [ ] Body contains **no** hardcoded sub-registry (subs discoverable via parent-child relationship instead).
+   - [ ] Body answers "why an Epic (multi-sub coordination), not a single ticket?".
+   - [ ] If Discussion-graduated: §6.6 Signal Ledger present + quorum met.

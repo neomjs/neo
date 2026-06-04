@@ -122,6 +122,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 |---|---|---|
 | `ticket-intake` | Lifecycle | Pre-execution validation gate for existing tickets |
 | `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, custom Playwright configs) |
+| `epic-create` | Lifecycle | Author Epic bodies (problem-scope + intended-solution; ACs in subs, not the body) |
 | `epic-review` | Lifecycle | Pre-work six-stage gating chain for epics |
 | `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |

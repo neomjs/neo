@@ -451,6 +451,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 **Lifecycle (execution gates):**
 - `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
 - `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, explicit custom Playwright targeting).
+- `epic-create`: Author Epic bodies as problem-scope + intended-solution — ACs live in the sub-tickets, subs are linked (not listed) so the body doesn't stale (creation-side dual of ticket-create).
 - `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness).
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
 - `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence, explicit custom Playwright targeting).
