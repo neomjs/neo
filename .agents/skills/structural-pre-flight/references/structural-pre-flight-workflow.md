@@ -63,7 +63,7 @@ Before drafting the file, you MUST read:
 
 ### 2.2 Pre-Flight Check Shape (Mandatory)
 
-Mirrors the `Mailbox Check Protocol` and `pr-review-guide §9.4 Cold-Cache Exception`. Explicit reasoning-statement before authoring:
+Mirrors the `Mailbox Check Protocol` and `pr-review-guide §10` (cold-cache exception). Explicit reasoning-statement before authoring:
 
 > *"Pre-Flight (structural full): considered destinations `<dir-A>`, `<dir-B>`, ... ; consulted `ArchitectureOverview.md` Structural Inventory (sibling = `<sibling-X>`), `learn/agentos/decisions/<ADR>.md` (relevant constraint = `<rule>`), `<v13-path-or-related-doc>` (current architectural posture = `<posture>`); chose `<dir-final>` because `<rationale>`. Map-maintenance: `<update-needed | not-needed>`."*
 
