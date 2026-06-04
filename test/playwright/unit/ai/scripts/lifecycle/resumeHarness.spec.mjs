@@ -22,6 +22,10 @@ import path                      from 'path';
 import fs                        from 'fs';
 import Neo                       from '../../../../../../src/Neo.mjs';
 import * as core                 from '../../../../../../src/core/_export.mjs';
+import {
+    applyHarnessMetadataDefaults,
+    resolveHarnessTargetForIdentity
+} from '../../../../../../ai/scripts/lifecycle/harnessRouting.mjs';
 
 test.describe('ai/scripts/resumeHarness', () => {
     test.describe.configure({mode: 'serial'});
@@ -94,19 +98,33 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
-    test('Claude identities route to claude-desktop -> osascript Tab-3 adapter (config check)', async () => {
-        // Static script-content check: the HARNESS_REGISTRY claude-desktop entry uses the
-        // osascript adapter, locking Claude recovery to Claude Desktop Tab 3 (Code tab) via
-        // Cmd+3 + Cmd+N (fresh chat). The fresh chat yields a fresh currentSessionId + transcript;
-        // it reuses the running Claude Desktop app (osascript is exempt from process-termination)
-        // rather than spawning a tracked OS process — the accepted trade-off for deterministic
-        // Tab-3 targeting. Always-on coverage — no host side effects (static read only). Both
-        // Claude identities map to claude-desktop.
+    test('Claude identities derive osascript Tab-3 routing from identityRoots modelFamily (#12434)', async () => {
+        // Static source check plus helper-level behavior: resumeHarness no longer mirrors Neo's
+        // identity roster. Claude-family identities derive the same Claude Desktop Tab-3 fresh
+        // session target from identityRoots, including active identities without a
+        // subscriptionTemplate.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'claude-desktop':  { adapter: 'osascript', appName: 'Claude', tabShortcut: '3', freshSessionShortcut: 'n' }");
-        expect(scriptContent).toContain("'@neo-opus-4-7'      : 'claude-desktop'");
-        expect(scriptContent).toContain("'@neo-claude-opus'   : 'claude-desktop'");
-        expect(scriptContent).toContain("'@neo-opus-vega'     : 'claude-desktop'");
+        expect(scriptContent).not.toContain('const identityMap =');
+        expect(scriptContent).toContain('resolveHarnessTargetForIdentity(identity)');
+
+        expect(resolveHarnessTargetForIdentity('@neo-opus-4-7')).toMatchObject({
+            adapter             : 'osascript',
+            appName             : 'Claude',
+            tabShortcut         : '3',
+            freshSessionShortcut: 'n'
+        });
+        expect(resolveHarnessTargetForIdentity('@neo-claude-opus')).toMatchObject({
+            adapter             : 'osascript',
+            appName             : 'Claude',
+            tabShortcut         : '3',
+            freshSessionShortcut: 'n'
+        });
+        expect(resolveHarnessTargetForIdentity('@neo-opus-vega')).toMatchObject({
+            adapter             : 'osascript',
+            appName             : 'Claude',
+            tabShortcut         : '3',
+            freshSessionShortcut: 'n'
+        });
     });
 
     test('normalizes GitHub-login identity form before harness dispatch (#11797)', async () => {
@@ -115,6 +133,51 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(normalizeAgentIdentityNodeId('neo-opus-4-7')).toBe('@neo-opus-4-7');
         expect(normalizeAgentIdentityNodeId('@neo-gpt')).toBe('@neo-gpt');
         expect(normalizeAgentIdentityNodeId('  neo-gemini-3-1-pro  ')).toBe('@neo-gemini-3-1-pro');
+    });
+
+    test('future identityRoots activation does not require resumeHarness identityMap edits (#12434)', () => {
+        const identities = [{
+            id        : '@neo-future-claude',
+            type      : 'AgentIdentity',
+            properties: {
+                modelFamily: 'claude',
+                accountType: 'agent'
+            }
+        }, {
+            id        : '@neo-future-gpt',
+            type      : 'AgentIdentity',
+            properties: {
+                modelFamily: 'gpt',
+                accountType: 'agent'
+            }
+        }];
+
+        expect(resolveHarnessTargetForIdentity('neo-future-claude', {identities})).toMatchObject({
+            adapter             : 'osascript',
+            appName             : 'Claude',
+            tabShortcut         : '3',
+            freshSessionShortcut: 'n'
+        });
+        expect(resolveHarnessTargetForIdentity('@neo-future-gpt', {identities})).toMatchObject({
+            adapter: 'codex-app-server'
+        });
+    });
+
+    test('host app defaults are shared and preserve explicit null opt-outs (#12434)', () => {
+        expect(applyHarnessMetadataDefaults({appName: 'Claude'})).toMatchObject({
+            appName          : 'Claude',
+            tabShortcut      : '3',
+            focusSeedSequence: 'r-undo'
+        });
+        expect(applyHarnessMetadataDefaults({appName: 'Antigravity'})).toMatchObject({
+            appName     : 'Antigravity',
+            tabShortcut : 'shift+i'
+        });
+        expect(applyHarnessMetadataDefaults({appName: 'Antigravity', tabShortcut: null})).toMatchObject({
+            appName     : 'Antigravity',
+            tabShortcut : null
+        });
+        expect(applyHarnessMetadataDefaults({appName: 'Claude', focusSeedKey: 'space'})).not.toHaveProperty('focusSeedSequence');
     });
 
     test('Opus identity osascript runtime dispatch (live host — RUN_LIVE_OSASCRIPT=1 required, #10681)', async () => {
@@ -196,16 +259,23 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(stderrAndStdout).not.toContain('Wake safety gate disabled');
     });
 
-    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries route to safe adapters (#10611 PR-B AC1)', async () => {
-        // Each harness routes to its substrate-correct fresh-session adapter. Antigravity uses
-        // `antigravity chat -n`; Claude Desktop uses the osascript Cmd+3 -> Tab 3 + Cmd+N path
-        // (deterministic Tab-3 targeting); Codex Desktop uses the live-host-gated app-server
-        // adapter. All avoid the rejected prompt-layer sessionId plumbing.
-        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'antigravity-ide': { adapter: 'antigravity-cli' }");
-        expect(scriptContent).toContain("'claude-desktop':  { adapter: 'osascript', appName: 'Claude', tabShortcut: '3', freshSessionShortcut: 'n' }");
-        expect(scriptContent).toContain("'codex-desktop':   { adapter: 'codex-app-server' }");
-        expect(scriptContent).toContain("'@neo-gpt'           : 'codex-desktop'");
+    test('Q1b fresh-session-spawn: model-family routes use safe adapters (#10611 PR-B AC1)', async () => {
+        // Each model family routes to its substrate-correct fresh-session adapter. Antigravity uses
+        // `antigravity chat -n`; Claude Desktop uses the osascript Cmd+3 -> Tab 3 + Cmd+N path;
+        // Codex Desktop uses the live-host-gated app-server adapter. All avoid the rejected
+        // prompt-layer sessionId plumbing.
+        expect(resolveHarnessTargetForIdentity('@neo-gemini-3-1-pro')).toMatchObject({
+            adapter: 'antigravity-cli'
+        });
+        expect(resolveHarnessTargetForIdentity('@neo-opus-4-7')).toMatchObject({
+            adapter             : 'osascript',
+            appName             : 'Claude',
+            tabShortcut         : '3',
+            freshSessionShortcut: 'n'
+        });
+        expect(resolveHarnessTargetForIdentity('@neo-gpt')).toMatchObject({
+            adapter: 'codex-app-server'
+        });
     });
 
     test('Q1b fresh-session-spawn: osascript flow injects freshSessionShortcut keystroke before paste (#10611 PR-B AC1)', async () => {
@@ -235,10 +305,24 @@ test.describe('ai/scripts/resumeHarness', () => {
         // fresh chat) before the clipboard cut/paste of the boot-grounding prompt. The fresh chat
         // is what yields a fresh currentSessionId + transcript. Static-content verification; the
         // live runtime osascript dispatch is RUN_LIVE_OSASCRIPT-gated in the test above.
+        expect(resolveHarnessTargetForIdentity('@neo-opus-4-7')).toMatchObject({
+            adapter             : 'osascript',
+            appName             : 'Claude',
+            tabShortcut         : '3',
+            freshSessionShortcut: 'n'
+        });
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'claude-desktop':  { adapter: 'osascript', appName: 'Claude', tabShortcut: '3', freshSessionShortcut: 'n' }");
         expect(scriptContent).toContain('keystroke "${tabShortcut}" using command down');
         expect(scriptContent).toContain('keystroke "${freshSessionShortcut}" using command down');
+    });
+
+    test('bridge daemon consumes shared host app defaults instead of duplicating shortcut literals (#12434)', async () => {
+        const bridgePath = path.resolve(process.cwd(), 'ai/daemons/bridge/daemon.mjs');
+        const bridgeContent = fs.readFileSync(bridgePath, 'utf-8');
+
+        expect(bridgeContent).toContain('applyHarnessMetadataDefaults(meta)');
+        expect(bridgeContent).not.toContain("if (appName === 'Claude') tabShortcut = '3'");
+        expect(bridgeContent).not.toContain("else if (appName === 'Antigravity') tabShortcut = 'shift+i'");
     });
 
     test('harness lifecycle: CLI-adapter spawn records PID in state-file (antigravity-cli)', async () => {
@@ -507,7 +591,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         // Therefore we strictly delegate to out-of-process harness adapters and ensure
         // no in-process session mutation exists.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain('adapter:');
+        expect(scriptContent).toContain('resolveHarnessTargetForIdentity(identity)');
         expect(scriptContent).not.toMatch(/currentSessionId\s*=/);
     });
 });

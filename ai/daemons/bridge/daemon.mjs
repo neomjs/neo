@@ -48,6 +48,7 @@ import {
     getEdgesData,
     getDbNode
 } from './queries.mjs';
+import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
@@ -699,22 +700,10 @@ async function deliverDigest(subscription, digest) {
                 );
                 return;
             }
-            let tabShortcut = meta.tabShortcut;
-            // Default tab/focus shortcuts are harness-specific. Claude uses Cmd+3 for
-            // its Code tab; Antigravity uses Cmd+Shift+I for the verified focus route.
-            // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
-            if (tabShortcut === undefined) {
-                if (appName === 'Claude') tabShortcut = '3';
-                else if (appName === 'Antigravity') tabShortcut = 'shift+i';
-            }
-            let focusSeedKey      = meta.focusSeedKey;
-            let focusSeedSequence = meta.focusSeedSequence;
-            // Claude tab switching does not always focus the prompt. Use the
-            // probe-and-undo sequence before the destructive Cmd+A/Cmd+X clear path.
-            // Keep this per harness; Antigravity owns an idempotent Cmd+Shift+I route.
-            if (focusSeedSequence === undefined && focusSeedKey === undefined && appName === 'Claude') {
-                focusSeedSequence = 'r-undo';
-            }
+            const metadataWithDefaults = applyHarnessMetadataDefaults(meta);
+            let tabShortcut            = metadataWithDefaults.tabShortcut;
+            let focusSeedKey           = metadataWithDefaults.focusSeedKey;
+            let focusSeedSequence      = metadataWithDefaults.focusSeedSequence;
 
             // Codex Desktop fail-closed guard. The bridge must not drive the destructive
             // Cmd+A/Cmd+X clear path unless subscription metadata provides a verified,
