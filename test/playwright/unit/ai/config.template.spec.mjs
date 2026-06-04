@@ -75,14 +75,19 @@ test.describe('Tier 1 Config Immutability', () => {
             requireParallelModels: TIER1_DEFAULTS.ollama.requireParallelModels
         });
         expect(Config.openAiCompatible).toMatchObject({
-            host                 : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-            model                : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-            embeddingModel       : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-            apiKey               : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
-            unloadRetryCount     : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
-            unloadRetryDelayMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-            keep_alive           : TIER1_DEFAULTS.openAiCompatible.keep_alive,
-            requireParallelModels: TIER1_DEFAULTS.openAiCompatible.requireParallelModels
+            host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+            model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+            embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+            apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
+            unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
+            unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+            contentionRetryCount    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
+            contentionRetryDelayMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
+            contentionTimeoutMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
+            batchEmbeddingChunkSize: Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE) || 5,
+            batchEmbeddingYieldMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
+            keep_alive              : TIER1_DEFAULTS.openAiCompatible.keep_alive,
+            requireParallelModels   : TIER1_DEFAULTS.openAiCompatible.requireParallelModels
         });
         expect(Config.localModels).toMatchObject({
             chat: {

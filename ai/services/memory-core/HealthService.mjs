@@ -193,6 +193,83 @@ export function buildEmbeddingProviderBlock(cfg) {
 }
 
 /**
+ * @summary Probes the active embedding write path used by Memory Core writes.
+ *
+ * Memory writes fail before ChromaDB insertion when the active embedding provider cannot return a
+ * vector. The provider observability block confirms configured routing; this canary verifies the
+ * write-side embedding call itself so healthcheck does not report `healthy` while `add_memory`
+ * would starve or fail at the embedding step.
+ *
+ * @param {Object} options
+ * @param {Object} [options.cfg=aiConfig] aiConfig-shaped input.
+ * @param {Function} [options.embedText] Optional test seam matching `TextEmbeddingService.embedText`.
+ * @param {String} [options.input='neo-healthcheck-embedding-write-canary'] Probe text.
+ * @param {Function} [options.now=Date.now] Time source for deterministic tests.
+ * @returns {Promise<{status: String, provider: String, dimensions: Number|null,
+ *     expectedDimensions: Number|null, durationMs: Number, error: String|undefined}>}
+ */
+export async function buildEmbeddingWriteCanaryBlock({
+    cfg       = aiConfig,
+    embedText = null,
+    input     = 'neo-healthcheck-embedding-write-canary',
+    now       = Date.now
+} = {}) {
+    const readNow            = typeof now === 'function' ? now : () => (typeof now === 'number' ? now : now.getTime()),
+          startedAt          = readNow(),
+          provider           = cfg.embeddingProvider || 'openAiCompatible',
+          expectedDimensions = cfg.vectorDimension ?? null;
+
+    try {
+        const probe = embedText || (async (text, explicitProvider) => {
+            const {default: TextEmbeddingService} = await import('./TextEmbeddingService.mjs');
+            return TextEmbeddingService.embedText(text, explicitProvider);
+        });
+        const embedding = await probe(input, provider),
+              dimensions = Array.isArray(embedding) ? embedding.length : null,
+              durationMs = Math.max(0, readNow() - startedAt);
+
+        if (!Array.isArray(embedding) || embedding.length === 0) {
+            return {
+                status: 'failed',
+                provider,
+                dimensions,
+                expectedDimensions,
+                durationMs,
+                error : 'Embedding write canary returned no vector.'
+            };
+        }
+
+        if (expectedDimensions && dimensions !== expectedDimensions) {
+            return {
+                status: 'failed',
+                provider,
+                dimensions,
+                expectedDimensions,
+                durationMs,
+                error : `Embedding write canary returned ${dimensions} dimensions; expected ${expectedDimensions}.`
+            };
+        }
+
+        return {
+            status: 'healthy',
+            provider,
+            dimensions,
+            expectedDimensions,
+            durationMs
+        };
+    } catch (error) {
+        return {
+            status    : 'failed',
+            provider,
+            dimensions: null,
+            expectedDimensions,
+            durationMs: Math.max(0, readNow() - startedAt),
+            error     : error.message
+        };
+    }
+}
+
+/**
  * Projects one embedding provider selector into the common healthcheck sub-block shape.
  * @param {Object} cfg aiConfig-shaped input.
  * @param {String} active The selected provider key.
@@ -920,7 +997,7 @@ class HealthService extends Base {
         const database   = cachedHealth.database || {};
         const connection = database.connection || {};
 
-        return {
+        const freshPayload = {
             ...cachedHealth,
             timestamp: new Date(now).toISOString(),
             database : {
@@ -934,6 +1011,8 @@ class HealthService extends Base {
                 }
             }
         };
+
+        return this.#applyEmbeddingWriteCanary(freshPayload);
     }
 
     /**
@@ -1109,6 +1188,31 @@ class HealthService extends Base {
     }
 
     /**
+     * @summary Adds the embedding write canary to a healthcheck payload and degrades on failure.
+     * @param {Object} payload Mutable healthcheck payload under construction.
+     * @returns {Promise<Object>}
+     * @private
+     */
+    async #applyEmbeddingWriteCanary(payload) {
+        const canary = await buildEmbeddingWriteCanaryBlock();
+
+        payload.providers.embedding = {
+            ...payload.providers.embedding,
+            writeCanary: canary
+        };
+
+        if (canary.status !== 'healthy') {
+            payload.status = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
+            payload.details = (payload.details || [])
+                .filter(detail => detail !== 'All features are operational')
+                .filter(detail => !detail.startsWith('Embedding write canary failed:'));
+            payload.details.push(`Embedding write canary failed: ${canary.error || 'unknown error'}`);
+        }
+
+        return payload;
+    }
+
+    /**
      * Performs a comprehensive health check without using the cache.
      *
      * Intent: This is the core health check logic, separated from the caching layer
@@ -1209,6 +1313,8 @@ class HealthService extends Base {
             payload.details.push('One or more required collections are missing');
             return payload;
         }
+
+        await this.#applyEmbeddingWriteCanary(payload);
 
         // Step 3: Check API key for summarization feature
         const apiKeyConfigured = this.#checkApiKeyConfigured();
