@@ -18,7 +18,7 @@ Build — and write down — your premise of the change **before** reading the p
 2. **Expected solution-shape** (1–3 sentences) — what *should* a correct change here look like? Explicitly include **"what boundary should this NOT hardcode?"** and **"what test-isolation should exist?"**, so the snapshot reaches the portability + test-isolation dimensions before the diff frames them away.
 3. **Patch-verdict** — does the diff **match / improve / contradict** the expected shape? Name the specific evidence that changed (or confirmed) your mind. "Matches" with no evidence is not a verdict.
 
-**Night-shift provisional marker:** when the approval is single-family / human-asleep (no cross-family reviewer awake), label it `single-family — calibration-deferred-to-merge-gate`. The typed-calibration loop (#12449) reads this marker at the merge-gate to know the approval was single-family / calibration-deferred; it is inert until that consumer lands (define-then-consume).
+**Night-shift provisional marker:** when the approval is single-family / human-asleep (no cross-family reviewer awake), label it `single-family — calibration-deferred-to-merge-gate`. §12 (Typed Calibration Loop) reads this marker at the merge-gate to apply calibration to a single-family / calibration-deferred approval.
 
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
@@ -436,3 +436,7 @@ That payload is the Atlas entry; this section is only the map pointer that fires
 after `pr-review` completes. Author-side symmetry is mapped from
 `pull-request-workflow.md §6.3`. This is the public skill codification of the
 `feedback_peer_not_assistant_mode` lineage.
+
+## 12. Typed Calibration Loop (the non-self-policed signal)
+
+<!-- trigger: operator / human-merge-gate overturns a verdict (incl. the §0 `calibration-deferred-to-merge-gate` marker) → read ./typed-calibration-loop.md -->
