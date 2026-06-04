@@ -117,9 +117,30 @@ class Config extends BaseConfig {
             engine: leaf('hybrid'),
             /**
              * Physical file paths for embedded/local datasets.
+             *
+             * `graph` (the active path consumers read) is a reactive formula (see `formulas` below) that
+             * resolves `graphProd` / `graphTest` by construction from `useTestDatabase` — no inline
+             * `process.env` in a leaf default. Test-mode is resolved in the config, so
+             * the ~10 `storagePaths.graph` consumers (GraphService open, DatabaseService guard, Server
+             * diagnostic, maintenance scripts) read one value unchanged.
              */
             storagePaths: {
-                graph: leaf(process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string')
+                /**
+                 * Production graph SQLite path. Declarative leaf; env override via `NEO_MEMORY_DB_PATH`.
+                 * @type {string}
+                 */
+                graphProd      : leaf(path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+                /**
+                 * Unit-test graph path: in-memory SQLite (ephemeral, per-process). Declarative leaf.
+                 * @type {string}
+                 */
+                graphTest      : leaf(':memory:', 'NEO_MEMORY_DB_PATH_TEST', 'string'),
+                /**
+                 * Test-mode toggle (env-driven via `UNIT_TEST_MODE`). The `storagePaths.graph` formula
+                 * reads this to select `graphTest` (true) or `graphProd` (false) — safe-by-construction.
+                 * @type {boolean}
+                 */
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
             },
             /**
              * Durable wake-daemon watermarks consumed by GraphLog maintenance.
@@ -322,6 +343,20 @@ class Config extends BaseConfig {
              * @type {string}
              */
             lazyEdgesQueuePath: leaf(path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
+        },
+        /**
+         * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
+         */
+        formulas: {
+            /**
+             * The active graph SQLite path, resolved BY CONSTRUCTION from the test-mode toggle.
+             * Consumers read `AiConfig.storagePaths.graph` (this) unchanged — the single resolution
+             * point, reactive on `storagePaths.useTestDatabase`. Replaces the prior inline-`process.env`
+             * leaf ternary so test isolation is by construction, not per-consumer.
+             * @param {Object} data Hierarchical data proxy.
+             * @returns {String}
+             */
+            'storagePaths.graph': data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest : data.storagePaths.graphProd
         }
     }
 }
