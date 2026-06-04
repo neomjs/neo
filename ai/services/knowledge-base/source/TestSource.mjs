@@ -41,7 +41,7 @@ class TestSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         // Per-source path from the `sourcePaths` config (SSOT).
-        const testPath = aiConfig.sourcePaths?.TestSource;
+        const testPath = aiConfig.sourcePaths.TestSource;
         return await this.indexRawDirectory(writeStream, createHashFn, testPath, 'test', {
             include: ['.mjs'],
             exclude: ['node_modules', 'test-results', 'reports']

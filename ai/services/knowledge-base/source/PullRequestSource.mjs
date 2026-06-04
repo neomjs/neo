@@ -62,7 +62,7 @@ class PullRequestSource extends Base {
     async extract(writeStream, createHashFn) {
         let count = 0;
         // Per-source paths (array) from the `sourcePaths` config (SSOT).
-        const pullRequestPaths = aiConfig.sourcePaths?.PullRequestSource;
+        const pullRequestPaths = aiConfig.sourcePaths.PullRequestSource;
         const targetPaths = pullRequestPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
         const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'pulls');
@@ -89,7 +89,7 @@ class PullRequestSource extends Base {
                             kind   : 'pull',
                             name   : `pr-${id}`,
                             content,
-                            // Relative path keeps the distributed Chroma zip portable (#10097).
+                            // Relative path keeps the distributed Chroma zip portable.
                             source : path.relative(aiConfig.neoRootDir, filePath)
                         };
 

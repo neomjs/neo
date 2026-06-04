@@ -60,7 +60,7 @@ class DiscussionSource extends Base {
         let count = 0;
         // Per-source paths (array) from the `sourcePaths` config (SSOT). Each entry is resolved
         // against `neoRootDir`.
-        const discussionPaths = aiConfig.sourcePaths?.DiscussionSource;
+        const discussionPaths = aiConfig.sourcePaths.DiscussionSource;
         const targetPaths = discussionPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
         const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'discussions');
@@ -87,7 +87,7 @@ class DiscussionSource extends Base {
                             kind   : 'discussion',
                             name   : `discussion-${id}`,
                             content,
-                            // Relative path keeps the distributed Chroma zip portable (#10097).
+                            // Relative path keeps the distributed Chroma zip portable.
                             source : path.relative(aiConfig.neoRootDir, filePath)
                         };
 
