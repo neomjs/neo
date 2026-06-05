@@ -127,17 +127,15 @@ export async function loadTopLevelAiConfig({
 }
 
 /**
- * Resolves atomic-bundle retention from Tier-1 AI config with Memory Core fallback.
+ * Resolves atomic-bundle retention from Tier-1 AI config.
  * @param {Object} [options]
  * @param {Object} [options.aiConfig=AiConfig] Tier-1 AI config.
- * @param {Object} [options.memoryCoreConfig=mcConfig] Memory Core config fallback.
  * @returns {Object}
  */
 export function resolveBackupRetention({
-    aiConfig = AiConfig,
-    memoryCoreConfig = mcConfig
+    aiConfig = AiConfig
 } = {}) {
-    return aiConfig.maintenance?.backup?.retention || memoryCoreConfig.backupRetention || {};
+    return aiConfig.maintenance.backup.retention;
 }
 
 /**

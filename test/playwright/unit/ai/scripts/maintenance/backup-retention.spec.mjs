@@ -22,16 +22,14 @@ import fs             from 'fs-extra';
 import path           from 'path';
 
 /**
- * Verifies the Phase 4 (#11663) configurable bundle retention policy in
+ * Verifies the configurable bundle retention policy in
  * `ai/scripts/maintenance/backup.mjs#cleanOldBackups`. Two-axis policy:
  *   - `keepMinimum` — newest N bundles retained unconditionally
  *   - `maxDays`     — bundles older than N days are eligible for deletion
  *
- * Default values (`K=3, N_DAYS=30`) match the pre-#11663 hardcoded constants
- * (byte-equivalence anchor — pre-#11663 deployments without `backupRetention`
+ * Default values (`K=3, N_DAYS=30`) match the previous hardcoded constants
+ * (byte-equivalence anchor — deployments without `backupRetention`
  * config behave identically).
- *
- * @see https://github.com/neomjs/neo/issues/11663
  */
 // Serial mode: this spec exercises a shared `cleanOldBackups` import + tmp filesystem
 // state. Running serially within the file avoids cross-test parallel-worker contention
@@ -39,7 +37,7 @@ import path           from 'path';
 // ordering. CI uses workers=1 in playwright.config.unit.mjs; this is a local-DX safeguard.
 test.describe.configure({mode: 'serial'});
 
-test.describe('cleanOldBackups — configurable retention (#11663)', () => {
+test.describe('cleanOldBackups — configurable retention', () => {
     let cleanOldBackups;
     let loadTopLevelAiConfig;
     let resolveBackupRetention;
@@ -87,10 +85,10 @@ test.describe('cleanOldBackups — configurable retention (#11663)', () => {
         return entries.filter(name => name.startsWith('backup-'));
     }
 
-    test('default config (K=3, N=30 days) matches pre-#11663 hardcoded behavior — byte-equivalence anchor', async () => {
+    test('default config (K=3, N=30 days) matches previous hardcoded behavior — byte-equivalence anchor', async () => {
         // Seed 5 bundles spanning the retention thresholds:
         //   1d, 10d, 25d, 40d, 60d old
-        // Pre-#11663 expected outcome: newest 3 (1d, 10d, 25d) retained unconditionally;
+        // Previous hardcoded expected outcome: newest 3 (1d, 10d, 25d) retained unconditionally;
         // 40d + 60d eligible for deletion (both > 30 days AND outside newest-3 window).
         await seedBackup(1);
         await seedBackup(10);
@@ -211,7 +209,7 @@ test.describe('cleanOldBackups — configurable retention (#11663)', () => {
         expect(remaining).toHaveLength(0);
     });
 
-    test('resolves backup retention from top-level maintenance config before legacy Memory Core fallback', () => {
+    test('resolves backup retention from top-level maintenance config', () => {
         expect(resolveBackupRetention({
             aiConfig: {
                 maintenance: {
@@ -222,12 +220,6 @@ test.describe('cleanOldBackups — configurable retention (#11663)', () => {
                         }
                     }
                 }
-            },
-            memoryCoreConfig: {
-                backupRetention: {
-                    keepMinimum: 3,
-                    maxDays    : 30
-                }
             }
         })).toEqual({
             keepMinimum: 7,
@@ -235,19 +227,10 @@ test.describe('cleanOldBackups — configurable retention (#11663)', () => {
         });
     });
 
-    test('falls back to legacy Memory Core backupRetention when top-level maintenance is absent', () => {
-        expect(resolveBackupRetention({
-            aiConfig: {},
-            memoryCoreConfig: {
-                backupRetention: {
-                    keepMinimum: 5,
-                    maxDays    : 20
-                }
-            }
-        })).toEqual({
-            keepMinimum: 5,
-            maxDays    : 20
-        });
+    test('fails loud when top-level maintenance subtree is absent', () => {
+        expect(() => resolveBackupRetention({
+            aiConfig: {}
+        })).toThrow('backup');
     });
 
     test('loads gitignored top-level AI config only when present', async () => {
@@ -285,7 +268,7 @@ test.describe('cleanOldBackups — configurable retention (#11663)', () => {
     });
 });
 
-test.describe('defragChromaDB cleanOldBackups — configurable snapshot retention (#11722)', () => {
+test.describe('defragChromaDB cleanOldBackups — configurable snapshot retention', () => {
     let cleanOldDefragBackups;
     let resolveDefragSnapshotRetention;
     let tmpRoot;
@@ -324,7 +307,7 @@ test.describe('defragChromaDB cleanOldBackups — configurable snapshot retentio
         return entries.filter(name => name.startsWith('backup-'));
     }
 
-    test('default snapshot config (K=3, N=7 days) matches pre-#11722 hardcoded behavior', async () => {
+    test('default snapshot config (K=3, N=7 days) matches previous hardcoded behavior', async () => {
         await seedDefragBackup(1);
         await seedDefragBackup(3);
         await seedDefragBackup(5);
