@@ -37,7 +37,7 @@ import {buildGraphProvider, resolveGraphModelProvider} from '../../services/grap
  * @see ai/scripts/benchmark/gemma4-rem-benchmark.mjs — companion size-bucket harness
  * @see ai/provider/Ollama.mjs — provider keep-alive payload propagation
  * @see ai/provider/OpenAiCompatible.mjs — OpenAI-compatible keep-alive payload propagation
- * @see learn/agentos/gemma4-rem-benchmark.md — full protocol + findings table
+ * @see learn/agentos/measurements/gemma4-rem-benchmark.md — full protocol + findings table
  */
 
 const FIXED_PROMPT = 'The agent reviewed the implementation, traced the call path through ' +
@@ -155,7 +155,7 @@ async function main() {
     }
 
     console.log('\n=== Probe complete ===');
-    console.log('See learn/agentos/gemma4-rem-benchmark.md for the findings template.');
+    console.log('See learn/agentos/measurements/gemma4-rem-benchmark.md for the findings template.');
     console.log('If reuse appears ACTIVE under keep_alive=1h AND INACTIVE under keep_alive=0,');
     console.log('the provider honors keep_alive and Sub 3 / Sub 7 can batch under one keep_alive window.');
 }

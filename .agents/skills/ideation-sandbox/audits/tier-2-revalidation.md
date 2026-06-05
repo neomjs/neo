@@ -68,7 +68,7 @@ The mechanism is intentionally narrow:
 | Discussion [#11793 OQ5](https://github.com/neomjs/neo/discussions/11793) | Deferred-with-timeline that produced this mechanism |
 | `ai/graph/identityRoots.mjs` | `participationStatus` + `since` + `reactivationTrigger` source-of-truth |
 | `ai/scripts/revalidationSweep.mjs` | Implementation |
-| `learn/agentos/Tier2RevalidationSweep.md` | Operator runbook (when-to-invoke, mechanism, invocation, MVP scope boundaries) |
+| `learn/agentos/tooling/Tier2RevalidationSweep.md` | Operator runbook (when-to-invoke, mechanism, invocation, MVP scope boundaries) |
 | `.agents/skills/ideation-sandbox/audits/consensus-mandate.md` §quorum-rule | Tier-2 rule background |
 
 ## §empirical-anchor — Dogfooded Match

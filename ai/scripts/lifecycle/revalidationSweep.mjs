@@ -18,7 +18,7 @@
  * `--since` defaults to `IDENTITIES[family].properties.since` when present.
  * `--until` defaults to "now". Default mode is dry-run; pass `--apply` to post.
  *
- * @see learn/agentos/Tier2RevalidationSweep.md           — operator runbook
+ * @see learn/agentos/tooling/Tier2RevalidationSweep.md           — operator runbook
  * @see ai/graph/identityRoots.mjs                        — participationStatus source-of-truth
  * @see .agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md §6.5 — invocation discipline
  * @see .agents/skills/ideation-sandbox/audits/consensus-mandate.md §quorum-rule — Tier-2 rule background
@@ -45,7 +45,7 @@ export function createProgram() {
             'Tier-2 revalidation sweep — notifies a reactivated AgentIdentity family of ' +
             'Tier-2 graduated substrate landed during its bench window. Per Epic #11796 AC6 + ' +
             'sub #11803, Option (c) sweep-script-notifies-only. See ' +
-            'learn/agentos/Tier2RevalidationSweep.md for the operator runbook.'
+            'learn/agentos/tooling/Tier2RevalidationSweep.md for the operator runbook.'
         )
         .version(SWEEP_VERSION)
         .requiredOption(
@@ -189,7 +189,7 @@ Per the \`revalidationTrigger\` AC in this artifact + Epic #11796 AC6 + sub #118
 Reconciliation closes this artifact's \`revalidationTrigger\` AC. No-signal-on-this-comment is liveness-failure, not consent (per \`ideation-sandbox-workflow.md §6.2(b)\`).
 ${aggregation}
 
-Source: \`ai/scripts/lifecycle/revalidationSweep.mjs\` v${SWEEP_VERSION}, executed at ${sweepAt}. See [\`learn/agentos/Tier2RevalidationSweep.md\`](../../learn/agentos/Tier2RevalidationSweep.md) for runbook.`;
+Source: \`ai/scripts/lifecycle/revalidationSweep.mjs\` v${SWEEP_VERSION}, executed at ${sweepAt}. See [\`learn/agentos/tooling/Tier2RevalidationSweep.md\`](../../learn/agentos/tooling/Tier2RevalidationSweep.md) for runbook.`;
 }
 
 /**

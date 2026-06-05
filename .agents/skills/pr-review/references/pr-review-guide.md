@@ -106,7 +106,7 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 
 ### 4.1 Reference Hygiene
 
-Before review prose/tags, read [`reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): structural tokens stay bare; descriptive tokens use backticks.
+Before review prose/tags, read [`reference-hygiene.md`](../../../../learn/agentos/process/reference-hygiene.md): structural tokens stay bare; descriptive tokens use backticks.
 
 ## 5. Required Actions & Cross-Linking
 *   **Related Graph Nodes:** Every PR review MUST list related graph nodes (e.g., `Target Epic ID`, `Issue ID`) to ensure the Native Edge Graph links the evaluation to the overarching goal.
@@ -162,7 +162,7 @@ For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP to
 1. **Locate the Ledger:** Fetch the originating ticket (the close-target). Look for the "Contract Ledger" markdown table in the ticket body. If it is a sub-issue relying on a parent epic's ledger, fetch the parent epic to locate it.
 2. **Missing Ledger:** If the PR modifies public surfaces but both the originating ticket and its parent epic lack a Contract Ledger, flag as a **Required Action**:
    > *"PR modifies public/consumed surfaces but the originating ticket (and parent epic) lacks a Contract Ledger matrix. Required: backfill the Contract Ledger on the ticket to establish the formal API contract."*
-3. **Drift Detection:** Compare the PR diff against the ticket's Contract Ledger. If the implemented contract drifts from the ledger (e.g., added fields, changed types, missing deprecation steps), or if a ledger row fails the Surface-Anchor V-B-A in `learn/agentos/contract-ledger.md`, flag as a **Required Action**:
+3. **Drift Detection:** Compare the PR diff against the ticket's Contract Ledger. If the implemented contract drifts from the ledger (e.g., added fields, changed types, missing deprecation steps), or if a ledger row fails the Surface-Anchor V-B-A in `learn/agentos/process/contract-ledger.md`, flag as a **Required Action**:
    > *"Contract drift detected: the implementation differs from the Contract Ledger defined in the ticket. Required: update the ticket's Contract Ledger to reflect the exact shipped reality."*
 
 The PR cannot be approved if the implemented contract and the ticket's Contract Ledger are out of sync.

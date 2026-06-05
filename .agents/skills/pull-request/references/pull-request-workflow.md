@@ -290,7 +290,7 @@ Do not blindly copy the entire ticket body into the PR description. The ticket h
 
 ### 9.1 Reference Hygiene
 
-Before PR prose, read [`reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): relationships stay bare; descriptive tokens use backticks.
+Before PR prose, read [`reference-hygiene.md`](../../../../learn/agentos/process/reference-hygiene.md): relationships stay bare; descriptive tokens use backticks.
 
 **The Epic Close-Target Ban (Mandatory):**
 You are strictly FORBIDDEN from pointing `Resolves #N` at an Epic ticket. GitHub's auto-close-on-merge semantics would prematurely close the entire epic when the PR merges. PRs deliver sub-issues, not epics.
@@ -339,7 +339,7 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 
 **Evidence declaration discipline (`#10698` graduation artifact):**
 
-The `Evidence:` line is a 1-line greppable declaration of what evidence class was achieved vs what the close-target requires. Reference: [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md) for L1-L4 ladder + sandbox-ceiling vs achievable-ceiling distinction.
+The `Evidence:` line is a 1-line greppable declaration of what evidence class was achieved vs what the close-target requires. Reference: [`learn/agentos/process/evidence-ladder.md`](../../../../learn/agentos/process/evidence-ladder.md) for L1-L4 ladder + sandbox-ceiling vs achievable-ceiling distinction.
 
 - **Required for** any PR whose close-target ACs include observable runtime effect on a surface the CI / agent sandbox cannot reach (substrate / harness / wake / restart / UI-with-visual-AC / CLI-with-host-behavior / etc.)
 - **Optional / N/A** for PRs where ACs are fully covered by unit tests / static contract; if omitted, the absence is itself a signal to reviewers that no evidence-class collapse risk exists
