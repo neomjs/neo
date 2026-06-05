@@ -69,14 +69,14 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         // harness level, graph node seeded during boot-time self-seed, bindAgentIdentity
         // resolved the node at boot.
         const state = {
-            userId             : 'neo-opus-4-7',
-            agentIdentityNodeId: '@neo-opus-4-7',
+            userId             : 'neo-opus',
+            agentIdentityNodeId: '@neo-opus',
             source             : 'env-var'
         };
         expect(buildIdentityBlock(state)).toEqual({
             source : 'env-var',
             bound  : true,
-            nodeId : '@neo-opus-4-7',
+            nodeId : '@neo-opus',
             warning: null
         });
     });
@@ -153,14 +153,14 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         // (shouldn't happen per StdioIdentityResolver contract, but guard against drift),
         // we project to the safe 'unresolved' value rather than undefined/leaked.
         const state = {
-            userId             : 'neo-opus-4-7',
-            agentIdentityNodeId: '@neo-opus-4-7'
+            userId             : 'neo-opus',
+            agentIdentityNodeId: '@neo-opus'
             // no source
         };
         expect(buildIdentityBlock(state)).toEqual({
             source : 'unresolved',
             bound  : true,
-            nodeId : '@neo-opus-4-7',
+            nodeId : '@neo-opus',
             warning: null
         });
     });
@@ -487,10 +487,10 @@ test.describe('HealthService #11181 — buildChromaMigrationStats', () => {
     test('summary metadata flags core-swarm participants not shared as visibility debt', () => {
         const result = buildChromaMigrationStats([
             {},
-            {userId: 'neo-gemini-3-1-pro', participatingAgents: '@neo-gpt'},
-            {userId: 'shared', participatingAgents: '@neo-opus-4-7'},
+            {userId: 'neo-gemini-pro', participatingAgents: '@neo-gpt'},
+            {userId: 'shared', participatingAgents: '@neo-opus'},
             {userId: 'alice', participatingAgents: '@alice'},
-            {userId: '', participatingAgents: '@neo-gemini-3-1-pro'}
+            {userId: '', participatingAgents: '@neo-gemini-pro'}
         ], {summaryCollection: true});
 
         expect(result.totalRecords).toBe(5);

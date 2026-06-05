@@ -14,7 +14,7 @@ import Base       from '../../../../../src/core/Base.mjs';
  * 1. **`NEO_AGENT_IDENTITY` environment variable** — explicit pinning for agent harnesses.
  *    Claude Code sets this via `.claude/settings.json`; Gemini via `.gemini/settings.json`; other
  *    harnesses via their native config surface. This is the authoritative path for per-model
- *    GitHub account binding to seeded AgentIdentity node ids such as `@neo-opus-4-7`.
+ *    GitHub account binding to seeded AgentIdentity node ids such as `@neo-opus`.
  * 2. **`gh api user` via the GitHub CLI** — zero-friction fallback for local human developers
  *    who have `gh` installed and authenticated. Matches the `@me` shortcut semantics used
  *    across the Agent OS tooling surface.
@@ -58,7 +58,7 @@ class StdioIdentityResolver extends Base {
      * Returns a plain object suitable for spreading into `RequestContextService.run()` context.
      *
      * **Normalization:** GitHub login strings are stored WITHOUT the leading `@` to match
-     * GitHub API conventions (`gh api user .login` returns `neo-opus-4-7`, not `@neo-opus-4-7`).
+     * GitHub API conventions (`gh api user .login` returns `neo-opus`, not `@neo-opus`).
      * Callers that need the `@`-prefixed graph-node-id form prepend
      * the `@` at lookup time.
      *

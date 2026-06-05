@@ -4,7 +4,7 @@
  * legacy alias `AgentIdentity` nodes into their canonical counterparts and
  * purging test-fixture nodes that leaked into the production SQLite graph.
  *
- * Canonical swarm identities use `@neo-opus-4-7`, `@neo-gemini-3-1-pro`,
+ * Canonical swarm identities use `@neo-opus`, `@neo-gemini-pro`,
  * and `@tobiu` nodes with full metadata (`githubLogin`, `modelFamily`,
  * `accountType`). Earlier seeding left behind `@opus` and `@gemini` as
  * orphan alias nodes with null metadata. Additionally, historical unit-test
@@ -56,8 +56,8 @@ const neoRoot    = path.resolve(__dirname, '../..');
  * may need extension for any corresponding legacy aliases.
  */
 const ALIAS_MAP = {
-    '@opus'  : '@neo-opus-4-7',
-    '@gemini': '@neo-gemini-3-1-pro'
+    '@opus'  : '@neo-opus',
+    '@gemini': '@neo-gemini-pro'
 };
 
 /**
@@ -94,8 +94,8 @@ Options:
   --help         Print this usage message
 
 What it does:
-  1. Merge \`@opus\` → \`@neo-opus-4-7\` (rewrite edges, delete alias node)
-  2. Merge \`@gemini\` → \`@neo-gemini-3-1-pro\` (rewrite edges, delete alias node)
+  1. Merge \`@opus\` → \`@neo-opus\` (rewrite edges, delete alias node)
+  2. Merge \`@gemini\` → \`@neo-gemini-pro\` (rewrite edges, delete alias node)
   3. Purge \`AGENT:alice\` + \`AGENT:bob\` (test-fixture leakage, cascade-delete edges)
 
 After \`--apply\`, restart all MCP harnesses so their in-memory cache picks up the

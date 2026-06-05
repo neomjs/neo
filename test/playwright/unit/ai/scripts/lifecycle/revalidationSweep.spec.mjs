@@ -98,7 +98,7 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         test('does not match when family is only in Signal Ledger, not Liveness', () => {
             const body = [
                 '## Signal Ledger',
-                '- `gemini`: APPROVED by @neo-gemini-3-1-pro',
+                '- `gemini`: APPROVED by @neo-gemini-pro',
                 '',
                 '## Unresolved Liveness',
                 '(empty)'
@@ -123,15 +123,15 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
     });
 
     test.describe('resolveIdentityForFamily', () => {
-        test('resolves gemini family to @neo-gemini-3-1-pro', () => {
+        test('resolves gemini family to @neo-gemini-pro', () => {
             const identity = resolveIdentityForFamily('gemini');
-            expect(identity.id).toBe('@neo-gemini-3-1-pro');
+            expect(identity.id).toBe('@neo-gemini-pro');
             expect(identity.properties.modelFamily).toBe('gemini');
         });
 
-        test('resolves claude family to @neo-opus-4-7', () => {
+        test('resolves claude family to @neo-opus', () => {
             const identity = resolveIdentityForFamily('claude');
-            expect(identity.id).toBe('@neo-opus-4-7');
+            expect(identity.id).toBe('@neo-opus');
         });
 
         test('fans out to all active Claude identities without double-counting the family', () => {
@@ -141,13 +141,13 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             );
 
             expect(claudeIdentities.map(identity => identity.id)).toEqual(expect.arrayContaining([
-                '@neo-opus-4-7',
+                '@neo-opus',
                 '@neo-claude-opus',
                 '@neo-opus-vega'
             ]));
-            expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-4-7');
+            expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus');
             expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
-                '@neo-opus-4-7',
+                '@neo-opus',
                 '@neo-claude-opus',
                 '@neo-opus-vega'
             ]);
@@ -166,11 +166,11 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         test('includes identity + family + since + signal options + version', () => {
             const body = buildNotificationBody({
                 family       : 'gemini',
-                identityLogin: '@neo-gemini-3-1-pro',
+                identityLogin: '@neo-gemini-pro',
                 since        : '2026-05-18T00:00:00.000Z',
                 sweepAt      : '2026-06-01T12:00:00.000Z'
             });
-            expect(body).toContain('@neo-gemini-3-1-pro');
+            expect(body).toContain('@neo-gemini-pro');
             expect(body).toContain('`gemini`');
             expect(body).toContain('2026-05-18T00:00:00.000Z');
             expect(body).toContain('2026-06-01T12:00:00.000Z');
@@ -184,11 +184,11 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         test('includes same-family aggregation note for multi-active notification fan-out', () => {
             const body = buildNotificationBody({
                 family       : 'claude',
-                identityLogins: ['@neo-opus-4-7', '@neo-claude-opus', '@neo-opus-vega'],
+                identityLogins: ['@neo-opus', '@neo-claude-opus', '@neo-opus-vega'],
                 since        : '2026-05-18T00:00:00.000Z',
                 sweepAt      : '2026-06-01T12:00:00.000Z'
             });
-            expect(body).toContain('@neo-opus-4-7, @neo-claude-opus, @neo-opus-vega');
+            expect(body).toContain('@neo-opus, @neo-claude-opus, @neo-opus-vega');
             expect(body).toContain('Same-family aggregation note');
             expect(body).toContain('no active same-family identity holds unresolved DEFERRED / VETO');
         });
@@ -225,7 +225,7 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 ],
                 postComment : ({ number, body }) => {
                     postedNumbers.push(number);
-                    expect(body).toContain('@neo-gemini-3-1-pro');
+                    expect(body).toContain('@neo-gemini-pro');
                 }
             };
             const result = await revalidationSweep({
@@ -280,9 +280,9 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 dryRun : true,
                 io     : fakeIo
             });
-            expect(result.identityLogin).toBe('@neo-opus-4-7');
-            expect(result.identityLogins).toEqual(['@neo-opus-4-7', '@neo-claude-opus', '@neo-opus-vega']);
-            expect(result.results[0].notification).toContain('@neo-opus-4-7, @neo-claude-opus, @neo-opus-vega');
+            expect(result.identityLogin).toBe('@neo-opus');
+            expect(result.identityLogins).toEqual(['@neo-opus', '@neo-claude-opus', '@neo-opus-vega']);
+            expect(result.results[0].notification).toContain('@neo-opus, @neo-claude-opus, @neo-opus-vega');
         });
 
         test('returns empty results when no candidates match', async () => {

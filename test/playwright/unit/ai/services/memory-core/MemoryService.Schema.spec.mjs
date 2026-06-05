@@ -71,7 +71,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
 
     test('addMemory canonicalizes profile-string agent to node-id graph identity', async () => {
         await MemoryService.addMemory({
-            agent    : 'neo-gemini-3-1-pro',
+            agent    : 'neo-gemini-pro',
             sessionId: 'session-xyz',
             prompt   : 'hello',
             thought  : 'thinking',
@@ -85,15 +85,15 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
 
         // Ensure the structured properties are present and correctly named
         expect(node.properties).toBeDefined();
-        // Profile string 'neo-gemini-3-1-pro' should be canonicalized to '@neo-gemini-3-1-pro'
-        expect(node.properties.agentIdentity).toBe('@neo-gemini-3-1-pro');
+        // Profile string 'neo-gemini-pro' should be canonicalized to '@neo-gemini-pro'
+        expect(node.properties.agentIdentity).toBe('@neo-gemini-pro');
         expect(node.properties.sessionId).toBe('session-xyz');
         expect(typeof node.properties.timestamp).toBe('string');
     });
 
     test('addMemory preserves canonical node-id graph identity', async () => {
         await MemoryService.addMemory({
-            agent    : '@neo-gemini-3-1-pro',
+            agent    : '@neo-gemini-pro',
             sessionId: 'session-xyz',
             prompt   : 'hello',
             thought  : 'thinking',
@@ -104,7 +104,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
         const node = upsertNodeCalls[0];
 
         expect(node.type).toBe('AGENT_MEMORY');
-        expect(node.properties.agentIdentity).toBe('@neo-gemini-3-1-pro');
+        expect(node.properties.agentIdentity).toBe('@neo-gemini-pro');
     });
 
     test('identity roots expose the 8-tier trust taxonomy required by #10292', () => {
@@ -127,7 +127,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
         expect(IDENTITIES.find(identity => identity.id === '@tobiu').properties.trustTier).toBe(TRUST_TIERS.OWNER);
         expect(IDENTITIES.find(identity => identity.id === '@system').properties.trustTier).toBe(TRUST_TIERS.SYSTEM);
         expect(IDENTITIES.find(identity => identity.id === '@neo-gpt').properties.trustTier).toBe(TRUST_TIERS.PEER_TRUSTED);
-        expect(IDENTITIES.find(identity => identity.id === '@neo-opus-4-7').properties.trustTier).toBe(TRUST_TIERS.PEER_TRUSTED);
+        expect(IDENTITIES.find(identity => identity.id === '@neo-opus').properties.trustTier).toBe(TRUST_TIERS.PEER_TRUSTED);
         expect(IDENTITIES.find(identity => identity.id === 'AGENT:*').properties.trustTier).toBe(TRUST_TIERS.UNCLASSIFIED);
     });
 

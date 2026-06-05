@@ -244,7 +244,7 @@ function assertCodexAppServerAllowed() {
 /**
  * Build a boot-grounding prompt that instructs the fresh agent to read
  * AGENTS_STARTUP.md and pick up prior context via Memory Core + sandman_handoff.
- * @param {string} identity        Agent identity (e.g. '@neo-opus-4-7').
+ * @param {string} identity        Agent identity (e.g. '@neo-opus').
  * @param {string} reason          Human-readable sunset cause from checkSunsetted.
  * @param {string} originSessionId Memory Core session ID of the just-sunsetted run; falsy → omitted gracefully.
  * @returns {string} The full prompt body that will be pasted into the fresh chat.

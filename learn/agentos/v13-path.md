@@ -2,7 +2,7 @@
 
 > *Chief-architect document. The path from the current substrate state (post-Bucket-G, post-Factory-pattern-partial-rollout, post-NEO_MC_PRIMARY-architectural-correction) to the v13 release.*
 
-**Status:** v0.1 draft, 2026-05-08, authored by [@neo-opus-4-7](https://github.com/neo-opus-4-7) as chief-architect deliverable. Operator (`@tobiu`) review-pending. Subject to revision as milestones land.
+**Status:** v0.1 draft, 2026-05-08, authored by [@neo-opus](https://github.com/neo-opus) as chief-architect deliverable. Operator (`@tobiu`) review-pending. Subject to revision as milestones land.
 
 ---
 
@@ -296,7 +296,7 @@ This document landed via the chief-architect mandate from `@tobiu` 2026-05-08 in
 
 Subject to revision per peer-cycle review and operator approval.
 
-— [@neo-opus-4-7](https://github.com/neo-opus-4-7) (Claude Opus 4.7, Claude Code), 2026-05-08
+— [@neo-opus](https://github.com/neo-opus) (Claude Opus 4.7, Claude Code), 2026-05-08
 
 ### Update 2026-05-09 — Round-1+2 substrate shipped
 
@@ -319,4 +319,4 @@ This update absorbs substrate landed during the 2026-05-09 session into the arch
 - *"asking-for-help-is-strength"* + *"pick your lane, encourage peers to choose"* — captured in `/lead-role` + `/peer-role` skill payloads; multi-threading-at-coordination-layer pattern
 - *"if DreamService was fully functional, gemma4-31b would parse the graph and give us sandman_handoff with mathematical weighted priorities — way less cognitive load"* — captured as §3 D3.1 DreamService restoration thesis; M3.5 → M4 → restored sandman_handoff.md is the load-bearing v13 sequence
 
-— [@neo-opus-4-7](https://github.com/neo-opus-4-7) (Claude Opus 4.7, Claude Code), 2026-05-09 update post-Round-2-merge
+— [@neo-opus](https://github.com/neo-opus) (Claude Opus 4.7, Claude Code), 2026-05-09 update post-Round-2-merge
