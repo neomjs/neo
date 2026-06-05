@@ -2,7 +2,7 @@
 // MC reads no AiConfig values directly — they resolve via the chain, not a binding.
 import '../../../config.template.mjs';
 import path                                  from 'path';
-import BaseConfig, {createConfigProxy, leaf} from '../../../BaseConfig.mjs';
+import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
 import {fileURLToPath}                       from 'url';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
@@ -35,10 +35,10 @@ const testSessionCollection = `test-session-${Date.now()}-${Math.random().toStri
  * Supports loading configuration from a custom file and merging with defaults.
  *
  * @class Neo.ai.mcp.server.memory-core.Config
- * @extends Neo.ai.BaseConfig
+ * @extends Neo.ai.ConfigProvider
  * @singleton
  */
-class Config extends BaseConfig {
+class Config extends ConfigProvider {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.memory-core.Config'

@@ -50,10 +50,10 @@ async function importTemplateConfig() {
 }
 
 test.describe('GitHub Workflow MCP Server Config Completeness', () => {
-    let BaseConfig, originalEnv;
+    let ConfigProvider, originalEnv;
 
     test.beforeAll(async () => {
-        BaseConfig  = (await import('../../../../../../../ai/BaseConfig.mjs')).default;
+        ConfigProvider  = (await import('../../../../../../../ai/ConfigProvider.mjs')).default;
         originalEnv = {...process.env};
     });
 
@@ -117,7 +117,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
 
         process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT = '/custom/archive/path';
 
-        const config = Neo.create(BaseConfig, {data: _data});
+        const config = Neo.create(ConfigProvider, {data: _data});
 
         try {
             expect(config.getDataConfig('issueSync.archiveRoot').get()).toBe('/custom/archive/path');
@@ -141,7 +141,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
 
         // Valid value: parsed + normalized to lower-case.
         process.env.NEO_LOG_LEVEL = 'DEBUG';
-        const validConfig = Neo.create(BaseConfig, {data: _data});
+        const validConfig = Neo.create(ConfigProvider, {data: _data});
 
         try {
             expect(validConfig.getDataConfig('logLevel').get()).toBe('debug');
@@ -158,7 +158,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
 
         let invalidConfig;
         try {
-            invalidConfig = Neo.create(BaseConfig, {data: _data});
+            invalidConfig = Neo.create(ConfigProvider, {data: _data});
         } finally {
             console.warn = originalWarn;
         }

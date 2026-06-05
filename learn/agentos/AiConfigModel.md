@@ -4,12 +4,12 @@
 
 ## The shape
 
-`Neo.ai.BaseConfig extends Neo.state.Provider`, so every config *is* a reactive state provider, and they compose into one tree:
+`Neo.ai.ConfigProvider extends Neo.state.Provider`, so every config *is* a reactive state provider, and they compose into one tree:
 
 - **Tier-1 — `Neo.ai.Config`** (singleton): the *realm root*. It owns the deployment-wide leaves — model providers, `auth`, `ollama` / `openAiCompatible`, storage, the orchestrator intervals.
 - **Per-server configs — `Neo.ai.mcp.server.<name>.Config`**: children of the realm root. Each owns only the leaves that are genuinely server-local — the Knowledge Base's `collectionName`, the Memory Core's `memorySharing`, and so on.
 
-A child resolves a leaf it does not own by walking **up** to the owner: `getOwnerOfDataProperty` checks the local data first, then delegates to `getParent()`. The Brain has no component tree, so `ai/BaseConfig.mjs` overrides `getParent()` to return the Tier-1 singleton — that override is what roots the realm chain.
+A child resolves a leaf it does not own by walking **up** to the owner: `getOwnerOfDataProperty` checks the local data first, then delegates to `getParent()`. The Brain has no component tree, so `ai/ConfigProvider.mjs` overrides `getParent()` to return the Tier-1 singleton — that override is what roots the realm chain.
 
 This is the same hierarchy the Body uses for component state providers. The canonical illustration lives in [examples/stateProvider/advanced](../../examples/stateProvider/advanced/MainContainer.mjs): a `Panel` reads `button1Text` that only the top-level `Viewport` owns (the lookup walks up), and a write to `button1Text` *initiated on the Panel* bubbles up and lands on the `Viewport`'s provider, which owns it.
 
@@ -20,7 +20,7 @@ Two properties fall out of "each layer owns only its slice":
 
 ## Leaves and the env layer
 
-A config's `data` is a *meta-leaf tree* — each leaf is `leaf(default, env?, type?)`. `BaseConfig.compileMetaLeaves` walks it into (a) plain reactive data and (b) a metadata registry keyed by dotted path. A bounded **env layer** then overlays environment variables onto env-bound leaves — re-resolved at construction and on explicit refresh, never live-per-read (a port that silently moves without a coordinated restart is a footgun, not a feature). See `ai/BaseConfig.mjs`.
+A config's `data` is a *meta-leaf tree* — each leaf is `leaf(default, env?, type?)`. `ConfigProvider.compileMetaLeaves` walks it into (a) plain reactive data and (b) a metadata registry keyed by dotted path. A bounded **env layer** then overlays environment variables onto env-bound leaves — re-resolved at construction and on explicit refresh, never live-per-read (a port that silently moves without a coordinated restart is a footgun, not a feature). See `ai/ConfigProvider.mjs`.
 
 ## Templates, overlays, and why advancement is *inheritance*
 
@@ -44,5 +44,5 @@ The one-line test: **if you are parsing or rewriting config *source* to reconcil
 
 - [examples/stateProvider/advanced](../../examples/stateProvider/advanced/MainContainer.mjs) — the canonical hierarchical-state illustration (read up, write-to-owner).
 - [src/state/Provider.mjs](../../src/state/Provider.mjs) — `getOwnerOfDataProperty`, owner-routed `setData` / `internalSetData`, and the `data_` `merge: 'deep'` descriptor.
-- [ai/BaseConfig.mjs](../../ai/BaseConfig.mjs) — the meta-leaf compile, the bounded env layer, and the `getParent()` override that roots the realm chain.
+- [ai/ConfigProvider.mjs](../../ai/ConfigProvider.mjs) — the meta-leaf compile, the bounded env layer, and the `getParent()` override that roots the realm chain.
 - [Cloud-Native KB Ingestion — Configuration](./cloud-deployment/Configuration.md) — the operator-facing config keys this model carries.

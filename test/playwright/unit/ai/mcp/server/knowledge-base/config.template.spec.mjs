@@ -1,6 +1,6 @@
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../../src/Neo.mjs';
-import BaseConfig, {createConfigProxy} from '../../../../../../../ai/BaseConfig.mjs';
+import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
 import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
@@ -40,7 +40,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // deterministic across reused Playwright workers.
         const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
         Neo.ai = Neo.ai || {};
-        Neo.ai.Config = Neo.create(BaseConfig, {data: tier1Template._data});
+        Neo.ai.Config = Neo.create(ConfigProvider, {data: tier1Template._data});
     });
 
     test.afterAll(() => {
@@ -111,13 +111,13 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // KB-LOCAL leaves (Chroma host/port) — env applies at the CHILD instance directly.
         // Fresh isolated instance (not the module-cached singleton, whose reactive state is
         // contaminated by sibling specs). config._data carries the raw KB meta-leaf tree.
-        const freshKB = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+        const freshKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         // TIER-1-OWNED leaves (auth.*, backupPath) — post-split the child no longer declares them,
         // so env precedence lives at the OWNER. Build a fresh realm root WITH the env set and
         // register it so the child inherits the override up the getParent() chain.
         const prevRoot  = Neo.ai?.Config;
-        const freshRoot = Neo.create(BaseConfig, {data: Neo.ai.Config._data});
+        const freshRoot = Neo.create(ConfigProvider, {data: Neo.ai.Config._data});
         Neo.ai.Config   = freshRoot;
 
         try {
@@ -134,7 +134,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     });
 
     test('keeps debug off by default and accepts NEO_DEBUG as a KB-local override', () => {
-        const defaultKB = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+        const defaultKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         try {
             expect(defaultKB.debug).toBe(false);
@@ -144,7 +144,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
 
         process.env.NEO_DEBUG = 'true';
 
-        const freshKB = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+        const freshKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         try {
             expect(freshKB.debug).toBe(true);
@@ -165,7 +165,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         console.warn = message => warnings.push(message);
 
         try {
-            freshKB = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+            freshKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
             expect(freshKB.debug).toBe(false);
             expect(warnings.some(message => message.includes('Invalid NEO_DEBUG'))).toBe(true);

@@ -5,7 +5,7 @@ setup({
         unitTestMode: true
     },
     appConfig: {
-        name             : 'AiBaseConfigTest',
+        name             : 'AiConfigProviderTest',
         isMounted        : () => true,
         vnodeInitialising: false
     }
@@ -15,10 +15,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 
-let BaseConfig, createConfigProxy, leaf, Env, originalEnv;
+let ConfigProvider, createConfigProxy, leaf, Env, originalEnv;
 
 /**
- * Fresh meta-leaf tree per test, assigned to the `data` config (the new #12168 shape).
+ * Fresh meta-leaf tree per test, assigned to the Provider-backed `data` config.
  * Mixes env-bound + env-free leaves, multiple `leaf()` types, a null-default-with-type leaf,
  * a nested namespace, and an object leaf whose value carries an own `constructor` key
  * (the dummy-EF duck-type that breaks `Neo.typeOf` inference — guarded by `leaf()`).
@@ -43,9 +43,9 @@ function buildTree() {
     }
 }
 
-test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', () => {
+test.describe('Neo.ai.ConfigProvider (data + afterSetData seam + leaf() factory)', () => {
     test.beforeAll(async () => {
-        ({default: BaseConfig, createConfigProxy, leaf} = await import('../../../../ai/BaseConfig.mjs'));
+        ({default: ConfigProvider, createConfigProxy, leaf} = await import('../../../../ai/ConfigProvider.mjs'));
         Env         = (await import('../../../../src/util/Env.mjs')).default;
         originalEnv = {...process.env}
     });
@@ -89,7 +89,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('afterSetData compiles reactive data from leaf defaults', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         expect(config.getDataConfig('debug').get()).toBe(false);
         expect(config.getDataConfig('port').get()).toBe(3000);
@@ -103,7 +103,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('object leaf with an own constructor key survives compile (typeOf guard)', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()}),
+        const config = Neo.create(ConfigProvider, {data: buildTree()}),
               ef     = config.getDataConfig('ef').get();
 
         expect(ef.name).toBe('dummy_embedding_function');
@@ -119,7 +119,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
         process.env.NEO_TEST_NAMES   = 'neo-gpt, neo-opus-4-7';
         process.env.NEO_TEST_TIMEOUT = '1234';
 
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         expect(config.getDataConfig('port').get()).toBe(8080);
         expect(config.getDataConfig('debug').get()).toBe(true);
@@ -134,7 +134,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('setData() writes a value through the reactive pipeline', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         config.setData('server.timeout', 9999);
         expect(config.getDataConfig('server.timeout').get()).toBe(9999);
@@ -143,7 +143,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('setEnvOverride() is keyed by env var name and wins over the default', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         config.setEnvOverride('NEO_TEST_DEBUG', true);
         expect(config.getDataConfig('debug').get()).toBe(true);
@@ -152,7 +152,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('refreshEnv() re-resolves env; runtime override persists', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         config.setEnvOverride('NEO_TEST_DEBUG', true);
         process.env.NEO_TEST_PORT = '9090';
@@ -165,7 +165,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('direct assignment via createConfigProxy routes through setData', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()}),
+        const config = Neo.create(ConfigProvider, {data: buildTree()}),
               proxy  = createConfigProxy(config);
 
         expect(proxy.name).toBe('neo');
@@ -181,7 +181,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('observeData fires on change and stops after cleanup', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         let calls     = 0;
         const cleanup = config.observeData('name', () => {calls++});
@@ -198,7 +198,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('internalSetData validates ANY value at a known leaf path (object leaves included)', () => {
-        const config   = Neo.create(BaseConfig, {data: buildTree()}),
+        const config   = Neo.create(ConfigProvider, {data: buildTree()}),
               warnings = [],
               origWarn = console.warn;
 
@@ -226,7 +226,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('nested namespaces are preserved as a deep structure', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         expect(config.data.server.host).toBe('localhost');
         expect(config.data.server.timeout).toBe(5000);
@@ -236,7 +236,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('createConfigProxy: .data getter + method calls bind to the real instance', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()}),
+        const config = Neo.create(ConfigProvider, {data: buildTree()}),
               proxy  = createConfigProxy(config);
 
         expect(proxy.data.server.host).toBe('localhost');
@@ -249,7 +249,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('destroy() releases observeData subscriptions (no manual cleanup needed)', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         let calls = 0;
         config.observeData('name', () => {calls++}); // intentionally not cleaned up manually
@@ -261,7 +261,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('observeData resolves leaves via getOwnerOfDataProperty (hierarchy-aware)', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         const {owner, propertyName} = config.getOwnerOfDataProperty('server.host');
         expect(owner).toBe(config);
@@ -277,7 +277,7 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('does not shadow core.Base set() / observeConfig()', () => {
-        const config = Neo.create(BaseConfig, {data: buildTree()});
+        const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         // core.Base#observeConfig(publisher, configName, fn) — Provider#createBinding depends on it.
         let calls     = 0;
@@ -292,8 +292,8 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('getParent() resolves the Tier-1 root; root self-parents to null; bare instance resolves locally', () => {
-        const root     = Neo.create(BaseConfig, {data: {sharedRealmLeaf: leaf('root-owned')}}),
-              child    = Neo.create(BaseConfig, {data: {own: leaf('child-owned')}}),
+        const root     = Neo.create(ConfigProvider, {data: {sharedRealmLeaf: leaf('root-owned')}}),
+              child    = Neo.create(ConfigProvider, {data: {own: leaf('child-owned')}}),
               prevRoot = Neo.ai?.Config;
 
         Neo.ai = Neo.ai || {};
@@ -320,8 +320,8 @@ test.describe('Neo.ai.BaseConfig (data + afterSetData seam + leaf() factory)', (
     });
 
     test('cross-tier write validates against the OWNER registry', () => {
-        const root     = Neo.create(BaseConfig, {data: {sharedPort: leaf(3000, null, 'port')}}),
-              child    = Neo.create(BaseConfig, {data: {own: leaf('x')}}),
+        const root     = Neo.create(ConfigProvider, {data: {sharedPort: leaf(3000, null, 'port')}}),
+              child    = Neo.create(ConfigProvider, {data: {own: leaf('x')}}),
               warnings = [],
               origWarn = console.warn,
               prevRoot = Neo.ai?.Config;

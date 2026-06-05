@@ -1,4 +1,4 @@
-// Bootstrap Neo namespace BEFORE importing runtime config; `BaseConfig` consumes core utilities
+// Bootstrap Neo namespace BEFORE importing runtime config; `ConfigProvider` consumes core utilities
 // through `Neo.gatekeep()` / `Neo.isObject()` once the config module is loaded.
 import Neo                            from '../../../src/Neo.mjs';
 import * as core                      from '../../../src/core/_export.mjs';

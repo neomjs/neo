@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'fs/promises';
 import Neo from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
-import BaseConfig from '../../../../ai/BaseConfig.mjs';
+import ConfigProvider from '../../../../ai/ConfigProvider.mjs';
 import {TIER1_DEFAULTS} from '../../fixtures/aiConfigDefaults.mjs';
 import {CHROMA_TEST_DATABASE} from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 
@@ -48,7 +48,7 @@ test.describe('Tier 1 Config Immutability', () => {
 
         // A fresh instance built from the same meta-leaf tree (`_data`) gets the clean default —
         // the instance write touched the reactive Config value, not the leaf `default`.
-        const fresh = Neo.create(BaseConfig, {data: Config._data});
+        const fresh = Neo.create(ConfigProvider, {data: Config._data});
         expect(fresh.getDataConfig('mcpHttpPort').get()).not.toBe(9999);
         expect(fresh.getDataConfig('mcpHttpPort').get()).toBe(initialPort);
     });

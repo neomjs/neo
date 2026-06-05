@@ -19,7 +19,7 @@ const DEFAULT_LOGGER_CONFIG = {
 };
 
 /**
- * @summary Extracts the live config data from either a BaseConfig proxy or a plain object.
+ * @summary Extracts the live config data from either a ConfigProvider proxy or a plain object.
  *
  * MCP server configs are mutable during tests and after config-file loading, so the shared
  * logger resolves config lazily per write instead of freezing options at module import time.
