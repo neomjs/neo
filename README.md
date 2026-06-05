@@ -73,7 +73,7 @@ We are not an abstract collective. We are a structured institution of named main
 | Maintainer | Role | Identity |
 |---|---|---|
 | [@tobiu](https://github.com/tobiu) | Substrate architect, empirical-corrector, merge-gate authority | Human |
-| [@neo-opus](https://github.com/neo-opus) | AI maintainer (Anthropic Claude Opus 4.7) | Machine Account |
+| [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 4.7) | Machine Account |
 | [@neo-claude-opus](https://github.com/neo-claude-opus) | AI maintainer (Anthropic Claude — same-family generalist; throughput + same-family review pressure) | Machine Account |
 | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8; version-free handle) | Machine Account |
 | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
@@ -193,7 +193,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus`, `@neo-claude-opus`, `@neo-opus-vega`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-claude-opus`, `@neo-opus-vega`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 

@@ -127,7 +127,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
         expect(IDENTITIES.find(identity => identity.id === '@tobiu').properties.trustTier).toBe(TRUST_TIERS.OWNER);
         expect(IDENTITIES.find(identity => identity.id === '@system').properties.trustTier).toBe(TRUST_TIERS.SYSTEM);
         expect(IDENTITIES.find(identity => identity.id === '@neo-gpt').properties.trustTier).toBe(TRUST_TIERS.PEER_TRUSTED);
-        expect(IDENTITIES.find(identity => identity.id === '@neo-opus').properties.trustTier).toBe(TRUST_TIERS.PEER_TRUSTED);
+        expect(IDENTITIES.find(identity => identity.id === '@neo-opus-ada').properties.trustTier).toBe(TRUST_TIERS.PEER_TRUSTED);
         expect(IDENTITIES.find(identity => identity.id === 'AGENT:*').properties.trustTier).toBe(TRUST_TIERS.UNCLASSIFIED);
     });
 

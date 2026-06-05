@@ -107,7 +107,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).not.toContain('const identityMap =');
         expect(scriptContent).toContain('resolveHarnessTargetForIdentity(identity)');
 
-        expect(resolveHarnessTargetForIdentity('@neo-opus')).toMatchObject({
+        expect(resolveHarnessTargetForIdentity('@neo-opus-ada')).toMatchObject({
             adapter             : 'osascript',
             appName             : 'Claude',
             tabShortcut         : '3',
@@ -130,7 +130,7 @@ test.describe('ai/scripts/resumeHarness', () => {
     test('normalizes GitHub-login identity form before harness dispatch (#11797)', async () => {
         const {normalizeAgentIdentityNodeId} = await import('../../../../../../ai/scripts/lifecycle/resumeHarness.mjs');
 
-        expect(normalizeAgentIdentityNodeId('neo-opus')).toBe('@neo-opus');
+        expect(normalizeAgentIdentityNodeId('neo-opus-ada')).toBe('@neo-opus-ada');
         expect(normalizeAgentIdentityNodeId('@neo-gpt')).toBe('@neo-gpt');
         expect(normalizeAgentIdentityNodeId('  neo-gemini-pro  ')).toBe('@neo-gemini-pro');
     });
@@ -187,11 +187,11 @@ test.describe('ai/scripts/resumeHarness', () => {
         // 2026-05-04 09:03Z runaway-spawn pattern (forensic record).
         test.skip(!process.env.RUN_LIVE_OSASCRIPT, 'Live osascript test — paste-spawns real Claude sessions on hosts with accessibility granted; set RUN_LIVE_OSASCRIPT=1 to run (#10681)');
         try {
-            execFileSync('node', [scriptPath, '@neo-opus', 'test'], {encoding: 'utf-8', stdio: 'pipe', env: overrideEnv});
+            execFileSync('node', [scriptPath, '@neo-opus-ada', 'test'], {encoding: 'utf-8', stdio: 'pipe', env: overrideEnv});
         } catch (e) {
             // It might fail if osascript fails to activate Claude or System Events isn't permitted
             const output = e.stderr + e.stdout;
-            expect(output).toContain('Failed to resume @neo-opus via osascript:');
+            expect(output).toContain('Failed to resume @neo-opus-ada via osascript:');
         }
     });
 
@@ -201,12 +201,12 @@ test.describe('ai/scripts/resumeHarness', () => {
         // and emit a stderr message naming the gate state and the override env-var.
         // spawnSync (vs execFileSync) captures stderr on success-exit too — gate-skip
         // is exit 0 (defensive no-op, not an error).
-        const result = spawnSync('node', [scriptPath, '@neo-opus', 'test'], {
+        const result = spawnSync('node', [scriptPath, '@neo-opus-ada', 'test'], {
             encoding: 'utf-8',
             env     : gateOnlyEnv()  // No WAKE_GATE_OVERRIDE — exercising default-tripped path on isolated gate file
         });
         expect(result.status).toBe(0);
-        expect(result.stderr).toContain('Skipping resume for @neo-opus');
+        expect(result.stderr).toContain('Skipping resume for @neo-opus-ada');
         expect(result.stderr).toContain('Wake safety gate tripped');
         expect(result.stderr).toContain('WAKE_GATE_OVERRIDE=1');
     });
@@ -248,7 +248,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         fs.mkdirSync(path.dirname(gatePath), {recursive: true});
         fs.writeFileSync(gatePath, JSON.stringify({state: 'enabled', reason: '', trippedAt: null, trippedBy: null}), 'utf-8');
 
-        const result = spawnSync('node', [scriptPath, '@neo-opus', 'test'], {
+        const result = spawnSync('node', [scriptPath, '@neo-opus-ada', 'test'], {
             encoding: 'utf-8',
             env     : gateOnlyEnv()
         });
@@ -267,7 +267,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(resolveHarnessTargetForIdentity('@neo-gemini-pro')).toMatchObject({
             adapter: 'antigravity-cli'
         });
-        expect(resolveHarnessTargetForIdentity('@neo-opus')).toMatchObject({
+        expect(resolveHarnessTargetForIdentity('@neo-opus-ada')).toMatchObject({
             adapter             : 'osascript',
             appName             : 'Claude',
             tabShortcut         : '3',
@@ -305,7 +305,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         // fresh chat) before the clipboard cut/paste of the boot-grounding prompt. The fresh chat
         // is what yields a fresh currentSessionId + transcript. Static-content verification; the
         // live runtime osascript dispatch is RUN_LIVE_OSASCRIPT-gated in the test above.
-        expect(resolveHarnessTargetForIdentity('@neo-opus')).toMatchObject({
+        expect(resolveHarnessTargetForIdentity('@neo-opus-ada')).toMatchObject({
             adapter             : 'osascript',
             appName             : 'Claude',
             tabShortcut         : '3',

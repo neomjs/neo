@@ -69,14 +69,14 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         // harness level, graph node seeded during boot-time self-seed, bindAgentIdentity
         // resolved the node at boot.
         const state = {
-            userId             : 'neo-opus',
-            agentIdentityNodeId: '@neo-opus',
+            userId             : 'neo-opus-ada',
+            agentIdentityNodeId: '@neo-opus-ada',
             source             : 'env-var'
         };
         expect(buildIdentityBlock(state)).toEqual({
             source : 'env-var',
             bound  : true,
-            nodeId : '@neo-opus',
+            nodeId : '@neo-opus-ada',
             warning: null
         });
     });
@@ -153,14 +153,14 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         // (shouldn't happen per StdioIdentityResolver contract, but guard against drift),
         // we project to the safe 'unresolved' value rather than undefined/leaked.
         const state = {
-            userId             : 'neo-opus',
-            agentIdentityNodeId: '@neo-opus'
+            userId             : 'neo-opus-ada',
+            agentIdentityNodeId: '@neo-opus-ada'
             // no source
         };
         expect(buildIdentityBlock(state)).toEqual({
             source : 'unresolved',
             bound  : true,
-            nodeId : '@neo-opus',
+            nodeId : '@neo-opus-ada',
             warning: null
         });
     });
@@ -488,7 +488,7 @@ test.describe('HealthService #11181 — buildChromaMigrationStats', () => {
         const result = buildChromaMigrationStats([
             {},
             {userId: 'neo-gemini-pro', participatingAgents: '@neo-gpt'},
-            {userId: 'shared', participatingAgents: '@neo-opus'},
+            {userId: 'shared', participatingAgents: '@neo-opus-ada'},
             {userId: 'alice', participatingAgents: '@alice'},
             {userId: '', participatingAgents: '@neo-gemini-pro'}
         ], {summaryCollection: true});

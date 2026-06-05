@@ -28,7 +28,7 @@ import {IDENTITIES}   from '../../../../../ai/graph/identityRoots.mjs';
  * session every heartbeat — the fresh-session loop.
  *
  * `@neo-opus-vega` (the 3rd same-app harness) had neither and was caught in that loop, so it
- * gets the static template here, mirroring `@neo-opus`. `@neo-claude-opus` is active via a
+ * gets the static template here, mirroring `@neo-opus-ada`. `@neo-claude-opus` is active via a
  * self-registered runtime subscription and deliberately carries NO static template — asserted
  * below so a static route it does not need cannot be re-introduced.
  *
@@ -46,7 +46,7 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
     };
 
     // Identities that carry the static, machine-agnostic wake template.
-    for (const id of ['@neo-opus', '@neo-opus-vega']) {
+    for (const id of ['@neo-opus-ada', '@neo-opus-vega']) {
         test(`${id} defines the machine-agnostic bridge-daemon wake route`, () => {
             const entry = findIdentity(id);
             expect(entry, `${id} must be a registered AgentIdentity root`).toBeTruthy();

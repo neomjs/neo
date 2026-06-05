@@ -174,12 +174,12 @@ test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
 
         const result = rewriteIdentityFields(source);
 
-        expect(result.id).toBe('@neo-opus');
-        expect(result.properties.agentIdentity).toBe('@neo-opus');
-        expect(result.properties.participatingAgents).toBe('@neo-opus, @neo-gemini-pro');
+        expect(result.id).toBe('@neo-opus-ada');
+        expect(result.properties.agentIdentity).toBe('@neo-opus-ada');
+        expect(result.properties.participatingAgents).toBe('@neo-opus-ada, @neo-gemini-pro');
         expect(result.properties.requiredGithubLogin).toBe('@neo-gemini-pro');
-        expect(result.properties.sourceAgentIdentities).toEqual(['@neo-opus', '@neo-gpt']);
-        expect(result.properties.userId).toBe('neo-opus');
+        expect(result.properties.sourceAgentIdentities).toEqual(['@neo-opus-ada', '@neo-gpt']);
+        expect(result.properties.userId).toBe('neo-opus-ada');
 
         // Historical prose is intentionally preserved; only identity-keyed metadata changes.
         expect(result.properties.bodyText).toBe('historical body mentions @neo-opus-4-7');
@@ -204,15 +204,15 @@ test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
             }
         });
         insertNode(db, {
-            id     : '@neo-opus',
-            user_id: 'neo-opus',
+            id     : '@neo-opus-ada',
+            user_id: 'neo-opus-ada',
             data   : {
-                id        : '@neo-opus',
+                id        : '@neo-opus-ada',
                 label     : 'AgentIdentity',
                 properties: {
                     createdAt  : '2026-06-05T00:00:00.000Z',
-                    githubLogin: '@neo-opus',
-                    userId     : 'neo-opus'
+                    githubLogin: '@neo-opus-ada',
+                    userId     : 'neo-opus-ada'
                 }
             }
         });
@@ -254,15 +254,15 @@ test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
         });
         insertEdge(db, {
             id    : 'edge-canonical-duplicate',
-            source: '@neo-opus',
+            source: '@neo-opus-ada',
             target: '@neo-gpt',
             type  : 'SENT_TO',
             data  : {
                 id        : 'edge-canonical-duplicate',
-                source    : '@neo-opus',
+                source    : '@neo-opus-ada',
                 target    : '@neo-gpt',
                 type      : 'SENT_TO',
-                properties: {userId: 'neo-opus'}
+                properties: {userId: 'neo-opus-ada'}
             }
         });
         insertEdge(db, {
@@ -296,28 +296,28 @@ test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
 
         expect(db.prepare('SELECT id FROM Nodes WHERE id = ?').get('@neo-opus-4-7')).toBeUndefined();
 
-        const canonical = JSON.parse(db.prepare('SELECT data FROM Nodes WHERE id = ?').get('@neo-opus').data);
-        expect(canonical.properties.githubLogin).toBe('@neo-opus');
+        const canonical = JSON.parse(db.prepare('SELECT data FROM Nodes WHERE id = ?').get('@neo-opus-ada').data);
+        expect(canonical.properties.githubLogin).toBe('@neo-opus-ada');
         expect(canonical.properties.createdAt).toBe('2026-01-01T00:00:00.000Z');
 
         expect(db.prepare('SELECT id FROM Edges WHERE id = ?').get('edge-old-duplicate')).toBeUndefined();
 
         const inbound = db.prepare('SELECT user_id, source, target, data FROM Edges WHERE id = ?').get('edge-inbound');
-        expect(inbound.user_id).toBe('neo-opus');
+        expect(inbound.user_id).toBe('neo-opus-ada');
         expect(inbound.source).toBe('@neo-gpt');
-        expect(inbound.target).toBe('@neo-opus');
+        expect(inbound.target).toBe('@neo-opus-ada');
 
         const inboundData = JSON.parse(inbound.data);
-        expect(inboundData.target).toBe('@neo-opus');
-        expect(inboundData.properties.userId).toBe('neo-opus');
+        expect(inboundData.target).toBe('@neo-opus-ada');
+        expect(inboundData.properties.userId).toBe('neo-opus-ada');
         expect(inboundData.properties.bodyText).toBe('edge prose keeps @neo-opus-4-7');
 
         const message = db.prepare('SELECT user_id, data FROM Nodes WHERE id = ?').get('MESSAGE:1');
-        expect(message.user_id).toBe('neo-opus');
+        expect(message.user_id).toBe('neo-opus-ada');
 
         const messageData = JSON.parse(message.data);
-        expect(messageData.properties.sentBy).toBe('@neo-opus');
-        expect(messageData.properties.userId).toBe('neo-opus');
+        expect(messageData.properties.sentBy).toBe('@neo-opus-ada');
+        expect(messageData.properties.userId).toBe('neo-opus-ada');
         expect(messageData.properties.bodyText).toBe('history keeps @neo-opus-4-7 in prose');
 
         db.close();
@@ -354,8 +354,8 @@ test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
             id      : 'memory-1',
             metadata: {
                 bodyText           : 'document prose keeps @neo-gemini-3-1-pro',
-                participatingAgents: '@neo-opus,@neo-gpt',
-                userId             : 'neo-opus'
+                participatingAgents: '@neo-opus-ada,@neo-gpt',
+                userId             : 'neo-opus-ada'
             }
         });
     });

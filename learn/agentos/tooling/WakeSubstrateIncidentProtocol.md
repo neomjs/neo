@@ -79,7 +79,7 @@ sqlite3 .neo-ai-data/sqlite/memory-core-graph.sqlite \
    FROM Nodes WHERE json_extract(data, '\$.label') = 'WAKE_SUBSCRIPTION'"
 ```
 
-Active subscriptions for `@neo-opus`, `@neo-gemini-pro`, and `@neo-gpt` mean the bridge will deliver wake events to those identities the moment it starts. If the substrate is unsafe, those subscriptions must either be temporarily disabled OR the bridge must be started in a controlled validation mode that ignores them.
+Active subscriptions for `@neo-opus-ada`, `@neo-gemini-pro`, and `@neo-gpt` mean the bridge will deliver wake events to those identities the moment it starts. If the substrate is unsafe, those subscriptions must either be temporarily disabled OR the bridge must be started in a controlled validation mode that ignores them.
 
 ### Bridge backlog fence
 

@@ -62,7 +62,7 @@ const SHARED_USER_ID = 'shared';
 // MUST match `CORE_SWARM_USER_IDS` exported from RequestContextService. Duplicated here for
 // the same no-Neo-bootstrap reason as SHARED_USER_ID above; unit tests enforce the sync.
 const CORE_SWARM_USER_IDS = Object.freeze([
-    'neo-opus',
+    'neo-opus-ada',
     'neo-claude-opus',
     'neo-opus-vega',
     'neo-gemini-pro',

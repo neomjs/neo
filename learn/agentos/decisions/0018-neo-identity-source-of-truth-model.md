@@ -91,7 +91,7 @@ For any fact with >1 occurrence, the propagation mechanism is chosen in this ord
 
 ### 2.5 Identity-handle special case (depends-on ADR 0012)
 
-The 63-file `@neo-opus-4-7` sprawl is **not** a de-versioning-the-prose problem. Per ADR 0012, per-model identity is deliberate: the model-version lives in `ModelStats.md` and the per-model `AgentIdentity` graph node. This ADR decides only the **handle indirection**: references route through `ai/graph/identityRoots.mjs` so a GitHub-account rename (operator-owned; e.g. `@neo-opus-4-7` → `neo-opus`, `@neo-gemini-3-1-pro` → `neo-gemini-pro`) is a *routed* change, not a 63-file edit. The lifecycle drift the audit found (sunset trigger fired, no rotation recorded) is an **ADR 0012 registry-update**, not an ADR 0018 concern — flagged here, owned there.
+The 63-file `@neo-opus-4-7` sprawl is **not** a de-versioning-the-prose problem. Per ADR 0012, per-model identity is deliberate: the model-version lives in `ModelStats.md` and the per-model `AgentIdentity` graph node. This ADR decides only the **handle indirection**: references route through `ai/graph/identityRoots.mjs` so a GitHub-account rename (operator-owned; e.g. `@neo-opus-4-7` → `neo-opus-ada`, `@neo-gemini-3-1-pro` → `neo-gemini-pro`) is a *routed* change, not a 63-file edit. The lifecycle drift the audit found (sunset trigger fired, no rotation recorded) is an **ADR 0012 registry-update**, not an ADR 0018 concern — flagged here, owned there.
 
 ### 2.6 Cross-family review gate for identity PRs
 

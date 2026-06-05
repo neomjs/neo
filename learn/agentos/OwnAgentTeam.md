@@ -19,7 +19,7 @@ deployment with its own:
 - Knowledge Base and Memory Core data roots, unless you intentionally connect to a
   shared team service.
 
-Do not reuse upstream Neo identities such as `@neo-opus`, `@neo-gpt`, or
+Do not reuse upstream Neo identities such as `@neo-opus-ada`, `@neo-gpt`, or
 `@neo-gemini-pro` for your own agents. Those handles carry upstream provenance
 and review semantics.
 

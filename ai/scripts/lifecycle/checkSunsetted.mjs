@@ -22,7 +22,7 @@
  * **Output shape:**
  *
  *     {
- *       identity: '@neo-opus',
+ *       identity: '@neo-opus-ada',
  *       sunset: false,
  *       idle_out_candidate: true,
  *       evidence: {

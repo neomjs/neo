@@ -268,7 +268,7 @@ const defaultConfig = {
         devSyncRoots: [
             '/absolute/path/to/neo-gpt/neo',
             '/absolute/path/to/neo-gemini/neo',
-            '/absolute/path/to/neo-opus/neo'
+            '/absolute/path/to/neo-opus-ada/neo'
         ]
     }
 };
@@ -288,7 +288,7 @@ npm run ai:orchestrator
 For one-off process-manager overrides, keep using the env var:
 
 ```sh
-NEO_ORCHESTRATOR_DEV_SYNC_ROOTS='["/absolute/path/to/neo-gpt/neo","/absolute/path/to/neo-gemini/neo","/absolute/path/to/neo-opus/neo"]' npm run ai:orchestrator
+NEO_ORCHESTRATOR_DEV_SYNC_ROOTS='["/absolute/path/to/neo-gpt/neo","/absolute/path/to/neo-gemini/neo","/absolute/path/to/neo-opus-ada/neo"]' npm run ai:orchestrator
 ```
 
 Do not add real local clone paths to `package.json` or

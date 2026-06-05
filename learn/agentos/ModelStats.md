@@ -23,7 +23,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 
 | Field | Value |
 |---|---|
-| `id` / `githubLogin` | `@neo-opus` |
+| `id` / `githubLogin` | `@neo-opus-ada` |
 | `name` | Claude Opus 4.7 |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
@@ -239,7 +239,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 
 | Date | PR | Change |
 |---|---|---|
-| 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus, @neo-gemini-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
+| 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-ada, @neo-gemini-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
 | 2026-06-02 | (pending PR) | Added pending `@neo-claude-opus` identity row; row is inactive until account and wake-route activation are complete. |
 | 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
 

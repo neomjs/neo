@@ -346,7 +346,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('should recover from boot-time identity cache race (stuck vicinity cache)', async () => {
-        await GraphService.upsertNode({id: '@neo-opus', name: 'Identity Node'});
+        await GraphService.upsertNode({id: '@neo-opus-ada', name: 'Identity Node'});
 
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -358,21 +358,21 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             // Simulate the stuck state: vicinityLoadedNodes marks the nodeId as "loaded"
             // but db.nodes doesn't have it (the broken state we saw in production)
             GraphService.db.nodes.clear();
-            GraphService.db.vicinityLoadedNodes.add('@neo-opus');
+            GraphService.db.vicinityLoadedNodes.add('@neo-opus-ada');
         } finally {
             GraphService.db.autoSave = wasAutoSave;
         }
 
-        // Note: GraphService.getNode('@neo-opus') directly would return null here.
+        // Note: GraphService.getNode('@neo-opus-ada') directly would return null here.
         // We simulate the bindAgentIdentity retry logic that explicitly deletes the stuck cache.
         let retries = 3;
         let rehydratedNode = null;
         while (retries > 0) {
-            rehydratedNode = await GraphService.getNode({id: '@neo-opus'});
+            rehydratedNode = await GraphService.getNode({id: '@neo-opus-ada'});
             if (rehydratedNode) break;
 
             if (GraphService.db && GraphService.db.vicinityLoadedNodes) {
-                GraphService.db.vicinityLoadedNodes.delete('@neo-opus');
+                GraphService.db.vicinityLoadedNodes.delete('@neo-opus-ada');
             }
             // Use 50ms interval for faster test execution instead of the 200ms prod value
             await new Promise(resolve => setTimeout(resolve, 50));
@@ -380,11 +380,11 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
 
         expect(rehydratedNode).toBeTruthy();
-        expect(rehydratedNode.id).toBe('@neo-opus');
+        expect(rehydratedNode.id).toBe('@neo-opus-ada');
         expect(rehydratedNode.name).toBe('Identity Node');
 
         // Verify it actually placed it back into the in-memory map
-        expect(GraphService.db.nodes.has('@neo-opus')).toBe(true);
+        expect(GraphService.db.nodes.has('@neo-opus-ada')).toBe(true);
     });
 
     test('should lazy-load topology for getContextFrontier when frontiers drop out of cache', async () => {
@@ -741,7 +741,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(geminiPro).toBeTruthy();
         expect(geminiPro.type).toBe('AgentIdentity');
 
-        const claudeOpus = await GraphService.getNode({id: '@neo-opus'});
+        const claudeOpus = await GraphService.getNode({id: '@neo-opus-ada'});
         expect(claudeOpus).toBeTruthy();
         expect(claudeOpus.type).toBe('AgentIdentity');
 
