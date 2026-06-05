@@ -323,7 +323,7 @@ class SessionService extends Base {
         // Override: All time (if includeAll is true).
         const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
         const minTimestamp = Date.now() - ONE_MONTH_MS;
-        const limit = aiConfig.summarizationBatchLimit || 2000;
+        const limit = aiConfig.summarizationBatchLimit;
         const maxIterations = 1000; // Safety break: max 2M records (2000 * 1000)
 
         let allMetadatas = [];

@@ -218,7 +218,7 @@ class SummaryService extends Base {
 
             // Step 1: Fetch ALL metadata (lightweight).
             let allRecords = [];
-            const batchSize  = aiConfig.summarizationBatchLimit || 2000;
+            const batchSize  = aiConfig.summarizationBatchLimit;
 
             let batchOffset = 0,
                 hasMore     = true;

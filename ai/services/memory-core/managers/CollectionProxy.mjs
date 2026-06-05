@@ -20,7 +20,7 @@ class CollectionProxy extends Base {
     }
 
     async getManagers() {
-        const architecture = aiConfig.engine || 'hybrid';
+        const architecture = aiConfig.engine;
         const managers = [];
 
         // In Hybrid RAG, vectors exclusively live in ChromaDB
@@ -97,7 +97,7 @@ class CollectionProxy extends Base {
                     await manager.getSummaryCollection();
             }
 
-            const chromaCoordinates = aiConfig.engines?.chroma || {};
+            const chromaCoordinates = aiConfig.engines.chroma;
             const chromaPath        = chromaCoordinates.path || chromaCoordinates.dataDir;
 
             await DestructiveOperationGuard.assertDestructiveTargetAllowed({
