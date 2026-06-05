@@ -15,9 +15,6 @@ import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const DAY_MS     = 24 * 60 * 60 * 1000;
-const DEFAULT_SILENT_THREAD_THRESHOLD_MS = 14 * DAY_MS;
-const DEFAULT_SILENT_THREAD_MIN_SCORE    = 14;
-const DEFAULT_SILENT_THREAD_RENDER_LIMIT = 10;
 
 const MAINTAINER_PROGRESS_PATTERN = /\b(?:in[-\s]?progress|picking up|taking|claim(?:ed|ing)?|lane-claim|lane-state:\s*next-lane|working|implement(?:ing)?|opened\s+(?:PR|pull request)|PR\s*#\d+)\b/i;
 
@@ -528,8 +525,8 @@ class GoldenPathSynthesizer extends Base {
         issuesDir,
         now = new Date(),
         goldenIds = new Set(),
-        thresholdMs = aiConfig.goldenPathSilentThreadThresholdMs ?? DEFAULT_SILENT_THREAD_THRESHOLD_MS,
-        minScore = aiConfig.goldenPathSilentThreadMinScore ?? DEFAULT_SILENT_THREAD_MIN_SCORE,
+        thresholdMs = aiConfig.goldenPathSilentThreadThresholdMs,
+        minScore = aiConfig.goldenPathSilentThreadMinScore,
         graphService = GraphService
     }) {
         const candidates = [];
@@ -627,7 +624,7 @@ class GoldenPathSynthesizer extends Base {
      */
     static renderSilentThreadCandidatesSection(candidates, {
         capturedAt = new Date(),
-        limit = aiConfig.goldenPathSilentThreadRenderLimit ?? DEFAULT_SILENT_THREAD_RENDER_LIMIT
+        limit = aiConfig.goldenPathSilentThreadRenderLimit
     } = {}) {
         let section = `\n## Silent Threads\n\n`;
         section += `*Captured at: ${capturedAt.toISOString()} (Source: local issue sync + Native Edge Graph; visibility-only, no routing)*\n\n`;
