@@ -306,7 +306,7 @@ class ChromaManager extends AbstractVectorManager {
      */
     async getUndigestedSessionCount() {
         const collection = await this.getSummaryCollection();
-        const limit      = aiConfig.summarizationBatchLimit || 2000;
+        const limit      = aiConfig.summarizationBatchLimit;
         const batch      = await collection.get({include: ['metadatas'], limit});
 
         if (!batch || !batch.ids?.length) return 0;
@@ -345,7 +345,7 @@ class ChromaManager extends AbstractVectorManager {
      */
     async getGraphDigestedCount() {
         const collection = await this.getSummaryCollection();
-        const limit      = aiConfig.summarizationBatchLimit || 2000;
+        const limit      = aiConfig.summarizationBatchLimit;
         const batch      = await collection.get({include: ['metadatas'], limit});
 
         if (!batch || !batch.ids?.length) return 0;

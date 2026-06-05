@@ -508,7 +508,7 @@ export class Orchestrator extends Base {
                 // is sufficient. Order matches the JSDoc contract on the service class.
                 this.swarmHeartbeatService.identity        = this.swarmHeartbeatIdentity;
                 this.swarmHeartbeatService.pollIntervalMs  = AiConfig.orchestrator.intervals.swarmHeartbeatMs;
-                this.swarmHeartbeatService.targetSource    = AiConfig.orchestrator.swarmHeartbeat.targetSource ?? null;
+                this.swarmHeartbeatService.targetSource    = AiConfig.orchestrator.swarmHeartbeat.targetSource;
                 this.swarmHeartbeatService.explicitTargets = this.swarmHeartbeatExplicitTargets;
                 await this.swarmHeartbeatService.ready();
             } catch (e) {
