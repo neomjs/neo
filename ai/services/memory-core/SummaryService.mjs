@@ -204,7 +204,7 @@ class SummaryService extends Base {
             // normalizeUserId strips `@`-prefix so AgentIdentity nodeId vs ChromaDB userId never
             // self-filters.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+            const policy = aiConfig.memorySharing.defaultPolicy;
 
             // See querySummaries: 'private' restricts via DB-where; 'team'/'legacy' are additive
             // (own + 'shared' + untagged commons) and rely on the JS post-filter below.
@@ -377,7 +377,7 @@ class SummaryService extends Base {
             // Tenant-scoped where clause with additive shared-commons access.
             // normalizeUserId handles the AgentIdentity-vs-userId namespace boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+            const policy = memorySharing || aiConfig.memorySharing.defaultPolicy;
 
             // 'private' restricts to the caller's own records via a DB-where. 'team' and 'legacy' are
             // additive (caller-owned + 'shared' + untagged commons): the team commons is currently

@@ -123,7 +123,7 @@ function resolveDeploymentEnabled(key) {
  * @returns {Boolean}
  */
 function resolveCloudOnlyEnabled(key) {
-    const cfg = AiConfig.orchestrator.cloudOnly?.[key];
+    const cfg = AiConfig.orchestrator.cloudOnly[key];
     if (cfg !== null && cfg !== undefined) return cfg;
     return AiConfig.orchestrator.deploymentMode === 'cloud';
 }

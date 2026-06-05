@@ -384,7 +384,7 @@ class MemoryService extends Base {
             // the filter reduces to sessionId alone — single-tenant fallthrough preserved.
             // normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+            const policy = memorySharing || aiConfig.memorySharing.defaultPolicy;
 
             let tenantScope = null;
             if (userId) {
@@ -485,7 +485,7 @@ class MemoryService extends Base {
             // Tenant-scoped where clause with additive shared-commons access.
             // normalizeUserId handles the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+            const policy = memorySharing || aiConfig.memorySharing.defaultPolicy;
 
             let tenantScope = null;
             if (userId) {
