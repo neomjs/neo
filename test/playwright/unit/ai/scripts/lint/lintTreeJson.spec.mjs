@@ -30,6 +30,8 @@ import {
  *   - PHANTOM_GROUP      >1 nav group owning the same folder (the phantom-group reproducer)
  *   - EXPLORATION_ARTIFACT a published leaf whose basename is an audit/plan/sweep/census/
  *                          forensics/benchmark artifact (learn/ is public docs)
+ *   - NO_TOP_LEVEL_ORPHAN a depth-1 learn/agentos/*.md on disk that is neither a registered
+ *                          tree.json leaf nor an intentionally-internal allowlist entry
  *   - SEO_OUTPUT_MISSING generated learn URL missing from checked-in llms.txt / sitemap.xml
  *   - SEO_OUTPUT_EXTRA   stale checked-in llms.txt / sitemap.xml learn URL
  *   - DUP_ID / MISSING_ID / STRUCTURE  malformed input guards
@@ -55,6 +57,7 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
         expect(result.stdout).toContain('FOLDER_UNIQUENESS');
         expect(result.stdout).toContain('EXPLORATION_ARTIFACT');
         expect(result.stdout).toContain('SEO_SYNC');
+        expect(result.stdout).toContain('NO_TOP_LEVEL_ORPHAN');
     });
 
     test('CLI: the real learn/tree.json passes (mirrors the folder structure)', () => {
@@ -138,6 +141,32 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
             {id: 'AuditPlan', isLeaf: false, parentId: null},
             {id: 'auditplan/Overview', parentId: 'AuditPlan'}
         ])).toEqual([]);
+    });
+
+    test('NO_TOP_LEVEL_ORPHAN: unregistered top-level agentos doc flagged; registered + allowlisted + subfolder spared (#12513)', () => {
+        const tree = [
+            {id: 'AgentOS', isLeaf: false, parentId: null},
+            {id: 'agentos/AiConfigModel', parentId: 'AgentOS'}   // a registered published guide
+        ];
+        // inject a depth-1 readDir mock for `agentos`; invariant 7 is non-recursive (depth-1 only)
+        const run = readDir => lintTree({data: tree}, {fileExists: () => true, readDir}).map(v => v.code).sort();
+
+        // an unregistered, non-allowlisted top-level doc → flagged
+        expect(run(rel => rel === 'agentos' ? ['Orphan.md'] : [])).toEqual(['NO_TOP_LEVEL_ORPHAN']);
+
+        // a registered published guide → spared
+        expect(run(rel => rel === 'agentos' ? ['AiConfigModel.md'] : [])).toEqual([]);
+
+        // each intentionally-internal allowlist entry → spared (negative-mutation control)
+        for (const name of ['AGENTS_ATLAS.md', 'IdentitySchema.md', 'ModelStats.md', 'v13-path.md']) {
+            expect(run(rel => rel === 'agentos' ? [name] : []), name).toEqual([]);
+        }
+
+        // subdir entries (no .md) + nested artifacts live below depth-1 → never checked
+        expect(run(rel => rel === 'agentos' ? ['process', 'incidents', 'measurements'] : [])).toEqual([]);
+
+        // no readDir probe → invariant 7 is skipped entirely (pure-mode back-compat)
+        expect(lintTree({data: tree}, {fileExists: () => true}).map(v => v.code)).toEqual([]);
     });
 
     test('DUP_ID / MISSING_ID / STRUCTURE guards fire', () => {

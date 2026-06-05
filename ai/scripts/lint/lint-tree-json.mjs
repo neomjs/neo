@@ -11,7 +11,7 @@
  * `id` referenced by its children's `parentId`.
  *
  * Because it is hand-edited JSON with no schema enforcement, drift is silent until it
- * breaks portal nav / SEO. This lint enforces six mechanical invariants:
+ * breaks portal nav / SEO. This lint enforces seven mechanical invariants:
  *
  *   1. LEAF_FILE        — every leaf `id` resolves to an existing `learn/<id>.md`.
  *   2. PARENT_INTEGRITY — every non-null `parentId` references an existing group node.
@@ -26,6 +26,12 @@
  *   6. SEO_SYNC         — checked-in `apps/portal/llms.txt` + `sitemap.xml` expose the
  *                         same learn/ URL sets as the SEO generator would emit now
  *                         (ignoring sitemap lastmod).
+ *   7. NO_TOP_LEVEL_ORPHAN — every depth-1 `learn/agentos/*.md` on disk is EITHER a
+ *                         registered `tree.json` leaf (published nav) OR an intentionally-internal
+ *                         allowlist entry. Catches the orphan-dump mode (5) misses: (5) is
+ *                         suffix-based (`*Audit`/`*Benchmark`/…); (7) catches ANY unregistered
+ *                         top-level doc. Relocate non-guide artifacts to a non-published
+ *                         subfolder (`process/`, `incidents/`, `measurements/`, `tooling/`, …).
  *
  * (3) + (4) together assert a group ↔ folder bijection for leaf-bearing groups: the
  * mechanical form of "the nav tree mirrors the folder layout." (1) transitively covers
@@ -64,6 +70,18 @@ const EXPLORATION_ARTIFACT_SUFFIXES = 'audit/plan/sweep/census/forensics/benchma
 // Case-insensitive: the on-disk artifact inventory mixes CamelCase (`ConfigSubstrateEnvVarAudit`)
 // and kebab/lowercase (`gemma4-rem-benchmark`, `sandman-silent-failure-forensics`) basenames.
 const EXPLORATION_ARTIFACT_RE       = /(?:audit|plan|sweep|census|forensics|benchmark)$/i;
+
+// Invariant 7: intentionally-internal top-level `learn/agentos/*.md` docs that are NOT in the
+// portal nav but ARE load-bearing reference substrate (referenced at-path by the turn-loaded
+// root `AGENTS.md` and/or ADRs). Pure data — never a threshold. Every OTHER depth-1
+// `learn/agentos/*.md` must be a registered `tree.json` leaf or be relocated to a subfolder.
+const NO_TOP_LEVEL_ORPHAN_DIR       = 'agentos';
+const NO_TOP_LEVEL_ORPHAN_ALLOWLIST = new Set([
+    'agentos/AGENTS_ATLAS',   // Atlas companion to the turn-loaded root AGENTS.md
+    'agentos/IdentitySchema', // AgentIdentity graph-node schema (companion to ModelStats)
+    'agentos/ModelStats',     // Per-model swarm identity/capability/routing registry
+    'agentos/v13-path'        // Chief-architect v13 architectural-path planning doc
+]);
 
 /**
  * Returns the folder-prefix (directory part) of a leaf `id`, using POSIX semantics so
@@ -220,10 +238,10 @@ async function getGeneratedSeoLearnUrls({
  * unless the caller's probe touches it — exported for unit testing.
  *
  * @param {{data: Array<object>}} treeData Parsed `tree.json`.
- * @param {{fileExists?: (relPathFromLearn: string) => boolean}} [probes]
+ * @param {{fileExists?: (relPathFromLearn: string) => boolean, readDir?: (relPathFromLearn: string) => String[]}} [probes]
  * @returns {Array<{code: string, message: string}>}
  */
-function lintTree(treeData, {fileExists} = {}) {
+function lintTree(treeData, {fileExists, readDir} = {}) {
     const violations = [];
     const nodes      = treeData?.data;
 
@@ -311,6 +329,24 @@ function lintTree(treeData, {fileExists} = {}) {
         }
     }
 
+    // Invariant 7: no unregistered top-level learn/agentos/*.md orphan. Every depth-1
+    // learn/agentos/*.md on disk must be a registered tree.json leaf (published nav) OR an
+    // intentionally-internal allowlist entry; otherwise it is an orphan-dump that the
+    // suffix-based EXPLORATION_ARTIFACT (invariant 5) does not catch. Relocate non-guides
+    // to a non-published subfolder. `readDir` is non-recursive, so this is depth-1 only.
+    if (readDir) {
+        const registeredLeafIds = new Set(getLeafIds(treeData));
+        const topLevelDocs      = readDir(NO_TOP_LEVEL_ORPHAN_DIR).filter(name => name.endsWith('.md'));
+
+        for (const name of topLevelDocs) {
+            const id = `${NO_TOP_LEVEL_ORPHAN_DIR}/${name.replace(/\.md$/, '')}`;
+
+            if (!registeredLeafIds.has(id) && !NO_TOP_LEVEL_ORPHAN_ALLOWLIST.has(id)) {
+                violations.push({code: 'NO_TOP_LEVEL_ORPHAN', message: `Top-level doc learn/${id}.md is neither a registered tree.json leaf nor a NO_TOP_LEVEL_ORPHAN allowlist entry. learn/${NO_TOP_LEVEL_ORPHAN_DIR}/ top-level is reserved for published guides (registered in tree.json) + intentionally-internal reference substrate (allowlisted in lint-tree-json.mjs); relocate process/incident/measurement artifacts to a non-published subfolder (process/, incidents/, measurements/, tooling/, wake-substrate/, …).`});
+            }
+        }
+    }
+
     return violations;
 }
 
@@ -339,7 +375,14 @@ async function runLint({
     }
 
     const fileExists = relPath => fs.existsSync(path.join(learnDir, relPath));
-    const violations = lintTree(treeData, {fileExists});
+    const readDir    = relPath => {
+        try {
+            return fs.readdirSync(path.join(learnDir, relPath));
+        } catch {
+            return [];
+        }
+    };
+    const violations = lintTree(treeData, {fileExists, readDir});
 
     if (checkSeo) {
         let generatedSeoLearnUrls;
@@ -404,6 +447,7 @@ async function main() {
         console.log('  4. FOLDER_UNIQUENESS each folder maps to one group (phantom-group guard)');
         console.log('  5. EXPLORATION_ARTIFACT no audit/plan/sweep/census/forensics/benchmark leaf in nav');
         console.log('  6. SEO_SYNC          checked-in llms.txt + sitemap.xml match generated learn URLs');
+        console.log('  7. NO_TOP_LEVEL_ORPHAN every depth-1 learn/agentos/*.md is registered or allowlisted');
         process.exit(0);
     }
 

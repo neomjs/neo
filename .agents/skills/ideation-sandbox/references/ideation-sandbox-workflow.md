@@ -25,7 +25,7 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
 
 ### 2.1 Reference Hygiene
 
-Before Discussion prose, read [`reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): relationships stay bare; descriptive tokens use backticks.
+Before Discussion prose, read [`reference-hygiene.md`](../../../../learn/agentos/process/reference-hygiene.md): relationships stay bare; descriptive tokens use backticks.
 
 ## 3. Author's Note Convention (The `#10119` Annotation Pattern)
 Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself.

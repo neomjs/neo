@@ -114,7 +114,7 @@ For every issue named as close-target, verify it does NOT carry the `epic` label
 
 *(Required when the PR's close-target ACs include observable runtime effect on a surface the CI / agent sandbox cannot reach — substrate / harness / wake / restart / UI-with-visual-AC / CLI-with-host-behavior PRs. Mark N/A for PRs where ACs are fully covered by unit tests / static contract.)*
 
-Reference: [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md) for L1-L4 ladder + sandbox-vs-achievable ceiling distinction.
+Reference: [`learn/agentos/process/evidence-ladder.md`](../../../../learn/agentos/process/evidence-ladder.md) for L1-L4 ladder + sandbox-vs-achievable ceiling distinction.
 
 The PR body must declare achieved evidence in 1-line greppable form:
 
