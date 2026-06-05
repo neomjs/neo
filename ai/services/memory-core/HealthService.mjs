@@ -906,7 +906,7 @@ class HealthService extends Base {
      */
     async #checkDatabaseConnections() {
         try {
-            const engine = aiConfig.engine || 'hybrid';
+            const engine = aiConfig.engine;
             const engines = { chroma: false };
 
             // 2. Vector Chroma DB (Hybrid & Standalone Chroma)
@@ -1196,7 +1196,7 @@ class HealthService extends Base {
 
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
-        const engine = aiConfig.engine || 'hybrid';
+        const engine = aiConfig.engine;
 
         if (engine === 'chroma' || engine === 'hybrid') {
             providers.push(aiConfig.embeddingProvider);
@@ -1246,7 +1246,7 @@ class HealthService extends Base {
      */
     async #getEmbeddingWriteCanary() {
         const now = Date.now(),
-              key = `${aiConfig.embeddingProvider || 'openAiCompatible'}:${aiConfig.vectorDimension ?? ''}`,
+              key = `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`,
               cached = this.#embeddingWriteCanaryCache;
 
         if (cached &&
