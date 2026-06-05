@@ -4,7 +4,7 @@ import Base     from '../../../src/core/Base.mjs';
 /**
  * @summary Scaffold health service for the GitLab Workflow MCP server.
  *
- * The initial #11768 lane only registers the MCP surface. It validates that the
+ * The initial scaffold only registers the MCP surface. It validates that the
  * server has a GitLab host configuration and reports whether a PAT is configured,
  * without pretending that real API connectivity exists before GitLabClient lands.
  *
@@ -31,7 +31,7 @@ class HealthService extends Base {
      * @returns {Promise<Object>}
      */
     async healthcheck() {
-        const hostUrl = aiConfig.gitlab?.hostUrl || '';
+        const hostUrl = aiConfig.gitlab.hostUrl;
         const details = [];
 
         if (!hostUrl) {
@@ -42,7 +42,7 @@ class HealthService extends Base {
             status: details.length ? 'unhealthy' : 'healthy',
             gitlab: {
                 hostUrl,
-                tokenConfigured: Boolean(aiConfig.gitlab?.token)
+                tokenConfigured: Boolean(aiConfig.gitlab.token)
             },
             details
         };
