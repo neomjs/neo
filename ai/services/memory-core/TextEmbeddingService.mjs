@@ -242,11 +242,11 @@ class TextEmbeddingService extends Base {
     #getOllamaProvider() {
         if (this.ollamaProvider) return this.ollamaProvider;
 
-        const config = aiConfig.ollama || {};
+        const config = aiConfig.ollama;
         const provider = Neo.create(OllamaProvider, {
-            host          : config.host           || 'http://127.0.0.1:11434',
-            modelName     : config.model          || 'gemma4',
-            embeddingModel: config.embeddingModel || null
+            host          : config.host,
+            modelName     : config.model,
+            embeddingModel: config.embeddingModel
         });
         this.ollamaProvider = provider;
         return provider;
