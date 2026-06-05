@@ -122,6 +122,7 @@ test.describe('Bridge Daemon', () => {
         if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
         if (fs.existsSync(`${DB_PATH}-wal`)) fs.unlinkSync(`${DB_PATH}-wal`);
         if (fs.existsSync(`${DB_PATH}-shm`)) fs.unlinkSync(`${DB_PATH}-shm`);
+        process.env.NEO_MEMORY_DB_PATH_TEST = DB_PATH;
 
         db = new Database(DB_PATH);
         db.pragma('journal_mode = WAL');
@@ -163,6 +164,7 @@ test.describe('Bridge Daemon', () => {
         if (fs.existsSync(`${DB_PATH}-wal`)) fs.unlinkSync(`${DB_PATH}-wal`);
         if (fs.existsSync(`${DB_PATH}-shm`)) fs.unlinkSync(`${DB_PATH}-shm`);
         fs.removeSync(DAEMON_DIR);
+        delete process.env.NEO_MEMORY_DB_PATH_TEST;
     });
 
     test('detects and delivers wake events via test adapter', async () => {
@@ -195,7 +197,7 @@ test.describe('Bridge Daemon', () => {
         // Start the daemon with environment overrides
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -286,7 +288,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -343,7 +345,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -400,7 +402,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let deliveryCount = 0;
@@ -476,7 +478,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let deliveryCount = 0;
@@ -570,7 +572,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -668,7 +670,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const errorLogPromise = new Promise((resolve, reject) => {
@@ -747,7 +749,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         // We know bridge-daemon will log INFO when it finishes osascript
@@ -836,7 +838,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -936,7 +938,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -991,7 +993,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const refusalPromise = new Promise((resolve, reject) => {
@@ -1042,7 +1044,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1099,7 +1101,7 @@ test.describe('Bridge Daemon', () => {
 
                 daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
                     stdio: 'pipe',
-                    env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+                    env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
                 });
 
                 setTimeout(() => insertMessageWake(db, {agentId, subject: 'Webhook Address Wake'}), 1000);
@@ -1179,7 +1181,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         // Wait for the fail-closed warning log line (proxy for the deliver-or-refuse decision).
@@ -1272,7 +1274,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1444,7 +1446,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env  : {...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
         });
 
         let senderDeliveryCount = 0;
@@ -1515,7 +1517,7 @@ test.describe('Bridge Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
-            env  : {...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
