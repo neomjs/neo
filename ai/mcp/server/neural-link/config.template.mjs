@@ -1,7 +1,7 @@
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
+import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -16,10 +16,10 @@ const cwd        = process.cwd();
  * Supports loading configuration from a custom file and merging with defaults.
  *
  * @class Neo.ai.mcp.server.neural-link.Config
- * @extends Neo.ai.BaseConfig
+ * @extends Neo.ai.ConfigProvider
  * @singleton
  */
-class Config extends BaseConfig {
+class Config extends ConfigProvider {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.neural-link.Config'

@@ -1,11 +1,11 @@
 /**
- * Internal typed-parser registry for `Neo.ai.BaseConfig`.
+ * Internal typed-parser registry for `Neo.ai.ConfigProvider`.
  *
  * Each parser reads `env[envVarName]` and decodes it to a typed value, answering exactly one
  * question: "env var absent (undefined) / decoded value / invalid (warn + undefined)". The
  * decoders know NOTHING about specific configs, defaults, or domain consumers.
  *
- * **Not consumer-facing.** These parsers are the env-decode layer that `BaseConfig` wires into
+ * **Not consumer-facing.** These parsers are the env-decode layer that `ConfigProvider` wires into
  * its meta-leaf registry: a `leaf(default, 'NEO_X', type)` resolves its env override through the
  * `type`-keyed parser here. Application code does NOT call `Env.parseX` directly — it reads the
  * resolved value via the Provider-extending aiConfig substrate (`AiConfig.<path>`), which layers

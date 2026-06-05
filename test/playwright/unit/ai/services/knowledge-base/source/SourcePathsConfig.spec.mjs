@@ -28,18 +28,15 @@ const __dirname  = path.dirname(__filename);
 const TEMPLATE_PATH = path.resolve(__dirname, '../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs');
 
 /**
- * Verifies the Phase 0/1B-β (#11660) `aiConfig.sourcePaths` config-driven override + legacy
- * hardcoded-fallback contract across all 10 default Neo Source classes. Each test exercises
+ * Verifies the `aiConfig.sourcePaths` config-driven override + legacy hardcoded-fallback contract
+ * across all 10 default Neo Source classes. Each test exercises
  * the same `path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.<SourceName> ?? '<fallback>')`
  * pattern that each Source class uses at its extract-path-resolution point.
  *
- * Byte-equivalence anchor: the hardcoded fallback inside `??` MUST match the pre-#11660
+ * Byte-equivalence anchor: the hardcoded fallback inside `??` MUST match the pre-config
  * hardcoded path so deployments without the new `sourcePaths` config key still resolve
  * to the legacy Neo layout. This spec is the regression guard against that fallback
  * drifting away from the legacy default.
- *
- * @see https://github.com/neomjs/neo/issues/11660
- * @see https://github.com/neomjs/neo/issues/11658 (sibling — registry foundation)
  */
 
 // Serial mode: tests mutate the shared `aiConfig.sourcePaths` singleton via per-test
@@ -49,8 +46,6 @@ const TEMPLATE_PATH = path.resolve(__dirname, '../../../../../../../ai/mcp/serve
 // mode within this file forces non-overlapping mutation windows. CI uses workers=1 so
 // this primarily defends local-DX correctness; the singleton-mutation pattern is inherent
 // to the test shape, not a workers=1 vs workers=9 distinction.
-// @neo-gpt PR #11661 Cycle 1 review (commentId IC_kwDODSospM8AAAABC9dlIg, formal
-// review PRR_kwDODSospM8AAAABAcNngw, Required Action 1).
 test.describe.configure({mode: 'serial'});
 
 test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () => {
@@ -83,8 +78,7 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
         }
 
         aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
-        // Phase 0/1B-β #11660 + Cycle 1 RA from @neo-gpt commentId IC_kwDODSospM8AAAABC9gB_A:
-        // the byte-equivalence anchor MUST assert against the canonical git-tracked template,
+        // The byte-equivalence anchor MUST assert against the canonical git-tracked template,
         // not any per-clone operator overlay (which may be stale on clones that pulled
         // the template change without re-running `bootstrapWorktree.mjs` to refresh local config).
         // Read the template file as text and verify the expected fallback strings appear inside
@@ -256,7 +250,7 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
         });
 
         test('override sourceMap takes precedence over fallback', () => {
-            // Reactive-config semantics (epic #12101: BaseConfig extends Neo.state.Provider):
+            // Reactive-config semantics (ConfigProvider extends Neo.state.Provider):
             // assigning an OBJECT to a config leaf routes through the Provider's `setData`, which
             // drills into the supplied nested keys and MERGES them onto the existing sub-keys —
             // override values WIN on a conflicting key; keys the override omits keep their default.
@@ -313,8 +307,8 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
                 delete aiConfig.sourcePaths;
 
                 // Verify each Source class's resolution path still works via the `??` fallback.
-                // This is the byte-equivalence guarantee for pre-#11660 deployments whose
-                // the local operator overlay was generated from a config.template.mjs that didn't have
+                // This is the byte-equivalence guarantee for deployments whose local operator
+                // overlay was generated from a config.template.mjs that didn't have
                 // the `sourcePaths` key.
                 expect(aiConfig.sourcePaths?.AdrSource          ?? 'learn/agentos/decisions').toBe('learn/agentos/decisions');
                 expect(aiConfig.sourcePaths?.ConceptSource      ?? 'resources/content/concepts').toBe('resources/content/concepts');
@@ -337,7 +331,7 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
             // Read from KB_DEFAULTS fixture (frozen snapshot of KB-template defaults) rather
             // than the live overlay-merged singleton — operator-customized
             // `sourcePaths.LearningSource` would otherwise break this canonical-default check.
-            // #11981 / Sub-2 of #11976 (1-spec drift-migration scope).
+            // This remains a one-spec drift-migration scope.
             const treePath = KB_DEFAULTS.sourcePaths?.LearningSource ?? 'learn/tree.json';
             const basePath = path.dirname(treePath);
             expect(basePath).toBe('learn');

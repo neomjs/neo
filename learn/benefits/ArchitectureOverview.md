@@ -372,7 +372,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 |---|---|---|---|
 | `ai/Agent.mjs` | Agent base class | `Agent` | — |
 | `ai/agent/` | Cognitive runtime | `Loop`, `Orchestrator`, `Scheduler` | — |
-| `ai/config.template.mjs`, `ai/BaseConfig.mjs` | Tier-1 Agent OS config template and shared config base consumed by top-level and MCP server configs | `Config`, `BaseConfig` | — |
+| `ai/config.template.mjs`, `ai/ConfigProvider.mjs` | Tier-1 Agent OS config template and shared config provider consumed by top-level and MCP server configs | `Config`, `ConfigProvider` | — |
 | `ai/context/` | Context window management | `Assembler` | — |
 | `ai/provider/` | LLM abstraction | `Gemini`, `Ollama`, `OpenAiCompatible` | — |
 | `ai/services.mjs` | SDK with Zod validation aggregator | — | — |
