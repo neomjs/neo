@@ -21,6 +21,12 @@ import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 import { createSpawnRequest } from './windowsBatchSpawn.mjs';
+import {
+    normalizeAgentIdentityNodeId,
+    resolveHarnessTargetForIdentity
+} from './harnessRouting.mjs';
+
+export {normalizeAgentIdentityNodeId};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -71,7 +77,7 @@ function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform)
  * @summary Resolve the embedded Claude Code CLI binary path inside Claude Desktop.
  *
  * NOTE: retained as a non-routed fallback — Claude recovery routes to the `osascript`
- * adapter (Claude Desktop Tab 3 / Code tab); see the HARNESS_REGISTRY note in `resumeHarness`.
+ * adapter (Claude Desktop Tab 3 / Code tab); see the harness routing note in `resumeHarness`.
  *
  * Claude Desktop ships the `claude` CLI under
  * `~/Library/Application Support/Claude/claude-code/<version>/claude.app/Contents/MacOS/claude`.
@@ -255,16 +261,6 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
 }
 
 /**
- * @summary Normalize a GitHub-login-style identity into the AgentIdentity node id form wake dispatchers require.
- * @param {String} identity Raw identity from env/config/CLI.
- * @returns {String} Canonical AgentIdentity node id, or an empty string for empty input.
- */
-export function normalizeAgentIdentityNodeId(identity) {
-    const value = String(identity ?? '').trim();
-    return value && !value.startsWith('@') ? `@${value}` : value
-}
-
-/**
  * @summary Resume a sunsetted agent by dispatching the configured fresh-session harness adapter.
  * @param {String} identity Agent identity to resume.
  * @param {String} reason Human-readable recovery reason.
@@ -309,7 +305,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     // AGENTS_STARTUP.md and re-anchors prior context via Memory Core + sandman_handoff.
     const payload = buildBootGroundingPrompt(identity, reason, originSessionId);
 
-    // Harness Registry: maps identity IDs to their restart adapters.
+    // Harness routing derives identity IDs from `identityRoots.mjs` via `harnessRouting.mjs`.
     // - antigravity-ide: native CLI `chat -n` through the `antigravity-cli` adapter.
     // - claude-desktop: Claude Desktop GUI through the `osascript` adapter — activate
     //   Claude, Cmd+3 to the Code tab (Tab 3), Cmd+N for a fresh chat, then paste the
@@ -325,22 +321,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     //   gated, while tests use CODEX_APP_SERVER_MOCK=1 + CODEX_CLI_PATH.
     // The `claude-cli` adapter (embedded `claude <prompt>` CLI) is retained as a
     // non-routed fallback; no production identity routes there after the Tab-3 remap.
-    const HARNESS_REGISTRY = {
-        'antigravity-ide': { adapter: 'antigravity-cli' },
-        'claude-desktop':  { adapter: 'osascript', appName: 'Claude', tabShortcut: '3', freshSessionShortcut: 'n' },
-        'codex-desktop':   { adapter: 'codex-app-server' }
-    };
-
-    const identityMap = {
-        '@neo-gemini-3-1-pro': 'antigravity-ide',
-        '@neo-gpt'           : 'codex-desktop',
-        '@neo-opus-4-7'      : 'claude-desktop',
-        '@neo-claude-opus'   : 'claude-desktop',
-        '@neo-opus-vega'     : 'claude-desktop'
-    };
-
-    const targetId = identityMap[identity];
-    const harnessTarget = targetId ? HARNESS_REGISTRY[targetId] : null;
+    const harnessTarget = resolveHarnessTargetForIdentity(identity);
 
     if (!harnessTarget) {
         throw new Error(`Unknown harness target for identity: ${identity}`);
