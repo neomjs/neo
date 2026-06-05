@@ -30,10 +30,22 @@ import BootEnvelopeResolver from '../../../../../../../../ai/mcp/server/shared/s
  */
 
 test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)', () => {
-    const NEO_DIR = '/Users/example/.claude-instances/Neo';
+    const NEO_DIR     = '/Users/example/.claude-instances/Neo';
+    const DEFAULT_DIR = '/Users/example/Library/Application Support/Claude';
+    const PS_ELECTRON_PARENT_CHAIN = [
+        `90001 20005 /Users/example/.nvm/versions/node/v22/bin/node /Users/example/neo/ai/mcp/server/memory-core/main.mjs`,
+        `20005 20001 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer) --type=renderer --user-data-dir=${NEO_DIR} --app-path=/x`,
+        `20001 1 /Applications/Claude.app/Contents/MacOS/Claude --user-data-dir=${NEO_DIR}`,
+        `13106 1 /Applications/Claude.app/Contents/MacOS/Claude`,
+        `13119 13106 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper --type=gpu-process --user-data-dir=${DEFAULT_DIR} --gpu-preferences=xyz`
+    ].join('\n');
 
     test('default instance — neither env var set returns null (routed by absence)', () => {
-        expect(BootEnvelopeResolver.resolveOverrideMetadata({})).toBeNull();
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({}, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: '90001 1 /usr/local/bin/node /tmp/server.mjs'
+        })).toBeNull();
     });
 
     test('empty-string env vars are treated as absent (default instance)', () => {
@@ -47,6 +59,10 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
         const result = BootEnvelopeResolver.resolveOverrideMetadata({
             NEO_HARNESS_INSTANCE_ADDRESS     : NEO_DIR,
             NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'userDataDir'
+        }, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: PS_ELECTRON_PARENT_CHAIN
         });
 
         expect(result).toEqual({
@@ -70,12 +86,20 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
     test('fails closed on a partial envelope — address without type', () => {
         expect(() => BootEnvelopeResolver.resolveOverrideMetadata({
             NEO_HARNESS_INSTANCE_ADDRESS: NEO_DIR
+        }, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: PS_ELECTRON_PARENT_CHAIN
         })).toThrow(/Partial boot envelope/);
     });
 
     test('fails closed on a partial envelope — type without address', () => {
         expect(() => BootEnvelopeResolver.resolveOverrideMetadata({
             NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'userDataDir'
+        }, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: PS_ELECTRON_PARENT_CHAIN
         })).toThrow(/Partial boot envelope/);
     });
 
@@ -132,5 +156,62 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
     test('validAddressTypes documents the graduated address-kind set', () => {
         expect(BootEnvelopeResolver.validAddressTypes).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
         expect(BootEnvelopeResolver.dispatchableAddressTypes).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
+    });
+
+    test('fallback discovers userDataDir from macOS Electron helper→main parent chain (#12419)', () => {
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({}, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: PS_ELECTRON_PARENT_CHAIN
+        })).toEqual({
+            instanceAddress: NEO_DIR,
+            addressType    : 'userDataDir'
+        });
+    });
+
+    test('fallback never overrides an explicit envelope value (#12419)', () => {
+        const explicitDir = '/Users/example/.claude-instances/Explicit';
+
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({
+            NEO_HARNESS_INSTANCE_ADDRESS     : explicitDir,
+            NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'userDataDir'
+        }, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: PS_ELECTRON_PARENT_CHAIN
+        })).toEqual({
+            instanceAddress: explicitDir,
+            addressType    : 'userDataDir'
+        });
+    });
+
+    test('fallback no-ops outside macOS / Electron parent chains (#12419)', () => {
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({}, {
+            bootPid : 90001,
+            platform: 'linux',
+            psOutput: PS_ELECTRON_PARENT_CHAIN
+        })).toBeNull();
+
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({}, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: [
+                '90001 42 /usr/local/bin/node /Users/example/neo/ai/mcp/server/memory-core/main.mjs',
+                '42 1 /usr/bin/tmux new-session'
+            ].join('\n')
+        })).toBeNull();
+    });
+
+    test('fallback fails closed when discovered userDataDir cannot map to a main pid (#12419)', () => {
+        const helperOnlySnapshot = [
+            `90001 20005 /Users/example/.nvm/versions/node/v22/bin/node /Users/example/neo/ai/mcp/server/memory-core/main.mjs`,
+            `20005 20001 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer) --type=renderer --user-data-dir=${NEO_DIR} --app-path=/x`
+        ].join('\n');
+
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({}, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: helperOnlySnapshot
+        })).toBeNull();
     });
 });
