@@ -1547,6 +1547,52 @@ components:
                         count:
                           type: integer
                           example: 56
+        graphLifecycle:
+          type: object
+          description: "Memory/Session graph lifecycle telemetry. Observational only; does not alter REM state, pruning, archival, or deletion behavior."
+          properties:
+            available:
+              type: boolean
+              description: "True when the SQLite graph store was mounted and counted successfully."
+              example: true
+            memoryNodes:
+              type: integer
+              description: "Deployment-wide count of SQLite Nodes rows whose JSON label is MEMORY."
+              example: 3
+            sessionNodes:
+              type: integer
+              description: "Deployment-wide count of SQLite Nodes rows whose JSON label is SESSION."
+              example: 2
+            memoryIncidentEdges:
+              type: integer
+              description: "Count of SQLite Edges rows whose source or target is a MEMORY node."
+              example: 7
+            sessionIncidentEdges:
+              type: integer
+              description: "Count of SQLite Edges rows whose source or target is a SESSION node."
+              example: 5
+            sqliteBytes:
+              type: integer
+              description: "Byte size of the configured SQLite graph database file."
+              example: 4096
+            sqliteWalBytes:
+              type: integer
+              description: "Byte size of the sibling SQLite WAL file, or 0 when absent."
+              example: 512
+            sqliteShmBytes:
+              type: integer
+              description: "Byte size of the sibling SQLite SHM file, or 0 when absent."
+              example: 0
+            measuredAt:
+              type: string
+              format: date-time
+              description: "ISO 8601 timestamp for the graph lifecycle measurement."
+              example: "2026-06-05T20:00:00.000Z"
+            error:
+              type: string
+              nullable: true
+              description: "Optional defensive error when available is false."
+              example: null
         features:
           type: object
           properties:

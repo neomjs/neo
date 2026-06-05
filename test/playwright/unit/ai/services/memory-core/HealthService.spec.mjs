@@ -1387,3 +1387,139 @@ test.describe('HealthService #10779, #11309 — buildDreamFeaturesBlock', () => 
         expect(result.lastGoldenPathRun).toBe('2026-05-13T20:06:00.000Z');
     });
 });
+
+/**
+ * @summary Coverage for Memory/Session graph lifecycle telemetry.
+ *
+ * Pins the pure-projection contract of `buildGraphLifecycleBlock`, the helper wired into
+ * `HealthService.healthcheck().graphLifecycle`. The tests inject a SQLite-shaped DB and filesystem
+ * adapter so the unit suite validates the payload semantics without mounting a live graph store.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#buildGraphLifecycleBlock
+ */
+test.describe('HealthService #10158 — buildGraphLifecycleBlock', () => {
+    let buildGraphLifecycleBlock;
+
+    const fixedNow = () => new Date('2026-06-05T20:00:00.000Z');
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildGraphLifecycleBlock = mod.buildGraphLifecycleBlock;
+    });
+
+    test('counts Memory/Session nodes, incident edges, and SQLite main/WAL/SHM sizes', async () => {
+        const preparedSql = [];
+        const sqliteDb = {
+            prepare(sql) {
+                preparedSql.push(sql);
+
+                return {
+                    get(...args) {
+                        const label = args[0];
+
+                        if (sql.includes('FROM Nodes') && !sql.includes('FROM Edges')) {
+                            return {count: {MEMORY: 3, SESSION: 2}[label]};
+                        }
+
+                        if (sql.includes('FROM Edges')) {
+                            return {count: {MEMORY: 7, SESSION: 5}[label]};
+                        }
+
+                        throw new Error(`Unexpected SQL in test fixture: ${sql}`);
+                    }
+                };
+            }
+        };
+        const graphService = {
+            db: {
+                storage: {
+                    db    : sqliteDb,
+                    dbPath: '/tmp/neo-graph.db'
+                }
+            }
+        };
+        const fileSystem = {
+            stat: async filePath => {
+                if (filePath === '/tmp/neo-graph.db') return {size: 4096};
+                if (filePath === '/tmp/neo-graph.db-wal') return {size: 512};
+                throw new Error('missing file');
+            }
+        };
+
+        const result = await buildGraphLifecycleBlock({graphService, fileSystem, now: fixedNow});
+
+        expect(result).toEqual({
+            available           : true,
+            memoryNodes         : 3,
+            sessionNodes        : 2,
+            memoryIncidentEdges : 7,
+            sessionIncidentEdges: 5,
+            sqliteBytes         : 4096,
+            sqliteWalBytes      : 512,
+            sqliteShmBytes      : 0,
+            measuredAt          : '2026-06-05T20:00:00.000Z'
+        });
+
+        const incidentSql = preparedSql.find(sql => sql.includes('FROM Edges'));
+        expect(incidentSql).toContain('e.source');
+        expect(incidentSql).toContain('e.target');
+        expect(incidentSql).toContain("json_extract(n.data, '$.label') = ?");
+    });
+
+    test('returns available:false with zero counts when graph SQLite storage is unavailable', async () => {
+        let statCalls = 0;
+        const result = await buildGraphLifecycleBlock({
+            graphService: {db: {storage: {db: null, dbPath: null}}},
+            fileSystem  : {
+                stat: async () => {
+                    statCalls++;
+                    throw new Error('stat should not run');
+                }
+            },
+            now: fixedNow
+        });
+
+        expect(result).toMatchObject({
+            available           : false,
+            memoryNodes         : 0,
+            sessionNodes        : 0,
+            memoryIncidentEdges : 0,
+            sessionIncidentEdges: 0,
+            sqliteBytes         : 0,
+            sqliteWalBytes      : 0,
+            sqliteShmBytes      : 0,
+            measuredAt          : '2026-06-05T20:00:00.000Z'
+        });
+        expect(result.error).toContain('Graph SQLite storage is unavailable');
+        expect(statCalls).toBe(0);
+    });
+
+    test('surfaces SQL errors as defensive unavailable telemetry', async () => {
+        const graphService = {
+            db: {
+                storage: {
+                    db: {
+                        prepare() {
+                            throw new Error('Nodes table locked');
+                        }
+                    },
+                    dbPath: '/tmp/neo-graph.db'
+                }
+            }
+        };
+
+        const result = await buildGraphLifecycleBlock({
+            graphService,
+            fileSystem: {stat: async () => ({size: 1})},
+            now       : fixedNow
+        });
+
+        expect(result).toMatchObject({
+            available   : false,
+            memoryNodes : 0,
+            sessionNodes: 0,
+            measuredAt  : '2026-06-05T20:00:00.000Z'
+        });
+        expect(result.error).toBe('Nodes table locked');
+    });
+});

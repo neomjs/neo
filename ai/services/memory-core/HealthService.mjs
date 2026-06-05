@@ -542,6 +542,123 @@ export function buildDreamFeaturesBlock(taskOutcomes = {}) {
         lastGoldenPathRun: goldenPathState?.details?.completedAt || goldenPathState?.details?.failedAt || null
     };
 }
+
+function measuredAtIso(now) {
+    const value = typeof now === 'function' ? now() : now;
+    return (value instanceof Date ? value : new Date(value)).toISOString();
+}
+
+function emptyGraphLifecycleBlock(measuredAt, error) {
+    const block = {
+        available           : false,
+        memoryNodes         : 0,
+        sessionNodes        : 0,
+        memoryIncidentEdges : 0,
+        sessionIncidentEdges: 0,
+        sqliteBytes         : 0,
+        sqliteWalBytes      : 0,
+        sqliteShmBytes      : 0,
+        measuredAt
+    };
+
+    if (error) {
+        block.error = error;
+    }
+
+    return block;
+}
+
+/**
+ * @summary Projects Memory/Session graph lifecycle telemetry into the healthcheck payload.
+ *
+ * The block is observational only: it counts durable `MEMORY` / `SESSION` provenance anchors and
+ * their incident SQLite edges, then reports the graph database main/WAL/SHM file sizes. It does not
+ * mutate graph rows, alter REM freshness telemetry, or participate in vector apoptosis. Missing graph
+ * storage degrades to a typed `available:false` payload so healthcheck consumers can keep reading the
+ * rest of the response.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.graphService] Optional GraphService-shaped object for tests.
+ * @param {Object} [options.fileSystem=fsExtra] Filesystem adapter exposing `stat(path)`.
+ * @param {Function|Number|Date} [options.now=Date.now] Time source for deterministic `measuredAt`.
+ * @returns {Promise<{available: Boolean, memoryNodes: Number, sessionNodes: Number,
+ *     memoryIncidentEdges: Number, sessionIncidentEdges: Number, sqliteBytes: Number,
+ *     sqliteWalBytes: Number, sqliteShmBytes: Number, measuredAt: String, error: String|undefined}>}
+ */
+export async function buildGraphLifecycleBlock({
+    graphService = null,
+    fileSystem   = fsExtra,
+    now          = Date.now
+} = {}) {
+    const measuredAt = measuredAtIso(now);
+
+    try {
+        if (!graphService) {
+            graphService = (await import('./GraphService.mjs')).default;
+        }
+
+        const storage  = graphService?.db?.storage,
+              sqliteDb = storage?.db,
+              dbPath   = storage?.dbPath;
+
+        if (!sqliteDb || !dbPath) {
+            return emptyGraphLifecycleBlock(measuredAt, 'Graph SQLite storage is unavailable.');
+        }
+
+        const countNodes = label => Number(sqliteDb.prepare(`
+            SELECT COUNT(*) AS count
+            FROM Nodes
+            WHERE json_extract(data, '$.label') = ?
+        `).get(label)?.count || 0);
+
+        const countIncidentEdges = label => Number(sqliteDb.prepare(`
+            SELECT COUNT(*) AS count
+            FROM Edges e
+            WHERE EXISTS (
+                SELECT 1 FROM Nodes n
+                WHERE n.id = e.source
+                  AND json_extract(n.data, '$.label') = ?
+            )
+               OR EXISTS (
+                SELECT 1 FROM Nodes n
+                WHERE n.id = e.target
+                  AND json_extract(n.data, '$.label') = ?
+            )
+        `).get(label, label)?.count || 0);
+
+        const fileSize = async filePath => {
+            try {
+                return Number((await fileSystem.stat(filePath)).size || 0);
+            } catch (e) {
+                return 0;
+            }
+        };
+
+        const [
+            sqliteBytes,
+            sqliteWalBytes,
+            sqliteShmBytes
+        ] = await Promise.all([
+            fileSize(dbPath),
+            fileSize(`${dbPath}-wal`),
+            fileSize(`${dbPath}-shm`)
+        ]);
+
+        return {
+            available           : true,
+            memoryNodes         : countNodes('MEMORY'),
+            sessionNodes        : countNodes('SESSION'),
+            memoryIncidentEdges : countIncidentEdges('MEMORY'),
+            sessionIncidentEdges: countIncidentEdges('SESSION'),
+            sqliteBytes,
+            sqliteWalBytes,
+            sqliteShmBytes,
+            measuredAt
+        };
+    } catch (e) {
+        return emptyGraphLifecycleBlock(measuredAt, e?.message || String(e));
+    }
+}
 /**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
@@ -1323,6 +1440,7 @@ class HealthService extends Base {
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
             migration: await this.#checkMigrationState(),
+            graphLifecycle: await buildGraphLifecycleBlock(),
             providers: {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
                 summary  : buildSummaryProviderBlock(aiConfig),

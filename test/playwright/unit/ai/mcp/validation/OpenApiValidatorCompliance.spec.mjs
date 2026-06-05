@@ -36,7 +36,7 @@ function findArraysWithoutItems(node, pathLabel = '') {
 
 /**
  * Walks a JSON Schema node and returns every dotted path where a `type: "object"` node
- * sets `additionalProperties: false`. For OUTPUT schemas this is the #9837 drift bug —
+ * sets `additionalProperties: false`. For OUTPUT schemas this is the #9837 drift bug — ticket-ref-ok: regression anchor for output-schema leniency
  * server implementations return fields the OpenAPI contract forgot to declare, and
  * strict MCP clients (GitHub Copilot) reject the payload with
  * "data/result/0 must NOT have additional properties". OUTPUT schemas should stay
@@ -61,7 +61,7 @@ function findStrictObjects(node, pathLabel = '') {
 
 /**
  * Walks a JSON Schema node looking for INPUT "open-bag" objects that would silently
- * strip their payload to `{}` — the #10070 regression. An open-bag is a `type: "object"`
+ * strip their payload to `{}` — the #10070 regression. ticket-ref-ok: regression anchor for open-bag payload preservation. An open-bag is a `type: "object"`
  * node that declares NO child `properties` (the author signaled "caller decides the
  * shape") AND strict `additionalProperties: false` (Zod then drops every unknown key).
  * The root of an input schema is excluded — top-level inputs with declared fields
@@ -112,6 +112,25 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         const lenient = zodToJsonSchema(z.object({a: z.string()}).passthrough());
         expect(strict.additionalProperties).toBe(false);
         expect(lenient.additionalProperties).toBe(true);
+    });
+
+    test('memory-core healthcheck schema declares graphLifecycle telemetry (#10158)', () => {
+        const doc = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8'));
+        const graphLifecycle = doc.components.schemas.HealthCheckResponse.properties.graphLifecycle;
+
+        expect(graphLifecycle.type).toBe('object');
+        expect(Object.keys(graphLifecycle.properties)).toEqual(expect.arrayContaining([
+            'available',
+            'memoryNodes',
+            'sessionNodes',
+            'memoryIncidentEdges',
+            'sessionIncidentEdges',
+            'sqliteBytes',
+            'sqliteWalBytes',
+            'sqliteShmBytes',
+            'measuredAt',
+            'error'
+        ]));
     });
 
     /**
