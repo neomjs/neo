@@ -170,6 +170,7 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 - **Sunset Protocol (§a2a_contextual_bridge_protocol):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Must explicitly declare `scope: solo-refresh | convergent` to prevent scope contagion. Stale-wake invariant: wake messages in old transcripts are noise.
 - **Visual Verification (§visual_verification_protocol):** Debugging frontend UI/layout.
 - **Authoring Discipline:** Read 1-2 sibling files to lift patterns before writing new classes.
+- **Ticket Creation Freshness:** Before any `create_issue` path, invoke `ticket-create`; its Content Sweep requires live latest-open issue queue evidence in addition to KB/local duplicate checks.
 - **AiConfig (`ai/` config work) (§aiconfig_ssot):** Before working with `AiConfig` inside `ai/` you MUST read **ADR 0019** (`learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md`) — the reactive Provider SSOT. Read resolved leaves at the use site; never re-implement / alias / export / pass-along / mutate / defend against it (⭐ B4 test-mutation of the shared singleton = safety-critical live-DB-bleed).
 - **File Reading Efficiently:** Reading modified files; efficiency patterns.
 - **Verify-Before-Assert (§verify_before_assert):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion): §anti_hallucination_policy.
