@@ -465,7 +465,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests with custom Playwright configs.
 - `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
 - `memory-mining`: Querying Memory Core before diagnosing regressions or proposing architectural claims — prevents re-derivation of prior reasoning across sessions and harnesses.
-- `neo-identity-update`: Updating Neo's identity coherently across all encoding surfaces (README, VISION, package.json, GitHub metadata, portal, SEO generators) — facts-vs-framing model per ADR 0018.
+- `neo-identity-update`: Updating Neo's identity coherently across all encoding surfaces (README, VISION, package.json, GitHub metadata, portal, SEO generators) — facts, framing, and actions model per ADR 0018.
 - `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
 
 **Creative:**
