@@ -6,7 +6,7 @@
  * This handles stable GitHub handle de-versioning while preserving model-version
  * facts in `learn/agentos/ModelStats.md` and AgentIdentity capability fields:
  *
- * - `@neo-opus-4-7` → `@neo-opus`
+ * - `@neo-opus-4-7` → `@neo-opus-ada`
  * - `@neo-gemini-3-1-pro` → `@neo-gemini-pro`
  *
  * The migration updates identity-keyed graph columns, mirrored JSON fields, and
@@ -44,9 +44,9 @@ const neoRoot    = path.resolve(__dirname, '../../..');
 export const IDENTITY_RENAMES = Object.freeze([
     Object.freeze({
         fromNodeId: '@neo-opus-4-7',
-        toNodeId  : '@neo-opus',
+        toNodeId  : '@neo-opus-ada',
         fromUserId: 'neo-opus-4-7',
-        toUserId  : 'neo-opus'
+        toUserId  : 'neo-opus-ada'
     }),
     Object.freeze({
         fromNodeId: '@neo-gemini-3-1-pro',

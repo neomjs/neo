@@ -172,10 +172,10 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
     });
 
     test('normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary', () => {
-        // AgentIdentity nodeId form is `@neo-opus`; ChromaDB metadata userId form is
-        // `neo-opus`. The boundary helper canonicalizes both to the no-prefix form
+        // AgentIdentity nodeId form is `@neo-opus-ada`; ChromaDB metadata userId form is
+        // `neo-opus-ada`. The boundary helper canonicalizes both to the no-prefix form
         // so read filters never self-filter.
-        expect(normalizeUserId('@neo-opus')).toBe('neo-opus');
+        expect(normalizeUserId('@neo-opus-ada')).toBe('neo-opus-ada');
         expect(normalizeUserId('@alice')).toBe('alice');
         expect(normalizeUserId('@')).toBe('');
     });
@@ -184,7 +184,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
         // Critical for the canonical-form invariant: any code path that calls normalizeUserId
         // twice (boundary → service → cache, etc.) must not double-strip into something invalid.
         expect(normalizeUserId('alice')).toBe('alice');
-        expect(normalizeUserId('neo-opus')).toBe('neo-opus');
+        expect(normalizeUserId('neo-opus-ada')).toBe('neo-opus-ada');
         expect(normalizeUserId(normalizeUserId('@alice'))).toBe('alice');
     });
 
@@ -216,12 +216,12 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
         // invariant, a write tagging `userId: 'x'` would be invisible to a read filtering
         // `userId: '@x'` — the silent-self-filter trap.
         expect(normalizeUserId('@x')).toBe(normalizeUserId('x'));
-        expect(normalizeUserId('@neo-opus')).toBe(normalizeUserId('neo-opus'));
+        expect(normalizeUserId('@neo-opus-ada')).toBe(normalizeUserId('neo-opus-ada'));
     });
 
     test('hasCoreSwarmParticipant detects comma-separated and array-form agent lists', () => {
         expect(hasCoreSwarmParticipant('@neo-gpt')).toBe(true);
-        expect(hasCoreSwarmParticipant('@alice, @neo-opus')).toBe(true);
+        expect(hasCoreSwarmParticipant('@alice, @neo-opus-ada')).toBe(true);
         expect(hasCoreSwarmParticipant('@neo-claude-opus')).toBe(true);
         expect(hasCoreSwarmParticipant('@neo-opus-vega')).toBe(true);
         expect(hasCoreSwarmParticipant(['neo-gemini-pro', '@alice'])).toBe(true);
@@ -237,7 +237,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
 
         expect(resolveSummaryVisibilityUserId({
             userId: undefined,
-            participatingAgents: '@neo-opus'
+            participatingAgents: '@neo-opus-ada'
         })).toBe(SHARED_USER_ID);
 
         expect(resolveSummaryVisibilityUserId({

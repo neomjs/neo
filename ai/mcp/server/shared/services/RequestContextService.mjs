@@ -29,7 +29,7 @@ export const SHARED_USER_ID = 'shared';
  * @member {String[]}
  */
 export const CORE_SWARM_USER_IDS = Object.freeze([
-    'neo-opus',
+    'neo-opus-ada',
     'neo-claude-opus',
     'neo-opus-vega',
     'neo-gemini-pro',
@@ -48,11 +48,11 @@ export const CORE_SWARM_AGENT_IDS = Object.freeze(
  * @summary Strips the `@`-prefix from AgentIdentity-style identifiers so userId comparisons
  * are always canonical-form.
  *
- * AgentIdentity graph node IDs use the form `@neo-opus`,
- * but ChromaDB metadata `userId` values are stored without the prefix (`neo-opus`).
+ * AgentIdentity graph node IDs use the form `@neo-opus-ada`,
+ * but ChromaDB metadata `userId` values are stored without the prefix (`neo-opus-ada`).
  * Without a normalization boundary, code paths that mix the two forms produce silent
- * self-filtering — a write tags `userId: 'neo-opus'` but a read filter that uses
- * `userId: '@neo-opus'` returns zero rows even for the writer's own data.
+ * self-filtering — a write tags `userId: 'neo-opus-ada'` but a read filter that uses
+ * `userId: '@neo-opus-ada'` returns zero rows even for the writer's own data.
  *
  * Use this helper at every read/write boundary that compares identifiers across the
  * AgentIdentity ↔ userId namespaces.

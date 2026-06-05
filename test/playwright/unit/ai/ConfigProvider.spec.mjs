@@ -216,7 +216,7 @@ test.describe('Neo.ai.ConfigProvider (data + afterSetData seam + leaf() factory)
             expect(warnings.some(w => w.includes('port'))).toBe(true);
 
             // csv leaves are arrays of strings, not raw comma strings at the Provider layer.
-            config.setData('names', 'neo-gpt,neo-opus');
+            config.setData('names', 'neo-gpt,neo-opus-ada');
             expect(warnings.some(w => w.includes('names'))).toBe(true)
         } finally {
             console.warn = origWarn

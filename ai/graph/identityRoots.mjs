@@ -69,13 +69,13 @@ export const IDENTITIES = [
         }
     },
     {
-        id: '@neo-opus',
+        id: '@neo-opus-ada',
         type: 'AgentIdentity',
-        name: 'Claude Opus 4.7',
+        name: 'Neo Opus Ada',
         description: 'Anthropic Claude Opus version 4.7 Agent Identity',
         properties: {
-            githubLogin: '@neo-opus',
-            displayName: 'Claude Opus 4.7',
+            githubLogin: '@neo-opus-ada',
+            displayName: 'Neo Opus Ada',
             modelFamily: 'claude',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
@@ -133,7 +133,7 @@ export const IDENTITIES = [
                 canonicalIdentityId      : '@neo-claude-opus',
                 requiredGithubLogin      : '@neo-claude-opus',
                 requiredA2aMailboxAddress: '@neo-claude-opus',
-                siblingOf                : '@neo-opus',
+                siblingOf                : '@neo-opus-ada',
                 generalistMaintainer     : true,
                 roleSpecialization       : 'rejected-by-architecture-discussion',
                 reviewSemantics: {
@@ -146,7 +146,7 @@ export const IDENTITIES = [
                     readScope           : 'team',
                     writeProvenance     : 'separate-agent-identity',
                     sessionSummaries    : 'separate-agent-identity',
-                    rationale           : '@neo-claude-opus may read shared team context, but all memories and summaries remain authored by @neo-claude-opus so long-run continuity and provenance do not collapse into @neo-opus.'
+                    rationale           : '@neo-claude-opus may read shared team context, but all memories and summaries remain authored by @neo-claude-opus so long-run continuity and provenance do not collapse into @neo-opus-ada.'
                 },
                 activationPrerequisites: [
                     'Operator creates the @neo-claude-opus GitHub account or updates this root to the final maintainer login.',
