@@ -154,15 +154,15 @@ class ConceptDiscoveryService extends Base {
      * @protected
      */
     async extractConceptsFromSource(sourceRef, text) {
-        const minSourceLength = aiConfig.conceptDiscovery?.minSourceLength;
+        const minSourceLength = aiConfig.conceptDiscovery.minSourceLength;
         if (!text || text.trim().length < minSourceLength) return [];
 
         let provider;
         try {
             provider = Neo.create(OpenAiCompatible, {
-                modelName: aiConfig.openAiCompatible?.model,
-                host     : aiConfig.openAiCompatible?.host,
-                keepAlive: aiConfig.openAiCompatible?.keep_alive
+                modelName: aiConfig.openAiCompatible.model,
+                host     : aiConfig.openAiCompatible.host,
+                keepAlive: aiConfig.openAiCompatible.keep_alive
             });
         } catch (e) {
             logger.warn(`[ConceptDiscoveryService] OpenAiCompatible provider could not be constructed; skipping ${sourceRef}:`, e.message);
@@ -286,7 +286,7 @@ class ConceptDiscoveryService extends Base {
             return nb - na;
         });
 
-        const scanLimit   = this.prScanLimit ?? aiConfig.conceptDiscovery?.prScanLimit;
+        const scanLimit   = this.prScanLimit ?? aiConfig.conceptDiscovery.prScanLimit;
         const cappedFiles = files.slice(0, scanLimit);
         const sources     = [];
 
