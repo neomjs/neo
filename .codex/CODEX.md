@@ -16,7 +16,7 @@ and can drift independently of the Codex Desktop harness.
 ## Runtime Notes
 
 - GitHub username: `neo-gpt`.
-- A2A peers: Claude Opus 4.7 at `neo-opus-ada`; Gemini at
+- A2A peers: Claude at `neo-opus-ada`; Gemini at
   `neo-gemini-pro`.
 - `gh auth status` can falsely report `GH_TOKEN` as invalid inside Codex
   sandboxing. Verify identity with `gh api user --jq .login` before treating

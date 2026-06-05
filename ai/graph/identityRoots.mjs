@@ -89,9 +89,7 @@ export const IDENTITIES = [
                 }
             },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus — primary source: platform.claude.com/docs/en/about-claude/models/overview
-            // (pricing currently from aipricing.guru secondary citation; replace with Anthropic's own
-            // pricing-page link on next-update).
+            // §neo_opus — primary source: Anthropic Claude Opus 4.8 announcement/product page.
             contextWindowInput: 1048576,
             parallelToolCalls : true,
             thoughtBudget     : 'max',
