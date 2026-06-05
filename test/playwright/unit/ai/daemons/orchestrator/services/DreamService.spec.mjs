@@ -56,6 +56,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         aiConfig.storagePaths.graph = testDbPath;
         aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
+        aiConfig.remSleepBatchLimit ??= 10;
         kbConfig.data.memoryCoreDbPath = testDbPath;
 
         GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -154,7 +155,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Otherwise sibling specs (e.g. DreamServiceGoldenPath) hit
         //   `if (!_initPromise) initAsync() else ready()`
         // → take the `ready()` branch → never honor their own `aiConfig.storagePaths.graph`
-        // → real `getContextFrontier()` returns null. Empirically traced via #10946 bisection.
+        // → real `getContextFrontier()` returns null. Empirically traced via bisection.
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'destroy');
 
         if (KBRecorderService?.db) {
@@ -209,7 +210,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         // Suppress QueryService dynamic import execution during this deterministic test
         const originalImport = global.import;
-        // 3. Trigger session-scoped TEST_GAP inference (post-#10085 scope split)
+        // 3. Trigger session-scoped TEST_GAP inference after the cycle-scope split.
         await DreamService.inferTestGapsFromSession(payload);
 
         // Validate gaps are stored on the node correctly
@@ -219,8 +220,21 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         expect(updatedNode.properties.capabilityGap).toContain('[TEST_GAP]');
     });
 
+    test('findUndigestedSessions fails loud when remSleepBatchLimit is malformed in the imported config', async () => {
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+              originalRemSleepBatchLimit = aiConfig.remSleepBatchLimit;
+
+        aiConfig.remSleepBatchLimit = Number.NaN;
+
+        try {
+            await expect(DreamService.findUndigestedSessions()).rejects.toThrow(/Required AiConfig leaf "remSleepBatchLimit"/);
+        } finally {
+            aiConfig.remSleepBatchLimit = originalRemSleepBatchLimit ?? 10;
+        }
+    });
+
     test('should detect GUIDE_GAP via concept-graph edge traversal (no LLM verification)', async () => {
-        // #10035 rewrite: replaces the pre-refactor regex + LLM Boolean verification path with
+        // Capability-gap rewrite: replaces the pre-refactor regex + LLM Boolean verification path with
         // deterministic outbound-EXPLAINED_BY edge traversal. Two CONCEPT nodes planted in the
         // graph — one with EXPLAINED_BY (covered), one without (gap). Both above the tier-1
         // weight threshold (0.8) so threshold-filtering isn't what drives the asymmetry.
@@ -243,7 +257,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         // Seed target stub nodes (SQLite FK constraint on edges.target → nodes.id) then the edges.
         // The "covered" concept needs EXPLAINED_BY (no guide gap), EXEMPLIFIED_BY (no example gap),
-        // AND IMPLEMENTED_BY (no orphan gap post-#10087) — otherwise it'd correctly emit one of
+        // AND IMPLEMENTED_BY (no orphan gap) — otherwise it'd correctly emit one of
         // those signals instead of being fully covered.
         GraphService.upsertNode({
             id        : 'file:learn/guides/Threading.md',
@@ -279,7 +293,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             type  : 'IMPLEMENTED_BY'
         });
 
-        // Concept-graph pass is session-independent (hoisted to cycle-scope in #10085).
+        // Concept-graph pass is session-independent and hoisted to cycle-scope.
         await DreamService.inferConceptGraphGaps();
 
         const covered     = GraphService.db.nodes.get('concept-covered');
@@ -334,7 +348,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('should detect EXAMPLE_GAP for concepts documented but lacking worked examples', async () => {
-        // #10035 new signal: EXPLAINED_BY edge present, EXEMPLIFIED_BY edge absent.
+        // New signal: EXPLAINED_BY edge present, EXEMPLIFIED_BY edge absent.
         // Lower-severity than a missing guide; surfaced in a separate handoff section.
         GraphService.upsertNode({
             id        : 'concept-no-example',
@@ -383,7 +397,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('threshold override via aiConfig.data.guideGapWeightThreshold changes emission behavior (#10086)', async () => {
-        // #10086: the weight gate lives in config (not a file-local constant). Verifying that
+        // The weight gate lives in config (not a file-local constant). Verifying that
         // GapInferenceEngine reads the live config value means curators can tune the handoff
         // silence level without code changes — the stated goal of the config-lift.
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -415,7 +429,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('should detect ORPHAN_CONCEPT for concepts with no IMPLEMENTED_BY edge (#10087)', async () => {
-        // #10087: concepts without source-code anchoring emit `[ORPHAN_CONCEPT]` via the durable
+        // Concepts without source-code anchoring emit `[ORPHAN_CONCEPT]` via the durable
         // `capabilityGap` channel rather than the deprecated per-orphan `logger.warn` in
         // `ConceptIngestor`. Shares the same `GUIDE_GAP_WEIGHT_THRESHOLD` weight gate as
         // `[GUIDE_GAP]` / `[EXAMPLE_GAP]` so low-priority concepts don't flood the handoff.
@@ -488,7 +502,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('unvalidated concepts (validated: false) should be silenced regardless of weight (#10036)', async () => {
-        // #10036: mined candidates from ConceptDiscoveryService carry `validated: false` until
+        // Mined candidates from ConceptDiscoveryService carry `validated: false` until
         // a curator promotes them via nodes.jsonl edit. Low weight is the primary silencing
         // mechanism (weight gate), but `validated: false` is the explicit override — even if
         // an unvalidated candidate had a high weight, it must stay silent until reviewed.
@@ -591,7 +605,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions calls inferTestGapsFromSession per-session and inferConceptGraphGaps once per cycle (hoist contract — #10085)', async () => {
-        // Locks in the #10085 Item 1 contract: the concept-graph pass is ontology-scoped, so it
+        // Locks in the hoist contract: the concept-graph pass is ontology-scoped, so it
         // must fire exactly once per REM cycle regardless of session count — not N times inside
         // the per-session loop like the pre-refactor `executeCapabilityGapInference` wrapper did.
         // Guards against any future "simplification" that re-inlines the cycle-scope call back
@@ -681,7 +695,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions does not set graphDigested when memory ingestion reports errors (#10460)', async () => {
-        // Regression guard for #10460: the Tri-Vector extractor can succeed from
+        // Regression guard: the Tri-Vector extractor can succeed from
         // `session.document` even when MemorySessionIngestor partially failed to upsert MEMORY
         // nodes. Keep such sessions undigested so the next REM cycle retries the missing graph
         // rows instead of permanently masking them behind `graphDigested: true`.
@@ -867,7 +881,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
              { id: 'blocker', properties: { state: 'OPEN' } },
              { id: 'weak-task', properties: { state: 'OPEN' } },
              { id: 'rejected-task', properties: { state: 'OPEN', labels: ['needs-re-triage'] } },
-             // #10087: planted CONCEPT with ORPHAN_CONCEPT gap to verify the ⚠️ section renders
+             // Planted CONCEPT with ORPHAN_CONCEPT gap to verify the ⚠️ section renders
              // in sandman_handoff.md alongside the existing TEST/GUIDE/EXAMPLE sections.
              { id: 'concept-orphan-render-test', properties: {
                  state        : 'OPEN',
@@ -936,7 +950,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(finalContent.indexOf('- **[Codebase Gap]**')).toBeLessThan(finalContent.indexOf('## Computed Golden Path'));
             expect(finalContent).not.toContain('Old Path');
 
-            // #10087: planted CONCEPT with [ORPHAN_CONCEPT] must surface as a dedicated section
+            // Planted CONCEPT with [ORPHAN_CONCEPT] must surface as a dedicated section
             expect(finalContent).toContain('⚠️ Orphaned Concepts');
             expect(finalContent).toContain('Reactivity');
             expect(finalContent).toContain('Concept Reverification Queue');

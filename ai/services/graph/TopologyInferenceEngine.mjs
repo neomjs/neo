@@ -75,7 +75,7 @@ ${contextText}
                 emitConsumerFriction({
                     symptom                  : 'context-overflow',
                     consumer                 : 'TopologyInferenceEngine',
-                    model                    : aiConfig[graphProvider]?.model,
+                    model                    : aiConfig[graphProvider].model,
                     assetRef                 : sessionId,
                     serviceDomain            : 'dream-pipeline',
                     emissionPoint            : 'post-invocation-failure',
@@ -136,10 +136,9 @@ ${contextText}
 
     /**
      * @summary Count topological-conflict entries emitted to `sandman_handoff.md`.
-     * This is **Axis D** of the 5-axis REM observability model (per Discussion
-     * #12062 §2.6) — the count of conflicts the engine has actually written to
-     * the handoff file, which is the durable substrate consumers (next-session
-     * agents) read at boot.
+     * This is **Axis D** of the 5-axis REM observability model: the count of
+     * conflicts the engine has actually written to the handoff file, which is
+     * the durable substrate consumers (next-session agents) read at boot.
      *
      * Counts lines matching the canonical conflict-entry suffix `(Source Session:`
      * — each conflict entry in `sandman_handoff.md` follows the shape
@@ -148,22 +147,18 @@ ${contextText}
      * distinctive enough to avoid false positives from Golden Path or other
      * handoff sections.
      *
-     * **Important divergence semantic per Discussion #12062 §2.11 + PR #12077
-     * Sub 1 runbook hypothesis #10:** `extractTopology()` returns `undefined`
+     * **Important divergence semantic:** `extractTopology()` returns `undefined`
      * (void) on both no-conflicts AND provider-error paths — meaning a zero
      * count here does NOT distinguish "no conflicts detected" from "topology
-     * extraction silently failed for every session." Sub 3's unified REM cycle
-     * + Sub 2 Part B (state model) will close this distinction by tracking
-     * per-cycle topology outcome explicitly.
+     * extraction silently failed for every session." The unified REM cycle
+     * state model closes this distinction by tracking per-cycle topology outcome
+     * explicitly.
      *
      * Returns 0 on file-not-found, empty file, or read error — consistent with
      * sibling axis-count helpers' graceful-degradation contract.
      *
      * @returns {Promise<Number>} Count of conflict entries in `sandman_handoff.md`;
      *     0 if file absent / empty / unreadable
-     * @see Epic #12065 Sub 2 / #12068 — 5-axis observability primitive
-     * @see Discussion #12062 §2.6 — axis-divergence framing
-     * @see PR #12077 Sub 1 forensics runbook hypothesis #10 — TopologyInferenceEngine void-return silent failure
      */
     async getTopologyConflictCount() {
         const handoffFile = aiConfig.handoffFilePath;
