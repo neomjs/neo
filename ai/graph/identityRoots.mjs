@@ -72,7 +72,7 @@ export const IDENTITIES = [
         id: '@neo-opus-ada',
         type: 'AgentIdentity',
         name: 'Neo Opus Ada',
-        description: 'Anthropic Claude Opus version 4.7 Agent Identity',
+        description: 'Anthropic Claude Opus version 4.8 Agent Identity',
         properties: {
             githubLogin: '@neo-opus-ada',
             displayName: 'Neo Opus Ada',
@@ -89,20 +89,18 @@ export const IDENTITIES = [
                 }
             },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus — primary source: platform.claude.com/docs/en/about-claude/models/overview
-            // (pricing currently from aipricing.guru secondary citation; replace with Anthropic's own
-            // pricing-page link on next-update).
+            // §neo_opus — primary source: Anthropic Claude Opus 4.8 announcement/product page.
             contextWindowInput: 1048576,
             parallelToolCalls : true,
             thoughtBudget     : 'max',
             hosting           : 'cloud',
             family            : 'claude',
             tier              : 'frontier',
-            releaseDate       : '2026-04-16',
+            releaseDate       : '2026-05-28',
             pricingInput      : 5.00,
             pricingOutput     : 25.00,
             swarmRole         : 'Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination',
-            sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
+            sunsetTriggers    : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             // Active-peer quorum substrate. Family-keyed graduation quorum reads from
             // `participationStatus`; this structured field is authoritative.
             // Heartbeat / message-recency / quota / pricing-tier / model-release announcements are
@@ -122,7 +120,7 @@ export const IDENTITIES = [
         id: '@neo-claude-opus',
         type: 'AgentIdentity',
         name: 'Neo Claude Opus',
-        description: 'Anthropic Claude-family generalist maintainer identity.',
+        description: 'Anthropic Claude Opus 4.8 generalist maintainer identity.',
         properties: {
             githubLogin: '@neo-claude-opus',
             displayName: 'Neo Claude Opus',
@@ -164,11 +162,11 @@ export const IDENTITIES = [
             hosting           : 'cloud',
             family            : 'claude',
             tier              : 'frontier',
-            releaseDate       : '2026-04-16',
+            releaseDate       : '2026-05-28',
             pricingInput      : 5.00,
             pricingOutput     : 25.00,
             swarmRole         : 'Active Claude-family generalist maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
-            sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
+            sunsetTriggers    : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus : 'active',
             statusReason        : null,
             authority           : null,
