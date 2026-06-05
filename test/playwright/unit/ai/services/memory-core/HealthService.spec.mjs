@@ -17,6 +17,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import AiConfig        from '../../../../../../ai/config.mjs';
 import ChromaManager   from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
 import StorageRouter   from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
@@ -1028,19 +1029,22 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
  * missing / malformed) × (liveness-file: fresh / stalled / missing) per AC5, plus the fully-degraded
  * defensive case.
  *
- * Test isolation: each test writes to a unique temp directory + sets `WAKE_GATE_FILE_PATH` and
- * `NEO_HEARTBEAT_ALIVE_PATH` env vars before importing the block; restores after. Mirrors the
- * `wakeSafetyGate` env-override pattern.
+ * Test isolation: each test writes to a unique temp directory, points `WAKE_GATE_FILE_PATH`
+ * at that fixture, and applies `NEO_HEARTBEAT_ALIVE_PATH` through the AiConfig env-override seam.
  *
  * @see Neo.ai.services.memory-core.HealthService#buildWakeFeaturesBlock
  */
 test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     let buildWakeFeaturesBlock;
+    let heartbeatAlivePath;
+    let originalHeartbeatAlivePath;
     let tmpDir;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
         buildWakeFeaturesBlock = mod.buildWakeFeaturesBlock;
+        heartbeatAlivePath     = mod.heartbeatAlivePath;
+        originalHeartbeatAlivePath = AiConfig.wakeDaemonHeartbeatAlivePath;
 
         const os   = await import('os');
         const path = await import('path');
@@ -1062,6 +1066,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
 
         process.env.WAKE_GATE_FILE_PATH      = path.join(tmpDir, `gate-${Date.now()}.json`);
         process.env.NEO_HEARTBEAT_ALIVE_PATH = path.join(tmpDir, `alive-${Date.now()}`);
+        AiConfig.setEnvOverride('NEO_HEARTBEAT_ALIVE_PATH', process.env.NEO_HEARTBEAT_ALIVE_PATH);
 
         // Ensure clean slate between tests (no carryover from prior writes)
         await fs.rm(process.env.WAKE_GATE_FILE_PATH,      {force: true}).catch(() => {});
@@ -1071,6 +1076,17 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     test.afterEach(() => {
         delete process.env.WAKE_GATE_FILE_PATH;
         delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
+        AiConfig.setEnvOverride('NEO_HEARTBEAT_ALIVE_PATH', originalHeartbeatAlivePath);
+    });
+
+    test('heartbeatAlivePath() reads the resolved AiConfig leaf (#12438)', async () => {
+        const path = await import('path');
+        const overridePath = path.join(tmpDir, `alive-helper-${Date.now()}`);
+
+        AiConfig.setEnvOverride('NEO_HEARTBEAT_ALIVE_PATH', overridePath);
+
+        expect(heartbeatAlivePath()).toBe(AiConfig.wakeDaemonHeartbeatAlivePath);
+        expect(heartbeatAlivePath()).toBe(overridePath);
     });
 
     test('gate enabled + liveness fresh → daemonRunning true, gateState enabled', async () => {

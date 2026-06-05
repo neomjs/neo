@@ -31,6 +31,7 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 import AiConfig        from '../../config.mjs';
+import memoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -53,8 +54,8 @@ import {
 import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
-const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
+const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
+const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
 const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
 const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'bridge.log');
 const LOG_RETENTION_DAYS       = 30;

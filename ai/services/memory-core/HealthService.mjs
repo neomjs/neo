@@ -19,14 +19,15 @@ import {readRecentRemRunStates} from './helpers/RemRunStateStore.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Heartbeat-liveness file path resolution. Mirrors `wakeSafetyGate.gateFilePath()` env-override
- * pattern so parallel test specs can isolate from the canonical on-disk path. Production
- * deployments leave `NEO_HEARTBEAT_ALIVE_PATH` unset; the canonical path under `.neo-ai-data/wake-daemon/`
- * applies. Counterpart producer: `SwarmHeartbeatService.touchLivenessFile()`, called once per
- * `pulse()` by the Orchestrator's swarm-heartbeat lane.
+ * @summary Heartbeat-liveness file path resolution shared with `SwarmHeartbeatService`.
+ *
+ * The Tier-1 config leaf owns `NEO_HEARTBEAT_ALIVE_PATH` env resolution, keeping the
+ * producer and consumer on one resolved path.
+ *
+ * @returns {String}
  */
-function heartbeatAlivePath() {
-    return process.env.NEO_HEARTBEAT_ALIVE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/heartbeat.alive');
+export function heartbeatAlivePath() {
+    return aiConfig.wakeDaemonHeartbeatAlivePath;
 }
 
 /**
