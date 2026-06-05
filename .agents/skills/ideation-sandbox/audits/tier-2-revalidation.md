@@ -1,6 +1,6 @@
 # Tier-2 Revalidation Sweep — Audit Reference
 
-*(Substrate extracted from `references/ideation-sandbox-workflow.md §6.5` per #11319 / #11320 per-file byte-budget discipline. Load this file when you need the full Tier-2 Revalidation Sweep mechanism description, invocation, reconciliation semantics, or MVP scope boundaries. The main `references/ideation-sandbox-workflow.md §6.5` carries the operational rule with an inline pointer to this audit.)*
+*(Substrate extracted from `../references/ideation-sandbox-workflow.md §6.5` per #11319 / #11320 per-file byte-budget discipline. Load this file when you need the full Tier-2 Revalidation Sweep mechanism description, invocation, reconciliation semantics, or MVP scope boundaries. The main `../references/ideation-sandbox-workflow.md §6.5` carries the operational rule with an inline pointer to this audit.)*
 
 ## §mechanism — Tier-2 Revalidation Sweep (Option c sweep-script-notifies-only)
 

@@ -1,6 +1,6 @@
 # Consensus-Gate Mirror Reference (§6.1.1 family-keyed shape, post Epic #11796)
 
-*(Sub-rule extraction from `references/pull-request-workflow.md §6.1.1` per #11319 / #11320 byte-budget discipline. Load when authoring a substrate PR from a high-blast Discussion or reviewing one. The main `references/pull-request-workflow.md §6.1.1` carries the operational rule; this file carries the full template + Tier-2 reviewer step detail + reviewer-step quorum check + rejection-mode enumeration.)*
+*(Sub-rule extraction from `../references/pull-request-workflow.md §6.1.1` per #11319 / #11320 byte-budget discipline. Load when authoring a substrate PR from a high-blast Discussion or reviewing one. The main `../references/pull-request-workflow.md §6.1.1` carries the operational rule; this file carries the full template + Tier-2 reviewer step detail + reviewer-step quorum check + rejection-mode enumeration.)*
 
 ## §quorum-citation — Axis 2 quorum semantics (post Epic #11796)
 
