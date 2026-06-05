@@ -50,10 +50,17 @@ A concept exists if:
       "reasoning": "Why this passes the Teaching Test — cite the semantic dimension it teaches.",
       "aliases": ["alternative phrasing 1", "alternative phrasing 2"]
     }
-  ]
+  ],
+  "extraction_metadata": {
+    "missing_fields": ["candidate field you could not populate confidently, e.g. 'reasoning'"],
+    "ambiguous_references": ["a source phrase with more than one referent, e.g. 'the module' when three modules exist"],
+    "confidence_score": 0.0
+  }
 }
 
-If nothing qualifies, return \`{"candidates": []}\`. Err on the side of quality over quantity — 0 high-confidence candidates beats 10 noisy ones. The ontology has ~60 concepts today; proposing 3-5 genuinely architectural ones per source is the sweet spot.`;
+**\`extraction_metadata\`** reports OBJECTIVE markers about THIS extraction pass — not subjective difficulty (which you cannot self-report reliably): \`missing_fields\` are candidate fields the source did not let you populate confidently; \`ambiguous_references\` are specific source-text phrases pointing to more than one referent (a verifiable linguistic fact); \`confidence_score\` is your calibrated 0.0–1.0 confidence in this candidate set. Always emit \`extraction_metadata\`.
+
+If nothing qualifies, return \`{"candidates": [], "extraction_metadata": {"missing_fields": [], "ambiguous_references": [], "confidence_score": 0.0}}\`. Err on the side of quality over quantity — 0 high-confidence candidates beats 10 noisy ones. The ontology has ~60 concepts today; proposing 3-5 genuinely architectural ones per source is the sweet spot.`;
 
 /**
  * Default tier / validation state for a newly-discovered candidate concept. Tier 3 + the
@@ -140,6 +147,36 @@ class ConceptDiscoveryService extends Base {
     prScanLimit = null
 
     /**
+     * Normalizes the envelope-level `extraction_metadata` block the LLM emits alongside
+     * `candidates` — objective self-report markers: `missing_fields` (candidate fields
+     * the source did not support), `ambiguous_references` (source phrases with more than one
+     * referent), `confidence_score` (0-1). Returns `null` when the block is absent or not a
+     * plain object, so candidate rows stay additive (legacy `{candidates}`-only responses
+     * produce rows without the field).
+     *
+     * @summary Anchor & Echo: validates + defaults the extraction-pass self-report block;
+     * non-array / out-of-range fields coerce to safe defaults rather than propagating malformed shapes.
+     * @param {Object} [meta] Raw `extraction_metadata` from the LLM envelope
+     * @returns {Object|null} `{missing_fields, ambiguous_references, confidence_score}` or `null`
+     * @protected
+     */
+    normalizeExtractionMetadata(meta) {
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null;
+
+        const
+            missingFields       = Array.isArray(meta.missing_fields)       ? meta.missing_fields.filter(f => typeof f === 'string')       : [],
+            ambiguousReferences = Array.isArray(meta.ambiguous_references) ? meta.ambiguous_references.filter(r => typeof r === 'string') : [],
+            rawScore            = meta.confidence_score,
+            confidenceScore     = typeof rawScore === 'number' && rawScore >= 0 && rawScore <= 1 ? rawScore : null;
+
+        return {
+            missing_fields      : missingFields,
+            ambiguous_references: ambiguousReferences,
+            confidence_score    : confidenceScore
+        };
+    }
+
+    /**
      * Invokes the configured LLM provider on a single source and parses the response as the
      * candidate schema. Returns `[]` on any failure (provider offline, malformed JSON, no
      * candidates) — failure to extract is never fatal to `runDiscoveryCycle`, just a skip.
@@ -185,6 +222,11 @@ class ConceptDiscoveryService extends Base {
             return [];
         }
 
+        // Envelope-level extraction_metadata describes THIS extraction pass; it is denormalized
+        // onto each candidate row below so nodes.jsonl stays the single store, and is null for
+        // legacy candidates-only responses so the candidate-row schema stays additive.
+        const extractionMetadata = this.normalizeExtractionMetadata(payload.extraction_metadata);
+
         const accepted = [];
         for (const raw of payload.candidates) {
             if (!raw || typeof raw !== 'object' || !raw.id || !raw.name) continue;
@@ -200,7 +242,8 @@ class ConceptDiscoveryService extends Base {
                 aliases    : Array.isArray(raw.aliases) ? raw.aliases : [],
                 source     : sourceRef,
                 reasoning  : raw.reasoning || '',
-                ...CANDIDATE_DEFAULTS
+                ...CANDIDATE_DEFAULTS,
+                ...(extractionMetadata ? {extraction_metadata: extractionMetadata} : {})
             });
         }
 
@@ -405,7 +448,8 @@ class ConceptDiscoveryService extends Base {
      * the graph. The next `ConceptIngestor.syncConceptsToGraph` picks them up.
      *
      * Each candidate serializes one per line matching the established schema
-     * (`{id, name, tier, description, uniqueToNeo, tags, aliases, validated, verifiedAt, source, reasoning}`).
+     * (`{id, name, tier, description, uniqueToNeo, tags, aliases, validated, verifiedAt, source, reasoning}`),
+     * plus the optional `extraction_metadata` block when the LLM envelope carried one.
      * File is flush-written via `fs.promises.appendFile` which is atomic at the per-line level
      * on POSIX filesystems — safe for the single-writer REM pipeline pattern.
      * @param {Object[]} candidates
