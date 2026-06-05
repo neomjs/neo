@@ -4,7 +4,11 @@ import path             from 'node:path';
 
 import {
     folderPrefix,
+    getLeafIds,
+    getLlmsLearnUrls,
+    getSitemapLearnUrls,
     isGroup,
+    lintSeoOutputs,
     lintTree,
     runLint
 } from '../../../../../../ai/scripts/lint/lint-tree-json.mjs';
@@ -13,10 +17,10 @@ import {
  * @summary Coverage for `ai/scripts/lint/lint-tree-json.mjs` — the structural lint that
  * verifies `learn/tree.json` mirrors the on-disk `learn/` folder structure.
  *
- * Empirical drift this lint mechanizes: a phantom nav group was added over files that were
- * flat in `learn/benefits/` (PHANTOM_GROUP), and a parent label outgrew its contents. Both
- * were caught by human / cross-family review, not tooling — this spec proves the five
- * invariants now catch the mechanical cases at CI time.
+ * Empirical anchors (the drift this lint mechanizes): a phantom `BenefitsBrain` nav group
+ * once sat over files that were flat in `learn/benefits/` (PHANTOM_GROUP), and another
+ * parent label outgrew its contents. Both were caught by human / cross-family review, not
+ * tooling — this spec proves the invariants now catch the mechanical cases at CI time.
  *
  * Test axes:
  *   - LEAF_FILE          leaf id with no backing learn/<id>.md
@@ -26,12 +30,14 @@ import {
  *   - PHANTOM_GROUP      >1 nav group owning the same folder (the phantom-group reproducer)
  *   - EXPLORATION_ARTIFACT a published leaf whose basename is an audit/plan/sweep/census/
  *                          forensics/benchmark artifact (learn/ is public docs)
+ *   - SEO_OUTPUT_MISSING generated learn URL missing from checked-in llms.txt / sitemap.xml
+ *   - SEO_OUTPUT_EXTRA   stale checked-in llms.txt / sitemap.xml learn URL
  *   - DUP_ID / MISSING_ID / STRUCTURE  malformed input guards
  *   - happy path: a well-formed fixture + the real learn/tree.json both pass
  *
  * The `lintTree` core is pure (injectable `fileExists`), so the bulk runs without a shell-out.
  */
-test.describe('ai/scripts/lint-tree-json (#12247 — learn/tree.json mirrors learn/ folder structure)', () => {
+test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder structure)', () => {
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lint/lint-tree-json.mjs');
 
     /** Convenience: run lintTree and return the sorted set of violation codes. */
@@ -48,6 +54,7 @@ test.describe('ai/scripts/lint-tree-json (#12247 — learn/tree.json mirrors lea
         expect(result.stdout).toContain('LEAF_FILE');
         expect(result.stdout).toContain('FOLDER_UNIQUENESS');
         expect(result.stdout).toContain('EXPLORATION_ARTIFACT');
+        expect(result.stdout).toContain('SEO_SYNC');
     });
 
     test('CLI: the real learn/tree.json passes (mirrors the folder structure)', () => {
@@ -95,7 +102,7 @@ test.describe('ai/scripts/lint-tree-json (#12247 — learn/tree.json mirrors lea
         ])).toEqual(['GROUP_SPANS_FOLDERS']);
     });
 
-    test('PHANTOM_GROUP: two nav groups owning the same folder are flagged (#12238 reproducer)', () => {
+    test('PHANTOM_GROUP: two nav groups owning the same folder are flagged', () => {
         expect(codes([
             {id: 'Benefits', isLeaf: false, parentId: null},
             {id: 'BenefitsBrain', isLeaf: false, parentId: null},
@@ -156,8 +163,113 @@ test.describe('ai/scripts/lint-tree-json (#12247 — learn/tree.json mirrors lea
         expect(isGroup({id: 'L', isLeaf: true})).toBe(false);
     });
 
-    test('runLint: exported entry returns a numeric exit code on the real tree', () => {
-        const {exitCode, violations} = runLint();
+    test('SEO helpers: extract learn ids from checked-in URL shapes', () => {
+        expect(getLlmsLearnUrls(`
+            - [A](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)
+            - [B](https://neomjs.com/raw/learn/Glossary.md)
+        `)).toEqual(new Set(['agentos/OwnAgentTeam', 'Glossary']));
+
+        expect(getSitemapLearnUrls(`
+            <url><loc>https://neomjs.com/learn/agentos/OwnAgentTeam</loc></url>
+            <url><loc>https://neomjs.com/learn/Glossary</loc></url>
+        `)).toEqual(new Set(['agentos/OwnAgentTeam', 'Glossary']));
+    });
+
+    test('getLeafIds: returns tree leaf ids and skips explicit groups', () => {
+        expect(getLeafIds({
+            data: [
+                {id: 'AgentOS', isLeaf: false, parentId: null},
+                {id: 'agentos/OwnAgentTeam', parentId: 'AgentOS'}
+            ]
+        })).toEqual(['agentos/OwnAgentTeam']);
+    });
+
+    test('lintSeoOutputs: matching llms.txt + sitemap.xml URL sets pass', () => {
+        const treeData = {
+            data: [
+                {id: 'AgentOS', isLeaf: false, parentId: null},
+                {id: 'agentos/OwnAgentTeam', parentId: 'AgentOS'},
+                {id: 'Glossary', parentId: null}
+            ]
+        };
+
+        expect(lintSeoOutputs(treeData, {
+            llmsTxt: `
+                - [Provision Your Own Agent Team](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)
+                - [Glossary](https://neomjs.com/raw/learn/Glossary.md)
+            `,
+            sitemapXml: `
+                <url>
+                    <loc>https://neomjs.com/learn/agentos/OwnAgentTeam</loc>
+                    <lastmod>2026-06-03T00:00:00Z</lastmod>
+                </url>
+                <url>
+                    <loc>https://neomjs.com/learn/Glossary</loc>
+                    <lastmod>2024-01-01T00:00:00Z</lastmod>
+                </url>
+            `
+        })).toEqual([]);
+    });
+
+    test('lintSeoOutputs: accepts generator-specific llms.txt and sitemap.xml expected sets', () => {
+        const treeData = {
+            data: [
+                {id: 'AgentOS', isLeaf: false, parentId: null},
+                {id: 'agentos/OwnAgentTeam', parentId: 'AgentOS'},
+                {id: 'Glossary', parentId: null}
+            ]
+        };
+
+        expect(lintSeoOutputs(treeData, {
+            expectedLlmsIds   : new Set(['agentos/OwnAgentTeam']),
+            expectedSitemapIds: new Set(['agentos/OwnAgentTeam', 'Glossary']),
+            llmsTxt           : '- [Provision Your Own Agent Team](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)',
+            sitemapXml        : `
+                <url><loc>https://neomjs.com/learn/agentos/OwnAgentTeam</loc></url>
+                <url><loc>https://neomjs.com/learn/Glossary</loc></url>
+            `
+        })).toEqual([]);
+    });
+
+    test('lintSeoOutputs: missing tree routes are flagged on both SEO surfaces', () => {
+        const treeData = {
+            data: [
+                {id: 'AgentOS', isLeaf: false, parentId: null},
+                {id: 'agentos/OwnAgentTeam', parentId: 'AgentOS'}
+            ]
+        };
+
+        expect(lintSeoOutputs(treeData, {
+            llmsTxt   : '',
+            sitemapXml: ''
+        }).map(v => v.code)).toEqual(['SEO_OUTPUT_MISSING', 'SEO_OUTPUT_MISSING']);
+    });
+
+    test('lintSeoOutputs: stale generated routes are flagged on both SEO surfaces', () => {
+        const treeData = {data: []};
+
+        expect(lintSeoOutputs(treeData, {
+            llmsTxt   : '- [Gone](https://neomjs.com/raw/learn/agentos/Gone.md)',
+            sitemapXml: '<url><loc>https://neomjs.com/learn/agentos/Gone</loc></url>'
+        }).map(v => v.code)).toEqual(['SEO_OUTPUT_EXTRA', 'SEO_OUTPUT_EXTRA']);
+    });
+
+    test('lintSeoOutputs: sitemap lastmod changes are ignored when URLs match', () => {
+        const treeData = {data: [{id: 'Glossary', parentId: null}]};
+
+        expect(lintSeoOutputs(treeData, {
+            llmsTxt: '- [Glossary](https://neomjs.com/raw/learn/Glossary.md)',
+            sitemapXml: `
+                <url>
+                    <loc>https://neomjs.com/learn/Glossary</loc>
+                    <lastmod>1999-01-01T00:00:00Z</lastmod>
+                </url>
+            `
+        })).toEqual([]);
+    });
+
+    test('runLint: exported entry returns a numeric exit code on the real tree', async () => {
+        const {exitCode, violations} = await runLint();
 
         expect(exitCode).toBe(0);
         expect(violations).toEqual([]);
