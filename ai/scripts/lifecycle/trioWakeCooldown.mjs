@@ -59,7 +59,7 @@ export async function trioWakeCooldown(signal) {
         await LifecycleService.initAsync();
         await GraphService.initAsync();
 
-        const coordinator = signal.coordinator_recommendation || '@neo-gemini-3-1-pro';
+        const coordinator = signal.coordinator_recommendation || '@neo-gemini-pro';
         const sender = process.env.NEO_AGENT_IDENTITY || '@system';
         const abandonedCount = signal.details?.[coordinator]?.abandonedCount || 0;
 

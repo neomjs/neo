@@ -11,7 +11,7 @@
  *
  * These nodes form the **addressable identity surface** for the A2A Mailbox substrate:
  * the lifecycle system sender (`@system`), human owners (`@tobiu`), model-backed agents
- * (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`), and the `AGENT:*` broadcast sentinel that carries
+ * (`@neo-opus`, `@neo-gemini-pro`), and the `AGENT:*` broadcast sentinel that carries
  * fan-out `SENT_TO` edges emitted by {@link Neo.ai.services.memory-core.MailboxService#addMessage}
  * for broadcast traffic.
  *

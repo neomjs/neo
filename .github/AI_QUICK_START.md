@@ -85,7 +85,7 @@ To ensure your environment is accurately inherited across all local MCP sub-serv
     export GH_TOKEN="YOUR_GITHUB_TOKEN_HERE"
     # Core LLM Engine provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
     # export MODEL_PROVIDER="openAiCompatible"
-    
+
     # Vector Embedding provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
     export NEO_EMBEDDING_PROVIDER="gemini"
     ```
@@ -158,7 +158,7 @@ The agent's behavior is controlled by several configuration files depending on y
 The repository provides a `.gemini/settings.json` file which automatically activates the four frontier-harness Neo MCP servers for the session: GitHub Workflow, Knowledge Base, Memory Core, and Neural Link.
 
 ### Core Configuration (Antigravity OS)
-Antigravity requires a user-level configuration file located at `~/.gemini/antigravity/mcp_config.json`. You must create this file and configure it with your API keys and local paths. 
+Antigravity requires a user-level configuration file located at `~/.gemini/antigravity/mcp_config.json`. You must create this file and configure it with your API keys and local paths.
 
 - **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable.
   - **M-Series Mac Warning (Apple Silicon):** Desktop GUI applications do **not** inherit Homebrew paths like `/opt/homebrew/bin` since macOS strips out `.zshrc` upon GUI Spotlight launch. If your GitHub CLI (`gh`) or `sqlite3` were installed via Homebrew, you **must** manually prepend `/opt/homebrew/bin:` to this `<DEFAULT_PATH>` string (or symlink them into `/usr/local/bin` using `sudo`), otherwise your MCP servers will silently crash claiming binaries are missing!
@@ -231,7 +231,7 @@ Configuring one harness configures the other — both spawn the same MCP subproc
 
 **Critical: `NEO_AGENT_IDENTITY` placement for A2A mailbox binding.**
 
-For the A2A (Agent-to-Agent) mailbox substrate to bind your agent session to its AgentIdentity graph node, the Memory Core server's `env` block MUST include `NEO_AGENT_IDENTITY` set to the GitHub login of the bound identity (e.g., `neo-opus-4-7`). **This MUST live inside the per-server `env` block — not as a shell export** — because Claude Desktop launches MCP subprocesses directly from the GUI without inheriting interactive-shell state. A shell export in `~/.zshrc` will NOT reach the spawned MCP process.
+For the A2A (Agent-to-Agent) mailbox substrate to bind your agent session to its AgentIdentity graph node, the Memory Core server's `env` block MUST include `NEO_AGENT_IDENTITY` set to the GitHub login of the bound identity (e.g., `neo-opus`). **This MUST live inside the per-server `env` block — not as a shell export** — because Claude Desktop launches MCP subprocesses directly from the GUI without inheriting interactive-shell state. A shell export in `~/.zshrc` will NOT reach the spawned MCP process.
 
 Use the following structure (replace the placeholders as in the Antigravity section above):
 

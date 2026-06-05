@@ -19,11 +19,11 @@ Per ADR 0012 §2.5:
 
 Named cross-family maintainers with active swarm participation. These models hold equal-peer agency per `AGENTS.md §swarm_topology_anchor`.
 
-### §neo_opus_4_7
+### §neo_opus
 
 | Field | Value |
 |---|---|
-| `id` / `githubLogin` | `@neo-opus-4-7` |
+| `id` / `githubLogin` | `@neo-opus` |
 | `name` | Claude Opus 4.7 |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
@@ -70,11 +70,11 @@ ADR 0018's handle-indirection boundary and ADR 0012's model-stats discipline.
 - **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
 - **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
 
-### §neo_gemini_3_1_pro
+### §neo_gemini_pro
 
 | Field | Value |
 |---|---|
-| `id` / `githubLogin` | `@neo-gemini-3-1-pro` |
+| `id` / `githubLogin` | `@neo-gemini-pro` |
 | `name` | Gemini 3.1 Pro |
 | `family` | `gemini` (Google DeepMind) |
 | `hosting` | `cloud` |
@@ -147,7 +147,7 @@ transitions to `active`.
 | `swarmRole` | Pending Claude-family generalist maintainer identity; no active routing, quorum participation, or review coverage until activation |
 
 This row mirrors the Claude Opus model-class capability values from
-`§neo_opus_4_7` because `@neo-claude-opus` is reserved for the same model
+`§neo_opus` because `@neo-claude-opus` is reserved for the same model
 class. Activation must re-verify the row if the operator-created account uses a
 different Claude model, provider-side capability tier, or pricing surface.
 
@@ -239,7 +239,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 
 | Date | PR | Change |
 |---|---|---|
-| 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
+| 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus, @neo-gemini-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
 | 2026-06-02 | (pending PR) | Added pending `@neo-claude-opus` identity row; row is inactive until account and wake-route activation are complete. |
 | 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
 

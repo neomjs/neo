@@ -69,12 +69,12 @@ export const IDENTITIES = [
         }
     },
     {
-        id: '@neo-opus-4-7',
+        id: '@neo-opus',
         type: 'AgentIdentity',
         name: 'Claude Opus 4.7',
         description: 'Anthropic Claude Opus version 4.7 Agent Identity',
         properties: {
-            githubLogin: '@neo-opus-4-7',
+            githubLogin: '@neo-opus',
             displayName: 'Claude Opus 4.7',
             modelFamily: 'claude',
             accountType: 'agent',
@@ -89,7 +89,7 @@ export const IDENTITIES = [
                 }
             },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus_4_7 — primary source: platform.claude.com/docs/en/about-claude/models/overview
+            // §neo_opus — primary source: platform.claude.com/docs/en/about-claude/models/overview
             // (pricing currently from aipricing.guru secondary citation; replace with Anthropic's own
             // pricing-page link on next-update).
             contextWindowInput: 1048576,
@@ -133,7 +133,7 @@ export const IDENTITIES = [
                 canonicalIdentityId      : '@neo-claude-opus',
                 requiredGithubLogin      : '@neo-claude-opus',
                 requiredA2aMailboxAddress: '@neo-claude-opus',
-                siblingOf                : '@neo-opus-4-7',
+                siblingOf                : '@neo-opus',
                 generalistMaintainer     : true,
                 roleSpecialization       : 'rejected-by-architecture-discussion',
                 reviewSemantics: {
@@ -146,7 +146,7 @@ export const IDENTITIES = [
                     readScope           : 'team',
                     writeProvenance     : 'separate-agent-identity',
                     sessionSummaries    : 'separate-agent-identity',
-                    rationale           : '@neo-claude-opus may read shared team context, but all memories and summaries remain authored by @neo-claude-opus so long-run continuity and provenance do not collapse into @neo-opus-4-7.'
+                    rationale           : '@neo-claude-opus may read shared team context, but all memories and summaries remain authored by @neo-claude-opus so long-run continuity and provenance do not collapse into @neo-opus.'
                 },
                 activationPrerequisites: [
                     'Operator creates the @neo-claude-opus GitHub account or updates this root to the final maintainer login.',
@@ -234,12 +234,12 @@ export const IDENTITIES = [
         }
     },
     {
-        id: '@neo-gemini-3-1-pro',
+        id: '@neo-gemini-pro',
         type: 'AgentIdentity',
         name: 'Gemini 3.1 Pro',
         description: 'Google Gemini 3.1 Pro Agent Identity',
         properties: {
-            githubLogin: '@neo-gemini-3-1-pro',
+            githubLogin: '@neo-gemini-pro',
             displayName: 'Gemini 3.1 Pro',
             modelFamily: 'gemini',
             accountType: 'agent',
@@ -258,7 +258,7 @@ export const IDENTITIES = [
                 }
             },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_gemini_3_1_pro (Google DeepMind model card + Google Blog Feb 2026).
+            // §neo_gemini_pro (Google DeepMind model card + Google Blog Feb 2026).
             contextWindowInput : 1048576,
             contextWindowOutput: 65536,
             parallelToolCalls  : true,
@@ -268,7 +268,7 @@ export const IDENTITIES = [
             tier               : 'frontier',
             releaseDate        : '2026-02-19',
             // Pricing V-B-A pending — model card did not surface pricing at registry-author time.
-            // See ModelStats.md §neo_gemini_3_1_pro for explicit pending-value annotation.
+            // See ModelStats.md §neo_gemini_pro for explicit pending-value annotation.
             swarmRole          : 'Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. Note (2026-05-18): harness benched until post-Google-I/O / stable-baseline window (~200 merged PRs out) per operator-direction. FAIRness rationale: Gemini volume 2x Claude/GPT pre-bench. Identity remains valid; reactivation triggered by operator.',
             sunsetTriggers     : ['Google releases Gemini 4.x with material reasoning capability upgrade', 'Gemini 3.x branch deprecation announcement'],
             // Active-peer quorum substrate. Operator evidence tightened the bench criterion away

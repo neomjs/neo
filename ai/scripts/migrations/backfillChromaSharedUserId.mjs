@@ -62,10 +62,10 @@ const SHARED_USER_ID = 'shared';
 // MUST match `CORE_SWARM_USER_IDS` exported from RequestContextService. Duplicated here for
 // the same no-Neo-bootstrap reason as SHARED_USER_ID above; unit tests enforce the sync.
 const CORE_SWARM_USER_IDS = Object.freeze([
-    'neo-opus-4-7',
+    'neo-opus',
     'neo-claude-opus',
     'neo-opus-vega',
-    'neo-gemini-3-1-pro',
+    'neo-gemini-pro',
     'neo-gpt'
 ]);
 
@@ -148,7 +148,7 @@ function parseAgentList(input) {
             let str = String(value).trim();
             // Remove agent wrappers like " (Antigravity)"
             str = str.replace(/\s*\(.*?\)\s*/g, '');
-            // Lowercase to normalize e.g. "Neo-Gemini-3-1-Pro" to "neo-gemini-3-1-pro"
+            // Lowercase to normalize e.g. "Neo-Gemini-Pro" to "neo-gemini-pro"
             str = str.toLowerCase();
             return normalizeUserId(str);
         })

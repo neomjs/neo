@@ -22,7 +22,7 @@
  * **Output shape:**
  *
  *     {
- *       identity: '@neo-opus-4-7',
+ *       identity: '@neo-opus',
  *       sunset: false,
  *       idle_out_candidate: true,
  *       evidence: {
@@ -76,7 +76,7 @@ const IDLE_THRESHOLD_MS = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60
  * @param {String} [identity] Agent identity to inspect.
  * @returns {Promise<Object>} Structured detector contract consumed by shell and daemon paths.
  */
-export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro') {
+export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY || '@neo-gemini-pro') {
     await LifecycleService.initAsync();
 
     // Ensure GraphService is initialized
@@ -239,7 +239,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
 }
 
 async function main() {
-    const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
+    const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-pro';
     const result = await checkSunsetted(identity);
     console.log(JSON.stringify(result));
 }
