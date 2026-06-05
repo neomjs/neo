@@ -38,7 +38,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 > *"Compaction taxonomy is substrate-authoring guidance; before modifying turn-loaded or skill-loaded instruction substrate, load `learn/agentos/decisions/0007-agents-md-compaction-taxonomy.md`."*
 
 ## §critical_gates
-These eight rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
+These nine rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
 1. **No `gh pr merge` (Human-Only execution).**
     - **trigger:** agent considers executing a PR merge
     - **must:** hand off to @tobiu (human operator); cross-family approval = eligibility, not authority
@@ -52,6 +52,7 @@ These eight rules are mechanically verifiable and have **no conditional exceptio
 6. **Mandatory A2A Notifications.** Whenever you finish ANY lifecycle event (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
 7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit; if the operator explicitly suppresses `AGENT:*` broadcasts, use the documented direct-DM fallback in peer-role/post-review-pickup instead; suppression is not a halt-state. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`. Reviewers executing the Maintainer Polish Fast Path (`pull-request-workflow.md §10`) operate under the PR's ticket authority and satisfy this invariant by fulfilling its strict gates: the Review-Loop Cost Circuit Breaker is active, the edit is strictly mechanical/metadata, Verification Evidence is documented, and an FYI A2A is broadcast.
 8. **No agent-authored PRs targeting `main`.** Agent-authored pull requests target `dev`. `main` is release-only; `main`-targeted PRs require explicit operator release direction. The normal release-line mutation is `buildScripts/release/publish.mjs`, whose low-level git plumbing creates the atomic release commit from `dev` onto `main`.
+9. **No client names in public-facing artifacts.** Never mention a client by name in any public artifact (public-repo issues/PRs/discussions/docs/comments); client specifics live only in private repos.
 
 ## §pre_commit_gates
 For any actionable request modifying the repository, you **MUST** pass two critical gating protocols *before* executing `git commit`.
