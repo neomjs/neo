@@ -32,6 +32,7 @@
         "ai:defrag-memory"             : "node ./ai/scripts/maintenance/defragChromaDB.mjs --target memory-core",
         "ai:defrag-sqlite"             : "node ./ai/scripts/maintenance/defragSQLiteDB.mjs",
         "ai:download-kb"               : "node ./ai/scripts/maintenance/downloadKnowledgeBase.mjs",
+        "ai:graph-lifecycle-report"    : "node ./ai/scripts/maintenance/graphLifecycleReport.mjs",
         "ai:ingest-tenant"             : "node ./ai/scripts/maintenance/ingestTenant.mjs",
         "ai:kb-push-client"            : "node ./ai/scripts/maintenance/kbPushClient.mjs",
         "ai:mcp-healthcheck"           : "node ./ai/scripts/diagnostics/mcpHealthcheck.mjs",
