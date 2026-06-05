@@ -116,6 +116,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 ### 4.5 Discussions
 
 *   **`create_discussion`**: Creates a new GitHub Discussion (default category `Ideas`). Used for the Ideation Sandbox.
+*   **`get_discussion_conversation`**: Retrieves a Discussion conversation and supports scoped comment fetches (`comment_id`, `since_comment_id`, `last_n`) for low-context Ideation Sandbox cycles.
 *   **`manage_discussion_comment`**: Creates or updates a comment on a Discussion (`action`: `create` | `update`).
 *   **`manage_discussion`**: Updates the body of an existing Discussion (`action`: `update_body`). Enables post-publication corrections to Ideation Sandbox entries through the MCP surface instead of a raw `gh api graphql` workaround.
 

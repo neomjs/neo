@@ -13,7 +13,7 @@ setup({
     }
 });
 
-// Bootstrap parity (#11146/RA-1): importing toolService.mjs chains to Neo service
+// Bootstrap parity: importing toolService.mjs chains to Neo service
 // classes that require Neo.gatekeep (Compare.mjs:166). The setup() call only configures
 // Neo; the augmentation happens via these imports — mirrors the existing AI unit-test
 // pattern (e.g. IssueService.spec.mjs).
@@ -23,10 +23,10 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 /**
- * #11145 — Branch-check guard at the agent-callable `sync_all` tool surface.
+ * Branch-check guard at the agent-callable `sync_all` tool surface.
  *
  * Description-as-policy on the OpenAPI tool was empirically insufficient (5+/day
- * @neo-gemini-3-1-pro violations + 2026-05-10 PR #11143 stale-branch race). This
+ * @neo-gemini-3-1-pro violations + a stale-branch race). This
  * spec locks in the mechanical rejection: `sync_all` callable from the MCP tool
  * boundary must reject when caller's working tree is not on `dev`.
  *
@@ -110,7 +110,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
 });
 
 /**
- * #10702 — `get_conversation` dispatch router. The tool now serves BOTH pull requests and
+ * `get_conversation` dispatch router. The tool now serves BOTH pull requests and
  * issues; `getConversationRouter` picks the service by which identifier the caller supplied
  * (`pr_number` xor `issue_number`) and rejects ambiguous/empty argument shapes.
  *
@@ -200,5 +200,28 @@ test.describe('Neo.ai.services.github-workflow.toolService — getConversationRo
         expect(result.code).toBe('MISSING_ARGUMENTS');
         expect(issueCalls).toBe(0);
         expect(prCalls).toBe(0);
+    });
+});
+
+/**
+ * Discussion conversation selective-fetch tool registration.
+ *
+ * `get_discussion_conversation` is intentionally a separate tool from the issue/PR
+ * `get_conversation` router because GitHub Discussions are a distinct GraphQL resource
+ * and use `discussion_number`, not `issue_number` / `pr_number`.
+ */
+test.describe('Neo.ai.services.github-workflow.toolService — get_discussion_conversation (#10304)', () => {
+    test('operationId is advertised and mapped to a handler', async () => {
+        const {listTools} = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+
+        const tools = listTools().tools,
+              tool  = tools.find(item => item.name === 'get_discussion_conversation');
+
+        expect(tool).toBeTruthy();
+        expect(tool.annotations.readOnlyHint).toBe(true);
+        expect(tool.inputSchema.properties.discussion_number).toBeTruthy();
+        expect(tool.inputSchema.properties.comment_id).toBeTruthy();
+        expect(tool.inputSchema.properties.since_comment_id).toBeTruthy();
+        expect(tool.inputSchema.properties.last_n).toBeTruthy();
     });
 });

@@ -140,6 +140,7 @@ const serviceMapping = {
     create_discussion        : DiscussionService .createDiscussion       .bind(DiscussionService),
     create_issue             : IssueService      .createIssue            .bind(IssueService),
     get_conversation         : getConversationRouter,
+    get_discussion_conversation: DiscussionService .getConversation      .bind(DiscussionService),
     get_local_issue_by_id    : LocalFileService  .getIssueById           .bind(LocalFileService),
     get_pull_request_diff    : PullRequestService.getPullRequestDiff     .bind(PullRequestService),
     get_viewer_permission    : RepositoryService .getViewerPermission    .bind(RepositoryService),

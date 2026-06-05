@@ -19,7 +19,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 /**
- * @summary Contract coverage for `DiscussionService.manageDiscussionComment` enriched return shape (#10841).
+ * @summary Contract coverage for `DiscussionService.manageDiscussionComment` enriched return shape.
  */
 test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscussionComment (#10841)', () => {
     let DiscussionService;
@@ -184,11 +184,221 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscu
 });
 
 /**
- * @summary Contract coverage for `DiscussionService.manageDiscussion` discussion-body update (#10138).
+ * @summary Contract coverage for `DiscussionService.getConversation` selector narrowing.
+ */
+test.describe('Neo.ai.services.github-workflow.DiscussionService — getConversation (#10304)', () => {
+    let DiscussionService;
+    let GraphqlService;
+    let originalQuery;
+
+    const buildDiscussion = () => ({
+        id       : 'D_kwDODSospM4AmbhL',
+        number   : 10137,
+        title    : 'MX Model Experience',
+        body     : 'Discussion body',
+        url      : 'https://github.com/orgs/neomjs/discussions/10137',
+        createdAt: '2026-05-01T00:00:00Z',
+        updatedAt: '2026-05-02T00:00:00Z',
+        author   : {login: 'neo-opus-4-7'},
+        category : {name: 'Ideas'},
+        comments : {
+            nodes: [
+                {
+                    id       : 'DC_first',
+                    author   : {login: 'neo-gpt'},
+                    body     : 'First comment',
+                    createdAt: '2026-05-02T00:01:00Z',
+                    updatedAt: '2026-05-02T00:01:00Z',
+                    url      : 'https://github.com/orgs/neomjs/discussions/10137#discussioncomment-1',
+                    isAnswer : false,
+                    replies  : {nodes: []}
+                },
+                {
+                    id       : 'DC_second',
+                    author   : {login: 'neo-claude-opus'},
+                    body     : 'Second comment',
+                    createdAt: '2026-05-02T00:02:00Z',
+                    updatedAt: '2026-05-02T00:02:00Z',
+                    url      : 'https://github.com/orgs/neomjs/discussions/10137#discussioncomment-2',
+                    isAnswer : false,
+                    replies  : {
+                        nodes: [{
+                            id       : 'DCR_reply',
+                            author   : {login: 'neo-gpt'},
+                            body     : 'Nested reply',
+                            createdAt: '2026-05-02T00:03:00Z',
+                            updatedAt: '2026-05-02T00:03:00Z',
+                            url      : 'https://github.com/orgs/neomjs/discussions/10137#discussioncomment-3',
+                            isAnswer : false
+                        }]
+                    }
+                },
+                {
+                    id       : 'DC_third',
+                    author   : {login: 'neo-opus-vega'},
+                    body     : 'Third comment',
+                    createdAt: '2026-05-02T00:04:00Z',
+                    updatedAt: '2026-05-02T00:04:00Z',
+                    url      : 'https://github.com/orgs/neomjs/discussions/10137#discussioncomment-4',
+                    isAnswer : true,
+                    replies  : {nodes: []}
+                }
+            ]
+        }
+    });
+
+    const installFixture = () => {
+        let callCount = 0;
+
+        GraphqlService.query = async (query, variables) => {
+            callCount++;
+            expect(variables.discussionNumber).toBe(10137);
+            expect(variables.maxComments).toBeGreaterThan(0);
+            expect(variables.maxReplies).toBeGreaterThan(0);
+
+            return {repository: {discussion: buildDiscussion()}};
+        };
+
+        return () => callCount;
+    };
+
+    test.beforeAll(async () => {
+        GraphqlService    = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        DiscussionService = (await import('../../../../../../ai/services/github-workflow/DiscussionService.mjs')).default;
+
+        originalQuery = GraphqlService.query.bind(GraphqlService);
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query = originalQuery;
+    });
+
+    test('rejects missing discussion_number without GraphQL call', async () => {
+        let callCount = 0;
+        GraphqlService.query = async () => { callCount++; return null; };
+
+        const result = await DiscussionService.getConversation({comment_id: 'DC_first'});
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('MISSING_ARGUMENTS');
+        expect(callCount).toBe(0);
+    });
+
+    test('no selectors returns the full bounded discussion conversation', async () => {
+        const getCallCount = installFixture();
+
+        const result = await DiscussionService.getConversation({discussion_number: 10137});
+
+        expect(result.title).toBe('MX Model Experience');
+        expect(result.comments.nodes.map(c => c.id)).toEqual(['DC_first', 'DC_second', 'DC_third']);
+        expect(result.comments.nodes[1].replies.nodes[0].id).toBe('DCR_reply');
+        expect(getCallCount()).toBe(1);
+    });
+
+    test('comment_id returns only the matching top-level discussion comment', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({
+            discussion_number: 10137,
+            comment_id       : 'DC_second'
+        });
+
+        expect(result.body).toBe('Discussion body');
+        expect(result.comments.nodes.map(c => c.id)).toEqual(['DC_second']);
+        expect(result.comments.nodes[0].replies.nodes[0].id).toBe('DCR_reply');
+    });
+
+    test('unknown comment_id returns empty comments while preserving discussion metadata', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({
+            discussion_number: 10137,
+            comment_id       : 'DC_missing'
+        });
+
+        expect(result.number).toBe(10137);
+        expect(result.comments.nodes).toEqual([]);
+    });
+
+    test('since_comment_id returns comments strictly after the anchor', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({
+            discussion_number: 10137,
+            since_comment_id : 'DC_first'
+        });
+
+        expect(result.comments.nodes.map(c => c.id)).toEqual(['DC_second', 'DC_third']);
+    });
+
+    test('unknown since_comment_id returns empty comments', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({
+            discussion_number: 10137,
+            since_comment_id : 'DC_missing'
+        });
+
+        expect(result.comments.nodes).toEqual([]);
+    });
+
+    test('last_n returns the tail comments', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({
+            discussion_number: 10137,
+            last_n           : 2
+        });
+
+        expect(result.comments.nodes.map(c => c.id)).toEqual(['DC_second', 'DC_third']);
+    });
+
+    test('selector precedence prefers comment_id over since_comment_id and last_n', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({
+            discussion_number: 10137,
+            comment_id       : 'DC_first',
+            since_comment_id : 'DC_second',
+            last_n           : 1
+        });
+
+        expect(result.comments.nodes.map(c => c.id)).toEqual(['DC_first']);
+    });
+
+    test('returns NOT_FOUND when the discussion does not exist', async () => {
+        let callCount = 0;
+        GraphqlService.query = async () => {
+            callCount++;
+            return {repository: {discussion: null}};
+        };
+
+        const result = await DiscussionService.getConversation({discussion_number: 999999});
+
+        expect(result.error).toBe('Not Found');
+        expect(result.code).toBe('NOT_FOUND');
+        expect(callCount).toBe(1);
+    });
+
+    test('propagates GraphQL error shape on auth/API failure', async () => {
+        GraphqlService.query = async () => {
+            throw new Error('Resource not accessible by integration');
+        };
+
+        const result = await DiscussionService.getConversation({discussion_number: 10137});
+
+        expect(result.error).toBe('GraphQL API request failed');
+        expect(result.code).toBe('GRAPHQL_API_ERROR');
+        expect(result.message).toContain('not accessible');
+    });
+});
+
+/**
+ * @summary Contract coverage for `DiscussionService.manageDiscussion` discussion-body update.
  *
  * `manageDiscussion` is a method on `DiscussionService` (mirroring `manageDiscussionComment`),
  * so its spec lives alongside the existing service spec rather than under the `ai/mcp/server/`
- * test tree named in #10138 AC5 — that AC assumed a standalone tool file that does not exist.
+ * test tree originally named by the AC — that AC assumed a standalone tool file that does not exist.
  */
 test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscussion (#10138)', () => {
     let DiscussionService;
