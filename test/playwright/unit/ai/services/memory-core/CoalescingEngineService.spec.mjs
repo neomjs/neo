@@ -14,6 +14,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 let CoalescingEngineService;
 let WebhookDeliveryService;
@@ -40,10 +41,12 @@ const buildSubscription = (overrides = {}) => ({
 test.describe('CoalescingEngineService', () => {
     let originalDeliver;
     let deliverCalls;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         if (!aiConfig.collections) aiConfig.collections = {};
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['collections.memory', 'collections.session']);
         aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
 
@@ -68,6 +71,7 @@ test.describe('CoalescingEngineService', () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager();
         if (originalDeliver) WebhookDeliveryService.deliver = originalDeliver;
+        restoreAiConfig?.();
     });
 
     // -----------------------------------------------------------------------------
@@ -184,7 +188,7 @@ test.describe('CoalescingEngineService', () => {
 
         expect(notificationCalledWith).not.toBeNull();
         expect(notificationCalledWith.method).toBe('notifications/message');
-        // TRACKING: #10400 Fix - mcp-notifications bypassed timer and digest envelope
+        // mcp-notifications bypassed timer and digest envelope
         expect(notificationCalledWith.params.eventType).toBe('wake/sent_to_me');
         expect(notificationCalledWith.params.payload.messageId).toBe('M1');
 

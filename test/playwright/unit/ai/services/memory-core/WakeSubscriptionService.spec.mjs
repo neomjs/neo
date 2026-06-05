@@ -25,11 +25,13 @@ import * as core             from '../../../../../../src/core/_export.mjs';
 if (!Neo.get) Neo.get = () => null;
 
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
     let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, callTool, originalAutoSave;
     let dbPath;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const tmpDir = path.resolve(process.cwd(), 'tmp');
@@ -39,6 +41,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         dbPath = path.join(tmpDir, `neo-wake-subscription-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
         aiConfig.storagePaths.graph = dbPath;
 
         if (!aiConfig.collections) aiConfig.collections = {};
@@ -68,6 +71,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test.beforeEach(async () => {

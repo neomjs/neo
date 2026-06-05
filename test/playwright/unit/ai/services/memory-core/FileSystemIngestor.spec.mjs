@@ -17,6 +17,7 @@ import {test, expect}       from '@playwright/test';
 import Neo                  from '../../../../../../src/Neo.mjs';
 import * as core            from '../../../../../../src/core/_export.mjs';
 import InstanceManager      from '../../../../../../src/manager/Instance.mjs';
+import {snapshotAiConfig}   from '../../../../fixtures/aiConfigIsolation.mjs';
 import fs                   from 'fs-extra';
 import path                 from 'path';
 import os                   from 'os';
@@ -28,11 +29,10 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
     const testDbName = `memory-core-fs-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
     let mockFsRoot;
-    let originalDbPath;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        originalDbPath = aiConfig.storagePaths.graph;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -40,6 +40,8 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
         mockFsRoot = path.join(tmpDir, `fs-ingest-mock-${Date.now()}`);
+
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
 
         aiConfig.storagePaths.graph = testDbPath;
         if (!aiConfig.collections) aiConfig.collections = {};
@@ -62,7 +64,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         fs.ensureDirSync(path.join(mockFsRoot, 'resources', 'scss'));
         fs.ensureDirSync(path.join(mockFsRoot, 'resources', 'images'));
         fs.ensureDirSync(path.join(mockFsRoot, 'node_modules', 'dep'));
-        // Agent harness directories — neither should be indexed (#11650).
+        // Agent harness directories — neither should be indexed.
         // .claude/worktrees/<NAME>/ carries each Claude Code session's own multi-GB
         // node_modules + its own .neo-ai-data (recursive substrate amplification).
         // .codex/ carries Codex agent state similarly.
@@ -79,7 +81,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         fs.writeFileSync(path.join(mockFsRoot, '.env'), 'SECRET=123');
         fs.writeFileSync(path.join(mockFsRoot, 'package.json'), '{}');
         // Files inside the agent harness directories — would have leaked under the
-        // pre-#11650 path-prefix matcher because relativePath starts with `.claude/`
+        // former path-prefix matcher because relativePath starts with `.claude/`
         // or `.codex/`, not with `node_modules/`. Adding `.claude` + `.codex` to the
         // top-level ignorePatterns is the surgical fix.
         fs.writeFileSync(path.join(mockFsRoot, '.claude', 'worktrees', 'test-worktree', 'node_modules', 'transitive-dep', 'index.js'), 'agent-harness-leak');
@@ -104,12 +106,11 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.storagePaths.graph = originalDbPath;
-
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
 
         fs.removeSync(mockFsRoot);
+
+        restoreAiConfig?.();
     });
 
     test('should dynamically ignore high-noise path patterns while preserving structural mapping', async () => {
@@ -131,7 +132,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         expect(allNodes.some(p => p.includes('.env'))).toBe(false);
         expect(allNodes.some(p => p.includes('.png'))).toBe(false);
         expect(allNodes.some(p => p.includes('.svg'))).toBe(false);
-        // Agent harness directories must be excluded (#11650). Pre-#11650 the
+        // Agent harness directories must be excluded. Previously the
         // path-prefix matcher caught only root-level node_modules; nested
         // .claude/worktrees/<X>/node_modules slipped through because the path
         // doesn't start with `node_modules/` — it starts with `.claude/`.

@@ -15,12 +15,13 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs              from 'fs';
-import path            from 'path';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../../../src/Neo.mjs';
+import * as core         from '../../../../../../src/core/_export.mjs';
+import InstanceManager   from '../../../../../../src/manager/Instance.mjs';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
+import fs                from 'fs';
+import path              from 'path';
 
 // Serial mode: this file rewires singleton graph storage to a temporary SQLite file.
 test.describe.configure({mode: 'serial'});
@@ -28,6 +29,7 @@ test.describe.configure({mode: 'serial'});
 test.describe('Memory_DatabaseService — graph backup import (#10949)', () => {
     let GraphService, Memory_DatabaseService, SystemLifecycleService;
     let graphPath, tmpDir;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -36,6 +38,8 @@ test.describe('Memory_DatabaseService — graph backup import (#10949)', () => {
         graphPath = path.join(tmpDir, 'memory-core-graph.sqlite');
 
         fs.mkdirSync(tmpDir, {recursive: true});
+
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
 
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         if (!aiConfig.collections) aiConfig.collections = {};
@@ -76,6 +80,8 @@ test.describe('Memory_DatabaseService — graph backup import (#10949)', () => {
         if (tmpDir && fs.existsSync(tmpDir)) {
             fs.rmSync(tmpDir, {recursive: true, force: true});
         }
+
+        restoreAiConfig?.();
     });
 
     test('restores exported edges with their required type column intact', async () => {

@@ -15,12 +15,13 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs              from 'fs';
-import path            from 'path';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../../src/Neo.mjs';
+import * as core        from '../../../../../../src/core/_export.mjs';
+import InstanceManager  from '../../../../../../src/manager/Instance.mjs';
+import fs               from 'fs';
+import path             from 'path';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 // Serial mode: rewires singleton StorageRouter collection accessors across tests.
 test.describe.configure({mode: 'serial'});
@@ -28,6 +29,7 @@ test.describe.configure({mode: 'serial'});
 test.describe('Memory_DatabaseService — Chroma preserve-live parity for #importMemories (#11144)', () => {
     let SDK, Memory_DatabaseService, Memory_StorageRouter;
     let originalGetMemory, originalGetSummary, tmpDir;
+    let restoreAiConfig;
 
     /**
      * Builds a recording fake Chroma collection used by the spec to assert that:
@@ -81,6 +83,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['collections.memory', 'collections.session']);
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory  = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
@@ -106,6 +109,8 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         if (tmpDir && fs.existsSync(tmpDir)) {
             fs.rmSync(tmpDir, {recursive: true, force: true});
         }
+
+        restoreAiConfig?.();
     });
 
     test('merge mode: ID collision preserves live record + only missing IDs get add()', async () => {
@@ -195,7 +200,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
 
         // truncateDatabase routes through CollectionProxy.drop() against the real
-        // production path's destructive-operation guard (#10845). The guard is
+        // production path's destructive-operation guard. The guard is
         // covered by restore-hardening.spec.mjs and is not what this test verifies;
         // stub it to a no-op so we exercise the post-truncate upsert branch in
         // isolation. Restored at end of test.
@@ -283,7 +288,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         // Backward-compat aggregate: memoriesInserted = memories.inserted + summaries.inserted
         expect(result.counts.memoriesInserted).toBe(1);
 
-        // Top-level `imported` and `mode` preserved per #11141 contract
+        // Top-level `imported` and `mode` preserved per the import contract
         expect(result.imported).toBe(1);
         expect(result.mode).toBe('merge');
     });

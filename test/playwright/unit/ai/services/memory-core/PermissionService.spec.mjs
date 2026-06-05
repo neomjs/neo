@@ -18,11 +18,13 @@ import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.services.memory-core.PermissionService', () => {
     test.describe.configure({ mode: 'serial' });
     let PermissionService, GraphService, LifecycleService, originalAutoSave;
-    let dbPath, originalDbPath, hadGraphDb = false;
+    let dbPath, hadGraphDb = false;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         // Build an isolated tmp path for the database file tests
@@ -34,10 +36,10 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
 
         // Force temp file DB config instead of :memory: to prevent initialization race wipes
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        originalDbPath = aiConfig.storagePaths.graph;
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
         aiConfig.storagePaths.graph = dbPath;
 
-        // Mock Chroma collections to prevent production data wipes (#10845 / #10867)
+        // Mock Chroma collections to prevent production data wipes
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
@@ -63,7 +65,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
 
         originalAutoSave = GraphService.db.autoSave;
 
-        // @summary Enables autoSave for the duration of the test suite (#10256).
+        // @summary Enables autoSave for the duration of the test suite.
         // This is necessary because these tests assert SQLite state via direct queries.
         // Without autoSave = true, the memory-state and disk-state may diverge,
         // causing intermittent assertion failures in serial mode.
@@ -80,8 +82,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
 
         await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.storagePaths.graph = originalDbPath;
+        restoreAiConfig?.();
 
         if (hadGraphDb) {
             await GraphService.initAsync();

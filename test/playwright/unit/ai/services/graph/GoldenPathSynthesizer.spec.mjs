@@ -21,6 +21,7 @@ import path           from 'path';
 import os             from 'os';
 import child_process  from 'child_process';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.describe.configure({mode: 'serial'});
@@ -35,6 +36,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
     let StorageRouter;
     let TextEmbeddingService;
+    let restoreAiConfig;
     let tmpHandoffFile;
     let originalExecSync;
     let originalEmbeddingModel;
@@ -55,6 +57,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
         const testDbName = `memory-core-goldenpath-test-${process.pid}-${Date.now()}.sqlite`;
         const testDbPath = path.join(tmpDir, testDbName);
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'handoffFilePath']);
         aiConfig.storagePaths.graph = testDbPath;
 
         tmpHandoffFile = path.join(tmpDir, `mock_sandman_handoff_${process.pid}_${Date.now()}.md`);
@@ -106,6 +109,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.afterAll(async () => {
         const testDbPath = aiConfig.storagePaths.graph;
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test('derives repo-enrichment identity projections from identityRoots', () => {

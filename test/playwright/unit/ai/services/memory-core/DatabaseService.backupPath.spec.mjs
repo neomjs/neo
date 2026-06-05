@@ -15,12 +15,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs             from 'fs';
-import path           from 'path';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../../../src/Neo.mjs';
+import * as core          from '../../../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../../../src/manager/Instance.mjs';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
+import fs                 from 'fs';
+import path               from 'path';
 
 // Serial mode: see DatabaseService.backup.spec.mjs for rationale (singleton mutation
 // across beforeAll/afterAll; local-DX safeguard — CI already uses workers:1).
@@ -28,10 +29,11 @@ test.describe.configure({mode: 'serial'});
 
 test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 prerequisite)', () => {
     let SDK, Memory_DatabaseService, Memory_StorageRouter;
-    let originalGetMemory, originalGetSummary, tmpDir;
+    let originalGetMemory, originalGetSummary, tmpDir, restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['collections.memory', 'collections.session']);
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
@@ -50,6 +52,8 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager();
+
+        restoreAiConfig?.();
 
         Memory_StorageRouter.getMemoryCollection  = originalGetMemory;
         Memory_StorageRouter.getSummaryCollection = originalGetSummary;

@@ -19,6 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 import {
     clearAggregatedFrictions,
     getAggregatedFrictions
@@ -32,6 +33,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     let SystemLifecycleService;
     let OpenAiCompatible;
     let aiConfig;
+    let restoreAiConfig;
 
     const testDbName = `memory-core-semantic-extractor-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
@@ -45,11 +47,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'lazyEdgesQueuePath', 'modelProvider']);
+
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.lazyEdgesQueuePath   = path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`);
         aiConfig.autoIngestFileSystem = false;
 
-        // #11965 Sub-2 cycle-3: graph services now dispatch provider via
+        // Graph services now dispatch provider via
         // aiConfig.modelProvider through buildGraphProvider. Memory Core's
         // default modelProvider is 'gemini' which is out of Sub-2 graph scope
         // (gemini-graph dispatch deferred to Sub-3 / follow-up). This test
@@ -106,6 +110,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test('should extract provenance edges and queue unresolved targets to lazy back-fill (#10152)', async () => {
