@@ -1,4 +1,9 @@
+import {execFileSync as defaultExecFileSync} from 'child_process';
+
+import {resolveInstancePid} from '../../../../daemons/bridge/instanceResolver.mjs';
 import Base from '../../../../../src/core/Base.mjs';
+
+const USER_DATA_DIR_PATTERN = /(?:^|\s)--user-data-dir=(?:"([^"]+)"|'([^']+)'|(.+?))(?=\s--|$)/;
 
 /**
  * @summary Resolves the per-instance wake-routing address from the boot environment into
@@ -24,12 +29,14 @@ import Base from '../../../../../src/core/Base.mjs';
  * - `NEO_HARNESS_INSTANCE_ADDRESS_TYPE` — the address kind: one of `userDataDir`, `pid`,
  *   `tmuxSession`, `webhookUrl`.
  *
- * Both must be set together or both omitted. Omitting both is the normal **default instance** — the
- * primary macOS app started without `--user-data-dir`, which is routed by the *absence* of an
- * address (see the bridge daemon's default-instance resolution). A partially-set envelope is a
- * configuration error and **fails closed** (throws): a non-default instance with a broken address
- * must never silently fall back to the default route, because that misroutes its wakes into the
- * default instance's window.
+ * Both must be set together or both omitted. Omitting both first attempts a narrow macOS Electron
+ * parent-chain fallback: if this MCP server was spawned under an app/helper process whose command
+ * line carries `--user-data-dir`, that path is used as a `userDataDir` address. Otherwise omission
+ * remains the normal **default instance** — the primary macOS app started without `--user-data-dir`,
+ * routed by the *absence* of an address (see the bridge daemon's default-instance resolution). A
+ * partially-set envelope is a configuration error and **fails closed** (throws): a non-default
+ * instance with a broken address must never silently fall back to the default route, because that
+ * misroutes its wakes into the default instance's window.
  *
  * ## Dispatch coverage
  *
@@ -78,6 +85,13 @@ class BootEnvelopeResolver extends Base {
      * Resolves the boot instance-address envelope into wake-subscription `overrideMetadata`.
      *
      * @param {Object} [env=process.env] Environment source (injectable for tests).
+     * @param {Object} [options]
+     * @param {Boolean} [options.enableParentChainFallback=true] Whether to use the macOS Electron
+     *     parent-chain fallback when the explicit envelope is absent.
+     * @param {Number} [options.bootPid=process.pid] MCP server boot pid for fallback discovery.
+     * @param {String} [options.psOutput] Injectable `ps axww -o pid=,ppid=,command=` snapshot.
+     * @param {Function} [options.execFileSync=child_process.execFileSync] Injectable `ps` runner.
+     * @param {String} [options.platform=process.platform] Platform guard for tests.
      * @returns {Object|null} `overrideMetadata` to merge into the bootstrapped subscription
      *     (`{instanceAddress, addressType, ...}`), or `null` for the default instance (no address
      *     configured → routed by absence).
@@ -85,14 +99,22 @@ class BootEnvelopeResolver extends Base {
      *     or the address type is recognized but not yet dispatchable (fail-closed to prevent
      *     misrouting a non-default instance to the default route).
      */
-    resolveOverrideMetadata(env = process.env) {
+    resolveOverrideMetadata(env = process.env, {
+        bootPid                   = process.pid,
+        enableParentChainFallback = true,
+        execFileSync              = defaultExecFileSync,
+        platform                  = process.platform,
+        psOutput
+    } = {}) {
         const instanceAddress = env.NEO_HARNESS_INSTANCE_ADDRESS?.trim(),
               addressType      = env.NEO_HARNESS_INSTANCE_ADDRESS_TYPE?.trim();
 
-        // Default instance: no address configured → no override. The daemon routes the arg-less
-        // main instance by the absence of an address.
+        // No explicit address configured: try the narrow macOS Electron fallback. If it cannot
+        // prove an instance address, keep the existing default-instance behavior (null).
         if (!instanceAddress && !addressType) {
-            return null;
+            return enableParentChainFallback
+                ? this.resolveParentChainOverrideMetadata({bootPid, execFileSync, platform, psOutput})
+                : null;
         }
 
         // Partial envelope is a misconfiguration. Fail closed rather than degrade to default
@@ -122,6 +144,158 @@ class BootEnvelopeResolver extends Base {
         }
 
         return {instanceAddress, addressType};
+    }
+
+    /**
+     * @summary Resolves `overrideMetadata` from the MCP server's macOS Electron parent chain.
+     *
+     * This fallback never runs when the explicit env envelope is present, and it returns `null` on
+     * every ambiguous/non-Electron/cloud shape so bootstrapping keeps the default-instance absence
+     * route instead of guessing.
+     *
+     * @param {Object} options
+     * @param {Number} [options.bootPid=process.pid] Starting pid for the parent-chain walk.
+     * @param {String} [options.psOutput] Injectable process snapshot.
+     * @param {Function} [options.execFileSync=child_process.execFileSync] Injectable `ps` runner.
+     * @param {String} [options.platform=process.platform] Platform guard.
+     * @returns {{instanceAddress:String,addressType:String}|null}
+     */
+    resolveParentChainOverrideMetadata({
+        bootPid      = process.pid,
+        execFileSync = defaultExecFileSync,
+        platform     = process.platform,
+        psOutput
+    } = {}) {
+        if (platform !== 'darwin') {
+            return null;
+        }
+
+        const snapshot = psOutput ?? this.readProcessSnapshot({execFileSync});
+        if (!snapshot) {
+            return null;
+        }
+
+        const userDataDir = this.resolveParentChainUserDataDir({bootPid, psOutput: snapshot});
+        if (!userDataDir) {
+            return null;
+        }
+
+        // Reuse the bridge daemon's main-pid resolver as the final proof that the discovered
+        // address maps to a concrete Electron app instance. If the snapshot cannot prove that,
+        // fail closed rather than emitting a route that might mis-target.
+        if (resolveInstancePid({userDataDir, psOutput: snapshot}) === null) {
+            return null;
+        }
+
+        return {
+            instanceAddress: userDataDir,
+            addressType    : 'userDataDir'
+        };
+    }
+
+    /**
+     * @summary Reads a full process snapshot for parent-chain address discovery.
+     * @param {Object} options
+     * @param {Function} [options.execFileSync=child_process.execFileSync]
+     * @returns {String|null}
+     */
+    readProcessSnapshot({execFileSync = defaultExecFileSync} = {}) {
+        try {
+            return execFileSync('ps', ['axww', '-o', 'pid=,ppid=,command='], {
+                encoding: 'utf8',
+                stdio   : ['ignore', 'pipe', 'pipe']
+            });
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * @summary Walks from the MCP server pid to its parents and extracts a proven Electron
+     * `--user-data-dir` value when present.
+     *
+     * @param {Object} options
+     * @param {Number} options.bootPid Starting pid for the parent-chain walk.
+     * @param {String} options.psOutput `ps axww -o pid=,ppid=,command=` snapshot.
+     * @param {Number} [options.maxDepth=12] Parent traversal cap.
+     * @returns {String|null}
+     */
+    resolveParentChainUserDataDir({bootPid, psOutput, maxDepth = 12} = {}) {
+        if (!bootPid || !psOutput) {
+            return null;
+        }
+
+        const byPid  = this.parseProcessSnapshot(psOutput),
+              seen   = new Set();
+        let   cursor = Number(bootPid);
+
+        for (let depth = 0; depth < maxDepth; depth++) {
+            const row = byPid.get(cursor);
+            if (!row || seen.has(row.pid)) {
+                return null;
+            }
+
+            seen.add(row.pid);
+
+            if (this.isElectronAppProcess(row.command)) {
+                const userDataDir = this.extractUserDataDir(row.command);
+                if (userDataDir) {
+                    return userDataDir;
+                }
+            }
+
+            if (!row.ppid || row.ppid === 1 || row.ppid === row.pid) {
+                return null;
+            }
+
+            cursor = row.ppid;
+        }
+
+        return null;
+    }
+
+    /**
+     * @summary Parses `ps axww -o pid=,ppid=,command=` rows by pid.
+     * @param {String} psOutput
+     * @returns {Map<Number,{pid:Number,ppid:Number,command:String}>}
+     */
+    parseProcessSnapshot(psOutput = '') {
+        return new Map(psOutput.split('\n')
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(line => {
+                const match = line.match(/^(\d+)\s+(\d+)\s+(.*)$/);
+                if (!match) {
+                    return null;
+                }
+                const pid  = Number(match[1]),
+                      ppid = Number(match[2]);
+
+                return {pid, ppid, command: match[3]};
+            })
+            .filter(Boolean)
+            .map(row => [row.pid, row]));
+    }
+
+    /**
+     * @summary Detects macOS Electron app/main/helper process commands.
+     * @param {String} command
+     * @returns {Boolean}
+     */
+    isElectronAppProcess(command = '') {
+        return command.includes('.app/Contents/') &&
+            (command.includes('/Contents/MacOS/') || /Helper|Framework/i.test(command));
+    }
+
+    /**
+     * @summary Extracts a `--user-data-dir` value from a process command line.
+     * @param {String} command
+     * @returns {String|null}
+     */
+    extractUserDataDir(command = '') {
+        const match = command.match(USER_DATA_DIR_PATTERN);
+
+        return match ? (match[1] || match[2] || match[3] || '').trim() || null : null;
     }
 }
 
