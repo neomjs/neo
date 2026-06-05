@@ -129,7 +129,7 @@ class GraphService extends Base {
                         description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agents/skills for reusable agent workflows.'
                     });
                 }
-                this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
+                this.linkGlobalNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
             } catch (error) {
                 logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
             }
@@ -271,6 +271,23 @@ class GraphService extends Base {
      */
     upsertGlobalNode(spec) {
         this.upsertNode({...spec, properties: {...spec.properties, userId: null}});
+    }
+
+    /**
+     * Links two globally-visible system nodes, forcing the edge's `userId: null` so the
+     * **connection itself** stays visible to every tenant under RLS. {@link GraphService#getContextFrontier}
+     * and {@link GraphService#getNeighbors} / {@link GraphService#queryNodeTopology} require BOTH the node
+     * AND the edge to be RLS-visible, so a global sentinel reached only through a tenant-stamped edge
+     * (the default {@link GraphService#linkNodes} stamps the active request's identity) would still vanish
+     * from topology traversal for non-booting tenants — even when {@link GraphService#upsertGlobalNode}
+     * already made the node itself global.
+     * @param {String} source
+     * @param {String} target
+     * @param {String} relationship
+     * @param {Number} [weight=1.0]
+     */
+    linkGlobalNodes(source, target, relationship, weight = 1.0) {
+        this.linkNodes(source, target, relationship, weight, {userId: null});
     }
 
     /**
