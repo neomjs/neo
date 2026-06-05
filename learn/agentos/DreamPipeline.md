@@ -214,6 +214,18 @@ The Golden Path synthesis produces a markdown file divided into sections:
 ### 🗺️ Guide Disconnects (N items)
 - **`CLASS:MyComponent`**: lacks guide...
 
+## Stale Assignment Candidates
+
+No stale assignment candidates detected.
+
+## Silent Threads
+
+No silent thread candidates detected.
+
+## 📋 Latest Priority Backlog
+
+The following open tickets represent the most recently created structural objectives.
+
 ## Computed Golden Path (Strategic Recommendation)
 
 1. **issue-1234**: Score 5.42 (Semantic: 3.14, Structural: 2.28)
@@ -227,6 +239,12 @@ The Golden Path synthesis produces a markdown file divided into sections:
 The **Strategic Interpretation** is an optional LLM-generated brief that explains
 *why* the mathematical scores point to these specific tasks. If the LLM is offline,
 the system falls back to pure numerical output.
+
+`## Silent Threads` is visibility-only. It surfaces old, unassigned, non-rejected
+open issues that are outside the Computed Golden Path, sorted by
+`daysIdle * max(structuralWeight, 1)`. `AgentOrchestrator.parseGoldenPath()`
+continues to consume only `## Computed Golden Path`, so Silent Threads never
+becomes an automatic route or assignment source.
 
 ## Issue Ingestion Pipeline
 
