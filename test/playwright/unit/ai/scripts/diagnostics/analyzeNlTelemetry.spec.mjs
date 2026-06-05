@@ -91,7 +91,7 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
     test('should extract Neural Link trajectories without mutating physical databases', () => {
         const env = {
             ...process.env,
-            NEO_MEMORY_DB_PATH: testDbPath,
+            NEO_MEMORY_DB_PATH_TEST: testDbPath,
             NEO_RLAIF_PATH: testRlaifPath
         };
 
@@ -104,7 +104,7 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
     test('should gracefully exit if no trajectories are found', () => {
         const env = {
             ...process.env,
-            NEO_MEMORY_DB_PATH: testDbPath,
+            NEO_MEMORY_DB_PATH_TEST: testDbPath,
             NEO_RLAIF_PATH: testRlaifPath
         };
 
@@ -115,7 +115,7 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
     test('should save to custom RLAIF path when --save is provided', () => {
         const env = {
             ...process.env,
-            NEO_MEMORY_DB_PATH: testDbPath,
+            NEO_MEMORY_DB_PATH_TEST: testDbPath,
             NEO_RLAIF_PATH: testRlaifPath
         };
 
@@ -141,5 +141,13 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
         expect(maintenanceSource).toContain('aiConfig.storagePaths.graph');
         expect(diagnosticsSource).not.toContain(retiredPath);
         expect(maintenanceSource).not.toContain(retiredPath);
+    });
+
+    test('reads the resolved Memory Core graph leaf without a duplicate env fallback (#12438)', () => {
+        const diagnosticsSource = fs.readFileSync(scriptPath, 'utf8');
+
+        expect(diagnosticsSource).toContain('const DB_PATH = aiConfig.storagePaths.graph;');
+        expect(diagnosticsSource).not.toContain('process.env.NEO_MEMORY_DB_PATH ||');
+        expect(diagnosticsSource).not.toContain('process.env.NEO_MEMORY_DB_PATH ??');
     });
 });
