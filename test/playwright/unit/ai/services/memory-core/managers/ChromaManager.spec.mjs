@@ -21,8 +21,10 @@ import aiConfig       from '../../../../../../../ai/mcp/server/memory-core/confi
 import ChromaManager  from '../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
 import {CHROMA_PRODUCTION_DATABASE, CHROMA_TEST_DATABASE} from '../../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 import logger         from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
+import StorageRouter  from '../../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import path           from 'path';
+import {resetMemoryCoreLifecycle} from '../util.mjs';
 
 const tmpDir = path.resolve(process.cwd(), 'tmp');
 aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
@@ -91,6 +93,30 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         }).database).toBe(CHROMA_TEST_DATABASE);
     });
 
+    test('resetMemoryCoreLifecycle clears singleton readiness and collection handles', async () => {
+        const stalePromise = Promise.resolve({name: 'stale-collection'});
+
+        SystemLifecycleService._initPromise   = stalePromise;
+        StorageRouter._initPromise            = stalePromise;
+        ChromaManager._memoryCollectionPromise  = stalePromise;
+        ChromaManager._summaryCollectionPromise = stalePromise;
+        ChromaManager._graphCollectionPromise   = stalePromise;
+        ChromaManager.memoryCollection  = {name: 'stale-memory'};
+        ChromaManager.summaryCollection = {name: 'stale-summary'};
+        ChromaManager.graphCollection   = {name: 'stale-graph'};
+
+        await resetMemoryCoreLifecycle();
+
+        expect(SystemLifecycleService._initPromise).toBeNull();
+        expect(StorageRouter._initPromise).toBeNull();
+        expect(ChromaManager._memoryCollectionPromise).toBeNull();
+        expect(ChromaManager._summaryCollectionPromise).toBeNull();
+        expect(ChromaManager._graphCollectionPromise).toBeNull();
+        expect(ChromaManager.memoryCollection).toBeNull();
+        expect(ChromaManager.summaryCollection).toBeNull();
+        expect(ChromaManager.graphCollection).toBeNull();
+    });
+
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
         // Set up a custom warn logger to inspect leaks
         const warningLogs = [];
@@ -145,7 +171,7 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
             // Un-mock
             console.warn = originalWarn;
             if (originalClient) ChromaManager.client = originalClient;
-            SystemLifecycleService._initPromise = null;
+            await resetMemoryCoreLifecycle();
         }
     });
 });
