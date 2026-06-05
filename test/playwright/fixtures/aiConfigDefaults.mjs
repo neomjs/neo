@@ -133,7 +133,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         }
     },
     vectorDimension: Number(process.env.NEO_VECTOR_DIMENSION) || 4096,
-    modelName      : 'gemini-2.5-flash',
+    modelName      : 'gemini-3.5-flash',
     embeddingModel : 'gemini-embedding-001',
     engines: {
         chroma: {

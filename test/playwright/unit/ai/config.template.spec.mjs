@@ -64,7 +64,7 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(Config.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
         expect(Config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
-        expect(Config.modelName).toBe('gemini-2.5-flash');
+        expect(Config.modelName).toBe('gemini-3.5-flash');
         expect(Config.embeddingModel).toBe('gemini-embedding-001');
 
         expect(Config.ollama).toMatchObject({
