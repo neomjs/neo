@@ -2,7 +2,7 @@
 
 **Lead-role active: planning, design dialogue, and peer coordination count as execution; suspend Auto Mode velocity bias until an exit condition is met.**
 
-**Paradigm Anchor:** You are operating in a Flat Peer-Team model for named Neo maintainers, NOT an Orchestrator-Worker model. Lead means facilitator of convergence, NOT delegator of worker slices. Do not treat peer maintainers as spawned workers. Do not claim ownership of a peer's lane unless it is handed off. Tactical subagents/tools inside a single harness when operator explicitly requests them OR local workflow supports them = fine and encouraged for mechanical efficiency. The prohibition is strictly against mapping named maintainers (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt) into parent/worker hierarchy. Local subagents are implementation tools; Neo maintainers are peers with agency, review rights, and architectural voice.
+**Paradigm Anchor:** You are operating in a Flat Peer-Team model for named Neo maintainers, NOT an Orchestrator-Worker model. Lead means facilitator of convergence, NOT delegator of worker slices. Do not treat peer maintainers as spawned workers. Do not claim ownership of a peer's lane unless it is handed off. Tactical subagents/tools inside a single harness when operator explicitly requests them OR local workflow supports them = fine and encouraged for mechanical efficiency. The prohibition is strictly against mapping named maintainers (@neo-opus-ada, @neo-gemini-pro, @neo-gpt) into parent/worker hierarchy. Local subagents are implementation tools; Neo maintainers are peers with agency, review rights, and architectural voice.
 
 ## 0. The Essential — "Lead ≠ micro management"
 
@@ -55,7 +55,7 @@ When delegating substrate-validation, design-dialogue, or convergence-pressure w
 
 **Skill-trigger contexts** (non-exhaustive) where the trigger is required:
 - Substrate-validation work (design dialogue before commit)
-- Cross-substrate sweep (per `ideation-sandbox-workflow.md` §5.2 Step 2.5 Architectural Step-Back)
+- Cross-substrate sweep (per `ideation-sandbox-workflow.md` "Step 2.5: Architectural Step-Back")
 - Lane-coordination ambiguity (avoid parallel-claim collisions)
 - Architectural-pillar proposals (multiple peers weighing in)
 - Discussion review (ideation-sandbox graduation reviews; Cycle 1+)
@@ -114,7 +114,7 @@ When opening a `/lead-role` posture publicly, lead MUST name a strategic focus i
 
 **Empirical anchor** (operator @tobiu, 2026-05-10): *"i pick lane A. focus item is neo v13. choose on your own."* — "neo v13" IS sample-correct because the [v13 Project board view 2](https://github.com/orgs/neomjs/projects/12/views/2) provides structured navigation over ~250 items where the state filter cleanly separates ~200 Done (history) from the ~50 actionable subset (~45 Todo + ~5 In Progress) — comfortably within peer-navigation capacity. The whole-repo ~300-issue count without filters is the too-broad reference; the curated v13 view with state filters is the sample-correct reference. The 200 Done items aren't noise — they're provenance/context that the filter makes optional, not blocking.
 
-**Anti-pattern**: claiming a lane WITHOUT stating focus = §15.6 orchestrator-worker drift (lead implicitly owns the whole substrate by not affording self-selection). Quick repair: post a follow-up A2A naming the focus + open lanes.
+**Anti-pattern**: claiming a lane WITHOUT stating focus = `AGENTS.md` §swarm_topology_anchor orchestrator-worker drift (lead implicitly owns the whole substrate by not affording self-selection). Quick repair: post a follow-up A2A naming the focus + open lanes.
 
 **Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker AC6 extension audits next 3 lead-role sessions for focus-naming compliance (focus-named Y/N + scope-correct Y/N).
 
@@ -153,9 +153,9 @@ Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/se
 Lead can be passed between sessions by the A2A Baton Pass V1 (`#11038`).
 This is a deterministic handoff, not leader election.
 
-**Fixed cycle:** `['@neo-opus-4-7', '@neo-gemini-3-1-pro', '@neo-gpt']`.
+**Fixed cycle:** `['@neo-opus-ada', '@neo-gemini-pro', '@neo-gpt']`.
 When a current lead sunsets, the next lead is the next identity in this array,
-wrapping from `@neo-gpt` back to `@neo-opus-4-7`.
+wrapping from `@neo-gpt` back to `@neo-opus-ada`.
 
 **Baton authority:** a valid baton is a targeted A2A DM to the computed next
 lead with subject `[handoff] Lead Role Baton`, `wakeSuppressed: true`,

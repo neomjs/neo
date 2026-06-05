@@ -205,7 +205,7 @@ You MUST follow this exact handoff protocol:
 
 ### 6.2 The Core Swarm A2A Notification Mandate (Review Routing Protocol)
 
-If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST send a lifecycle A2A notification.
+If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST send a lifecycle A2A notification.
 
 <!-- trigger: author-side review/re-review request -> read ./ci-green-review-routing.md before reviewer assignment -->
 

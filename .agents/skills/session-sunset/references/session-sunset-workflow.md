@@ -127,7 +127,7 @@ Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handov
 also sends an A2A Baton Pass V1 DM to the next lead before the final memory
 persistence step. Compute the next lead from the fixed cycle documented in
 `.agents/skills/lead-role/references/lead-role-mode.md`:
-`['@neo-opus-4-7', '@neo-gemini-3-1-pro', '@neo-gpt']`.
+`['@neo-opus-ada', '@neo-gemini-pro', '@neo-gpt']`.
 
 The baton message MUST be targeted to that next identity, not broadcast:
 

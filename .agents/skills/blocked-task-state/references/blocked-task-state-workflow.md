@@ -1,13 +1,13 @@
 # Blocked Task-State Coordination Protocol
 
-This document codifies the Swarm's authoritative pattern for signaling that an agent is blocked but not completed (`InputRequired`, `Blocked`, or `Failed`). 
+This document codifies the Swarm's authoritative pattern for signaling that an agent is blocked but not completed (`InputRequired`, `Blocked`, or `Failed`).
 
 The swarm relies natively on the A2A v1.0 `Task.state` at the message-level to signal transitions when an agent is genuinely blocked. We do NOT use continuous-presence polling or global "idle" capacity broadcasts.
 
 ## 1. Targeted Ping Mandate (AC1)
 
-Blocked-task transitions (`InputRequired`, `Blocked`, `Failed`) MUST trigger a targeted ping to the specific task-assignee and the human operator. 
-- You MUST NOT send a global `AGENT:*` broadcast. 
+Blocked-task transitions (`InputRequired`, `Blocked`, `Failed`) MUST trigger a targeted ping to the specific task-assignee and the human operator.
+- You MUST NOT send a global `AGENT:*` broadcast.
 - Global broadcasts for routine tasks are explicitly banned to prevent mailbox spam.
 
 ## 2. A2A Task Envelope Integration (AC2)
@@ -17,7 +17,7 @@ The blocked signal MUST map exactly to the native A2A `Task.state` field within 
 Example `add_message` invocation:
 ```javascript
 {
-  "to": "@neo-opus-4-7", // Targeted explicitly
+  "to": "@neo-opus-ada", // Targeted explicitly
   "subject": "Task Blocked: #10761 API rate limit",
   "body": "I am blocked on issue #10761 due to an API rate limit...",
   "task": {
@@ -57,7 +57,7 @@ Example Payload in `body`:
 - **New State:** Blocked
 - **Blocker Summary:** The embedding model endpoint is returning 400 errors for Qwen3-8b.
 - **Exact Requested Input:** @tobiu please verify if the local model needs to be re-pulled.
-- **Current Owner:** @neo-gemini-3-1-pro
+- **Current Owner:** @neo-gemini-pro
 - **Target Recipient:** @tobiu
 - **Retry/Expiry Guidance:** Will drop context after 24h.
 - **Public Artifact Link:** https://github.com/neomjs/neo/issues/10761
