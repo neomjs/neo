@@ -125,10 +125,9 @@ import RequestContextService, {
  *
  * **Parallel Sessions Trade-off:**
  * In a scenario where multiple sessions are running in parallel (e.g., Session A and Session B),
- * they may continuously update the memory count. This strategy accepts the overhead of
- * potentially re-summarizing an active session multiple times to ensure that if any session
- * crashes or ends abruptly, its context is preserved and up-to-date for the next agent.
- * Data integrity and context availability are prioritized over minimizing LLM token usage.
+ * the drift sweep skips sessions whose latest graph-backed `AGENT_MEMORY` is still inside the
+ * active-agent idle threshold. Stale/crashed sessions remain eligible for self-healing, and
+ * explicit disconnect markers still summarize through the `SummarizationJobs.pending` path.
  *
  * @class Neo.ai.services.memory-core.SessionService
  * @extends Neo.core.Base
@@ -296,6 +295,122 @@ class SessionService extends Base {
     }
 
     /**
+     * @summary Resolves session ids that are still externally active in another harness/process.
+     *
+     * The spawned `summarize-sessions.mjs` child has its own `currentSessionId`, so drift detection
+     * cannot rely on `this.currentSessionId` alone. `AGENT_MEMORY` graph nodes already carry the
+     * source identity, session id, and timestamp; pairing the latest fresh rows with an active
+     * `WAKE_SUBSCRIPTION` gives the drift sweep a cross-process exclusion predicate without
+     * introducing a second session registry.
+     *
+     * @param {Object} [options]
+     * @param {Number|Date|String} [options.now=Date.now()] Clock source for tests.
+     * @param {Number} [options.idleThresholdMs] Freshness window; defaults to `IDLE_THRESHOLD_MS`
+     *     or 10 minutes to match the heartbeat idle detectors.
+     * @returns {Set<String>} Session ids considered active outside the current process.
+     */
+    getExternallyActiveSessionIds({now = Date.now(), idleThresholdMs} = {}) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return new Set();
+
+        const nowMs = typeof now === 'number' ? now : new Date(now).getTime();
+        if (!Number.isFinite(nowMs)) return new Set();
+
+        const configuredThresholdMs = Number(idleThresholdMs);
+        const thresholdMs = Number.isFinite(configuredThresholdMs) && configuredThresholdMs > 0
+            ? configuredThresholdMs
+            : (parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000);
+        const cutoffMs = nowMs - thresholdMs;
+
+        try {
+            const rows = sqlite.prepare(`
+                SELECT DISTINCT
+                       COALESCE(
+                           json_extract(memory.data, '$.properties.agentIdentity'),
+                           json_extract(memory.data, '$.properties.userId')
+                       ) as agentIdentity,
+                       json_extract(memory.data, '$.properties.sessionId') as sessionId,
+                       json_extract(memory.data, '$.properties.timestamp') as timestampField,
+                       json_extract(memory.data, '$.properties.name')      as nameField
+                FROM Nodes memory
+                WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
+                  AND json_extract(memory.data, '$.properties.sessionId') IS NOT NULL
+                  AND COALESCE(
+                      json_extract(memory.data, '$.properties.agentIdentity'),
+                      json_extract(memory.data, '$.properties.userId')
+                  ) IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1
+                      FROM Nodes subscription
+                      WHERE json_extract(subscription.data, '$.label') = 'WAKE_SUBSCRIPTION'
+                        AND json_extract(subscription.data, '$.properties.agentIdentity') = COALESCE(
+                            json_extract(memory.data, '$.properties.agentIdentity'),
+                            json_extract(memory.data, '$.properties.userId')
+                        )
+                        AND COALESCE(json_extract(subscription.data, '$.properties.status'), 'active') = 'active'
+                        AND COALESCE(json_extract(subscription.data, '$.properties.harnessTarget'), '') != 'disabled'
+                  )
+            `).all();
+
+            const latestByIdentity = new Map();
+            const activeSessionIds = new Set();
+
+            for (const row of rows) {
+                const timestampMs = this.resolveGraphTimestampMs(row.timestampField, row.nameField);
+                if (timestampMs === null) continue;
+
+                const current = latestByIdentity.get(row.agentIdentity);
+
+                if (!current || timestampMs > current.timestampMs) {
+                    latestByIdentity.set(row.agentIdentity, {
+                        sessionId: row.sessionId,
+                        timestampMs
+                    });
+                }
+            }
+
+            for (const {sessionId, timestampMs} of latestByIdentity.values()) {
+                if (timestampMs >= cutoffMs) {
+                    activeSessionIds.add(sessionId);
+                }
+            }
+
+            return activeSessionIds;
+        } catch (error) {
+            logger.warn(`[SessionService] Failed to resolve externally active sessions: ${error.message}`);
+            return new Set();
+        }
+    }
+
+    /**
+     * @summary Normalizes graph-memory timestamp fields into epoch milliseconds.
+     * @param {String|Number|null} timestampField Structured `AGENT_MEMORY.properties.timestamp`.
+     * @param {String|null} [nameField] Legacy `Memory: <iso>` fallback.
+     * @returns {Number|null}
+     */
+    resolveGraphTimestampMs(timestampField, nameField) {
+        let value = timestampField;
+
+        if (!value && typeof nameField === 'string') {
+            value = nameField.match(/^Memory:\s+(.+)$/)?.[1] || null;
+        }
+
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : null;
+        }
+
+        if (typeof value === 'string' && value.trim() !== '') {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric)) return numeric;
+
+            const parsed = Date.parse(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        return null;
+    }
+
+    /**
      * Finds sessions that need summarization by detecting "Drift" between the database state
      * and the summary metadata.
      *
@@ -433,17 +548,16 @@ class SessionService extends Base {
         });
 
         // 4. Determine candidates
+        const externallyActiveSessionIds = this.getExternallyActiveSessionIds();
         const sessionsToUpdate = [];
 
         Object.keys(sessions).forEach(sessionId => {
             const sessionData = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
-            // Explicitly exclude the current active session from both cases.
-            // It is still accumulating memories, so summarizing it mid-flight is wasteful and
-            // produces incomplete summaries. It will be correctly summarized on the next startup
-            // when a new session takes over.
-            if (sessionId === this.currentSessionId) {
+            // Explicitly exclude sessions that are still active in this process or another
+            // live harness. Stale/crashed sessions fall back into the self-healing drift path.
+            if (sessionId === this.currentSessionId || externallyActiveSessionIds.has(sessionId)) {
                 return;
             }
 

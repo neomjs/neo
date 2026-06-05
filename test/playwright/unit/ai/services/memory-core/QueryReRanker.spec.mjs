@@ -209,6 +209,40 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         await cleanupChromaManager(SDK);
     });
 
+    function insertGraphNode(sqlite, {id, label, userId, properties}) {
+        sqlite.prepare('INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)').run(id, userId || null, JSON.stringify({
+            id,
+            label,
+            properties
+        }));
+    }
+
+    function insertActiveWakeSubscription(sqlite, agentIdentity) {
+        insertGraphNode(sqlite, {
+            id        : `WAKE_SUB:${crypto.randomUUID()}`,
+            label     : 'WAKE_SUBSCRIPTION',
+            userId    : agentIdentity,
+            properties: {
+                agentIdentity,
+                harnessTarget: 'bridge-daemon',
+                status       : 'active'
+            }
+        });
+    }
+
+    function insertAgentMemoryNode(sqlite, {sessionId, agentIdentity, timestampMs}) {
+        insertGraphNode(sqlite, {
+            id        : crypto.randomUUID(),
+            label     : 'AGENT_MEMORY',
+            userId    : agentIdentity,
+            properties: {
+                agentIdentity,
+                sessionId,
+                timestamp: new Date(timestampMs).toISOString()
+            }
+        });
+    }
+
     test('findSessionsToSummarize should detect unsummarized sessions with epoch timestamps', async () => {
         driftSessionId = crypto.randomUUID();
 
@@ -260,6 +294,78 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
 
         // The active session should NOT be in the list
         expect(sessionsToSummarize).not.toContain(activeSessionId);
+    });
+
+    test('#9959: findSessionsToSummarize should exclude externally active peer sessions from drift detection', async () => {
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        const activeSessionId = `external-active-${crypto.randomUUID()}`;
+        const agentIdentity   = `@external-active-${crypto.randomUUID()}`;
+        const now             = Date.now();
+
+        insertActiveWakeSubscription(sqlite, agentIdentity);
+        insertAgentMemoryNode(sqlite, {sessionId: activeSessionId, agentIdentity, timestampMs: now});
+
+        const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
+        await collection.add({
+            ids      : [`external-active-memory-${crypto.randomUUID()}`],
+            documents: ['Externally active session memory'],
+            metadatas: [{sessionId: activeSessionId, timestamp: now, type: 'agent-interaction'}]
+        });
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
+        expect(externallyActiveSessionIds.has(activeSessionId)).toBe(true);
+
+        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+        expect(sessionsToSummarize).not.toContain(activeSessionId);
+    });
+
+    test('#9959: findSessionsToSummarize should keep stale peer sessions eligible for self-healing', async () => {
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        const staleSessionId = `external-stale-${crypto.randomUUID()}`;
+        const agentIdentity  = `@external-stale-${crypto.randomUUID()}`;
+        const now            = Date.now();
+        const staleTimestamp = now - 60_000;
+        const idleThreshold  = 10_000;
+
+        insertActiveWakeSubscription(sqlite, agentIdentity);
+        insertAgentMemoryNode(sqlite, {sessionId: staleSessionId, agentIdentity, timestampMs: staleTimestamp});
+
+        const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
+        await collection.add({
+            ids      : [`external-stale-memory-${crypto.randomUUID()}`],
+            documents: ['Externally stale session memory'],
+            metadatas: [{sessionId: staleSessionId, timestamp: staleTimestamp, type: 'agent-interaction'}]
+        });
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({
+            idleThresholdMs: idleThreshold,
+            now
+        });
+        expect(externallyActiveSessionIds.has(staleSessionId)).toBe(false);
+
+        const originalIdleThreshold = process.env.IDLE_THRESHOLD_MS;
+        process.env.IDLE_THRESHOLD_MS = String(idleThreshold);
+
+        try {
+            const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+            expect(sessionsToSummarize).toContain(staleSessionId);
+        } finally {
+            if (originalIdleThreshold === undefined) {
+                delete process.env.IDLE_THRESHOLD_MS;
+            } else {
+                process.env.IDLE_THRESHOLD_MS = originalIdleThreshold;
+            }
+        }
     });
 
     test('ChromaDB $gt filter should correctly compare epoch timestamps', async () => {
