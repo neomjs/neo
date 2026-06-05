@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 import Neo from '../../../../../../../src/Neo.mjs';
-import BaseConfig, {createConfigProxy} from '../../../../../../../ai/BaseConfig.mjs';
+import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
 import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
@@ -44,7 +44,7 @@ test.describe('Memory Core Config (#10010)', () => {
         // template tree, making inheritance deterministic across workers.
         const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
         Neo.ai = Neo.ai || {};
-        Neo.ai.Config = Neo.create(BaseConfig, {data: tier1Template._data});
+        Neo.ai.Config = Neo.create(ConfigProvider, {data: tier1Template._data});
     });
 
     test.afterAll(() => {
@@ -136,7 +136,7 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_BRIDGE_LAST_SYNC_ID_PATH = '/tmp/neo-bridge-last-sync-id';
         process.env.NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE = '/tmp/neo-wake-live-cursor';
 
-        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         try {
             expect(freshCfg.wakeDaemon.bridgeLastSyncIdPath).toBe('/tmp/neo-bridge-last-sync-id');
@@ -164,9 +164,9 @@ test.describe('Memory Core Config (#10010)', () => {
         // a fresh MC child inherits the overrides up the getParent() chain. (config._data is the raw
         // MC meta-leaf tree; Neo.ai.Config._data is the Tier-1 realm tree, loaded via MC's import.)
         const prevRoot  = Neo.ai?.Config;
-        const freshRoot = Neo.create(BaseConfig, {data: Neo.ai.Config._data});
+        const freshRoot = Neo.create(ConfigProvider, {data: Neo.ai.Config._data});
         Neo.ai.Config   = freshRoot;
-        const freshMC   = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+        const freshMC   = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         try {
             expect(freshMC.modelProvider).toBe('openAiCompatible');
@@ -191,7 +191,7 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'team';
 
         // Fresh isolated instance picks up the env via #applyEnvLayer at construction.
-        const freshCfg = createConfigProxy(Neo.create(BaseConfig, {data: config._data}));
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         expect(freshCfg.memorySharing.defaultPolicy).toBe('team');
 
@@ -203,7 +203,7 @@ test.describe('Memory Core Config (#10010)', () => {
 
         // The leaf `parse` fn (parseMemorySharingPolicy) runs inside #applyEnvLayer at
         // construction; a throwing parser propagates out of Neo.create.
-        expect(() => Neo.create(BaseConfig, {data: config._data})).toThrow(
+        expect(() => Neo.create(ConfigProvider, {data: config._data})).toThrow(
             /\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/
         );
     });

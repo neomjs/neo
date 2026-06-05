@@ -17,7 +17,7 @@
 
 ## 1. Context
 
-We made `AiConfig` a `Neo.state.Provider` (`ai/BaseConfig.mjs`) to **simplify** Agent OS config — one reactive hierarchical SSOT instead of scattered env-reads and hand-rolled cascades. Then PR #12420 re-implemented, aliased, threaded, and **mutated** it across `ai/`, and a careful reviewer (@neo-claude-opus) approved it **twice, catching 0 of the 4 real defects** @tobiu then found (cycle-3 over-engineering · cycle-4 wrong-layer · the −90 formulas · a test→live-DB bleed).
+We made `AiConfig` a `Neo.state.Provider` (`ai/ConfigProvider.mjs`) to **simplify** Agent OS config — one reactive hierarchical SSOT instead of scattered env-reads and hand-rolled cascades. Then PR #12420 re-implemented, aliased, threaded, and **mutated** it across `ai/`, and a careful reviewer (@neo-claude-opus) approved it **twice, catching 0 of the 4 real defects** @tobiu then found (cycle-3 over-engineering · cycle-4 wrong-layer · the −90 formulas · a test→live-DB bleed).
 
 The empirical lesson is not "be more careful" — that is **falsified** (4/4 missed across 2 doc-prepared reviews). It is the **broken-window root**: a pattern-matcher with no grasp of the sanctioned mechanism has only the broken code to match. This ADR is that mechanism, made readable; the turn-loaded trigger makes reading it un-skippable; the lint (sub #2) makes the mechanical subset un-bypassable.
 
@@ -27,10 +27,10 @@ The empirical lesson is not "be more careful" — that is **falsified** (4/4 mis
 
 ### 2.1 How the primitive works (read this instead of the 3 code files)
 
-`ai/BaseConfig.mjs extends Neo.state.Provider` — every config **is** a reactive state provider; they compose into one tree. (Primitive line-anchors below are for someone changing the *primitive itself*; consumers do not need them.)
+`ai/ConfigProvider.mjs extends Neo.state.Provider` — every config **is** a reactive state provider; they compose into one tree. (Primitive line-anchors below are for someone changing the *primitive itself*; consumers do not need them.)
 
-- **`leaf(default, env, type)`** declares one value (`ai/BaseConfig.mjs:52`). `BaseConfig.#applyEnvLayer` (`:201`) already reads `process.env[env]`, decodes it by `type` (via `Neo.util.Env` parsers), and applies it when set — **the leaf owns env-override-with-default.** A manual `hasEnvValue('NEO_X')` check re-implements the leaf's *internal* env-resolution: it is the fingerprint of not understanding `leaf()`.
-- **Hierarchy / realm chain.** Tier-1 `Neo.ai.Config` is the realm root; each per-server config is a child — `ai/BaseConfig.mjs` overrides `getParent()` (`:268`) to return the Tier-1 singleton (the Brain has no component tree). `Provider#getOwnerOfDataProperty` (`src/state/Provider.mjs:376`) checks local `#dataConfigs` first, then walks up the parent chain: **reads resolve override-else-inherit; writes bubble to the owner.** No layer holds a copy of another's data. (The same hierarchy the Body uses for component state — see [examples/stateProvider/advanced](../../examples/stateProvider/advanced/MainContainer.mjs): read-up, write-to-owner.)
+- **`leaf(default, env, type)`** declares one value (`ai/ConfigProvider.mjs:52`). `ConfigProvider.#applyEnvLayer` (`:201`) already reads `process.env[env]`, decodes it by `type` (via `Neo.util.Env` parsers), and applies it when set — **the leaf owns env-override-with-default.** A manual `hasEnvValue('NEO_X')` check re-implements the leaf's *internal* env-resolution: it is the fingerprint of not understanding `leaf()`.
+- **Hierarchy / realm chain.** Tier-1 `Neo.ai.Config` is the realm root; each per-server config is a child — `ai/ConfigProvider.mjs` overrides `getParent()` (`:268`) to return the Tier-1 singleton (the Brain has no component tree). `Provider#getOwnerOfDataProperty` (`src/state/Provider.mjs:376`) checks local `#dataConfigs` first, then walks up the parent chain: **reads resolve override-else-inherit; writes bubble to the owner.** No layer holds a copy of another's data. (The same hierarchy the Body uses for component state — see [examples/stateProvider/advanced](../../examples/stateProvider/advanced/MainContainer.mjs): read-up, write-to-owner.)
 - **`formulas`** are lazy `Effect`s (`src/state/Provider.mjs:177` → first run in `onConstructed`) for **genuine reactive computed values** — re-run when a dependency accessed via the hierarchical proxy changes. They are NOT a place to re-derive a leaf with env-checks.
 - **The hierarchical data proxy** (`src/state/createHierarchicalDataProxy.mjs`) resolves nested paths; its get-trap registers `EffectManager.getActiveEffect()?.addDependency(config)` (`:58`, automatic dependency tracking) and its set-trap routes assignments to the owning provider's `setData` (`:99`). **Consumers read `AiConfig.engines.chroma.dataDir`** — the Provider resolves; you read. (This routing is *why* B4 writes are mechanically dangerous — see §4.)
 - **`data_` is a `merge: 'deep'` descriptor** (`src/state/Provider.mjs:61`). An operator overlay (`config.mjs`) is a *thin child of deltas* over the canonical template (`config.template.mjs`); advancing to a newer template is **inheritance, not a source-level merge** — never parse/splice config *source* to reconcile them.
@@ -103,7 +103,7 @@ aiConfig.engines.chroma.database = `graph-service-test-${process.pid}-${Date.now
 
 Before authoring or reviewing any `ai/` config work, you MUST:
 1. Read **this ADR** (the AGENTS.md turn-loaded trigger makes this un-skippable).
-2. If you are changing the *primitive itself* (not just consuming it), additionally read `src/state/Provider.mjs` + `src/state/createHierarchicalDataProxy.mjs` + `ai/BaseConfig.mjs` and cite them.
+2. If you are changing the *primitive itself* (not just consuming it), additionally read `src/state/Provider.mjs` + `src/state/createHierarchicalDataProxy.mjs` + `ai/ConfigProvider.mjs` and cite them.
 3. V-B-A your diff against §3/§5's sanctioned forms — not against the surrounding (possibly broken) code.
 
 ## 7. Codification stack & sequencing
@@ -122,9 +122,9 @@ Before authoring or reviewing any `ai/` config work, you MUST:
 - **Discussion #12453** — full archaeology trail + the divergence matrix (incl. @neo-opus-4-7's OQ3 C1=bootstrap-weight V-B-A, `DC_kwDODSospM4BBgm5`).
 - **Epic #12456** — workstream coordination; **#12457** — this sub.
 - **#12420** — superseded empirical anchor (do-not-merge). **#12335** — orphan incident (the B4 danger).
-- Folded subs: **#12435** (B4), **#12438** (A1), **#11976** (C3), **#12452** (`BaseConfig → ConfigProvider` rename), **#12451** (config-leaf lint → sub #2).
+- Folded subs: **#12435** (B4), **#12438** (A1), **#11976** (C3), **#12452** (config primitive rename), **#12451** (config-leaf lint → sub #2).
 - **ADR 0005** (ADR-at-graduation), **ADR 0007** (compaction taxonomy).
-- `ai/BaseConfig.mjs`, `src/state/Provider.mjs`, `src/state/createHierarchicalDataProxy.mjs` — the primitive.
+- `ai/ConfigProvider.mjs`, `src/state/Provider.mjs`, `src/state/createHierarchicalDataProxy.mjs` — the primitive.
 - `learn/agentos/AiConfigModel.md` — the **public configuration-model guide** (docs-reader audience). This ADR is the **maintainer-facing complement** (antipattern catalog + safety-critical danger + read-gate); the two cross-reference and neither replaces the other.
 
 Origin Session ID: `3ecb40bf-bfef-40b1-8693-a8aae5afa1b7`

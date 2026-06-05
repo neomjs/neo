@@ -260,7 +260,7 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
 
     test('surfaces stale config overlay errors without hiding the typed outcome', async () => {
         // Simulate a stale / malformed config overlay that leaves dreamOverflowThreshold
-        // present-but-invalid. The reactive config tree (BaseConfig extends Neo.state.Provider)
+        // present-but-invalid. The reactive config tree (ConfigProvider extends Neo.state.Provider)
         // routes leaf writes through core.Config#set, which intentionally treats `undefined`
         // as a no-op (preserves the prior value) — so a defined-but-invalid sentinel like `null`
         // is the faithful stale-overlay simulant. It propagates to `finalize()`, where

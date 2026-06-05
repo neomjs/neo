@@ -1,7 +1,7 @@
 import os              from 'os';
 import path            from 'path';
 import AiConfig        from '../../../config.template.mjs';
-import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
+import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,10 +18,10 @@ const neoRootDir = path.resolve(__dirname, '../../../../');
  * Supports loading configuration from a custom file and merging with defaults.
  *
  * @class Neo.ai.mcp.server.knowledge-base.Config
- * @extends Neo.ai.BaseConfig
+ * @extends Neo.ai.ConfigProvider
  * @singleton
  */
-class Config extends BaseConfig {
+class Config extends ConfigProvider {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.knowledge-base.Config'

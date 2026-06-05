@@ -1,6 +1,6 @@
 import path                                  from 'path';
 import {fileURLToPath}                       from 'url';
-import BaseConfig, {createConfigProxy, leaf} from './BaseConfig.mjs';
+import ConfigProvider, {createConfigProxy, leaf} from './ConfigProvider.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -13,10 +13,10 @@ const DAY_MS  = 24 * HOUR_MS;
 
 /**
  * @class Neo.ai.Config
- * @extends Neo.ai.BaseConfig
+ * @extends Neo.ai.ConfigProvider
  * @singleton
  */
-class Config extends BaseConfig {
+class Config extends ConfigProvider {
     static config = {
         /**
          * @member {String} className='Neo.ai.Config'

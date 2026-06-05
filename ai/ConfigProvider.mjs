@@ -5,8 +5,8 @@ import Env      from '../src/util/Env.mjs';
 
 /**
  * Maps a {@link leaf} `type` token to the name-based `Neo.util.Env` parser that decodes its env
- * var. Reuses the Tier-1 Env primitive (Epic #12101 AC-Epic-1: extend, don't reinvent — no
- * parallel parser set).
+ * var. Reuses the Tier-1 Env primitive: extend the shared parser set, don't introduce a parallel
+ * parser set.
  * @type {Object<String,Function>}
  */
 const typeParsers = {
@@ -66,7 +66,7 @@ export function leaf(defaultValue, env = null, type = null) {
 }
 
 /**
- * @summary Reactive base configuration manager for Neo MCP servers.
+ * @summary Reactive configuration Provider for Neo MCP servers.
  *
  * Extends the Body-tier reactive state Provider. A subclass assigns its meta-leaf tree to the
  * inherited `data` config — each leaf is `{env?, default, parse?, type?}`, typically produced by
@@ -87,17 +87,17 @@ export function leaf(defaultValue, env = null, type = null) {
  * child* of its template, never a clone, and bringing it up to a newer template is inheritance, not
  * a source-level merge.
  *
- * @class Neo.ai.BaseConfig
+ * @class Neo.ai.ConfigProvider
  * @extends Neo.state.Provider
  * @see learn/agentos/AiConfigModel.md — the hierarchical-nested-data model + its rationale
  */
-class BaseConfig extends Provider {
+class ConfigProvider extends Provider {
     static config = {
         /**
-         * @member {String} className='Neo.ai.BaseConfig'
+         * @member {String} className='Neo.ai.ConfigProvider'
          * @protected
          */
-        className: 'Neo.ai.BaseConfig'
+        className: 'Neo.ai.ConfigProvider'
     }
 
     /**
@@ -177,7 +177,7 @@ class BaseConfig extends Provider {
             return
         }
 
-        const {plainData, registry} = BaseConfig.compileMetaLeaves(value);
+        const {plainData, registry} = ConfigProvider.compileMetaLeaves(value);
 
         this.#leafMetadataRegistry = registry;
         super.afterSetData(plainData, oldValue);
@@ -244,7 +244,7 @@ class BaseConfig extends Provider {
             const validator = typeValidators[meta.type];
 
             if (validator && !validator(value)) {
-                console.warn(`[Neo.ai.BaseConfig] "${leafPath}" expected ${meta.type}, got ${Neo.typeOf(value)}; keeping value.`)
+                console.warn(`[Neo.ai.ConfigProvider] "${leafPath}" expected ${meta.type}, got ${Neo.typeOf(value)}; keeping value.`)
             }
         }
 
@@ -277,7 +277,7 @@ class BaseConfig extends Provider {
      * {@link Neo.state.Provider#getOwnerOfDataProperty}. A cross-tier write — a child writing a
      * Tier-1-owned leaf — is therefore validated against the parent's metadata instead of bypassing
      * validation on both tiers. The `#leafMetadataRegistry in owner` brand check guards
-     * the cross-instance private access (every chain member is a BaseConfig).
+     * the cross-instance private access (every chain member is a ConfigProvider).
      * @param {String} key
      * @param {*} value
      * @returns {*}
@@ -347,7 +347,7 @@ class BaseConfig extends Provider {
         const ownerDetails = this.getOwnerOfDataProperty(leafPath);
 
         if (!ownerDetails) {
-            console.warn(`[Neo.ai.BaseConfig] observeData: no data leaf at "${leafPath}".`);
+            console.warn(`[Neo.ai.ConfigProvider] observeData: no data leaf at "${leafPath}".`);
             return () => {}
         }
 
@@ -400,20 +400,20 @@ class BaseConfig extends Provider {
 
             this.#applyEnvLayer();
 
-            console.error(`[Neo.ai.BaseConfig] Loaded overlay configuration from ${absolutePath}`)
+            console.error(`[Neo.ai.ConfigProvider] Loaded overlay configuration from ${absolutePath}`)
         } catch (error) {
-            console.error(`[Neo.ai.BaseConfig] Failed to load configuration from ${filePath}:`, error.message);
+            console.error(`[Neo.ai.ConfigProvider] Failed to load configuration from ${filePath}:`, error.message);
             throw error
         }
     }
 }
 
 /**
- * Wraps a BaseConfig instance in a Proxy so consumers read leaf values directly
+ * Wraps a ConfigProvider instance in a Proxy so consumers read leaf values directly
  * (`config.namespace.leaf`) and assign top-level keys (`config.key = value`). Instance members
  * win; unknown keys delegate to the reactive data tree, whose own hierarchical proxy resolves
  * nested paths and routes nested assignments through `setData`.
- * @param {Neo.ai.BaseConfig} instance
+ * @param {Neo.ai.ConfigProvider} instance
  * @returns {Proxy}
  */
 export function createConfigProxy(instance) {
@@ -439,4 +439,4 @@ export function createConfigProxy(instance) {
     })
 }
 
-export default Neo.setupClass(BaseConfig);
+export default Neo.setupClass(ConfigProvider);

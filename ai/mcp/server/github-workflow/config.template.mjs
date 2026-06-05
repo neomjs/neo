@@ -1,6 +1,6 @@
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import BaseConfig, { createConfigProxy, leaf } from '../../../BaseConfig.mjs';
+import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
 
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
@@ -31,10 +31,10 @@ function parseLogLevel(envVarName, {env = process.env, warn = console.warn} = {}
  * The configuration handles GitHub repository details, sync settings, and server behavior options.
  *
  * @class Neo.ai.mcp.server.github-workflow.Config
- * @extends Neo.ai.BaseConfig
+ * @extends Neo.ai.ConfigProvider
  * @singleton
  */
-class Config extends BaseConfig {
+class Config extends ConfigProvider {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.github-workflow.Config'
