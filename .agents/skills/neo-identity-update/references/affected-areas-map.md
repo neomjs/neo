@@ -54,3 +54,21 @@ Correct as-of a date; ages silently. Refresh in lock-step.
 - Heritage facts live in `.github/STORY.md`; README + portal About Us reference that home without duplicating milestone lists. OS-Awards claims need an acceptable external public source before publication.
 - Identity handles are routed through `ai/graph/identityRoots.mjs`; handle de-versioning is operator-owned (account rename), the skill only propagates. Model-version stays in `ModelStats.md` per ADR 0012. Re-run a seam-keyed grep before claiming total coverage.
 - Not yet fully swept: `apps/portal/view/about` (`/about-us`), live neomjs.com `<meta>`/ld+json, `learn/comparisons/*`. Re-run a fan-out before claiming total coverage.
+
+## ACTIONS / CTA overlay
+
+These are the recurring next-step surfaces governed by `cta-governance.md`.
+Line refs drift; re-verify before editing. This overlay inventories doors, not
+the business-owned content behind them.
+
+| Surface | CTA / action encoded |
+|---|---|
+| `README.md` badges | Community / external-platform doors (Discord, Slack, GitHub, npm) |
+| `README.md` opening + v13 Agent OS pitch | Proof doors for public repo claims; product / deployment next-step door if the pitch asks the reader to act |
+| `README.md` Quickstart | Install door (`npx neo-app@latest`) plus getting-started docs |
+| `README.md` Community / Contributing | Community and contributor doors; channel liveness and retention must be checked before primary placement |
+| `learn/benefits/**`, `learn/agentos/**` | Learn / proof / contribute doors attached to identity claims and Agent OS mechanisms |
+| `apps/portal/view/home/parts/*.mjs` | Portal hero / home-page CTA doors; generated SEO siblings may also need generator updates |
+| `apps/portal/view/services/**`, `apps/portal/resources/data/seo.json` | Services / contact / training doors; content is business-owned and must not be invented by the skill |
+| `buildScripts/docs/seo/generate.mjs` | Generated `llms.txt` / sitemap route doors; edit the generator, never generated output directly |
+| GitHub repo description/topics, npm, Discord, Slack, Sponsors, LinkedIn | External doors; PR body must list out-of-tree changes and liveness evidence |
