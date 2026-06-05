@@ -16,9 +16,9 @@ class GeminiProvider extends Base {
          */
         className: 'Neo.ai.provider.Gemini',
         /**
-         * @member {String} modelName='gemini-2.5-flash'
+         * @member {String} modelName='gemini-3.5-flash'
          */
-        modelName: 'gemini-2.5-flash',
+        modelName: 'gemini-3.5-flash',
         /**
          * @member {String[]} requiredEnv=['GEMINI_API_KEY']
          */
@@ -124,10 +124,10 @@ class GeminiProvider extends Base {
         try {
             const result   = await model.generateContent({contents});
             const response = result.response;
-            
+
             // Extract text (might be empty if model just chose a tool)
             let text = '';
-            try { text = response.text(); } catch(e) {} 
+            try { text = response.text(); } catch(e) {}
 
             const functionCalls = response.functionCalls();
 

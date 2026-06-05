@@ -259,7 +259,7 @@ class Config extends ConfigProvider {
              * summary and embedding paths; Tier-1 owns the default tuple.
              * @type {String}
              */
-            modelName: leaf('gemini-2.5-flash'),
+            modelName: leaf('gemini-3.5-flash'),
             /**
              * @summary Deployment-wide Gemini embedding model default.
              * @type {String}
