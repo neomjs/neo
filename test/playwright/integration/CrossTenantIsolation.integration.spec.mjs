@@ -17,7 +17,7 @@ function memoryTexts(result) {
 }
 
 test.describe('Dockerized MC cross-tenant isolation integration (#10895)', () => {
-    test('alice and bob only retrieve their own tenant-tagged memories', async () => {
+    test('private isolates per-tenant; the team default reads deployment-wide (#12527)', async () => {
         const readiness = await getReadiness();
 
         test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
@@ -61,23 +61,38 @@ test.describe('Dockerized MC cross-tenant isolation integration (#10895)', () =>
                 toolsUsed      : []
             });
 
-            const aliceResults = await callJsonTool(alice, 'query_raw_memories', {
-                nResults: 10,
-                query   : aliceSentinel,
-                sessionId
+            // Under explicit `private` policy the cross-tenant leak guard holds: each identity
+            // retrieves only its own tenant-tagged memories — the isolation contract multi-tenant
+            // SaaS forks rely on (see PR security posture).
+            const alicePrivate = await callJsonTool(alice, 'query_raw_memories', {
+                nResults     : 10,
+                query        : aliceSentinel,
+                sessionId,
+                memorySharing: 'private'
             });
-            const bobResults = await callJsonTool(bob, 'query_raw_memories', {
+            const bobPrivate = await callJsonTool(bob, 'query_raw_memories', {
+                nResults     : 10,
+                query        : bobSentinel,
+                sessionId,
+                memorySharing: 'private'
+            });
+            const alicePrivateText = memoryTexts(alicePrivate);
+            const bobPrivateText   = memoryTexts(bobPrivate);
+
+            expect(alicePrivateText).toContain(aliceSentinel);
+            expect(alicePrivateText).not.toContain(bobSentinel);
+            expect(bobPrivateText).toContain(bobSentinel);
+            expect(bobPrivateText).not.toContain(aliceSentinel);
+
+            // Under the team DEFAULT (no override) raw memory is a deployment-wide commons: alice
+            // reads bob's same-session record (transparent swarm introspection) — the operator
+            // PRIO-1 behavior the default flip delivers.
+            const aliceTeamView = await callJsonTool(alice, 'query_raw_memories', {
                 nResults: 10,
                 query   : bobSentinel,
                 sessionId
             });
-            const aliceText = memoryTexts(aliceResults);
-            const bobText   = memoryTexts(bobResults);
-
-            expect(aliceText).toContain(aliceSentinel);
-            expect(aliceText).not.toContain(bobSentinel);
-            expect(bobText).toContain(bobSentinel);
-            expect(bobText).not.toContain(aliceSentinel);
+            expect(memoryTexts(aliceTeamView)).toContain(bobSentinel);
         } finally {
             await Promise.allSettled([
                 callJsonTool(alice, 'purge_session', {sessionId}),
