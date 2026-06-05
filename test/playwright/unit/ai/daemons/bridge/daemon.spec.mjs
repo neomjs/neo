@@ -1019,6 +1019,167 @@ test.describe('Bridge Daemon', () => {
         expect(fs.existsSync(mockOutPath)).toBe(false);
     });
 
+    test('userDataDir bypasses the HarnessPresence freshness gate when a live process resolves (#12571)', async () => {
+        const agentId     = '@test-agent-userdatadir-live';
+        const userDataDir = '/Users/example/.claude-instances/test-live';
+        const mainPid     = 47474;
+        const subId = insertBridgeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter        : 'osascript',
+                appName        : 'Claude',
+                coalesceWindow : 1,
+                instanceAddress: userDataDir,
+                addressType    : 'userDataDir'
+            }
+        });
+        // Stale presence (20 min): under the prior gate this targeted wake would be refused.
+        insertHarnessPresence(db, {subId, agentId, lastSeenAt: new Date(Date.now() - 20 * 60 * 1000).toISOString()});
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        // Mock ps: a live Claude main carrying the target --user-data-dir → getInstancePid resolves it.
+        writeMockPs(binDir, `${mainPid} 1 /Applications/Claude.app/Contents/MacOS/Claude --user-data-dir=${userDataDir}`);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_userdatadir_live_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver userDataDir wake despite a live process')), 10000);
+
+            daemonProcess.stdout.on('data', data => {
+                const out = data.toString();
+                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) { clearTimeout(timeout); resolve(); }
+                if (out.includes(`Targeted wake refused for ${subId}`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon refused a live userDataDir wake on stale presence — freshness gate not relaxed'));
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'userDataDir Live Wake'});
+        await deliveryPromise;
+
+        const args          = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const scriptContent = args.filter((_, i) => args[i - 1] === '-e').join('\n');
+
+        expect(scriptContent).toContain(`first process whose unix id is ${mainPid}`);
+    });
+
+    test('userDataDir still fails closed when no live process maps to the address (#12571)', async () => {
+        const agentId     = '@test-agent-userdatadir-dead';
+        const userDataDir = '/Users/example/.claude-instances/test-dead';
+        const subId = insertBridgeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter        : 'osascript',
+                appName        : 'Claude',
+                coalesceWindow : 1,
+                instanceAddress: userDataDir,
+                addressType    : 'userDataDir'
+            }
+        });
+        // Stale presence is irrelevant here — the live-pid oracle is what must still refuse.
+        insertHarnessPresence(db, {subId, agentId, lastSeenAt: new Date(Date.now() - 20 * 60 * 1000).toISOString()});
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        // Mock ps: NO process carries the target --user-data-dir → getInstancePid returns null.
+        writeMockPs(binDir, `47475 1 /Applications/Claude.app/Contents/MacOS/Claude --user-data-dir=/Users/example/.claude-instances/other`);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_userdatadir_dead_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not refuse the dead userDataDir wake within timeout')), 10000);
+
+            // The no-live-process refusal is logged at ERROR (stderr); a delivery would log at INFO (stdout).
+            daemonProcess.stdout.on('data', data => {
+                if (data.toString().includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon delivered a userDataDir wake despite no live process'));
+                }
+            });
+            daemonProcess.stderr.on('data', data => {
+                if (data.toString().includes('no running process found for userDataDir')) { clearTimeout(timeout); resolve(); }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'userDataDir Dead Wake'});
+        await refusalPromise;
+
+        expect(fs.existsSync(mockOutPath)).toBe(false);
+    });
+
+    test('freshness gate is NOT relaxed for non-userDataDir targets — pid + stale presence still refuses (#12571)', async () => {
+        // Boundary guard: the freshness-veto exemption applies ONLY to userDataDir (where getInstancePid
+        // is a live oracle). `pid` has no equivalent live-target proof, so a stale-presence pid wake
+        // must still fail closed — proving the relaxation did not generalize beyond userDataDir.
+        const agentId = '@test-agent-pid-boundary-stale';
+        const subId = insertBridgeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter        : 'osascript',
+                appName        : 'Claude',
+                coalesceWindow : 1,
+                instanceAddress: '4242',
+                addressType    : 'pid'
+            }
+        });
+        insertHarnessPresence(db, {subId, agentId, lastSeenAt: new Date(Date.now() - 20 * 60 * 1000).toISOString()});
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_pid_boundary_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not refuse the stale pid wake within timeout')), 10000);
+
+            // The freshness refusal is logged at WARN (stdout); a delivery would log at INFO (stdout).
+            daemonProcess.stdout.on('data', data => {
+                const out = data.toString();
+                if (out.includes(`Targeted wake refused for ${subId}`)) { clearTimeout(timeout); resolve(); }
+                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon delivered a stale pid wake — the userDataDir relaxation leaked to pid'));
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Stale Pid Boundary Wake'});
+        await refusalPromise;
+
+        expect(fs.existsSync(mockOutPath)).toBe(false);
+    });
+
     test('addressType tmuxSession dispatch sends the digest to the instanceAddress session (#12422)', async () => {
         const agentId = '@test-agent-tmux-address';
         const subId = insertBridgeSubscription(db, {

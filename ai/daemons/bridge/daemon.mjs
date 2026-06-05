@@ -687,7 +687,15 @@ async function deliverDigest(subscription, digest) {
     deliveryPromise = deliveryPromise.then(async () => {
 
     try {
-        if (addressType && instanceAddress && !assertFreshTargetPresence(subscription, {addressType})) {
+        // `userDataDir` is exempt from the freshness veto: the dispatch below resolves it through
+        // `getInstancePid({userDataDir})`, which fails closed when no live process maps to the
+        // address — a live liveness proof, unlike the volatile presence overlay (written once at
+        // bootstrap, so the veto would otherwise drop every userDataDir wake ~5 min after boot).
+        // Address types without an equivalent live oracle (`pid`, `tmuxSession`, `webhookUrl`) keep
+        // the freshness gate.
+        if (addressType && addressType !== 'userDataDir' && instanceAddress &&
+            !assertFreshTargetPresence(subscription, {addressType})
+        ) {
             return;
         }
 
@@ -994,7 +1002,9 @@ function resolveInstanceAddress(meta = {}) {
 }
 
 /**
- * @summary Requires fresh HarnessPresence before immediate address-specific dispatch.
+ * @summary Requires fresh HarnessPresence before immediate address-specific dispatch. Applied to
+ * `pid` / `tmuxSession` / `webhookUrl`; NOT applied to `userDataDir`, whose `getInstancePid`
+ * resolution at dispatch is a stronger, live liveness proof (the caller exempts it).
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {Object} address Resolved address tuple.
  * @returns {Boolean}
