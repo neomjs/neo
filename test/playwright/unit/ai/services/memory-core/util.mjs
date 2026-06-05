@@ -1,20 +1,59 @@
+/**
+ * @summary Clears process-singleton Memory Core lifecycle and collection bindings between specs.
+ *
+ * Memory Core specs mutate `aiConfig.collections.*` and `aiConfig.storagePaths.graph` per file.
+ * A graph-only cleanup must still clear the Memory Core lifecycle promise plus Chroma collection
+ * handles, otherwise the next `--workers=1` spec can reuse a collection binding resolved by an
+ * earlier spec while resolving config leaf names from the later spec.
+ *
+ * @param {Object} [SDK] Optional `ai/services.mjs` aggregate import for callers that already hold it.
+ */
+export async function resetMemoryCoreLifecycle(SDK) {
+    let ChromaManager, LifecycleService, StorageRouter;
+
+    if (SDK) {
+        ChromaManager    = SDK.Memory_ChromaManager;
+        LifecycleService = SDK.Memory_LifecycleService;
+        StorageRouter    = SDK.Memory_StorageRouter;
+    } else {
+        ChromaManager    = (await import('../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
+        LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        StorageRouter    = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+    }
+
+    if (LifecycleService) {
+        LifecycleService._initPromise = null;
+    }
+
+    if (StorageRouter) {
+        StorageRouter._initPromise = null;
+    }
+
+    if (ChromaManager) {
+        ChromaManager._memoryCollectionPromise = null;
+        ChromaManager._summaryCollectionPromise = null;
+        ChromaManager._graphCollectionPromise = null;
+        ChromaManager.memoryCollection = null;
+        ChromaManager.summaryCollection = null;
+        ChromaManager.graphCollection = null;
+    }
+}
+
 export async function cleanupChromaManager(SDK) {
-    let ChromaManager, LifecycleService, collectionsConfig;
+    let ChromaManager, collectionsConfig;
 
     if (SDK) {
         ChromaManager = SDK.Memory_ChromaManager;
-        LifecycleService = SDK.Memory_LifecycleService;
         collectionsConfig = SDK.Memory_Config?.data?.collections;
     } else {
         ChromaManager = (await import('../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
-        LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         collectionsConfig = aiConfig?.collections;
     }
 
     if (ChromaManager?.client && collectionsConfig) {
-        // Defense-in-depth (#11652): refuse cleanup when `UNIT_TEST_MODE !== 'true'` regardless of
-        // collection name. The pre-#11652 guard checked only the name; under `npx playwright`
+        // Defense-in-depth: refuse cleanup when `UNIT_TEST_MODE !== 'true'` regardless of
+        // collection name. The earlier guard checked only the name; under `npx playwright`
         // without the unit-test config, `aiConfig.collections.*` falls through to canonical
         // names AND `UNIT_TEST_MODE` is unset — both invariants must hold for cleanup to proceed.
         // The substrate-level guard in `ChromaManager.deleteCollection` is the hard backstop;
@@ -26,7 +65,7 @@ export async function cleanupChromaManager(SDK) {
             throw new Error(`FATAL: Attempted to delete production Chroma collections! Aborting cleanup. memory=${collectionsConfig.memory}, session=${collectionsConfig.session}`);
         }
         try {
-            // Route through the guarded ChromaManager.deleteCollection (#11652) so the substrate-
+            // Route through the guarded ChromaManager.deleteCollection so the substrate-
             // level invariant fires uniformly. Test-prefixed names skip the guard cleanly under
             // UNIT_TEST_MODE; the bare `client.deleteCollection` access path is deprecated.
             try { await ChromaManager.deleteCollection({name: collectionsConfig.memory}); } catch(e) { if (!e.message.includes('not be found')) throw e; }
@@ -38,18 +77,7 @@ export async function cleanupChromaManager(SDK) {
         }
     }
 
-    if (LifecycleService) {
-        LifecycleService._initPromise = null;
-    }
-
-    if (ChromaManager) {
-        ChromaManager._memoryCollectionPromise = null;
-        ChromaManager._summaryCollectionPromise = null;
-        ChromaManager._graphCollectionPromise = null;
-        ChromaManager.memoryCollection = null;
-        ChromaManager.summaryCollection = null;
-        ChromaManager.graphCollection = null;
-    }
+    await resetMemoryCoreLifecycle(SDK);
 }
 
 export class TestLifecycleHelper {
@@ -65,6 +93,7 @@ export class TestLifecycleHelper {
                     }
                 }
             }
+            await resetMemoryCoreLifecycle();
             return;
         }
 
@@ -77,6 +106,8 @@ export class TestLifecycleHelper {
         if (SystemLifecycleService) {
             SystemLifecycleService._initPromise = null;
         }
+
+        await resetMemoryCoreLifecycle();
 
         if (fs && testDbPath) {
             try {
