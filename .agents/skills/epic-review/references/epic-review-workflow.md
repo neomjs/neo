@@ -11,7 +11,7 @@ Fire this skill when **either** condition holds:
 1. You are about to pick up your first sub from an epic your model-identity has not yet reviewed.
 2. A user explicitly asks for an epic review (pre-validation before sub work begins).
 
-**Per-agent-per-epic one-shot semantics:** once your model-identity (e.g. `@neo-opus-4-7`, `@neo-gemini-3-1-pro`) has posted an epic-review comment on epic #N, subsequent sub pickups from #N by the same identity cite the prior review by URL reference rather than re-running this skill.
+**Per-agent-per-epic one-shot semantics:** once your model-identity (e.g. `@neo-opus-ada`, `@neo-gemini-pro`) has posted an epic-review comment on epic #N, subsequent sub pickups from #N by the same identity cite the prior review by URL reference rather than re-running this skill.
 
 Different model-identities reviewing the same epic independently is **encouraged** — cross-model readback of architectural intent is the primary value. Two identities reviewing epic #N = two comments. Do not attempt deduplication.
 
@@ -51,7 +51,7 @@ Checks:
 **Question:** Is the main architectural decision load-bearing? Would a more elegant alternative serve the same goal?
 
 Checks:
-- **Ideation Sandbox Backstop (Mandatory for Discussion-origin Epics):** if this Epic emerged from a Discussion, verify that the Double Diamond divergence matrix was captured in the Discussion body **before** graduation per `ideation-sandbox-workflow.md` §5.1, and that ≥1 non-author peer review cycle happened after matrix insertion. **If the matrix is missing, lacks falsifying sources, or was retro-fitted directly into the Epic body, reject the Epic and route divergence back to the Discussion.** Rationale and #11077 anchor: [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
+- **Ideation Sandbox Backstop (Mandatory for Discussion-origin Epics):** if this Epic emerged from a Discussion, verify that the Double Diamond divergence matrix was captured in the Discussion body **before** graduation per `ideation-sandbox-workflow.md` "Double Diamond Divergence Guard", and that ≥1 non-author peer review cycle happened after matrix insertion. **If the matrix is missing, lacks falsifying sources, or was retro-fitted directly into the Epic body, reject the Epic and route divergence back to the Discussion.** Rationale and #11077 anchor: [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 - Does the approach **reuse existing substrate**, or does it invent parallel substrate? (Parallel substrate is a strong warning sign — it usually means the author missed a reusable primitive.)
 - Is the main abstraction layer the right one? (Same substrate-boundary question as `ticket-intake` prescription challenge, elevated one scope level.)
 - Is there a known **Gold Standard** from prior sessions this epic diverges from without rationale? Query Memory Core for comparable epics.

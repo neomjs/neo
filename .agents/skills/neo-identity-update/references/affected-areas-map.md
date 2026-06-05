@@ -52,5 +52,5 @@ Correct as-of a date; ages silently. Refresh in lock-step.
 
 ## Coverage notes
 - Heritage facts live in `.github/STORY.md`; README + portal About Us reference that home without duplicating milestone lists. OS-Awards claims need an acceptable external public source before publication.
-- Identity handle `@neo-opus-4-7` appears in ~63 files — route through `ai/graph/identityRoots.mjs`; handle de-versioning is operator-owned (account rename), the skill only propagates. Model-version stays in `ModelStats.md` per ADR 0012.
+- Identity handles are routed through `ai/graph/identityRoots.mjs`; handle de-versioning is operator-owned (account rename), the skill only propagates. Model-version stays in `ModelStats.md` per ADR 0012. Re-run a seam-keyed grep before claiming total coverage.
 - Not yet fully swept: `apps/portal/view/about` (`/about-us`), live neomjs.com `<meta>`/ld+json, `learn/comparisons/*`. Re-run a fan-out before claiming total coverage.
