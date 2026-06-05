@@ -230,7 +230,7 @@ test.describe('Neo.ai.daemons.services.IssueIngestor — community-multiplier in
         expect(logins.size).toBeGreaterThan(0);
         // Owner + a known agent maintainer, normalized to bare form (matches GitHub issue authors).
         expect(logins.has('tobiu')).toBe(true);
-        expect(logins.has('neo-opus-4-7')).toBe(true);
+        expect(logins.has('neo-opus')).toBe(true);
         // The leading-@ registry form and null/empty entries must NOT leak through.
         expect(logins.has('@tobiu')).toBe(false);
         expect(logins.has('')).toBe(false);
@@ -239,7 +239,7 @@ test.describe('Neo.ai.daemons.services.IssueIngestor — community-multiplier in
 
     test('isCommunityAuthor: a registered maintainer is NOT a community author (no boost)', () => {
         expect(IssueIngestorClass.isCommunityAuthor('tobiu')).toBe(false);
-        expect(IssueIngestorClass.isCommunityAuthor('neo-opus-4-7')).toBe(false);
+        expect(IssueIngestorClass.isCommunityAuthor('neo-opus')).toBe(false);
     });
 
     test('isCommunityAuthor: an external author IS a community author (boost eligible)', () => {
