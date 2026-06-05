@@ -5,6 +5,7 @@ import Base         from '../../../src/core/Base.mjs';
 import CoreDatabase from '../../../ai/graph/Database.mjs';
 import SQLite       from '../../../ai/graph/storage/SQLite.mjs';
 import { IDENTITIES } from '../../../ai/graph/identityRoots.mjs';
+import fsExtra       from 'fs-extra';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -1012,6 +1013,85 @@ class GraphService extends Base {
         }
 
         return orphaned;
+    }
+
+    /**
+     * @summary On-demand Memory/Session graph lifecycle census for storage-growth observability.
+     *
+     * Returns counts of durable `MEMORY` / `SESSION` provenance-anchor nodes plus the graph SQLite
+     * file sizes (main / WAL / SHM). Deliberately **not** a healthcheck field and **not** an MCP tool:
+     * the optional incident-edge count is an `O(edges)` scan (multi-second at millions of edges, growing
+     * linearly with the graph), so this is invoked on demand via the maintenance report script, never on
+     * the healthcheck hot path or in an always-loaded tool-response schema. The node counts + file sizes
+     * are cheap (sub-second); the incident-edge counts are opt-in via `includeIncidentEdges`.
+     *
+     * @param {Object} [options]
+     * @param {Boolean} [options.includeIncidentEdges=false] Also count edges incident to MEMORY/SESSION
+     *     nodes — an `O(edges)` scan, off by default so the census stays cheap at scale.
+     * @returns {Promise<{available: Boolean, memoryNodes: Number, sessionNodes: Number, sqliteBytes: Number,
+     *     sqliteWalBytes: Number, sqliteShmBytes: Number, measuredAt: String,
+     *     memoryIncidentEdges?: Number, sessionIncidentEdges?: Number, error?: String}>}
+     */
+    async getLifecycleCensus({includeIncidentEdges = false} = {}) {
+        const measuredAt = new Date().toISOString(),
+              storage    = this.db?.storage,
+              sqliteDb   = storage?.db,
+              dbPath     = storage?.dbPath;
+
+        if (!sqliteDb || !dbPath) {
+            return {
+                available: false, memoryNodes: 0, sessionNodes: 0,
+                sqliteBytes: 0, sqliteWalBytes: 0, sqliteShmBytes: 0,
+                measuredAt, error: 'Graph SQLite storage is unavailable.'
+            };
+        }
+
+        try {
+            const countNodes = label => Number(sqliteDb.prepare(`
+                SELECT COUNT(*) AS count FROM Nodes WHERE json_extract(data, '$.label') = ?
+            `).get(label)?.count || 0);
+
+            const fileSize = async filePath => {
+                try {
+                    return Number((await fsExtra.stat(filePath)).size || 0);
+                } catch (e) {
+                    return 0;
+                }
+            };
+
+            const [sqliteBytes, sqliteWalBytes, sqliteShmBytes] = await Promise.all([
+                fileSize(dbPath),
+                fileSize(`${dbPath}-wal`),
+                fileSize(`${dbPath}-shm`)
+            ]);
+
+            const census = {
+                available   : true,
+                memoryNodes : countNodes('MEMORY'),
+                sessionNodes: countNodes('SESSION'),
+                sqliteBytes, sqliteWalBytes, sqliteShmBytes,
+                measuredAt
+            };
+
+            if (includeIncidentEdges) {
+                const countIncidentEdges = label => Number(sqliteDb.prepare(`
+                    SELECT COUNT(*) AS count FROM Edges e
+                    WHERE EXISTS (SELECT 1 FROM Nodes n WHERE n.id = e.source AND json_extract(n.data, '$.label') = ?)
+                       OR EXISTS (SELECT 1 FROM Nodes n WHERE n.id = e.target AND json_extract(n.data, '$.label') = ?)
+                `).get(label, label)?.count || 0);
+
+                census.memoryIncidentEdges  = countIncidentEdges('MEMORY');
+                census.sessionIncidentEdges = countIncidentEdges('SESSION');
+            }
+
+            return census;
+        } catch (e) {
+            return {
+                available: false, memoryNodes: 0, sessionNodes: 0,
+                sqliteBytes: 0, sqliteWalBytes: 0, sqliteShmBytes: 0,
+                measuredAt, error: e?.message || String(e)
+            };
+        }
     }
 
     /**
