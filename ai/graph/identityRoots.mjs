@@ -200,9 +200,18 @@ export const IDENTITIES = [
                     rationale                    : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs.'
                 }
             },
-            // No subscriptionTemplate yet: same-app Claude wake routing remains instance-addressing
-            // substrate, not an identity-root default. Direct A2A identity and resumeHarness routing
-            // can still target the account once the operator wires the harness instance.
+            // Wake route is machine-agnostic: the per-instance address (which same-bundle Claude
+            // instance to wake) is injected from the boot environment, never committed here —
+            // committing a per-operator path would break other forks and checkouts.
+            subscriptionTemplate: {
+                trigger: 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Claude',
+                    tabShortcut: '3',
+                    focusSeedKey: 'space'
+                }
+            },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
             // §neo_opus_vega — primary source: Anthropic Claude Opus 4.8 announcement/product page.
             contextWindowInput: 1048576,
