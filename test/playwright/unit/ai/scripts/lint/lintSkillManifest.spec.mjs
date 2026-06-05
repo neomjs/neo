@@ -3,6 +3,7 @@ import {execFileSync, spawnSync} from 'child_process';
 import path                      from 'path';
 
 import {
+    analyzeMarkdownLinkPathOnlyDiff,
     checkOversizedWorkflowMaps,
     checkPerFileBudgets,
     checkRemovedSkillFileReferences,
@@ -13,6 +14,8 @@ import {
     parseArgs,
     parseFrontmatter,
     parseSectionTriggers,
+    parseUnifiedDiffChangedLines,
+    shouldSkipDownstreamDocsTargetForLinkPathOnlyChange,
     validateManifestSchema
 } from '../../../../../../ai/scripts/lint/lint-skill-manifest.mjs';
 
@@ -496,6 +499,76 @@ ${padding}
         expect(errors[0]).toContain('dangling section ref §9.2');
         expect(errors[1]).toContain('review-response-protocol.md:2');
         expect(errors[1]).toContain('dangling section ref pr-review-guide §10.4');
+    });
+
+    test('parseUnifiedDiffChangedLines maps base diffs to current-file line numbers (#12557)', () => {
+        const diffText = [
+            'diff --git a/.agents/skills/pr-review/references/pr-review-guide.md b/.agents/skills/pr-review/references/pr-review-guide.md',
+            '--- a/.agents/skills/pr-review/references/pr-review-guide.md',
+            '+++ b/.agents/skills/pr-review/references/pr-review-guide.md',
+            '@@ -1,4 +1,4 @@',
+            ' ## 9. Strategic Fit',
+            '-Old changed line with §9.2.',
+            '+New changed line with §9.0.',
+            ' Unchanged line with stale §10.4.'
+        ].join('\n');
+
+        const changedLines = parseUnifiedDiffChangedLines(diffText);
+
+        expect([...changedLines.get('.agents/skills/pr-review/references/pr-review-guide.md')]).toEqual([2]);
+    });
+
+    test('checkSkillReferenceIntegrity only scans changed lines when base ownership is provided (#12557)', () => {
+        const relPath = '.agents/skills/pr-review/references/pr-review-guide.md';
+        const files = [{
+            relPath,
+            text: [
+                '## 9. Strategic Fit',
+                '### 9.0 Premise Pre-Flight',
+                'Changed valid ref: §9.0.',
+                'Pre-existing stale ref: §9.2.'
+            ].join('\n')
+        }];
+
+        expect(checkSkillReferenceIntegrity([relPath], files, {
+            changedLinesByRelPath: new Map([[relPath, new Set([3])]])
+        })).toEqual([]);
+
+        const errors = checkSkillReferenceIntegrity([relPath], files, {
+            changedLinesByRelPath: new Map([[relPath, new Set([4])]])
+        });
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('pr-review-guide.md:4');
+        expect(errors[0]).toContain('dangling section ref §9.2');
+    });
+
+    test('downstream docs skip only applies to link-path-only skill diffs whose docs omit the moved target (#12557)', () => {
+        const pathOnlyDiff = [
+            'diff --git a/.agents/skills/pull-request/SKILL.md b/.agents/skills/pull-request/SKILL.md',
+            '--- a/.agents/skills/pull-request/SKILL.md',
+            '+++ b/.agents/skills/pull-request/SKILL.md',
+            '@@ -2 +2 @@',
+            '-description: Read [evidence-ladder.md](learn/agentos/evidence-ladder.md) before review evidence.',
+            '+description: Read [evidence-ladder.md](learn/agentos/process/evidence-ladder.md) before review evidence.'
+        ].join('\n');
+
+        const analysis = analyzeMarkdownLinkPathOnlyDiff(pathOnlyDiff);
+
+        expect(analysis.isPathOnly).toBe(true);
+        expect([...analysis.changedTargets]).toEqual([
+            'learn/agentos/evidence-ladder.md',
+            'learn/agentos/process/evidence-ladder.md'
+        ]);
+        expect(shouldSkipDownstreamDocsTargetForLinkPathOnlyChange(pathOnlyDiff, 'Evidence is described generically here.')).toBe(true);
+        expect(shouldSkipDownstreamDocsTargetForLinkPathOnlyChange(pathOnlyDiff, 'Still cites learn/agentos/evidence-ladder.md.')).toBe(false);
+
+        const semanticDiff = pathOnlyDiff.replace(
+            '+description: Read [evidence-ladder.md](learn/agentos/process/evidence-ladder.md) before review evidence.',
+            '+description: Read [evidence-ladder.md](learn/agentos/process/evidence-ladder.md) before expanded review evidence.'
+        );
+
+        expect(analyzeMarkdownLinkPathOnlyDiff(semanticDiff).isPathOnly).toBe(false);
     });
 
     test('checkSkillReferenceIntegrity scans manifest prose refs as source text (#12493)', () => {
