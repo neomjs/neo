@@ -346,9 +346,17 @@ class Config extends ConfigProvider {
              */
             memorySharing: {
                 /**
+                 * Default memory-sharing tenant policy.
+                 * - `team` (default): deployment-wide read — every maintainer in this deployment
+                 *   reads every maintainer's raw memories AND summaries (transparent swarm
+                 *   introspection). The Chroma collection is the deployment boundary.
+                 * - `legacy`: caller's own + untagged + `SHARED_USER_ID`-tagged records.
+                 * - `private`: caller's own records only.
+                 * Multi-tenant SaaS deployments that co-locate multiple orgs in one collection MUST
+                 * override to `private` via `NEO_MEMORY_SHARING_DEFAULT_POLICY`.
                  * @type {'legacy'|'private'|'team'}
                  */
-                defaultPolicy: {env: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', default: 'legacy', parse: parseMemorySharingPolicy}
+                defaultPolicy: {env: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', default: 'team', parse: parseMemorySharingPolicy}
             },
             /**
              * Target file path for the lazy backfill queue of unresolved provenance edges.
