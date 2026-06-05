@@ -1576,12 +1576,13 @@ class Text extends Field {
      */
     updateInputWidth() {
         let me         = this,
+            inputEl    = me.vdom.cn[2],
             inputWidth = me.getInputWidth();
 
         if (inputWidth !== null && inputWidth !== me.width) {
-            me.vdom.cn[1].width = inputWidth
+            inputEl.width = inputWidth
         } else {
-            delete me.vdom.cn[1].width
+            delete inputEl.width
         }
 
         me.update()
