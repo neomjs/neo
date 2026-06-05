@@ -175,12 +175,16 @@ Per `feedback_a2a_commentid_pre_flight`: post the verdict comment FIRST, capture
 
 ## 8. Empirical anchor — Epic #10671 (motivating example)
 
-The first run of this skill should be against Epic #10671 itself — the epic whose closeout-friction motivated #10697 + #10698. Expected matrix shape:
+> ⚠️ **Frozen teaching example — not a live verdict.** The matrix below is Epic #10671's state *as of 2026-05-04* (when this section was authored), kept to illustrate the `RECOMMEND_KEEP_OPEN` *reasoning*. It is deliberately **decoupled from live ticket state** — never copy its verdict. For any epic (including #10671 today), **re-derive the verdict from current sub/PR state** (`gh` / GraphQL), as §1–§7 require. A snapshot pinned to a live ticket inevitably inverts as the organism evolves; the freeze-date is its sunset marker.
+>
+> **Lifecycle update:** #10671 has since closed `CLOSE_COMPLETED` (2026-06-05) — 19/19 subs closed; the blockers below (#10676 / #10679 / #10696) all resolved. The `KEEP_OPEN → CLOSE` arc is the lesson: the *reasoning* held; the *verdict* moved because the live state moved.
+
+Snapshot as authored (2026-05-04) — the epic whose closeout-friction motivated #10697 + #10698:
 
 - 9 subs across substrate-restart components (forensic, detector, in-flight lock, idle-out, sunset-mode, harness adapters, Codex Desktop primitive, mock-test discipline)
 - Most subs delivered at L2 (mock dispatch) or L3 (live binary verification by reviewer)
 - AC5 verify-effect (sessionId distinctness via MCP from spawned session) = RESIDUAL_L4 across #10676, #10695, #10696
 - #10679 (Codex Desktop primitive) = BLOCKER (sub blocked on MC startup diagnosis)
-- Verdict: `RECOMMEND_KEEP_OPEN` until either #10696 merges + AC5 L4 logged + #10679 unblocks, OR #10679 explicitly retired with rationale
+- Verdict *at that snapshot*: `RECOMMEND_KEEP_OPEN` until either #10696 merges + AC5 L4 logged + #10679 unblocks, OR #10679 explicitly retired with rationale
 
-If the skill is run against Epic #10671 and produces a different verdict shape, audit the matrix population against the public state of the subs/PRs.
+When you run this skill against any epic, populate the matrix from current public sub/PR state and let it produce the live verdict. If your result differs from a frozen snapshot, the snapshot is stale — not your run.
