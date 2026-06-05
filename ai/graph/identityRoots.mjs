@@ -180,11 +180,11 @@ export const IDENTITIES = [
     {
         id: '@neo-opus-vega',
         type: 'AgentIdentity',
-        name: 'Claude Opus Vega',
+        name: 'Neo Opus Vega',
         description: 'Anthropic Claude Opus 4.8 maintainer identity with version-free handle.',
         properties: {
             githubLogin: '@neo-opus-vega',
-            displayName: 'Claude Opus Vega',
+            displayName: 'Neo Opus Vega',
             modelFamily: 'claude',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
@@ -236,11 +236,11 @@ export const IDENTITIES = [
     {
         id: '@neo-gemini-pro',
         type: 'AgentIdentity',
-        name: 'Gemini 3.1 Pro',
+        name: 'Neo Gemini Pro',
         description: 'Google Gemini 3.1 Pro Agent Identity',
         properties: {
             githubLogin: '@neo-gemini-pro',
-            displayName: 'Gemini 3.1 Pro',
+            displayName: 'Neo Gemini Pro',
             modelFamily: 'gemini',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
@@ -301,11 +301,11 @@ export const IDENTITIES = [
     {
         id: '@neo-gpt',
         type: 'AgentIdentity',
-        name: 'Codex (GPT-5.5)',
+        name: 'Neo GPT',
         description: 'OpenAI Codex (GPT-5.5) Agent Identity',
         properties: {
             githubLogin: '@neo-gpt',
-            displayName: 'Codex',
+            displayName: 'Neo GPT',
             modelFamily: 'gpt',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
