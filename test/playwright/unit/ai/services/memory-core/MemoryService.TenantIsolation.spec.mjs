@@ -163,7 +163,7 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         expect(metadata.sessionId).toBe('session-solo');
     });
 
-    test('listMemories under the team default returns ALL maintainers\' session records — cross-author (#12527)', async () => {
+    test('listMemories under team policy returns ALL maintainers\' session records — cross-author (#12527)', async () => {
         // Seed: alice writes 2 memories to session-shared, bob writes 1 memory to session-shared.
         // All three share the same sessionId but carry distinct userId metadata.
         await RequestContextService.run({userId: 'u-alice'}, async () => {
@@ -174,10 +174,12 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
             MemoryService.addMemory({prompt: 'b1', response: '', thought: '', sessionId: 'session-shared'})
         );
 
-        // Under the team default (deployment-wide read), Alice reads the shared session and sees
-        // ALL three records — her own two AND Bob's (transparent swarm introspection).
+        // Under team policy (deployment-wide read), Alice reads the shared session and sees ALL
+        // three records — her own two AND Bob's (transparent swarm introspection). The team DEFAULT
+        // is proven at the config layer (config.template.spec); here the policy is passed explicitly
+        // because listMemories reads it from the ambient AiConfig SSOT, which tests never mutate.
         const aliceView = await RequestContextService.run({userId: 'u-alice'}, () =>
-            MemoryService.listMemories({sessionId: 'session-shared', limit: 10})
+            MemoryService.listMemories({sessionId: 'session-shared', limit: 10, memorySharing: 'team'})
         );
 
         expect(aliceView.count).toBe(3);
@@ -246,16 +248,16 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
     });
 
     test('listMemories under team returns every maintainer\'s session records incl. peers\' (#12527)', async () => {
-        // Under the team default the own+shared additive filter widens to the whole deployment:
-        // alice sees her own, the shared-tagged commons, AND bob's author-tagged record.
-        // sessionId remains the outer $and gate so cross-session leaks are still prevented.
+        // Under team policy the read is deployment-wide — alice sees her own, the shared-tagged
+        // commons, AND bob's author-tagged record (no userId post-filter). sessionId remains the
+        // outer $and gate so cross-session leaks are still prevented.
         const sid = 'session-shared-test';
         spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {sessionId: sid, userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
         spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {sessionId: sid, userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
         spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {sessionId: sid, userId: 'u-bob', timestamp: 300, prompt: 'b1'}, document: 'b1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
-            MemoryService.listMemories({sessionId: sid, limit: 10, offset: 0})
+            MemoryService.listMemories({sessionId: sid, limit: 10, offset: 0, memorySharing: 'team'})
         );
 
         // Deployment-wide read: alice sees all three — own + shared + Bob's.

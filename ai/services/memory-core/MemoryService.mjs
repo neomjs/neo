@@ -366,9 +366,10 @@ class MemoryService extends Base {
      * @param {String} options.sessionId The ID of the session to list memories for.
      * @param {Number} options.limit     The maximum number of memories to return.
      * @param {Number} options.offset    The number of memories to skip.
+     * @param {String} [options.memorySharing] Optional tenant-isolation policy override (mirrors queryMemories) — lets callers and tests select 'team' / 'private' without depending on ambient defaultPolicy resolution.
      * @returns {Promise<{sessionId: string, count: number, total: number, memories: Object[]}>}
      */
-    async listMemories({sessionId, limit=100, offset=0} = {}) {
+    async listMemories({sessionId, limit=100, offset=0, memorySharing} = {}) {
         try {
             if (!sessionId) {
                 return { sessionId, count: 0, total: 0, memories: [] };
@@ -383,7 +384,7 @@ class MemoryService extends Base {
             // the filter reduces to sessionId alone — single-tenant fallthrough preserved.
             // normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+            const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';
 
             let tenantScope = null;
             if (userId) {
