@@ -130,10 +130,11 @@ author**. That is a separate surface. If a clone has no commit identity, `git co
 falls through to the global `~/.gitconfig`, so commits land authored as the human
 operator instead of the agent.
 
-This is easy to miss because **squash-merge masks it**: GitHub rewrites a squashed
-commit's author to the PR account, so merged history looks correct while local history,
-`Co-Authored-By` trailers, and any rebase/merge-commit stay mis-attributed. Treat commit
-identity as load-bearing, not cosmetic.
+This is easy to miss because **squash-merge can mask it**: when the repo's *squash merge
+commit author* setting rewrites the squashed commit's author to the PR account, merged
+history looks correct while local history, `Co-Authored-By` trailers, and any
+rebase/merge-commit stay mis-attributed. Treat commit identity as load-bearing, not
+cosmetic.
 
 Derive the identity from the same source of truth as the rest of the setup — the
 `AgentIdentity` `displayName` (social label) and the team email convention (here
@@ -142,10 +143,17 @@ later rename does not strand stale attribution.
 
 ### Primary: inject commit identity in the harness env
 
-`GIT_AUTHOR_*` / `GIT_COMMITTER_*` environment variables override **both** repo-local and
-global config (precedence: `--author` > `GIT_AUTHOR_*` / `GIT_COMMITTER_*` env > `git
-config --local` > global). Inject them once per agent, beside `NEO_AGENT_IDENTITY`, and
-every repo the process touches is attributed correctly from a single shared clone:
+`GIT_AUTHOR_*` and `GIT_COMMITTER_*` environment variables override **both** repo-local
+and global config — but author and committer are **separate surfaces**, each with its own
+precedence:
+
+- **Author:** `--author` > `GIT_AUTHOR_*` env > `git config --local` > global.
+- **Committer:** `GIT_COMMITTER_*` env > `git config --local` > global. `--author` and
+  `GIT_AUTHOR_*` do *not* affect the committer.
+
+Set **all four** (`GIT_AUTHOR_NAME`/`EMAIL` + `GIT_COMMITTER_NAME`/`EMAIL`) once per agent,
+beside `NEO_AGENT_IDENTITY`, and every repo the process touches is attributed correctly on
+both surfaces from a single shared clone:
 
 ```bash
 export GIT_AUTHOR_NAME="Acme Claude"
@@ -176,10 +184,12 @@ for every clone and is the step that gets skipped.
 
 ### Verify (fail loud)
 
-Before the first commit from a new clone or harness, confirm the effective author:
+Before the first commit from a new clone or harness, confirm the effective author and
+committer:
 
 ```bash
 git var GIT_AUTHOR_IDENT
+git var GIT_COMMITTER_IDENT
 # → Acme Claude <acme-claude@acme.example> 1700000000 +0000
 ```
 
