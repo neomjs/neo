@@ -501,6 +501,34 @@ ${padding}
         expect(errors[1]).toContain('dangling section ref pr-review-guide §10.4');
     });
 
+    test('checkSkillReferenceIntegrity validates targeted named section refs (#12582)', () => {
+        const files = [{
+            relPath: '.agents/skills/ideation-sandbox/audits/consensus-mandate.md',
+            text   : [
+                '## §template-block — Graduated-Artifact Required Sections',
+                '## §same-family-aggregation — Multi-Identity Family Resolution'
+            ].join('\n')
+        }, {
+            relPath: '.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md',
+            text   : [
+                'Valid linked ref: [`audits/consensus-mandate.md §template-block`](../audits/consensus-mandate.md).',
+                'Valid prose ref: consensus-mandate §same-family-aggregation.',
+                'Invalid linked ref: [`audits/consensus-mandate.md §missing-template`](../audits/consensus-mandate.md).',
+                'Invalid prose ref: consensus-mandate §missing-aggregation.'
+            ].join('\n')
+        }];
+
+        const errors = checkSkillReferenceIntegrity([
+            '.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md'
+        ], files);
+
+        expect(errors).toHaveLength(2);
+        expect(errors[0]).toContain('ideation-sandbox-workflow.md:3');
+        expect(errors[0]).toContain('dangling section ref ../audits/consensus-mandate.md §missing-template');
+        expect(errors[1]).toContain('ideation-sandbox-workflow.md:4');
+        expect(errors[1]).toContain('dangling section ref consensus-mandate §missing-aggregation');
+    });
+
     test('parseUnifiedDiffChangedLines maps base diffs to current-file line numbers (#12557)', () => {
         const diffText = [
             'diff --git a/.agents/skills/pr-review/references/pr-review-guide.md b/.agents/skills/pr-review/references/pr-review-guide.md',
@@ -541,6 +569,32 @@ ${padding}
         expect(errors).toHaveLength(1);
         expect(errors[0]).toContain('pr-review-guide.md:4');
         expect(errors[0]).toContain('dangling section ref §9.2');
+    });
+
+    test('checkSkillReferenceIntegrity only scans changed named section refs when base ownership is provided (#12582)', () => {
+        const relPath = '.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md';
+        const files = [{
+            relPath: '.agents/skills/ideation-sandbox/audits/consensus-mandate.md',
+            text   : '## §template-block — Graduated-Artifact Required Sections'
+        }, {
+            relPath,
+            text: [
+                'Valid changed ref: consensus-mandate §template-block.',
+                'Pre-existing stale ref: consensus-mandate §missing-template.'
+            ].join('\n')
+        }];
+
+        expect(checkSkillReferenceIntegrity([relPath], files, {
+            changedLinesByRelPath: new Map([[relPath, new Set([1])]])
+        })).toEqual([]);
+
+        const errors = checkSkillReferenceIntegrity([relPath], files, {
+            changedLinesByRelPath: new Map([[relPath, new Set([2])]])
+        });
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('ideation-sandbox-workflow.md:2');
+        expect(errors[0]).toContain('dangling section ref consensus-mandate §missing-template');
     });
 
     test('downstream docs skip only applies to link-path-only skill diffs whose docs omit the moved target (#12557)', () => {
@@ -624,7 +678,9 @@ ${padding}
                 'Ticket #12488 and ADR 0019 §A4 are descriptive refs.',
                 'External [doc](https://example.com/a.md) is out of scope.',
                 'Wildcard authoring prose like `references/*.md` is not a concrete pointer.',
-                'Generic guide §7 wording has no resolvable target and is ignored.'
+                'Generic guide §7 wording has no resolvable target and is ignored.',
+                'External named anchors like AGENTS.md §verify_before_assert are ignored when the file target is outside skill substrate.',
+                'Standalone named prose like §contributions_over_commits stays descriptive without a markdown target.'
             ].join('\n')
         }];
 
@@ -639,6 +695,7 @@ ${padding}
             text   : [
                 'Deleted relative pointer: [old](./removed-rule.md).',
                 'Deleted basename section ref: removed-rule §2.1.',
+                'Deleted named section ref: removed-rule §legacy-anchor.',
                 'Live pointer: [response](./review-response-protocol.md).'
             ].join('\n')
         }, {
@@ -650,10 +707,12 @@ ${padding}
             '.agents/skills/pull-request/references/removed-rule.md'
         ], files);
 
-        expect(errors).toHaveLength(2);
+        expect(errors).toHaveLength(3);
         expect(errors[0]).toContain('pull-request-workflow.md:1');
         expect(errors[0]).toContain('reference to deleted file ./removed-rule.md');
         expect(errors[1]).toContain('pull-request-workflow.md:2');
         expect(errors[1]).toContain('reference to deleted file removed-rule');
+        expect(errors[2]).toContain('pull-request-workflow.md:3');
+        expect(errors[2]).toContain('reference to deleted file removed-rule');
     });
 });
