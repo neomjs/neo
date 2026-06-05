@@ -19,12 +19,25 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import http           from 'http';
 import aiConfig       from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
-test.describe.serial('TextEmbeddingService #11393/#11402/#12487 — openAiCompatible retry and lms server start support', () => {
+async function waitForCondition(condition, message, timeoutMs = 250) {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+        if (condition()) return;
+        await new Promise(resolve => setTimeout(resolve, 5));
+    }
+
+    throw new Error(`Timed out waiting for ${message}`);
+}
+
+test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openAiCompatible retry, QoS, and lms server start support', () => {
     let SDK, TextEmbeddingService, server;
     let requestCount = 0;
     let serverBehavior = 'succeed';
     let lastRequest;
     let allRequests;
+    let inFlightRequests;
+    let maxInFlightRequests;
     let testPort;
     let originalHost, originalRetryCount, originalRetryDelay;
     let originalContentionRetryCount, originalContentionRetryDelay, originalContentionTimeout;
@@ -125,6 +138,30 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487 — openAiCompat
                             embedding: [requestCount, index]
                         })).reverse()
                     }));
+                } else if (serverBehavior === 'qos-priority') {
+                    inFlightRequests++;
+                    maxInFlightRequests = Math.max(maxInFlightRequests, inFlightRequests);
+
+                    const inputs       = lastRequest.body.input,
+                          requestIndex = requestCount,
+                          respond      = () => {
+                              const data = Array.isArray(inputs) ?
+                                  inputs.map((_, index) => ({
+                                      index,
+                                      embedding: [requestIndex, index]
+                                  })) :
+                                  [{index: 0, embedding: [requestIndex, 0]}];
+
+                              res.writeHead(200, { 'Content-Type': 'application/json' });
+                              res.end(JSON.stringify({data}));
+                              inFlightRequests--;
+                          };
+
+                    if (Array.isArray(inputs) && inputs[0] === 'a') {
+                        setTimeout(respond, 25);
+                    } else {
+                        respond();
+                    }
                 }
             });
         });
@@ -141,6 +178,8 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487 — openAiCompat
         requestCount = 0;
         lastRequest  = null;
         allRequests  = [];
+        inFlightRequests = 0;
+        maxInFlightRequests = 0;
         originalHost = aiConfig.openAiCompatible.host;
         originalRetryCount = aiConfig.openAiCompatible.unloadRetryCount;
         originalRetryDelay = aiConfig.openAiCompatible.unloadRetryDelayMs;
@@ -323,6 +362,33 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487 — openAiCompat
             [2, 0],
             [2, 1],
             [3, 0]
+        ]);
+    });
+
+    test('interactive single embeddings queue ahead of subsequent batch chunks and preserve completion', async () => {
+        serverBehavior = 'qos-priority';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;
+        aiConfig.openAiCompatible.batchEmbeddingYieldMs = 0;
+
+        const batchPromise = TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'openAiCompatible');
+
+        await waitForCondition(() => allRequests.length === 1, 'first batch chunk request');
+
+        const interactivePromise = TextEmbeddingService.embedText('urgent', 'openAiCompatible');
+        const [batchResult, interactiveResult] = await Promise.all([batchPromise, interactivePromise]);
+
+        expect(maxInFlightRequests).toBe(1);
+        expect(allRequests.map(item => item.body.input)).toEqual([
+            ['a'],
+            'urgent',
+            ['b'],
+            ['c']
+        ]);
+        expect(interactiveResult).toEqual([2, 0]);
+        expect(batchResult).toEqual([
+            [1, 0],
+            [3, 0],
+            [4, 0]
         ]);
     });
 });
