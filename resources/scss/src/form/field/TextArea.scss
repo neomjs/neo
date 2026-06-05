@@ -2,6 +2,7 @@
     align-items   : stretch;
     display       : flex;
     flex-direction: column;
+    height        : auto;
 
     .neo-input-wrapper {
         flex: 1 0 auto;
