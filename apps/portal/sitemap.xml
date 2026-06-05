@@ -322,14 +322,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/measurements/pr-review-baseline-2026-04</loc>
-    <lastmod>2026-05-02T13:12:50+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/measurements/heartbeat-token-economy-2026-05</loc>
-    <lastmod>2026-05-22T19:28:26+02:00</lastmod>
-  </url>
-  <url>
     <loc>https://neomjs.com/learn/agentos/tooling/Authorization</loc>
     <lastmod>2026-05-07T19:22:00+02:00</lastmod>
   </url>
@@ -824,7 +816,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-06-04T16:48:34Z</lastmod>
+    <lastmod>2026-06-05T20:12:21Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
