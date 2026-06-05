@@ -182,6 +182,55 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
         });
 
+        test('bootstraps a volatile HarnessPresence overlay from boot address metadata (#12422)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({
+                    action          : 'bootstrap',
+                    bootId          : 'boot-addressed',
+                    pid             : 12345,
+                    now             : '2026-06-04T00:00:00.000Z',
+                    overrideMetadata: {
+                        instanceAddress: '/Users/example/.antigravity-instances/Neo',
+                        addressType    : 'userDataDir'
+                    },
+                    presence: {
+                        state       : 'idle',
+                        wakePolicy  : 'immediate',
+                        capabilities: ['turn/start']
+                    }
+                });
+
+                const presenceNode = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:boot-addressed');
+                expect(presenceNode.label).toBe('HARNESS_PRESENCE');
+                expect(presenceNode.properties.agentIdentity).toBe('@alice');
+                expect(presenceNode.properties.subscriptionId).toBe(res.subscriptionId);
+                expect(presenceNode.properties.state).toBe('idle');
+                expect(presenceNode.properties.wakePolicy).toBe('immediate');
+                expect(presenceNode.properties.source).toBe('mcp-client');
+                expect(presenceNode.properties.instanceAddress).toBe('/Users/example/.antigravity-instances/Neo');
+                expect(presenceNode.properties.addressType).toBe('userDataDir');
+                expect(presenceNode.properties.pid).toBe(12345);
+                expect(presenceNode.properties.bootId).toBe('boot-addressed');
+                expect(presenceNode.properties.lastSeenAt).toBe('2026-06-04T00:00:00.000Z');
+                expect(presenceNode.properties.freshUntil).toBe('2026-06-04T00:05:00.000Z');
+                expect(presenceNode.properties.expiresAt).toBe('2026-06-04T00:10:00.000Z');
+                expect(presenceNode.properties.capabilities).toEqual(['turn/start']);
+            });
+        });
+
         test('returns existing subscription if it matches template (idempotent)', async () => {
             // Give Alice a template
             GraphService.upsertNode({
@@ -205,6 +254,100 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 expect(second.status).toBe('existing');
                 expect(second.subscriptionId).toBe(first.subscriptionId);
             });
+        });
+
+        test('bootId mismatch plus dead pid retires stale HarnessPresence before upsert (#12422)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            GraphService.upsertNode({
+                id  : 'HARNESS_PRESENCE:@alice:old-boot',
+                type: 'HARNESS_PRESENCE',
+                name: 'HarnessPresence @alice',
+                properties: {
+                    agentIdentity: '@alice',
+                    subscriptionId: 'WAKE_SUB:old',
+                    state        : 'idle',
+                    wakePolicy   : 'immediate',
+                    source       : 'mcp-client',
+                    bootId       : 'old-boot',
+                    pid          : 999999,
+                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
+                    expiresAt    : '2026-06-04T00:10:00.000Z',
+                    status       : 'active'
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.manage({
+                    action: 'bootstrap',
+                    bootId: 'new-boot',
+                    now   : '2026-06-04T00:01:00.000Z',
+                    pid   : process.pid
+                });
+            });
+
+            const oldPresence = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:old-boot');
+            const newPresence = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:new-boot');
+
+            expect(oldPresence.properties.status).toBe('retired');
+            expect(oldPresence.properties.retireReason).toBe('boot-mismatch-pid-dead');
+            expect(newPresence.properties.status).toBe('active');
+        });
+
+        test('TTL backstop retires HarnessPresence even without a pid (#12422)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            GraphService.upsertNode({
+                id  : 'HARNESS_PRESENCE:@alice:expired-boot',
+                type: 'HARNESS_PRESENCE',
+                name: 'HarnessPresence @alice',
+                properties: {
+                    agentIdentity: '@alice',
+                    subscriptionId: 'WAKE_SUB:expired',
+                    state        : 'idle',
+                    wakePolicy   : 'immediate',
+                    source       : 'mcp-client',
+                    bootId       : 'expired-boot',
+                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
+                    expiresAt    : '2026-06-04T00:10:00.000Z',
+                    status       : 'active'
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.manage({
+                    action: 'bootstrap',
+                    bootId: 'ttl-boot',
+                    now   : '2026-06-04T00:11:00.000Z',
+                    pid   : process.pid
+                });
+            });
+
+            const expiredPresence = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:expired-boot');
+            expect(expiredPresence.properties.status).toBe('retired');
+            expect(expiredPresence.properties.retireReason).toBe('ttl-expired');
         });
 
         test('recovers template from durable AgentIdentity row when cache is stale', async () => {
@@ -563,6 +706,33 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'antigravity'}
             })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude, Codex");
+        });
+    });
+
+    test('subscribe rejects partial generic instance addressing (#12422)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Antigravity',
+                    instanceAddress: '4242'
+                }
+            })).rejects.toThrow('requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType');
+        });
+    });
+
+    test('subscribe rejects unknown generic addressType (#12422)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Antigravity',
+                    instanceAddress: 'frontmost',
+                    addressType: 'frontmost'
+                }
+            })).rejects.toThrow("Invalid addressType 'frontmost'. Must be one of: userDataDir, pid, tmuxSession, webhookUrl");
         });
     });
 

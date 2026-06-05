@@ -4,8 +4,9 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
+import http from 'http';
 import os from 'os';
-import { collapseDuplicateShapeCRoutes, getNodesData, getEdgesData } from '../../../../../../ai/daemons/bridge/queries.mjs';
+import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/bridge/queries.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../../ai/graph/storage/constants.mjs';
 
 /**
@@ -25,6 +26,82 @@ function writeMockPs(binDir, psOutput = '') {
 
     fs.writeFileSync(mockPsPath, `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(psOutput)});\n`);
     fs.chmodSync(mockPsPath, 0o755);
+}
+
+function insertBridgeSubscription(db, {
+    subId = 'sub_' + crypto.randomUUID(),
+    agentId,
+    harnessTargetMetadata
+}) {
+    db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+        id: agentId,
+        label: 'AGENT',
+        properties: { name: agentId }
+    }));
+
+    db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+        id: subId,
+        label: 'WAKE_SUBSCRIPTION',
+        properties: {
+            agentIdentity: agentId,
+            harnessTarget: 'bridge-daemon',
+            status: 'active',
+            trigger: 'SENT_TO_ME',
+            harnessTargetMetadata
+        }
+    }));
+
+    db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+    return subId;
+}
+
+function insertHarnessPresence(db, {
+    presenceId = 'presence_' + crypto.randomUUID(),
+    subId,
+    agentId,
+    lastSeenAt = new Date().toISOString()
+}) {
+    db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(presenceId, JSON.stringify({
+        id: presenceId,
+        label: 'HARNESS_PRESENCE',
+        properties: {
+            agentIdentity: agentId,
+            subscriptionId: subId,
+            state: 'idle',
+            wakePolicy: 'immediate',
+            source: 'mcp-client',
+            bootId: 'test-boot',
+            pid: process.pid,
+            lastSeenAt,
+            status: 'active'
+        }
+    }));
+}
+
+function insertMessageWake(db, {agentId, subject = 'Addressed Wake Event'}) {
+    const msgId = 'msg_' + crypto.randomUUID();
+    db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+        id: msgId,
+        label: 'MESSAGE',
+        properties: {
+            from: '@sender',
+            subject,
+            priority: 'normal'
+        }
+    }));
+    db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+    const edgeId = 'edge_' + crypto.randomUUID();
+    db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+        id: edgeId,
+        source: msgId,
+        target: agentId,
+        type: 'SENT_TO'
+    }), msgId, agentId, 'SENT_TO');
+    db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+    return {msgId, edgeId};
 }
 
 test.describe('Bridge Daemon', () => {
@@ -835,6 +912,214 @@ test.describe('Bridge Daemon', () => {
         expect(scriptContent).not.toContain('key code 49');
     });
 
+    test('addressType pid dispatch targets the resolved process id when HarnessPresence is fresh (#12422)', async () => {
+        const agentId = '@test-agent-pid-address';
+        const subId = insertBridgeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter: 'osascript',
+                appName: 'Antigravity',
+                coalesceWindow: 1,
+                instanceAddress: '4242',
+                addressType: 'pid'
+            }
+        });
+        insertHarnessPresence(db, {subId, agentId});
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_pid_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver pid-addressed event within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'PID Address Wake'});
+        await deliveryPromise;
+
+        const args = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const scriptContent = args.filter((_, i) => args[i - 1] === '-e').join('\n');
+
+        expect(scriptContent).toContain('set targetProcessId to "4242"');
+        expect(scriptContent).toContain('first process whose unix id is 4242');
+    });
+
+    test('stale HarnessPresence refuses targeted GUI delivery instead of falling through to app activate (#12422)', async () => {
+        const agentId = '@test-agent-stale-presence';
+        const subId = insertBridgeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter: 'osascript',
+                appName: 'Antigravity',
+                coalesceWindow: 1,
+                instanceAddress: '4242',
+                addressType: 'pid'
+            }
+        });
+        insertHarnessPresence(db, {
+            subId,
+            agentId,
+            lastSeenAt: new Date(Date.now() - 20 * 60 * 1000).toISOString()
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_stale_presence_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not refuse stale targeted wake within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`Targeted wake refused for ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon delivered targeted wake despite stale HarnessPresence'));
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Stale Presence Wake'});
+        await refusalPromise;
+
+        expect(fs.existsSync(mockOutPath)).toBe(false);
+    });
+
+    test('addressType tmuxSession dispatch sends the digest to the instanceAddress session (#12422)', async () => {
+        const agentId = '@test-agent-tmux-address';
+        const subId = insertBridgeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter: 'tmux',
+                appName: 'Antigravity',
+                coalesceWindow: 1,
+                instanceAddress: 'neo-gpt-session',
+                addressType: 'tmuxSession'
+            }
+        });
+        insertHarnessPresence(db, {subId, agentId});
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockTmuxPath = path.join(binDir, 'tmux');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_tmux_out.json');
+        fs.writeFileSync(mockTmuxPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockTmuxPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver tmux-addressed event within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`Delivered ${subId} via tmux to session neo-gpt-session`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Tmux Address Wake'});
+        await deliveryPromise;
+
+        const args = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        expect(args[0]).toBe('send-keys');
+        expect(args[1]).toBe('-t');
+        expect(args[2]).toBe('neo-gpt-session');
+        expect(args.at(-1)).toBe('C-m');
+    });
+
+    test('addressType webhookUrl dispatch POSTs the wake digest to the instanceAddress (#12422)', async () => {
+        const received = new Promise((resolve, reject) => {
+            const server = http.createServer((req, res) => {
+                let body = '';
+                req.on('data', chunk => body += chunk.toString());
+                req.on('end', () => {
+                    res.writeHead(204);
+                    res.end();
+                    resolve({server, req, body});
+                });
+            });
+            server.on('error', reject);
+            server.listen(0, '127.0.0.1', () => {
+                const {port} = server.address();
+                const agentId = '@test-agent-webhook-address';
+                const subId = insertBridgeSubscription(db, {
+                    agentId,
+                    harnessTargetMetadata: {
+                        adapter: 'tmux',
+                        appName: 'Antigravity',
+                        coalesceWindow: 1,
+                        instanceAddress: `http://127.0.0.1:${port}/wake`,
+                        addressType: 'webhookUrl'
+                    }
+                });
+                insertHarnessPresence(db, {subId, agentId});
+
+                daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+                    stdio: 'pipe',
+                    env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+                });
+
+                setTimeout(() => insertMessageWake(db, {agentId, subject: 'Webhook Address Wake'}), 1000);
+            });
+        });
+
+        const timeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Daemon failed to POST webhook-addressed event within timeout')), 10000);
+        });
+
+        const {server, req, body} = await Promise.race([received, timeout]);
+        server.close();
+
+        const payload = JSON.parse(body);
+        expect(req.method).toBe('POST');
+        expect(req.url).toBe('/wake');
+        expect(payload.digest).toContain('Webhook Address Wake');
+        expect(payload.subscriptionId).toMatch(/^sub_/);
+    });
+
     test('Codex UI wake fails closed when no validated focusSeedKey is configured (#10664)', async () => {
         // An earlier hypothesis — that a Codex Space-seed could mirror the Claude focus-seed fix —
         // was empirically falsified by manual matrix validation 2026-05-03. Space and Enter
@@ -1109,6 +1394,23 @@ test.describe('Bridge Daemon', () => {
         const result = collapseDuplicateShapeCRoutes([oldGemini, claude, newGemini]);
 
         expect(result.map(sub => sub.id).sort()).toEqual(['WAKE_SUB:claude', 'WAKE_SUB:new-gemini']);
+    });
+
+    test('getActiveHarnessPresence does not fall back from a missing subscription row to another fresh identity row (#12422)', () => {
+        const agentId      = '@test-agent-route-specific-presence';
+        const missingSubId = 'sub_missing_route_specific_presence';
+        const freshSubId   = 'sub_fresh_route_specific_presence';
+
+        insertHarnessPresence(db, {subId: freshSubId, agentId});
+
+        const missingRoutePresence = getActiveHarnessPresence(db, {
+            subscriptionId: missingSubId,
+            agentIdentity : agentId
+        });
+        const identityFallbackPresence = getActiveHarnessPresence(db, {agentIdentity: agentId});
+
+        expect(missingRoutePresence).toBeNull();
+        expect(identityFallbackPresence.properties.subscriptionId).toBe(freshSubId);
     });
 
     test('suppresses wake for sender of AGENT:* broadcast and delivers to peers (#10668)', async () => {
