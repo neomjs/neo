@@ -25,6 +25,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import dotenv          from 'dotenv';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -34,6 +35,7 @@ test.describe('SessionService setSessionId', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
     let SDK, TextEmbeddingService, dummySessionId;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const os = await import('os');
@@ -42,9 +44,10 @@ test.describe('SessionService setSessionId', () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const path = await import("path");
         const tmpDir = path.resolve(process.cwd(), "tmp");
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
         aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
-        
+
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
         }
@@ -72,6 +75,7 @@ test.describe('SessionService setSessionId', () => {
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager(SDK);
+        restoreAiConfig?.();
     });
 
     test.beforeEach(async () => {
@@ -87,9 +91,9 @@ test.describe('SessionService setSessionId', () => {
     test('setSessionId happy path: mutates currentSessionId', async () => {
         const oldId = SDK.Memory_SessionService.currentSessionId;
         const newId = crypto.randomUUID();
-        
+
         const result = await SDK.Memory_SessionService.setSessionId({ sessionId: newId });
-        
+
         expect(result.success).toBe(true);
         expect(result.sessionId).toBe(newId);
         expect(result.replacedSessionId).toBe(oldId);
@@ -98,9 +102,9 @@ test.describe('SessionService setSessionId', () => {
 
     test('setSessionId idempotency: no mutation if same ID', async () => {
         const currentId = SDK.Memory_SessionService.currentSessionId;
-        
+
         const result = await SDK.Memory_SessionService.setSessionId({ sessionId: currentId });
-        
+
         expect(result.success).toBe(true);
         expect(result.message).toBe("Session ID unchanged.");
         expect(SDK.Memory_SessionService.currentSessionId).toBe(currentId);
@@ -108,27 +112,27 @@ test.describe('SessionService setSessionId', () => {
 
     test('setSessionId invalid input: throws ZodError via SDK validation', async () => {
         const currentId = SDK.Memory_SessionService.currentSessionId;
-        
+
         await expect(SDK.Memory_SessionService.setSessionId({})).rejects.toThrow();
         await expect(SDK.Memory_SessionService.setSessionId({ sessionId: null })).rejects.toThrow();
-        
+
         // Ensure state wasn't mutated
         expect(SDK.Memory_SessionService.currentSessionId).toBe(currentId);
     });
 
     test('setSessionId AC verification: empty session is abandoned', async () => {
         const emptySessionId = crypto.randomUUID();
-        
+
         // Force the empty session as current
         SDK.Memory_SessionService.currentSessionId = emptySessionId;
-        
+
         const newId = crypto.randomUUID();
         const result = await SDK.Memory_SessionService.setSessionId({ sessionId: newId });
-        
+
         expect(result.success).toBe(true);
         expect(result.replacedSessionId).toBe(emptySessionId);
         expect(SDK.Memory_SessionService.currentSessionId).toBe(newId);
-        
+
         // Note: The AC states we abandon it, meaning we do nothing to Chroma for a zero-memory session,
         // it simply leaves no footprint because it wasn't tracked anyway.
     });

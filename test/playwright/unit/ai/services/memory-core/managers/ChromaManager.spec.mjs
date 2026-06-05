@@ -23,9 +23,15 @@ import {CHROMA_PRODUCTION_DATABASE, CHROMA_TEST_DATABASE} from '../../../../../.
 import logger         from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
 import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import path           from 'path';
+import {snapshotAiConfig} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 const tmpDir = path.resolve(process.cwd(), 'tmp');
+// aiConfig is a TOP-LEVEL import + mutation here (not a beforeAll); snapshot at module-load,
+// restore via a file-scope afterAll so this spec's graph path can't bleed into later specs.
+const restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph']);
 aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
+
+test.afterAll(() => { restoreAiConfig() });
 
 test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
     test('logs an operator-actionable config error before throwing on missing Chroma coordinates', () => {

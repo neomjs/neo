@@ -20,6 +20,7 @@ import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     let GraphService;
@@ -34,6 +35,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
 
     let originalWarn;
     let warnMessages = [];
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -44,6 +46,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'handoffFilePath']);
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.autoIngestFileSystem = false;
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
@@ -119,6 +122,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     /**
@@ -221,7 +225,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     });
 
     test('should count orphan concepts in stats without emitting per-orphan logger.warn (#10087)', async () => {
-        // Post-#10087: orphan surfacing moved from the ephemeral logger.warn channel to the
+        // Orphan surfacing moved from the ephemeral logger.warn channel to the
         // durable capabilityGap channel via GapInferenceEngine.inferConceptGraphGaps. ConceptIngestor
         // retains the count for the cycle-summary info line but no longer warns per orphan.
         writeFixture(

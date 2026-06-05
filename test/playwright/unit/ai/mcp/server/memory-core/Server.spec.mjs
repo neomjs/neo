@@ -19,6 +19,7 @@ import fs              from 'fs-extra';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs';
+import {snapshotAiConfig} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 
 test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
@@ -26,6 +27,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     let GraphService;
     const testDbName = `memory-core-server-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -36,6 +38,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph']);
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         aiConfig.storagePaths.graph = testDbPath;
 
@@ -57,6 +60,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     test.afterAll(async () => {
         const { TestLifecycleHelper } = await import('../../../../ai/services/memory-core/util.mjs');
         await TestLifecycleHelper.cleanupGraphService(GraphService, null, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test('bindAgentIdentity should correctly retrieve identity without cache manipulation', async () => {
@@ -80,8 +84,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         // Regression guard: in production, `GraphService.getNode` returns a Promise (Neo
         // singleton method wrapping). If `bindAgentIdentity` drops the `await`, `node.id`
-        // on the Promise object is `undefined` — the actual root cause of #10241's merged-
-        // but-incomplete fix that #10249 corrects. `unitTestMode` may resolve the method
+        // on the Promise object is `undefined` — the actual root cause that an earlier merged-
+        // but-incomplete fix missed and a later corrective addresses. `unitTestMode` may resolve the method
         // synchronously, so the other test in this suite does not reproduce the failure
         // mode; this test forces the Promise path explicitly by stubbing `getNode` to
         // return a Promise regardless of the framework's runtime decision.

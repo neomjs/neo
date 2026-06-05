@@ -25,13 +25,14 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import dotenv          from 'dotenv';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: true});
 
 test.describe('Memory Core Offline Summarization', () => {
-    // Bucket A (#10903): heavy SLM (gemma4) dependency — no local LM Studio / Ollama in CI.
+    // Bucket A: heavy SLM (gemma4) dependency — no local LM Studio / Ollama in CI.
     // The per-test `localModelActive` guard below stays as a defensive fallback for local-dev
     // without gemma4 running, but the CI-side skip is the early exit that prevents `beforeAll`
     // from probing a nonexistent endpoint.
@@ -39,6 +40,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
     let SDK, TextEmbeddingService, dummySessionId;
     let localModelActive = false;
+    let restoreAiConfig;
 
     // We must use dynamic imports in Playwright tests inside beforeAll or the test body
     // because Neo globals are established during setup()
@@ -50,6 +52,7 @@ test.describe('Memory Core Offline Summarization', () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const path = await import("path");
         const tmpDir = path.resolve(process.cwd(), "tmp");
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
         aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
 
@@ -106,6 +109,7 @@ test.describe('Memory Core Offline Summarization', () => {
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager(SDK);
+        restoreAiConfig?.();
         if (dummySessionId && localModelActive) {
             console.log(`[Cleanup] Deleted dummy Chroma collections for session ${dummySessionId}.`);
         }

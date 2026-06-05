@@ -21,6 +21,7 @@ import fs              from 'fs-extra';
 import path            from 'path';
 import os              from 'os';
 import {getPaths}      from '../../../../../../ai/graph/queries/Traversal.mjs';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let GraphService;
@@ -28,6 +29,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let service;
     const testDbName = `memory-core-graph-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -39,6 +41,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         testDbPath = path.join(tmpDir, testDbName);
 
         // Mock the SQLite target path to a safe pure temporary location
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         aiConfig.storagePaths.graph = testDbPath;
         if (!aiConfig.collections) aiConfig.collections = {};
@@ -102,6 +105,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test('should extract node neighbors properly', async () => {

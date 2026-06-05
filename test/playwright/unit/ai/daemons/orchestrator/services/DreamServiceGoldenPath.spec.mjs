@@ -23,12 +23,14 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import crypto          from 'crypto';
 import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
+import {snapshotAiConfig} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 test.describe('DreamService Golden Path', () => {
     let TextEmbeddingService, aiConfig, DreamService, GraphService, SystemLifecycleService;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -42,6 +44,7 @@ test.describe('DreamService Golden Path', () => {
         const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
         const testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'engine', 'handoffFilePath']);
         aiConfig.storagePaths.graph = testDbPath;
         aiConfig.engine               = 'hybrid';
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
@@ -72,6 +75,8 @@ test.describe('DreamService Golden Path', () => {
         if (fs.existsSync(mockHandoff)) {
             try {fs.unlinkSync(mockHandoff);} catch (e) {}
         }
+
+        restoreAiConfig?.();
     });
 
     test('synthesizeGoldenPath executes without crashing', async () => {

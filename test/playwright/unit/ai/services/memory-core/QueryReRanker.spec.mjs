@@ -23,6 +23,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import dotenv          from 'dotenv';
+import {snapshotAiConfig} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -32,6 +33,7 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
     let SDK, TextEmbeddingService, testSessionId;
+    let restoreAiConfig;
     const testPid = process.pid;
     const testTs  = Date.now();
 
@@ -39,6 +41,7 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const path = await import("path");
         const tmpDir = path.resolve(process.cwd(), "tmp");
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
         aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
         // Isolate collections to prevent pollution
@@ -86,6 +89,7 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager(SDK);
+        restoreAiConfig?.();
     });
 
     test('StorageRouter re-ranker should NOT crash when ChromaDB returns empty/malformed query results', async () => {
@@ -176,6 +180,7 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
     let SDK, TextEmbeddingService, driftSessionId;
+    let restoreAiConfig;
     const testPid = process.pid;
     const testTs  = Date.now();
 
@@ -183,6 +188,7 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         // Use SEPARATE isolated collections from the previous describe block
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['collections.memory', 'collections.session']);
         aiConfig.collections.memory  = `test-drift-mem-${testPid}-${testTs}`;
         aiConfig.collections.session = `test-drift-sum-${testPid}-${testTs}`;
 
@@ -207,6 +213,7 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager(SDK);
+        restoreAiConfig?.();
     });
 
     test('findSessionsToSummarize should detect unsummarized sessions with epoch timestamps', async () => {

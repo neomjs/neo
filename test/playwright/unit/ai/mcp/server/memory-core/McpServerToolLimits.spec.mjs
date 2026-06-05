@@ -18,9 +18,11 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import path           from 'path';
 import fs             from 'fs-extra';
+import {snapshotAiConfig} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
     let toolService;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         // Import the config and apply any required setup
@@ -32,12 +34,17 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
             fs.mkdirSync(tmpDir, { recursive: true });
         }
 
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph']);
         aiConfig.storagePaths.graph = path.join(tmpDir, `tool-limits-test-${Date.now()}.sqlite`);
 
         const ToolServiceModule = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         toolService = {
             listTools: ToolServiceModule.listTools
         };
+    });
+
+    test.afterAll(() => {
+        restoreAiConfig?.()
     });
 
     test('All Memory Core tools must respect description length constraints', async () => {

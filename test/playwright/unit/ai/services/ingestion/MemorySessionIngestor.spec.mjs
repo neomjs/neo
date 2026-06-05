@@ -19,6 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     // Serial within this describe — `beforeAll` performs a cold import cascade of the Neo
@@ -38,6 +39,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
 
     let originalWarn;
     let warnMessages = [];
+    let restoreAiConfig;
 
     /**
      * Builds a stub Chroma memory collection supporting two query shapes:
@@ -76,6 +78,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'handoffFilePath']);
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.autoIngestFileSystem = false;
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
@@ -140,6 +143,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test('should return stats object with the documented shape', async () => {
@@ -343,9 +347,9 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     });
 
     // ------------------------------------------------------------------------------------------
-    // ingestSingleRow (#10153) — per-row back-fill primitive. Consumed by
+    // ingestSingleRow — per-row back-fill primitive. Consumed by
     // `GraphService.ensureNodeExists` when `linkNodesAsync` hits a missing `memory:`/`session:`
-    // endpoint, and by `LazyEdgeDrainer` when draining the #10165 lazy-edges JSONL queue.
+    // endpoint, and by `LazyEdgeDrainer` when draining the lazy-edges JSONL queue.
     // ------------------------------------------------------------------------------------------
 
     /**
@@ -465,7 +469,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
             {id: 'chroma-summary-upper', metadata: {sessionId: 'sess-upper', createdAt: '2026-04-21T09:00:00Z', userId: 'tobiu'}}
         ]);
 
-        // Caller passes the uppercase prefix (Gemini's #10165 extractor convention); the
+        // Caller passes the uppercase prefix (Gemini's extractor convention); the
         // back-fill must land under the canonical lowercase form so the node is discoverable
         // by the existing ingestor's `session:`/`memory:` ID contract.
         const result = await MemorySessionIngestor.ingestSingleRow('MEMORY:mem-upper', {memoryCollection, summaryCollection});
@@ -493,7 +497,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(sessionNode.properties.liveIngested).toBe(true);
         expect(memoryNode.properties.liveIngested).toBe(true);
         // `backfilled` should remain undefined on live-ingested nodes; the two markers are
-        // mutually exclusive provenance tags per ticket #10153.
+        // mutually exclusive provenance tags.
         expect(sessionNode.properties.backfilled).toBeUndefined();
         expect(memoryNode.properties.backfilled).toBeUndefined();
     });

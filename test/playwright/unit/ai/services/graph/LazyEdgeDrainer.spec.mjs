@@ -19,6 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
     // Serial matches the sibling MemorySessionIngestor.spec — cold import chain of the Neo core
@@ -35,6 +36,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
     const queueName   = `test-lazy-edges-${process.pid}-${Date.now()}.jsonl`;
     let testDbPath;
     let queuePath;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -46,6 +48,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
         testDbPath = path.join(tmpDir, testDbName);
         queuePath  = path.join(tmpDir, queueName);
 
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem']);
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.autoIngestFileSystem = false;
 
@@ -87,6 +90,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test('drainQueue on non-existent queue file is a no-op', async () => {

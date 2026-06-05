@@ -18,9 +18,10 @@ import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {snapshotAiConfig}    from '../../../../fixtures/aiConfigIsolation.mjs';
 
 /**
- * #10017 write-side invariant regression coverage.
+ * Write-side invariant regression coverage.
  *
  * The Memory Core's multi-tenant migration strategy (lazy-tag-on-read, per
  * `learn/agentos/tooling/MultiTenantMigrationGuide.md §1`) depends on a write-side
@@ -51,6 +52,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
     let MailboxService, GraphService, LifecycleService;
     let dbPath;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const tmpDir = path.resolve(process.cwd(), 'tmp');
@@ -60,6 +62,7 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         dbPath = path.join(tmpDir, `neo-writeside-invariant-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'collections.memory', 'collections.session']);
         aiConfig.storagePaths.graph = dbPath;
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory = `test-memory-${Date.now()}`;
@@ -84,6 +87,8 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
             try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
             try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
         }
+
+        restoreAiConfig?.();
     });
 
     test('MailboxService.addMessage rejects writes without a bound agent identity', async () => {
@@ -118,7 +123,7 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         // Positive case: proper bind → write succeeds. Anchors the invariant to a
         // working baseline so a future regression that falsely rejects ALL writes
         // (over-tightened guard) is also caught.
-        // #11417: also seed `@neo-test-receiver` — `validateMailboxTarget` now rejects
+        // Also seed `@neo-test-receiver` — `validateMailboxTarget` now rejects
         // unrecognized targets at addMessage-time (instead of letting linkNodes silently
         // cull the SENT_TO edge), so the test must seed both endpoints to exercise the
         // happy path.
