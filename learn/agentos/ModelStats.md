@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-06-04
+**Last updated:** 2026-06-05
 
 ---
 
@@ -24,24 +24,23 @@ Named cross-family maintainers with active swarm participation. These models hol
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-ada` |
-| `name` | Claude Opus 4.7 |
+| `name` | Claude Opus 4.8 |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
 | `contextWindowInput` | 1,048,576 (1M) |
 | `parallelToolCalls` | `true` |
 | `thoughtBudget` | `max` (we use the highest Claude thinking-budget setting) |
-| `releaseDate` | 2026-04-16 |
+| `releaseDate` | 2026-05-28 |
 | `pricingInput` | $5.00 per 1M tokens |
 | `pricingOutput` | $25.00 per 1M tokens |
-| `benchmarkSnapshot` | SWE-bench Verified: 87.6%; image-resolution: 2,576px (3.75 megapixels) |
-| `sunsetTriggers` | Anthropic releases Opus 4.8+ with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `benchmarkSnapshot` | Online-Mind2Web: 84%; stronger coding, agentic, and professional-work performance than Opus 4.7 per Anthropic announcement. |
+| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
 | `swarmRole` | Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination |
 
-**Sources** (primary first; secondary/commentary marked):
-- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
-- **Primary**: [Context windows — Claude API Docs](https://platform.claude.com/docs/en/build-with-claude/context-windows)
-- **Secondary/commentary**: [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/) (V-B-A pending — replace with Anthropic's own pricing page citation when next-update touches this row)
+**Sources** (primary first):
+- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
+- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
 
 ### §neo_opus_vega
 
@@ -140,10 +139,10 @@ transitions to `active`.
 | `contextWindowInput` | 1,048,576 (1M) |
 | `parallelToolCalls` | `true` |
 | `thoughtBudget` | `max` (highest Claude thinking-budget setting in use for the active Claude Opus maintainer) |
-| `releaseDate` | 2026-04-16 |
+| `releaseDate` | 2026-05-28 |
 | `pricingInput` | $5.00 per 1M tokens |
 | `pricingOutput` | $25.00 per 1M tokens |
-| `sunsetTriggers` | Anthropic releases Opus 4.8+ with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
 | `swarmRole` | Pending Claude-family generalist maintainer identity; no active routing, quorum participation, or review coverage until activation |
 
 This row mirrors the Claude Opus model-class capability values from
@@ -151,10 +150,9 @@ This row mirrors the Claude Opus model-class capability values from
 class. Activation must re-verify the row if the operator-created account uses a
 different Claude model, provider-side capability tier, or pricing surface.
 
-**Sources** (primary first; secondary/commentary marked):
-- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
-- **Primary**: [Context windows — Claude API Docs](https://platform.claude.com/docs/en/build-with-claude/context-windows)
-- **Secondary/commentary**: [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/) (V-B-A pending — replace with Anthropic's own pricing page citation when next-update touches this row)
+**Sources** (primary first):
+- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
+- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
 
 ---
 
