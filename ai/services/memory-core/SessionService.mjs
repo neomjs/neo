@@ -253,7 +253,7 @@ class SessionService extends Base {
         if (aiConfig.modelProvider === 'openAiCompatible') {
             logger.info(`[SessionService] Initializing generation model via OpenAI-Compatible API (${aiConfig.openAiCompatible.model})`);
         } else if (aiConfig.modelProvider === 'ollama') {
-            logger.info(`[SessionService] Initializing generation model via native Ollama (${aiConfig.ollama?.model || '<unset>'})`);
+            logger.info(`[SessionService] Initializing generation model via native Ollama (${aiConfig.ollama.model})`);
         } else if (aiConfig.modelProvider === 'gemini') {
             logger.info(`[SessionService] Initializing generation model via Gemini (${aiConfig.modelName})`);
         }
@@ -575,9 +575,9 @@ ${aggregatedContent}
         // Consumer model naming covers all three active providers for
         // guardrail/log surfaces.
         const consumerModel =
-            aiConfig.modelProvider === 'openAiCompatible' ? (aiConfig.openAiCompatible.model || 'openAiCompatible') :
-            aiConfig.modelProvider === 'ollama'           ? (aiConfig.ollama?.model           || 'ollama') :
-            (aiConfig.modelName || 'gemini');
+            aiConfig.modelProvider === 'openAiCompatible' ? aiConfig.openAiCompatible.model :
+            aiConfig.modelProvider === 'ollama'           ? aiConfig.ollama.model :
+            aiConfig.modelName;
         const consumerContextTokens = aiConfig.localModels.chat.contextLimitTokens;
         const consumerSafeTokens    = aiConfig.localModels.chat.safeProcessingLimitTokens;
         const guardrailed           = await invokeWithGuardrail({
@@ -589,7 +589,7 @@ ${aggregatedContent}
             contextLimitTokens       : consumerContextTokens,
             safeProcessingLimitTokens: consumerSafeTokens,
             serviceDomain            : 'memory-core',
-            note                     : `summarizationBatchLimit=${aiConfig.summarizationBatchLimit || 'unset'}`
+            note                     : `summarizationBatchLimit=${aiConfig.summarizationBatchLimit}`
         });
 
         if (!guardrailed.result) {
