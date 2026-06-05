@@ -85,8 +85,8 @@ test.describe('Memory Core Config (#10010)', () => {
         });
     });
 
-    test('defaultPolicy initializes to legacy', () => {
-        expect(config.memorySharing.defaultPolicy).toBe('legacy');
+    test('defaultPolicy initializes to team (#12527)', () => {
+        expect(config.memorySharing.defaultPolicy).toBe('team');
     });
 
     test('inherits deployment-wide Tier-1 defaults (provider, auth, ollama, openAiCompatible, storage) via the realm chain', () => {

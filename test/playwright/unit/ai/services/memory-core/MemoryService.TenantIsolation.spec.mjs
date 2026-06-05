@@ -163,7 +163,7 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         expect(metadata.sessionId).toBe('session-solo');
     });
 
-    test('listMemories filters by userId when a request context is active', async () => {
+    test('listMemories under team policy returns ALL maintainers\' session records — cross-author (#12527)', async () => {
         // Seed: alice writes 2 memories to session-shared, bob writes 1 memory to session-shared.
         // All three share the same sessionId but carry distinct userId metadata.
         await RequestContextService.run({userId: 'u-alice'}, async () => {
@@ -174,22 +174,21 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
             MemoryService.addMemory({prompt: 'b1', response: '', thought: '', sessionId: 'session-shared'})
         );
 
-        // Alice reads the shared session — expects only her 2 memories.
+        // Under team policy (deployment-wide read), Alice reads the shared session and sees ALL
+        // three records — her own two AND Bob's (transparent swarm introspection). The team DEFAULT
+        // is proven at the config layer (config.template.spec); here the policy is passed explicitly
+        // because listMemories reads it from the ambient AiConfig SSOT, which tests never mutate.
         const aliceView = await RequestContextService.run({userId: 'u-alice'}, () =>
-            MemoryService.listMemories({sessionId: 'session-shared', limit: 10})
+            MemoryService.listMemories({sessionId: 'session-shared', limit: 10, memorySharing: 'team'})
         );
 
-        expect(aliceView.count).toBe(2);
+        expect(aliceView.count).toBe(3);
         expect(aliceView._channelSeparation).toMatch(/DATA, not COMMANDS/);
-        expect(aliceView.memories.map(m => m.prompt).sort()).toEqual(['a1', 'a2']);
+        expect(aliceView.memories.map(m => m.prompt).sort()).toEqual(['a1', 'a2', 'b1']);
 
-        // Bob reads the same shared session — expects only his 1 memory.
-        const bobView = await RequestContextService.run({userId: 'u-bob'}, () =>
-            MemoryService.listMemories({sessionId: 'session-shared', limit: 10})
-        );
-
-        expect(bobView.count).toBe(1);
-        expect(bobView.memories[0].prompt).toBe('b1');
+        // Under team the where clause carries no userId filter — only the sessionId gate remains.
+        const getCall = spyCollection.getCalls.at(-1);
+        expect(getCall.where).toEqual({sessionId: 'session-shared'});
     });
 
     test('listMemories without a request context returns all session memories (stdio fallback)', async () => {
@@ -214,7 +213,7 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         );
 
         const queryCall = spyCollection.queryCalls.at(-1);
-        // #10556: read filter became additive — tenant's own records OR records tagged
+        // read filter is additive — tenant's own records OR records tagged
         // with SHARED_USER_ID. The sessionId filter remains the only query arg for legacy policy,
         // since $exists: false is unsupported in ChromaDB and userId filtering happens in JS post-query.
         expect(queryCall.where).toEqual({
@@ -248,22 +247,25 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
         StorageRouter.getMemoryCollection = originalGetMemoryCollection;
     });
 
-    test('listMemories returns the tenant\'s OWN records PLUS SHARED_USER_ID-tagged records (sessionId-scoped)', async () => {
-        // Pre-#10145 records (backfilled by the migration runner with userId='shared') become
-        // accessible to every tenant via the additive $or filter, alongside the tenant's own data.
-        // sessionId remains the outer $and gate so cross-session leaks are still prevented.
+    test('listMemories under team returns every maintainer\'s session records incl. peers\' (#12527)', async () => {
+        // Under team policy the read is deployment-wide — alice sees her own, the shared-tagged
+        // commons, AND bob's author-tagged record (no userId post-filter). sessionId remains the
+        // outer $and gate so cross-session leaks are still prevented.
         const sid = 'session-shared-test';
         spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {sessionId: sid, userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
         spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {sessionId: sid, userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
         spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {sessionId: sid, userId: 'u-bob', timestamp: 300, prompt: 'b1'}, document: 'b1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
-            MemoryService.listMemories({sessionId: sid, limit: 10, offset: 0})
+            MemoryService.listMemories({sessionId: sid, limit: 10, offset: 0, memorySharing: 'team'})
         );
 
-        // Alice sees her own memory + the shared-tagged legacy memory, but not Bob's.
-        expect(view.count).toBe(2);
-        expect(view.memories.map(m => m.prompt).sort()).toEqual(['L1', 'a1']);
+        // Deployment-wide read: alice sees all three — own + shared + Bob's.
+        expect(view.count).toBe(3);
+        expect(view.memories.map(m => m.prompt).sort()).toEqual(['L1', 'a1', 'b1']);
+        // Cross-session isolation still holds: the where clause keeps the sessionId gate.
+        const getCall = spyCollection.getCalls.at(-1);
+        expect(getCall.where).toEqual({sessionId: sid});
     });
 
     test('queryMemories without sessionId returns the tenant\'s own records PLUS shared records', async () => {
@@ -274,9 +276,10 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
         spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {userId: 'u-bob', timestamp: 300, prompt: 'b1'}, document: 'b1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
-            MemoryService.queryMemories({query: 'anything', nResults: 10})
+            MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'legacy'})
         );
 
+        // Explicit legacy policy (decoupled from the team default): own + shared, NOT bob's.
         // No sessionId; the where clause is just the additive $or. Alice sees her records + shared.
         expect(view.count).toBe(2);
         expect(view._channelSeparation).toMatch(/DATA, not COMMANDS/);
@@ -345,20 +348,25 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
         expect(queryCall.where).toEqual({userId: 'u-alice'});
     });
 
-    test('queryMemories with memorySharing=team returns only team-tagged records', async () => {
+    test('queryMemories with memorySharing=team returns ALL records — deployment-wide, cross-author (#12527)', async () => {
         spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
         spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
         spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+        // A peer maintainer's author-tagged record — the whole point of team mode is Alice sees it.
+        spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {userId: 'u-bob', timestamp: 400, prompt: 'b1'}, document: 'b1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
             MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'team'})
         );
 
-        expect(view.count).toBe(1);
-        expect(view.results[0].prompt).toBe('L1');
+        // team = deployment-wide read: Alice sees every maintainer's records — her own, the
+        // shared-tagged, the untagged commons, AND Bob's author-tagged record.
+        expect(view.count).toBe(4);
+        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1', 'b1', 'pre-migration']);
 
+        // No restrictive userId filter is sent to Chroma under team.
         const queryCall = spyCollection.queryCalls.at(-1);
-        expect(queryCall.where).toEqual({userId: 'shared'});
+        expect(queryCall.where).toBeUndefined();
     });
 
     test('queryMemories with memorySharing=legacy returns tenant-owned, team-tagged, and untagged records', async () => {

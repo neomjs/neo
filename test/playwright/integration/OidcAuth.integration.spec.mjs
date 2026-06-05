@@ -100,20 +100,24 @@ test.describe('OIDC Authentication Fixture', () => {
                 agent: 'neo-agent'
             });
 
-            // Bob searches for the memory
+            // Bob searches under explicit `private` policy — the multi-tenant isolation contract.
+            // The team default is deployment-wide by design, so OIDC-tenant isolation is asserted
+            // under the policy that enforces it (multi-tenant forks set defaultPolicy='private').
             const bobResults = await callJsonTool(bobClient, 'query_raw_memories', {
                 query: 'secret code',
-                nResults: 5
+                nResults: 5,
+                memorySharing: 'private'
             });
 
             // Bob should not see Alice's memory
             const foundSecret = bobResults.results?.some(mem => mem.response.includes('OMEGA-99'));
             expect(foundSecret).toBe(false);
 
-            // Alice should see her own memory
+            // Alice sees her own memory (own records are always returned under private).
             const aliceResults = await callJsonTool(aliceClient, 'query_raw_memories', {
                 query: 'secret code',
-                nResults: 5
+                nResults: 5,
+                memorySharing: 'private'
             });
 
             const aliceFoundSecret = aliceResults.results?.some(mem => mem.response.includes('OMEGA-99'));

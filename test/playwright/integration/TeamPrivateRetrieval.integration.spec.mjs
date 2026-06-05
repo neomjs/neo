@@ -194,8 +194,8 @@ function seedGraphRecords(payload) {
         // binding. Without this, abstract identities are unbound and GraphService.searchNodes()
         // filtering by getAgentIdentityNodeId() returns empty for owner-private graph queries.
         // Mirrors the canonical seedAgentIdentities.mjs upsert pattern; cleanup is symmetric
-        // in cleanupGraphRecords. Avoided trap (#11057): IDs use the canonical '@<username>'
-        // shape, NOT the legacy 'AGENT:<username>' form (#10330 pollution).
+        // in cleanupGraphRecords. Avoided trap: IDs use the canonical '@<username>'
+        // shape, NOT the legacy 'AGENT:<username>' form (which caused identity-node pollution).
         const fixtureIdentityIds = [
             '@' + payload.ownerIdentity,
             '@' + payload.peerIdentity,
@@ -296,7 +296,7 @@ function cleanupGraphRecords(payload) {
         const deleteNode = db.prepare('DELETE FROM Nodes WHERE id = ?');
 
         // Clean up both the test-data nodes AND the fixture AgentIdentity nodes seeded
-        // by seedGraphRecords. AgentIdentity nodes are apoptosis-exempt (per #10789), so
+        // by seedGraphRecords. AgentIdentity nodes are apoptosis-exempt, so
         // explicit cleanup is required to prevent fixture-identity accumulation across runs.
         const allNodeIds = [...payload.nodeIds, ...(payload.identityNodeIds || [])];
 
@@ -423,20 +423,27 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
 
             seedChromaRecords(directSeedPayload);
 
+            // Private-boundary queries pin `memorySharing: 'private'`: the team default is
+            // deployment-wide, so per-tenant raw-memory boundaries are asserted under the policy
+            // that enforces them. The shared-commons queries below intentionally use the default
+            // (team → shared records remain visible deployment-wide).
             const ownerPrivate = await callJsonTool(owner, 'query_raw_memories', {
-                nResults: 10,
-                query   : ownerMemorySentinel,
-                sessionId
+                nResults     : 10,
+                query        : ownerMemorySentinel,
+                sessionId,
+                memorySharing: 'private'
             });
             const peerPrivate = await callJsonTool(peer, 'query_raw_memories', {
-                nResults: 10,
-                query   : peerMemorySentinel,
-                sessionId
+                nResults     : 10,
+                query        : peerMemorySentinel,
+                sessionId,
+                memorySharing: 'private'
             });
             const unrelatedOwnerPrivate = await callJsonTool(unrelated, 'query_raw_memories', {
-                nResults: 10,
-                query   : ownerMemorySentinel,
-                sessionId
+                nResults     : 10,
+                query        : ownerMemorySentinel,
+                sessionId,
+                memorySharing: 'private'
             });
             const ownerSharedMemory = await callJsonTool(owner, 'query_raw_memories', {
                 nResults: 10,
@@ -569,8 +576,8 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
             expect(nodeTexts(ownerTeam)).toContain(teamGraphSentinel);
             expect(nodeTexts(peerTeam)).toContain(teamGraphSentinel);
 
-            // Current #10011 substrate models `visibility: "team"` as broad team-visible graph
-            // RLS bypass. Membership-qualified team authorization remains #10010/#10011 scope.
+            // The current substrate models `visibility: "team"` as broad team-visible graph
+            // RLS bypass. Membership-qualified team authorization is future scope (tracked outside this fixture).
             expect(nodeTexts(unrelatedTeam)).toContain(teamGraphSentinel);
         } finally {
             cleanupGraphRecords({
