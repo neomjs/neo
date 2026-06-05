@@ -27,9 +27,9 @@ import path           from 'path';
  *   - `keepMinimum` — newest N bundles retained unconditionally
  *   - `maxDays`     — bundles older than N days are eligible for deletion
  *
- * Default values (`K=3, N_DAYS=30`) match the previous hardcoded constants
- * (byte-equivalence anchor — deployments without `backupRetention`
- * config behave identically).
+ * Default values (`K=3, N_DAYS=30`) are now owned by the top-level
+ * `aiConfig.maintenance.backup.retention` subtree and match the previous
+ * hardcoded constants.
  */
 // Serial mode: this spec exercises a shared `cleanOldBackups` import + tmp filesystem
 // state. Running serially within the file avoids cross-test parallel-worker contention
@@ -162,7 +162,7 @@ test.describe('cleanOldBackups — configurable retention', () => {
         expect(remaining).toHaveLength(24);
     });
 
-    test('missing retention config (undefined) falls through to defaults — preserves zero-config deployments', async () => {
+    test('missing cleanOldBackups retention argument uses function defaults', async () => {
         await seedBackup(1);
         await seedBackup(40);
         await seedBackup(60);
@@ -170,11 +170,12 @@ test.describe('cleanOldBackups — configurable retention', () => {
         await cleanOldBackups(tmpRoot, {log: () => {}}, undefined);
 
         const remaining = await listBackups();
-        // K=3 default — all 3 backups retained unconditionally despite 40d + 60d being >30d
+        // Function-level K=3 default — all 3 backups retained unconditionally despite
+        // 40d + 60d being >30d.
         expect(remaining).toHaveLength(3);
     });
 
-    test('empty retention config object ({}) falls through to defaults', async () => {
+    test('empty cleanOldBackups retention object uses property defaults', async () => {
         await seedBackup(1);
         await seedBackup(40);
         await seedBackup(60);

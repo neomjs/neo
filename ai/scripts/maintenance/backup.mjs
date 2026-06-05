@@ -207,8 +207,8 @@ export async function runBackup({
 
     logger.log('[7/7] Applying retention sweep...');
     await loadTopLevelAiConfig();
-    // Operator-configurable retention comes from Tier-1 AI maintenance policy when
-    // available. Missing keys fall through to Memory Core config/defaults.
+    // Retention comes from Tier-1 AI maintenance policy; missing keys fail loud
+    // at the direct resolved-leaf read site.
     await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger, resolveBackupRetention());
 
     logger.log('Verifying bundle integrity (row-count parity)...');
