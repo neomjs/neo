@@ -40,7 +40,7 @@ export function getStateFilePath(identity) {
  * a process handle. The recorded PID is what the NEXT `resumeHarness` invocation
  * will SIGTERM during cleanup.
  *
- * @param {string} identity        Agent identity (e.g. '@neo-opus').
+ * @param {string} identity        Agent identity (e.g. '@neo-opus-ada').
  * @param {number} pid             Spawned process PID.
  * @param {number} [spawnedAt]     Spawn timestamp (defaults to Date.now()).
  * @returns {Promise<void>}

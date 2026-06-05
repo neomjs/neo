@@ -56,7 +56,7 @@ export async function checkAllAgentIdle() {
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
 
-    const identitiesEnv = process.env.NEO_TRIO_IDENTITIES || '@neo-gemini-pro,@neo-opus,@neo-gpt';
+    const identitiesEnv = process.env.NEO_TRIO_IDENTITIES || '@neo-gemini-pro,@neo-opus-ada,@neo-gpt';
     const identities = identitiesEnv.split(',').map(s => s.trim()).filter(Boolean);
 
     const thresholdMs = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;

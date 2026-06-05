@@ -115,7 +115,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             'neo-claude-opus' : 'claude',
             'neo-gemini-pro': 'gemini',
             'neo-gpt'           : 'gpt',
-            'neo-opus'      : 'claude',
+            'neo-opus-ada'      : 'claude',
             'neo-opus-vega'     : 'claude'
         });
 
@@ -123,7 +123,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             'neo-claude-opus',
             'neo-gemini-pro',
             'neo-gpt',
-            'neo-opus',
+            'neo-opus-ada',
             'neo-opus-vega'
         ]));
         expect(Synthesizer.getAgentLogins()).not.toContain('tobiu');
@@ -132,7 +132,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             'neo-claude-opus',
             'neo-gemini-pro',
             'neo-gpt',
-            'neo-opus',
+            'neo-opus-ada',
             'neo-opus-vega',
             'tobiu'
         ]));
@@ -194,9 +194,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
                 body: "lane-state: AWAITING_REVIEW\nCycle 2",
                 createdAt: "2026-05-11T00:00:00Z",
                 headRefOid: "abcdef1234567890",
-                reviewRequests: [{ login: "neo-opus" }],
+                reviewRequests: [{ login: "neo-opus-ada" }],
                 reviews: [
-                    { state: "CHANGES_REQUESTED", body: "Needs more scope reduction.", submittedAt: "2026-05-11T00:00:00Z", author: {login: "neo-opus"} }
+                    { state: "CHANGES_REQUESTED", body: "Needs more scope reduction.", submittedAt: "2026-05-11T00:00:00Z", author: {login: "neo-opus-ada"} }
                 ],
                 comments: []
             }
@@ -223,7 +223,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain('- **PR #11178**: [feat(ai): Automate PR Cycle State Extraction](https://github.com/neomjs/neo/pull/11178)');
         expect(handoffContent).toContain('- **Lane State**: `AWAITING_REVIEW`');
         expect(handoffContent).toContain('- **Cycle**: `2`');
-        expect(handoffContent).toContain('- **Reviewers**: neo-opus');
+        expect(handoffContent).toContain('- **Reviewers**: neo-opus-ada');
         expect(handoffContent).toContain('- **Status**: `CHANGES_REQUESTED`');
         expect(handoffContent).toContain('- **Head SHA**: `abcdef1234567890`');
     });
@@ -278,18 +278,18 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             'labels:',
             '  - enhancement',
             'assignees:',
-            '  - neo-opus',
+            '  - neo-opus-ada',
             "createdAt: '2026-05-01T00:00:00Z'",
             "updatedAt: '2026-05-10T00:00:00Z'",
             "githubUrl: 'https://github.com/neomjs/neo/issues/9001'",
-            'author: neo-opus',
+            'author: neo-opus-ada',
             '---',
             '# Old assigned issue',
             '',
             '## Timeline',
             '',
-            '- 2026-05-01T00:00:00Z @tobiu assigned to @neo-opus',
-            '### @neo-opus - 2026-05-10T00:00:00Z',
+            '- 2026-05-01T00:00:00Z @tobiu assigned to @neo-opus-ada',
+            '### @neo-opus-ada - 2026-05-10T00:00:00Z',
             '',
             'working on this'
         ].join('\n'));
@@ -352,8 +352,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         expect(handoffContent).toContain('## Stale Assignment Candidates');
         expect(handoffContent).toContain('[#9001](https://github.com/neomjs/neo/issues/9001)');
-        expect(handoffContent).toContain('assignee @neo-opus');
-        expect(handoffContent).toContain('last qualifying activity 2026-05-10T00:00:00.000Z by @neo-opus');
+        expect(handoffContent).toContain('assignee @neo-opus-ada');
+        expect(handoffContent).toContain('last qualifying activity 2026-05-10T00:00:00.000Z by @neo-opus-ada');
         expect(handoffContent).not.toContain('Fresh assigned issue');
         expect(handoffContent).not.toContain('Rejected assigned issue');
     });
@@ -378,7 +378,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             createdAt: `2026-05-${String(number).padStart(2, '0')}T00:00:00Z`,
             headRefOid: `sha-${number}`,
             reviewRequests: [],
-            reviews: number === 6 ? [{state: 'APPROVED', body: 'LGTM', submittedAt: '2026-05-06T01:00:00Z', author: {login: 'neo-opus'}}] : [],
+            reviews: number === 6 ? [{state: 'APPROVED', body: 'LGTM', submittedAt: '2026-05-06T01:00:00Z', author: {login: 'neo-opus-ada'}}] : [],
             comments: []
         }));
 

@@ -64,7 +64,7 @@ class SummaryService extends Base {
      * post-filter. (They diverge only for an UNCLASSIFIED source identity, which is never a boot
      * ledger subject.)
      *
-     * Identity-namespace match — `sourceAgentIdentities` entries are `@`-prefixed (`@neo-opus`)
+     * Identity-namespace match — `sourceAgentIdentities` entries are `@`-prefixed (`@neo-opus-ada`)
      * and `getAgentIdentityNodeId()` returns the same `@`-prefixed node those edges terminate on.
      * The leading `@` is stripped symmetrically on both sides so a format drift can never silently
      * zero the result.

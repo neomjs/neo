@@ -36,7 +36,7 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
     // storage is `:memory:` (per-process), so fixture-process seeding cannot reach
     // the subprocess. Use a canonical identity that `seedAgentIdentities.mjs`
     // provisions at the subprocess's `LifecycleService.initAsync` boot.
-    const TEST_COORDINATOR = '@neo-opus';
+    const TEST_COORDINATOR = '@neo-opus-ada';
 
     test.beforeEach(async () => {
         await fs.remove(STATE_PATH);

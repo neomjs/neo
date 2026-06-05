@@ -129,9 +129,9 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             expect(identity.properties.modelFamily).toBe('gemini');
         });
 
-        test('resolves claude family to @neo-opus', () => {
+        test('resolves claude family to @neo-opus-ada', () => {
             const identity = resolveIdentityForFamily('claude');
-            expect(identity.id).toBe('@neo-opus');
+            expect(identity.id).toBe('@neo-opus-ada');
         });
 
         test('fans out to all active Claude identities without double-counting the family', () => {
@@ -141,13 +141,13 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             );
 
             expect(claudeIdentities.map(identity => identity.id)).toEqual(expect.arrayContaining([
-                '@neo-opus',
+                '@neo-opus-ada',
                 '@neo-claude-opus',
                 '@neo-opus-vega'
             ]));
-            expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus');
+            expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-ada');
             expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
-                '@neo-opus',
+                '@neo-opus-ada',
                 '@neo-claude-opus',
                 '@neo-opus-vega'
             ]);
@@ -184,11 +184,11 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         test('includes same-family aggregation note for multi-active notification fan-out', () => {
             const body = buildNotificationBody({
                 family       : 'claude',
-                identityLogins: ['@neo-opus', '@neo-claude-opus', '@neo-opus-vega'],
+                identityLogins: ['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega'],
                 since        : '2026-05-18T00:00:00.000Z',
                 sweepAt      : '2026-06-01T12:00:00.000Z'
             });
-            expect(body).toContain('@neo-opus, @neo-claude-opus, @neo-opus-vega');
+            expect(body).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
             expect(body).toContain('Same-family aggregation note');
             expect(body).toContain('no active same-family identity holds unresolved DEFERRED / VETO');
         });
@@ -280,9 +280,9 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 dryRun : true,
                 io     : fakeIo
             });
-            expect(result.identityLogin).toBe('@neo-opus');
-            expect(result.identityLogins).toEqual(['@neo-opus', '@neo-claude-opus', '@neo-opus-vega']);
-            expect(result.results[0].notification).toContain('@neo-opus, @neo-claude-opus, @neo-opus-vega');
+            expect(result.identityLogin).toBe('@neo-opus-ada');
+            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega']);
+            expect(result.results[0].notification).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
         });
 
         test('returns empty results when no candidates match', async () => {

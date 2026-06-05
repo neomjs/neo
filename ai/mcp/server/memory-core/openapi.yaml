@@ -1754,7 +1754,7 @@ components:
               type: string
               nullable: true
               description: The `@`-prefixed graph node ID when bound, else null
-              example: "@neo-opus"
+              example: "@neo-opus-ada"
         details:
           type: array
           items:

@@ -44,7 +44,7 @@ Once the server starts, every tool call from a client MUST arrive with `Authoriz
 
 The stdio transport has no request-level authentication primitive — the security boundary is the trusted-process boundary. Identity is resolved **once at server boot** via the following chain:
 
-1. **`NEO_AGENT_IDENTITY` environment variable.** Explicit pinning — the authoritative source for agent harnesses. The value is normalized: a leading `@` is stripped so the runtime identity matches GitHub API conventions (`neo-opus`, not `@neo-opus`).
+1. **`NEO_AGENT_IDENTITY` environment variable.** Explicit pinning — the authoritative source for agent harnesses. The value is normalized: a leading `@` is stripped so the runtime identity matches GitHub API conventions (`neo-opus-ada`, not `@neo-opus-ada`).
 2. **`gh api user` via the GitHub CLI.** Fallback for local human developers who have `gh` installed and authenticated. Silent-fails (returns `null`) if the CLI is absent, the user is not logged in, or the call exceeds a **1.5-second fail-fast budget**. A healthy `gh` resolves in <200ms; a slower call likely indicates auth-refresh or network degradation. The MCP client-side init-handshake budget (~5s total) must cover this call *plus* ChromaDB health checks, `SystemLifecycleService.ready()`, `GraphService.ready()`, and transport connect — so the gh timeout is intentionally a small fraction of that window. Single-tenant fallthrough is preferable to exhausting the handshake.
 3. **`unresolved`.** Neither path yielded identity. Downstream services treat this as **single-tenant mode** (backward-compatible) — no tag on writes, no filter on reads.
 
@@ -60,7 +60,7 @@ The resolved identity is cached on the running server instance and wrapped aroun
 > (Twin Language Server Bug). See `.agents/skills/debugging-antigravity/references/debugging-guide.md` §1
 > for the full pattern.
 
-Each AI harness pins its model's identity at session start by setting `NEO_AGENT_IDENTITY`. Matches the per-model GitHub-account convention from ticket #10144 (`@neo-opus`, `@neo-gemini-pro`, `@tobiu`).
+Each AI harness pins its model's identity at session start by setting `NEO_AGENT_IDENTITY`. Matches the per-model GitHub-account convention from ticket #10144 (`@neo-opus-ada`, `@neo-gemini-pro`, `@tobiu`).
 
 ### Claude Code (`.claude/settings.json`)
 
@@ -71,7 +71,7 @@ Each AI harness pins its model's identity at session start by setting `NEO_AGENT
             "command": "node",
             "args": ["ai/mcp/server/memory-core/mcp-server.mjs"],
             "env": {
-                "NEO_AGENT_IDENTITY": "neo-opus"
+                "NEO_AGENT_IDENTITY": "neo-opus-ada"
             }
         }
     }
@@ -102,7 +102,7 @@ No harness configuration required. `StdioIdentityResolver` falls back to `gh api
 
 Ticket #10144 seeded three `AgentIdentity` nodes in the Native Edge Graph:
 
-- `@neo-opus` — Claude Opus 4.7
+- `@neo-opus-ada` — Claude Opus 4.7
 - `@neo-gemini-pro` — Gemini 3.1 Pro
 - `@tobiu` — Tobias Uhlig (human owner)
 
@@ -172,7 +172,7 @@ The fastest single-call diagnostic is the `identity` block in the MCP `healthche
     "identity": {
         "source": "env-var" | "gh-cli" | "oidc" | "unresolved",
         "bound":  true | false,
-        "nodeId": "@neo-opus" | null
+        "nodeId": "@neo-opus-ada" | null
     }
 }
 ```
@@ -330,7 +330,7 @@ The `BLOCKED_BY` permission scope acts as a negative-intent override in **both**
 
 ## Identity Normalization Migration (#10259)
 
-If your SQLite graph predates the `#10144` canonical `AgentIdentity` convention, it may contain stale alias nodes (`@opus`, `@gemini`) with null metadata alongside the canonical nodes (`@neo-opus`, `@neo-gemini-pro`). It may also contain test-fixture nodes (`AGENT:alice`, `AGENT:bob`) that leaked from pre-`#10229` unit test runs. Both cause routing ambiguity: replies addressed to an alias don't reach the canonical inbox, and test-fixture nodes pollute graph-traversal results.
+If your SQLite graph predates the `#10144` canonical `AgentIdentity` convention, it may contain stale alias nodes (`@opus`, `@gemini`) with null metadata alongside the canonical nodes (`@neo-opus-ada`, `@neo-gemini-pro`). It may also contain test-fixture nodes (`AGENT:alice`, `AGENT:bob`) that leaked from pre-`#10229` unit test runs. Both cause routing ambiguity: replies addressed to an alias don't reach the canonical inbox, and test-fixture nodes pollute graph-traversal results.
 
 The `ai/scripts/normalizeGraphIdentities.mjs` script consolidates the graph in a single idempotent operation.
 
@@ -366,7 +366,7 @@ sqlite3 .neo-ai-data/sqlite/memory-core-graph.sqlite \
 Expected result:
 ```
 @neo-gemini-pro | AgentIdentity
-@neo-opus       | AgentIdentity
+@neo-opus-ada       | AgentIdentity
 @tobiu              | AgentIdentity
 AGENT:*             | BroadcastSentinel
 ```
@@ -387,7 +387,7 @@ The script is safe to re-run after `--apply`. If an alias has already been purge
 
 Independent of the migration: `MailboxService.normalizeMailboxTarget` (#10259) handles the two single-typo prefix surfaces symmetrically:
 
-- **Missing `@`** (more common): bare GitHub login → prepend `@`. `gemini` → `@gemini`, `neo-opus` → `@neo-opus`.
+- **Missing `@`** (more common): bare GitHub login → prepend `@`. `gemini` → `@gemini`, `neo-opus-ada` → `@neo-opus-ada`.
 - **Accidental `@@`** (less common): double-prefix → single-prefix. `@@login` → `@login`.
 
 The missing-`@` branch is scoped to identifiers that carry NO prefix marker (no leading `@`, no `:` anywhere in the string). Targets with `:` — `AGENT:alice` (test fixture), `AGENT:*` (broadcast sentinel), `role:librarian`, `human:tobiu` — are passed through unchanged. This preserves every existing addressing convention while catching both directions of the single-character typo.

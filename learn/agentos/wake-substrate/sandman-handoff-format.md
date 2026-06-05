@@ -17,7 +17,7 @@ Detected structural mismatches within the codebase architecture, populated from 
 - `[ARCHIVE_ANOMALY]`
 
 ### 2. Active PR Cycle State
-A live extraction of active Pull Requests originated by the core Swarm agents (`@neo-opus`, `@neo-gemini-pro`, `@neo-gpt`).
+A live extraction of active Pull Requests originated by the core Swarm agents (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`).
 Provides immediate visibility into cross-peer workflow, blocking states, and review cycles.
 
 Each PR listing includes:
