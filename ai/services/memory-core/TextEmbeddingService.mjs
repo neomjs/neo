@@ -101,6 +101,9 @@ class TextEmbeddingService extends Base {
         ollamaProvider_: null
     }
 
+    #openAiCompatiblePostQueue       = [];
+    #openAiCompatiblePostQueueActive = false;
+
     /**
      * @param {Object} config The configuration object.
      */
@@ -116,6 +119,79 @@ class TextEmbeddingService extends Base {
                 this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
             }
         }
+    }
+
+    /**
+     * @summary Queues OpenAI-compatible embedding posts behind an interactive-first scheduler.
+     *
+     * Local OpenAI-compatible embedding servers frequently serialize model requests. This queue
+     * keeps TextEmbeddingService from creating competing local-provider concurrency while allowing
+     * latency-sensitive single embeddings to run before subsequent KB-sync batch chunks.
+     *
+     * @param {String|String[]} inputData The text or array of texts to embed.
+     * @param {Object} options The `#postOpenAiCompatible` retry/timeout options.
+     * @param {'interactive'|'batch'} priority The request lane priority.
+     * @returns {Promise<Object>}
+     * @private
+     */
+    #enqueueOpenAiCompatiblePost(inputData, options, priority) {
+        return new Promise((resolve, reject) => {
+            this.#openAiCompatiblePostQueue.push({
+                inputData,
+                options,
+                priority,
+                reject,
+                resolve
+            });
+
+            this.#drainOpenAiCompatiblePostQueue();
+        });
+    }
+
+    /**
+     * @summary Runs queued OpenAI-compatible posts one at a time, preferring interactive work.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #drainOpenAiCompatiblePostQueue() {
+        if (this.#openAiCompatiblePostQueueActive) return;
+
+        this.#openAiCompatiblePostQueueActive = true;
+
+        try {
+            while (this.#openAiCompatiblePostQueue.length > 0) {
+                const taskIndex = this.#getNextOpenAiCompatiblePostQueueIndex(),
+                      task      = this.#openAiCompatiblePostQueue.splice(taskIndex, 1)[0];
+
+                try {
+                    task.resolve(await this.#postOpenAiCompatible(task.inputData, task.options));
+                } catch (err) {
+                    task.reject(err);
+                }
+            }
+        } finally {
+            this.#openAiCompatiblePostQueueActive = false;
+        }
+    }
+
+    /**
+     * @summary Selects the next OpenAI-compatible queue item, FIFO within each priority lane.
+     * @returns {Number}
+     * @private
+     */
+    #getNextOpenAiCompatiblePostQueueIndex() {
+        let bestIndex = 0;
+
+        for (let i = 1; i < this.#openAiCompatiblePostQueue.length; i++) {
+            const best = this.#openAiCompatiblePostQueue[bestIndex],
+                  item = this.#openAiCompatiblePostQueue[i];
+
+            if (best.priority === 'batch' && item.priority === 'interactive') {
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
     }
 
     /**
@@ -275,9 +351,9 @@ class TextEmbeddingService extends Base {
 
         for (let offset = 0; offset < texts.length; offset += chunkSize) {
             const chunk = texts.slice(offset, offset + chunkSize),
-                  result = await this.#postOpenAiCompatible(chunk, {
+                  result = await this.#enqueueOpenAiCompatiblePost(chunk, {
                       unloadRetriesLeft: unloadRetryCount
-                  });
+                  }, 'batch');
 
             data.push(...(result.data || []).map(item => ({
                 ...item,
@@ -312,11 +388,11 @@ class TextEmbeddingService extends Base {
                 contentionRetryCount      = 2,
                 contentionTimeoutMs       = 15000
             } = aiConfig.openAiCompatible;
-            const result = await this.#postOpenAiCompatible(text, {
+            const result = await this.#enqueueOpenAiCompatiblePost(text, {
                 unloadRetriesLeft    : unloadRetryCount,
                 contentionRetriesLeft: contentionRetryCount,
                 requestTimeoutMs     : contentionTimeoutMs
-            });
+            }, 'interactive');
             return result.data?.[0]?.embedding;
         } else if (explicitProvider === 'ollama') {
             // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
