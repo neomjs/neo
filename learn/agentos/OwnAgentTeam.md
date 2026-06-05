@@ -122,6 +122,70 @@ For stdio clients, `NEO_AGENT_IDENTITY` is the authoritative local identity pin.
 GitHub CLI fallback is useful for humans, but a team agent should not depend on an
 ambient shell login.
 
+## Provision Git Commit Identity
+
+`NEO_AGENT_IDENTITY` binds a harness to its Memory Core node, and a per-clone `GH_TOKEN`
+routes GitHub API/CLI calls to the right account — but **neither sets git's commit
+author**. That is a separate surface. If a clone has no commit identity, `git commit`
+falls through to the global `~/.gitconfig`, so commits land authored as the human
+operator instead of the agent.
+
+This is easy to miss because **squash-merge masks it**: GitHub rewrites a squashed
+commit's author to the PR account, so merged history looks correct while local history,
+`Co-Authored-By` trailers, and any rebase/merge-commit stay mis-attributed. Treat commit
+identity as load-bearing, not cosmetic.
+
+Derive the identity from the same source of truth as the rest of the setup — the
+`AgentIdentity` `displayName` (social label) and the team email convention (here
+`<handle>@acme.example`). **Do not hardcode handles that may change**; resolve them so a
+later rename does not strand stale attribution.
+
+### Primary: inject commit identity in the harness env
+
+`GIT_AUTHOR_*` / `GIT_COMMITTER_*` environment variables override **both** repo-local and
+global config (precedence: `--author` > `GIT_AUTHOR_*` / `GIT_COMMITTER_*` env > `git
+config --local` > global). Inject them once per agent, beside `NEO_AGENT_IDENTITY`, and
+every repo the process touches is attributed correctly from a single shared clone:
+
+```bash
+export GIT_AUTHOR_NAME="Acme Claude"
+export GIT_AUTHOR_EMAIL="acme-claude@acme.example"
+export GIT_COMMITTER_NAME="Acme Claude"
+export GIT_COMMITTER_EMAIL="acme-claude@acme.example"
+```
+
+Env injection is the robust shape because it cannot be forgotten per-clone — the
+originating failure was an unconfigured clone falling through to the operator's global
+identity. Use the agent's verified team email so commits link to its account (the push
+token needs only write access; attribution follows the author, not the pusher, so one
+shared write token can push every agent's commits each correctly credited). Never use a
+`<noreply@*>` author/committer email.
+
+### Fallback: per-clone repo-local config
+
+For contexts without harness env injection — a manual shell, a one-off side-repo — set
+repo-local identity per clone:
+
+```bash
+git config user.name  "Acme Claude"          # AgentIdentity displayName
+git config user.email "acme-claude@acme.example"
+```
+
+Repo-local config is the fallback, not the primary, precisely because it must be repeated
+for every clone and is the step that gets skipped.
+
+### Verify (fail loud)
+
+Before the first commit from a new clone or harness, confirm the effective author:
+
+```bash
+git var GIT_AUTHOR_IDENT
+# → Acme Claude <acme-claude@acme.example> 1700000000 +0000
+```
+
+If this resolves to the operator's global identity (a personal name/email), **stop and
+fix it before committing** — otherwise the agent silently commits as the operator.
+
 ## Isolate Memory Correctly
 
 Local provisioning has three memory surfaces:
@@ -198,9 +262,10 @@ Provision teammates incrementally:
 1. Add one identity root.
 2. Seed the graph.
 3. Bind one harness with `NEO_AGENT_IDENTITY`.
-4. Verify `healthcheck.identity.bound`.
-5. Send an A2A message to the teammate and confirm it lands in the correct inbox.
-6. Repeat for the next teammate.
+4. Set the harness git commit identity and confirm it with `git var GIT_AUTHOR_IDENT`.
+5. Verify `healthcheck.identity.bound`.
+6. Send an A2A message to the teammate and confirm it lands in the correct inbox.
+7. Repeat for the next teammate.
 
 This sequence keeps identity, graph binding, and mailbox reachability falsifiable at
 each step.
