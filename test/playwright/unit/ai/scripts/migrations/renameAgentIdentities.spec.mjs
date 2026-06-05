@@ -15,7 +15,7 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import Database       from 'better-sqlite3';
-import {execFileSync} from 'node:child_process';
+import {lstatSync, readdirSync, readFileSync} from 'node:fs';
 import path           from 'node:path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
@@ -67,48 +67,91 @@ function insertEdge(db, edge) {
         .run(edge.id, edge.user_id || null, edge.source, edge.target, edge.type, JSON.stringify(edge.data));
 }
 
+/**
+ * @summary Returns a POSIX-style path relative to the repository root.
+ * @param {String} repoRoot Absolute repository root.
+ * @param {String} filePath Absolute file path.
+ * @returns {String} Repository-relative path.
+ */
+function getRelativePath(repoRoot, filePath) {
+    return path.relative(repoRoot, filePath).split(path.sep).join('/');
+}
+
+/**
+ * @summary Determines whether a repository-relative path is outside the current-contract scan.
+ * @param {String} relativePath Repository-relative path.
+ * @returns {Boolean} True when the path should be skipped.
+ */
+function isExcludedPath(relativePath) {
+    return [
+        'resources/content/',
+        'learn/agentos/incidents/',
+        'learn/agentos/measurements/',
+        'learn/agentos/decisions/',
+        'node_modules/',
+        'dist/'
+    ].some(prefix => relativePath === prefix.slice(0, -1) || relativePath.startsWith(prefix));
+}
+
+/**
+ * @summary Scans selected repository paths for stale versioned identity handles.
+ * @param {String} repoRoot Absolute repository root.
+ * @param {String[]} entries Repository-relative files or directories to scan.
+ * @param {RegExp} pattern Pattern to find.
+ * @returns {String[]} Repository-relative files containing the pattern.
+ */
+function findFilesContaining(repoRoot, entries, pattern) {
+    const matches = [];
+
+    const visit = (filePath) => {
+        const relativePath = getRelativePath(repoRoot, filePath);
+        if (isExcludedPath(relativePath)) return;
+
+        const stat = lstatSync(filePath);
+        if (stat.isDirectory()) {
+            for (const entry of readdirSync(filePath)) {
+                visit(path.join(filePath, entry));
+            }
+            return;
+        }
+        if (!stat.isFile()) return;
+
+        try {
+            if (pattern.test(readFileSync(filePath, 'utf8'))) {
+                matches.push(relativePath);
+            }
+        } catch (e) {
+            // Non-text files inside broad roots are irrelevant to this identity-contract guard.
+        }
+    };
+
+    for (const entry of entries) {
+        visit(path.join(repoRoot, entry));
+    }
+
+    return matches;
+}
+
 test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
     test('stale versioned handles are confined to the migration runner and its fixtures', () => {
         const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../..');
-        let output = '';
-
-        try {
-            output = execFileSync('rg', [
-                '-l',
-                'neo-opus-4-7|neo-gemini-3-1-pro|neo_opus_4_7|neo_gemini_3_1_pro',
-                '--glob', '!resources/content/**',
-                '--glob', '!learn/agentos/incidents/**',
-                '--glob', '!learn/agentos/measurements/**',
-                '--glob', '!learn/agentos/decisions/**',
-                '--glob', '!node_modules/**',
-                '--glob', '!dist/**',
-                'ai',
-                '.github',
-                'README.md',
-                'AGENTS.md',
-                'AGENTS_STARTUP.md',
-                'learn',
-                'test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.spec.mjs',
-                'test/playwright/unit/ai/scripts/lifecycle/resumeHarness.spec.mjs',
-                'test/playwright/unit/ai/scripts/migrations/renameAgentIdentities.spec.mjs'
-            ], {
-                cwd     : repoRoot,
-                encoding: 'utf8'
-            });
-        } catch (e) {
-            // ripgrep exits 1 when no files match. That is an even stricter pass condition here.
-            if (e.status !== 1) throw e;
-            output = e.stdout || '';
-        }
+        const output = findFilesContaining(repoRoot, [
+            'ai',
+            '.github',
+            'README.md',
+            'AGENTS.md',
+            'AGENTS_STARTUP.md',
+            'learn',
+            'test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.spec.mjs',
+            'test/playwright/unit/ai/scripts/lifecycle/resumeHarness.spec.mjs',
+            'test/playwright/unit/ai/scripts/migrations/renameAgentIdentities.spec.mjs'
+        ], /neo-opus-4-7|neo-gemini-3-1-pro|neo_opus_4_7|neo_gemini_3_1_pro/);
 
         const allowed = new Set([
             'ai/scripts/migrations/renameAgentIdentities.mjs',
             'test/playwright/unit/ai/scripts/migrations/renameAgentIdentities.spec.mjs'
         ]);
         const unexpected = output
-            .trim()
-            .split('\n')
-            .filter(Boolean)
             .filter(file => !allowed.has(file));
 
         expect(unexpected).toEqual([]);
