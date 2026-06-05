@@ -591,11 +591,9 @@ class VectorService extends Base {
         // CLI invocations pass viaMcp: false and bypass.
         const mcpThreshold = aiConfig.mcpSyncMaxChunks;
         if (viaMcp && workVolume > mcpThreshold) {
-            // Defensive log-path resolution mirrors logger.mjs's lazy resolution — keeps
-            // the refusal message coherent even on existing gitignored config.mjs deployments
-            // that pre-date the `logPath` template key. Without the fallback, the rendered
-            // message would carry `undefined/kb-server-...`.
-            const logDir = aiConfig.logPath || `${aiConfig.neoRootDir}/.neo-ai-data/logs`;
+            // `logPath` is a Provider-owned leaf; read it directly so malformed config
+            // shape fails loud instead of silently re-deriving a local default.
+            const logDir = aiConfig.logPath;
             const errorPayload = {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
                 message: `${workVolume} chunks need re-embedding (threshold: ${mcpThreshold}). ` +

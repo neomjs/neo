@@ -72,6 +72,21 @@ function finishPhase(phase, startedAt, status, details = {}) {
 }
 
 /**
+ * @summary Reads a required numeric AiConfig leaf and fails loud when the imported config is stale.
+ * @param {String} leafName The AiConfig leaf name.
+ * @returns {Number}
+ */
+function readRequiredNumberLeaf(leafName) {
+    const value = aiConfig[leafName];
+
+    if (!Number.isFinite(value)) {
+        throw new Error(`[DreamService] Required AiConfig leaf "${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
+    }
+
+    return value;
+}
+
+/**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
  *
  * Scans recent session summaries from the `neo-agent-sessions` collection that have not
@@ -136,8 +151,8 @@ class DreamService extends Base {
         // Since ChromaDB filtering on missing attributes can be tricky depending on version,
         // we'll fetch recent sessions and filter in memory if the dataset is reasonable.
         // For production, we will just query specifically.
-        const limit = aiConfig.summarizationBatchLimit || 2000;
-        const maxToProcess = aiConfig.remSleepBatchLimit || 10;
+        const limit = readRequiredNumberLeaf('summarizationBatchLimit');
+        const maxToProcess = readRequiredNumberLeaf('remSleepBatchLimit');
 
         try {
             const batch = await this.sessionsCollection.get({
@@ -194,7 +209,7 @@ class DreamService extends Base {
         if (aiConfig.modelProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
-                const url = new URL('/v1/models', aiConfig.openAiCompatible.host || 'http://127.0.0.1:8000');
+                const url = new URL('/v1/models', aiConfig.openAiCompatible.host);
                 const ping = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(5000) });
                 if (!ping.ok) throw new Error('API provider not running');
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'completed', {

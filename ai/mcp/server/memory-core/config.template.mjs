@@ -110,6 +110,12 @@ class Config extends BaseConfig {
              */
             summarizationBatchLimit: leaf(2000),
             /**
+             * Maximum number of undigested sessions the REM pipeline processes per cycle.
+             * Keeps each sleep pass bounded even when the query batch is larger.
+             * @type {number}
+             */
+            remSleepBatchLimit: leaf(10, 'NEO_REM_SLEEP_BATCH_LIMIT', 'number'),
+            /**
              * Maximum number of concurrent session summarization requests.
              * Prevents hitting LLM/Embedding API rate limits during bulk operations.
              * @type {number}

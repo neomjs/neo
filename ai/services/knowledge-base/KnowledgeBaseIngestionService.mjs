@@ -167,8 +167,8 @@ class KnowledgeBaseIngestionService extends Base {
             summary.errors.push(this.createError({code: error.code || 'KB_INGEST_FAILED', message: error.message}));
             summary.durationMs = Date.now() - startedAt;
             this.recordMetric(summary, {
-                tenantId: summary.tenantId || aiConfig.defaultTenantId || 'neo-shared',
-                repoSlug: aiConfig.defaultRepoSlug || 'neo'
+                tenantId: summary.tenantId || aiConfig.defaultTenantId,
+                repoSlug: aiConfig.defaultRepoSlug
             });
             return summary;
         }
@@ -360,7 +360,7 @@ class KnowledgeBaseIngestionService extends Base {
             deleted            : 0,
             embeddingsGenerated: 0,
             errors             : [],
-            tenantId           : aiConfig.defaultTenantId || 'neo-shared',
+            tenantId           : aiConfig.defaultTenantId,
             durationMs         : Date.now() - startedAt
         };
     }
@@ -759,12 +759,12 @@ class KnowledgeBaseIngestionService extends Base {
             throw error;
         }
 
-        const tenantId = activeTenant || requestedTenant || aiConfig.defaultTenantId || 'neo-shared';
+        const tenantId = activeTenant || requestedTenant || aiConfig.defaultTenantId;
 
         return {
             tenantId,
-            repoSlug: payload.repoSlug || this.resolvePayloadRepoSlug(payload) || aiConfig.defaultRepoSlug || 'neo',
-            visibility: payload.visibility || aiConfig.defaultVisibility || 'team',
+            repoSlug: payload.repoSlug || this.resolvePayloadRepoSlug(payload) || aiConfig.defaultRepoSlug,
+            visibility: payload.visibility || aiConfig.defaultVisibility,
             originAgentIdentity: this.requestContextService.getAgentIdentityNodeId?.() || payload.originAgentIdentity
         };
     }
@@ -797,7 +797,7 @@ class KnowledgeBaseIngestionService extends Base {
      * @returns {Promise<{tenantId: String, source: String, version: Number, useDefaultSources: Boolean, rawRepoSource: Boolean, useDefaultParsers: Boolean, customSources: Array, customParsers: Array, sourcePaths: Object}>}
      */
     async getTenantConfig({tenantId} = {}) {
-        const resolvedTenant = normalizeUserId(tenantId) || aiConfig.defaultTenantId || 'neo-shared';
+        const resolvedTenant = normalizeUserId(tenantId) || aiConfig.defaultTenantId;
 
         await this.graphService.initAsync();
 
