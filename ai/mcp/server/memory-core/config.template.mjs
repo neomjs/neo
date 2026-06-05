@@ -262,18 +262,6 @@ class Config extends BaseConfig {
                 minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
             },
             /**
-             * Bundle retention policy for `ai/scripts/maintenance/backup.mjs`. Bundles older
-             * than `maxDays` are eligible for deletion, but the newest `keepMinimum` bundles
-             * are retained unconditionally regardless of age. Defaults preserve the historical
-             * `K=3, N_DAYS=30` behavior so existing deployments are unaffected without
-             * operator action.
-             * @type {{keepMinimum: number, maxDays: number}}
-             */
-            backupRetention: leaf({
-                keepMinimum: 3,
-                maxDays    : 30
-            }),
-            /**
              * Directory for the always-on Memory Core diagnostic log files. The MC server's
              * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-
              * running operations (summarization, ingestion sweeps, ChromaDB lifecycle) leave
