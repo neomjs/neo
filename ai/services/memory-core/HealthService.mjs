@@ -837,6 +837,28 @@ class HealthService extends Base {
     #cacheDuration = 5 * 60 * 1000;
 
     /**
+     * Cached healthy embedding write-canary result.
+     *
+     * Direct healthcheck callers get request-fresh collection counts even when the broader
+     * healthy cache is still valid. Without this narrower cache, that observability refresh
+     * re-runs the live embedding probe on every poll. Cache only healthy canaries so degraded
+     * probes still retry immediately, while a recent success avoids adding pressure to the
+     * interactive embedding path during diagnostics.
+     * @member {Object|null} #embeddingWriteCanaryCache
+     * @private
+     */
+    #embeddingWriteCanaryCache = null;
+
+    /**
+     * Bounded TTL for the embedding write-canary cache.
+     * Shorter than the broader health cache: enough to collapse frequent polling bursts without
+     * hiding a real write-path failure for the full 5-minute healthcheck cache window.
+     * @member {number} #embeddingWriteCanaryCacheDuration
+     * @private
+     */
+    #embeddingWriteCanaryCacheDuration = 60 * 1000;
+
+    /**
      * The status from the previous health check, used to detect state transitions
      * (e.g., recovery from 'unhealthy' to 'healthy') and log meaningful messages.
      * @member {string|null} #previousStatus
@@ -1195,7 +1217,7 @@ class HealthService extends Base {
      * @private
      */
     async #applyEmbeddingWriteCanary(payload) {
-        const canary = await buildEmbeddingWriteCanaryBlock();
+        const canary = await this.#getEmbeddingWriteCanary();
 
         payload.providers.embedding = {
             ...payload.providers.embedding,
@@ -1211,6 +1233,41 @@ class HealthService extends Base {
         }
 
         return payload;
+    }
+
+    /**
+     * Resolves the embedding write canary with a short healthy-result TTL.
+     *
+     * Cache key includes the active provider and expected vector dimension so config changes do
+     * not reuse a canary from a different embedding route.
+     *
+     * @returns {Promise<Object>} Embedding write-canary block.
+     * @private
+     */
+    async #getEmbeddingWriteCanary() {
+        const now = Date.now(),
+              key = `${aiConfig.embeddingProvider || 'openAiCompatible'}:${aiConfig.vectorDimension ?? ''}`,
+              cached = this.#embeddingWriteCanaryCache;
+
+        if (cached &&
+            cached.key === key &&
+            now - cached.checkedAt < this.#embeddingWriteCanaryCacheDuration) {
+            return {...cached.result};
+        }
+
+        const result = await buildEmbeddingWriteCanaryBlock();
+
+        if (result.status === 'healthy') {
+            this.#embeddingWriteCanaryCache = {
+                key,
+                checkedAt: now,
+                result   : {...result}
+            };
+        } else {
+            this.#embeddingWriteCanaryCache = null;
+        }
+
+        return result;
     }
 
     /**
@@ -1551,8 +1608,9 @@ class HealthService extends Base {
      * without waiting for the 5-minute cache to expire.
      */
     clearCache() {
-        this.#cachedHealth  = null;
-        this.#lastCheckTime = null;
+        this.#cachedHealth              = null;
+        this.#lastCheckTime             = null;
+        this.#embeddingWriteCanaryCache = null;
         logger.debug('[HealthService] Cache cleared, next health check will be fresh');
     }
 }
