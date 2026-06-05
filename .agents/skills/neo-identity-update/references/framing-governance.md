@@ -54,7 +54,7 @@ Identity copy attracts superlatives. Gate every one:
 |---|---|
 | Unbounded superlative ("fastest", "best on the market") | **Drop it** or convert to a *sufficiency* form tied to a concrete number (e.g. "fast enough to host its own AI engineering team" + the 40k figure). No "well-actually" surface. |
 | Uniqueness / negative ("the only X", "first X") | Uncheckable as bare assertion. Hedge: "pioneered / still virtually alone in / we know of no other" unless a dated competitive sweep backs it. The *architecture* may be verified even when market-uniqueness isn't. |
-| Numbers (version, count, 40k/sec, velocity) | Regenerate from SSOT (`references/facts-ledger.md`). Publish counts as dated-window stats. Never paste a frozen number into framing prose. |
+| Numbers (version, count, 40k/sec, velocity) | Regenerate from SSOT (`./facts-ledger.md`). Publish counts as dated-window stats. Never paste a frozen number into framing prose. |
 | Anthropomorphic ("agents think / read thoughts") | Attribute to mechanism — "persisted, queryable reasoning surfaces (Memory Core)" — not sentience. |
 | Client/partner/customer names | **Forbidden** on every surface. Cloud/multi-tenant = generic capability terms only. |
 | Awards / external facts | Verify against an external source before public citation. |

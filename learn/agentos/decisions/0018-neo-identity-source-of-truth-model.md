@@ -1,6 +1,6 @@
 # ADR 0018: Neo Identity Source-of-Truth Model
 
-> Architectural Decision Record defining how Neo's identity — what Neo *is* — stays coherent across the ~30+ surfaces that encode it. Splits identity into two materials with opposite update semantics: **facts** (single-valued; get a single source + derive/coherence-check) and **framing** (deliberately audience-segmented; governed against a canonical apex with a drift-vs-intentional-divergence escalation branch). Authority artifact for the repeatable `neo-identity-update` skill (ticket #12203).
+> Architectural Decision Record defining how Neo's identity — what Neo *is* and what each audience can do next — stays coherent across the ~30+ surfaces that encode it. Splits identity into three governed classes with different update semantics: **facts** (single-valued; get a single source + derive/coherence-check), **framing** (deliberately audience-segmented; governed against a canonical apex with a drift-vs-intentional-divergence escalation branch), and **actions / CTAs** (audience-segmented next-step doors governed for liveness, proof adjacency, and business-owned content boundaries). Authority artifact for the repeatable `neo-identity-update` skill (ticket #12203; ACTIONS extension #12577).
 
 | Attribute | Value |
 |---|---|
@@ -11,7 +11,7 @@
 | **Builds on** | the self-evolving software organism apex (Body `/src/` + Brain `/ai/` are the two hemispheres beneath it; see §2.7 OD-1) — the canonical frame this ADR governs against; the README is the surface that should lead with it |
 | **Depends on** | ADR 0012 (Model-Stats Framework) — identity-handle de-versioning MUST preserve 0012's Per-Model-Identity decision; only the GitHub *handle* de-versions, the model-version pin stays in `ModelStats.md` |
 | **Aligned with** | #10452 (Identity Rewrite, CLOSED) — that epic did the one-shot README/AGENTS rewrite; this ADR builds the machinery to *maintain* what it created |
-| **Informs** | The `neo-identity-update` skill (#12203 AC2); future identity edits across all surface classes; the cross-family review gate for identity PRs |
+| **Informs** | The `neo-identity-update` skill (#12203 AC2, ACTIONS extension #12577); future identity edits across all surface classes; the cross-family review gate for identity PRs |
 | **Anti-anchor for** | Naive tagline find-replace; editing build-generated output directly; a single canonical SSOT doc for *everything* (which would flatten deliberate audience-segmentation); blanket de-versioning of per-model identity |
 
 ---
@@ -31,7 +31,7 @@ A 2026-05-30 11-agent fan-out audit (session `94a91ebc-d325-4d32-a746-4ff8c26c03
 - `AGENTS.md` had self-contradictory pillar wording (an older 3-pillar mapping beside the four co-load-bearing pillar anchor).
 - `.github/VISION.md` carries the oldest framing ("platform for the next generation of web applications") and a "Corporate HQ / CEOs / PMs / Drones" hierarchy that contradicts the canonical Flat Peer-Team (`AGENTS.md §swarm_topology_anchor`).
 
-The root problem: **identity is two different materials, and they need opposite update mechanics.** No substrate decision says which. This ADR makes that decision.
+The root problem: **identity surfaces have different update mechanics.** Facts need convergence, framing needs governed audience segmentation, and visitor next-step doors need CTA governance so strong claims do not dead-end or hide public proof. No substrate decision said which mechanic applied where. This ADR makes that decision.
 
 V-B-A this turn: `ls learn/agentos/decisions/**` confirms no existing ADR governs identity source-of-truth; the closest precedent is ADR 0012, which solved the *same shape* (scattered fragments → layered SSOT) for the narrower model-stats domain. This ADR generalizes that pattern to identity-at-large.
 
@@ -39,16 +39,17 @@ V-B-A this turn: `ls learn/agentos/decisions/**` confirms no existing ADR govern
 
 ## 2. Decision
 
-### 2.1 The two materials (the core decision)
+### 2.1 The three governed classes (the core decision)
 
-Every identity encoding is classified as one of two materials:
+Every identity encoding is classified as one of three governed classes:
 
-| Material | Definition | Cardinality | Mechanism |
+| Class | Definition | Cardinality | Mechanism |
 |---|---|---|---|
 | **FACT** | A verifiable value: version, server count, Node requirement, GA date, award, identity handle, a quoted motto. | **Single-valued** — exactly one true value at any time. | One canonical **source of truth** + every other occurrence **derives** from it (build-time), is **generated** from it, or is **coherence-checked** against it (lint). |
 | **FRAMING** | Positioning / tagline / audience-targeting: "framework" vs "Application Engine" vs "digital organism" vs "Agent OS". | **Audience-segmented (deliberately multi-valued)** — different surfaces address different audiences and may legitimately differ. | A canonical **apex** framing; other framings are **governed clusters** coherence-checked *for compatibility* (not equality) with the apex, with a **drift-vs-intentional-divergence escalation branch**. |
+| **ACTION** | A next-step surface: CTA copy, install command, proof link, community join, services/contact door, contribution door, or any surface that asks a visitor to do something. | **Audience-segmented and liveness-bound** — different audiences may need different doors, but a primary door must be live and appropriate. | Governed CTA inventory: every pitch has a door, primary doors are liveness-checked, strong claims surface visible proof nearby, and business/product-owned offer content is recorded as a dependency rather than invented. |
 
-This split is the load-bearing decision. **Facts must converge; framing must stay deliberately divergent.** A skill that treated framing like facts (find-replace to one value) would destroy audience-segmentation signal; a skill that treated facts like framing (leave each surface to drift) would never fix the 11-surface server-count rot. The skill (#12203) is built to apply *different* logic per material.
+This split is the load-bearing decision. **Facts must converge; framing must stay deliberately divergent; actions must stay live, proof-adjacent, and audience-fit.** A skill that treated framing like facts (find-replace to one value) would destroy audience-segmentation signal; a skill that treated facts like framing (leave each surface to drift) would never fix the 11-surface server-count rot; a skill that omitted actions would let strong identity pitches dead-end into passive docs or stale community doors. The skill (#12203, #12577) is built to apply *different* logic per class.
 
 ### 2.2 Facts → single source + propagation
 
@@ -79,6 +80,16 @@ Framing is governed, not unified. The mechanism:
    - **Intentional divergence** (a framing that may reflect a deliberate, still-valid stance — e.g. a *product* concept vs the *maintainer* topology) → **escalate to the operator (Tier-4)**; do not auto-rewrite.
 
 The escalation branch exists because the audit found contradictions the skill *cannot* mechanically adjudicate — e.g. VISION's "CEO/PM/Drone hierarchy" contradicts the Flat Peer-Team anchor, but might describe an intended Command-Center *product* that orchestrates sub-agents (legitimate) rather than the *maintainer swarm* topology (which is flat). Only the operator can rule. Auto-rewriting would erase a possibly-deliberate stance.
+
+### 2.3.1 Actions → governed doors + proof adjacency
+
+ACTIONS are governed next-step surfaces, not prose decoration. The mechanism:
+
+1. **Every pitch has a door** — if a surface pitches a capability, the intended audience gets an appropriate next step. "Read more" is only enough when the intended action is learning.
+2. **Audience-segmented doors** — developers, evaluators, maintainers, and decision-makers may need different CTA types. The skill never find-replaces one CTA across every surface.
+3. **Proof adjacency** — strong claims link nearby visible receipts: dated repo stats, merged PR history, public review conversations, Discussions, ADRs, docs, or examples.
+4. **Liveness gate** — a primary CTA target must be live, maintained, and appropriate for the audience. Dead or low-retention channels cannot be primary by habit.
+5. **Business-owned content boundary** — the skill governs CTA structure and checks. It does not invent offers, pricing, lead-capture copy, or contact destinations; those are explicit product/operator dependencies.
 
 ### 2.4 Propagation mechanisms (in preference order)
 
@@ -117,13 +128,13 @@ Three framing-authority calls are genuinely operator-owned (Tier-4). The skill c
 
 ## 3. Rationale
 
-### 3.1 Why two materials, not one SSOT
+### 3.1 Why three classes, not one SSOT
 
-A single canonical SSOT doc for *all* identity (e.g. "the README is identity, everything derives") fails because framing is **not single-valued** — the README "Who This Is For" section already declares deliberate audience-segmentation. Forcing npm's description to equal the README hero would push "digital organism" onto a surface where engineers search "multi-threaded framework". The facts-vs-framing split is the minimum structure that lets facts converge while framing stays deliberately plural.
+A single canonical SSOT doc for *all* identity (e.g. "the README is identity, everything derives") fails because framing is **not single-valued** — the README "Who This Is For" section already declares deliberate audience-segmentation. Forcing npm's description to equal the README hero would push "digital organism" onto a surface where engineers search "multi-threaded framework". CTAs also have different physics: the right next step depends on audience, liveness, proof adjacency, and business-owned content. The facts/framing/actions split is the minimum structure that lets facts converge, framing stay deliberately plural, and visitor next steps remain inspectable and live.
 
 ### 3.2 Why this mirrors ADR 0012
 
-ADR 0012 solved the same shape for model-stats: it split a domain into layers by **update semantics** (framework=rare / schema=rare / registry=frequent) rather than cramming one omnibus artifact. This ADR splits identity by **material** (facts=converge / framing=govern) for the same reason: each part gets the right mechanics, and architectural substrate doesn't churn when a frontier fact changes.
+ADR 0012 solved the same shape for model-stats: it split a domain into layers by **update semantics** (framework=rare / schema=rare / registry=frequent) rather than cramming one omnibus artifact. This ADR splits identity by **class** (facts=converge / framing=govern / actions=door+liveness+proof-check) for the same reason: each part gets the right mechanics, and architectural substrate doesn't churn when a frontier fact or business-owned CTA target changes.
 
 ### 3.3 Why fix generators, never generated output
 
@@ -144,6 +155,7 @@ De-versioning the per-model identity prose would violate ADR 0012's deliberate P
 ### Positive
 - **Facts stop rotting** — each has one source + a propagation mechanism; the 11-surface server-count class becomes a single lint guard.
 - **Framing stays deliberately plural** — audience-segmentation is preserved by design, not eroded by a sync pass.
+- **Pitches stop dead-ending** — CTA surfaces are governed for liveness, audience fit, and proof adjacency without hard-coding business-owned offer content.
 - **The generated-output trap is structurally closed** — the skill edits generators.
 - **Identity edits get blind-spot defense** — the cross-family gate.
 - **Graph-queryable** per ADR 0006 — this ADR ingests as an `ADR` node; the skill and #12203 link to it.
@@ -151,7 +163,8 @@ De-versioning the per-model identity prose would violate ADR 0012's deliberate P
 ### Negative
 - **The propagation tooling is partly unbuilt** — `prepare.mjs` must be extended; the MCP-count manifest + lint guard don't exist yet. The ADR decides the model; the build-out is downstream work (skill-run items, out of scope here).
 - **New heritage claims still need evidence** — the home is decided, but facts added to it must remain verified and append-only.
-- **Material classification needs judgment at the margin** — a "fact" embedded inside a framing sentence (e.g. "the first multi-worker engine") is both; the skill must handle mixed surfaces.
+- **Class classification needs judgment at the margin** — a "fact" embedded inside a framing sentence attached to a CTA (e.g. "try the first multi-worker engine") can be FACT, FRAMING, and ACTION at once; the skill must handle mixed surfaces.
+- **CTA content can block downstream runs** — the skill may identify a business/product dependency instead of editing a surface when the right offer, inbox, or destination is not yet decided.
 
 ---
 
@@ -162,6 +175,7 @@ De-versioning the per-model identity prose would violate ADR 0012's deliberate P
 - **GitHub account renames** — operator-owned (Tier-4); the skill *propagates* a rename, it doesn't perform it.
 - **The model-lifecycle rotation** (sunset trigger fired) — owned by ADR 0012 registry-update discipline.
 - **Rewriting the framing fossils** (VISION "web applications"; CEO/PM/Drone hierarchy) — content edits via the skill-run, gated by the §2.3 escalation branch.
+- **Specific CTA offers / destinations** — ACTIONS governance records liveness and audience-fit, but concrete offer content and lead-capture routing are business/product decisions.
 - **Unverified heritage claims** — OD-2 decides the home, not the truth of every future milestone. New claims still need source verification before publication.
 
 ## 6. Anti-Patterns
@@ -184,19 +198,24 @@ A framing that contradicts the apex MAY be a deliberate divergence (product vs m
 ### 6.6 De-versioning per-model identity
 Only the GitHub *handle* de-versions (via `identityRoots.mjs`); the model-version stays in `ModelStats.md` per ADR 0012.
 
+### 6.7 Treating actions like framing
+Find-replacing a CTA across all surfaces destroys audience-specific next steps. ACTIONS are governed for liveness, proof adjacency, and audience fit, not prose equality.
+
 ## 7. V-B-A Pre-Flight for Future Authors
 
 Before modifying identity substrate or the `neo-identity-update` skill:
 1. Read this ADR, ADR 0012 (handle/model-version boundary), and the `README.md` apex frame.
-2. Classify the surface: FACT or FRAMING (or mixed)? Pick the mechanism from §2.2/§2.3.
+2. Classify the surface: FACT, FRAMING, ACTION, or mixed? Pick the mechanism from §2.2/§2.3/§2.3.1.
 3. For a fact: find its SSOT in the §2.2 ledger; never edit a derived occurrence directly.
 4. For framing: check compatibility with the apex; if it contradicts, classify drift-vs-divergence and escalate divergence.
-5. For generated surfaces: edit the generator, never the output.
-6. Ensure the change carries a cross-family review (§2.6).
-7. Cite this ADR in PR bodies touching identity substrate.
+5. For actions: verify the door is live, audience-fit, proof-adjacent when claim-bearing, and not inventing operator-owned offer content.
+6. For generated surfaces: edit the generator, never the output.
+7. Ensure the change carries a cross-family review (§2.6).
+8. Cite this ADR in PR bodies touching identity substrate.
 
 ## 8. Related
 - **#12203** — implementation ticket (this ADR is its foundational AC); the `neo-identity-update` skill
+- **#12577** — ACTIONS / CTA governance extension to this ADR and skill
 - **#10452** — Identity Rewrite (CLOSED; this maintains what it created)
 - **ADR 0012** — Model-Stats Framework (depends-on; handle/model-version boundary)
 - **ADR 0006** — ADRs as Graph-Queryable Entities (this ADR ingests as an `ADR` node)
@@ -212,7 +231,7 @@ Before modifying identity substrate or the `neo-identity-update` skill:
 ## 9. Status / Lifecycle
 - **Proposed** while this ADR is under PR review.
 - **Accepted** once the approved, green PR is merged at the human merge gate.
-- **Periodic re-review trigger:** any new identity-surface class (a new machine-facing format, a new external platform) OR any change to the facts-vs-framing material boundary MUST cite this ADR.
+- **Periodic re-review trigger:** any new identity-surface class (a new machine-facing format, a new external platform, a new CTA / action class) OR any change to the facts-vs-framing-vs-actions boundary MUST cite this ADR.
 
 Origin Session ID: 94a91ebc-d325-4d32-a746-4ff8c26c0342
 
