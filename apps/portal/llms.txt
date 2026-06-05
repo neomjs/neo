@@ -255,8 +255,6 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 - [Security](https://neomjs.com/raw/learn/agentos/cloud-deployment/Security.md)
 - [Client Authentication (GitLab)](https://neomjs.com/raw/learn/agentos/cloud-deployment/ClientAuthentication.md)
 - [Migration Path](https://neomjs.com/raw/learn/agentos/cloud-deployment/MigrationPath.md)
-- [PR Review Loaded-Surface Baseline (April 2026)](https://neomjs.com/raw/learn/agentos/measurements/pr-review-baseline-2026-04.md)
-- [Swarm Heartbeat Token Economy Baseline (May 2026)](https://neomjs.com/raw/learn/agentos/measurements/heartbeat-token-economy-2026-05.md)
 - [Server Authorization](https://neomjs.com/raw/learn/agentos/tooling/Authorization.md)
 - [Google OAuth Demo](https://neomjs.com/raw/learn/agentos/tooling/GoogleAuthDemo.md)
 - [Agent-Agnostic MCP Configuration](https://neomjs.com/raw/learn/agentos/tooling/AgentAgnosticMcpConfig.md)
