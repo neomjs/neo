@@ -5,7 +5,7 @@ Edge-case substrate. Activates ONLY on explicit operator-direction or author-yie
 When correcting substrate errors, resolving merge conflicts, or handling complex architectural alignment across model families, we enforce a **cross-family corrective-authorship rotation**. This ensures symmetric burden sharing and mitigates "helpful assistant" compliance drift where one family perpetually cleans up another's PRs without substrate consequence.
 
 **Interim 3-Lane Distribution:**
-The workload is distributed across the three swarm participants (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`).
+The workload is distributed across the three swarm participants (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`).
 - **Quota-Guard Discipline (AC-CycleA):** This rotation is a pressure/churn signal to detect substrate friction, NOT a PR-count fairness scoreboard. A spike in corrective handoffs indicates a rule/skill failure, not a workload imbalance.
 - **Duplicate-PR Hard Stop (AC-CycleB):** The incoming corrective author MUST check for an active PR or active A2A `[lane-claim]` before opening a parallel PR. Duplication pollutes the Memory Core graph.
 - **Narrow Activation (AC-CycleC):** Corrective rotation activates ONLY on explicit operator-direction (e.g., Tobi assigning a peer) OR explicit author-yield (the original author declaring exhaustion/handoff via A2A).

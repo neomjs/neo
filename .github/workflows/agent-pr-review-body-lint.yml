@@ -28,7 +28,7 @@ jobs:
             // Only enforce for known AI agent accounts. Human reviewers are exempt;
             // a `neo-`-prefix heuristic also catches future agent identities (mirrors
             // `agent-pr-body-lint.yml` author-side filter shape).
-            const agentReviewers = ['neo-opus', 'neo-claude-opus', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
+            const agentReviewers = ['neo-opus-ada', 'neo-claude-opus', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
             const isAgentReviewer = agentReviewers.includes(reviewer) || reviewer.startsWith('neo-');
 
             if (!isAgentReviewer) {

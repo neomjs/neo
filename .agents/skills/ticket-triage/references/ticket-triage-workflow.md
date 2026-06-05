@@ -88,7 +88,7 @@ After labels are applied, decide assignment:
 - **Self-assign + proceed to `ticket-intake`:** if the ticket is well-scoped, you are the natural agent for the work, and no other agent has signaled interest. Then immediately run the `ticket-intake` skill on the now-labeled ticket.
 - **Self-assign + park:** if you intend to pick up later but want to claim ownership now. Per the `ticket-intake §3a` 7-day rule, park-and-leave is allowed but creates a clock against you.
 - **Leave unassigned + invite contributor:** post a comment on the ticket inviting the original author or interested contributors to self-claim. Common when the ticket is a fit for a contributor's skillset rather than a maintainer's.
-- **Leave unassigned + flag for swarm:** post a comment routing the ticket to the appropriate agent identity (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`) if cross-family expertise applies.
+- **Leave unassigned + flag for swarm:** post a comment routing the ticket to the appropriate agent identity (`@neo-opus-ada`, `@neo-gemini-pro`) if cross-family expertise applies.
 
 Assignment disposition is **not** part of the labeling decision — it's a post-triage allocation choice. The triage protocol ends at Step 3 if you choose to defer assignment.
 
