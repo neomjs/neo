@@ -202,9 +202,9 @@ The follow-up template is not permission to rubber-stamp. It still requires:
 
 If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
-### 6.3 Micro-Delta Circuit Breaker Template
+### 6.3 Review-Loop Cost Circuit Breaker
 
-When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews, load the Review-Loop Cost Circuit Breaker payload for the micro-delta template. Do not paste the full template unless that payload escalates the cycle back to cold-cache shape.
+When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews, load the Review-Loop Cost Circuit Breaker payload and run its convergence assessment: semantics-cleared → micro-delta; converging → full review; non-converging semantic churn → scope-too-big break-up via `epic-create`. Size is a cost signal, not a scope signal.
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
