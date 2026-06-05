@@ -797,7 +797,7 @@ paths:
                   items:
                     type: string
                   description: An array of GitHub user logins to add or remove as reviewers.
-                  example: ["neo-gemini-3-1-pro"]
+                  example: ["neo-gemini-pro"]
                 team_reviewers:
                   type: array
                   items:

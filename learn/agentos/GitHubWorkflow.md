@@ -247,7 +247,7 @@ Field values for single-select fields (Status, Priority, etc.) are resolved by n
 
 ### The "If it's not on the Issue, it doesn't exist to the Swarm" rule (refined)
 
-Per @neo-gemini-3-1-pro's original framing in Discussion [#10959](https://github.com/orgs/neomjs/discussions/10959), the swarm's downstream substrate (Dream Pipeline, Golden Path Synthesizer, Native Edge Graph, `list_issues`, `get_local_issue_by_id`, Knowledge Base, Memory Core) consumes **issue state** — not Project field state. Project membership IS a first-class signal (it's how release-tracking and milestone-grouping work), but **single-select field values** (Status, Priority) remain Project-board observability and MUST NOT drive Dream synthesis or Golden Path decisions.
+Per @neo-gemini-pro's original framing in Discussion [#10959](https://github.com/orgs/neomjs/discussions/10959), the swarm's downstream substrate (Dream Pipeline, Golden Path Synthesizer, Native Edge Graph, `list_issues`, `get_local_issue_by_id`, Knowledge Base, Memory Core) consumes **issue state** — not Project field state. Project membership IS a first-class signal (it's how release-tracking and milestone-grouping work), but **single-select field values** (Status, Priority) remain Project-board observability and MUST NOT drive Dream synthesis or Golden Path decisions.
 
 **Concrete rule:** project MEMBERSHIP is canonical (queryable via `gh project item-list`); project FIELD VALUES are observability-only for downstream agentic substrates.
 

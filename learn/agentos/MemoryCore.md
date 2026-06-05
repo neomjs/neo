@@ -116,7 +116,7 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
     },
     "startup":   { "summarizationStatus": "not_attempted", "summarizationDetails": null },
     "mailboxPreview": null,
-    "identity":  { "source": "env-var", "bound": true, "nodeId": "@neo-opus-4-7" },
+    "identity":  { "source": "env-var", "bound": true, "nodeId": "@neo-opus" },
     "migration": { "memory": 0, "session": 0, "total": 0, "available": true },
     "providers": {
         "embedding": {

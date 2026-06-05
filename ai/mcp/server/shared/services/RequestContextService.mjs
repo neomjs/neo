@@ -23,16 +23,16 @@ export const SHARED_USER_ID = 'shared';
  * Session summaries that involve any of these agents are part of the shared
  * swarm memory substrate, even when a single harness performed the summarization
  * write. Without this list, restored summaries can be tagged to only one peer
- * (`neo-gemini-3-1-pro`, etc.) and silently disappear for the other named peers'
+ * (`neo-gemini-pro`, etc.) and silently disappear for the other named peers'
  * tenant-aware summary reads.
  *
  * @member {String[]}
  */
 export const CORE_SWARM_USER_IDS = Object.freeze([
-    'neo-opus-4-7',
+    'neo-opus',
     'neo-claude-opus',
     'neo-opus-vega',
-    'neo-gemini-3-1-pro',
+    'neo-gemini-pro',
     'neo-gpt'
 ]);
 
@@ -48,11 +48,11 @@ export const CORE_SWARM_AGENT_IDS = Object.freeze(
  * @summary Strips the `@`-prefix from AgentIdentity-style identifiers so userId comparisons
  * are always canonical-form.
  *
- * AgentIdentity graph node IDs use the form `@neo-opus-4-7`,
- * but ChromaDB metadata `userId` values are stored without the prefix (`neo-opus-4-7`).
+ * AgentIdentity graph node IDs use the form `@neo-opus`,
+ * but ChromaDB metadata `userId` values are stored without the prefix (`neo-opus`).
  * Without a normalization boundary, code paths that mix the two forms produce silent
- * self-filtering — a write tags `userId: 'neo-opus-4-7'` but a read filter that uses
- * `userId: '@neo-opus-4-7'` returns zero rows even for the writer's own data.
+ * self-filtering — a write tags `userId: 'neo-opus'` but a read filter that uses
+ * `userId: '@neo-opus'` returns zero rows even for the writer's own data.
  *
  * Use this helper at every read/write boundary that compares identifiers across the
  * AgentIdentity ↔ userId namespaces.
@@ -86,7 +86,7 @@ export function parseAgentList(input) {
             let str = String(value).trim();
             // Remove agent wrappers like " (Antigravity)"
             str = str.replace(/\s*\(.*?\)\s*/g, '');
-            // Lowercase to normalize e.g. "Neo-Gemini-3-1-Pro" to "neo-gemini-3-1-pro"
+            // Lowercase to normalize e.g. "Neo-Gemini-Pro" to "neo-gemini-pro"
             str = str.toLowerCase();
             return normalizeUserId(str);
         })

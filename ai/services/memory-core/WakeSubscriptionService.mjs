@@ -71,8 +71,8 @@ class WakeSubscriptionService extends Base {
      * @member {String[]} validAppNames
      *
      * Canonical osascript target app names accepted on Shape C subscription writes. One entry per
-     * harness onboarded into the swarm trio: Antigravity (@neo-gemini-3-1-pro), Claude
-     * (@neo-opus-4-7), Codex (@neo-gpt). The bridge daemon dispatches via `tell application
+     * harness onboarded into the swarm trio: Antigravity (@neo-gemini-pro), Claude
+     * (@neo-opus), Codex (@neo-gpt). The bridge daemon dispatches via `tell application
      * "<appName>"`, so list completeness is load-bearing — a missing entry rejects the canonical
      * AgentIdentity.subscriptionTemplate at auto-bootstrap time and silently strands the
      * corresponding harness from Shape C wake delivery.
@@ -327,7 +327,7 @@ class WakeSubscriptionService extends Base {
         // Cross-session duplicate-accumulation defense.
         //
         // The route-key idempotency check below is necessary but empirically not sufficient: across
-        // sessions, duplicates accumulate (`@neo-opus-4-7` had 2 active subscriptions 2 days apart;
+        // sessions, duplicates accumulate (`@neo-opus` had 2 active subscriptions 2 days apart;
         // `@neo-gpt` same pattern). The exact root cause for the lookup-miss is unclear without
         // runtime instrumentation, but the recovery substrate works regardless: scan SQLite for all
         // active subscriptions owned by this agent, and if more than one exists, retire all-but-

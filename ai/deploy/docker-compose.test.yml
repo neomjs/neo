@@ -12,7 +12,7 @@ services:
     # The published chromadb/chroma:1.5.9 image is a single 541MB compiled binary
     # at /usr/local/bin/chroma (built via docker-bake.hcl, not the GitHub Dockerfile).
     # It has NO python, NO python3, NO curl, NO wget — empirically verified via
-    # `docker exec` by @neo-gemini-3-1-pro. bash IS present, so use the bash-builtin
+    # `docker exec` by @neo-gemini-pro. bash IS present, so use the bash-builtin
     # /dev/tcp probe to verify the TCP listener is up. Bypasses the missing-binary
     # nightmare entirely. (#10908, #10911, #10913)
     healthcheck:

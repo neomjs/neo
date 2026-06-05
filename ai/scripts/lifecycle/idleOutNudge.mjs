@@ -78,7 +78,7 @@ import {writeInflightLock, clearInflightLock, checkInflightLock} from './infligh
  *
  * Lock is NOT cleared on success; release is memory-resolved.
  *
- * @param {string} identity Target agent identity (e.g., '@neo-opus-4-7').
+ * @param {string} identity Target agent identity (e.g., '@neo-opus').
  * @returns {Promise<void>}
  */
 export async function idleOutNudge(identity) {

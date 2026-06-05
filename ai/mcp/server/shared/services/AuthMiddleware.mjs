@@ -4,7 +4,7 @@ import Base from '../../../../../src/core/Base.mjs';
  * Set of argument keys that an MCP tool caller MUST NOT supply — the server always derives
  * these from the active `RequestContextService` (OIDC Bearer token for SSE, stdio env-var /
  * gh-CLI resolution). Client-supplied values would let a Gemini-harness
- * session forge a write attributed to `@neo-opus-4-7`, etc.
+ * session forge a write attributed to `@neo-opus`, etc.
  *
  * **Scope note:** `recipient` / `to` fields are legitimate (destination address, not claim-of-
  * authorship). Only claim-of-authorship fields belong here.

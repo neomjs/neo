@@ -21,7 +21,7 @@ The shared MVP topology preserves three independent boundaries:
 | **Chroma process** | **One** shared process | Per-developer local |
 | **Chroma collections** | Separate (`neo-knowledge-base`, `neo-agent-memory`, `neo-agent-sessions`) | Same — collection boundary is independent of process boundary |
 | **MCP servers** | Two — KB and MC remain distinct MCP tool surfaces | Same — server boundary is independent of process boundary |
-| **Agent identity** | Per-agent (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`, ...) | Same — identity boundary is independent |
+| **Agent identity** | Per-agent (`@neo-opus`, `@neo-gemini-pro`, `@neo-gpt`, ...) | Same — identity boundary is independent |
 
 **One Chroma process does NOT mean one Chroma collection.** Collection boundaries preserve query semantics (KB hybrid search vs MC vector summaries), migration safety, and future retention policy. Collapsing to a single collection would dilute KB results with raw agent thoughts and break inheritance-boost scoring.
 

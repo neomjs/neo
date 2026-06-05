@@ -1754,7 +1754,7 @@ components:
               type: string
               nullable: true
               description: The `@`-prefixed graph node ID when bound, else null
-              example: "@neo-opus-4-7"
+              example: "@neo-opus"
         details:
           type: array
           items:
@@ -1871,7 +1871,7 @@ components:
                   type: string
                   nullable: true
                   description: The sender's AgentIdentity node id; `null` for system-sent messages (heartbeats, idle-out nudges) that have no SENT_BY edge in the graph
-                  example: "@neo-gemini-3-1-pro"
+                  example: "@neo-gemini-pro"
                 sentAt:
                   type: string
                   format: date-time
