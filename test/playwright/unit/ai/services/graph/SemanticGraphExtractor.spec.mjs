@@ -49,12 +49,9 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         aiConfig.lazyEdgesQueuePath   = path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`);
         aiConfig.autoIngestFileSystem = false;
 
-        // #11965 Sub-2 cycle-3: graph services now dispatch provider via
-        // aiConfig.modelProvider through buildGraphProvider. Memory Core's
-        // default modelProvider is 'gemini' which is out of Sub-2 graph scope
-        // (gemini-graph dispatch deferred to Sub-3 / follow-up). This test
-        // stubs OpenAiCompatible.prototype.generate, so force the dispatch
-        // path to 'openAiCompatible'.
+        // Graph services dispatch through buildGraphProvider using the configured
+        // modelProvider. This test stubs OpenAiCompatible.prototype.generate, so
+        // force that dispatch path for deterministic provider mocking.
         aiConfig.modelProvider = 'openAiCompatible';
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -108,88 +105,91 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
     });
 
-    test('should extract provenance edges and queue unresolved targets to lazy back-fill (#10152)', async () => {
+    test('should normalize Memory/Session provenance targets before lazy queue (#10172)', async () => {
         const baseGenerate = OpenAiCompatible.prototype.generate;
 
-        OpenAiCompatible.prototype.generate = async function(messages) {
-            return {
-                content: JSON.stringify({
-                    a2a_version: "1.0",
-                    agent_id: "Antigravity",
-                    session_artifact: {
-                        graph: {
-                            nodes: [
-                                {
-                                    id: "CONCEPT:TestConcept",
-                                    type: "CONCEPT",
-                                    name: "TestConcept",
-                                    description: "Test concept for provenance edges"
-                                }
-                            ],
-                            edges: [
-                                {
-                                    source: "CONCEPT:TestConcept",
-                                    target: "MEMORY:non-existent-memory",
-                                    relationship: "MENTIONED_IN",
-                                    weight: 1.0,
-                                    justification: "Provenance test"
-                                },
-                                {
-                                    source: "CONCEPT:TestConcept",
-                                    target: "SESSION:non-existent-session",
-                                    relationship: "DISCUSSED_IN",
-                                    weight: 1.0,
-                                    justification: "Provenance test 2"
-                                },
-                                {
-                                    source: "CONCEPT:TestConcept",
-                                    target: "frontier",
-                                    relationship: "RELATES_TO"
-                                }
-                            ]
+        try {
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                return {
+                    content: JSON.stringify({
+                        a2a_version: "1.0",
+                        agent_id: "Antigravity",
+                        session_artifact: {
+                            graph: {
+                                nodes: [
+                                    {
+                                        id: "CONCEPT:TestConcept",
+                                        type: "CONCEPT",
+                                        name: "TestConcept",
+                                        description: "Test concept for provenance edges"
+                                    }
+                                ],
+                                edges: [
+                                    {
+                                        source: "CONCEPT:TestConcept",
+                                        target: "MEMORY:non-existent-memory",
+                                        relationship: "MENTIONED_IN",
+                                        weight: 1.0,
+                                        justification: "Uppercase compatibility provenance test"
+                                    },
+                                    {
+                                        source: "CONCEPT:TestConcept",
+                                        target: "session:non-existent-session",
+                                        relationship: "DISCUSSED_IN",
+                                        weight: 1.0,
+                                        justification: "Canonical lowercase provenance test"
+                                    },
+                                    {
+                                        source: "CONCEPT:TestConcept",
+                                        target: "frontier",
+                                        relationship: "RELATES_TO"
+                                    }
+                                ]
+                            }
                         }
-                    }
-                })
+                    })
+                };
             };
-        };
 
-        const session = {
-            id: 'mock-semantic-vector-id',
-            meta: { sessionId: 'playwright-provenance-test' },
-            document: "Mock episodic history for provenance"
-        };
+            const session = {
+                id: 'mock-semantic-vector-id',
+                meta: { sessionId: 'playwright-provenance-test' },
+                document: "Mock episodic history for provenance"
+            };
 
-        const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
-        if (fs.existsSync(lazyQueueFile)) {
-            fs.unlinkSync(lazyQueueFile);
-        }
+            const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
+            if (fs.existsSync(lazyQueueFile)) {
+                fs.unlinkSync(lazyQueueFile);
+            }
 
-        const result = await SemanticGraphExtractor.executeTriVectorExtraction(session);
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction(session);
 
-        expect(result).not.toBeNull();
-        expect(result.session_artifact.graph.edges.length).toBe(3);
+            expect(result).not.toBeNull();
+            expect(result.session_artifact.graph.edges.length).toBe(3);
 
-        // Check if the lazy queue file was created and contains the edge
-        expect(fs.existsSync(lazyQueueFile)).toBe(true);
-        const queueContent = fs.readFileSync(lazyQueueFile, 'utf8');
-        expect(queueContent).toContain('"relationship":"MENTIONED_IN"');
-        expect(queueContent).toContain('"target":"MEMORY:non-existent-memory"');
-        expect(queueContent).toContain('"relationship":"DISCUSSED_IN"');
-        expect(queueContent).toContain('"target":"SESSION:non-existent-session"');
+            // Check if the lazy queue file was created and contains canonical endpoints.
+            expect(fs.existsSync(lazyQueueFile)).toBe(true);
+            const queueContent = fs.readFileSync(lazyQueueFile, 'utf8');
+            expect(queueContent).toContain('"relationship":"MENTIONED_IN"');
+            expect(queueContent).toContain('"target":"memory:non-existent-memory"');
+            expect(queueContent).toContain('"relationship":"DISCUSSED_IN"');
+            expect(queueContent).toContain('"target":"session:non-existent-session"');
+            expect(queueContent).not.toContain('"target":"MEMORY:non-existent-memory"');
+            expect(queueContent).not.toContain('"target":"SESSION:non-existent-session"');
 
-        // Check if RELATES_TO edge was added to the GraphService (since frontier exists)
-        const edges = GraphService.db.edges.items;
-        expect(edges.some(e => e.type === 'RELATES_TO' && e.source === 'CONCEPT:TestConcept')).toBe(true);
+            // Check if RELATES_TO edge was added to the GraphService (since frontier exists)
+            const edges = GraphService.db.edges.items;
+            expect(edges.some(e => e.type === 'RELATES_TO' && e.source === 'CONCEPT:TestConcept')).toBe(true);
 
-        // MENTIONED_IN shouldn't be in the DB directly because it targets a non-existent node
-        expect(edges.some(e => e.type === 'MENTIONED_IN')).toBe(false);
+            // MENTIONED_IN shouldn't be in the DB directly because it targets a non-existent node
+            expect(edges.some(e => e.type === 'MENTIONED_IN')).toBe(false);
 
-        // Restore global function
-        OpenAiCompatible.prototype.generate = baseGenerate;
-
-        // Cleanup
-        if (fs.existsSync(lazyQueueFile)) {
-            fs.unlinkSync(lazyQueueFile);
+            // Cleanup
+            if (fs.existsSync(lazyQueueFile)) {
+                fs.unlinkSync(lazyQueueFile);
+            }
+        } finally {
+            OpenAiCompatible.prototype.generate = baseGenerate;
         }
     });
     test('should extract concepts from message bodies', async () => {

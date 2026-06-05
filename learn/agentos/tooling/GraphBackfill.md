@@ -20,7 +20,7 @@ All three converge on the same primitive: `MemorySessionIngestor.ingestSingleRow
 
 ## Primitive: `ingestSingleRow`
 
-The per-row analog of `syncSessionToGraph`'s batch-per-session behavior. Given a graph node ID with the `memory:` or `session:` prefix (case-insensitive — accepts the uppercase `MEMORY:` / `SESSION:` form used by #10165's extractor without requiring a canonical-format migration), it fetches the corresponding Chroma row and upserts a graph node tagged `backfilled: true`.
+The per-row analog of `syncSessionToGraph`'s batch-per-session behavior. Given a graph node ID with the canonical `memory:` or `session:` prefix, it fetches the corresponding Chroma row and upserts a graph node tagged `backfilled: true`. Uppercase `MEMORY:` / `SESSION:` inputs remain accepted as compatibility forms and normalize to the canonical lowercase target before lookup.
 
 **Recursion:** a Memory's `sessionId` metadata points at its parent Session. If the Session node is absent when a Memory is back-filled, `ingestSingleRow` recursively back-fills the parent first so the `ORIGINATES_IN` edge doesn't dangle.
 
@@ -45,9 +45,9 @@ const ok = await GraphService.linkNodesAsync(source, target, relationship, weigh
 
 **Prefix normalization:** both endpoints are routed through `normalizeGraphNodeId` before the lookup. The edge lands on the canonical lowercase form regardless of input case. An edge passed as `MEMORY:xyz` lands in SQLite with `target = 'memory:xyz'`.
 
-## JSONL Lazy Queue (Producer/Consumer Contract with #10165)
+## JSONL Lazy Queue (Producer/Consumer Contract with #10165 / #10172)
 
-Gemini 3.1 Pro's [PR #10165](https://github.com/neomjs/neo/pull/10165) (ticket #10152) shipped the **producer** side: `SemanticGraphExtractor` writes provenance edges whose `MEMORY:` / `SESSION:` targets aren't yet in the graph to `aiConfig.lazyEdgesQueuePath` (default `ai/data/memory-core/lazy-edges.jsonl`) as one JSON object per line.
+Gemini 3.1 Pro's [PR #10165](https://github.com/neomjs/neo/pull/10165) (ticket #10152) shipped the **producer** side: `SemanticGraphExtractor` writes provenance edges whose `memory:` / `session:` targets aren't yet in the graph to `aiConfig.lazyEdgesQueuePath` (default `ai/data/memory-core/lazy-edges.jsonl`) as one JSON object per line. Pre-#10172 queue entries may still contain `MEMORY:` / `SESSION:` targets; the consumer path treats those as compatibility inputs and normalizes them before back-fill/linking.
 
 This ticket (#10153) ships the **consumer** side: `LazyEdgeDrainer.drainQueue()` reads the queue, retries each edge via `linkNodesAsync` (which triggers `ingestSingleRow` for missing endpoints), writes failures back for the next cycle, and deletes the queue when fully drained.
 
@@ -95,9 +95,14 @@ Use before mass cross-tenant operations (e.g. post-#10146 permission grant rollo
 
 ## Node-ID Canonical Format (Coordination Note)
 
-The ingestor writes node IDs in the form `memory:<chromaId>` and `session:<sessionId>` — lowercase prefix. Gemini's #10165 extractor emits edges referencing `MEMORY:<chromaId>` and `SESSION:<sessionId>` — uppercase prefix. `ingestSingleRow` and `linkNodesAsync` both normalize case-insensitively on the consumer side, so neither convention "wins" yet.
+Canonical row-backed Memory and Session graph IDs use lowercase prefixes:
 
-This is a known coordination seam. If the uppercase form becomes canonical, the ingestor's upsert path needs renaming. If lowercase wins, the extractor prompt and existing queued entries need updating. Current behavior: both forms resolve; the canonical-format decision is deferred to a follow-up.
+- `memory:<chromaId>`
+- `session:<sessionId>`
+
+This convention applies only to row-backed Memory/Session nodes. Semantic and identity prefixes such as `CONCEPT:`, `CLASS:`, and `AGENT:` remain outside this contract and are not recased by #10172.
+
+Uppercase `MEMORY:<chromaId>` and `SESSION:<sessionId>` remain compatibility input forms for historical lazy-queue lines, review artifacts, and manual operator probes. `GraphService.normalizeGraphNodeId`, `ingestSingleRow`, and `linkNodesAsync` normalize those inputs to the lowercase canonical form before storage/linking. New producer output should emit the lowercase canonical form directly.
 
 ## Chroma Collection Mapping
 
@@ -110,8 +115,8 @@ Tests inject stubs conforming to the same `collection.get({ids} | {where})` cont
 
 ## See Also
 
-- `ai/daemons/services/MemorySessionIngestor.mjs` — `ingestSingleRow` + `syncSessionToGraph`
-- `ai/daemons/services/LazyEdgeDrainer.mjs` — JSONL queue consumer
+- `ai/services/ingestion/MemorySessionIngestor.mjs` — `ingestSingleRow` + `syncSessionToGraph`
+- `ai/services/graph/LazyEdgeDrainer.mjs` — JSONL queue consumer
 - `ai/services/memory-core/GraphService.mjs` — `linkNodesAsync`, `ensureNodeExists`, `normalizeGraphNodeId`
 - `ai/scripts/priorityBackfill.mjs` — operator CLI
 - `learn/agentos/tooling/MemoryCoreMcpAuth.md` — identity propagation (orthogonal; user-tenant tagging happens at write time regardless of back-fill source)
