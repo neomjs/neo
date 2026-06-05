@@ -404,6 +404,254 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Finds the latest reliable activity timestamp for an open issue.
+     *
+     * Silent Threads deliberately uses deterministic sync metadata rather than LLM triage:
+     * `updatedAt` first, then parsed timeline comments, then `createdAt` as the fallback.
+     *
+     * @param {Object} issue Parsed issue record.
+     * @param {String} issue.content Markdown body without frontmatter.
+     * @param {String} issue.createdAt Issue creation timestamp.
+     * @param {String} issue.updatedAt Issue update timestamp.
+     * @returns {{createdAt: Date, author: String, reason: String}|null}
+     */
+    static findLatestIssueActivity(issue) {
+        const candidates = [];
+
+        const updatedAt = new Date(issue.updatedAt);
+        if (!Number.isNaN(updatedAt.getTime())) {
+            candidates.push({createdAt: updatedAt, author: 'github-sync', reason: 'updatedAt'});
+        }
+
+        for (const comment of this.extractIssueCommentBlocks(issue.content || '')) {
+            const createdAt = new Date(comment.createdAt);
+            if (!Number.isNaN(createdAt.getTime())) {
+                candidates.push({createdAt, author: comment.author, reason: 'comment'});
+            }
+        }
+
+        const createdAt = new Date(issue.createdAt);
+        if (!Number.isNaN(createdAt.getTime())) {
+            candidates.push({createdAt, author: issue.author || 'unknown', reason: 'issue-created'});
+        }
+
+        candidates.sort((a, b) => b.createdAt - a.createdAt);
+
+        return candidates[0] || null
+    }
+
+    /**
+     * @summary Returns the Golden Path-style structural weight for an issue node.
+     *
+     * Uses the same inbound non-BLOCKS edge-weight shape as computed Golden Path scoring.
+     * Missing graph storage degrades to zero; Silent Threads then falls back to pure age.
+     *
+     * @param {String} issueId Canonical graph issue id (`issue-N`).
+     * @param {Object} [graphService=GraphService] Memory GraphService singleton or test double.
+     * @returns {Number}
+     */
+    static getIssueStructuralWeight(issueId, graphService = GraphService) {
+        try {
+            const sqliteDb = graphService?.db?.storage?.db;
+            if (!sqliteDb) return 0;
+
+            const row = sqliteDb.prepare(`
+                SELECT COALESCE(SUM(json_extract(e.data, '$.properties.weight')), 0.0) AS structuralWeight
+                FROM Edges e
+                WHERE e.target = ? AND e.type != 'BLOCKS'
+            `).get(issueId);
+
+            return Number(row?.structuralWeight || 0)
+        } catch (error) {
+            return 0
+        }
+    }
+
+    /**
+     * @summary Determines whether an issue has an open blocker.
+     *
+     * Prefer graph topology when available. If graph topology is not mounted, fall back to
+     * synced frontmatter `blockedBy` so a visibility-only signal does not resurface known
+     * blocked work.
+     *
+     * @param {Object} options
+     * @param {String} options.issueId Canonical graph issue id (`issue-N`).
+     * @param {Object} options.issue Parsed issue frontmatter.
+     * @param {Object} [options.graphService=GraphService] Memory GraphService singleton or test double.
+     * @returns {Boolean}
+     */
+    static hasOpenIssueBlocker({issueId, issue, graphService = GraphService}) {
+        let graphChecked = false;
+
+        try {
+            if (graphService?.db?.edges?.getByIndex) {
+                graphChecked = true;
+                graphService.db.getAdjacentNodes?.(issueId, 'both');
+
+                const blockers = graphService.db.edges.getByIndex('target', issueId).filter(edge => edge.type === 'BLOCKS');
+                for (const edge of blockers) {
+                    const blockerNode = graphService.db.nodes?.get?.(edge.source);
+                    if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
+                        return true
+                    }
+                }
+            }
+        } catch (error) {
+            graphChecked = false;
+        }
+
+        const frontmatterBlockers = Array.isArray(issue.blockedBy) ? issue.blockedBy.filter(Boolean) : [];
+
+        return !graphChecked && frontmatterBlockers.length > 0
+    }
+
+    /**
+     * @summary Builds visibility-only Silent Threads from local synced issue markdown.
+     *
+     * Candidates are open, unassigned, non-rejected issues outside the Computed Golden Path.
+     * They are sorted by `silenceScore = daysIdle * max(structuralWeight, 1)`, keeping this
+     * section as an operator/swarm reading surface without changing orchestrator routing.
+     *
+     * @param {Object} options
+     * @param {String} options.issuesDir Local synced issue directory.
+     * @param {Date} [options.now=new Date()] Current clock for deterministic tests.
+     * @param {Set<String>} [options.goldenIds=new Set()] Current Computed Golden Path issue ids.
+     * @param {Number} [options.thresholdMs=aiConfig.goldenPathSilentThreadThresholdMs] Idle threshold.
+     * @param {Number} [options.minScore=aiConfig.goldenPathSilentThreadMinScore] Minimum silence score.
+     * @param {Object} [options.graphService=GraphService] Memory GraphService singleton or test double.
+     * @returns {Array<Object>} Silent-thread candidates sorted by silence score.
+     */
+    static buildSilentThreadCandidates({
+        issuesDir,
+        now = new Date(),
+        goldenIds = new Set(),
+        thresholdMs = aiConfig.goldenPathSilentThreadThresholdMs,
+        minScore = aiConfig.goldenPathSilentThreadMinScore,
+        graphService = GraphService
+    }) {
+        const candidates = [];
+        const nowDate    = now instanceof Date ? now : new Date(now);
+        const goldenSet  = new Set([...goldenIds].map(id => String(id)));
+        const excludedLabels = new Set([
+            'needs-re-triage',
+            'no-auto-close',
+            'no auto close',
+            'duplicate',
+            'invalid',
+            'wontfix',
+            'wont fix'
+        ]);
+
+        for (const filePath of this.collectIssueMarkdownFiles(issuesDir)) {
+            let parsed;
+            try {
+                parsed = matter(fs.readFileSync(filePath, 'utf-8'));
+            } catch (error) {
+                logger.warn(`[GoldenPathSynthesizer] Failed to parse issue markdown for Silent Threads: ${filePath}`, error);
+                continue;
+            }
+
+            const meta      = parsed.data || {};
+            const labels    = Array.isArray(meta.labels) ? meta.labels.map(label => String(label).toLowerCase()) : [];
+            const assignees = Array.isArray(meta.assignees) ? meta.assignees.filter(Boolean) : [];
+            const fileId    = path.basename(filePath, '.md');
+            const rawId     = meta.id || fileId.replace(/^issue-/, '');
+            const issueId   = String(rawId).startsWith('issue-') ? String(rawId) : `issue-${rawId}`;
+
+            if (meta.state !== 'OPEN' ||
+                assignees.length > 0 ||
+                goldenSet.has(issueId) ||
+                labels.some(label => excludedLabels.has(label))) {
+                continue;
+            }
+
+            if (this.hasOpenIssueBlocker({issueId, issue: meta, graphService})) {
+                continue;
+            }
+
+            const lastActivity = this.findLatestIssueActivity({
+                author   : meta.author,
+                content  : parsed.content,
+                createdAt: meta.createdAt,
+                updatedAt: meta.updatedAt
+            });
+
+            if (!lastActivity) continue;
+
+            const idleMs = nowDate - lastActivity.createdAt;
+            if (idleMs < thresholdMs) continue;
+
+            const daysIdle        = Math.floor(idleMs / DAY_MS);
+            const structuralWeight = this.getIssueStructuralWeight(issueId, graphService);
+            const silenceScore     = daysIdle * Math.max(structuralWeight, 1);
+
+            if (silenceScore < minScore) continue;
+
+            candidates.push({
+                daysIdle,
+                filePath,
+                issueId,
+                labels,
+                lastActivityAt: lastActivity.createdAt.toISOString(),
+                lastActivityBy: lastActivity.author,
+                number        : Number(String(issueId).replace(/^issue-/, '')) || rawId,
+                reason        : lastActivity.reason,
+                silenceScore,
+                structuralWeight,
+                title         : meta.title || '(no title)',
+                url           : meta.githubUrl
+            });
+        }
+
+        candidates.sort((a, b) =>
+            b.silenceScore - a.silenceScore ||
+            b.daysIdle - a.daysIdle ||
+            b.structuralWeight - a.structuralWeight ||
+            Number(a.number) - Number(b.number)
+        );
+
+        return candidates
+    }
+
+    /**
+     * @summary Renders the Sandman handoff Silent Threads section.
+     *
+     * @param {Array<Object>} candidates Silent-thread candidates.
+     * @param {Object} options
+     * @param {Date} [options.capturedAt=new Date()] Capture timestamp.
+     * @param {Number} [options.limit=aiConfig.goldenPathSilentThreadRenderLimit] Maximum candidates to render.
+     * @returns {String}
+     */
+    static renderSilentThreadCandidatesSection(candidates, {
+        capturedAt = new Date(),
+        limit = aiConfig.goldenPathSilentThreadRenderLimit
+    } = {}) {
+        let section = `\n## Silent Threads\n\n`;
+        section += `*Captured at: ${capturedAt.toISOString()} (Source: local issue sync + Native Edge Graph; visibility-only, no routing)*\n\n`;
+
+        if (candidates.length === 0) {
+            section += `No silent thread candidates detected.\n`;
+            return section
+        }
+
+        const visibleCandidates = candidates.slice(0, limit);
+
+        if (candidates.length > visibleCandidates.length) {
+            section += `Showing ${visibleCandidates.length} of ${candidates.length} candidates, sorted by silence score.\n\n`;
+        }
+
+        for (const candidate of visibleCandidates) {
+            const issueRef = candidate.url ? `[#${candidate.number}](${candidate.url})` : `#${candidate.number}`;
+            section += `- **${issueRef}** — ${candidate.title} — ${candidate.daysIdle} days idle; ` +
+                `last activity ${candidate.lastActivityAt} by @${candidate.lastActivityBy}; ` +
+                `structural weight ${candidate.structuralWeight.toFixed(2)}; ` +
+                `silence score ${candidate.silenceScore.toFixed(2)} (${candidate.reason})\n`;
+        }
+
+        return section
+    }
+
+    /**
      * @summary Determines whether a PR has cross-family review coverage.
      *
      * @param {Object} pr GitHub PR payload from `gh pr list`.
@@ -629,6 +877,7 @@ class GoldenPathSynthesizer extends Base {
 
         // Remove mathematically rejected targets (Negative ROI), then slice
         const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, 5);
+        const goldenIds = new Set(topNodes.map(item => item.node.id));
 
         let markdownAppend = '';
 
@@ -832,6 +1081,23 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
+        // --- Silent Threads ---
+        let silentThreadsAppend = '';
+        if (repoEnrichmentEnabled) {
+            try {
+                const Synthesizer = this.constructor;
+                const silentThreadCandidates = Synthesizer.buildSilentThreadCandidates({
+                    issuesDir,
+                    now,
+                    goldenIds
+                });
+
+                silentThreadsAppend = Synthesizer.renderSilentThreadCandidatesSection(silentThreadCandidates, {capturedAt: now instanceof Date ? now : new Date(now)});
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Silent Threads', e);
+            }
+        }
+
         // --- Active PR Cycle State ---
         let prStateAppend = '';
         if (repoEnrichmentEnabled) {
@@ -922,7 +1188,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         }
 
         // --- Executive Priority Backlog ---
-        const goldenIds = new Set(topNodes.map(item => item.node.id));
         let backlogAppend = '';
         if (repoEnrichmentEnabled) {
             try {
@@ -961,7 +1226,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${staleAssignmentAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
+        handoffContent += `${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');
