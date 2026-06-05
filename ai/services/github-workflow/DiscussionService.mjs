@@ -3,7 +3,7 @@ import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
-import {GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
+import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
 import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
 
 const AGENT_ICONS = {
@@ -19,6 +19,7 @@ const AGENT_ICONS = {
  * This service provides a high-level abstraction for managing GitHub discussions.
  * Capabilities include:
  * - Creating discussions inside specific categories (default 'Ideas')
+ * - Reading discussion conversations
  * - Managing discussion comments
  * - Updating discussion bodies
  *
@@ -43,6 +44,84 @@ class DiscussionService extends Base {
          * @protected
          */
         writePermissions: ['ADMIN', 'MAINTAIN', 'WRITE', 'READ'] // Discussions are typically accessible across more roles, but keeping standard
+    }
+
+    /**
+     * @summary Fetches a Discussion conversation with optional comment-selector narrowing.
+     *
+     * Discussion-side peer of the Issue/PR `get_conversation` selector contract.
+     * Selectors are applied to top-level Discussion comments after the bounded GraphQL fetch:
+     * `comment_id` > `since_comment_id` > `last_n` > full conversation.
+     *
+     * @param {Object} options
+     * @param {Number} options.discussion_number    The Discussion number (required).
+     * @param {String} [options.comment_id]         Return only the matching top-level comment; body metadata still returned.
+     * @param {String} [options.since_comment_id]   Return top-level comments strictly after the matching comment. Unknown id -> empty comments.
+     * @param {Number} [options.last_n]             Return only the last N top-level comments.
+     * @returns {Promise<Object>} Discussion conversation data, optionally filtered, or a structured error.
+     */
+    async getConversation(options) {
+        const {discussion_number, comment_id, since_comment_id, last_n} = options || {};
+
+        if (!discussion_number) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing required argument: 'discussion_number' is required.",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        const variables = {
+            owner           : aiConfig.owner,
+            repo            : aiConfig.repo,
+            discussionNumber: discussion_number,
+            maxComments     : aiConfig.pullRequest.maxCommentsPerPullRequest,
+            maxReplies      : aiConfig.pullRequest.maxCommentsPerPullRequest
+        };
+
+        try {
+            const data       = await GraphqlService.query(GET_DISCUSSION_CONVERSATION, variables);
+            const discussion = data.repository.discussion;
+
+            if (!discussion) {
+                return {
+                    error  : 'Not Found',
+                    message: `Could not find discussion #${discussion_number}.`,
+                    code   : 'NOT_FOUND'
+                };
+            }
+
+            const allComments = discussion.comments?.nodes || [];
+
+            // Selector precedence mirrors IssueService/PullRequestService.
+            let filtered;
+
+            if (comment_id) {
+                filtered = allComments.filter(c => c.id === comment_id);
+            } else if (since_comment_id) {
+                const anchorIdx = allComments.findIndex(c => c.id === since_comment_id);
+                filtered = anchorIdx === -1 ? [] : allComments.slice(anchorIdx + 1);
+            } else if (typeof last_n === 'number' && last_n > 0) {
+                filtered = allComments.slice(-last_n);
+            } else {
+                return discussion;
+            }
+
+            return {
+                ...discussion,
+                comments: {
+                    ...discussion.comments,
+                    nodes: filtered
+                }
+            };
+        } catch (error) {
+            logger.error(`Error getting conversation for discussion #${discussion_number} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
     }
 
     /**

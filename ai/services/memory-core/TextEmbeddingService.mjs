@@ -4,6 +4,9 @@ import Base                 from '../../../src/core/Base.mjs';
 import logger               from '../../mcp/server/memory-core/logger.mjs';
 import OllamaProvider       from '../../provider/Ollama.mjs';
 
+const DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS = 60 * 60 * 1000;
+const OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE   = /openAiCompatible embedding error HTTP (408|429|503|504):/;
+
 /**
  * Determines whether TextEmbeddingService needs a Gemini embedding client for the active provider.
  * Kept pure so config-consolidation tests can pin the single-provider gate without
@@ -13,6 +16,48 @@ import OllamaProvider       from '../../provider/Ollama.mjs';
  */
 export function shouldInitializeGeminiEmbeddingClient(cfg = aiConfig) {
     return cfg.embeddingProvider === 'gemini';
+}
+
+/**
+ * @summary Detects OpenAI-compatible embedding failures that indicate request contention or timeout.
+ *
+ * The existing unload retry handles LM Studio JIT-unload cases. This helper isolates the distinct
+ * busy/queued request class so interactive single embeddings can retry without treating ordinary
+ * model-load or malformed-request failures as contention.
+ *
+ * @param {Error} error The request error to classify.
+ * @returns {Boolean}
+ */
+export function isOpenAiCompatibleContentionTimeoutError(error) {
+    const message = error?.message || '',
+          code    = error?.code    || '';
+
+    return code === 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT' ||
+        code === 'ETIMEDOUT' ||
+        code === 'ESOCKETTIMEDOUT' ||
+        OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE.test(message);
+}
+
+/**
+ * @summary Formats the timeout value used in OpenAI-compatible embedding timeout errors.
+ * @param {Number} requestTimeoutMs The timeout in milliseconds.
+ * @returns {String}
+ */
+function describeOpenAiCompatibleTimeout(requestTimeoutMs) {
+    return requestTimeoutMs === DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS ? '1 hour' : `${requestTimeoutMs}ms`;
+}
+
+/**
+ * @summary Waits before the next OpenAI-compatible batch chunk.
+ *
+ * Even a zero-millisecond timeout yields the event loop, letting already-arrived interactive
+ * single-embedding calls send their provider request before the next batch sub-request.
+ *
+ * @param {Number} delayMs Delay in milliseconds.
+ * @returns {Promise<void>}
+ */
+function waitForOpenAiCompatibleBatchYield(delayMs) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, delayMs || 0)));
 }
 
 /**
@@ -74,16 +119,35 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * Executes OpenAI-compatible /v1/embeddings POST requests with retry semantics for unloaded models.
+     * @summary Executes OpenAI-compatible /v1/embeddings POST requests with bounded retry semantics.
+     *
+     * Retries unloaded-model failures for both single and batch embeddings. Single interactive
+     * embeddings can additionally opt into a shorter contention timeout + retry budget, preventing
+     * `add_memory` from waiting behind a serialized batch until the MCP client times out.
      * The same endpoint shape is used by LM Studio desktop, `lms server start`, MLX, llama.cpp,
      * and other local OpenAI-format embedding servers.
+     *
      * @param {String|String[]} inputData The text or array of texts to embed.
-     * @param {Number} retriesLeft Number of retries remaining.
+     * @param {Object} options
+     * @param {Number} options.unloadRetriesLeft Number of unload retries remaining.
+     * @param {Number} [options.contentionRetriesLeft=0] Number of contention-timeout retries remaining.
+     * @param {Number} [options.requestTimeoutMs=3600000] Request timeout in milliseconds.
      * @returns {Promise<Object>}
      * @private
      */
-    async #postOpenAiCompatible(inputData, retriesLeft) {
-        const { host, embeddingModel, apiKey, unloadRetryCount = 3, unloadRetryDelayMs = 500 } = aiConfig.openAiCompatible;
+    async #postOpenAiCompatible(inputData, options) {
+        const {
+            unloadRetriesLeft,
+            contentionRetriesLeft = 0,
+            requestTimeoutMs      = DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS
+        } = options;
+        const {
+            host,
+            embeddingModel,
+            apiKey,
+            unloadRetryDelayMs    = 500,
+            contentionRetryDelayMs = 1000
+        } = aiConfig.openAiCompatible;
 
         try {
             const parsedUrl = new URL(`${host}/v1/embeddings`);
@@ -103,7 +167,7 @@ class TextEmbeddingService extends Base {
             const req = httpModule.request(parsedUrl, {
                 method : 'POST',
                 headers: reqHeaders,
-                timeout: 60 * 60 * 1000 // 1 hour timeout natively
+                timeout: requestTimeoutMs
             }, (res) => {
                 let body = '';
                 res.on('data', chunk => body += chunk);
@@ -123,8 +187,10 @@ class TextEmbeddingService extends Base {
 
             req.on('error', (err) => rejectFunc(err));
             req.on('timeout', () => {
+                const err = new Error(`openAiCompatible request timed out after ${describeOpenAiCompatibleTimeout(requestTimeoutMs)}`);
+                err.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
                 req.destroy();
-                rejectFunc(new Error('openAiCompatible request timed out after 1 hour'));
+                rejectFunc(err);
             });
 
             req.write(JSON.stringify({ model: embeddingModel, input: inputData }));
@@ -138,10 +204,24 @@ class TextEmbeddingService extends Base {
                  err.message.includes('Operation canceled'))
             );
 
-            if (retriesLeft > 0 && isModelLoadError) {
-                logger.log(`[TextEmbeddingService] embedding-provider model-load failure detected (Shape ${err.message.includes('Model was unloaded') ? 'A' : 'B'}), retrying (remaining retries: ${retriesLeft})`);
+            if (unloadRetriesLeft > 0 && isModelLoadError) {
+                logger.log(`[TextEmbeddingService] embedding-provider model-load failure detected (Shape ${err.message.includes('Model was unloaded') ? 'A' : 'B'}), retrying (remaining retries: ${unloadRetriesLeft})`);
                 await new Promise(r => setTimeout(r, unloadRetryDelayMs));
-                return this.#postOpenAiCompatible(inputData, retriesLeft - 1);
+                return this.#postOpenAiCompatible(inputData, {
+                    unloadRetriesLeft: unloadRetriesLeft - 1,
+                    contentionRetriesLeft,
+                    requestTimeoutMs
+                });
+            }
+
+            if (contentionRetriesLeft > 0 && isOpenAiCompatibleContentionTimeoutError(err)) {
+                logger.log(`[TextEmbeddingService] embedding-provider contention timeout detected, retrying (remaining contention retries: ${contentionRetriesLeft})`);
+                await new Promise(r => setTimeout(r, contentionRetryDelayMs));
+                return this.#postOpenAiCompatible(inputData, {
+                    unloadRetriesLeft,
+                    contentionRetriesLeft: contentionRetriesLeft - 1,
+                    requestTimeoutMs
+                });
             }
             logger.error(`[TextEmbeddingService] Failed to generate embedding from openAiCompatible:`, err.message);
             throw err;
@@ -162,18 +242,63 @@ class TextEmbeddingService extends Base {
     #getOllamaProvider() {
         if (this.ollamaProvider) return this.ollamaProvider;
 
-        const config = aiConfig.ollama || {};
+        const config = aiConfig.ollama;
         const provider = Neo.create(OllamaProvider, {
-            host          : config.host           || 'http://127.0.0.1:11434',
-            modelName     : config.model          || 'gemma4',
-            embeddingModel: config.embeddingModel || null
+            host          : config.host,
+            modelName     : config.model,
+            embeddingModel: config.embeddingModel
         });
         this.ollamaProvider = provider;
         return provider;
     }
 
     /**
-     * Creates an embedding vector for the provided text.
+     * @summary Embeds a text array through OpenAI-compatible chunked batch requests.
+     *
+     * Local OpenAI-compatible embedding servers often serialize model requests. Sending the whole
+     * KB-sync batch as one provider call can monopolize that server for minutes. Chunking keeps
+     * batch ingestion moving while yielding between chunks so interactive single embeddings can
+     * enter the provider queue before the next batch chunk.
+     *
+     * @param {String[]} texts The texts to embed.
+     * @returns {Promise<number[][]>}
+     * @private
+     */
+    async #embedOpenAiCompatibleBatch(texts) {
+        const {
+            unloadRetryCount        = 3,
+            batchEmbeddingChunkSize = 5,
+            batchEmbeddingYieldMs   = 0
+        } = aiConfig.openAiCompatible;
+        const chunkSize = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
+              data      = [];
+
+        for (let offset = 0; offset < texts.length; offset += chunkSize) {
+            const chunk = texts.slice(offset, offset + chunkSize),
+                  result = await this.#postOpenAiCompatible(chunk, {
+                      unloadRetriesLeft: unloadRetryCount
+                  });
+
+            data.push(...(result.data || []).map(item => ({
+                ...item,
+                index: offset + item.index
+            })));
+
+            if (offset + chunkSize < texts.length) {
+                await waitForOpenAiCompatibleBatchYield(batchEmbeddingYieldMs);
+            }
+        }
+
+        return data.sort((a, b) => a.index - b.index).map(d => d.embedding);
+    }
+
+    /**
+     * @summary Creates one embedding vector for interactive write/query paths.
+     *
+     * The OpenAI-compatible branch uses the contention retry budget because single embeddings are
+     * latency-sensitive (`add_memory`, query, frontier) and must fail/retry inside the service before
+     * the MCP request envelope times out.
+     *
      * @param {String} text The text to embed.
      * @param {String} explicitProvider The embedding provider to use.
      * @returns {Promise<number[]>}
@@ -182,8 +307,16 @@ class TextEmbeddingService extends Base {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedText requires an explicit provider argument');
 
         if (explicitProvider === 'openAiCompatible') {
-            const { unloadRetryCount = 3 } = aiConfig.openAiCompatible;
-            const result = await this.#postOpenAiCompatible(text, unloadRetryCount);
+            const {
+                unloadRetryCount          = 3,
+                contentionRetryCount      = 2,
+                contentionTimeoutMs       = 15000
+            } = aiConfig.openAiCompatible;
+            const result = await this.#postOpenAiCompatible(text, {
+                unloadRetriesLeft    : unloadRetryCount,
+                contentionRetriesLeft: contentionRetryCount,
+                requestTimeoutMs     : contentionTimeoutMs
+            });
             return result.data?.[0]?.embedding;
         } else if (explicitProvider === 'ollama') {
             // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
@@ -209,7 +342,11 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * Creates embedding vectors for an array of texts.
+     * @summary Creates embedding vectors for batch ingestion paths.
+     *
+     * The OpenAI-compatible branch preserves the long request timeout and only applies unload retry,
+     * so legitimate KB-sync batches are not cut short by the interactive contention timeout.
+     *
      * @param {String[]} texts The texts to embed.
      * @param {String} explicitProvider The embedding provider to use.
      * @returns {Promise<number[][]>}
@@ -218,9 +355,7 @@ class TextEmbeddingService extends Base {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedTexts requires an explicit provider argument');
 
         if (explicitProvider === 'openAiCompatible') {
-            const { unloadRetryCount = 3 } = aiConfig.openAiCompatible;
-            const result = await this.#postOpenAiCompatible(texts, unloadRetryCount);
-            return result.data.sort((a, b) => a.index - b.index).map(d => d.embedding);
+            return this.#embedOpenAiCompatibleBatch(texts);
         } else if (explicitProvider === 'ollama') {
             // Ollama's `/api/embed` accepts array-of-strings natively + returns
             // a parallel embeddings array — no per-text fan-out needed.

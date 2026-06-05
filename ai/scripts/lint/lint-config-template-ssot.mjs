@@ -54,20 +54,9 @@ const SCAN_ROOT_REL            = 'ai';
  * @type {ReadonlyArray<{file: String, env: String, ticket: String, reshape: String}>}
  */
 export const BASELINE = Object.freeze([
-    Object.freeze({
-        file   : 'ai/mcp/server/memory-core/config.template.mjs',
-        env    : 'NEO_MEMORY_COLLECTION_NAME',
-        ticket : '#12451',
-        reshape: 'Dynamic (harder sub-case). The per-worker-unique test collection name (Date.now()/Math.random()) ' +
-                 'must move to a per-worker test bootstrap, not a static env value — one shared shell-env value would ' +
-                 'collide across fullyParallel workers.'
-    }),
-    Object.freeze({
-        file   : 'ai/mcp/server/memory-core/config.template.mjs',
-        env    : 'NEO_SESSION_COLLECTION_NAME',
-        ticket : '#12451',
-        reshape: 'Dynamic (harder sub-case). Same per-worker-bootstrap relocation as NEO_MEMORY_COLLECTION_NAME.'
-    })
+    // EMPTY — all config.template inline-`process.env` leaf defaults have been reshaped to the
+    // declarative toggle+formula shape. The lint is now FULLY ENFORCING: any NEW inline-`process.env`
+    // leaf default is a fresh violation (no grandfathered instances remain).
 ]);
 
 /**

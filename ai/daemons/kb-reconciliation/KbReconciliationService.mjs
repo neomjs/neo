@@ -16,12 +16,6 @@ import {
 } from '../../services/knowledge-base/helpers/KbReconciliationEngine.mjs';
 
 /**
- * @summary Poll-interval fallback when `aiConfig.knowledgeBase.reconciliationIntervalMs` is unset.
- * @type {Number}
- */
-const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
-
-/**
  * @summary Chroma `collection.get` page size for the batched per-tenant rows fetch.
  * @type {Number}
  */
@@ -93,11 +87,12 @@ class KbReconciliationService extends Base {
         pollHandle_: null,
         /**
          * Interval between reconciliation pulses in milliseconds.
-         * @member {Number} pollIntervalMs_=3600000
+         * Populated from `aiConfig.knowledgeBase.reconciliationIntervalMs` when the daemon starts.
+         * @member {Number|null} pollIntervalMs_=null
          * @protected
          * @reactive
          */
-        pollIntervalMs_: DEFAULT_INTERVAL_MS
+        pollIntervalMs_: null
     }
 
     /**
@@ -123,7 +118,7 @@ class KbReconciliationService extends Base {
             return;
         }
 
-        this.pollIntervalMs = pollIntervalMs || kbConfig.reconciliationIntervalMs || DEFAULT_INTERVAL_MS;
+        this.pollIntervalMs = pollIntervalMs ?? kbConfig.reconciliationIntervalMs;
 
         await KBRecorderService.ready();
 
@@ -247,15 +242,14 @@ class KbReconciliationService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may have no
-     * `knowledgeBase` key (or lack the reconciliation keys), so a naked
-     * `aiConfig.knowledgeBase.reconciliationEnabled` would throw. Returns `{}` when absent.
+     * Reads the resolved AiConfig Provider subtree directly; missing subtree shape must fail
+     * loud instead of being converted into a disabled reconciliation daemon.
      *
      * @returns {Object}
      * @protected
      */
     getKbConfig() {
-        return aiConfig.knowledgeBase || {}
+        return aiConfig.knowledgeBase
     }
 
     /**
@@ -426,4 +420,4 @@ class KbReconciliationService extends Base {
 
 export default Neo.setupClass(KbReconciliationService);
 
-export {DEFAULT_INTERVAL_MS, ROWS_PAGE_SIZE};
+export {ROWS_PAGE_SIZE};

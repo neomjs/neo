@@ -46,8 +46,11 @@ import {
     getGraphLogEntries,
     getNodesData,
     getEdgesData,
-    getDbNode
+    getDbNode,
+    getActiveHarnessPresence,
+    isHarnessPresenceFresh
 } from './queries.mjs';
+import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
@@ -675,6 +678,7 @@ let deliveryPromise = Promise.resolve();
  */
 async function deliverDigest(subscription, digest) {
     const meta = subscription.properties?.harnessTargetMetadata || {};
+    const {instanceAddress, addressType} = resolveInstanceAddress(meta);
     // Fall back to osascript on macOS by default, tmux otherwise
     const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
     const adapter = meta.adapter || defaultAdapter;
@@ -683,8 +687,27 @@ async function deliverDigest(subscription, digest) {
     deliveryPromise = deliveryPromise.then(async () => {
 
     try {
+        // `userDataDir` is exempt from the freshness veto: the dispatch below resolves it through
+        // `getInstancePid({userDataDir})`, which fails closed when no live process maps to the
+        // address — a live liveness proof, unlike the volatile presence overlay (written once at
+        // bootstrap, so the veto would otherwise drop every userDataDir wake ~5 min after boot).
+        // Address types without an equivalent live oracle (`pid`, `tmuxSession`, `webhookUrl`) keep
+        // the freshness gate.
+        if (addressType && addressType !== 'userDataDir' && instanceAddress &&
+            !assertFreshTargetPresence(subscription, {addressType})
+        ) {
+            return;
+        }
+
+        if (addressType === 'webhookUrl') {
+            await deliverViaWebhookUrl(subscription, digest, instanceAddress);
+            return;
+        }
+
         if (adapter === 'tmux') {
-            const tmuxSession = meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
+            const tmuxSession = addressType === 'tmuxSession' && instanceAddress
+                ? instanceAddress
+                : meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
             writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
@@ -699,22 +722,10 @@ async function deliverDigest(subscription, digest) {
                 );
                 return;
             }
-            let tabShortcut = meta.tabShortcut;
-            // Default tab/focus shortcuts are harness-specific. Claude uses Cmd+3 for
-            // its Code tab; Antigravity uses Cmd+Shift+I for the verified focus route.
-            // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
-            if (tabShortcut === undefined) {
-                if (appName === 'Claude') tabShortcut = '3';
-                else if (appName === 'Antigravity') tabShortcut = 'shift+i';
-            }
-            let focusSeedKey      = meta.focusSeedKey;
-            let focusSeedSequence = meta.focusSeedSequence;
-            // Claude tab switching does not always focus the prompt. Use the
-            // probe-and-undo sequence before the destructive Cmd+A/Cmd+X clear path.
-            // Keep this per harness; Antigravity owns an idempotent Cmd+Shift+I route.
-            if (focusSeedSequence === undefined && focusSeedKey === undefined && appName === 'Claude') {
-                focusSeedSequence = 'r-undo';
-            }
+            const metadataWithDefaults = applyHarnessMetadataDefaults(meta);
+            let tabShortcut            = metadataWithDefaults.tabShortcut;
+            let focusSeedKey           = metadataWithDefaults.focusSeedKey;
+            let focusSeedSequence      = metadataWithDefaults.focusSeedSequence;
 
             // Codex Desktop fail-closed guard. The bridge must not drive the destructive
             // Cmd+A/Cmd+X clear path unless subscription metadata provides a verified,
@@ -733,11 +744,10 @@ async function deliverDigest(subscription, digest) {
                 return;
             }
 
-            // Instance-addressable wake — LOCAL deployment only. When the subscription carries a
-            // userDataDir, two same-bundle GUI harnesses may be running; resolve the intended
-            // instance's pid and raise THAT process — never the ambiguous app-activate / frontmost
-            // guess. Fail closed (skip the wake) if the instance cannot be located, so a targeted
-            // wake never lands in the wrong one.
+            // Instance-addressable wake — LOCAL deployment only. When the subscription carries an
+            // addressType, route through that address instead of falling back to ambiguous
+            // app-activate/frontmost guessing. Fail closed (skip the wake) if the instance cannot
+            // be located, so a targeted wake never lands in the wrong one.
             //
             // Instance addressing is a local-only primitive: this daemon delivers desktop-harness
             // wakes via osascript/tmux, which a headless cloud deployment has no GUI harness to
@@ -747,7 +757,24 @@ async function deliverDigest(subscription, digest) {
             // app-activate — a targeted wake must never silently degrade to an untargeted one. Uses
             // the canonical AiConfig.orchestrator.deploymentMode signal.
             let instancePid = null;
-            if (meta.userDataDir) {
+            if (addressType === 'pid') {
+                if (AiConfig.orchestrator.deploymentMode === 'cloud') {
+                    writeLog('ERROR',
+                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `pid targeting requires local deployment (deploymentMode='cloud'). ` +
+                        `Failing closed — instance-addressed GUI wakes are local-only (ADR 0014).`
+                    );
+                    return;
+                }
+                instancePid = normalizePid(instanceAddress);
+                if (!instancePid) {
+                    writeLog('ERROR',
+                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `invalid pid instanceAddress='${instanceAddress}'. Failing closed.`
+                    );
+                    return;
+                }
+            } else if (addressType === 'userDataDir' && instanceAddress) {
                 if (AiConfig.orchestrator.deploymentMode === 'cloud') {
                     writeLog('ERROR',
                         `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
@@ -756,11 +783,11 @@ async function deliverDigest(subscription, digest) {
                     );
                     return;
                 }
-                instancePid = await getInstancePid({userDataDir: meta.userDataDir});
+                instancePid = await getInstancePid({userDataDir: instanceAddress});
                 if (!instancePid) {
                     writeLog('ERROR',
                         `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
-                        `no running process found for userDataDir='${meta.userDataDir}'. ` +
+                        `no running process found for userDataDir='${instanceAddress}'. ` +
                         `Failing closed to avoid misrouting to another ${appName} instance.`
                     );
                     return;
@@ -954,6 +981,96 @@ async function deliverDigest(subscription, digest) {
     });
 
     return deliveryPromise;
+}
+
+/**
+ * @summary Resolves generic instance-address metadata with legacy field compatibility.
+ * @param {Object} meta Subscription harnessTargetMetadata.
+ * @returns {{instanceAddress:String|null,addressType:String|null}}
+ */
+function resolveInstanceAddress(meta = {}) {
+    const addressType = meta.addressType
+        || (meta.userDataDir ? 'userDataDir' : null);
+
+    const instanceAddress = meta.instanceAddress
+        || (addressType === 'userDataDir' ? meta.userDataDir : null);
+
+    return {
+        instanceAddress: instanceAddress || null,
+        addressType    : addressType || null
+    };
+}
+
+/**
+ * @summary Requires fresh HarnessPresence before immediate address-specific dispatch. Applied to
+ * `pid` / `tmuxSession` / `webhookUrl`; NOT applied to `userDataDir`, whose `getInstancePid`
+ * resolution at dispatch is a stronger, live liveness proof (the caller exempts it).
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {Object} address Resolved address tuple.
+ * @returns {Boolean}
+ */
+function assertFreshTargetPresence(subscription, {addressType}) {
+    const presence = getActiveHarnessPresence(db, {
+        subscriptionId: subscription.id,
+        agentIdentity : subscription.properties?.agentIdentity
+    });
+
+    if (isHarnessPresenceFresh(presence)) return true;
+
+    writeLog('WARN',
+        `[Bridge Daemon] Targeted wake refused for ${subscription.id}: ` +
+        `addressType='${addressType}' requires fresh HarnessPresence. ` +
+        `Failing closed; recipient will pick up the unread event on next turn.`
+    );
+    return false;
+}
+
+/**
+ * @summary Normalizes a pid string for direct-pid address dispatch.
+ * @param {*} pid Process id candidate.
+ * @returns {Number|null}
+ */
+function normalizePid(pid) {
+    const numericPid = Number(pid);
+
+    return Number.isInteger(numericPid) && numericPid > 0 ? numericPid : null;
+}
+
+/**
+ * @summary Posts a wake digest to a bridge-dispatchable webhook address.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @param {String} webhookUrl Target webhook URL.
+ * @returns {Promise<void>}
+ */
+async function deliverViaWebhookUrl(subscription, digest, webhookUrl) {
+    let url;
+    try {
+        url = new URL(webhookUrl);
+    } catch (error) {
+        writeLog('ERROR',
+            `[Bridge Daemon] Webhook wake refused for ${subscription.id}: ` +
+            `invalid webhookUrl instanceAddress. Failing closed.`
+        );
+        return;
+    }
+
+    const response = await fetch(url, {
+        method : 'POST',
+        headers: {
+            'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+            subscriptionId: subscription.id,
+            digest
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`webhookUrl POST failed with HTTP ${response.status}`);
+    }
+
+    writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via webhookUrl POST`);
 }
 
 // Start loop

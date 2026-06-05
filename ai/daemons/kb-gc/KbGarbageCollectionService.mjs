@@ -13,12 +13,6 @@ import {
 } from '../../services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs';
 
 /**
- * @summary Poll-interval fallback when `aiConfig.knowledgeBase.gcIntervalMs` is unset.
- * @type {Number}
- */
-const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
-/**
  * @summary Chroma `collection.get` page size for the batched per-tenant rows fetch.
  * @type {Number}
  */
@@ -89,11 +83,12 @@ class KbGarbageCollectionService extends Base {
         pollHandle_: null,
         /**
          * Interval between GC pulses in milliseconds.
-         * @member {Number} pollIntervalMs_=86400000
+         * Populated from `aiConfig.knowledgeBase.gcIntervalMs` when the daemon starts.
+         * @member {Number|null} pollIntervalMs_=null
          * @protected
          * @reactive
          */
-        pollIntervalMs_: DEFAULT_INTERVAL_MS
+        pollIntervalMs_: null
     }
 
     /**
@@ -119,7 +114,7 @@ class KbGarbageCollectionService extends Base {
             return;
         }
 
-        this.pollIntervalMs = pollIntervalMs || kbConfig.gcIntervalMs || DEFAULT_INTERVAL_MS;
+        this.pollIntervalMs = pollIntervalMs ?? kbConfig.gcIntervalMs;
 
         await KBRecorderService.ready();
 
@@ -263,15 +258,14 @@ class KbGarbageCollectionService extends Base {
     /**
      * @summary Test-stubbable seam over `aiConfig.knowledgeBase`.
      *
-     * Reads defensively: a stale gitignored `ai/config.mjs` deployment may lack the `gc*`
-     * keys, so a naked `aiConfig.knowledgeBase.gcEnabled` would throw. Returns `{}` when
-     * the `knowledgeBase` key is absent.
+     * Reads the resolved AiConfig Provider subtree directly; missing subtree shape must fail
+     * loud instead of being converted into a disabled garbage-collection daemon.
      *
      * @returns {Object}
      * @protected
      */
     getKbConfig() {
-        return aiConfig.knowledgeBase || {}
+        return aiConfig.knowledgeBase
     }
 
     /**
@@ -403,4 +397,4 @@ class KbGarbageCollectionService extends Base {
 
 export default Neo.setupClass(KbGarbageCollectionService);
 
-export {DEFAULT_INTERVAL_MS, ROWS_PAGE_SIZE};
+export {ROWS_PAGE_SIZE};

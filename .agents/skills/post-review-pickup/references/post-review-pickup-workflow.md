@@ -144,9 +144,69 @@ lane-state: halt-state (backlog self-survey completed at boundary #NNNN; no posi
 The declaration is the explicit substrate-signal that the agent
 backlog-surveyed and either selected a lane OR identified a legitimate halt
 per §5. Without the declaration, the substrate cannot distinguish discipline
-from deference. Per AGENTS.md §15.6 self-select mandate + §15.5 Helpful
-Assistant negative constraint: stating intent without execution is itself
-the deference-slip pattern.
+from deference. Per the AGENTS.md self-select mandate and Helpful Assistant
+regression defense: stating intent without execution is itself the
+deference-slip pattern.
+
+## 2.6. Typed `lane-state` Ledger + Commitment Lease
+
+Lineage: #12506 / Discussion #12501. The `lane-state:` declaration also acts as
+the minimum decision ledger for lifecycle boundaries where an agent considers,
+defers, or selects a known lane. This is telemetry-routes-not-gates substrate:
+it surfaces commitment drift and routes recovery, but it never hard-blocks,
+centrally assigns, schedules, or throttles a peer.
+
+Minimum ledger shape when a boundary involves a known positive-ROI lane:
+
+| Field | Meaning |
+|---|---|
+| `considered[]` | Lane ids inspected at the boundary and whether each was chosen, deferred, human-gated, or blocked. |
+| `chosen` | The selected next action, matching the visible `lane-state:` declaration. |
+| `deferReasonType` | `freshness-needed`, `context-exhaustion`, `blocked-human`, `peer-signal-awaited`, `downgraded-with-evidence`, or `productive-deflection`. |
+| `revisitTrigger` | The named falsifier that makes a defer legitimate: a specific artifact to re-read, test/check to run, peer signal to await, or external unblock condition. |
+| `consecutiveDeferralCount(agent-id,lane-id)` | Counter for consecutive qualifying `productive-deflection` events only. |
+
+The discriminator is evidence, not tone:
+
+- A legitimate defer names the falsifier in `revisitTrigger`. "Freshness needed"
+  means naming the artifact or live check that will falsify stale context.
+  "Context exhaustion" only qualifies when it satisfies the concrete §5
+  exhaustion triggers. Human-gate / blocked-human states name the external
+  unblock condition.
+- A qualifying `productive-deflection` event is a defer of the same known,
+  positive-ROI lane while the agent remains productively busy elsewhere, with
+  no named falsifier. Polite prudence, "do fresh next turn", or "await steer"
+  without a specific artifact/test/peer-signal is not evidence.
+
+Typed event keys:
+
+| Key | Shape |
+|---|---|
+| Deflection event | `(agent-id, lane-id, boundary-ts)` |
+| Counter | `(agent-id, lane-id)` |
+
+Activation is a fixed threshold: when the counter reaches `N >= 2`, emit a
+commitment lease. Blast, priority, ticket size, reviewer mood, and lane
+difficulty are metadata for routing/copy/visibility only; they MUST NOT alter
+the threshold. A first-deflection lease is valid only for a source-backed
+`hard-lease` pre-classification: explicit operator direction, explicit peer
+yield, or a ticket AC requiring immediate lease.
+
+Lease responses are limited to:
+
+1. `execute` - begin the lane now.
+2. `hand off` - transfer the lane to a named peer with the evidence and current
+   collision state.
+3. `downgrade-with-evidence` - document why the lane is no longer positive ROI.
+4. `renew-once-with-a-named-falsifier` - one renewal only, with the concrete
+   `revisitTrigger` that will be checked next.
+
+Log the event lightweight-home-first where lifecycle decisions already surface
+(A2A note or graph node). Do not build dedicated telemetry substrate until
+recurrence proves it earns one. Revalidation triggers: if fixed `N=2` creates
+noise on low-value lanes, narrow the eligible lane class; if it misses
+high-blast known-hard lanes, add a source-backed `hard-lease` class. Do not
+scale the counter.
 
 ## 3. Author Pickup Matrix
 

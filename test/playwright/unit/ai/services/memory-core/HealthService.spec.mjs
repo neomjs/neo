@@ -213,8 +213,10 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
     test.describe.configure({mode: 'serial'});
 
     let HealthService;
+    let TextEmbeddingService;
     let memoryCount;
     let originalDateNow;
+    let originalEmbedText;
     let originalGeminiApiKey;
     let originals;
     let summaryCount;
@@ -228,10 +230,12 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
     test.beforeAll(async () => {
         HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+        TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
     });
 
     test.beforeEach(() => {
         originalDateNow    = Date.now;
+        originalEmbedText  = TextEmbeddingService.embedText;
         originalGeminiApiKey = process.env.GEMINI_API_KEY;
         memoryCount        = 10;
         summaryCount       = 20;
@@ -266,6 +270,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         ChromaLifecycleService.getDatabaseStatus = () => ({running: true});
         MailboxService.getHealthcheckPreview     = async () => ({unreadCount: 0, latestPreview: null});
+        TextEmbeddingService.embedText            = async () => new Array(4096).fill(0.1);
         process.env.GEMINI_API_KEY               = 'unit-test-key';
 
         HealthService.setStdioIdentityState(null);
@@ -288,6 +293,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
         MailboxService.getHealthcheckPreview     = originals.getHealthcheckPreview;
+        TextEmbeddingService.embedText            = originalEmbedText;
 
         HealthService.setStdioIdentityState(null);
         HealthService.clearCache();
@@ -323,7 +329,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
     });
 
-    test('healthy healthcheck echoes env-pinned unbound identity warning without changing status', async () => {
+    test('healthcheck degrades env-pinned unbound identity warning', async () => {
         HealthService.setStdioIdentityState({
             userId             : 'neo-claude-opus',
             agentIdentityNodeId: null,
@@ -332,16 +338,15 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         const result = await HealthService.healthcheck();
 
-        expect(result.status).toBe('healthy');
+        expect(result.status).toBe('degraded');
         expect(result.identity).toMatchObject({
             source : 'env-var',
             bound  : false,
             nodeId : null
         });
         expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
-        expect(result.details).toContain('Connected to the orchestrator-managed ChromaDB instance');
         expect(result.details).toContain(`WARN: ${result.identity.warning}`);
-        expect(result.details).toContain('All features are operational');
+        expect(result.details).not.toContain('All features are operational');
     });
 
     test('unhealthy cached-refresh shape clears cache and falls through to a full healthcheck', async () => {
@@ -360,6 +365,23 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(refreshed).not.toBe(cached);
         expect(refreshed.database.connection.collections.memories.count).toBe(12);
         expect(refreshed.database.connection.collections.summaries.count).toBe(22);
+    });
+
+    test('embedding write canary failure degrades healthcheck status', async () => {
+        TextEmbeddingService.embedText = async () => {
+            throw new Error('embedding provider busy');
+        };
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.status).toBe('degraded');
+        expect(result.providers.embedding.writeCanary).toMatchObject({
+            status  : 'failed',
+            provider: 'openAiCompatible',
+            error   : 'embedding provider busy'
+        });
+        expect(result.details).toContain('Embedding write canary failed: embedding provider busy');
+        expect(result.details).not.toContain('All features are operational');
     });
 });
 
@@ -590,6 +612,107 @@ test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBloc
             const result = buildEmbeddingProviderBlock(cfg);
             expect(result.dimensions).toBe(768);
         }
+    });
+});
+
+/**
+ * @summary Coverage for the embedding write canary in the healthcheck payload.
+ *
+ * The provider block reports configured routing; the write canary probes the write-side
+ * embedding call that `add_memory` needs before it can insert into ChromaDB.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#buildEmbeddingWriteCanaryBlock
+ */
+test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
+    let buildEmbeddingWriteCanaryBlock;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildEmbeddingWriteCanaryBlock = mod.buildEmbeddingWriteCanaryBlock;
+    });
+
+    test('reports healthy when the active provider returns a vector', async () => {
+        let nowCalls = 0;
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 3
+            },
+            embedText: async (input, provider) => {
+                expect(input).toBe('neo-healthcheck-embedding-write-canary');
+                expect(provider).toBe('openAiCompatible');
+                return [0.1, 0.2, 0.3];
+            },
+            now: () => nowCalls++ ? 125 : 100
+        });
+
+        expect(result).toEqual({
+            status            : 'healthy',
+            provider          : 'openAiCompatible',
+            dimensions        : 3,
+            expectedDimensions: 3,
+            durationMs        : 25
+        });
+    });
+
+    test('reports failed when the active provider throws', async () => {
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 4096
+            },
+            embedText: async () => {
+                throw new Error('embedding provider busy');
+            },
+            now: () => 100
+        });
+
+        expect(result).toMatchObject({
+            status            : 'failed',
+            provider          : 'openAiCompatible',
+            dimensions        : null,
+            expectedDimensions: 4096,
+            durationMs        : 0,
+            error             : 'embedding provider busy'
+        });
+    });
+
+    test('reports failed when the provider returns no vector', async () => {
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'ollama',
+                vectorDimension  : 4096
+            },
+            embedText: async () => [],
+            now: () => 100
+        });
+
+        expect(result).toMatchObject({
+            status            : 'failed',
+            provider          : 'ollama',
+            dimensions        : 0,
+            expectedDimensions: 4096,
+            error             : 'Embedding write canary returned no vector.'
+        });
+    });
+
+    test('reports failed when the provider returns a wrong-sized vector', async () => {
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 4096
+            },
+            embedText: async () => [0.1, 0.2, 0.3],
+            now: () => 100
+        });
+
+        expect(result).toMatchObject({
+            status            : 'failed',
+            provider          : 'openAiCompatible',
+            dimensions        : 3,
+            expectedDimensions: 4096,
+            error             : 'Embedding write canary returned 3 dimensions; expected 4096.'
+        });
     });
 });
 

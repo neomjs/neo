@@ -5,7 +5,6 @@ import {fileURLToPath} from 'url';
 import Neo       from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 import AiConfig from '../../../../../../ai/config.mjs';
-import BaseConfig, {createConfigProxy} from '../../../../../../ai/BaseConfig.mjs';
 import {
     Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
@@ -20,6 +19,7 @@ const __dirname  = path.dirname(__filename);
 const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
 
 const ORCHESTRATOR_MJS_PATH    = path.join(REPO_ROOT, 'ai/daemons/orchestrator/Orchestrator.mjs');
+const ORCHESTRATOR_DAEMON_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/daemon.mjs');
 const TASK_DEFINITIONS_MJS_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/TaskDefinitions.mjs');
 
 let invariantSeq         = 0;
@@ -106,7 +106,7 @@ test.afterEach(() => {
     AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
 
     // Restore the full mlx/lms objects (overwrites every leaf on the still-healthy parent).
-    // Post-#12101 these leaves are data-seeded and always present on the singleton, so
+    // These leaves are data-seeded and always present on the singleton, so
     // there is no `delete`-to-absent branch — the verbatim tests above only swap object
     // values, never null the parent.
     if (savedMlxConfig !== undefined) {
@@ -203,7 +203,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         expect(AiConfig.orchestrator.localOnly.kbSyncEnabled).toBe(!baselineLocalKbs);
     });
 
-    // === mlx + lms supervised-server lane getters (#12005) ===
+    // === mlx + lms supervised-server lane getters ===
     // AiConfig.orchestrator.mlx + .lms + the 6 NEO_ORCHESTRATOR_{MLX,LMS}_{ENABLED,MODEL,PORT}
     // env vars are saved/restored by the file-level beforeEach/afterEach hooks above —
     // individual tests can mutate freely without leak risk.
@@ -214,38 +214,6 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
 
         AiConfig.orchestrator.mlx = {enabled: false, model: 'm', port: '11435'};
         expect(createMinimalOrchestrator().mlxEnabled).toBe(false);
-    });
-
-    // Post-#12101 the AiConfig singleton is a reactive `Neo.state.Provider`, so its
-    // `orchestrator.mlx`/`.lms` leaves are seeded from the data tree at construction and ALWAYS
-    // exist on the singleton. A fresh BaseConfig instance whose data tree omits the namespace is the
-    // faithful "config missing" state — BUT `BaseConfig.getParent()` makes every instance
-    // inherit the registered realm root (`Neo.ai.Config`), so the fresh instance would otherwise
-    // resolve the namespace UP the chain. Detach the root for the duration so it resolves in
-    // isolation, exercising the same undefined-safe `?.` delegation the Orchestrator `mlx*`/`lms*`
-    // getters use against `AiConfig.orchestrator.{mlx,lms}`.
-    test('mlx getter delegation is undefined-safe when AiConfig.orchestrator.mlx is missing', () => {
-        const prevRoot = Neo.ai?.Config;
-        if (Neo.ai) {delete Neo.ai.Config}
-
-        try {
-            const config = Neo.create(BaseConfig, {data: {
-                      orchestrator: {intervals: {pollMs: {default: 3000}}}
-                  }}),
-                  cfg    = createConfigProxy(config);
-
-            // mlx absent locally + no realm root → resolves undefined, not a stale default.
-            expect(cfg.orchestrator.mlx).toBeUndefined();
-
-            // Mirror of the keeper mlxEnabled getter + the inline AiConfig.orchestrator.mlx?.{model,port} reads.
-            expect(!!cfg.orchestrator.mlx?.enabled).toBe(false);
-            expect(cfg.orchestrator.mlx?.model).toBeUndefined();
-            expect(cfg.orchestrator.mlx?.port).toBeUndefined();
-
-            config.destroy();
-        } finally {
-            if (prevRoot !== undefined) {Neo.ai.Config = prevRoot}
-        }
     });
 
     test('lmsEnabled coerces to boolean + lmsModels follow state-provider role selectors (model/port/host inlined at call sites)', () => {
@@ -310,31 +278,6 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
     });
 
 
-    // See the mlx-missing test above: a fresh instance inherits the realm root via
-    // getParent(), so the root is detached here to simulate a genuinely-missing namespace.
-    test('lms getter delegation is undefined-safe when AiConfig.orchestrator.lms is missing', () => {
-        const prevRoot = Neo.ai?.Config;
-        if (Neo.ai) {delete Neo.ai.Config}
-
-        try {
-            const config = Neo.create(BaseConfig, {data: {
-                      orchestrator: {intervals: {pollMs: {default: 3000}}}
-                  }}),
-                  cfg    = createConfigProxy(config);
-
-            // lms absent locally + no realm root → resolves undefined, not a stale default.
-            expect(cfg.orchestrator.lms).toBeUndefined();
-
-            // Mirror of the keeper lmsEnabled getter + the inline AiConfig.orchestrator.lms?.{model,port} reads.
-            expect(!!cfg.orchestrator.lms?.enabled).toBe(false);
-            expect(cfg.orchestrator.lms?.model).toBeUndefined();
-            expect(cfg.orchestrator.lms?.port).toBeUndefined();
-
-            config.destroy();
-        } finally {
-            if (prevRoot !== undefined) {Neo.ai.Config = prevRoot}
-        }
-    });
 });
 
 test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
@@ -436,6 +379,32 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         const matches = codeLines.match(/processSupervisorService\.set\s*\(\s*\{\s*\.\.\.this/g) || [];
 
         expect(matches, 'Orchestrator.mjs must NOT spread `this` into `processSupervisorService.set({...})` (Sub-1 anti-pattern; `afterSetX` parent-prop propagation hooks supersede the start()-time context replay).').toHaveLength(0);
+    });
+
+    test('orchestrator AiConfig reads are fail-loud direct reads on declared subtrees (#12515)', async () => {
+        const orchestratorSource = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8'));
+        const daemonSource       = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_DAEMON_PATH, 'utf8'));
+
+        for (const snippet of [
+            'AiConfig.orchestrator.swarmHeartbeat?.',
+            'AiConfig.orchestrator.mlx?.',
+            'AiConfig.orchestrator.lms?.',
+            'AiConfig.orchestrator.chroma?.',
+            'AiConfig.engines.chroma?.',
+            'AiConfig.openAiCompatible?.'
+        ]) {
+            expect(orchestratorSource, `Orchestrator.mjs must not defend declared AiConfig subtree ${snippet}`).not.toContain(snippet);
+        }
+
+        expect(daemonSource, 'daemon.mjs must read AiConfig.orchestrator.devSyncRoots directly').not.toContain('AiConfig.orchestrator?.devSyncRoots');
+
+        expect(orchestratorSource).toContain('AiConfig.orchestrator.swarmHeartbeat.targets');
+        expect(orchestratorSource).toContain('AiConfig.orchestrator.mlx.enabled');
+        expect(orchestratorSource).toContain('AiConfig.orchestrator.lms.enabled');
+        expect(orchestratorSource).toContain('AiConfig.engines.chroma.port');
+        expect(orchestratorSource).toContain('AiConfig.openAiCompatible.host');
+        expect(orchestratorSource).toContain('AiConfig.orchestrator.chroma.maxRuntimeMs');
+        expect(daemonSource).toContain('AiConfig.orchestrator.devSyncRoots');
     });
 
     test('Orchestrator.mjs has no `_`-suffix reactive config slot without a corresponding `beforeSet*` or `afterSet*` hook', async () => {

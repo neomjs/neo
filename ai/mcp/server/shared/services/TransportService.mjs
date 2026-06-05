@@ -54,7 +54,7 @@ class TransportService extends Base {
     resolveAuthContext(req, aiConfig) {
         let baseAuth = req.auth;
 
-        if (!baseAuth && aiConfig.auth?.trustProxyIdentity) {
+        if (!baseAuth && aiConfig.auth.trustProxyIdentity) {
             const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
             if (proxyUserId) {
                 baseAuth = {
@@ -259,7 +259,7 @@ class TransportService extends Base {
             await RequestContextService.run(requestContext, () => transport.handleRequest(req, res, req.body));
         });
 
-        const port = aiConfig.mcpHttpPort || 3000;
+        const port = aiConfig.mcpHttpPort;
         await new Promise((resolve, reject) => {
             this.httpServer = app.listen(port, () => {
                 logger.info(`[${resourceName}] Server started on SSE transport (Port: ${port})`);

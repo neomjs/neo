@@ -18,10 +18,10 @@ import crypto                from 'crypto';
 import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
 
-// Stub Neo.get to bypass Playwright boot regression (#10384) in data records.
-// This workaround demonstrates that #10384 affects Phase 3 cross-spec tests,
-// proving the regression affects newcomers. See triage note in PR #10387.
+// Stub Neo.get to keep data-record boot behavior from masking wake-subscription coverage.
+// The setup regression is outside this spec's delivery contract.
 if (!Neo.get) Neo.get = () => null;
 
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
@@ -90,6 +90,12 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         GraphService.upsertNode({id: '@alice', type: 'AGENT', name: 'Alice', properties: {}});
         GraphService.upsertNode({id: '@bob',   type: 'AGENT', name: 'Bob',   properties: {}});
+        GraphService.upsertNode({
+            id        : 'AGENT:*',
+            type      : 'BroadcastSentinel',
+            name      : 'Broadcast',
+            properties: {accountType: 'sentinel'}
+        });
     });
 
     test.afterEach(async () => {
@@ -176,6 +182,55 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
         });
 
+        test('bootstraps a volatile HarnessPresence overlay from boot address metadata (#12422)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({
+                    action          : 'bootstrap',
+                    bootId          : 'boot-addressed',
+                    pid             : 12345,
+                    now             : '2026-06-04T00:00:00.000Z',
+                    overrideMetadata: {
+                        instanceAddress: '/Users/example/.antigravity-instances/Neo',
+                        addressType    : 'userDataDir'
+                    },
+                    presence: {
+                        state       : 'idle',
+                        wakePolicy  : 'immediate',
+                        capabilities: ['turn/start']
+                    }
+                });
+
+                const presenceNode = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:boot-addressed');
+                expect(presenceNode.label).toBe('HARNESS_PRESENCE');
+                expect(presenceNode.properties.agentIdentity).toBe('@alice');
+                expect(presenceNode.properties.subscriptionId).toBe(res.subscriptionId);
+                expect(presenceNode.properties.state).toBe('idle');
+                expect(presenceNode.properties.wakePolicy).toBe('immediate');
+                expect(presenceNode.properties.source).toBe('mcp-client');
+                expect(presenceNode.properties.instanceAddress).toBe('/Users/example/.antigravity-instances/Neo');
+                expect(presenceNode.properties.addressType).toBe('userDataDir');
+                expect(presenceNode.properties.pid).toBe(12345);
+                expect(presenceNode.properties.bootId).toBe('boot-addressed');
+                expect(presenceNode.properties.lastSeenAt).toBe('2026-06-04T00:00:00.000Z');
+                expect(presenceNode.properties.freshUntil).toBe('2026-06-04T00:05:00.000Z');
+                expect(presenceNode.properties.expiresAt).toBe('2026-06-04T00:10:00.000Z');
+                expect(presenceNode.properties.capabilities).toEqual(['turn/start']);
+            });
+        });
+
         test('returns existing subscription if it matches template (idempotent)', async () => {
             // Give Alice a template
             GraphService.upsertNode({
@@ -199,6 +254,100 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 expect(second.status).toBe('existing');
                 expect(second.subscriptionId).toBe(first.subscriptionId);
             });
+        });
+
+        test('bootId mismatch plus dead pid retires stale HarnessPresence before upsert (#12422)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            GraphService.upsertNode({
+                id  : 'HARNESS_PRESENCE:@alice:old-boot',
+                type: 'HARNESS_PRESENCE',
+                name: 'HarnessPresence @alice',
+                properties: {
+                    agentIdentity: '@alice',
+                    subscriptionId: 'WAKE_SUB:old',
+                    state        : 'idle',
+                    wakePolicy   : 'immediate',
+                    source       : 'mcp-client',
+                    bootId       : 'old-boot',
+                    pid          : 999999,
+                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
+                    expiresAt    : '2026-06-04T00:10:00.000Z',
+                    status       : 'active'
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.manage({
+                    action: 'bootstrap',
+                    bootId: 'new-boot',
+                    now   : '2026-06-04T00:01:00.000Z',
+                    pid   : process.pid
+                });
+            });
+
+            const oldPresence = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:old-boot');
+            const newPresence = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:new-boot');
+
+            expect(oldPresence.properties.status).toBe('retired');
+            expect(oldPresence.properties.retireReason).toBe('boot-mismatch-pid-dead');
+            expect(newPresence.properties.status).toBe('active');
+        });
+
+        test('TTL backstop retires HarnessPresence even without a pid (#12422)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            GraphService.upsertNode({
+                id  : 'HARNESS_PRESENCE:@alice:expired-boot',
+                type: 'HARNESS_PRESENCE',
+                name: 'HarnessPresence @alice',
+                properties: {
+                    agentIdentity: '@alice',
+                    subscriptionId: 'WAKE_SUB:expired',
+                    state        : 'idle',
+                    wakePolicy   : 'immediate',
+                    source       : 'mcp-client',
+                    bootId       : 'expired-boot',
+                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
+                    expiresAt    : '2026-06-04T00:10:00.000Z',
+                    status       : 'active'
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.manage({
+                    action: 'bootstrap',
+                    bootId: 'ttl-boot',
+                    now   : '2026-06-04T00:11:00.000Z',
+                    pid   : process.pid
+                });
+            });
+
+            const expiredPresence = GraphService.db.nodes.get('HARNESS_PRESENCE:@alice:expired-boot');
+            expect(expiredPresence.properties.status).toBe('retired');
+            expect(expiredPresence.properties.retireReason).toBe('ttl-expired');
         });
 
         test('recovers template from durable AgentIdentity row when cache is stale', async () => {
@@ -248,7 +397,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
 
         // ------------------------------------------------------------------------
-        // Cross-session duplicate-accumulation reconciler (#11182)
+        // Cross-session duplicate-accumulation reconciler
         // ------------------------------------------------------------------------
 
         test('reconciles duplicate active subscriptions at bootstrap, keeping newest (#11182)', async () => {
@@ -267,8 +416,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
 
             // Seed 2 active subscriptions for @alice with identical route-tuple but
-            // different creation times. Empirical anchor (#11182): @neo-opus-4-7 + @neo-gpt
-            // both accumulated duplicates with ~2 days between createdAt timestamps.
+            // different creation times; only the newest route should remain active.
             const older = insertDurableSubscription({
                 subscriptionId: 'WAKE_SUB:older-uuid',
                 owner         : '@alice',
@@ -387,9 +535,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
 
         test('reconciler preserves distinct route-tuples for same owner (#11183 Cycle 1 GPT-RA1)', async () => {
-            // RA1 from PR #11183 Cycle 1: reconciler must group by canonical route-key
-            // (trigger + filters + harnessTarget + appName), not flatten by owner. Two
-            // legitimate routes for the same agent must BOTH survive.
+            // Reconciler must group by canonical route-key (trigger + filters +
+            // harnessTarget + appName), not flatten by owner. Two legitimate routes
+            // for the same agent must BOTH survive.
             GraphService.upsertNode({
                 id: '@alice',
                 type: 'AGENT',
@@ -561,6 +709,33 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
+    test('subscribe rejects partial generic instance addressing (#12422)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Antigravity',
+                    instanceAddress: '4242'
+                }
+            })).rejects.toThrow('requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType');
+        });
+    });
+
+    test('subscribe rejects unknown generic addressType (#12422)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Antigravity',
+                    instanceAddress: 'frontmost',
+                    addressType: 'frontmost'
+                }
+            })).rejects.toThrow("Invalid addressType 'frontmost'. Must be one of: userDataDir, pid, tmuxSession, webhookUrl");
+        });
+    });
+
     test('subscribe accepts canonical appName Antigravity', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
@@ -657,15 +832,10 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
-    // Note (#10664): the Codex round-trip test for `focusSeedKey: 'space'` that shipped in
-    // PR #10663 was removed here. The bridge runtime layer now fails closed for Codex
-    // without an explicit operator-validated `focusSeedKey` (per #10664 fail-closed guard
-    // + bridge-daemon.spec.mjs `Codex UI wake fails closed when no validated focusSeedKey
-    // is configured` test). The schema-layer round-trip behavior (`focusSeedKey` accepted
-    // as `string | null` in `harnessTargetMetadata`) is already covered by the Claude
-    // round-trip test above; duplicating it for Codex with `focusSeedKey: 'space'` would
-    // have implied Space is the validated Codex configuration, which manual matrix
-    // validation 2026-05-03 falsified. See #10664 for empirical anchor.
+    // The Codex `focusSeedKey: 'space'` round-trip is intentionally absent: runtime wake
+    // dispatch fails closed without an explicit operator-validated focus seed. The
+    // schema-layer shape remains covered by the Claude round-trip above, without implying
+    // Space is the validated Codex configuration.
 
     test('subscribe rejects invalid trigger', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -1157,6 +1327,142 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             expect(emittedEvents.length).toBe(0);
             expect(GraphService.db.nodes.get('MSG:SUPPRESSED').properties.readAt).toBeNull();
+        });
+
+        test('does not emit SENT_TO_ME wake for already-read direct messages', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+            });
+
+            GraphService.upsertNode({
+                id        : 'MSG:READ-DIRECT',
+                type      : 'MESSAGE',
+                properties: {
+                    from   : '@bob',
+                    to     : '@alice',
+                    subject: 'already handled',
+                    readAt : '2026-06-04T12:00:00.000Z'
+                }
+            });
+            GraphService.linkNodes('MSG:READ-DIRECT', '@alice', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents).toEqual([]);
+        });
+
+        test('emits only unread recipient receipts for broadcast SENT_TO_ME wake', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+            });
+
+            GraphService.upsertNode({
+                id        : 'MSG:BROADCAST-READ',
+                type      : 'MESSAGE',
+                properties: {from: '@bob', to: 'AGENT:*', subject: 'read receipt', readAt: null}
+            });
+            GraphService.linkNodes('MSG:BROADCAST-READ', 'AGENT:*', 'SENT_TO', 1.0);
+            GraphService.linkNodes('MSG:BROADCAST-READ', '@alice', 'DELIVERED_TO', 1.0, {
+                deliveredAt : '2026-06-04T12:00:00.000Z',
+                readAt      : '2026-06-04T12:01:00.000Z',
+                deliveryKind: 'broadcast'
+            });
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents).toEqual([]);
+
+            GraphService.upsertNode({
+                id        : 'MSG:BROADCAST-UNREAD',
+                type      : 'MESSAGE',
+                properties: {from: '@bob', to: 'AGENT:*', subject: 'unread receipt', readAt: null}
+            });
+            GraphService.linkNodes('MSG:BROADCAST-UNREAD', 'AGENT:*', 'SENT_TO', 1.0);
+            GraphService.linkNodes('MSG:BROADCAST-UNREAD', '@alice', 'DELIVERED_TO', 1.0, {
+                deliveredAt : '2026-06-04T12:02:00.000Z',
+                readAt      : null,
+                deliveryKind: 'broadcast'
+            });
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents.length).toBe(1);
+            expect(emittedEvents[0].params.eventType).toBe('wake/sent_to_me');
+            expect(emittedEvents[0].params.payload).toMatchObject({
+                messageId  : 'MSG:BROADCAST-UNREAD',
+                isBroadcast: true,
+                subject    : 'unread receipt'
+            });
+        });
+
+        test('does not duplicate receipt-backed broadcasts through the AGENT:* edge', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+            });
+
+            GraphService.upsertNode({
+                id        : 'MSG:BROADCAST-DEDUP',
+                type      : 'MESSAGE',
+                properties: {from: '@bob', to: 'AGENT:*', subject: 'dedupe', readAt: null}
+            });
+            GraphService.linkNodes('MSG:BROADCAST-DEDUP', 'AGENT:*', 'SENT_TO', 1.0);
+            GraphService.linkNodes('MSG:BROADCAST-DEDUP', '@alice', 'DELIVERED_TO', 1.0, {
+                deliveredAt : '2026-06-04T12:03:00.000Z',
+                readAt      : null,
+                deliveryKind: 'broadcast'
+            });
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents.length).toBe(1);
+            expect(emittedEvents[0].params.payload.messageId).toBe('MSG:BROADCAST-DEDUP');
+        });
+
+        test('legacy AGENT:* broadcasts still respect message-level readAt', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+            });
+
+            GraphService.upsertNode({
+                id        : 'MSG:LEGACY-READ',
+                type      : 'MESSAGE',
+                properties: {
+                    from   : '@bob',
+                    to     : 'AGENT:*',
+                    subject: 'legacy read',
+                    readAt : '2026-06-04T12:04:00.000Z'
+                }
+            });
+            GraphService.linkNodes('MSG:LEGACY-READ', 'AGENT:*', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents).toEqual([]);
         });
 
         test('does not emit for non-matching subscription', async () => {

@@ -123,7 +123,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // threshold (model-role axis, not provider-namespace — remote providers like
             // Gemini are API-bound and don't expose these knobs; local providers
             // share the same caps because the limit comes from the loaded model).
-            const consumerModel          = aiConfig[graphProvider]?.model;
+            const consumerModel          = aiConfig[graphProvider].model;
             const consumerContextTokens  = aiConfig.localModels.chat.contextLimitTokens;
             const consumerSafeTokens     = aiConfig.localModels.chat.safeProcessingLimitTokens;
 
