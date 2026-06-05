@@ -296,14 +296,34 @@ function normalizeRelPath(filePath) {
     return path.normalize(filePath).replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
+const NAMED_SECTION_REF_SOURCE   = '[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
+const NUMERIC_SECTION_REF_SOURCE = '\\d+\\.\\d+(?:\\.\\d+)*';
+const SECTION_REF_SOURCE         = `${NUMERIC_SECTION_REF_SOURCE}|${NAMED_SECTION_REF_SOURCE}`;
+const SECTION_REF_TARGET_SOURCE  = [
+    '\\.agents\\/skills\\/[A-Za-z0-9_.\\/-]+',
+    '(?:\\.{1,2}\\/|references\\/)[A-Za-z0-9_.\\/-]+',
+    '[A-Za-z0-9_.\\/-]+\\.md',
+    '[A-Za-z0-9_.-]+'
+].join('|');
+
+function isNumericSectionRef(sectionRef) {
+    return new RegExp(`^${NUMERIC_SECTION_REF_SOURCE}$`).test(sectionRef);
+}
+
 function extractHeadingAnchors(text) {
     const anchors = new Set();
 
     for (const line of text.split('\n')) {
-        const match = line.match(/^#{1,6}\s+(?:§)?(\d+(?:\.\d+)*)(?:\b|[^\d.])/);
+        const numericMatch = line.match(/^#{1,6}\s+(?:§)?(\d+(?:\.\d+)*)(?:\b|[^\d.])/);
 
-        if (match) {
-            anchors.add(match[1]);
+        if (numericMatch) {
+            anchors.add(numericMatch[1]);
+        }
+
+        const namedMatch = line.match(new RegExp(`^#{1,6}\\s+§(${NAMED_SECTION_REF_SOURCE})(?:\\b|[^A-Za-z0-9_.-])`));
+
+        if (namedMatch) {
+            anchors.add(namedMatch[1]);
         }
     }
 
@@ -391,6 +411,25 @@ function collectMarkdownPointerTargets(line) {
     }
 
     return [...targets];
+}
+
+function collectMarkdownSectionRefs(line) {
+    const refs = [];
+    const markdownLinkSectionRefPattern = new RegExp(`\\[[^\\]]*?§(${SECTION_REF_SOURCE})[^\\]]*?\\]\\(([^)\\s]+\\.md(?:#[^)]+)?)\\)`, 'g');
+    let match;
+
+    while ((match = markdownLinkSectionRefPattern.exec(line))) {
+        refs.push({
+            sectionRef: match[1],
+            target    : match[2]
+        });
+    }
+
+    return refs;
+}
+
+function stripMarkdownLinks(line) {
+    return line.replace(/\[[^\]]+\]\([^)]+\)/g, '');
 }
 
 function ensureChangedLineSet(changedLinesByRelPath, relPath) {
@@ -601,8 +640,29 @@ function shouldScanReferenceLine(sourceRelPath, lineNo, changedLinesByRelPath) {
     return changedLines.has(lineNo);
 }
 
+function validateSectionRef({sourceRelPath, lineNo, target, sectionRef, index, errors}) {
+    const targetRelPath = target
+        ? resolveSkillMarkdownTarget(target, sourceRelPath, index)
+        : sourceRelPath.endsWith('.md')
+            ? sourceRelPath
+            : null;
+
+    if (!targetRelPath) return;
+    if (!index.byRelPath.has(targetRelPath)) {
+        errors.push(`${sourceRelPath}:${lineNo} → broken section-ref target ${target} for §${sectionRef}`);
+        return;
+    }
+
+    const anchors = index.headingIndex.get(targetRelPath);
+    if (!anchors) return;
+    if (!anchors.has(sectionRef)) {
+        const targetLabel = target ? `${target} ` : '';
+        errors.push(`${sourceRelPath}:${lineNo} → dangling section ref ${targetLabel}§${sectionRef} (target lacks matching heading)`);
+    }
+}
+
 /**
- * @summary Checks changed skill substrate text for resolvable Markdown pointers and numeric section references.
+ * @summary Checks changed skill substrate text for resolvable Markdown pointers and section references.
  *
  * Manifest prose can be a source of references, but target anchors intentionally stay Markdown-only.
  *
@@ -635,28 +695,32 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {change
                 }
             }
 
-            const sectionRefPattern = /(?:(\.agents\/skills\/[A-Za-z0-9_.\/-]+|(?:\.{1,2}\/|references\/)[A-Za-z0-9_.\/-]+|[A-Za-z0-9_.-]+(?:\.md)?)\s+)?§(\d+\.\d+(?:\.\d+)*)/g;
+            for (const sectionRef of collectMarkdownSectionRefs(line)) {
+                validateSectionRef({
+                    sourceRelPath,
+                    lineNo,
+                    target: sectionRef.target,
+                    sectionRef: sectionRef.sectionRef,
+                    index,
+                    errors
+                });
+            }
+
+            const sectionRefPattern = new RegExp(`(?:(${SECTION_REF_TARGET_SOURCE})\\s+)?§(${SECTION_REF_SOURCE})`, 'g');
+            const lineWithoutMarkdownLinks = stripMarkdownLinks(line);
             let match;
 
-            while ((match = sectionRefPattern.exec(line))) {
-                const targetRelPath = match[1]
-                    ? resolveSkillMarkdownTarget(match[1], sourceRelPath, index)
-                    : sourceRelPath.endsWith('.md')
-                        ? sourceRelPath
-                        : null;
+            while ((match = sectionRefPattern.exec(lineWithoutMarkdownLinks))) {
+                if (!match[1] && !isNumericSectionRef(match[2])) continue;
 
-                if (!targetRelPath) continue;
-                if (!index.byRelPath.has(targetRelPath)) {
-                    errors.push(`${sourceRelPath}:${lineNo} → broken section-ref target ${match[1]} for §${match[2]}`);
-                    continue;
-                }
-
-                const anchors = index.headingIndex.get(targetRelPath);
-                if (!anchors) continue;
-                if (!anchors.has(match[2])) {
-                    const targetLabel = match[1] ? `${match[1]} ` : '';
-                    errors.push(`${sourceRelPath}:${lineNo} → dangling section ref ${targetLabel}§${match[2]} (target lacks matching heading)`);
-                }
+                validateSectionRef({
+                    sourceRelPath,
+                    lineNo,
+                    target: match[1],
+                    sectionRef: match[2],
+                    index,
+                    errors
+                });
             }
         });
     }
@@ -693,7 +757,7 @@ function checkRemovedSkillFileReferences(removedRelPaths, allTextFiles) {
                 }
             }
 
-            const sectionRefPattern = /(\.agents\/skills\/[A-Za-z0-9_.\/-]+|(?:\.{1,2}\/|references\/)[A-Za-z0-9_.\/-]+|[A-Za-z0-9_.-]+(?:\.md)?)\s+§\d+\.\d+(?:\.\d+)*/g;
+            const sectionRefPattern = new RegExp(`(${SECTION_REF_TARGET_SOURCE})\\s+§(?:${SECTION_REF_SOURCE})`, 'g');
             let match;
 
             while ((match = sectionRefPattern.exec(line))) {
