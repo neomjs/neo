@@ -38,6 +38,85 @@ export function getActiveShapeCSubscriptions(db) {
     return collapseDuplicateShapeCRoutes(stmt.all().map(row => JSON.parse(row.data)));
 }
 
+export const HARNESS_PRESENCE_STALE_AFTER_MS = 5 * 60 * 1000;
+
+/**
+ * @summary Loads the newest active HarnessPresence row for a bridge-daemon subscription.
+ *
+ * Presence is a volatile overlay keyed by subscription and identity. The bridge daemon consumes it
+ * only as a freshness guard for targeted delivery; missing or stale presence must fail closed for
+ * address-specific dispatch instead of falling through to the legacy untargeted activate path.
+ *
+ * @param {Database} db SQLite database handle.
+ * @param {Object} opts
+ * @param {String} opts.subscriptionId WAKE_SUBSCRIPTION id.
+ * @param {String} opts.agentIdentity AgentIdentity node id.
+ * @returns {Object|null} Parsed HARNESS_PRESENCE node.
+ */
+export function getActiveHarnessPresence(db, {subscriptionId, agentIdentity} = {}) {
+    if (!subscriptionId && !agentIdentity) return null;
+
+    if (subscriptionId) {
+        return getNewestHarnessPresence(db, {
+            where : "json_extract(data, '$.properties.subscriptionId') = ?",
+            params: [subscriptionId]
+        });
+    }
+
+    if (!agentIdentity) return null;
+
+    return getNewestHarnessPresence(db, {
+        where : "json_extract(data, '$.properties.agentIdentity') = ?",
+        params: [agentIdentity]
+    });
+}
+
+function getNewestHarnessPresence(db, {where, params}) {
+    const rows = db.prepare(`
+        SELECT data FROM Nodes
+        WHERE json_extract(data, '$.label') = 'HARNESS_PRESENCE'
+          AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+          AND ${where}
+        ORDER BY COALESCE(
+            json_extract(data, '$.properties.lastSeenAt'),
+            json_extract(data, '$.properties.updatedAt'),
+            ''
+        ) DESC
+        LIMIT 1
+    `).all(...params);
+
+    for (const row of rows) {
+        try {
+            return JSON.parse(row.data);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @summary Checks whether a HarnessPresence row is fresh enough for immediate targeted delivery.
+ * @param {Object|null} presence Parsed HARNESS_PRESENCE node.
+ * @param {Object} [opts]
+ * @param {Number} [opts.now=Date.now()] Current timestamp in ms.
+ * @param {Number} [opts.staleAfterMs=HARNESS_PRESENCE_STALE_AFTER_MS] Staleness threshold.
+ * @returns {Boolean}
+ */
+export function isHarnessPresenceFresh(presence, {
+    now = Date.now(),
+    staleAfterMs = HARNESS_PRESENCE_STALE_AFTER_MS
+} = {}) {
+    const props = presence?.properties || {};
+    if ((props.status || 'active') !== 'active') return false;
+
+    const lastSeenAt = props.lastSeenAt ? new Date(props.lastSeenAt).getTime() : NaN;
+    if (!Number.isFinite(lastSeenAt)) return false;
+
+    return now - lastSeenAt <= staleAfterMs;
+}
+
 /**
  * @summary Collapses duplicate active Shape C wake routes before bridge-daemon dispatch.
  *
