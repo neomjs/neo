@@ -393,6 +393,214 @@ function collectMarkdownPointerTargets(line) {
     return [...targets];
 }
 
+function ensureChangedLineSet(changedLinesByRelPath, relPath) {
+    const normalizedRelPath = normalizeRelPath(relPath);
+
+    if (!changedLinesByRelPath.has(normalizedRelPath)) {
+        changedLinesByRelPath.set(normalizedRelPath, new Set());
+    }
+
+    return changedLinesByRelPath.get(normalizedRelPath);
+}
+
+/**
+ * @summary Maps a unified git diff to current-file line numbers changed by the diff.
+ *
+ * The base-mode reference-integrity lint must fail only for references owned by
+ * the PR. New-side line numbers preserve that ownership boundary.
+ *
+ * @param {String} diffText
+ * @returns {Map<String, Set<Number>>}
+ */
+function parseUnifiedDiffChangedLines(diffText) {
+    const changedLinesByRelPath = new Map();
+    let currentRelPath          = null;
+    let newLineNo              = null;
+
+    for (const line of diffText.split('\n')) {
+        if (line.startsWith('diff --git ')) {
+            currentRelPath = null;
+            newLineNo     = null;
+            continue;
+        }
+
+        const fileMatch = line.match(/^\+\+\+ b\/(.+)$/);
+        if (fileMatch) {
+            currentRelPath = normalizeRelPath(fileMatch[1]);
+            ensureChangedLineSet(changedLinesByRelPath, currentRelPath);
+            newLineNo = null;
+            continue;
+        }
+
+        if (line === '+++ /dev/null') {
+            currentRelPath = null;
+            newLineNo     = null;
+            continue;
+        }
+
+        const hunkMatch = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+        if (hunkMatch) {
+            newLineNo = Number.parseInt(hunkMatch[1], 10);
+            continue;
+        }
+
+        if (!currentRelPath || newLineNo === null) continue;
+
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+            ensureChangedLineSet(changedLinesByRelPath, currentRelPath).add(newLineNo);
+            newLineNo++;
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+            continue;
+        } else if (line.startsWith(' ')) {
+            newLineNo++;
+        }
+    }
+
+    return changedLinesByRelPath;
+}
+
+function normalizeMarkdownLinkTargetsForDiff(line) {
+    return line.replace(/\]\(([^)\s]+\.md(?:#[^)]+)?)\)/g, '](__MARKDOWN_TARGET__)');
+}
+
+function normalizeMarkdownTargetMention(target) {
+    return target
+        .replace(/^`|`$/g, '')
+        .replace(/[#?].*$/, '');
+}
+
+function collectLocalMarkdownPointerTargets(line) {
+    return collectMarkdownPointerTargets(line)
+        .map(normalizeMarkdownTargetMention)
+        .filter(target => target && !/^(https?:|mailto:|#)/.test(target));
+}
+
+function areSetsEqual(a, b) {
+    if (a.size !== b.size) return false;
+
+    for (const value of a) {
+        if (!b.has(value)) return false;
+    }
+
+    return true;
+}
+
+/**
+ * @summary Detects SKILL.md diffs that only move Markdown link targets.
+ *
+ * Link-path-only router updates should not force downstream guide refreshes
+ * unless the guide mentions the moved target path.
+ *
+ * @param {String} diffText
+ * @returns {{isPathOnly: Boolean, changedTargets: Set<String>}}
+ */
+function analyzeMarkdownLinkPathOnlyDiff(diffText) {
+    const changedTargets = new Set();
+    const blocks         = [];
+    let block            = null;
+    let inHunk           = false;
+    let sawTargetChange  = false;
+
+    const flush = () => {
+        if (block && (block.removed.length || block.added.length)) {
+            blocks.push(block);
+        }
+
+        block = null;
+    };
+
+    for (const line of diffText.split('\n')) {
+        if (line.startsWith('@@ ')) {
+            flush();
+            inHunk = true;
+            continue;
+        }
+
+        if (!inHunk) continue;
+        if (line.startsWith('\\')) continue;
+
+        if (line.startsWith('-') && !line.startsWith('---')) {
+            if (!block) block = {removed: [], added: []};
+            block.removed.push(line.slice(1));
+            continue;
+        }
+
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+            if (!block) block = {removed: [], added: []};
+            block.added.push(line.slice(1));
+            continue;
+        }
+
+        flush();
+    }
+
+    flush();
+
+    if (!blocks.length) {
+        return {isPathOnly: false, changedTargets};
+    }
+
+    for (const item of blocks) {
+        if (item.removed.length !== item.added.length || item.removed.length === 0) {
+            return {isPathOnly: false, changedTargets};
+        }
+
+        for (let i = 0; i < item.removed.length; i++) {
+            const removedLine = item.removed[i];
+            const addedLine   = item.added[i];
+
+            if (normalizeMarkdownLinkTargetsForDiff(removedLine) !== normalizeMarkdownLinkTargetsForDiff(addedLine)) {
+                return {isPathOnly: false, changedTargets};
+            }
+
+            const removedTargets = new Set(collectLocalMarkdownPointerTargets(removedLine));
+            const addedTargets   = new Set(collectLocalMarkdownPointerTargets(addedLine));
+
+            if (removedTargets.size === 0 || addedTargets.size === 0) {
+                return {isPathOnly: false, changedTargets};
+            }
+
+            if (!areSetsEqual(removedTargets, addedTargets)) {
+                sawTargetChange = true;
+            }
+
+            for (const target of removedTargets) changedTargets.add(target);
+            for (const target of addedTargets) changedTargets.add(target);
+        }
+    }
+
+    return {isPathOnly: sawTargetChange, changedTargets};
+}
+
+/**
+ * @summary Determines whether a downstream doc target can skip a path-only skill update.
+ *
+ * @param {String} skillDiffText
+ * @param {String} downstreamDocText
+ * @returns {Boolean}
+ */
+function shouldSkipDownstreamDocsTargetForLinkPathOnlyChange(skillDiffText, downstreamDocText) {
+    const analysis = analyzeMarkdownLinkPathOnlyDiff(skillDiffText);
+
+    if (!analysis.isPathOnly || analysis.changedTargets.size === 0) return false;
+
+    for (const target of analysis.changedTargets) {
+        if (downstreamDocText.includes(target)) return false;
+    }
+
+    return true;
+}
+
+function shouldScanReferenceLine(sourceRelPath, lineNo, changedLinesByRelPath) {
+    if (!changedLinesByRelPath) return true;
+
+    const changedLines = changedLinesByRelPath.get(normalizeRelPath(sourceRelPath));
+
+    if (!changedLines) return true;
+
+    return changedLines.has(lineNo);
+}
+
 /**
  * @summary Checks changed skill substrate text for resolvable Markdown pointers and numeric section references.
  *
@@ -400,9 +608,10 @@ function collectMarkdownPointerTargets(line) {
  *
  * @param {String[]} changedRelPaths
  * @param {Array<{relPath: String, text: String}>} allMarkdownFiles
+ * @param {{changedLinesByRelPath?: Map<String, Set<Number>>}} options
  * @returns {String[]}
  */
-function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles) {
+function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {changedLinesByRelPath = null} = {}) {
     const errors = [];
     const index  = buildSkillReferenceIndex(allMarkdownFiles);
 
@@ -415,6 +624,8 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles) {
 
         lines.forEach((line, lineIndex) => {
             const lineNo = lineIndex + 1;
+
+            if (!shouldScanReferenceLine(sourceRelPath, lineNo, changedLinesByRelPath)) return;
 
             for (const target of collectMarkdownPointerTargets(line)) {
                 const targetRelPath = resolveSkillMarkdownTarget(target, sourceRelPath, index);
@@ -671,6 +882,37 @@ function changedFiles(base) {
     }
 }
 
+/**
+ * @summary Reads a zero-context base diff for the provided repository-relative paths.
+ *
+ * @param {String} base
+ * @param {String[]} relPaths
+ * @returns {String}
+ */
+function getBaseDiff(base, relPaths) {
+    if (!base || relPaths.length === 0) return '';
+
+    try {
+        return execFileSync('git', ['diff', '--unified=0', '--no-ext-diff', `${base}...HEAD`, '--', ...relPaths], {
+            cwd     : ROOT_DIR,
+            encoding: 'utf8'
+        });
+    } catch (error) {
+        throw new Error(`Unable to compute base diff against ${base}: ${error.message}`);
+    }
+}
+
+/**
+ * @summary Returns current-file changed line numbers for base-mode reference ownership.
+ *
+ * @param {String} base
+ * @param {String[]} relPaths
+ * @returns {Map<String, Set<Number>>}
+ */
+function getChangedLinesByRelPath(base, relPaths) {
+    return parseUnifiedDiffChangedLines(getBaseDiff(base, relPaths));
+}
+
 function removedFiles(base) {
     if (!base) return [];
 
@@ -835,8 +1077,21 @@ async function lint({base = null} = {}) {
             }
 
             if (!skipDocs) {
+                let routerDiffText = null;
+
                 for (const target of skill.downstreamDocsTargets) {
                     if (!changed.has(target)) {
+                        if (routerDiffText === null) {
+                            routerDiffText = getBaseDiff(base, [routerRel]);
+                        }
+
+                        const targetPath = path.join(ROOT_DIR, target);
+                        const targetText = existsSync(targetPath) ? requireText(targetPath) : '';
+
+                        if (shouldSkipDownstreamDocsTargetForLinkPathOnlyChange(routerDiffText, targetText)) {
+                            continue;
+                        }
+
                         errors.push(`${skillName} changed but downstreamDocsTarget ${target} was not updated in this PR`);
                     }
                 }
@@ -865,8 +1120,9 @@ async function lint({base = null} = {}) {
                                 (filePath.startsWith('.agents/skills/') && filePath.endsWith('.md')));
         const removedSkillMarkdownFiles = removedFiles(base)
             .filter(filePath => filePath.startsWith('.agents/skills/') && filePath.endsWith('.md'));
+        const changedLinesByRelPath = getChangedLinesByRelPath(base, changedSkillTextFiles);
 
-        errors.push(...checkSkillReferenceIntegrity(changedSkillTextFiles, allSkillTextFiles));
+        errors.push(...checkSkillReferenceIntegrity(changedSkillTextFiles, allSkillTextFiles, {changedLinesByRelPath}));
         errors.push(...checkRemovedSkillFileReferences(removedSkillMarkdownFiles, allSkillTextFiles));
     }
 
@@ -902,6 +1158,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 }
 
 export {
+    analyzeMarkdownLinkPathOnlyDiff,
     checkOversizedWorkflowMaps,
     checkPerFileBudgets,
     checkRemovedSkillFileReferences,
@@ -910,6 +1167,8 @@ export {
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
     parseSectionTriggers,
+    parseUnifiedDiffChangedLines,
+    shouldSkipDownstreamDocsTargetForLinkPathOnlyChange,
     skillMarkdownSizeReport,
     lint,
     parseArgs,
