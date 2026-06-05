@@ -1,28 +1,28 @@
 # Consensus-Mandate Audit Reference
 
-*(Sub-rule extraction from `ideation-sandbox-workflow.md §6` per #11319 / #11320 byte-budget discipline. Load this file when you need the graduated-artifact template block, two-axis substrate details, empirical anchors for the §6 consensus mandate, or the 30-day post-merge validation framing. The main `references/ideation-sandbox-workflow.md §6` carries the operational rule; this file carries reference-grade context that loads on-demand.)*
+*(Sub-rule extraction from `ideation-sandbox-workflow.md §6` per #11319 / #11320 byte-budget discipline. Load this file when you need the graduated-artifact template block, two-axis substrate details, empirical anchors for the §6 consensus mandate, or the 30-day post-merge validation framing. The main `../references/ideation-sandbox-workflow.md §6` carries the operational rule; this file carries reference-grade context that loads on-demand.)*
 
 ## §quorum-rule — Family-Keyed Quorum Rule (full rationale)
 
-`references/ideation-sandbox-workflow.md §6.2` carries the operational rule; this section carries the full rationale + background.
+`../references/ideation-sandbox-workflow.md §6.2` carries the operational rule; this section carries the full rationale + background.
 
 **Quorum rule** (per Epic #11796 / Discussion #11793 — family-keyed, membership-derived):
 
 - **(a) Floor-2 (all tiers):** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus` in `ai/graph/identityRoots.mjs`) carry ANY signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`).
 - **(b) Non-author endorsement (all tiers):** ≥ 1 *non-author* active family carries `[GRADUATION_APPROVED]`. `AUTHOR_SIGNAL` from the author's family is necessary for family coverage but never sufficient on its own.
-- **(c) Tier 2** (core-value / §critical_gates / consensus-gate mutations) additionally requires explicit `## Unresolved Liveness` entry for any benched family + capability-grounded `revalidationTrigger` AC in the graduating Epic (per `references/ideation-sandbox-workflow.md §6.6`).
+- **(c) Tier 2** (core-value / §critical_gates / consensus-gate mutations) additionally requires explicit `## Unresolved Liveness` entry for any benched family + capability-grounded `revalidationTrigger` AC in the graduating Epic (per `../references/ideation-sandbox-workflow.md §6.6`).
 
-Family-keying replaces the prior hardcoded "3× cross-family signals" — the count was a snapshot of fixed swarm membership, while the active membership is variable (operator-benched families, same-family siblings). Same-family aggregation (`references/ideation-sandbox-workflow.md §6.4`) determines a family's contributed signal when multiple identities of one family are active.
+Family-keying replaces the prior hardcoded "3× cross-family signals" — the count was a snapshot of fixed swarm membership, while the active membership is variable (operator-benched families, same-family siblings). Same-family aggregation (`../references/ideation-sandbox-workflow.md §6.4`) determines a family's contributed signal when multiple identities of one family are active.
 
 ## §same-family-aggregation — Multi-Identity Family Resolution (full rule)
 
-`references/ideation-sandbox-workflow.md §6.4` codifies a one-line summary; this section carries the full rule.
+`../references/ideation-sandbox-workflow.md §6.4` codifies a one-line summary; this section carries the full rule.
 
 When a family has multiple active identities (e.g., `claude` with both `@neo-opus-4-7` and a future `@neo-claude-opus`), that family contributes `APPROVED` when **(a) ≥ 1 active identity in the family has posted `[GRADUATION_APPROVED]` at the current body anchor**, AND **(b) no active identity in that family holds an unresolved `[GRADUATION_DEFERRED]` or `[GRADUATION_VETO]` at the same anchor**. Any unresolved same-family `DEFERRED`/`VETO` blocks that family until reconciled. The `§6.4` burden-of-convergence clause applies to same-family APPROVED-signalers as well as cross-family ones. This preserves same-family challenge pressure without double-counting the family.
 
 ## §template-block — Graduated-Artifact Required Sections (canonical markdown)
 
-The graduated Issue / Epic / PR body MUST include the four `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` + `## Discussion Criteria Mapping` sections per `references/ideation-sandbox-workflow.md §6.6`. Canonical template (post-Epic #11796 family-keyed rule):
+The graduated Issue / Epic / PR body MUST include the four `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` + `## Discussion Criteria Mapping` sections per `../references/ideation-sandbox-workflow.md §6.6`. Canonical template (post-Epic #11796 family-keyed rule):
 
 ```markdown
 ## Signal Ledger
@@ -49,7 +49,7 @@ The graduated Issue / Epic / PR body MUST include the four `## Signal Ledger` + 
 
 ## §signal-patterns-table — Full Signal Pattern Definitions (§6.2 reference)
 
-The four signal patterns recognized at high-blast graduation (`references/ideation-sandbox-workflow.md §6.2` carries the inline bullet summary):
+The four signal patterns recognized at high-blast graduation (`../references/ideation-sandbox-workflow.md §6.2` carries the inline bullet summary):
 
 | Signal | Effect on graduation | Definition |
 |--------|----------------------|------------|
@@ -98,11 +98,11 @@ Per #11195 30-day Step 2.5 validation tracker, the consensus-mandate substrate's
 
 When the Signal Ledger reaches the §6.2 quorum (floor-2 + non-author-APPROVED ≥ 1; Tier 2 also requires `## Unresolved Liveness` + `revalidationTrigger` AC), the author executes the following sequence:
 
-1. Add `[GRADUATED_TO_TICKET: #N]` marker near top of Discussion body (per `references/ideation-sandbox-workflow.md §4` OQ-resolution-tag pattern).
+1. Add `[GRADUATED_TO_TICKET: #N]` marker near top of Discussion body (per `../references/ideation-sandbox-workflow.md §4` OQ-resolution-tag pattern).
 2. Update body with `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` + `## Discussion Criteria Mapping` sections (template per §template-block above).
 3. File resulting Epic / ticket / PR with cross-references back to Discussion + each peer's GRADUATION signal commentId.
 4. Formally close Discussion via GraphQL `closeDiscussion(reason: RESOLVED)`.
 
 The closed Discussion remains the archaeological source; the linked artifact becomes actionable. **The cycle-comments archive as the divergence-trail.**
 
-**Precondition for the sequence** (codified in `references/ideation-sandbox-workflow.md §6.7`): if the author's family has no other active identity, the author posts `[AUTHOR_SIGNAL]` at the current body anchor BEFORE the final non-author-APPROVED poll. Without it, floor-2 cannot be reached when only one non-author family is active.
+**Precondition for the sequence** (codified in `../references/ideation-sandbox-workflow.md §6.7`): if the author's family has no other active identity, the author posts `[AUTHOR_SIGNAL]` at the current body anchor BEFORE the final non-author-APPROVED poll. Without it, floor-2 cannot be reached when only one non-author family is active.
