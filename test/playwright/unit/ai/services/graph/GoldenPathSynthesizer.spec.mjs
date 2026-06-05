@@ -32,6 +32,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let SystemLifecycleService;
     let buildStaleAssignmentCandidates;
     let renderStaleAssignmentCandidatesSection;
+    let buildSilentThreadCandidates;
+    let renderSilentThreadCandidatesSection;
 
     let StorageRouter;
     let TextEmbeddingService;
@@ -42,6 +44,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let originalGoldenPathRecentOpenPrRenderLimit;
     let originalGoldenPathStaleAssignmentRenderLimit;
     let originalGoldenPathStaleAssignmentThresholdMs;
+    let originalGoldenPathSilentThreadMinScore;
+    let originalGoldenPathSilentThreadRenderLimit;
+    let originalGoldenPathSilentThreadThresholdMs;
     let originalVectorDimension;
     let originalWarn;
 
@@ -64,6 +69,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         GoldenPathSynthesizer = GoldenPathSynthesizerModule.default;
         buildStaleAssignmentCandidates = GoldenPathSynthesizer.constructor.buildStaleAssignmentCandidates.bind(GoldenPathSynthesizer.constructor);
         renderStaleAssignmentCandidatesSection = GoldenPathSynthesizer.constructor.renderStaleAssignmentCandidatesSection.bind(GoldenPathSynthesizer.constructor);
+        buildSilentThreadCandidates = GoldenPathSynthesizer.constructor.buildSilentThreadCandidates.bind(GoldenPathSynthesizer.constructor);
+        renderSilentThreadCandidatesSection = GoldenPathSynthesizer.constructor.renderSilentThreadCandidatesSection.bind(GoldenPathSynthesizer.constructor);
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         StorageRouter = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
@@ -80,12 +87,18 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         originalGoldenPathRecentOpenPrRenderLimit       = aiConfig.goldenPathRecentOpenPrRenderLimit;
         originalGoldenPathStaleAssignmentRenderLimit    = aiConfig.goldenPathStaleAssignmentRenderLimit;
         originalGoldenPathStaleAssignmentThresholdMs    = aiConfig.goldenPathStaleAssignmentThresholdMs;
+        originalGoldenPathSilentThreadMinScore          = aiConfig.goldenPathSilentThreadMinScore;
+        originalGoldenPathSilentThreadRenderLimit       = aiConfig.goldenPathSilentThreadRenderLimit;
+        originalGoldenPathSilentThreadThresholdMs       = aiConfig.goldenPathSilentThreadThresholdMs;
         originalVectorDimension   = aiConfig.vectorDimension;
         originalWarn              = logger.warn;
 
         aiConfig.goldenPathRecentOpenPrRenderLimit       = 5;
         aiConfig.goldenPathStaleAssignmentRenderLimit    = 20;
         aiConfig.goldenPathStaleAssignmentThresholdMs    = 7 * 24 * 60 * 60 * 1000;
+        aiConfig.goldenPathSilentThreadMinScore          = 14;
+        aiConfig.goldenPathSilentThreadRenderLimit       = 10;
+        aiConfig.goldenPathSilentThreadThresholdMs       = 14 * 24 * 60 * 60 * 1000;
     });
 
     test.afterEach(() => {
@@ -94,6 +107,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         aiConfig.goldenPathRecentOpenPrRenderLimit       = originalGoldenPathRecentOpenPrRenderLimit;
         aiConfig.goldenPathStaleAssignmentRenderLimit    = originalGoldenPathStaleAssignmentRenderLimit;
         aiConfig.goldenPathStaleAssignmentThresholdMs    = originalGoldenPathStaleAssignmentThresholdMs;
+        aiConfig.goldenPathSilentThreadMinScore          = originalGoldenPathSilentThreadMinScore;
+        aiConfig.goldenPathSilentThreadRenderLimit       = originalGoldenPathSilentThreadRenderLimit;
+        aiConfig.goldenPathSilentThreadThresholdMs       = originalGoldenPathSilentThreadThresholdMs;
         aiConfig.vectorDimension   = originalVectorDimension;
         child_process.execSync     = originalExecSync;
         logger.warn                = originalWarn;
@@ -256,6 +272,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         expect(handoffContent).not.toContain('## Active PR Cycle State');
         expect(handoffContent).not.toContain('## Stale Assignment Candidates');
+        expect(handoffContent).not.toContain('## Silent Threads');
         expect(handoffContent).not.toContain('## 📋 Latest Priority Backlog');
     });
 
@@ -356,6 +373,87 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain('last qualifying activity 2026-05-10T00:00:00.000Z by @neo-opus-ada');
         expect(handoffContent).not.toContain('Fresh assigned issue');
         expect(handoffContent).not.toContain('Rejected assigned issue');
+    });
+
+    test('synthesizeGoldenPath renders Silent Threads after stale assignments and before computed routing', async () => {
+        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const originalGetIssueStructuralWeight = Synthesizer.getIssueStructuralWeight;
+        const originalHasOpenIssueBlocker = Synthesizer.hasOpenIssueBlocker;
+        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-silent-render-issues-'));
+        const chunkDir  = path.join(issuesDir, 'chunk-1');
+        const now       = new Date('2026-05-28T00:00:00Z');
+        const goldenIssueId = `issue-silent-golden-${Date.now()}`;
+        aiConfig.vectorDimension = 2;
+
+        fs.mkdirSync(chunkDir, {recursive: true});
+        fs.writeFileSync(path.join(chunkDir, 'issue-9401.md'), [
+            '---',
+            'id: 9401',
+            "title: 'Quiet unassigned issue'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            "createdAt: '2026-04-01T00:00:00Z'",
+            "updatedAt: '2026-05-01T00:00:00Z'",
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9401'",
+            'author: neo-gpt',
+            '---',
+            '# Quiet unassigned issue'
+        ].join('\n'));
+        fs.writeFileSync(path.join(chunkDir, 'issue-9402.md'), [
+            '---',
+            'id: 9402',
+            "title: 'Fresh unassigned issue'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            "createdAt: '2026-05-27T00:00:00Z'",
+            "updatedAt: '2026-05-27T00:00:00Z'",
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9402'",
+            '---',
+            '# Fresh unassigned issue'
+        ].join('\n'));
+
+        GraphService.upsertNode({
+            id        : goldenIssueId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Golden fixture'}
+        });
+
+        StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [[goldenIssueId]], distances: [[0.1]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        Synthesizer.getIssueStructuralWeight = issueId => issueId === 'issue-9401' ? 3 : 0;
+        Synthesizer.hasOpenIssueBlocker = () => false;
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now});
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            Synthesizer.getIssueStructuralWeight = originalGetIssueStructuralWeight;
+            Synthesizer.hasOpenIssueBlocker = originalHasOpenIssueBlocker;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).toContain('## Stale Assignment Candidates');
+        expect(handoffContent).toContain('## Silent Threads');
+        expect(handoffContent).toContain('[#9401](https://github.com/neomjs/neo/issues/9401)');
+        expect(handoffContent).toContain('visibility-only, no routing');
+        expect(handoffContent).not.toContain('Fresh unassigned issue');
+        expect(handoffContent.indexOf('## Stale Assignment Candidates')).toBeLessThan(handoffContent.indexOf('## Silent Threads'));
+        expect(handoffContent.indexOf('## Silent Threads')).toBeLessThan(handoffContent.indexOf('## Computed Golden Path'));
     });
 
     test('synthesizeGoldenPath lists the 5 most recent open PRs with cross-family status', async () => {
@@ -459,6 +557,170 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(section).toContain('Candidate 1');
         expect(section).toContain('Candidate 2');
         expect(section).not.toContain('Candidate 3');
+    });
+
+    test('buildSilentThreadCandidates filters unassigned atrophying issues and sorts by silence score', () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const originalGetIssueStructuralWeight = Synthesizer.getIssueStructuralWeight;
+        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-silent-threads-'));
+        const chunkDir  = path.join(issuesDir, 'chunk-1');
+        fs.mkdirSync(chunkDir, {recursive: true});
+
+        function writeIssue(number, lines) {
+            fs.writeFileSync(path.join(chunkDir, `issue-${number}.md`), lines.join('\n'));
+        }
+
+        writeIssue(9301, [
+            '---',
+            'id: 9301',
+            "title: 'Old unassigned fallback-weight issue'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            "createdAt: '2026-04-01T00:00:00Z'",
+            "updatedAt: '2026-05-08T00:00:00Z'",
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9301'",
+            'author: neo-gpt',
+            '---',
+            '# Old unassigned fallback-weight issue'
+        ]);
+        writeIssue(9302, [
+            '---',
+            'id: 9302',
+            "title: 'Assigned issue is stale-assignment domain'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees:',
+            '  - neo-gpt',
+            "createdAt: '2026-04-01T00:00:00Z'",
+            "updatedAt: '2026-05-01T00:00:00Z'",
+            '---',
+            '# Assigned issue'
+        ]);
+        writeIssue(9303, [
+            '---',
+            'id: 9303',
+            "title: 'Rejected issue'",
+            'state: OPEN',
+            'labels:',
+            '  - needs-re-triage',
+            'assignees: []',
+            "createdAt: '2026-04-01T00:00:00Z'",
+            "updatedAt: '2026-05-01T00:00:00Z'",
+            '---',
+            '# Rejected issue'
+        ]);
+        writeIssue(9304, [
+            '---',
+            'id: 9304',
+            "title: 'Already golden issue'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            "createdAt: '2026-04-01T00:00:00Z'",
+            "updatedAt: '2026-05-01T00:00:00Z'",
+            '---',
+            '# Already golden issue'
+        ]);
+        writeIssue(9305, [
+            '---',
+            'id: 9305',
+            "title: 'Fresh unassigned issue'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            "createdAt: '2026-05-25T00:00:00Z'",
+            "updatedAt: '2026-05-25T00:00:00Z'",
+            '---',
+            '# Fresh issue'
+        ]);
+        writeIssue(9306, [
+            '---',
+            'id: 9306',
+            "title: 'Blocked unassigned issue'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            'blockedBy:',
+            '  - 9200',
+            "createdAt: '2026-04-01T00:00:00Z'",
+            "updatedAt: '2026-05-01T00:00:00Z'",
+            '---',
+            '# Blocked issue'
+        ]);
+        writeIssue(9307, [
+            '---',
+            'id: 9307',
+            "title: 'High-structure old issue'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            "createdAt: '2026-04-01T00:00:00Z'",
+            "updatedAt: '2026-05-13T00:00:00Z'",
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9307'",
+            '---',
+            '# High-structure old issue'
+        ]);
+
+        Synthesizer.getIssueStructuralWeight = issueId => ({
+            'issue-9307': 4
+        })[issueId] || 0;
+
+        try {
+            const candidates = buildSilentThreadCandidates({
+                issuesDir,
+                now        : new Date('2026-05-28T00:00:00Z'),
+                goldenIds  : new Set(['issue-9304']),
+                graphService: null,
+                minScore   : 14,
+                thresholdMs: 14 * 24 * 60 * 60 * 1000
+            });
+
+            expect(candidates.map(candidate => candidate.number)).toEqual([9307, 9301]);
+            expect(candidates[0].silenceScore).toBe(60);
+            expect(candidates[1].silenceScore).toBe(20);
+        } finally {
+            Synthesizer.getIssueStructuralWeight = originalGetIssueStructuralWeight;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+    });
+
+    test('renderSilentThreadCandidatesSection renders empty and capped visibility-only output', () => {
+        const empty = renderSilentThreadCandidatesSection([], {
+            capturedAt: new Date('2026-05-28T00:00:00Z')
+        });
+
+        expect(empty).toContain('## Silent Threads');
+        expect(empty).toContain('No silent thread candidates detected.');
+
+        const candidates = Array.from({length: 3}, (_, index) => ({
+            daysIdle        : 20 + index,
+            lastActivityAt  : `2026-05-0${index + 1}T00:00:00.000Z`,
+            lastActivityBy  : 'github-sync',
+            number          : 9400 + index,
+            reason          : 'updatedAt',
+            silenceScore    : 40 + index,
+            structuralWeight: 2,
+            title           : `Silent Candidate ${index + 1}`,
+            url             : `https://github.com/neomjs/neo/issues/${9400 + index}`
+        }));
+
+        const capped = renderSilentThreadCandidatesSection(candidates, {
+            capturedAt: new Date('2026-05-28T00:00:00Z'),
+            limit     : 2
+        });
+
+        expect(capped).toContain('visibility-only, no routing');
+        expect(capped).toContain('Showing 2 of 3 candidates');
+        expect(capped).toContain('Silent Candidate 1');
+        expect(capped).toContain('Silent Candidate 2');
+        expect(capped).not.toContain('Silent Candidate 3');
     });
 
     test('synthesizeGoldenPath does not compose KB tenant telemetry into the handoff', () => {

@@ -16,7 +16,23 @@ Detected structural mismatches within the codebase architecture, populated from 
 - `[KB_DEMAND_GAP]`
 - `[ARCHIVE_ANOMALY]`
 
-### 2. Active PR Cycle State
+### 2. Stale Assignment Candidates
+Assigned issues whose current assignee or maintainer progress signal has gone
+quiet past the configured stale-assignment threshold. This is the claimed-work
+counterpart to Silent Threads and is also visibility-only.
+
+### 3. Silent Threads
+Visibility-only candidates for open, unassigned, non-rejected issues that have
+gone quiet outside the Computed Golden Path. Candidates exclude assigned work,
+Golden Path entries, blocked issues, and tickets labeled `needs-re-triage`,
+`no auto close`, `duplicate`, `invalid`, or `wontfix`. The score is
+`daysIdle * max(structuralWeight, 1)`, capped by config and rendered only for
+swarm/operator reading.
+
+Silent Threads does **not** affect `AgentOrchestrator.parseGoldenPath()` routing.
+The orchestrator continues to consume only the `## Computed Golden Path` section.
+
+### 4. Active PR Cycle State
 A live extraction of active Pull Requests originated by the core Swarm agents (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`).
 Provides immediate visibility into cross-peer workflow, blocking states, and review cycles.
 
@@ -27,8 +43,8 @@ Each PR listing includes:
 - **Status:** Last known explicit approval/changes-requested state from comments or reviews.
 - **Head SHA:** Ensures agents operate on current branches without race conditions.
 
-### 3. Latest Priority Backlog
+### 5. Latest Priority Backlog
 A fallback queue of recent structurally significant tickets that are `OPEN` and not marked `needs-re-triage`. Used to guide execution when the Golden Path is fully blocked.
 
-### 4. Computed Golden Path
+### 6. Computed Golden Path
 The top 5 nodes mathematically recommended for execution, calculated via Hybrid GraphRAG (Semantic Vector Distance + Structural Edge Weight). A strategic brief synthesizing *why* these nodes represent the active frontier is appended to guide agent intuition.

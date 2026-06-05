@@ -44,5 +44,39 @@ Based on priorities, the following tasks are mathematically recommended:
             }
         }
     });
-});
 
+    test('Golden Path parser ignores visibility-only Silent Threads', async () => {
+        const content = `
+# Autonomous Handoff
+
+## Silent Threads
+
+- **[#7777](https://github.com/neomjs/neo/issues/7777)** — Quiet issue — 30 days idle; visibility-only, no routing
+
+## Computed Golden Path (Strategic Recommendation)
+
+1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
+   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
+`;
+
+        const testHandoffPath = path.resolve(process.cwd(), '.neo-test-handoff-silent.md');
+        fs.writeFileSync(testHandoffPath, content, 'utf-8');
+
+        try {
+            const orchestrator = Neo.create(AgentOrchestrator, {
+                handoffPath: testHandoffPath
+            });
+
+            const directives = orchestrator.parseGoldenPath();
+
+            test.expect(directives).not.toBeNull();
+            test.expect(directives.length).toBe(1);
+            test.expect(directives[0].issueId).toBe('9900');
+            test.expect(directives.map(directive => directive.issueId)).not.toContain('7777');
+        } finally {
+            if (fs.existsSync(testHandoffPath)) {
+                fs.unlinkSync(testHandoffPath);
+            }
+        }
+    });
+});

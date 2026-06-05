@@ -219,6 +219,23 @@ class Config extends ConfigProvider {
              */
             goldenPathStaleAssignmentRenderLimit: leaf(20, 'NEO_GOLDEN_PATH_STALE_ASSIGNMENT_RENDER_LIMIT', 'number'),
             /**
+             * Idle threshold used by `GoldenPathSynthesizer` when rendering unassigned
+             * Silent Threads. Defaults to 14 days so the section surfaces longer-running
+             * atrophy than the 7-day stale-assignment lane.
+             * @type {number}
+             */
+            goldenPathSilentThreadThresholdMs: leaf(14 * DAY_MS, 'NEO_GOLDEN_PATH_SILENT_THREAD_THRESHOLD_MS', 'number'),
+            /**
+             * Minimum `daysIdle * max(structuralWeight, 1)` score required for Silent Threads.
+             * @type {number}
+             */
+            goldenPathSilentThreadMinScore: leaf(14, 'NEO_GOLDEN_PATH_SILENT_THREAD_MIN_SCORE', 'number'),
+            /**
+             * Maximum Silent Threads candidates rendered into the Sandman handoff.
+             * @type {number}
+             */
+            goldenPathSilentThreadRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_SILENT_THREAD_RENDER_LIMIT', 'number'),
+            /**
              * Maximum recent open PR rows rendered inside `Active PR Cycle State`.
              * @type {number}
              */
