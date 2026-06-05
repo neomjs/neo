@@ -883,3 +883,70 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
     });
 });
+
+test.describe('GraphService — getLifecycleCensus (#10158)', () => {
+    let GraphService, originalDb;
+
+    test.beforeAll(async () => {
+        GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+    });
+
+    test.beforeEach(() => { originalDb = GraphService.db; });
+    test.afterEach(()  => { GraphService.db = originalDb; });
+
+    // Fake the better-sqlite3 handle: route the Nodes/Edges COUNT queries to fixed values by SQL shape.
+    function fakeSqliteDb({nodes = {}, edges = {}} = {}) {
+        return {
+            prepare(sql) {
+                return {
+                    get(...args) {
+                        const label = args[0];
+                        if (sql.includes('FROM Edges')) return {count: edges[label]};
+                        if (sql.includes('FROM Nodes')) return {count: nodes[label]};
+                        return undefined;
+                    }
+                };
+            }
+        };
+    }
+
+    test('counts MEMORY/SESSION nodes + SQLite file size; omits incident edges by default', async () => {
+        const tmpFile = path.join(os.tmpdir(), `neo-census-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+        await fs.writeFile(tmpFile, 'x'.repeat(4096));
+        try {
+            GraphService.db = {storage: {db: fakeSqliteDb({nodes: {MEMORY: 3, SESSION: 2}}), dbPath: tmpFile}};
+
+            const census = await GraphService.getLifecycleCensus();
+
+            expect(census.available).toBe(true);
+            expect(census.memoryNodes).toBe(3);
+            expect(census.sessionNodes).toBe(2);
+            expect(census.sqliteBytes).toBe(4096);
+            expect(census.sqliteWalBytes).toBe(0);  // sibling absent → 0, not throw
+            expect(census.sqliteShmBytes).toBe(0);
+            expect(census.memoryIncidentEdges).toBeUndefined();  // O(edges) scan is opt-in only
+        } finally {
+            await fs.remove(tmpFile);
+        }
+    });
+
+    test('includeIncidentEdges runs the O(edges) incident-edge counts', async () => {
+        GraphService.db = {storage: {db: fakeSqliteDb({nodes: {MEMORY: 1, SESSION: 1}, edges: {MEMORY: 7, SESSION: 5}}), dbPath: '/no/such/graph.db'}};
+
+        const census = await GraphService.getLifecycleCensus({includeIncidentEdges: true});
+
+        expect(census.memoryIncidentEdges).toBe(7);
+        expect(census.sessionIncidentEdges).toBe(5);
+        expect(census.sqliteBytes).toBe(0);  // absent dbPath → stat fails → 0, not throw
+    });
+
+    test('returns available:false when the graph SQLite store is unmounted', async () => {
+        GraphService.db = {storage: {db: null, dbPath: null}};
+
+        const census = await GraphService.getLifecycleCensus();
+
+        expect(census.available).toBe(false);
+        expect(census.memoryNodes).toBe(0);
+        expect(census.error).toContain('unavailable');
+    });
+});
