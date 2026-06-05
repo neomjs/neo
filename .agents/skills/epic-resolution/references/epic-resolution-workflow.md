@@ -41,7 +41,7 @@ The shared matrix shape (used by both `epic-review` entry-pass and `epic-resolut
 For each parent AC of the epic:
 
 1. **Parent AC** — quote or reference the AC text from the epic body.
-2. **Required evidence** — L1 / L2 / L3 / L4 per the [Substrate Evidence Ladder](../../../../learn/agentos/evidence-ladder.md). The `epic-review` entry pass should have set this; if missing, derive from the AC text (does it require runtime / live / observable behavior?).
+2. **Required evidence** — L1 / L2 / L3 / L4 per the [Substrate Evidence Ladder](../../../../learn/agentos/process/evidence-ladder.md). The `epic-review` entry pass should have set this; if missing, derive from the AC text (does it require runtime / live / observable behavior?).
 3. **Owning sub(s)** — the sub-issue(s) addressing this AC. From the epic's native sub-issue links (`update_issue_relationship` graph) or AC-explicit references.
 4. **Delivered PR(s)** — the merged PR(s) closing each sub. Use `gh pr list --search "linked-to:<sub-number>"` or check sub-issue's `closedByPullRequestsReferences`.
 5. **Achieved evidence** — read the merged PR body's `Evidence:` declaration. If two ceilings (sandbox vs achievable), report both: `L2 (sandbox) / L4 (achievable)`. If no Evidence declaration, mark as `L?? — declaration missing` and flag in residuals.
@@ -164,7 +164,7 @@ Per `feedback_a2a_commentid_pre_flight`: post the verdict comment FIRST, capture
 
 ## 7. Cross-references
 
-- `learn/agentos/evidence-ladder.md` — L1-L4 definitions + matrix schema authority
+- `learn/agentos/process/evidence-ladder.md` — L1-L4 definitions + matrix schema authority
 - `.agents/skills/epic-review/` — entry-pass sibling (seeds matrix at sub-creation time + Source Discussion Criteria Mapping per Stage 2.5 #11349)
 - `.agents/skills/pr-review/` — sub-execution gate (audits Evidence declaration on each merging PR)
 - `.agents/skills/pull-request/` — author-side Evidence declaration template

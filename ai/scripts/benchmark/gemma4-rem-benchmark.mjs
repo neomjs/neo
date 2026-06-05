@@ -42,7 +42,7 @@ import {summarize} from './helpers/stats.mjs';
  * @see ai/services/graph/providerDispatch.mjs — provider factory
  * @see ai/services/graph/SemanticGraphExtractor.mjs:96 — production call pattern
  * @see ai/scripts/benchmark/keep-alive-probe.mjs — companion KV-cache reuse V-B-A
- * @see learn/agentos/gemma4-rem-benchmark.md — measurement protocol + baseline table
+ * @see learn/agentos/measurements/gemma4-rem-benchmark.md — measurement protocol + baseline table
  */
 
 const __filename = fileURLToPath(import.meta.url);

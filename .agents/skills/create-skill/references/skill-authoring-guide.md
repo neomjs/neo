@@ -186,7 +186,7 @@ Before pushing your new skill, check:
 
 Any PR that **creates OR modifies** `.agents/skills/**` substrate is an **agent-consumed governance-surface** change. Beyond the skill-shape checks above, the `pr-review` Contract-Completeness + load-effect audits require **two PR-open gates** — author both **up-front** (each is documentation-only: no diff, head, or CI impact):
 
-1. **Contract Ledger on the SOURCE TICKET** — not just the PR body. Post the T3 matrix (`learn/agentos/contract-ledger.md`) as a comment on the ticket / epic; the Contract-Completeness audit checks the *originating ticket*, so a PR-body-only ledger does not satisfy it.
+1. **Contract Ledger on the SOURCE TICKET** — not just the PR body. Post the T3 matrix (`learn/agentos/process/contract-ledger.md`) as a comment on the ticket / epic; the Contract-Completeness audit checks the *originating ticket*, so a PR-body-only ledger does not satisfy it.
 2. **`/turn-memory-pre-flight` load-effect audit in the PR body** — document the load-runtime-effect placement: which file is the always-loaded **Map** (SKILL.md router / hot workflow §) vs the conditional **World-Atlas** payload, and that the net always-loaded delta is minimal or negative (rule bodies belong in the conditional audit, never the always-loaded Map).
 
 Doing both up-front avoids the predictable single-cycle `CHANGES_REQUESTED` this gate otherwise fires.

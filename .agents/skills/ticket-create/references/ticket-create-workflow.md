@@ -108,7 +108,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **The Problem** — deep background, insights from recent Memory Core explorations, reproducer if applicable. Historical "why" for the agent picking up the ticket later.
 - **The Architectural Reality** — exactly which Neo.mjs patterns, class topologies, or service boundaries this issue interacts with. Cite file:line when known. Distinguishes intent-level framing (Problem) from structural specificity (Reality).
 - **The Fix** — concrete prescription: files, symbols, architectural primitives touched. What changes, and where.
-- **Contract Ledger Matrix** *(when applicable)* — For any ticket introducing, modifying, or deprecating a surface consumed by humans, agents, or external systems (e.g. public methods, configs, MCP tools), you MUST include a formal Contract Ledger matrix. This matrix defines Target Surface, Source of Authority, Proposed Behavior, Fallback, Docs, and Evidence. Rows that name existing fields, methods, helpers, tools, config keys, docs paths, or runtime surfaces must satisfy the row-level Surface-Anchor V-B-A discipline in `learn/agentos/contract-ledger.md` before the ticket asserts them.
+- **Contract Ledger Matrix** *(when applicable)* — For any ticket introducing, modifying, or deprecating a surface consumed by humans, agents, or external systems (e.g. public methods, configs, MCP tools), you MUST include a formal Contract Ledger matrix. This matrix defines Target Surface, Source of Authority, Proposed Behavior, Fallback, Docs, and Evidence. Rows that name existing fields, methods, helpers, tools, config keys, docs paths, or runtime surfaces must satisfy the row-level Surface-Anchor V-B-A discipline in `learn/agentos/process/contract-ledger.md` before the ticket asserts them.
 - **Decision Record impact** *(architecture/substrate tickets)* — Declare `none`, `aligned-with ADR ####`, `depends-on ADR ####`, `amends ADR ####`, `supersedes ADR ####`, or `challenges ADR ####`. Use the ADR successor-risk audit when the ticket conflicts with or depends on accepted ADR authority.
 - **Discussion Criteria Mapping** *(when graduating from a Discussion)* — A section mapping the upstream Discussion's `[RESOLVED_TO_AC]` criteria to this Epic's ACs. See `ideation-sandbox-workflow.md §6.6` for the required format. This satisfies the `epic-resolution` Closeout Gates upfront.
 - **Acceptance Criteria** — bulleted checklist. Each item independently verifiable. Post-merge-only items explicitly flagged. **Epic exception:** for `epic`-labeled tickets, ACs live in the **SUB** tickets (not the epic body) — author the epic per `epic-create` (epic body = problem-scope + intended-solution; subs linked via `update_issue_relationship`, each a one-PR-deliverable leaf). See `.agents/skills/epic-create/`.
@@ -120,7 +120,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 
 ### 5.1 Reference Hygiene: Backtick-Escape for Descriptive `#N`
 
-When drafting ticket bodies, read [`learn/agentos/reference-hygiene.md`](../../../../learn/agentos/reference-hygiene.md): structural issue references stay bare; descriptive prose references use backticks.
+When drafting ticket bodies, read [`learn/agentos/process/reference-hygiene.md`](../../../../learn/agentos/process/reference-hygiene.md): structural issue references stay bare; descriptive prose references use backticks.
 
 ## 6. Linkage
 

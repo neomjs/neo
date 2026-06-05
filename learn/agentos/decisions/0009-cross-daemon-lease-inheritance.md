@@ -107,7 +107,7 @@ Operator-invoked `npm run ai:sync-kb` outside an orchestrator-managed cascade do
 This ADR is **Proposed** at filing. Transition to **Accepted** is gated on:
 
 1. PR resolving #11519 merges to `dev`.
-2. Operator validates orchestrator boot + cascade behavior under the new contract on a real `npm run ai:orchestrator` cycle (L4 evidence per `learn/agentos/evidence-ladder.md`).
+2. Operator validates orchestrator boot + cascade behavior under the new contract on a real `npm run ai:orchestrator` cycle (L4 evidence per `learn/agentos/process/evidence-ladder.md`).
 3. Optional: 7-day observation window for any cross-daemon collision regressions before transitioning to Accepted.
 
 Per ADR 0005, Proposed status is acceptable for future-agent `ticket-intake` reads as authoritative-pending-empirical-validation context.
