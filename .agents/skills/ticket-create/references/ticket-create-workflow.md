@@ -15,13 +15,25 @@ Before the duplicate sweep or the Fat-Ticket body: is this the right work — do
 ### 1a. The Content Sweep (Duplicate Detection)
 Verify no equivalent ticket already exists. Redundant tickets pollute the Knowledge Base.
 
+**Live freshness sweep (mandatory):** before any `create_issue` call, read at least the latest 20 open GitHub issues from the live tracker, including issue number, title, author, labels, and URL.
+
+```bash
+gh issue list --state open --limit 20 --json number,title,author,labels,url
+```
+
+An equivalent GitHub Workflow MCP or GitHub API call is acceptable when it returns the same fields. This live sweep is required even when KB and local searches return no duplicates: the most likely active-swarm duplicate can exist on GitHub before Knowledge Base or `resources/content/**` sync has ingested it.
+
+If the live latest-open sweep fails because of sandbox, network, or auth state, retry through the appropriate approved/escalated path. If live GitHub state still cannot be fetched, stop before `create_issue` and report the blocker; do not file from stale-only evidence.
+
+Record the live-open sweep result in the ticket body or creation notes, e.g. `Live latest-open sweep: checked latest 20 open issues at <timestamp>; no equivalent found` or link the existing ticket you found instead of filing a duplicate.
+
 ```
 grep on resources/content/issues/       # active + archived tickets
 grep on resources/content/discussions/   # ideation / brainstorming
 ```
 
-Primary: `ask_knowledge_base(query='...', type='ticket')` — semantic search surfaces conceptual duplicates that grep misses.
-Fallback: `grep` / `query_documents` for exact keyword verification.
+Semantic sweep: `ask_knowledge_base(query='...', type='ticket')` — semantic search surfaces conceptual duplicates that title scanning misses.
+Exact/historical sweep: `grep` / `query_documents` over issues, archived issues, and discussions for exact keyword verification.
 
 If an equivalent ticket exists: do NOT file a duplicate. Either comment on the existing ticket, extend its scope, or reject the new request.
 
@@ -53,7 +65,7 @@ Apply at creation time — not just at intake. Every stage must pass before the 
 
 1. **Premise** — is the stated problem real and reproducible? Has the underlying symptom been independently verified, or is it secondhand?
 2. **Prescription** — is the stated fix the right substrate for the problem, or does it treat a symptom? Could a different layer (config, service, daemon, schema) solve it better?
-   **Verify-Before-Assert Integration:** Before making architectural claims or prescribing solutions in your Fat Ticket body (Stage 2 Prescription), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §2.3). You cannot assert that a bug exists or a pattern is flawed without empirical confirmation (a falsifying tool call) prior to filing the ticket.
+   **Verify-Before-Assert Integration:** Before making architectural claims or prescribing solutions in your Fat Ticket body (Stage 2 Prescription), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §verify_before_assert). You cannot assert that a bug exists or a pattern is flawed without empirical confirmation (a falsifying tool call) prior to filing the ticket.
 3. **Substrate** — where does this work belong? Service layer? Build script? CI workflow? Framework core? Documentation? Match the fix to the substrate that owns the concern.
    **Structural Pre-Flight Integration:** when the prescription introduces or relocates a `.mjs` file, the directory choice MUST be validated via `.agents/skills/structural-pre-flight/` before drafting the ticket body. Stage 0 mechanical trigger fires; Stage 1 fast-path handles sibling-pattern matches in 30 seconds; novel directory choices route through full Pre-Flight (ArchitectureOverview.md + ADR consultation). The empirical anchors PR `#11008` (`orchestrator-daemon.mjs` misplaced in `ai/scripts/`) and earlier `bridge-daemon.mjs` demonstrate the cost of skipping this check at ticket-creation time.
 4. **Consumer** — who reads the output of this change? Human developer, agent, Memory Core, Native Edge Graph, Knowledge Base? Different consumers need different shapes (markdown prose vs structured metadata vs MCP payload).
