@@ -28,6 +28,36 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
+     * Tests whether a graph node ID references a row-backed Memory or Session node.
+     *
+     * @summary Anchor & Echo: Defines the producer-side provenance predicate for the
+     * Memory/Session lazy-edge queue. Matching is case-insensitive for compatibility
+     * with legacy uppercase inputs while non-row-backed prefixes remain untouched.
+     *
+     * @param {String} id Graph node ID candidate
+     * @returns {Boolean} `true` for Memory/Session graph node IDs
+     * @protected
+     */
+    isMemorySessionGraphNodeId(id) {
+        return typeof id === 'string' && /^(memory|session):/i.test(id);
+    }
+
+    /**
+     * Normalizes row-backed Memory/Session graph node IDs to canonical lowercase prefixes.
+     *
+     * @summary Anchor & Echo: Keeps `memory:` / `session:` as the producer canonical
+     * form while accepting `MEMORY:` / `SESSION:` as compatibility inputs. Semantic and
+     * identity prefixes such as `CONCEPT:`, `CLASS:`, and `AGENT:` pass through unchanged.
+     *
+     * @param {String} id Raw graph node ID
+     * @returns {String} Canonical Memory/Session ID, or the original ID for other prefixes
+     * @protected
+     */
+    normalizeMemorySessionGraphNodeId(id) {
+        return this.isMemorySessionGraphNodeId(id) ? GraphService.normalizeGraphNodeId(id) : id;
+    }
+
+    /**
      * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
      * from the session memory log via JSON schema extraction.
      *
@@ -86,9 +116,13 @@ Enforce this STRICT JSON schema:
 
 PROVENANCE EDGES:
 When extracting entities, you MUST emit provenance edges linking them back to the source Memory or Session, for example:
-- MENTIONED_IN (Concept -> Memory:xyz)
-- DISCUSSED_IN (Class/Method -> Session:xyz)
-- REFERENCED_BY (Issue -> Memory:xyz)
+- MENTIONED_IN (Concept -> memory:xyz)
+- DISCUSSED_IN (Class/Method -> session:xyz)
+- REFERENCED_BY (Issue -> memory:xyz)
+
+Row-backed Memory and Session provenance targets MUST use lowercase canonical IDs (memory:<id> and session:<id>).
+Uppercase MEMORY: / SESSION: are compatibility input forms only; do not emit them.
+This does not recase semantic or identity prefixes such as CONCEPT:, CLASS:, or AGENT:.
 
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
 
@@ -242,6 +276,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
                     nodeId = `${nodeType}:${cleanName}`;
                 }
+                nodeId = this.normalizeMemorySessionGraphNodeId(nodeId);
 
                 GraphService.upsertNode({
                     id: nodeId,
@@ -277,12 +312,15 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
                 if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
 
+                resolvedSource = this.normalizeMemorySessionGraphNodeId(resolvedSource);
+                resolvedTarget = this.normalizeMemorySessionGraphNodeId(resolvedTarget);
+
                 const sourceExists = validNodeRefs.has(resolvedSource) || GraphService.db.nodes.has(resolvedSource);
                 const targetExists = validNodeRefs.has(resolvedTarget) || GraphService.db.nodes.has(resolvedTarget);
 
                 if (!sourceExists || !targetExists) {
                     const isProvenance = ['MENTIONED_IN', 'DISCUSSED_IN', 'REFERENCED_BY'].includes(edge.relationship);
-                    const targetsSessionOrMemory = resolvedTarget.startsWith('SESSION:') || resolvedTarget.startsWith('MEMORY:') || resolvedSource.startsWith('SESSION:') || resolvedSource.startsWith('MEMORY:');
+                    const targetsSessionOrMemory = this.isMemorySessionGraphNodeId(resolvedTarget) || this.isMemorySessionGraphNodeId(resolvedSource);
 
                     if (isProvenance && targetsSessionOrMemory) {
                         /**
