@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * #10011 — graph RLS read-side return boundary.
+ * Graph RLS read-side return boundary.
  *
  * `getNode` / `getNeighbors` / `queryNodeTopology` / `getContextFrontier` return graph nodes
  * AND edges read from `GraphService.db` — process-wide in-memory Stores. The SQL RLS clause in
@@ -245,5 +245,78 @@ test.describe('GraphService — RLS read-side return boundary (#10011)', () => {
         requester.value = '@tenant-b';
 
         expect(GraphService.getContextFrontier({depth: 2}).strategicNeighbors).toEqual([]);
+    });
+});
+
+/**
+ * Write-side complement to the read-side RLS boundary above.
+ *
+ * The read side correctly treats a null-owned node as visible to every tenant. The bug was
+ * purely on the write side: `GraphService` provisions shared sentinels (`frontier`, the
+ * `Neo-Master-Architecture` primer, `_SYSTEM_STATE`, identity roots) via plain `upsertNode`,
+ * which stamps `properties.userId` with the *first boot harness's* bound identity. Under strict
+ * RLS that isolates these operational nodes to a single tenant — they vanish from the graph for
+ * everyone else. `upsertGlobalNode` forces `userId: null` so they stay globally reachable.
+ */
+function makeWritableDb() {
+    const nodeMap = new Map();
+    return {
+        getAdjacentNodes() {},
+        nodes: nodeMap,
+        edges  : {getByIndex() { return []; }},
+        addNode(spec) { nodeMap.set(spec.id, {id: spec.id, label: spec.label, properties: spec.properties}); },
+        autoSave: false,
+        storage : {RequestContextService: {getAgentIdentityNodeId: () => requester.value}}
+    };
+}
+
+test.describe('GraphService — global system-node provisioning (write-side null-owner) (#10271)', () => {
+    let GraphService, originalDb;
+
+    test.beforeAll(async () => {
+        GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        originalDb      = GraphService.db;
+        requester.value = null;
+    });
+
+    test.afterEach(() => {
+        GraphService.db = originalDb;
+        requester.value = null;
+    });
+
+    test('upsertGlobalNode forces userId:null even under an active request context', () => {
+        GraphService.db = makeWritableDb();
+        requester.value = '@tenant-a';
+
+        GraphService.upsertGlobalNode({id: 'sys-x', type: 'System', name: 'Sys X'});
+
+        // Null-owned, NOT stamped with the booting tenant — so RLS keeps it visible to all.
+        expect(GraphService.db.nodes.get('sys-x').properties.userId).toBeNull();
+    });
+
+    test('a global node provisioned under tenant-A stays visible to tenant-B', () => {
+        GraphService.db = makeWritableDb();
+
+        requester.value = '@tenant-a';  // the first boot harness
+        GraphService.upsertGlobalNode({id: 'Neo-Master-Architecture', type: 'System', name: 'Primer'});
+
+        requester.value = '@tenant-b';  // a different tenant must still see the global primer
+        expect(GraphService.getNode({id: 'Neo-Master-Architecture'})?.id).toBe('Neo-Master-Architecture');
+    });
+
+    test('plain upsertNode stamps the active tenant — the isolation the helper prevents', () => {
+        GraphService.db = makeWritableDb();
+
+        requester.value = '@tenant-a';
+        GraphService.upsertNode({id: 'leaky', type: 'System', name: 'Leaky'});
+
+        // Baseline: without the helper the node is bound to @tenant-a and hidden from @tenant-b.
+        expect(GraphService.db.nodes.get('leaky').properties.userId).toBe('@tenant-a');
+
+        requester.value = '@tenant-b';
+        expect(GraphService.getNode({id: 'leaky'})).toBeNull();
     });
 });

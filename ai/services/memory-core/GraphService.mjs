@@ -104,7 +104,7 @@ class GraphService extends Base {
             try {
                 this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
                 if (!this.db.nodes.has('frontier')) {
-                    this.upsertNode({
+                    this.upsertGlobalNode({
                         id         : 'frontier',
                         type       : 'SYSTEM_ANCHOR',
                         name       : 'Active Context Frontier',
@@ -122,7 +122,7 @@ class GraphService extends Base {
             try {
                 this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
                 if (!this.db.nodes.has('Neo-Master-Architecture')) {
-                    this.upsertNode({
+                    this.upsertGlobalNode({
                         id         : 'Neo-Master-Architecture',
                         type       : 'System',
                         name       : 'Global System Primer',
@@ -143,7 +143,7 @@ class GraphService extends Base {
                     this.db.getAdjacentNodes(identity.id, 'both');
 
                     if (!this.db.nodes.has(identity.id)) {
-                        this.upsertNode(identity);
+                        this.upsertGlobalNode(identity);
                     } else {
                         // Defensive createdAt retention: Peek SQLite to preserve original timestamp
                         const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
@@ -151,11 +151,11 @@ class GraphService extends Base {
                             const rawData = JSON.parse(row.data);
                             if (rawData.properties?.createdAt) {
                                 const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
-                                this.upsertNode(preserved);
+                                this.upsertGlobalNode(preserved);
                                 continue;
                             }
                         }
-                        this.upsertNode(identity);
+                        this.upsertGlobalNode(identity);
                     }
                 }
             } catch (error) {
@@ -257,6 +257,20 @@ class GraphService extends Base {
             });
             // logger.debug(`Successfully added node to Database RAM: ${id}`);
         }
+    }
+
+    /**
+     * Upserts a globally-visible system node, forcing `userId: null` so it stays
+     * reachable to every tenant under RLS regardless of which boot harness creates
+     * it first. Plain {@link GraphService#upsertNode} stamps the active request's
+     * bound identity, which would isolate these shared sentinels (`frontier`, the
+     * `Neo-Master-Architecture` primer, `_SYSTEM_STATE`, and the identity roots) to
+     * a single tenant — they would then vanish from the graph for all others.
+     * @param {Object} spec See {@link GraphService#upsertNode}; `properties.userId`
+     * is forced to `null`.
+     */
+    upsertGlobalNode(spec) {
+        this.upsertNode({...spec, properties: {...spec.properties, userId: null}});
     }
 
     /**
@@ -508,7 +522,7 @@ class GraphService extends Base {
         // Initialize or fetch the global _SYSTEM_STATE node for cycle tracking
         let systemNode = this.db.nodes.get('_SYSTEM_STATE');
         if (!systemNode) {
-            this.upsertNode({
+            this.upsertGlobalNode({
                 id: '_SYSTEM_STATE',
                 type: 'SYSTEM_CLOCK',
                 name: 'Global System Clock',
@@ -548,7 +562,7 @@ class GraphService extends Base {
         const info      = pruneStmt.run(pruningThreshold);
 
         // Commit global clock update
-        this.upsertNode({
+        this.upsertGlobalNode({
             id        : '_SYSTEM_STATE',
             type      : systemNode.isRecord ? systemNode.get('label') : systemNode.label,
             properties: {
@@ -913,7 +927,7 @@ class GraphService extends Base {
     mutateFrontier({targetNodeId, weight = 1.0, relationship = 'STRATEGIC_PIVOT'}) {
         let frontierNode = this.db.nodes.get('frontier');
         if (!frontierNode) {
-            this.upsertNode({
+            this.upsertGlobalNode({
                 id         : 'frontier',
                 type       : 'SYSTEM_ANCHOR',
                 name       : 'Active Context Frontier',
