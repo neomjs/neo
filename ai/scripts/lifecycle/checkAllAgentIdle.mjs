@@ -24,6 +24,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
+import AiConfig from '../../config.mjs';
+import {resolveTargets} from '../../daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
 
 /**
@@ -56,10 +58,15 @@ export async function checkAllAgentIdle() {
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
 
-    const identitiesEnv = process.env.NEO_TRIO_IDENTITIES || '@neo-gemini-pro,@neo-opus-ada,@neo-gpt';
-    const identities = identitiesEnv.split(',').map(s => s.trim()).filter(Boolean);
+    // All-idle check set: the registered active team (deployment-portable via `identityRoots`),
+    // overridable by the legacy `NEO_TRIO_IDENTITIES` leaf. Distinct from swarm-heartbeat PULSE
+    // targets — idle detection needs the full team, not the recently-A2A-active subset.
+    const identities = await resolveTargets({
+        targetSource   : 'active-local-team',
+        explicitTargets: AiConfig.orchestrator.swarmHeartbeat.allIdleIdentities
+    });
 
-    const thresholdMs = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
+    const thresholdMs = AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
     const now = Date.now();
 
     let allIdle = true;

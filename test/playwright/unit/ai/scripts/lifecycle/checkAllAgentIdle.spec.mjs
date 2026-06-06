@@ -20,9 +20,10 @@ import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import {deriveAllAgentIdleCycleId} from '../../../../../../ai/scripts/lifecycle/checkAllAgentIdle.mjs';
+import {resolveTargets}            from '../../../../../../ai/daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
 
 /**
- * @summary Validation for Phase 3 Substrate Primitive #10625: All-Agent-Idle Detection.
+ * @summary Validation for the Phase 3 Substrate Primitive: All-Agent-Idle Detection.
  */
 test.describe('ai/scripts/checkAllAgentIdle', () => {
     const identitiesEnv = '@neo-test-agent-1,@neo-test-agent-2';
@@ -165,6 +166,30 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         expect(parsed.details['@neo-ghost-agent-1'].ageMs).toBe(null); // Infinity JSON encodes to null
     });
 
+    test('checkAllAgentIdle.mjs default identity set resolves via active-local-team (no hardcoded roster)', async () => {
+        // With NEO_TRIO_IDENTITIES UNSET, the all-idle check set must come from the
+        // resolveTargets({targetSource:'active-local-team'}) registry path — deployment-portable,
+        // NOT the retired hardcoded `@neo-gemini-pro,@neo-opus-ada,@neo-gpt` fallback.
+        const expected = await resolveTargets({targetSource: 'active-local-team'});
+        expect(expected.length).toBeGreaterThan(0);
+
+        const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkAllAgentIdle.mjs');
+        const output = execFileSync('node', [scriptPath], {
+            encoding: 'utf-8',
+            env: {
+                ...process.env,
+                NEO_UNIT_TEST_MODE: 'true',
+                IDLE_THRESHOLD_MS : '600000'
+                // NEO_TRIO_IDENTITIES intentionally UNSET → exercises the active-local-team default.
+            }
+        });
+        const parsed = JSON.parse(output);
+
+        // The script's default set equals the resolver's active-local-team, and is NOT the old hardcoded trio.
+        expect(parsed.identities).toEqual(expected);
+        expect(parsed.identities).not.toEqual(['@neo-gemini-pro', '@neo-opus-ada', '@neo-gpt']);
+    });
+
     test('deriveAllAgentIdleCycleId is stable for the same observed all-idle state', () => {
         const details = {
             '@neo-test-agent-1': {lastMemTime: '2026-05-22T10:00:00.000Z', inFlightNudge: false},
@@ -191,7 +216,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
             .not.toBe(deriveAllAgentIdleCycleId(['@neo-test-agent-1', '@neo-test-agent-2'], updatedDetails));
     });
 
-    // Note (#11766): the former `swarm-heartbeat.sh integrates the all-agent-idle
+    // Note: the former `swarm-heartbeat.sh integrates the all-agent-idle
     // detection properly` test was removed with the bash script. The all-agent-idle
     // detection routing is now covered against the JS lane in
     // `test/playwright/unit/ai/daemons/SwarmHeartbeatService.spec.mjs`.

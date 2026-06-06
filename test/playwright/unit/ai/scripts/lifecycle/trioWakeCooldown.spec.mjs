@@ -14,7 +14,7 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import {execFileSync, exec} from 'child_process';
+import {execFileSync, exec, spawnSync} from 'child_process';
 import path           from 'path';
 import fs             from 'fs-extra';
 import util           from 'util';
@@ -130,5 +130,40 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
         } catch(err) {
             expect(err.stderr.toString()).toContain('Suppressed: within TTL window');
         }
+    });
+});
+
+test.describe('ai/scripts/trioWakeCooldown — AiConfig TTL leaf resolution (#12613)', () => {
+    // Isolated from the wake-dispatch tests above: the suppression branch reads the
+    // `trioWakeCooldownSeconds` leaf and returns BEFORE the MailboxService dispatch, so these
+    // verify the leaf default/override without the substrate-mailbox dependency.
+    test.describe.configure({mode: 'serial'});
+
+    const STATE_PATH       = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
+    const scriptPath       = path.resolve(process.cwd(), 'ai/scripts/lifecycle/trioWakeCooldown.mjs');
+    const TEST_COORDINATOR = '@neo-opus-ada';
+
+    test.beforeEach(async () => { await fs.remove(STATE_PATH); });
+    test.afterAll (async () => { await fs.remove(STATE_PATH); });
+
+    // Pre-seed a just-now fire so the cooldown branch suppresses (within TTL), exercising the leaf read.
+    const seedRecentFire = async () => {
+        await fs.ensureDir(path.dirname(STATE_PATH));
+        await fs.writeJson(STATE_PATH, {last_fire_at_iso: new Date().toISOString(), last_fire_cycle_id: 'seed'});
+    };
+    const runSuppressed = (env) => spawnSync('node', [scriptPath, JSON.stringify({
+        allIdle: true, cycle_id: 'cycle-ttl', coordinator_recommendation: TEST_COORDINATOR, details: {}
+    })], {encoding: 'utf-8', env: {...process.env, NEO_UNIT_TEST_MODE: 'true', ...env}});
+
+    test('reads the TTL default (600s) from the leaf when env is unset', async () => {
+        await seedRecentFire();
+        const res = runSuppressed({}); // TRIO_WAKE_COOLDOWN_SECONDS unset → leaf default 600
+        expect(res.stderr).toContain('within TTL window (600s)');
+    });
+
+    test('reads the TTL override from the leaf via the legacy env name', async () => {
+        await seedRecentFire();
+        const res = runSuppressed({TRIO_WAKE_COOLDOWN_SECONDS: '1200'});
+        expect(res.stderr).toContain('within TTL window (1200s)');
     });
 });

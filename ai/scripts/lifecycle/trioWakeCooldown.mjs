@@ -15,6 +15,7 @@ import RequestContextService from '../../mcp/server/shared/services/RequestConte
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import MailboxService from '../../services/memory-core/MailboxService.mjs';
+import AiConfig from '../../config.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
 const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
@@ -34,8 +35,8 @@ export async function trioWakeCooldown(signal) {
     }
 
     return withHeartbeatLock(async () => {
-        // Enforce the default cooldown agreed for swarm-wide wake retries.
-        const ttlSeconds = parseInt(process.env.TRIO_WAKE_COOLDOWN_SECONDS, 10) || 600;
+        // Cooldown TTL resolved from the wake-policy leaf (env TRIO_WAKE_COOLDOWN_SECONDS, 600s default).
+        const ttlSeconds = AiConfig.orchestrator.swarmHeartbeat.trioWakeCooldownSeconds;
         const ttlMs = ttlSeconds * 1000;
         const now = Date.now();
 

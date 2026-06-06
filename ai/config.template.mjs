@@ -432,7 +432,35 @@ class Config extends ConfigProvider {
                      * and trims. `null`/absent → resolver falls through to `targetSource` semantics.
                      * @type {String|null}
                      */
-                    targets: leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS', 'string')
+                    targets: leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS', 'string'),
+                    /**
+                     * Idle-out threshold (ms): a `WAKE_SUBSCRIPTION`-active agent whose latest
+                     * `AGENT_MEMORY` is older than this is an `idle_out_candidate` for the bounded
+                     * in-place heartbeat nudge. Read at the use site by the lifecycle detectors
+                     * (`checkSunsetted.mjs`, `checkAllAgentIdle.mjs`). Bound to the legacy
+                     * `IDLE_THRESHOLD_MS` env name for operator continuity.
+                     * @type {Number}
+                     */
+                    idleThresholdMs: leaf(10 * 60 * 1000, 'IDLE_THRESHOLD_MS', 'number'),
+                    /**
+                     * Trio wake cooldown TTL (seconds): minimum gap between swarm-wide
+                     * all-agent-idle WAKE dispatches, enforced by `trioWakeCooldown.mjs` to keep
+                     * the heartbeat idempotent. Bound to the legacy `TRIO_WAKE_COOLDOWN_SECONDS`
+                     * env name for operator continuity.
+                     * @type {Number}
+                     */
+                    trioWakeCooldownSeconds: leaf(600, 'TRIO_WAKE_COOLDOWN_SECONDS', 'number'),
+                    /**
+                     * Explicit override for the all-agent-idle CHECK set (`checkAllAgentIdle.mjs`) —
+                     * the identities whose collective idleness triggers a swarm-wide wake. Distinct
+                     * from `targets`/`targetSource` above (those choose pulse RECIPIENTS via the
+                     * resolver): idle detection needs the registered active team, not the recently-
+                     * A2A-active subset, so `null` resolves via `resolveTargets({targetSource:
+                     * 'active-local-team'})` (deployment-portable `identityRoots` active maintainers,
+                     * never a hardcoded roster). Bound to the legacy `NEO_TRIO_IDENTITIES` env name.
+                     * @type {String[]|null}
+                     */
+                    allIdleIdentities: leaf(null, 'NEO_TRIO_IDENTITIES', 'csv')
                 },
                 /**
                  * Local-only maintenance lane switches. Cloud deployments can disable these
