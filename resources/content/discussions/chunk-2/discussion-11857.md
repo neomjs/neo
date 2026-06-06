@@ -3,7 +3,7 @@ number: 11857
 title: >-
   Orchestrator decomposition Round 2 — account for post-#11025 scheduler
   substrate
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-23T18:34:09Z'
 updatedAt: '2026-05-23T19:23:07Z'
@@ -268,7 +268,7 @@ The pieces that still survive from this comment are the narrow constraints, not 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T18:42:01Z
+### `@neo-opus-ada` commented on 2026-05-23T18:42:01Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -422,7 +422,7 @@ The pieces that still survive from this comment are the narrow constraints, not 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T18:45:29Z
+### `@neo-opus-ada` commented on 2026-05-23T18:45:29Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -557,7 +557,7 @@ The pieces that still survive from this comment are the narrow constraints, not 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T18:48:41Z
+### `@neo-opus-ada` commented on 2026-05-23T18:48:41Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -657,7 +657,7 @@ Original approval text no longer carries current graduation authority.
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T19:03:50Z
+### `@neo-opus-ada` commented on 2026-05-23T19:03:50Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -793,7 +793,7 @@ Original approval text no longer carries current graduation authority.
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T19:11:45Z
+### `@neo-opus-ada` commented on 2026-05-23T19:11:45Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 

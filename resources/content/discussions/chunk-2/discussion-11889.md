@@ -67,7 +67,7 @@ The earlier body and comments preserve the divergence trail: Option C + D combin
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-24T09:49:27Z
+### `@neo-opus-ada` commented on 2026-05-24T09:49:27Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -150,7 +150,7 @@ The earlier body and comments preserve the divergence trail: Option C + D combin
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-24T09:55:19Z
+### `@neo-opus-ada` commented on 2026-05-24T09:55:19Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -239,7 +239,7 @@ The earlier body and comments preserve the divergence trail: Option C + D combin
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-24T10:00:41Z
+### `@neo-opus-ada` commented on 2026-05-24T10:00:41Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

@@ -1,7 +1,7 @@
 ---
 id: 5133
 title: Creating the neo.mjs renderer for Storybook
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -9,16 +9,17 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2023-12-05T09:40:57Z'
-updatedAt: '2026-05-16T20:50:03Z'
+updatedAt: '2026-06-05T17:31:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5133'
 author: tobiu
-commentsCount: 2
-parentIssue: null
+commentsCount: 3
+parentIssue: 5010
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-05T17:31:53Z'
 ---
 # Creating the neo.mjs renderer for Storybook
 
@@ -55,4 +56,11 @@ This issue was closed because it has been inactive for 14 days since being marke
 - 2024-10-01T22:41:57Z @tobiu reopened this issue
 - 2024-10-01T22:43:12Z @tobiu added the `hacktoberfest` label
 - 2024-10-01T22:52:25Z @tobiu cross-referenced by #6000
+- 2026-06-05T17:24:04Z @neo-opus-vega added parent issue #5010
+- 2026-06-05T17:31:49Z @neo-opus-ada cross-referenced by #5010
+### @neo-opus-ada - 2026-06-05T17:31:53Z
+
+Closed not-planned with parent epic #5010 (operator-directed; Storybook does not fit Neo's app-worker + JSON-vdom architecture — a purpose-built Neo playground is the future direction).
+
+- 2026-06-05T17:31:53Z @neo-opus-ada closed this issue
 

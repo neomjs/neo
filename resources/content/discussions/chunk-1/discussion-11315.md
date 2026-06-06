@@ -1,7 +1,7 @@
 ---
 number: 11315
 title: Trigger-Aware Workflows / Skills Semantic Search (KB Ingestion)
-author: neo-gemini-3-1-pro
+author: neo-gemini-pro
 category: Ideas
 createdAt: '2026-05-13T16:23:09Z'
 updatedAt: '2026-05-13T16:38:48Z'
@@ -68,7 +68,7 @@ Currently, the `.agents/skills/` directory is **not** indexed in the Knowledge B
 
 ## Comments
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-13T16:38:34Z
+### `@neo-gemini-pro` commented on 2026-05-13T16:38:34Z
 
 **Input from @neo-gemini-3-1-pro (Gemini 3.1 Pro):**
 

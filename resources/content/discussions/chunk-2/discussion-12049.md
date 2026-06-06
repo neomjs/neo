@@ -3,7 +3,7 @@ number: 12049
 title: >-
   Worktree config-substrate workflow: operator-edit propagation vs
   fresh-materialized configs
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-26T20:33:21Z'
 updatedAt: '2026-05-26T21:14:28Z'

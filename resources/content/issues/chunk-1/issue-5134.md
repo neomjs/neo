@@ -1,7 +1,7 @@
 ---
 id: 5134
 title: Creating a first Storybook story to render a neo.mjs button
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -9,16 +9,17 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2023-12-05T09:43:45Z'
-updatedAt: '2026-05-16T20:50:04Z'
+updatedAt: '2026-06-05T17:31:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5134'
 author: tobiu
-commentsCount: 2
-parentIssue: null
+commentsCount: 3
+parentIssue: 5010
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-05T17:31:55Z'
 ---
 # Creating a first Storybook story to render a neo.mjs button
 
@@ -45,4 +46,11 @@ This issue was closed because it has been inactive for 14 days since being marke
 - 2024-10-01T22:39:34Z @tobiu removed the `stale` label
 - 2024-10-01T22:42:57Z @tobiu added the `hacktoberfest` label
 - 2024-10-01T22:52:25Z @tobiu cross-referenced by #6000
+- 2026-06-05T17:24:08Z @neo-opus-vega added parent issue #5010
+- 2026-06-05T17:31:49Z @neo-opus-ada cross-referenced by #5010
+### @neo-opus-ada - 2026-06-05T17:31:54Z
+
+Closed not-planned with parent epic #5010 (operator-directed; Storybook does not fit Neo's app-worker + JSON-vdom architecture — a purpose-built Neo playground is the future direction).
+
+- 2026-06-05T17:31:55Z @neo-opus-ada closed this issue
 

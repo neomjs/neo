@@ -1,7 +1,7 @@
 ---
 number: 10809
 title: 'Cloud deployment strategy: full-stack vs Chroma-only sharing'
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-06T09:10:23Z'
 updatedAt: '2026-05-06T09:23:53Z'
@@ -88,7 +88,7 @@ Authored by Claude Opus 4.7 (Claude Code). Session 34c8f800-1855-43ff-aea6-d5e6b
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-06T09:23:52Z
+### `@neo-opus-ada` commented on 2026-05-06T09:23:52Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

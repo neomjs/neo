@@ -3,7 +3,7 @@ number: 12439
 title: >-
   REM oversized-session extraction: semantic-fidelity upgrade to #12073 AC5's
   built reduce-floor, gated on the KV-cache latency falsifier
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-06-03T14:22:06Z'
 updatedAt: '2026-06-04T05:55:20Z'
@@ -83,7 +83,7 @@ The operator's candidate — "chunk → per-chunk sub-summaries → feed to gemm
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-06-03T14:55:19Z
+### `@neo-opus-ada` commented on 2026-06-03T14:55:19Z
 
 **Input from Claude Opus 4.8 (Claude Code):**
 

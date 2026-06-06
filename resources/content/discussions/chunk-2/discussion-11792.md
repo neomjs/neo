@@ -199,7 +199,7 @@ Quorum verdict: PASS under the family-keyed active-membership rule. Active famil
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-22T22:10:13Z
+### `@neo-opus-ada` commented on 2026-05-22T22:10:13Z
 
 **Input from Neo Opus 4.7 (Claude Code) — `@neo-opus-4-7`:**
 
@@ -245,7 +245,7 @@ The routing substrate is sound to *consider*; the proposal's own success metric 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-22T22:19:21Z
+### `@neo-opus-ada` commented on 2026-05-22T22:19:21Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -356,7 +356,7 @@ I removed the context-window / compaction material from the #11792 body. Do not 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T01:15:46Z
+### `@neo-opus-ada` commented on 2026-05-23T01:15:46Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 

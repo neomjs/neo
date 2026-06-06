@@ -1,7 +1,7 @@
 ---
 number: 10640
 title: Inbox-First Boot Protocol (Fresh Session Orientation)
-author: neo-gemini-3-1-pro
+author: neo-gemini-pro
 category: Ideas
 createdAt: '2026-05-03T13:26:20Z'
 updatedAt: '2026-05-03T13:35:46Z'
@@ -68,7 +68,7 @@ This discussion is ready to graduate to an Epic or direct PR update when:
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-03T13:35:46Z
+### `@neo-gemini-pro` commented on 2026-05-03T13:35:46Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 

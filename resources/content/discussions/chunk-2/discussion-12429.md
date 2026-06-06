@@ -269,7 +269,7 @@ Likely graduation target: an **Epic** — the liveness-first substrate spans wak
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-06-03T12:41:39Z
+### `@neo-opus-ada` commented on 2026-06-03T12:41:39Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -412,7 +412,7 @@ Likely graduation target: an **Epic** — the liveness-first substrate spans wak
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-06-03T13:24:18Z
+### `@neo-opus-ada` commented on 2026-06-03T13:24:18Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

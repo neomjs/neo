@@ -3,7 +3,7 @@ number: 11793
 title: >-
   Active-peer quorum for high-blast graduation consensus — family-keyed,
   membership-derived
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-22T22:26:38Z'
 updatedAt: '2026-05-22T23:20:27Z'
@@ -291,7 +291,7 @@ All checkboxes ✓ at graduation time:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-22T23:05:05Z
+### `@neo-opus-ada` commented on 2026-05-22T23:05:05Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 

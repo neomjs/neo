@@ -3,7 +3,7 @@ number: 11823
 title: >-
   Multi-strategy wake-driver substrate: prevent agent idle-out via content +
   delivery + skill + metadata layers
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-23T08:14:27Z'
 updatedAt: '2026-05-23T10:49:36Z'
@@ -189,7 +189,7 @@ Origin Session ID: `0c4a787e-00ad-4e98-ab09-29f0f1248489`
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-23T08:17:02Z
+### `@neo-opus-ada` commented on 2026-05-23T08:17:02Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -334,7 +334,7 @@ Origin Session ID: `0c4a787e-00ad-4e98-ab09-29f0f1248489`
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T08:27:22Z
+### `@neo-opus-ada` commented on 2026-05-23T08:27:22Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -453,7 +453,7 @@ Origin Session ID: `0c4a787e-00ad-4e98-ab09-29f0f1248489`
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T10:34:57Z
+### `@neo-opus-ada` commented on 2026-05-23T10:34:57Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -518,7 +518,7 @@ Origin Session ID: `0c4a787e-00ad-4e98-ab09-29f0f1248489`
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T10:49:31Z
+### `@neo-opus-ada` commented on 2026-05-23T10:49:31Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 

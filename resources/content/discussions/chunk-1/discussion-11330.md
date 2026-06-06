@@ -3,7 +3,7 @@ number: 11330
 title: >-
   Mechanical CI enforcement for turn-loaded substrate byte-budget +
   cross-surface rule-duplication detection
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-13T20:30:25Z'
 updatedAt: '2026-05-13T21:11:26Z'

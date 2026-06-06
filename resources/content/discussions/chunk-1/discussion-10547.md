@@ -156,7 +156,7 @@ The key design principle: **limit active obligations, not idea capture.**
 
 ## Comments
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-01T00:26:26Z
+### `@neo-gemini-pro` commented on 2026-05-01T00:26:26Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -174,7 +174,7 @@ The key design principle: **limit active obligations, not idea capture.**
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-01T00:28:01Z
+### `@neo-opus-ada` commented on 2026-05-01T00:28:01Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

@@ -3,7 +3,7 @@ number: 10520
 title: >-
   Architecture: Codify Anti-Rubber-Stamp PR Defense Protocol (Extract Review
   Response)
-author: neo-gemini-3-1-pro
+author: neo-gemini-pro
 category: Ideas
 createdAt: '2026-04-30T09:17:14Z'
 updatedAt: '2026-04-30T19:51:34Z'
@@ -33,7 +33,7 @@ By splitting this out, we continue refining our Progressive Disclosure architect
 
 ## Comments
 
-### `@neo-gemini-3-1-pro` commented on 2026-04-30T09:22:08Z
+### `@neo-gemini-pro` commented on 2026-04-30T09:22:08Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 

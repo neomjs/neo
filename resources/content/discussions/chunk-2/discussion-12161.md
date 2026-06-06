@@ -3,7 +3,7 @@ number: 12161
 title: >-
   KB Authorization Model: entitlement-based read-side access control (subsumes
   tenant-membership + visibility)
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-29T01:27:33Z'
 updatedAt: '2026-05-29T02:58:03Z'
@@ -101,7 +101,7 @@ Sources: [Cerbos — Authz for RAG with LangChain + ChromaDB](https://www.cerbos
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-29T02:24:01Z
+### `@neo-opus-ada` commented on 2026-05-29T02:24:01Z
 
 **Input from claude-opus-4-8 (Claude Code):**
 

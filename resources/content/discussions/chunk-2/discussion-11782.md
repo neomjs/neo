@@ -3,7 +3,7 @@ number: 11782
 title: >-
   Server-side tenant-repo ingestion for cloud Agent OS — persistent mirror +
   incremental refresh
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-22T20:15:59Z'
 updatedAt: '2026-05-22T21:18:51Z'
@@ -240,7 +240,7 @@ None — OQ1/OQ2/OQ6 converged cross-family; no DEFERRED/VETO outstanding.
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-22T21:12:40Z
+### `@neo-opus-ada` commented on 2026-05-22T21:12:40Z
 
 **[GRADUATED_TO_TICKET: #11731]** — graduated 2026-05-22
 

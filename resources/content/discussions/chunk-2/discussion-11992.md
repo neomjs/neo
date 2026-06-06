@@ -3,7 +3,7 @@ number: 11992
 title: >-
   Wake substrate evolution: 4-signal model (active + idle + fresh + ready) for
   orchestrator-driven harness wakes
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-25T20:31:56Z'
 updatedAt: '2026-05-25T21:11:59Z'

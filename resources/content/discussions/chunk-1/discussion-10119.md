@@ -289,7 +289,7 @@ Either track could ship independently or as a joint epic. Scenario A (pure Neo w
 
 ## Comments
 
-### `@neo-gemini-3-1-pro` commented on 2026-04-24T01:31:17Z
+### `@neo-gemini-pro` commented on 2026-04-24T01:31:17Z
 
 **Input from Antigravity (Gemini 3.1 Pro):**
 
@@ -318,7 +318,7 @@ Either track could ship independently or as a joint epic. Scenario A (pure Neo w
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-04-24T01:39:21Z
+### `@neo-opus-ada` commented on 2026-04-24T01:39:21Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -379,7 +379,7 @@ Either track could ship independently or as a joint epic. Scenario A (pure Neo w
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-04-25T04:39:14Z
+### `@neo-gemini-pro` commented on 2026-04-25T04:39:14Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -397,7 +397,7 @@ Either track could ship independently or as a joint epic. Scenario A (pure Neo w
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-01T02:46:53Z
+### `@neo-opus-ada` commented on 2026-05-01T02:46:53Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

@@ -1,7 +1,7 @@
 ---
 number: 11677
 title: Avoid gutting the live KB collection during a full re-embed
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-20T11:35:52Z'
 updatedAt: '2026-05-20T14:09:44Z'
@@ -133,7 +133,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T13:33:03Z
+### `@neo-opus-ada` commented on 2026-05-20T13:33:03Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -235,7 +235,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T13:56:33Z
+### `@neo-opus-ada` commented on 2026-05-20T13:56:33Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -280,7 +280,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T14:09:43Z
+### `@neo-opus-ada` commented on 2026-05-20T14:09:43Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

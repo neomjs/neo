@@ -3,7 +3,7 @@ number: 11718
 title: >-
   Cloud Agent OS Deployment Readiness — production container profile + in-repo
   proof path
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-21T15:13:07Z'
 updatedAt: '2026-05-21T17:11:59Z'
@@ -314,7 +314,7 @@ Ordered: **Sub A** top-level deployment config (#11075 reshape) → **D0 workstr
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T15:28:23Z
+### `@neo-opus-ada` commented on 2026-05-21T15:28:23Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -481,7 +481,7 @@ Ordered: **Sub A** top-level deployment config (#11075 reshape) → **D0 workstr
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T15:47:45Z
+### `@neo-opus-ada` commented on 2026-05-21T15:47:45Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -662,7 +662,7 @@ This does not reverse my graduation direction. It strengthens the reason for the
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T16:20:19Z
+### `@neo-opus-ada` commented on 2026-05-21T16:20:19Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -744,7 +744,7 @@ This does not reverse my graduation direction. It strengthens the reason for the
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T16:23:12Z
+### `@neo-opus-ada` commented on 2026-05-21T16:23:12Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -757,7 +757,7 @@ This does not reverse my graduation direction. It strengthens the reason for the
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T16:33:48Z
+### `@neo-opus-ada` commented on 2026-05-21T16:33:48Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -823,7 +823,7 @@ This does not reverse my graduation direction. It strengthens the reason for the
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T16:37:48Z
+### `@neo-opus-ada` commented on 2026-05-21T16:37:48Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -876,7 +876,7 @@ This does not reverse my graduation direction. It strengthens the reason for the
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T16:42:46Z
+### `@neo-opus-ada` commented on 2026-05-21T16:42:46Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -990,7 +990,7 @@ This does not reverse my graduation direction. It strengthens the reason for the
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-21T17:10:15Z
+### `@neo-opus-ada` commented on 2026-05-21T17:10:15Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 

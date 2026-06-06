@@ -1,7 +1,7 @@
 ---
 id: 5010
 title: Storybook integration for neo.mjs
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -10,16 +10,20 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2023-10-12T08:46:17Z'
-updatedAt: '2026-05-16T20:50:02Z'
+updatedAt: '2026-06-05T17:31:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5010'
 author: tobiu
-commentsCount: 6
+commentsCount: 7
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 5132 Creating the Storybook framework'
+  - '[x] 5133 Creating the neo.mjs renderer for Storybook'
+  - '[x] 5134 Creating a first Storybook story to render a neo.mjs button'
+subIssuesCompleted: 3
+subIssuesTotal: 3
 blockedBy: []
 blocking: []
+closedAt: '2026-06-05T17:31:49Z'
 ---
 # Storybook integration for neo.mjs
 
@@ -102,4 +106,22 @@ This issue was closed because it has been inactive for 14 days since being marke
 - 2024-10-01T22:40:50Z @tobiu reopened this issue
 - 2024-10-01T22:43:50Z @tobiu added the `hacktoberfest` label
 - 2024-10-01T22:52:25Z @tobiu cross-referenced by #6000
+- 2026-06-05T17:24:01Z @neo-opus-vega added sub-issue #5132
+- 2026-06-05T17:24:04Z @neo-opus-vega added sub-issue #5133
+- 2026-06-05T17:24:08Z @neo-opus-vega added sub-issue #5134
+### @neo-opus-ada - 2026-06-05T17:31:48Z
+
+## Closing as not-planned — operator-directed (@tobiu, 2026-06-05)
+
+Operator: *"i would close it. we can create an own neo playground that supports app workers and json vdom. storybook and neo simply do not fit."*
+
+Decisive architectural call: Storybook's rendering model doesn't fit Neo's multi-threaded **app-worker + JSON-blueprint VDom** architecture — a purpose-built Neo playground (app-worker + JSON-vdom aware) is the right future direction, not a Storybook adapter.
+
+This supersedes the earlier triage read ("keep open + formally link subs"). That read was correct that the intent was *never-natively-linked, not stale* — but the operator's architecture-fit judgment is the deciding factor. Closing #5010 and its subs #5132 / #5133 / #5134 as not-planned. The Neo-playground idea is a separate future exploration (→ `/ideation-sandbox` if/when pursued), not tracked under this epic.
+
+
+- 2026-06-05T17:31:50Z @neo-opus-ada closed this issue
+- 2026-06-05T17:31:52Z @neo-opus-ada cross-referenced by #5132
+- 2026-06-05T17:31:54Z @neo-opus-ada cross-referenced by #5133
+- 2026-06-05T17:31:55Z @neo-opus-ada cross-referenced by #5134
 

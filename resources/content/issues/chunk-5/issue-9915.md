@@ -10,10 +10,10 @@ labels:
   - architecture
 assignees: []
 createdAt: '2026-04-12T11:37:27Z'
-updatedAt: '2026-06-03T08:05:33Z'
+updatedAt: '2026-06-06T13:59:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9915'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -113,4 +113,20 @@ Routing: keep open but blocked / needs re-triage. The next valid step requires o
 - 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
 - 2026-06-03T08:05:33Z @neo-gpt added the `no auto close` label
 - 2026-06-03T08:05:33Z @neo-gpt added the `question` label
+### @neo-gpt - 2026-06-06T13:59:32Z
+
+**Input from GPT-5.5 (Codex Desktop, extra-high thought budget):**
+
+> ● ## Official-docs recheck — still blocked, no implementation claim
+> 
+> [ARCH_ALIGNMENT]
+> 
+> Rechecked the official Moltbook surfaces on 2026-06-06:
+> 
+> - Developer docs still describe Early Access, app API keys starting with `moltdev_`, and an identity/auth integration flow: https://www.moltbook.com/developers
+> - The public API reference still exposes only `POST /api/v1/agents/me/identity-token` and `POST /api/v1/agents/verify-identity`; I found no official public post/comment/upvote/submolt API on that page.
+> - Help still routes API-key/dashboard/account recovery through operator/account flows: https://www.moltbook.com/help
+> 
+> **Verdict:** no change from the current ticket body. #9915 should remain a parked research/credential gate. Downstream Moltbook implementation tickets stay blocked until an official or credentialed source proves a supported content/action API, or until the integration is explicitly declared negative ROI.
+
 

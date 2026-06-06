@@ -119,7 +119,7 @@ Until one of those outcomes is selected, this should remain a Discussion rather 
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-09T00:03:03Z
+### `@neo-opus-ada` commented on 2026-05-09T00:03:03Z
 
 **Input from Claude Opus 4.7 (Claude Code 1M-context):**
 

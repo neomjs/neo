@@ -1,28 +1,29 @@
 ---
 id: 9954
 title: 'Epic: The Self-Healing Protocol'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
   - architecture
 assignees: []
 createdAt: '2026-04-13T09:28:50Z'
-updatedAt: '2026-04-13T09:28:50Z'
+updatedAt: '2026-06-05T17:31:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9954'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues:
-  - '[ ] 9955 DreamService / Librarian Coupling'
-  - '[ ] 9956 Native Sub-Agent Delegation (Librarian)'
-subIssuesCompleted: 0
+  - '[x] 9955 DreamService / Librarian Coupling'
+  - '[x] 9956 Native Sub-Agent Delegation (Librarian)'
+subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy:
   - '[x] 9921 fix(ai): Resolve local inference 4096 n_ctx Exhaustion During Session Summarization'
   - '[x] 9913 fix(ai): Implement JSON recovery/repair in DreamService Tri-Vector Synthesis'
 blocking:
-  - '[ ] 9939 Epic: Autonomous Worker Dispatcher Pipeline (RLAIF Phase 2)'
+  - '[x] 9939 Epic: Autonomous Worker Dispatcher Pipeline (RLAIF Phase 2)'
+closedAt: '2026-06-05T17:31:44Z'
 ---
 # Epic: The Self-Healing Protocol
 
@@ -44,4 +45,31 @@ Provide a native mechanism for the Agent OS to autonomously eliminate Codebase D
 - 2026-04-13T11:13:31Z @tobiu marked this issue as being blocked by #9921
 - 2026-04-13T11:13:32Z @tobiu marked this issue as blocking #9939
 - 2026-04-13T11:53:13Z @tobiu cross-referenced by #9965
+### @neo-opus-ada - 2026-06-05T17:12:16Z
+
+## Epic Resolution Review
+
+**Reviewer:** @neo-opus-ada (peer-role) · **Verdict:** RECOMMEND_RETIRE_OR_SUPERSEDE (operator decision)
+
+Both subs (#9955/#9956) OPEN + untouched since 2026-04-13. Per epic-resolution §4, a **superseded purpose outranks KEEP_OPEN**.
+
+**Premise architecturally reversed:** this epic's thesis was to autonomously heal DOC/TEST/GUIDE gaps while *"entirely deprecating Standing GitHub Epics"* and avoiding *"Issue Tracker pollution."* Current substrate does the **opposite** — `learn/agentos/DreamPipeline.md` §Issue Ingestion (lines 231-388) makes the **GitHub issue substrate the canonical SSOT**, and three dedicated skills (`epic-create` / `epic-review` / `epic-resolution` — the latter running *this very assessment*) canonicalize Standing GitHub Epics.
+
+**Recommendation:** retire #9954 + close #9955/#9956 not-planned, closing note → DreamPipeline.md + the epic-* skill suite; harvest any still-wanted heal-loop signal into the GapInferenceEngine track. Adversarial-verify: confirmed (high). Operator-authority — not auto-acting.
+
+Origin Session ID: 5f3fd8c4-ce8d-4a69-bbfe-336c5eeffdd3
+
+
+### @neo-opus-ada - 2026-06-05T17:31:43Z
+
+## Closing as not-planned — operator-directed (@tobiu, 2026-06-05): "9954 => close"
+
+The Self-Healing Protocol's foundational premise — autonomously heal DOC/TEST/GUIDE gaps while *"entirely deprecating Standing GitHub Epics"* and avoiding *"Issue Tracker pollution"* — has been **architecturally reversed**: `learn/agentos/DreamPipeline.md` §Issue Ingestion makes the GitHub issue substrate the canonical SSOT, and the `epic-create` / `epic-review` / `epic-resolution` skill suite canonicalizes Standing GitHub Epics.
+
+Closing #9954 and its two zombie subs (#9955 / #9956, untouched since 2026-04-13) as not-planned. Any still-wanted heal-signal carries forward in the GapInferenceEngine non-destructive signal model.
+
+
+- 2026-06-05T17:31:44Z @neo-opus-ada closed this issue
+- 2026-06-05T17:31:46Z @neo-opus-ada cross-referenced by #9955
+- 2026-06-05T17:31:48Z @neo-opus-ada cross-referenced by #9956
 
