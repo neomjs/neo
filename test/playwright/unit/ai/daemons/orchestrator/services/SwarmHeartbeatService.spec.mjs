@@ -39,8 +39,8 @@ import {test, expect} from '@playwright/test';
  * band-aid, no manual idempotency guard). The framework triggers it ONCE during
  * singleton creation; external callers MUST use `await service.ready()` to wait for
  * completion. Identity / pollIntervalMs are pulse-time runtime config set by the
- * parent (Orchestrator) via reactive config assignment BEFORE `await
- * service.ready()` in `start()` (the framework already fired identity-agnostic
+ * parent (Orchestrator) before `await service.ready()` in `start()` (the
+ * framework already fired identity-agnostic
  * `initAsync()` at module-load, so the BEFORE-`.ready()` ordering matches the
  * `Orchestrator.start()` code); tests assign them directly via property write
  * post-fixture-setup to exercise `beforeSetIdentity` normalization without
