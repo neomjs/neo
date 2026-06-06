@@ -105,6 +105,19 @@ test.describe('Neo.ai.services.gitlab-workflow.IssueService', () => {
         expect(result.assignees).toEqual(['alice']);
     });
 
+    test('createIssue surfaces an assigneeWarning when the follow-up assign fails (graceful degradation) (#12624)', async () => {
+        GitLabClient.query = async (query) => {
+            if (query.includes('CreateIssue')) return {createIssue: {issue: {iid: '9', title: 'Y', webUrl: 'https://gitlab/9'}, errors: []}};
+            throw new Error('assign failed');
+        };
+
+        const result = await IssueService.createIssue({title: 'Y', assignees: ['ghost']});
+
+        expect(result.iid).toBe('9');
+        expect(result.assigneeWarning).toBeTruthy();
+        expect(result.assignees).toBeUndefined();
+    });
+
     test('createIssue surfaces a GitLab mutation error payload (#12624)', async () => {
         GitLabClient.query = async () => ({createIssue: {issue: null, errors: ['Title can\'t be blank']}});
 
