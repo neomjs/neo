@@ -28,6 +28,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: true});
 
+let cleanupSDK;
+
+test.afterAll(async () => {
+    if (!cleanupSDK) return;
+
+    const { cleanupChromaManager } = await import('./util.mjs');
+    await cleanupChromaManager(cleanupSDK);
+});
+
 test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
@@ -36,16 +45,8 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     const testTs  = Date.now();
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const path = await import("path");
-        const tmpDir = path.resolve(process.cwd(), "tmp");
-        aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
-
-        // Isolate collections to prevent pollution
-        aiConfig.collections.memory  = `test-reranker-mem-${testPid}-${testTs}`;
-        aiConfig.collections.session = `test-reranker-sum-${testPid}-${testTs}`;
-
         SDK                  = await import('../../../../../../ai/services.mjs');
+        cleanupSDK           = SDK;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
 
         // Force offline mode — mock embeddings with deterministic 4096D vectors
@@ -81,11 +82,6 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
                 model    : 'test-model'
             });
         }
-    });
-
-    test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager(SDK);
     });
 
     test('StorageRouter re-ranker should NOT crash when ChromaDB returns empty/malformed query results', async () => {
@@ -175,19 +171,16 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
 test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
-    let SDK, TextEmbeddingService, driftSessionId;
+    let SDK, TextEmbeddingService, RequestContextService, callTool, driftSessionId;
     const testPid = process.pid;
     const testTs  = Date.now();
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-
-        // Use SEPARATE isolated collections from the previous describe block
-        aiConfig.collections.memory  = `test-drift-mem-${testPid}-${testTs}`;
-        aiConfig.collections.session = `test-drift-sum-${testPid}-${testTs}`;
-
-        SDK                  = await import('../../../../../../ai/services.mjs');
-        TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        SDK                   = await import('../../../../../../ai/services.mjs');
+        cleanupSDK            = SDK;
+        TextEmbeddingService  = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        ({callTool}           = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
 
         SDK.Memory_Config.data.embeddingProvider       = 'openAiCompatible';
         SDK.Memory_Config.data.autoSummarize           = false;
@@ -204,43 +197,49 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         await SDK.Memory_ChromaManager.ready();
     });
 
-    test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager(SDK);
-    });
+    function callToolAs(agentIdentity, toolName, args) {
+        const userId = agentIdentity.startsWith('@') ? agentIdentity.slice(1) : agentIdentity;
 
-    function insertGraphNode(sqlite, {id, label, userId, properties}) {
-        sqlite.prepare('INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)').run(id, userId || null, JSON.stringify({
-            id,
-            label,
-            properties
-        }));
+        return RequestContextService.run({
+            agentIdentityNodeId: agentIdentity,
+            source             : 'unit-test',
+            userId
+        }, () => callTool(toolName, args));
     }
 
-    function insertActiveWakeSubscription(sqlite, agentIdentity) {
-        insertGraphNode(sqlite, {
-            id        : `WAKE_SUB:${crypto.randomUUID()}`,
-            label     : 'WAKE_SUBSCRIPTION',
-            userId    : agentIdentity,
-            properties: {
-                agentIdentity,
-                harnessTarget: 'bridge-daemon',
-                status       : 'active'
+    function subscribeActiveWakeRoute(agentIdentity) {
+        return callToolAs(agentIdentity, 'manage_wake_subscription', {
+            action               : 'subscribe',
+            trigger              : 'SENT_TO_ME',
+            filters              : {taggedConcepts: [`unit-${crypto.randomUUID()}`]},
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {
+                appName: 'Codex'
             }
         });
     }
 
-    function insertAgentMemoryNode(sqlite, {sessionId, agentIdentity, timestampMs}) {
-        insertGraphNode(sqlite, {
-            id        : crypto.randomUUID(),
-            label     : 'AGENT_MEMORY',
-            userId    : agentIdentity,
-            properties: {
-                agentIdentity,
-                sessionId,
-                timestamp: new Date(timestampMs).toISOString()
-            }
+    async function addToolMemory({sessionId, agentIdentity, prompt = 'Externally active session memory'}) {
+        const result = await callToolAs(agentIdentity, 'add_memory', {
+            prompt,
+            thought: 'Unit test active-session fixture.',
+            response: 'Stored through the MCP add_memory tool shape.',
+            sessionId,
+            agent: agentIdentity,
+            model: 'unit-test-model',
+            amountToolCalls: 0,
+            toolsUsed: ['unit-test']
         });
+
+        expect(result.error).toBeUndefined();
+        expect(result.sessionId).toBe(sessionId);
+
+        return result;
+    }
+
+    async function seedExternallyActiveSession({sessionId, agentIdentity, prompt}) {
+        await subscribeActiveWakeRoute(agentIdentity);
+        return addToolMemory({sessionId, agentIdentity, prompt});
     }
 
     test('findSessionsToSummarize should detect unsummarized sessions with epoch timestamps', async () => {
@@ -297,24 +296,13 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     });
 
     test('#9959: findSessionsToSummarize should exclude externally active peer sessions from drift detection', async () => {
-        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        await GraphService.ready();
-
-        const sqlite = GraphService.db?.storage?.db;
-        expect(sqlite).toBeTruthy();
-
         const activeSessionId = `external-active-${crypto.randomUUID()}`;
-        const agentIdentity   = `@external-active-${crypto.randomUUID()}`;
+        const agentIdentity   = '@neo-gpt';
         const now             = Date.now();
 
-        insertActiveWakeSubscription(sqlite, agentIdentity);
-        insertAgentMemoryNode(sqlite, {sessionId: activeSessionId, agentIdentity, timestampMs: now});
-
-        const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
-        await collection.add({
-            ids      : [`external-active-memory-${crypto.randomUUID()}`],
-            documents: ['Externally active session memory'],
-            metadatas: [{sessionId: activeSessionId, timestamp: now, type: 'agent-interaction'}]
+        await seedExternallyActiveSession({
+            sessionId: activeSessionId,
+            agentIdentity
         });
 
         const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
@@ -325,35 +313,21 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     });
 
     test('#9959: externally active detection should protect parallel sessions for the same identity', async () => {
-        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        await GraphService.ready();
-
-        const sqlite = GraphService.db?.storage?.db;
-        expect(sqlite).toBeTruthy();
-
         const firstSessionId  = `external-active-a-${crypto.randomUUID()}`;
         const secondSessionId = `external-active-b-${crypto.randomUUID()}`;
-        const agentIdentity   = `@parallel-active-${crypto.randomUUID()}`;
+        const agentIdentity   = '@neo-opus-ada';
         const now             = Date.now();
 
-        insertActiveWakeSubscription(sqlite, agentIdentity);
-        insertAgentMemoryNode(sqlite, {sessionId: firstSessionId,  agentIdentity, timestampMs: now - 1000});
-        insertAgentMemoryNode(sqlite, {sessionId: secondSessionId, agentIdentity, timestampMs: now});
-
-        const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
-        await collection.add({
-            ids      : [
-                `external-parallel-memory-a-${crypto.randomUUID()}`,
-                `external-parallel-memory-b-${crypto.randomUUID()}`
-            ],
-            documents: [
-                'First parallel externally active session memory',
-                'Second parallel externally active session memory'
-            ],
-            metadatas: [
-                {sessionId: firstSessionId,  timestamp: now - 1000, type: 'agent-interaction'},
-                {sessionId: secondSessionId, timestamp: now,        type: 'agent-interaction'}
-            ]
+        await subscribeActiveWakeRoute(agentIdentity);
+        await addToolMemory({
+            sessionId: firstSessionId,
+            agentIdentity,
+            prompt   : 'First parallel externally active session memory'
+        });
+        await addToolMemory({
+            sessionId: secondSessionId,
+            agentIdentity,
+            prompt   : 'Second parallel externally active session memory'
         });
 
         const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
@@ -366,18 +340,14 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     });
 
     test('#9959: explicit named-session summarization should bypass the externally active drift filter', async () => {
-        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        await GraphService.ready();
-
-        const sqlite = GraphService.db?.storage?.db;
-        expect(sqlite).toBeTruthy();
-
         const activeSessionId = `explicit-active-${crypto.randomUUID()}`;
-        const agentIdentity   = `@explicit-active-${crypto.randomUUID()}`;
+        const agentIdentity   = '@neo-claude-opus';
         const now             = Date.now();
 
-        insertActiveWakeSubscription(sqlite, agentIdentity);
-        insertAgentMemoryNode(sqlite, {sessionId: activeSessionId, agentIdentity, timestampMs: now});
+        await seedExternallyActiveSession({
+            sessionId: activeSessionId,
+            agentIdentity
+        });
 
         const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
         expect(externallyActiveSessionIds.has(activeSessionId)).toBe(true);
@@ -428,46 +398,30 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     });
 
     test('#9959: findSessionsToSummarize should keep stale peer sessions eligible for self-healing', async () => {
-        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        await GraphService.ready();
-
-        const sqlite = GraphService.db?.storage?.db;
-        expect(sqlite).toBeTruthy();
-
         const staleSessionId = `external-stale-${crypto.randomUUID()}`;
-        const agentIdentity  = `@external-stale-${crypto.randomUUID()}`;
-        const now            = Date.now();
-        const staleTimestamp = now - 60_000;
-        const idleThreshold  = 10_000;
+        const agentIdentity  = '@neo-opus-vega';
+        const memoryTs       = Date.now();
+        const futureNow      = memoryTs + (11 * 60 * 1000);
 
-        insertActiveWakeSubscription(sqlite, agentIdentity);
-        insertAgentMemoryNode(sqlite, {sessionId: staleSessionId, agentIdentity, timestampMs: staleTimestamp});
-
-        const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
-        await collection.add({
-            ids      : [`external-stale-memory-${crypto.randomUUID()}`],
-            documents: ['Externally stale session memory'],
-            metadatas: [{sessionId: staleSessionId, timestamp: staleTimestamp, type: 'agent-interaction'}]
+        await seedExternallyActiveSession({
+            sessionId: staleSessionId,
+            agentIdentity,
+            prompt: 'Externally stale session memory'
         });
 
         const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({
-            idleThresholdMs: idleThreshold,
-            now
+            now: futureNow
         });
         expect(externallyActiveSessionIds.has(staleSessionId)).toBe(false);
 
-        const originalIdleThreshold = process.env.IDLE_THRESHOLD_MS;
-        process.env.IDLE_THRESHOLD_MS = String(idleThreshold);
+        const originalDateNow = Date.now;
+        Date.now = () => futureNow;
 
         try {
             const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
             expect(sessionsToSummarize).toContain(staleSessionId);
         } finally {
-            if (originalIdleThreshold === undefined) {
-                delete process.env.IDLE_THRESHOLD_MS;
-            } else {
-                process.env.IDLE_THRESHOLD_MS = originalIdleThreshold;
-            }
+            Date.now = originalDateNow;
         }
     });
 

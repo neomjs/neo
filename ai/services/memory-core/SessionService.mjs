@@ -305,8 +305,8 @@ class SessionService extends Base {
      *
      * @param {Object} [options]
      * @param {Number|Date|String} [options.now=Date.now()] Clock source for tests.
-     * @param {Number} [options.idleThresholdMs] Freshness window; defaults to `IDLE_THRESHOLD_MS`
-     *     or 10 minutes to match the heartbeat idle detectors.
+     * @param {Number} [options.idleThresholdMs] Explicit test seam; production reads
+     *     `aiConfig.activeSessionIdleThresholdMs`.
      * @returns {Set<String>} Session ids considered active outside the current process.
      */
     getExternallyActiveSessionIds({now = Date.now(), idleThresholdMs} = {}) {
@@ -316,10 +316,7 @@ class SessionService extends Base {
         const nowMs = typeof now === 'number' ? now : new Date(now).getTime();
         if (!Number.isFinite(nowMs)) return new Set();
 
-        const configuredThresholdMs = Number(idleThresholdMs);
-        const thresholdMs = Number.isFinite(configuredThresholdMs) && configuredThresholdMs > 0
-            ? configuredThresholdMs
-            : (parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000);
+        const thresholdMs = idleThresholdMs ?? aiConfig.activeSessionIdleThresholdMs;
         const cutoffMs = nowMs - thresholdMs;
 
         try {
@@ -347,8 +344,8 @@ class SessionService extends Base {
                             json_extract(memory.data, '$.properties.agentIdentity'),
                             json_extract(memory.data, '$.properties.userId')
                         )
-                        AND COALESCE(json_extract(subscription.data, '$.properties.status'), 'active') = 'active'
-                        AND COALESCE(json_extract(subscription.data, '$.properties.harnessTarget'), '') != 'disabled'
+                        AND json_extract(subscription.data, '$.properties.status') = 'active'
+                        AND json_extract(subscription.data, '$.properties.harnessTarget') != 'disabled'
                   )
             `).all();
 
