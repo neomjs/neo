@@ -12,6 +12,8 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 - **Minor Gaps:** If your reflection uncovers minor misses (e.g., missed JSDoc, missing Anchor & Echo context, logical edge cases, missing unit tests validating new logic, or incorrect test file placement per `unit-test.md`), you MUST fix them and add rapid successive commits to your local branch to polish the execution *before* opening the PR.
 - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to scope-creep and cram it into the active branch. Secure the "good enough" execution, and instead formally propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original.
 
+<!-- trigger: branch touches skill/workflow docs or another collision-prone substrate while other PRs are open -> read ./cross-pr-overlap-check.md before final commit / PR-open -->
+
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
