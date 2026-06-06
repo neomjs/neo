@@ -72,6 +72,18 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
 9.5. **Structural Pre-Flight Sweep (Directory-Choice Discipline):** If the ticket explicitly prescribes a new `.mjs` file or relocates an existing one across directories, you MUST execute the structural pre-flight gate at intake time — BEFORE branching. Read `.agents/skills/structural-pre-flight/SKILL.md` and validate the ticket's prescribed directory against Stage 0 mechanical trigger + Stage 1 fast-path (sibling pattern match) OR full Pre-Flight (ArchitectureOverview.md + ADR consultation). The empirical anchor PR #11008 (orchestrator-daemon.mjs misplaced in ai/scripts/) demonstrates the cost of skipping this check at intake — substrate-debt accrues into a corrective ticket (#11009) plus the prevention skill itself (#10449). Catching directory-CHOICE mismatch at intake-time is cheaper than at PR-review time.
 
 10. **Hypothesis vs. Root Cause Validation:** Tickets frequently prescribe specific technical solutions (e.g., "Implement X to fix Y"). You MUST NOT accept the prescribed solution blindly. You must independently investigate the systemic behavior to verify if 'X' is actually the correct solution for 'Y'.
+
+   **Written-Claim Precedent Gate:** If a ticket asks you to codify, quote, or generalize a written claim, classify the claim before implementation and run the falsifier that would disprove it. Written prose is evidence of intent, not proof of current substrate truth.
+
+   | Claim class | Required verification before codification |
+   |---|---|
+   | Hardcoded numerical threshold (`under N lines`, `<= N ms`, `at most N items`) | Measure the current value and verify where `N` came from. If the derivation is undocumented, prefer observability or a semantic assertion over a brittle cap. |
+   | Architectural description (`uses X pattern`, `universal dispatch at Y`, `similar to Z`) | Read the named file, class, PR, issue, or sibling precedent before paraphrasing it. A "similar to X" cue is an instruction to inspect `X`, not permission to infer from memory. |
+   | Tool/API routing claim (`use tool A for X`, `tool B should be first for Y`) | Read the current tool description and, when cheap, invoke the tool on representative input before turning the routing into skill text or acceptance criteria. |
+   | Self-inferred policy from a specific statement | Check whether the generalized rule is written down elsewhere, or ask whether the generalization was intended. A statement that one ticket needs a fresh session is not evidence that all tickets in that class do. |
+   | Wrong grounding assumption on a correctly-read rule | Verify the failure mode the rule prevents before assigning a motivation. If the substrate says "single task", do not project "token budget" or "fresh-session" unless the source actually establishes that grounding. |
+
+   If the claim fails verification, do not "polish" it into substrate. Reclassify the ticket as `needs-narrowing`, `superseded`, or `invalid-or-negative-roi` as appropriate.
 11. **Empirical Proof (Test-Driven Discovery):** When validating hypotheses involving complex state, token boundaries, or engine logic, do not rely solely on mental modeling. Consult the `unit-test` skill (`view_file` on `.agents/skills/unit-test/SKILL.md`) and write a localized Playwright unit-test (or an isolated draft concept) to empirically reproduce the paradox *first*. This guarantees you are solving the explicit root cause before you modify live framework architecture. Implementing a flawed directive simply because it was written in an Issue guarantees a Negative ROI.
 
 ## 2. ROI (Return on Investment) Calculation
