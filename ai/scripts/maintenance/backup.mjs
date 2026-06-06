@@ -79,17 +79,19 @@ const execFileAsync = promisify(execFile);
  *
  * - `.neo-ai-data/neo-sqlite/memory-core.sqlite` — retired combined vector+graph store.
  *   Current Memory Core persistence is split between
- *   `.neo-ai-data/sqlite/memory-core-graph.sqlite` for graph state and
- *   `.neo-ai-data/chroma/memory-core/` for vectors. `defragSQLiteDB.mjs` targets a
- *   different filename (`knowledge-graph.sqlite`) and never touches this file. No
- *   production backup or restore path reads it.
+ *   `.neo-ai-data/sqlite/memory-core-graph.sqlite` for graph state and the
+ *   `neo-agent-memory` / `neo-agent-sessions` collections inside the flat unified
+ *   Chroma store. `defragSQLiteDB.mjs` targets a different filename
+ *   (`knowledge-graph.sqlite`) and never touches this file. No production backup or
+ *   restore path reads it.
  * - `.neo-ai-data/wake-daemon/{bridge.log,inflight-*.txt,lastSyncId,heartbeat-*.log,sweep-errors.log}`
  *   — operational / process state owned by the bridge daemon and heartbeat substrate; classified
  *   as live-orchestration recovery, not substrate backup. Distinct backup track if needed.
- * - Physical Chroma data directories (`.neo-ai-data/chroma/{kb,mc}/`) — the bundle captures the
- *   logical state via JSONL exports, not the on-disk HNSW indexes. Restore re-ingests via the
- *   canonical `manageDatabaseImport` SDK path. Physical pre-nuke snapshots remain
- *   `defragChromaDB.mjs`-exclusive at `dist/chromadb-backups/`.
+ * - The physical Chroma persist directory (`.neo-ai-data/chroma/unified/`) — the
+ *   bundle captures logical collection state via JSONL exports, not the on-disk
+ *   HNSW indexes. Restore re-ingests via the canonical `manageDatabaseImport` SDK
+ *   path. Physical pre-nuke snapshots remain `defragChromaDB.mjs`-exclusive at
+ *   `dist/chromadb-backups/`.
  *
  * @see ai/scripts/maintenance/defragChromaDB.mjs
  */
