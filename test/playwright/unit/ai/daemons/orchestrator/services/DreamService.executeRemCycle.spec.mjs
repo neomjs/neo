@@ -37,6 +37,15 @@ let originals;
 let configOriginals;
 let tmpDir;
 
+async function readOnlyRunStateEntry() {
+    const files = await readdir(tmpDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatch(/^rem-.*\.jsonl$/);
+
+    const lines = (await readFile(path.join(tmpDir, files[0]), 'utf8')).trim().split('\n');
+    return JSON.parse(lines[0]);
+}
+
 test.beforeEach(async () => {
     originals = Object.fromEntries(ORIGINAL_KEYS.map(key => [key, DreamService[key]]));
     configOriginals = {
@@ -72,7 +81,7 @@ test.afterEach(async () => {
 });
 
 test.describe('DreamService.executeRemCycle typed outcome contract', () => {
-    test('returns failed status with diagnostic when provider readiness gate rejects', async () => {
+    test('Sub 9 hypotheses 2, 6, 8: provider readiness failure writes failed providerReady state (#12617)', async () => {
         DreamService.checkProviderReadiness = async () => ({
             ready     : false,
             diagnostic: {
@@ -97,6 +106,23 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
         expect(outcome.runId).toMatch(/^rem-/);
         expect(outcome.completedAt).toBeTruthy();
         expect(outcome.durationMs).toBeGreaterThanOrEqual(0);
+
+        const entry = await readOnlyRunStateEntry();
+        expect(entry.outcome).toBe('failed');
+        expect(entry.reasonCode).toBe('provider-unreachable');
+        expect(entry.failurePhase).toBe('providerReady');
+        expect(entry.failureReason).toBe('PROVIDER_READINESS_TIMEOUT');
+        expect(entry.cycleScopePhases).toEqual(['providerReady']);
+        expect(entry.perPhaseStates[0]).toMatchObject({
+            phase : 'providerReady',
+            status: 'failed',
+            details: {
+                diagnostic: {
+                    provider     : 'openAiCompatible',
+                    graphProvider: 'openAiCompatible'
+                }
+            }
+        });
     });
 
     test('returns failed status when provider-readiness config validation throws', async () => {
@@ -131,6 +157,28 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
         expect(outcome.skipReason).toContain('dreamService.isProcessing already true');
     });
 
+    test('Sub 9 hypotheses 1 and 3: already-processing skip is durable typed cycle state (#12617)', async () => {
+        DreamService.isProcessing = true;
+
+        const outcome = await DreamService.executeRemCycle({reason: 'already-processing-state-test'});
+
+        expect(outcome.status).toBe('skipped');
+        expect(outcome.skipReason).toContain('already true');
+
+        const entry = await readOnlyRunStateEntry();
+        expect(entry.outcome).toBe('skipped');
+        expect(entry.reasonCode).toBe('already-processing');
+        expect(entry.failurePhase).toBeNull();
+        expect(entry.lastSuccessfulPhase).toBe('providerReady');
+        expect(entry.cycleScopePhases).toEqual(['providerReady', 'concurrentGuard']);
+        expect(entry.perPhaseStates[1]).toMatchObject({
+            phase : 'concurrentGuard',
+            status: 'skipped',
+            details: {reasonCode: 'already-processing'}
+        });
+        expect(entry.perSessionStates).toEqual([]);
+    });
+
     test('returns skipped with sessionsProcessed=0 when no undigested sessions exist', async () => {
         DreamService.findUndigestedSessions = async () => [];
 
@@ -157,6 +205,97 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
         expect(outcome.sessionsProcessed).toBe(2);
         expect(outcome.error).toBeNull();
         expect(outcome.skipReason).toBeNull();
+    });
+
+    test('Sub 9 hypotheses 10 and 11: failed phase from processing is persisted into REM run state (#12617)', async () => {
+        const failedSessionState = {
+            sessionId          : 'session-topology-failure',
+            payloadSizeTokens  : 42,
+            memorySessionIngest: {status: 'completed', errorReasons: []},
+            triVector          : {status: 'completed', attempts: 1},
+            topology           : {status: 'failed', conflictCount: 0},
+            gapSession         : {status: 'skipped'},
+            graphDigestedFlag  : false,
+            failureReasons     : ['topology provider failed']
+        };
+        const error = new Error('topology provider failed');
+        error.remState = {
+            perPhaseStates: [{
+                phase      : 'topology',
+                startedAt  : 100,
+                completedAt: 150,
+                wallClockMs: 50,
+                status     : 'failed',
+                details    : {
+                    sessionId: 'session-topology-failure',
+                    error    : 'topology provider failed'
+                }
+            }],
+            perSessionStates: [failedSessionState]
+        };
+
+        DreamService.findUndigestedSessions = async () => [{id: 'session-a'}];
+        DreamService.processUndigestedSessions = async () => {
+            throw error;
+        };
+
+        const outcome = await DreamService.executeRemCycle({
+            reason      : 'topology-failure-state-test',
+            includeDecay: false
+        });
+
+        expect(outcome.status).toBe('failed');
+        expect(outcome.sessionsProcessed).toBe(1);
+
+        const entry = await readOnlyRunStateEntry();
+        expect(entry.outcome).toBe('failed');
+        expect(entry.reasonCode).toBe('extraction-failed');
+        expect(entry.failurePhase).toBe('topology');
+        expect(entry.failureReason).toBe('topology provider failed');
+        expect(entry.cycleScopePhases).toContain('topology');
+        expect(entry.perSessionStates).toEqual([failedSessionState]);
+    });
+
+    test('Sub 9 hypotheses 11 and 12: non-throwing per-session failures remain visible without graphDigested (#12617)', async () => {
+        const failedSessionState = {
+            sessionId          : 'session-null-result',
+            payloadSizeTokens  : 100000,
+            memorySessionIngest: {status: 'completed', errorReasons: []},
+            triVector          : {status: 'failed', attempts: 3, errorKind: 'null-result'},
+            topology           : {status: 'completed', conflictCount: 0},
+            gapSession         : {status: 'completed'},
+            graphDigestedFlag  : false,
+            failureReasons     : ['tri-vector extraction returned null']
+        };
+
+        DreamService.findUndigestedSessions = async () => [{id: 'session-a'}];
+        DreamService.processUndigestedSessions = async () => ({
+            perPhaseStates: [{
+                phase      : 'triVector',
+                startedAt  : 200,
+                completedAt: 275,
+                wallClockMs: 75,
+                status     : 'failed',
+                details    : {sessionId: 'session-null-result'}
+            }],
+            perSessionStates: [failedSessionState]
+        });
+
+        const outcome = await DreamService.executeRemCycle({
+            reason      : 'null-result-session-state-test',
+            includeDecay: false
+        });
+
+        // Current-dev Phase A boundary: the cycle outcome is still completed, but the
+        // per-session state exposes the null-result and prevents graphDigested overclaim.
+        expect(outcome.status).toBe('completed');
+
+        const entry = await readOnlyRunStateEntry();
+        expect(entry.reasonCode).toBe('ok');
+        expect(entry.cycleScopePhases).toContain('triVector');
+        expect(entry.perSessionStates).toEqual([failedSessionState]);
+        expect(entry.perSessionStates[0].graphDigestedFlag).toBe(false);
+        expect(entry.perSessionStates[0].failureReasons).toEqual(['tri-vector extraction returned null']);
     });
 
     test('returns failed status when processUndigestedSessions throws', async () => {
@@ -217,12 +356,7 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
             dryRun: true
         });
 
-        const files = await readdir(tmpDir);
-        expect(files).toHaveLength(1);
-        expect(files[0]).toMatch(/^rem-.*\.jsonl$/);
-
-        const lines = (await readFile(path.join(tmpDir, files[0]), 'utf8')).trim().split('\n');
-        const entry = JSON.parse(lines[0]);
+        const entry = await readOnlyRunStateEntry();
 
         expect(outcome.stateWriteError).toBeUndefined();
         expect(entry.runId).toBe(outcome.runId);

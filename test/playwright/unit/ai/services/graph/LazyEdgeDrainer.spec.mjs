@@ -197,7 +197,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
         expect(remaining).toContain('memory:dryrun-m');
     });
 
-    test('drainQueue recovers orphaned .draining file from a prior-run SIGKILL', async () => {
+    test('Sub 9 hypothesis 13: drainQueue recovers orphaned .draining file from a prior-run SIGKILL (#12617)', async () => {
         // Simulate a prior drain that was SIGKILL'd between rename and completion: the
         // `.draining` file exists with queued edges but the live queue may or may not have
         // fresh appends from a concurrent producer.
@@ -227,7 +227,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
         expect(fs.existsSync(queuePath)).toBe(false);
     });
 
-    test('drainQueue handles thrown exceptions from linkNodesAsync as failures', async () => {
+    test('Sub 9 hypothesis 13: drainQueue retains link failures for retry (#12617)', async () => {
         fs.writeFileSync(queuePath, JSON.stringify({source: 'a', target: 'memory:throw', relationship: 'RELATES_TO'}) + '\n');
 
         const originalWarn = logger.warn;
