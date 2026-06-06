@@ -2,6 +2,7 @@ import Base            from '../../../../src/core/Base.mjs';
 import CollectionProxy from './CollectionProxy.mjs';
 import GraphService    from '../GraphService.mjs';
 import logger          from '../../../mcp/server/memory-core/logger.mjs';
+import aiConfig        from '../../../mcp/server/memory-core/config.mjs';
 
 /**
  * StorageRouter acts as a transparent Proxy pattern for the underlying vector databases.
@@ -56,9 +57,69 @@ class StorageRouter extends Base {
     }
 
     /**
-     * Injects the Dual-Pass Re-Ranking Middleware into the CollectionProxy.
+     * @summary On-demand probe of each collection's vector-query (HNSW) path.
+     *
+     * A populated-but-corrupt collection passes `count()` but throws on `query()` (e.g. a desynced
+     * HNSW segment raising "Error finding id"). `injectQueryReRanker` catches that and stamps a
+     * `_degraded` marker; this probe surfaces it per collection. It deliberately lives as a method +
+     * `ai/scripts/maintenance/probeCollectionQueryHealth.mjs` script — NOT a healthcheck field and NOT
+     * an MCP tool — so the always-on "is it healthy?" poll stays terse and the per-collection query
+     * cost (plus its response-schema bytes) is paid only when an operator opts in.
+     *
+     * @returns {Promise<Object>} `{status: 'healthy'|'degraded', collections: {memory, summary}}`
+     */
+    async probeCollectionQueryHealth() {
+        const dimension   = aiConfig.vectorDimension || 4096,
+              probe       = new Array(dimension).fill(0),
+              collections = {},
+              probes      = [
+                  {type: 'memory',  get: () => this.getMemoryCollection()},
+                  {type: 'summary', get: () => this.getSummaryCollection()}
+              ];
+
+        // Unit vector — non-degenerate for ANN distance; the content is irrelevant to the probe,
+        // which only cares whether the query path traverses the vector segment without throwing.
+        probe[0] = 1;
+
+        let degraded = null;
+
+        for (const {type, get} of probes) {
+            try {
+                const collection = await get();
+                const count      = await collection.count().catch(() => 0);
+                const res        = await collection.query({queryEmbeddings: [probe], nResults: 1});
+
+                if (res?._degraded) {
+                    collections[type] = {status: 'degraded', count, signature: res._degradedSignature, error: res._degradedReason};
+                    degraded = degraded || `${type}: ${res._degradedReason}`;
+                } else {
+                    collections[type] = {status: 'healthy', count};
+                }
+            } catch (e) {
+                collections[type] = {status: 'degraded', error: e.message};
+                degraded = degraded || `${type}: ${e.message}`;
+            }
+        }
+
+        return degraded
+            ? {status: 'degraded', error: degraded, collections}
+            : {status: 'healthy', collections};
+    }
+
+    /**
+     * @summary Injects the Dual-Pass Re-Ranking Middleware into the CollectionProxy.
+     *
      * Pass 1: Uses ChromaDB\'s ANN search to fetch top K candidates.
      * Pass 2: Re-ranks based on topological weighting via the SQLite Native Edge Graph.
+     *
+     * **Degraded-result contract:** if the Pass-1 ChromaDB query throws (e.g. a desynced HNSW
+     * segment raising "Error finding id"), the middleware stays non-throwing but returns a
+     * `_degraded: true` result carrying `_degradedReason` / `_degradedCollection` /
+     * `_degradedSignature`. Tool-facing callers (`SummaryService.querySummaries`,
+     * `MemoryService.queryMemories`) MUST surface this as a degraded envelope rather than
+     * collapsing it into a silent empty `{count:0}` — a degraded query path and a genuine
+     * no-match must remain distinguishable to the caller.
+     *
      * @param {CollectionProxy} proxy
      * @param {String} collectionType
      */
@@ -77,8 +138,23 @@ class StorageRouter extends Base {
                 const pass1Args = {...args, nResults: expandedNResults};
                 searchResult    = await originalQuery(pass1Args);
             } catch (e) {
-                logger.warn(`[StorageRouter] Pass 1 semantic retrieval failed, falling back to empty result: ${e.message}`);
-                return {ids: [[]], distances: [[]], metadatas: [[]], documents: undefined};
+                // A populated-but-corrupt collection throws here (e.g. ChromaDB "Error finding id" on a
+                // desynced HNSW segment). Returning a bare clean-empty result would be indistinguishable
+                // from a genuine no-match and silently hide the failure for days. Stay non-throwing (the
+                // Pass-2 pipeline resilience this catch exists for is preserved), but stamp a `_degraded`
+                // marker — symmetric to the success path's `_reRanked` — so the tool-facing callers can
+                // surface a degraded envelope instead of a silent `{count:0}`.
+                const isCorruptionSignature = /Error finding id/i.test(e.message);
+
+                logger.error(`[StorageRouter] Pass 1 semantic retrieval failed on the '${collectionType}' collection${isCorruptionSignature ? ' (HNSW corruption signature "Error finding id")' : ''}: ${e.message}`);
+
+                return {
+                    ids: [[]], distances: [[]], metadatas: [[]], documents: undefined,
+                    _degraded         : true,
+                    _degradedReason   : e.message,
+                    _degradedCollection: collectionType,
+                    _degradedSignature: isCorruptionSignature ? 'chroma-error-finding-id' : 'chroma-query-error'
+                };
             }
 
             const pass1Ids = searchResult?.ids?.[0];
