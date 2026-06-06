@@ -12,7 +12,7 @@ const LEARN_DIR         = path.resolve(ROOT_DIR, 'learn');
 const PORTAL_DIR        = path.resolve(ROOT_DIR, 'apps/portal');
 const TREE_FILE_PATH    = path.join(LEARN_DIR, 'tree.json');
 // Location of the JSON index we will generate in the next step
-const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json'); 
+const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json');
 const DEFAULT_BASE_PATH = '/learn';
 const GIT_LOG_CHUNK_SIZE = 200;
 const STATUS_RENAME_CODES = new Set(['R', 'C']);
@@ -142,6 +142,14 @@ function getPriority(id) {
 
     if (id.startsWith('/news/tickets/')) {
         return 0.5;
+    }
+
+    if (id.startsWith('/news/pulls/')) {
+        return 0.6;
+    }
+
+    if (id.startsWith('/news/discussions/')) {
+        return 0.4;
     }
 
     // Normalize ID by removing .md extension if present
@@ -502,7 +510,7 @@ async function collectExampleRoutes() {
 
         return {
             category: 'file',
-            filePath: filePath,
+            filePath,
             id      : `/${file}`,
             name    : titleMatch ? titleMatch[1] : getNameFromExamplePath(file)
         };
@@ -523,10 +531,10 @@ async function collectReleaseRoutes() {
         const filePath = path.resolve(ROOT_DIR, file);
         const fileName = path.basename(file, '.md'); // e.g., 'v12.1.0'
         const version  = fileName.startsWith('v') ? fileName.substring(1) : fileName;
-        
+
         return {
             category: 'release-notes',
-            filePath: filePath,
+            filePath,
             id      : `/news/releases/${version}`,
             version : version
         };
@@ -563,7 +571,7 @@ async function collectIssueRoutes() {
 
         return {
             category: 'tickets',
-            filePath: filePath,
+            filePath,
             id      : `/news/tickets/${issueNumberStr}`,
             issueNum: isNaN(issueNumber) ? 0 : issueNumber
         };
@@ -573,19 +581,97 @@ async function collectIssueRoutes() {
 }
 
 /**
+ * Collects all GitHub pull requests by scanning the active and archive markdown directories.
+ * @returns {Promise<Array<{id: String, filePath: String, pullNum: Number}>>}
+ */
+async function collectPullRoutes() {
+    const files = await fg([
+        'resources/content/pulls/**/pr-*.md',
+        'resources/content/archive/pulls/**/pr-*.md'
+    ], {
+        cwd    : ROOT_DIR,
+        ignore : ['**/node_modules/**']
+    });
+
+    const pulls = files.map(file => {
+        const filePath = path.resolve(ROOT_DIR, file);
+        const fileName = path.basename(file, '.md');
+        const pullNumberStr = fileName.startsWith('pr-') ? fileName.substring(3) : fileName;
+        const pullNumber = parseInt(pullNumberStr, 10);
+
+        return {
+            category: 'pull-requests',
+            filePath,
+            id      : `/news/pulls/${pullNumberStr}`,
+            pullNum : isNaN(pullNumber) ? 0 : pullNumber
+        };
+    });
+
+    return pulls.sort((a, b) => b.pullNum - a.pullNum);
+}
+
+/**
+ * Collects all GitHub discussions by scanning the active and archive markdown directories.
+ * @returns {Promise<Array<{id: String, filePath: String, discussionNum: Number}>>}
+ */
+async function collectDiscussionRoutes() {
+    const files = await fg([
+        'resources/content/discussions/**/discussion-*.md',
+        'resources/content/archive/discussions/**/discussion-*.md'
+    ], {
+        cwd    : ROOT_DIR,
+        ignore : ['**/node_modules/**']
+    });
+
+    const discussions = files.map(file => {
+        const filePath = path.resolve(ROOT_DIR, file);
+        const fileName = path.basename(file, '.md');
+        const discussionNumberStr = fileName.startsWith('discussion-') ? fileName.substring(11) : fileName;
+        const discussionNumber = parseInt(discussionNumberStr, 10);
+
+        return {
+            category     : 'discussions',
+            discussionNum: isNaN(discussionNumber) ? 0 : discussionNumber,
+            filePath,
+            id           : `/news/discussions/${discussionNumberStr}`
+        };
+    });
+
+    return discussions.sort((a, b) => b.discussionNum - a.discussionNum);
+}
+
+/**
  * Collects all routes (top-level + content routes).
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
 async function collectAllRoutes() {
-    const [topLevelRoutes, contentRoutes, exampleRoutes, releaseRoutes, issueRoutes] = await Promise.all([
+    const [
+        topLevelRoutes,
+        contentRoutes,
+        exampleRoutes,
+        releaseRoutes,
+        issueRoutes,
+        pullRoutes,
+        discussionRoutes
+    ] = await Promise.all([
         collectTopLevelRoutes(),
         collectRoutesFromTree(),
         collectExampleRoutes(),
         collectReleaseRoutes(),
-        collectIssueRoutes()
+        collectIssueRoutes(),
+        collectPullRoutes(),
+        collectDiscussionRoutes()
     ]);
 
-    return [...topLevelRoutes, ...contentRoutes, ...exampleRoutes, ...releaseRoutes, ...issueRoutes];
+    return [
+        ...topLevelRoutes,
+        ...contentRoutes,
+        ...exampleRoutes,
+        ...releaseRoutes,
+        ...issueRoutes,
+        ...pullRoutes,
+        ...discussionRoutes
+    ];
 }
 
 /**
@@ -848,7 +934,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     if (await fs.pathExists(RELEASES_PATH)) {
         try {
             const releases = await fs.readJSON(RELEASES_PATH);
-            
+
             if (Array.isArray(releases) && releases.length > 0) {
                 // Filter out directory nodes (leaf nodes only)
                 const actualReleases = releases.filter(r => r.isLeaf !== false && r.id);
@@ -861,10 +947,10 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
                         const version = release.id;
                         const date    = release.date ? ` (${release.date.split('T')[0]})` : '';
                         const title   = release.title || 'Update';
-                        
+
                         // Maps to raw/news/releases/{version}.md
                         const url = new URL(`raw/news/releases/${version}.md`, baseUrl).toString();
-                        
+
                         content += `- [v${version}${date}: ${title}](${url})\n`;
                     });
                     content += `\n`;
@@ -878,14 +964,16 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     const topLevelRoutes = allRoutes.filter(route => route.category === 'top-level');
     const releaseRoutes  = allRoutes.filter(route => route.category === 'release-notes');
     const ticketRoutes   = allRoutes.filter(route => route.category === 'tickets');
-    const exampleRoutes  = allRoutes.filter(route => route.category === 'file');
-    const contentRoutes  = allRoutes.filter(route => route.category === 'tree');
+    const pullRoutes       = allRoutes.filter(route => route.category === 'pull-requests');
+    const discussionRoutes = allRoutes.filter(route => route.category === 'discussions');
+    const exampleRoutes    = allRoutes.filter(route => route.category === 'file');
+    const contentRoutes    = allRoutes.filter(route => route.category === 'tree');
 
     content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
         // Beautify route name: /about-us -> About Us
         const name  = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-        
+
         let urlStr;
         if (route.filePath && route.filePath.endsWith('.md')) {
             const relativePath = path.relative(ROOT_DIR, route.filePath).split(path.sep).join('/');
@@ -894,7 +982,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
             const routeStr = buildRouteFromId(route.id, null, false);
             urlStr = new URL(routeStr, baseUrl).toString();
         }
-        
+
         return `- [${name}](${urlStr})`;
     });
     content += topLevelUrls.join('\n') + '\n\n';
@@ -909,7 +997,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     }
 
     content += `## Content & Documentation Layout\n` +
-               `The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent pure technical content. ` +
+               `The sections below (Release Notes, Guides/Blogs, GitHub Tickets, Pull Requests, and Discussions) represent pure technical content. ` +
                `When human users navigate to these routes, Neo.mjs serves a persistent, desktop-class Single Page Application. The visual layout consists of:\n` +
                `- A top Header Toolbar with main site context.\n` +
                `- A functional left-hand \`Neo.tree.List\` sidebar for hierarchical navigation.\n` +
@@ -967,6 +1055,30 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         content += `Here you find historical technical discussions and GitHub issues.\n\n`;
         const mappedUrls = ticketRoutes.map(route => {
             const name = `Ticket #${route.issueNum}`;
+            const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
+            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            return `- [${name}](${urlStr})`;
+        });
+        content += mappedUrls.join('\n') + '\n\n';
+    }
+
+    if (pullRoutes.length > 0) {
+        content += `## GitHub Pull Requests\n\n`;
+        content += `Here you find problem-to-solution records from Neo.mjs pull requests.\n\n`;
+        const mappedUrls = pullRoutes.map(route => {
+            const name = `Pull Request #${route.pullNum}`;
+            const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
+            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            return `- [${name}](${urlStr})`;
+        });
+        content += mappedUrls.join('\n') + '\n\n';
+    }
+
+    if (discussionRoutes.length > 0) {
+        content += `## GitHub Discussions\n\n`;
+        content += `Here you find Ideation Sandbox and architectural discussion records.\n\n`;
+        const mappedUrls = discussionRoutes.map(route => {
+            const name = `Discussion #${route.discussionNum}`;
             const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
             const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
             return `- [${name}](${urlStr})`;
