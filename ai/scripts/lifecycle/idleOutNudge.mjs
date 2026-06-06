@@ -10,7 +10,7 @@
  * SENT_TO edge, no inbox surfacing.** Shape A heartbeat-via-mailbox-message has
  * been removed entirely.
  *
- * **Distinct from `trioWakeCooldown.mjs`:** trio fires when ALL configured agents
+ * **Distinct from `swarmWakeCooldown.mjs`:** the swarm cooldown fires when ALL configured agents
  * idle simultaneously (swarm-wide signal); this dispatcher fires per-identity
  * when one specific agent's `AGENT_MEMORY` exceeds the idle threshold while
  * the swarm is otherwise active. Both reuse the `idle_out_nudge` lock mode from
@@ -49,7 +49,7 @@
  * @see ai/scripts/lifecycle/inflightLock.mjs      — `idle_out_nudge` lock mode
  * @see ai/daemons/SwarmHeartbeatService.mjs       — caller; routes on `recommended_action`
  * @see ai/services/memory-core/WakeSubscriptionService.mjs — `emitHeartbeatPulse` Shape B primitive
- * @see ai/scripts/lifecycle/trioWakeCooldown.mjs  — sibling for swarm-wide all-idle case
+ * @see ai/scripts/lifecycle/swarmWakeCooldown.mjs  — sibling for swarm-wide all-idle case
  * @see ai/scripts/lifecycle/resumeHarness.mjs     — sibling for sunset-restart case
  * @see test/playwright/unit/ai/scripts/idleOutNudge.spec.mjs
  */

@@ -33,7 +33,7 @@ import {checkAllAgentIdle as checkAllAgentIdleScript} from '../../../scripts/lif
 import {idleOutNudge as idleOutNudgeScript}         from '../../../scripts/lifecycle/idleOutNudge.mjs';
 import WakeSubscriptionService                       from '../../../services/memory-core/WakeSubscriptionService.mjs';
 import wakeDecisionServiceInstance, {WakeDecisionService} from './WakeDecisionService.mjs';
-import {trioWakeCooldown as trioWakeCooldownScript} from '../../../scripts/lifecycle/trioWakeCooldown.mjs';
+import {swarmWakeCooldown as swarmWakeCooldownScript} from '../../../scripts/lifecycle/swarmWakeCooldown.mjs';
 import {
     resolveTargets        as resolveHeartbeatTargets,
     VALID_TARGET_SOURCES
@@ -83,7 +83,7 @@ function heartbeatAlivePath() {
  * Dual-mode lifecycle scripts keep their CLI wrappers for manual use while
  * exposing module entrypoints for the heartbeat lane:
  * `checkSunsetted.mjs`, `resumeHarness.mjs`, `checkAllAgentIdle.mjs`, `idleOutNudge.mjs`,
- * and `trioWakeCooldown.mjs` now expose module entrypoints while preserving their CLI
+ * and `swarmWakeCooldown.mjs` now expose module entrypoints while preserving their CLI
  * wrappers for manual use. The lane calls those exports directly to avoid 2-5s Node
  * startup hops per pulse.
  *
@@ -251,7 +251,7 @@ class SwarmHeartbeatService extends Base {
      *        identity, so Codex/Claude/Gemini routes are monitored by subscription
      *        reality rather than by the Orchestrator process owner's env var.
      *   4. All-agent-idle detection via `checkAllAgentIdle.mjs` direct export.
-     *      - allIdle=true + gate-open → `trioWakeCooldown.mjs` direct export.
+     *      - allIdle=true + gate-open → `swarmWakeCooldown.mjs` direct export.
      *   5. Per-identity 3-signal-decision-gated heartbeat-pulse emit. For each
      *      identity in `pulseIdentities`, query A2A activity
      *      timestamps + readiness sentinels + orchestrator-local backoff window,
@@ -334,9 +334,9 @@ class SwarmHeartbeatService extends Base {
             logger.info(`[SwarmHeartbeatService] AllAgentIdle detected: ${JSON.stringify(allIdleJson)}`);
             if (!await this.checkGateOpen()) {
                 const gateState = await this.readGate();
-                logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping trio wake dispatch. Gate reason: ${gateState.reason}`)
+                logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping swarm wake dispatch. Gate reason: ${gateState.reason}`)
             } else {
-                await this.trioWakeCooldown(allIdleJson)
+                await this.swarmWakeCooldown(allIdleJson)
             }
         }
 
@@ -501,13 +501,13 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
-     * Test-stubbable seam over `trioWakeCooldown.mjs`'s dual-mode module export.
+     * Test-stubbable seam over `swarmWakeCooldown.mjs`'s dual-mode module export.
      * @param {Object} signal
      * @returns {Promise<Object|void>}
      * @protected
      */
-    async trioWakeCooldown(signal) {
-        return trioWakeCooldownScript(signal)
+    async swarmWakeCooldown(signal) {
+        return swarmWakeCooldownScript(signal)
     }
 
     /**

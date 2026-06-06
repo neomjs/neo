@@ -4,7 +4,7 @@
  *
  * Fail-closed coordination primitive that scheduler/recovery paths
  * (the Orchestrator swarm-heartbeat lane, `resumeHarness.mjs`) MUST consult before taking any
- * high-authority action (fresh-session-spawn, trio wake dispatch, heartbeat-pulse
+ * high-authority action (fresh-session-spawn, swarm wake dispatch, heartbeat-pulse
  * delivery to a harness UI). When wake delivery is unsafe or unverified, the
  * scheduler MUST no-op and report — not spawn, steer, or paste.
  *

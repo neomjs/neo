@@ -26,16 +26,16 @@ import * as core                 from '../../../../../../src/core/_export.mjs';
 import {getLockPath, writeInflightLock} from '../../../../../../ai/scripts/lifecycle/inflightLock.mjs';
 
 /**
- * @summary Validation for #10675 idle-out A2A nudge dispatcher.
+ * @summary Validation for the idle-out A2A nudge dispatcher.
  *
- * Mirrors the test pattern in `trioWakeCooldown.spec.mjs`: side-effect
+ * Mirrors the test pattern in `swarmWakeCooldown.spec.mjs`: side-effect
  * verification (lock file presence/absence) + static script-content checks
  * for body convention + swarm-heartbeat integration point. The actual A2A
  * message dispatch goes through real `MailboxService` in unit-test mode (writes
  * to test-isolated Memory Core SQLite) — no mock needed; the lock-file side
  * effect is the substrate-level assertion.
  *
- * Live-host opt-in (#10681 discipline): no live `osascript` dispatch happens
+ * Live-host opt-in discipline: no live `osascript` dispatch happens
  * in this script, so `RUN_LIVE_OSASCRIPT=1` opt-in is NOT required for any
  * test path here. Tests can run with default env safely.
  */
@@ -110,7 +110,7 @@ test.describe('ai/scripts/idleOutNudge', () => {
     });
 
     test('Static script: dispatcher invariants framing intact post-Shape-B refactor (#10675 / #11996)', async () => {
-        // Per #10675 invariants (preserved across Sub-iii Shape A → Shape B refactor),
+        // Per the dispatcher invariants (preserved across Sub-iii Shape A → Shape B refactor),
         // the dispatcher MUST communicate:
         // - Why the nudge fires (idle threshold from checkSunsetted.mjs)
         // - That no action is needed if mid-turn / rate-limited (lock memory-resolved release)
@@ -163,7 +163,7 @@ test.describe('ai/scripts/idleOutNudge', () => {
     test('Static script: Shape A heartbeat-mailbox path fully removed (#11996 AC3 + AC5)', async () => {
         // Post-Sub-iii cleanup: Shape A (MailboxService.addMessage-driven heartbeats)
         // is removed entirely, not preserved as a "diagnostic fallback" per @tobiu cycle-3
-        // pushback on Discussion #11992. The refactored dispatcher MUST NOT import
+        // pushback on the dispatcher-import discussion. The refactored dispatcher MUST NOT import
         // MailboxService nor reference addMessage; the wake path is exclusively Shape B
         // (GraphLog-only emitHeartbeatPulse).
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
@@ -174,7 +174,7 @@ test.describe('ai/scripts/idleOutNudge', () => {
         expect(scriptContent).not.toContain('NUDGE_BODY_TEMPLATE');
     });
 
-    // Note (#11766): the former `swarm-heartbeat.sh integration` test was removed with
+    // Note: the former `swarm-heartbeat.sh integration` test was removed with
     // the bash script. The `recommended_action: 'idle_out_nudge'` routing — ordered
     // after the sunset path and before the all-agent-idle path, gated by the wake
     // safety gate — is now covered against the JS lane in

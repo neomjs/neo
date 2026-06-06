@@ -3,7 +3,7 @@
  * @summary Fresh-session harness resume adapter for the auto-wakeup substrate.
  *
  * This script implements the fresh-session-spawn primitive: a sunsetted transcript
- * is terminal, so recovery preserves trio coordination by opening a new chat session
+ * is terminal, so recovery preserves swarm coordination by opening a new chat session
  * in the target harness and pasting a boot-grounding prompt that starts from
  * AGENTS_STARTUP.md.
  *
@@ -256,7 +256,7 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
     return [
         `hi ${identity}, please read @AGENTS_STARTUP.md, then call add_memory once as a boot heartbeat, then proceed normally.`,
         `Recovery context: ${reason}.`,
-        `${sessionAnchor} Read resources/content/sandman_handoff.md and your Memory Core context to resume trio coordination from the prior session anchor.`
+        `${sessionAnchor} Read resources/content/sandman_handoff.md and your Memory Core context to resume swarm coordination from the prior session anchor.`
     ].join(' ');
 }
 
