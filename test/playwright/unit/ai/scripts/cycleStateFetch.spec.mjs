@@ -1,5 +1,5 @@
 import {test, expect}                            from '@playwright/test';
-import {isCiGreen, mapBacklog, mapOwnPRs, mapReviewRequests} from '../../../../../ai/scripts/lifecycle/cycleStateFetch.mjs';
+import {fetchExternalState, isCiGreen, mapBacklog, mapOwnPRs, mapReviewRequests} from '../../../../../ai/scripts/lifecycle/cycleStateFetch.mjs';
 
 /**
  * Self-test for the GitHub-state → cycle-state-input mappers (the daemon-side fetch-and-map layer). The
@@ -63,5 +63,28 @@ test.describe('cycleStateFetch — mapBacklog (claimable-now exclusion flags)', 
     test('no context → all unflagged (all claimable); non-array → empty', () => {
         expect(mapBacklog([{number: 40}])).toEqual([{ref: '#40', blocked: false, gated: false, claimedByOther: undefined}]);
         expect(mapBacklog(undefined)).toEqual([])
+    });
+});
+
+test.describe('cycleStateFetch — fetchExternalState (orchestration, injected runner)', () => {
+    test('runs the 3 queries in parallel, maps them, strips leading @, honors gatherContext', async () => {
+        const calls = [];
+        const runQuery = async (args) => {
+            calls.push(args);
+            if (args.includes('--author')) return [{number: 10, statusCheckRollup: [{conclusion: 'SUCCESS'}], reviewDecision: null, reviewRequests: []}];
+            if (args.includes('--search')) return [{number: 20}];
+            return [{number: 30}, {number: 31}];                                  // gh issue list (backlog)
+        };
+        const gatherContext = async () => ({blockedRefs: new Set(['#31'])});
+        const state = await fetchExternalState('@neo-opus-vega', {runQuery, gatherContext});
+
+        expect(state.ownPRs).toEqual([{ref: '#10', ciGreen: true, reviewRequested: false, changesRequested: false}]);
+        expect(state.reviewRequests).toEqual([{ref: '#20'}]);
+        expect(state.backlog).toEqual([
+            {ref: '#30', blocked: false, gated: false, claimedByOther: undefined},
+            {ref: '#31', blocked: true,  gated: false, claimedByOther: undefined}  // from gatherContext
+        ]);
+        expect(state.openOwnPrCount).toBe(1);
+        expect(calls.find(a => a.includes('--search'))).toContain('review-requested:neo-opus-vega'); // @ stripped
     });
 });

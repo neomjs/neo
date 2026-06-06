@@ -5,12 +5,19 @@
  * here so the derivation (CI-green, changes-requested, review-requested) stays pure + unit-testable.
  *
  * **Increment scope:** the mappers for all four cycle steps (own PRs + review requests = steps 1-3;
- * backlog = step 4). The impure `gh`-runner wrapper — which gathers the cross-source context sets
- * (issue relations, A2A lane-claims) and runs the queries — is the follow-up increment.
+ * backlog = step 4) PLUS the impure `fetchExternalState` orchestrator that runs the queries + maps them.
+ * The query-runner is injectable so the orchestration stays unit-testable; gathering the backlog
+ * flag-context (issue relations + lane-claim A2As) is delegated to an injectable `gatherContext` whose
+ * concrete implementation is the follow-up increment.
  *
  * @see ai/scripts/lifecycle/cycleState.mjs      — the discriminator these feed
  * @see ai/scripts/lifecycle/cycleStateCache.mjs — where the daemon caches the computed verdict
  */
+
+import {execFile}  from 'child_process';
+import {promisify} from 'util';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Is a PR's CI green? Pure over a `gh pr view --json statusCheckRollup` rollup array.
@@ -77,4 +84,43 @@ export function mapBacklog(issueListJson, {blockedRefs = new Set(), gatedRefs = 
         const ref = `#${issue.number}`;
         return {ref, blocked: blockedRefs.has(ref), gated: gatedRefs.has(ref), claimedByOther: claimedByOther.get(ref)}
     })
+}
+
+/**
+ * Default query-runner: spawns `gh` with the given args and parses the JSON stdout. Impure; injected by
+ * {@link fetchExternalState} so the orchestration is testable without `gh`.
+ * @param {String[]} args
+ * @returns {Promise<Object[]>}
+ */
+async function defaultGhQuery(args) {
+    const {stdout} = await execFileAsync('gh', args, {maxBuffer: 8 * 1024 * 1024});
+    return JSON.parse(stdout || '[]')
+}
+
+/**
+ * Fetches + maps the external lifecycle state for one identity into the `computeCycleState()` input. The
+ * three GitHub queries run in parallel; the (pure, tested) mappers shape the results. Impure only in the
+ * query-runner, which is injectable.
+ *
+ * @param {String} identity The agent identity (a leading `@` is stripped for the `gh` search field).
+ * @param {Object} [opts]
+ * @param {Function} [opts.runQuery=defaultGhQuery] `async (args[]) => parsed JSON` — injected for testing.
+ * @param {Function} [opts.gatherContext] `async (identity) => {blockedRefs, gatedRefs, claimedByOther}` for
+ * the backlog flags; defaults to empty context (every backlog item claimable-now) until the follow-up lands.
+ * @returns {Promise<{ownPRs:Object[], reviewRequests:Object[], backlog:Object[], openOwnPrCount:Number}>}
+ */
+export async function fetchExternalState(identity, {runQuery = defaultGhQuery, gatherContext = async () => ({})} = {}) {
+    const id = String(identity || '').replace(/^@/, '');
+    const [ownPRsJson, reviewReqJson, backlogJson] = await Promise.all([
+        runQuery(['pr', 'list', '--author', id, '--json', 'number,statusCheckRollup,reviewDecision,reviewRequests']),
+        runQuery(['pr', 'list', '--search', `review-requested:${id}`, '--json', 'number']),
+        runQuery(['issue', 'list', '--assignee', id, '--json', 'number'])
+    ]);
+    const ownPRs = mapOwnPRs(ownPRsJson);
+    return {
+        ownPRs,
+        reviewRequests: mapReviewRequests(reviewReqJson),
+        backlog       : mapBacklog(backlogJson, await gatherContext(identity)),
+        openOwnPrCount: ownPRs.length
+    }
 }
