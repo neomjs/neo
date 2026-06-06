@@ -126,3 +126,19 @@ function verdict(step, ref, reason, backlog, claimableNowCount) {
         isEmptyCycle     : false
     }
 }
+
+/**
+ * Renders a cycle-state verdict into a compact wake-digest fragment — the cycle-state Sub B surfaces in
+ * the daemon's idle-out / heartbeat digest, replacing the opaque "N heartbeat pulses" line so the receiver
+ * sees the concrete next step instead of inferring it from prose.
+ *
+ * Returns `null` for an empty/absent verdict so the caller falls back to the legacy count line (a
+ * genuinely-empty cycle has no next-step to render).
+ *
+ * @param {{nextStep:({step:String,ref:*,reason:String}|null), isEmptyCycle:Boolean}|null} verdict
+ * @returns {String|null} e.g. `"next: review a designated PR (#20)"`, or null to use the fallback.
+ */
+export function formatCycleStateLine(verdict) {
+    if (!verdict || verdict.isEmptyCycle || !verdict.nextStep) return null;
+    return `next: ${verdict.nextStep.reason} (${verdict.nextStep.ref})`
+}

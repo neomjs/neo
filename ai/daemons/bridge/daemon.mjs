@@ -52,6 +52,8 @@ import {
     isHarnessPresenceFresh
 } from './queries.mjs';
 import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
+import {formatCycleStateLine}         from '../../scripts/lifecycle/cycleState.mjs';
+import {readCycleState}               from '../../scripts/lifecycle/cycleStateCache.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
@@ -613,7 +615,13 @@ async function flushSubscription(subId) {
     }
     if (heartbeats.length > 0) {
         const latest = heartbeats[heartbeats.length - 1];
-        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId})`;
+        // Surface the cached cycle-state next-step instead of the opaque count, when a fresh verdict is
+        // cached for this identity (the daemon computes + caches it; this is the read/render side).
+        const cached    = readCycleState(identity);
+        const cycleLine = cached && formatCycleStateLine(cached.verdict);
+        breakdown += cycleLine
+            ? `\n- ${heartbeats.length} heartbeat pulses — ${cycleLine}`
+            : `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId})`;
     }
 
     const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}`;

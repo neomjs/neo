@@ -1,5 +1,5 @@
 import {test, expect}                                from '@playwright/test';
-import {CycleStep, computeCycleState, isClaimableNow} from '../../../../../ai/scripts/lifecycle/cycleState.mjs';
+import {CycleStep, computeCycleState, formatCycleStateLine, isClaimableNow} from '../../../../../ai/scripts/lifecycle/cycleState.mjs';
 
 /**
  * Self-test for the shared cycle-state discriminator — the pure core of the idle-out fix that the daemon
@@ -92,6 +92,15 @@ test.describe('cycleState — claimable-now ≠ raw-backlog (the falsification-A
         const v = computeCycleState({});
         expect(v.isEmptyCycle).toBe(true);
         expect(v.nextStep).toBeNull()
+    });
+});
+
+test.describe('cycleState — formatCycleStateLine (the daemon digest fragment)', () => {
+    test('renders the next step; null for empty/absent (caller falls back to the count line)', () => {
+        const v = computeCycleState({reviewRequests: [{ref: '#20'}]});
+        expect(formatCycleStateLine(v)).toBe('next: A review is designated to you — review it before a new lane. (#20)');
+        expect(formatCycleStateLine(computeCycleState({}))).toBeNull();   // empty cycle → null
+        expect(formatCycleStateLine(null)).toBeNull()
     });
 });
 
