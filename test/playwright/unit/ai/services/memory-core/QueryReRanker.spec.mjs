@@ -324,6 +324,68 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         expect(sessionsToSummarize).not.toContain(activeSessionId);
     });
 
+    test('#9959: explicit named-session summarization should bypass the externally active drift filter', async () => {
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        const activeSessionId = `explicit-active-${crypto.randomUUID()}`;
+        const agentIdentity   = `@explicit-active-${crypto.randomUUID()}`;
+        const now             = Date.now();
+
+        insertActiveWakeSubscription(sqlite, agentIdentity);
+        insertAgentMemoryNode(sqlite, {sessionId: activeSessionId, agentIdentity, timestampMs: now});
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
+        expect(externallyActiveSessionIds.has(activeSessionId)).toBe(true);
+
+        const originalClaim     = SDK.Memory_SessionService.claimSummarizationJob;
+        const originalSummarize = SDK.Memory_SessionService.summarizeSession;
+        const originalComplete  = SDK.Memory_SessionService.completeSummarizationJob;
+        const originalFail      = SDK.Memory_SessionService.failSummarizationJob;
+
+        const calls = [];
+
+        SDK.Memory_SessionService.claimSummarizationJob = (sessionId) => {
+            calls.push({type: 'claim', sessionId});
+            return true;
+        };
+        SDK.Memory_SessionService.summarizeSession = async (sessionId) => {
+            calls.push({type: 'summarize', sessionId});
+            return {
+                sessionId,
+                summaryId   : `summary_${sessionId}`,
+                title       : 'Explicit Active Summary',
+                memoryCount : 1
+            };
+        };
+        SDK.Memory_SessionService.completeSummarizationJob = (sessionId) => {
+            calls.push({type: 'complete', sessionId});
+        };
+        SDK.Memory_SessionService.failSummarizationJob = (sessionId) => {
+            calls.push({type: 'fail', sessionId});
+        };
+
+        try {
+            const result = await SDK.Memory_SessionService.summarizeSessions({sessionId: activeSessionId});
+
+            expect(result.processed).toBe(1);
+            expect(result.sessions[0].sessionId).toBe(activeSessionId);
+            expect(calls).toEqual([
+                {type: 'claim', sessionId: activeSessionId},
+                {type: 'summarize', sessionId: activeSessionId},
+                {type: 'complete', sessionId: activeSessionId}
+            ]);
+        } finally {
+            SDK.Memory_SessionService.claimSummarizationJob     = originalClaim;
+            SDK.Memory_SessionService.summarizeSession          = originalSummarize;
+            SDK.Memory_SessionService.completeSummarizationJob  = originalComplete;
+            SDK.Memory_SessionService.failSummarizationJob      = originalFail;
+        }
+    });
+
     test('#9959: findSessionsToSummarize should keep stale peer sessions eligible for self-healing', async () => {
         const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.ready();

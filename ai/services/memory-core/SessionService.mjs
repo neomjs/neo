@@ -557,7 +557,12 @@ class SessionService extends Base {
 
             // Explicitly exclude sessions that are still active in this process or another
             // live harness. Stale/crashed sessions fall back into the self-healing drift path.
-            if (sessionId === this.currentSessionId || externallyActiveSessionIds.has(sessionId)) {
+            if (sessionId === this.currentSessionId) {
+                return;
+            }
+
+            if (externallyActiveSessionIds.has(sessionId)) {
+                logger.info(`[SessionService] Skipping externally active session ${sessionId} during drift detection.`);
                 return;
             }
 
