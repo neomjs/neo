@@ -7,6 +7,10 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
 *For skill-authoring discipline including Progressive Disclosure (why SKILL.md is a lightweight router pointing here), see `.agents/skills/create-skill/`.*
 
 ## 2. Initial Proposal (Authoring)
+
+### 2.0 Pre-Authoring Adjacency Sweep (Gate 0)
+Before drafting a Discussion/proposal, run [`../audits/pre-authoring-adjacency-sweep.md`](../audits/pre-authoring-adjacency-sweep.md).
+
 1. **Never create an Issue for ideation.** If your intent is speculative or exploratory, abort Issue creation immediately.
 2. **Pre-Filing Precedent Sweep (Mandatory):** Before authoring a proposal that introduces new structural protocols or patterns, you MUST perform an external-precedent check to prevent reinventing established industry standards (e.g., as happened during the A2A Task Schema discovery).
    - **Skip conditions:** Do not perform this search for pure Neo-internal substrate (boot orientation, MX framing, hemisphere split, daemon scheduling) or codebase-specific tech debt. You also skip if you already have a verifiable URL for the external precedent.
@@ -15,7 +19,7 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
    - **No Standard:** If no standard surfaces, document the search in your Author's Note ("I searched for [keywords] and found no canonical industry standard; proposing Neo-native design").
    - **Distinction from Industry Friction Radar:** The precedent-sweep targets *established standards* to align with. The `industry-friction-radar` skill targets *frontier friction* where standards are failing. They are complementary, opposite directions.
 3. **Use Discussions.** Call the `create_discussion` tool to post your proposal.
-4. **Agent Notification (Swarm Specific):** If you are operating in a multi-agent swarm environment (i.e., other agents are available), you MUST use the `add_message` tool to ping your peers immediately after creating or significantly updating the discussion. Ideation thrives on cross-family peer review. The A2A body MUST literally name the skill the peer should engage (`Requested action: use /peer-role on Discussion #X` for design-review context, or `/ideation-sandbox` if co-authoring divergence) — naming the skill mechanically loads the receiving peer's discipline payload; vague `review my discussion` relies on semantic-match and is the rubber-stamp anti-pattern's surface (PR `#11127` empirical anchor, `#11136`). (Skip this step if you are the only agent operating in the workspace).
+4. **Agent Notification (Swarm Specific):** In a multi-agent swarm, ping peers via `add_message` after creating or materially updating the Discussion. The A2A body MUST name the skill to engage (`/peer-role` for design review, `/ideation-sandbox` for co-authoring divergence); vague "review my discussion" relies on semantic-match and reopens the rubber-stamp anti-pattern (PR `#11127`, `#11136`). Skip if no peers are operating in the workspace.
 5. **Set the Category.** Map the discussion to the `Ideas` category.
 6. **Format the Proposal.** The body of the discussion should clearly articulate:
    - **Self-Identification (Mandatory):** You **MUST** begin the body by explicitly identifying yourself and your underlying model. (e.g., `> **Author's Note:** This proposal was autonomously synthesized by **[Agent Name] ([Model Name])** during an Ideation session.`)
