@@ -114,7 +114,7 @@ or edge mutation appends an entry to `GraphLog`, durably visible to all
 processes sharing the SQLite-WAL backing file. `Database.mjs#syncCache()`
 implements delta-replay via `lastSyncId`.
 
-For Shape C bridge daemon, this primitive provides the cross-process event
+For Shape C wake daemon, this primitive provides the cross-process event
 stream we'd otherwise need to invent. The daemon is a `syncCache` consumer
 running outside the MCP server — it watches `lastSyncId` advance, filters
 delta entries by trigger primitive, evaluates against subscriptions, emits
@@ -142,7 +142,7 @@ In priority order:
    the latency-vs-token-economy trade-off at 30-60s.
 4. **Vendor-roadmap independence.** Per Gemini iteration 3: *"swarm
    architecture cannot afford to block on external vendor roadmaps when a
-   pragmatic fallback exists."* Shape C bridge daemon unblocks Claude.app
+   pragmatic fallback exists."* Shape C wake daemon unblocks Claude.app
    today regardless of when MCP notification subscription lands.
 5. **Token-economy preservation.** OQ 6 — wake substrate must NOT be 1:1
    with event stream at high velocity, or broadcast bursts cause
@@ -181,7 +181,7 @@ support.
 **Cons:** requires HTTP server in each harness; firewall considerations for
 non-localhost.
 
-### 4.3 Shape (C) — Out-of-Band Bridge Daemon [SELECTED as fallback]
+### 4.3 Shape (C) — Out-of-Band Wake Daemon [SELECTED as fallback]
 
 Watchdog process consumes `GraphLog` deltas via existing `syncCache` pattern;
 emits to per-harness adapters (`tmux send-keys`, `osascript`, native APIs).
@@ -261,7 +261,7 @@ and listen.
 
 **Choose Shape (D) Hybrid: standards-first MCP notifications (Shape A),
 fall back to A2A webhooks (Shape B) when MCP push absent, fall back to
-bridge daemon (Shape C) when neither.**
+wake daemon (Shape C) when neither.**
 
 The architectural decision was made in Discussion #10354 iteration 2 with
 both authors aligned. This ADR specifies the **concrete schemas** that
@@ -278,7 +278,7 @@ declared capabilities. Per-identity capability detection happens at boot:
     initialize MCP session with capabilities advertisement →
       if client supports notifications: harnessTarget = 'mcp-notifications'
       else if client provides webhook URL: harnessTarget = 'a2a-webhook'
-      else if bridge daemon available: harnessTarget = 'bridge-daemon'
+      else if wake daemon available: harnessTarget = 'bridge-daemon'
       else: harnessTarget = 'disabled' (fallback to heartbeat polling)
 ```
 
@@ -327,7 +327,7 @@ runtime status (`notLoaded`, `idle`, `systemError`, or `active` with
 API rather than inferring it from UI widgets.
 
 For harnesses without a native presence API, `unknown` is the safe default. A
-bridge daemon may eventually infer coarse presence from UI state, but that is a
+wake daemon may eventually infer coarse presence from UI state, but that is a
 fallback adapter, not the architecture.
 
 #### 5.2.2 `wakePolicy`
@@ -541,7 +541,7 @@ event delivery. When the transport breaks (TCP close, timeout, network
 partition), the server cannot deliver in-flight events. **Decision:
 client-driven watermark resync rather than server-side queueing** — aligns
 with the existing `GraphLog + lastSyncId` pattern from ADR 0001 and reused
-by Shape C bridge daemon.
+by Shape C wake daemon.
 
 **Watermark mechanics:**
 
@@ -550,7 +550,7 @@ by Shape C bridge daemon.
   emission). See §6.1.1-6.1.3 payloads. Shape B heartbeat pulses use the
   same watermark contract through an explicit `heartbeat_pulse` GraphLog row:
   no `MESSAGE` node and no `SENT_TO` edge are created, so reconnect replay can
-  wake the bridge daemon without adding inbox-visible content.
+  wake the wake daemon without adding inbox-visible content.
 - Client persists `lastSeenLogId` per subscription — typically in
   harness-local state alongside the subscription ID. The persistence
   granularity is the client's call: per-event commit (most durable, more
@@ -573,7 +573,7 @@ by Shape C bridge daemon.
   pressure from disconnected-client queues, no "events lost on server
   restart" problem
 - `GraphLog` is *already* the durable substrate queue (per ADR 0001 §2.1);
-  re-deriving events from it is symmetric with how Shape C bridge daemon
+  re-deriving events from it is symmetric with how Shape C wake daemon
   consumes the same delta stream. Single-source-of-truth discipline.
 - Idempotent: the same `sinceLogId` query returns the same events from
   `GraphLog` (subject to filter changes, which the resync naturally
@@ -659,9 +659,9 @@ encryption deferred to multi-tenant transition under #9999; pre-#9999 the
 secret lives plaintext in the per-tenant SQLite, which is the same trust
 boundary as the rest of the data).
 
-### 6.3 Bridge Daemon Protocol (Shape C)
+### 6.3 Wake Daemon Protocol (Shape C)
 
-The bridge daemon is a long-running process consuming the `GraphLog` delta
+The wake daemon is a long-running process consuming the `GraphLog` delta
 stream and emitting wake events to per-harness adapters.
 
 #### 6.3.1 Daemon startup
@@ -713,12 +713,12 @@ notification subscription) replaces this when implemented.
 **`adapter:antigravity`** (when documented):
 
 To be specified once Google publishes Agent Manager subprocess API. Until
-then, Antigravity routes through Shape A or Shape B; bridge daemon is not
+then, Antigravity routes through Shape A or Shape B; wake daemon is not
 the preferred path on that side.
 
 #### 6.3.4 Co-existence with `syncCache`
 
-The MCP server's `syncCache` and the bridge daemon both consume the
+The MCP server's `syncCache` and the wake daemon both consume the
 `GraphLog` delta stream. Both are READ-ONLY consumers; they don't mutate
 the log. Each tracks its own `lastSyncId` independently. Per OQ 5
 (non-blocking pending), empirical verification of any cross-consumer
@@ -755,7 +755,7 @@ Window: <emittedAt - windowStart>
 
 For Shape A (MCP notifications) and Shape B (A2A webhook), the digest goes in
 the payload's `data` field with `eventType: "wake/digest"`. For Shape C
-(bridge daemon), the digest is the literal text injected via the harness
+(wake daemon), the digest is the literal text injected via the harness
 adapter.
 
 ### 6.5 Heartbeat-Bypass Detection (per OQ 7)
@@ -844,7 +844,7 @@ manage_wake_subscription({
 | `unsubscribe` | `{subscriptionId, status: 'removed'}` | Deletes the `WAKE_SUBSCRIPTION` node + edge; evicts from cache |
 | `update` | `{subscriptionId, currentState}` | Mutates `WAKE_SUBSCRIPTION` properties; cache write-through |
 | `list` | `{subscriptions: [...]}` | Returns all subscriptions for the bound agent identity (or one if `subscriptionId` provided) |
-| `resync` | `{subscriptionId, eventsReplayed: <integer>, lastLogId: <integer>}` | Queries `GraphLog` from `sinceLogId` forward, applies current trigger+filter spec, re-emits matching events via the subscription's configured channel (MCP notifications / A2A webhook / bridge daemon). Returns the count + the highest log_id reached so the client can update its `lastSeenLogId` watermark. |
+| `resync` | `{subscriptionId, eventsReplayed: <integer>, lastLogId: <integer>}` | Queries `GraphLog` from `sinceLogId` forward, applies current trigger+filter spec, re-emits matching events via the subscription's configured channel (MCP notifications / A2A webhook / wake daemon). Returns the count + the highest log_id reached so the client can update its `lastSeenLogId` watermark. |
 
 #### 6.6.3 Authority + RBAC
 
@@ -869,7 +869,7 @@ cannot use resync as a privilege-escalation backdoor.
   envelope (#10334, #10342) alignment to the notification layer; aligns
   with MCP spec server-push primitives.
 - **Cross-harness portable** — Shape D Hybrid accommodates Claude.app's
-  current vendor-API gap via Shape C bridge daemon while remaining
+  current vendor-API gap via Shape C wake daemon while remaining
   forward-compatible with future MCP notification subscription (OQ 1
   Anthropic FR).
 - **Token-economy preserved** — 30-60s coalescing window prevents wake
@@ -931,7 +931,7 @@ cannot use resync as a privilege-escalation backdoor.
 
 - `ai/services/memory-core/MailboxService.mjs` — addMessage / transitionTask emit points for `wake/*` events
 - `ai/services/memory-core/GraphService.mjs` — `linkNodes` is the SENT_TO emit point for `wake/sent_to_me`
-- `ai/graph/Database.mjs` — `syncCache` + `lastSyncId` pattern reused by Shape C bridge daemon
+- `ai/graph/Database.mjs` — `syncCache` + `lastSyncId` pattern reused by Shape C wake daemon
 - `ai/graph/storage/SQLite.mjs` — `GraphLog` triggers + `getDeltaLog` (Shape C foundation)
 - `ai/scripts/swarm-heartbeat.sh` — `get_push_capable_identities` extension per Section 6.5
 
@@ -968,7 +968,7 @@ cannot use resync as a privilege-escalation backdoor.
 
 ## Handoff Retrieval Hints
 
-- `query_raw_memories(query="ADR 0002 phase 3 wake substrate standards alignment MCP notifications A2A webhook bridge daemon")`
+- `query_raw_memories(query="ADR 0002 phase 3 wake substrate standards alignment MCP notifications A2A webhook wake daemon")`
 - `query_raw_memories(query="WAKE_SUBSCRIPTION manage_wake_subscription harnessTarget enum disabled none")`
 - `query_raw_memories(query="token economy 30-60s coalescing window digest Layer 6 autonomous wake")`
 - `query_summaries(query="Phase 3 wake substrate Discussion 10354 ADR 0002 Shape D hybrid")`

@@ -24,7 +24,7 @@ import BootEnvelopeResolver from '../../../../../../../../ai/mcp/server/shared/s
  * The resolver maps the boot instance-address envelope (`NEO_HARNESS_INSTANCE_ADDRESS` +
  * `NEO_HARNESS_INSTANCE_ADDRESS_TYPE`) into wake-subscription `overrideMetadata`. The critical
  * behaviors: a fully-omitted envelope is the default instance (null, routed by absence); a complete
- * `userDataDir` envelope yields the generic address override the bridge daemon reads; and every
+ * `userDataDir` envelope yields the generic address override the wake daemon reads; and every
  * degenerate shape (partial config, unknown type) fails closed so a non-default instance can never
  * silently fall back to the default route and misroute its wakes.
  */

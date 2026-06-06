@@ -381,8 +381,8 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/services/github-workflow/` | Issue/PR management services (post-M6 SDK location) | `IssueService`, `SyncService`, `LabelService` | — |
 | `ai/services/neural-link/` | Live app bridge services (post-M6 SDK location) | `ConnectionService`, `RecorderService` | — |
 | `ai/services/shared/vector/` | Cross-server vector-engine primitives consumed by per-server ChromaManager classes (KB + MC); functional helpers, not Neo classes | `chromaClientPrimitives.mjs` (`chromaConnect`, `createSilentExecutor`, `chromaDeleteCollection`) | — |
-| `ai/scripts/` | One-shot operator scripts + thin helper wrappers | `bridge-daemon.mjs` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
-| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `DreamService`, `SwarmHeartbeatService` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
+| `ai/scripts/` | One-shot operator scripts + thin helper wrappers | `lifecycle/`, `maintenance/` | — |
+| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `wake/daemon.mjs`, `DreamService`, `SwarmHeartbeatService` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
 | `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0015](../agentos/decisions/0015-graph-store-backend-posture.md) |
 | `ai/mcp/server/knowledge-base/` | KB MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
@@ -399,7 +399,7 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 | ADR | Subject | Subsystems Affected | Status |
 |---|---|---|---|
 | [0001](../agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
-| [0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/scripts/` (bridge-daemon), `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
+| [0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/daemons/wake/`, `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
 | [0015](../agentos/decisions/0015-graph-store-backend-posture.md) | Graph Store Backend Posture - SQLite WAL First, Networked SQL Deferred | `ai/graph/`, `ai/services/memory-core/`, cloud deployment docs | Accepted - 2026-05-22 (#11732; PR #11779) |
 
 ## Next Steps

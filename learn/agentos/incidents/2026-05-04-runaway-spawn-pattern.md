@@ -80,7 +80,7 @@ In this session's boot: `set_session_id({sessionId: 'cce1fea5-...'})` returned `
 
 ### Test-suite spawn evidence
 
-Two new Claude Code worktree jsonl files appeared 2026-05-04 09:03 UTC, each containing the EXACT `resumeHarness.mjs` boot-grounding prompt format with `Recovery context: test` (the `'test'` arg passed by `resumeHarness.spec.mjs` line 74 + line 113 to the real `resumeHarness.mjs` subprocess invocation). The bridge-daemon log showed no corresponding wake delivery at 09:03 — the spawns came from a direct subprocess invocation with `WAKE_GATE_OVERRIDE=1` set, which bypassed the `wake-safety-gate.json` `state: tripped` protection.
+Two new Claude Code worktree jsonl files appeared 2026-05-04 09:03 UTC, each containing the EXACT `resumeHarness.mjs` boot-grounding prompt format with `Recovery context: test` (the `'test'` arg passed by `resumeHarness.spec.mjs` line 74 + line 113 to the real `resumeHarness.mjs` subprocess invocation). The wake-daemon log showed no corresponding wake delivery at 09:03 — the spawns came from a direct subprocess invocation with `WAKE_GATE_OVERRIDE=1` set, which bypassed the `wake-safety-gate.json` `state: tripped` protection.
 
 ### Visual multi-day accumulation
 
@@ -119,7 +119,7 @@ Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
 
 - Live-host runtime tests in `resumeHarness.spec.mjs` are skipped by default
 - Static-config-check coverage retained as always-on tests via test-split
-- Header documentation in describe scope cross-references `bridge-daemon.spec.mjs` as the reference architecture for safe live-substrate testing (mock-osascript-on-PATH or `adapter: 'test'` test-stream)
+- Header documentation in describe scope cross-references `wake/daemon.spec.mjs` as the reference architecture for safe live-substrate testing (mock-osascript-on-PATH or `adapter: 'test'` test-stream)
 - Merged 2026-05-04, closing the test-suite-as-runaway-vector failure mode
 
 ### In-flight lock primitive ([#10674](https://github.com/neomjs/neo/issues/10674) / PR [#10683](https://github.com/neomjs/neo/pull/10683))
@@ -144,7 +144,7 @@ Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
 
 `ai/scripts/idleOutNudge.mjs` — per-identity dispatcher consumed by `swarm-heartbeat.sh` when the detector emits `recommended_action: 'idle_out_nudge'`:
 
-- Reuses A2A messaging path (`MailboxService.addMessage` → `bridge-daemon` keystroke delivery); zero new transport, no fresh-session spawn
+- Reuses A2A messaging path (`MailboxService.addMessage` → `wake-daemon` keystroke delivery); zero new transport, no fresh-session spawn
 - Bounded / non-spawning / idempotent / no-destructive-type invariants enforced
 - Distinct from `trioWakeCooldown.mjs` (swarm-wide all-idle); fires per-identity when ONE agent is stale while the swarm is otherwise active
 
@@ -193,4 +193,4 @@ Empirical validation that the in-flight lock is load-bearing (not theoretical): 
 - **Superseded:**
   - [#10627](https://github.com/neomjs/neo/issues/10627) — Steady-state `set_session_id` rotation (closed-as-superseded; PR [#10670](https://github.com/neomjs/neo/pull/10670) abandoned)
 - **Adjacent prior wake-substrate forensics:** [#10641](https://github.com/neomjs/neo/issues/10641), [#10643](https://github.com/neomjs/neo/issues/10643), [#10644](https://github.com/neomjs/neo/issues/10644), [#10647](https://github.com/neomjs/neo/issues/10647), [#10648](https://github.com/neomjs/neo/issues/10648), [#10650](https://github.com/neomjs/neo/issues/10650)
-- **Wake substrate primitives:** [#10312](https://github.com/neomjs/neo/issues/10312) Sleep-Cycle MVP, [#10357](https://github.com/neomjs/neo/issues/10357) Phase 3 wake substrate, [#10423](https://github.com/neomjs/neo/issues/10423) bridge daemon PID-lock, [#10543](https://github.com/neomjs/neo/issues/10543) Sunset Unsubscribe Primitive
+- **Wake substrate primitives:** [#10312](https://github.com/neomjs/neo/issues/10312) Sleep-Cycle MVP, [#10357](https://github.com/neomjs/neo/issues/10357) Phase 3 wake substrate, [#10423](https://github.com/neomjs/neo/issues/10423) wake daemon PID-lock, [#10543](https://github.com/neomjs/neo/issues/10543) Sunset Unsubscribe Primitive

@@ -51,7 +51,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     test('buildTaskDefinitions is pure: no env-var lookups; concrete mlxModel/mlxPort flow through', () => {
-        // Architectural contract post-#11075: taskDefinitions.mjs has no embedded MLX
+        // Architectural contract: taskDefinitions.mjs has no embedded MLX
         // defaults and no env-var reads. Caller (Orchestrator via its mlx* getters
         // reading AiConfig + env-vars) forwards concrete values. This test documents
         // the pure-function contract by setting env-vars that would have been picked
@@ -118,7 +118,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     // -----------------------------------------------------------------------------
-    // #11986 — LM Studio CLI (`lms`) orchestrator-managed lifecycle (mirror of MLX)
+    // LM Studio CLI (`lms`) orchestrator-managed lifecycle (mirror of MLX)
     // -----------------------------------------------------------------------------
 
     test('buildTaskDefinitions is pure: tasks.lms is omitted when lmsEnabled is false', () => {
@@ -215,8 +215,8 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         );
     });
 
-    test('keeps bridge-daemon wake-only and routes maintenance ownership to the daemon class', () => {
-        const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/bridge/daemon.mjs'), 'utf8');
+    test('keeps wake-daemon wake-only and routes maintenance ownership to the daemon class', () => {
+        const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/wake/daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/daemon.mjs'), 'utf8');
         const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/Orchestrator.mjs'), 'utf8');
         const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/taskDefinitions.mjs'), 'utf8');
@@ -255,7 +255,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(isOrchestratorDaemonCommand('node /repo/ai/daemons/orchestrator/daemon.mjs')).toBe(true);
         expect(isOrchestratorDaemonCommand('/usr/local/bin/node ai/daemons/orchestrator/daemon.mjs --watch')).toBe(true);
 
-        expect(isOrchestratorDaemonCommand('node /repo/ai/daemons/bridge/daemon.mjs')).toBe(false);
+        expect(isOrchestratorDaemonCommand('node /repo/ai/daemons/wake/daemon.mjs')).toBe(false);
         expect(isOrchestratorDaemonCommand(`node /repo/${legacyScriptsPath}`)).toBe(false);
         expect(isOrchestratorDaemonCommand('node daemon.mjs')).toBe(false);
     });

@@ -5,7 +5,7 @@ const execFileAsync = promisify(execFile);
 
 /**
  * @summary Resolves the OS process id of a specific GUI harness *instance* from its
- * `--user-data-dir`, so the bridge daemon can wake the intended instance when two
+ * `--user-data-dir`, so the wake daemon can wake the intended instance when two
  * same-bundle harnesses (e.g. two `Claude.app` profiles) run in parallel.
  *
  * ## Why this exists
@@ -24,7 +24,7 @@ const execFileAsync = promisify(execFile);
  * Pure resolution (`resolveInstancePid`) is separated from the `ps` side effect
  * (`getInstancePid`) so the matching logic is unit-testable with fixed process snapshots.
  *
- * @module ai/daemons/bridge/instanceResolver
+ * @module ai/daemons/wake/instanceResolver
  */
 
 /**

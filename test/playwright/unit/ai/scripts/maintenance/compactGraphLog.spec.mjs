@@ -22,7 +22,7 @@ import {
     getGraphLogStats,
     listActiveWakeSubscriptions,
     parseConsumerWatermark,
-    readBridgeWatermark,
+    readWakeDaemonWatermark,
     readWakeSubscriptionWatermark,
     runGraphLogCompaction
 } from '../../../../../../ai/scripts/maintenance/compactGraphLog.mjs';
@@ -191,7 +191,7 @@ test.describe('compactGraphLog maintenance guard', () => {
     test('computes cutoff from the minimum known consumer watermark plus safety margin', () => {
         const plan = computeCompactionPlan({
             stats          : {maxLogId: 20},
-            bridgeWatermark: {name: 'bridge-daemon', watermark: 18},
+            wakeDaemonWatermark: {name: 'bridge-daemon', watermark: 18},
             subscriptions  : [{id: 'WAKE_SUB:1', harnessTarget: 'bridge-daemon'}],
             extraWatermarks: [parseConsumerWatermark('remote-worker=12')],
             safetyMarginRows: 2
@@ -205,7 +205,7 @@ test.describe('compactGraphLog maintenance guard', () => {
     test('blocks when an active mcp-notifications consumer has no durable cursor', () => {
         const plan = computeCompactionPlan({
             stats          : {maxLogId: 20},
-            bridgeWatermark: {name: 'bridge-daemon', watermark: 18},
+            wakeDaemonWatermark: {name: 'bridge-daemon', watermark: 18},
             subscriptions  : [{id: 'WAKE_SUB:2', harnessTarget: 'mcp-notifications'}],
             safetyMarginRows: 2
         });
@@ -218,7 +218,7 @@ test.describe('compactGraphLog maintenance guard', () => {
     test('uses a durable wake cursor when active mcp-notifications consumers exist', () => {
         const plan = computeCompactionPlan({
             stats          : {maxLogId: 20},
-            bridgeWatermark: {name: 'bridge-daemon', watermark: 18},
+            wakeDaemonWatermark: {name: 'bridge-daemon', watermark: 18},
             wakeWatermark  : {name: 'wake-subscription-live-cursor', watermark: 15},
             subscriptions  : [{id: 'WAKE_SUB:2', harnessTarget: 'mcp-notifications'}],
             safetyMarginRows: 2
@@ -287,7 +287,7 @@ test.describe('compactGraphLog maintenance guard', () => {
         expect(subscriptions.map(sub => sub.id)).toEqual(['WAKE_SUB:bridge']);
 
         const stats = getGraphLogStats({db, dbPath});
-        const bridge = readBridgeWatermark({stateFile: bridgeStateFile, latestLogId: stats.maxLogId});
+        const bridge = readWakeDaemonWatermark({stateFile: bridgeStateFile, latestLogId: stats.maxLogId});
         const missingWake = readWakeSubscriptionWatermark({stateFile: wakeStateFile});
 
         expect(bridge.watermark).toBe(4);

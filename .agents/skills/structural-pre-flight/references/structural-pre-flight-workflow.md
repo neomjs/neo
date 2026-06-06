@@ -4,7 +4,7 @@ The authoritative protocol that runs **before** a new `.mjs` file is written to 
 
 **Empirical anchors.** Two real misplacement instances demonstrated the gap before this skill existed:
 
-1. `ai/scripts/bridge-daemon.mjs` — authored to `ai/scripts/` instead of `ai/daemons/` (the canonical home for long-running daemons, already documented in `learn/benefits/ArchitectureOverview.md`'s Structural Inventory + occupied by sibling `DreamService.mjs`). Original anchor → Discussion #10447 → Epic #10449.
+1. `ai/daemons/wake/daemon.mjs` (then named `bridge-daemon.mjs`) — authored to `ai/scripts/` instead of `ai/daemons/` (the canonical home for long-running daemons, already documented in `learn/benefits/ArchitectureOverview.md`'s Structural Inventory + occupied by sibling `DreamService.mjs`); since relocated to `ai/daemons/wake/`. Original anchor → Discussion #10447 → Epic #10449.
 2. `ai/scripts/orchestrator-daemon.mjs` — PR #11008 added 455 lines of orchestration logic to `ai/scripts/` instead of splitting per `learn/agentos/v13-path.md` M3 (thin script wrapper + `ai/daemons/Orchestrator.mjs` Neo-class + `ai/daemons/services/SummarizationCoordinatorService.mjs`). Repair: #11009.
 
 Both shipped through full `ticket-create` + `pull-request` + `pr-review` discipline. Neither caught the misplacement because the substrate to consult (`ArchitectureOverview.md` Structural Inventory + relevant ADRs in `learn/agentos/decisions/`) was not invoked at directory-CHOICE time.
@@ -24,7 +24,7 @@ Stage 1 — Pattern-match check: "Does this file's role match an established sib
                     map-maintenance discipline, optional ADR genesis
 ```
 
-**Why mechanical, not subjective.** "When work is architecturally relevant" is the very judgment the bridge-daemon authoring failed at. A mechanical trigger (every new `.mjs`) is unambiguous; the fast-path drops the cost to ~30 seconds when the choice is trivial. Subjectivity would re-open the gap this skill exists to close.
+**Why mechanical, not subjective.** "When work is architecturally relevant" is the very judgment the wake-daemon authoring failed at. A mechanical trigger (every new `.mjs`) is unambiguous; the fast-path drops the cost to ~30 seconds when the choice is trivial. Subjectivity would re-open the gap this skill exists to close.
 
 ## 1. Stage 1 Fast-Path (Sibling Pattern Match)
 

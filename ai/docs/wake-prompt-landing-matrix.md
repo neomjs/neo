@@ -4,15 +4,15 @@
 
 The wake substrate requires strict validation to ensure that "wake delivered" actually means the payload successfully landed in the target agent's prompt input surface. Previously, intermediate success (such as `osascript` exiting 0) was misinterpreted as full success, leading to regressions where payloads were pasted into source code files instead of agent composers.
 
-This matrix establishes the definitive criteria that MUST be proven before wake delivery can be considered successful for any harness. A2A storage success and bridge adapter success are necessary but **NOT sufficient** proof of prompt delivery.
+This matrix establishes the definitive criteria that MUST be proven before wake delivery can be considered successful for any harness. A2A storage success and wake-daemon adapter success are necessary but **NOT sufficient** proof of prompt delivery.
 
-## Bridge Backlog / Subscription Isolation Preflight (MANDATORY)
+## Wake Backlog / Subscription Isolation Preflight (MANDATORY)
 
-Before running *any* controlled bridge validation test, you MUST perform this preflight to prevent un-isolated backlog dumps from polluting the validation matrix:
+Before running *any* controlled wake-delivery validation test, you MUST perform this preflight to prevent un-isolated backlog dumps from polluting the validation matrix:
 
-1. **Inventory**: Inventory active bridge subscriptions for all identities before the test.
-2. **Halt**: Ensure the bridge daemon is stopped and the swarm heartbeat is OFF.
-3. **Neutralize Backlog**: Decide explicitly how the backlog is neutralized before bridge start. This could be disabling non-target bridge subscriptions, advancing/recording `lastSyncId` only after a durable-mailbox audit, or using a targeted bridge/test harness path that ignores backlog.
+1. **Inventory**: Inventory active wake subscriptions for all identities before the test.
+2. **Halt**: Ensure the wake daemon is stopped and the swarm heartbeat is OFF.
+3. **Neutralize Backlog**: Decide explicitly how the backlog is neutralized before wake-daemon start. This could be disabling non-target wake subscriptions, advancing/recording `lastSyncId` only after a durable-mailbox audit, or using a targeted wake-daemon/test harness path that ignores backlog.
 4. **Isolate Test**: Only after neutralizing the backlog, create the unique matrix payload and start exactly ONE controlled delivery attempt.
 
 ## The Validation Matrix
@@ -36,4 +36,4 @@ The following criteria must be satisfied for each supported harness.
 
 Due to the brittle nature of native UI automation across multiple different IDEs and proprietary desktop apps, **live/manual evidence is acceptable** for UI-only assertions (requirements 6-9).
 
-However, deterministic headless unit/integration tests **MUST** be used to validate the backend and bridge adapter intent (requirements 1-5).
+However, deterministic headless unit/integration tests **MUST** be used to validate the backend and wake-daemon adapter intent (requirements 1-5).

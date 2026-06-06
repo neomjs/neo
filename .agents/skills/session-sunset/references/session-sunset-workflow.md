@@ -60,7 +60,7 @@ The "main checkout's updated `dev`" assumption above only holds if the operator 
 
 - Worktree agents (correctly per the Isolated-Worktree rule above) do NOT pull dev into primary.
 - Operators don't always run `git pull origin dev` between sunset events.
-- Daemons running from primary — `orchestrator-daemon` (the canonical Agent OS scheduled-maintenance daemon per `learn/agentos/v13-path.md` M3; currently MVP-shape via #11008, full class extraction in flight under #11009) plus its current and future siblings (`bridge-daemon` for wake delivery, `DreamService` for ingestion, KB sync pipeline) — silently read pre-merge code when primary is stale.
+- Daemons running from primary — `orchestrator-daemon` (the canonical Agent OS scheduled-maintenance daemon per `learn/agentos/v13-path.md` M3; currently MVP-shape via #11008, full class extraction in flight under #11009) plus its current and future siblings (`wake-daemon` for wake delivery, `DreamService` for ingestion, KB sync pipeline) — silently read pre-merge code when primary is stale.
 
 **Mandatory sunset probe (Isolated Worktree branch only):**
 
@@ -79,7 +79,7 @@ BEHIND=$(git -C "$PRIMARY_ROOT" rev-list --count dev..origin/dev 2>/dev/null || 
 
 **Conditional handover-comment block (fire only when `BEHIND > 0`):**
 
-> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. The `orchestrator-daemon` (Agent OS canonical scheduled-maintenance daemon) and its siblings (`bridge-daemon`, `DreamService`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` **then `node <PRIMARY_ROOT>/ai/scripts/setup/initServerConfigs.mjs --migrate-config`** in your main checkout to refresh `orchestrator-daemon` and downstream-daemon state. **A `git pull` alone is not enough:** it updates the committed `config.template.mjs`, but the daemons read the gitignored `config.mjs` operator-overlay — which only reconciles to new template leaves via `--migrate-config`, so without it the daemons run fresh code against stale config.
+> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. The `orchestrator-daemon` (Agent OS canonical scheduled-maintenance daemon) and its siblings (`wake-daemon`, `DreamService`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` **then `node <PRIMARY_ROOT>/ai/scripts/setup/initServerConfigs.mjs --migrate-config`** in your main checkout to refresh `orchestrator-daemon` and downstream-daemon state. **A `git pull` alone is not enough:** it updates the committed `config.template.mjs`, but the daemons read the gitignored `config.mjs` operator-overlay — which only reconciles to new template leaves via `--migrate-config`, so without it the daemons run fresh code against stale config.
 
 When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh primary.
 

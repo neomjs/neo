@@ -1,6 +1,6 @@
 import {execFileSync as defaultExecFileSync} from 'child_process';
 
-import {resolveInstancePid} from '../../../../daemons/bridge/instanceResolver.mjs';
+import {resolveInstancePid} from '../../../../daemons/wake/instanceResolver.mjs';
 import Base from '../../../../../src/core/Base.mjs';
 
 const USER_DATA_DIR_PATTERN = /(?:^|\s)--user-data-dir=(?:"([^"]+)"|'([^']+)'|(.+?))(?=\s--|$)/;
@@ -33,14 +33,14 @@ const USER_DATA_DIR_PATTERN = /(?:^|\s)--user-data-dir=(?:"([^"]+)"|'([^']+)'|(.
  * parent-chain fallback: if this MCP server was spawned under an app/helper process whose command
  * line carries `--user-data-dir`, that path is used as a `userDataDir` address. Otherwise omission
  * remains the normal **default instance** — the primary macOS app started without `--user-data-dir`,
- * routed by the *absence* of an address (see the bridge daemon's default-instance resolution). A
+ * routed by the *absence* of an address (see the wake daemon's default-instance resolution). A
  * partially-set envelope is a configuration error and **fails closed** (throws): a non-default
  * instance with a broken address must never silently fall back to the default route, because that
  * misroutes its wakes into the default instance's window.
  *
  * ## Dispatch coverage
  *
- * The bridge daemon dispatches the generic `{instanceAddress, addressType}` pair directly:
+ * The wake daemon dispatches the generic `{instanceAddress, addressType}` pair directly:
  * `userDataDir` resolves to a same-bundle GUI process, `pid` targets that process directly,
  * `tmuxSession` sends to tmux, and `webhookUrl` posts the wake digest. The earlier transitional
  * `userDataDir` mirror is retired here; legacy subscriptions that already carry that field remain
@@ -77,7 +77,7 @@ class BootEnvelopeResolver extends Base {
 
     /**
      * @member {String[]} dispatchableAddressTypes
-     * The subset of {@link validAddressTypes} the bridge daemon can route today.
+     * The subset of {@link validAddressTypes} the wake daemon can route today.
      */
     dispatchableAddressTypes = ['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']
 
@@ -138,7 +138,7 @@ class BootEnvelopeResolver extends Base {
         if (!this.dispatchableAddressTypes.includes(addressType)) {
             throw new Error(
                 `Boot-envelope addressType '${addressType}' is recognized but its wake dispatch ` +
-                `is not yet implemented (the bridge daemon currently routes: ` +
+                `is not yet implemented (the wake daemon currently routes: ` +
                 `${this.dispatchableAddressTypes.join(', ')}). Failing closed to avoid misrouting.`
             );
         }
@@ -180,7 +180,7 @@ class BootEnvelopeResolver extends Base {
             return null;
         }
 
-        // Reuse the bridge daemon's main-pid resolver as the final proof that the discovered
+        // Reuse the wake daemon's main-pid resolver as the final proof that the discovered
         // address maps to a concrete Electron app instance. If the snapshot cannot prove that,
         // fail closed rather than emitting a route that might mis-target.
         if (resolveInstancePid({userDataDir, psOutput: snapshot}) === null) {
