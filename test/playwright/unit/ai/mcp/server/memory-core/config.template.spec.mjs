@@ -122,6 +122,10 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/unified');
     });
 
+    test('inherits the Tier-1 active-session idle threshold (#9959)', () => {
+        expect(config.orchestrator.swarmHeartbeat.idleThresholdMs).toBe(10 * 60 * 1000);
+    });
+
     test('inherits concrete graphProvider defaults from Tier-1 config', () => {
         expect(TIER1_DEFAULTS.graphProvider).toBe('openAiCompatible');
         expect(config.graphProvider).toBe('openAiCompatible');

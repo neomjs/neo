@@ -28,6 +28,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: true});
 
+let cleanupSDK;
+
+test.afterAll(async () => {
+    if (!cleanupSDK) return;
+
+    const { cleanupChromaManager } = await import('./util.mjs');
+    await cleanupChromaManager(cleanupSDK);
+});
+
 test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
@@ -36,16 +45,8 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     const testTs  = Date.now();
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const path = await import("path");
-        const tmpDir = path.resolve(process.cwd(), "tmp");
-        aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
-
-        // Isolate collections to prevent pollution
-        aiConfig.collections.memory  = `test-reranker-mem-${testPid}-${testTs}`;
-        aiConfig.collections.session = `test-reranker-sum-${testPid}-${testTs}`;
-
         SDK                  = await import('../../../../../../ai/services.mjs');
+        cleanupSDK           = SDK;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
 
         // Force offline mode — mock embeddings with deterministic 4096D vectors
@@ -81,11 +82,6 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
                 model    : 'test-model'
             });
         }
-    });
-
-    test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager(SDK);
     });
 
     test('StorageRouter re-ranker should NOT crash when ChromaDB returns empty/malformed query results', async () => {
@@ -175,19 +171,16 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
 test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
-    let SDK, TextEmbeddingService, driftSessionId;
+    let SDK, TextEmbeddingService, RequestContextService, callTool, driftSessionId;
     const testPid = process.pid;
     const testTs  = Date.now();
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-
-        // Use SEPARATE isolated collections from the previous describe block
-        aiConfig.collections.memory  = `test-drift-mem-${testPid}-${testTs}`;
-        aiConfig.collections.session = `test-drift-sum-${testPid}-${testTs}`;
-
-        SDK                  = await import('../../../../../../ai/services.mjs');
-        TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        SDK                   = await import('../../../../../../ai/services.mjs');
+        cleanupSDK            = SDK;
+        TextEmbeddingService  = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        ({callTool}           = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
 
         SDK.Memory_Config.data.embeddingProvider       = 'openAiCompatible';
         SDK.Memory_Config.data.autoSummarize           = false;
@@ -204,10 +197,50 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         await SDK.Memory_ChromaManager.ready();
     });
 
-    test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager(SDK);
-    });
+    function callToolAs(agentIdentity, toolName, args) {
+        const userId = agentIdentity.startsWith('@') ? agentIdentity.slice(1) : agentIdentity;
+
+        return RequestContextService.run({
+            agentIdentityNodeId: agentIdentity,
+            source             : 'unit-test',
+            userId
+        }, () => callTool(toolName, args));
+    }
+
+    function subscribeActiveWakeRoute(agentIdentity) {
+        return callToolAs(agentIdentity, 'manage_wake_subscription', {
+            action               : 'subscribe',
+            trigger              : 'SENT_TO_ME',
+            filters              : {taggedConcepts: [`unit-${crypto.randomUUID()}`]},
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {
+                appName: 'Codex'
+            }
+        });
+    }
+
+    async function addToolMemory({sessionId, agentIdentity, prompt = 'Externally active session memory'}) {
+        const result = await callToolAs(agentIdentity, 'add_memory', {
+            prompt,
+            thought: 'Unit test active-session fixture.',
+            response: 'Stored through the MCP add_memory tool shape.',
+            sessionId,
+            agent: agentIdentity,
+            model: 'unit-test-model',
+            amountToolCalls: 0,
+            toolsUsed: ['unit-test']
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.sessionId).toBe(sessionId);
+
+        return result;
+    }
+
+    async function seedExternallyActiveSession({sessionId, agentIdentity, prompt}) {
+        await subscribeActiveWakeRoute(agentIdentity);
+        return addToolMemory({sessionId, agentIdentity, prompt});
+    }
 
     test('findSessionsToSummarize should detect unsummarized sessions with epoch timestamps', async () => {
         driftSessionId = crypto.randomUUID();
@@ -260,6 +293,136 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
 
         // The active session should NOT be in the list
         expect(sessionsToSummarize).not.toContain(activeSessionId);
+    });
+
+    test('#9959: findSessionsToSummarize should exclude externally active peer sessions from drift detection', async () => {
+        const activeSessionId = `external-active-${crypto.randomUUID()}`;
+        const agentIdentity   = '@neo-gpt';
+        const now             = Date.now();
+
+        await seedExternallyActiveSession({
+            sessionId: activeSessionId,
+            agentIdentity
+        });
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
+        expect(externallyActiveSessionIds.has(activeSessionId)).toBe(true);
+
+        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+        expect(sessionsToSummarize).not.toContain(activeSessionId);
+    });
+
+    test('#9959: externally active detection should protect parallel sessions for the same identity', async () => {
+        const firstSessionId  = `external-active-a-${crypto.randomUUID()}`;
+        const secondSessionId = `external-active-b-${crypto.randomUUID()}`;
+        const agentIdentity   = '@neo-opus-ada';
+        const now             = Date.now();
+
+        await subscribeActiveWakeRoute(agentIdentity);
+        await addToolMemory({
+            sessionId: firstSessionId,
+            agentIdentity,
+            prompt   : 'First parallel externally active session memory'
+        });
+        await addToolMemory({
+            sessionId: secondSessionId,
+            agentIdentity,
+            prompt   : 'Second parallel externally active session memory'
+        });
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
+        expect(externallyActiveSessionIds.has(firstSessionId)).toBe(true);
+        expect(externallyActiveSessionIds.has(secondSessionId)).toBe(true);
+
+        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+        expect(sessionsToSummarize).not.toContain(firstSessionId);
+        expect(sessionsToSummarize).not.toContain(secondSessionId);
+    });
+
+    test('#9959: explicit named-session summarization should bypass the externally active drift filter', async () => {
+        const activeSessionId = `explicit-active-${crypto.randomUUID()}`;
+        const agentIdentity   = '@neo-claude-opus';
+        const now             = Date.now();
+
+        await seedExternallyActiveSession({
+            sessionId: activeSessionId,
+            agentIdentity
+        });
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
+        expect(externallyActiveSessionIds.has(activeSessionId)).toBe(true);
+
+        const originalClaim     = SDK.Memory_SessionService.claimSummarizationJob;
+        const originalSummarize = SDK.Memory_SessionService.summarizeSession;
+        const originalComplete  = SDK.Memory_SessionService.completeSummarizationJob;
+        const originalFail      = SDK.Memory_SessionService.failSummarizationJob;
+
+        const calls = [];
+
+        SDK.Memory_SessionService.claimSummarizationJob = (sessionId) => {
+            calls.push({type: 'claim', sessionId});
+            return true;
+        };
+        SDK.Memory_SessionService.summarizeSession = async (sessionId) => {
+            calls.push({type: 'summarize', sessionId});
+            return {
+                sessionId,
+                summaryId   : `summary_${sessionId}`,
+                title       : 'Explicit Active Summary',
+                memoryCount : 1
+            };
+        };
+        SDK.Memory_SessionService.completeSummarizationJob = (sessionId) => {
+            calls.push({type: 'complete', sessionId});
+        };
+        SDK.Memory_SessionService.failSummarizationJob = (sessionId) => {
+            calls.push({type: 'fail', sessionId});
+        };
+
+        try {
+            const result = await SDK.Memory_SessionService.summarizeSessions({sessionId: activeSessionId});
+
+            expect(result.processed).toBe(1);
+            expect(result.sessions[0].sessionId).toBe(activeSessionId);
+            expect(calls).toEqual([
+                {type: 'claim', sessionId: activeSessionId},
+                {type: 'summarize', sessionId: activeSessionId},
+                {type: 'complete', sessionId: activeSessionId}
+            ]);
+        } finally {
+            SDK.Memory_SessionService.claimSummarizationJob     = originalClaim;
+            SDK.Memory_SessionService.summarizeSession          = originalSummarize;
+            SDK.Memory_SessionService.completeSummarizationJob  = originalComplete;
+            SDK.Memory_SessionService.failSummarizationJob      = originalFail;
+        }
+    });
+
+    test('#9959: findSessionsToSummarize should keep stale peer sessions eligible for self-healing', async () => {
+        const staleSessionId = `external-stale-${crypto.randomUUID()}`;
+        const agentIdentity  = '@neo-opus-vega';
+        const memoryTs       = Date.now();
+        const futureNow      = memoryTs + (11 * 60 * 1000);
+
+        await seedExternallyActiveSession({
+            sessionId: staleSessionId,
+            agentIdentity,
+            prompt: 'Externally stale session memory'
+        });
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({
+            now: futureNow
+        });
+        expect(externallyActiveSessionIds.has(staleSessionId)).toBe(false);
+
+        const originalDateNow = Date.now;
+        Date.now = () => futureNow;
+
+        try {
+            const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+            expect(sessionsToSummarize).toContain(staleSessionId);
+        } finally {
+            Date.now = originalDateNow;
+        }
     });
 
     test('ChromaDB $gt filter should correctly compare epoch timestamps', async () => {
