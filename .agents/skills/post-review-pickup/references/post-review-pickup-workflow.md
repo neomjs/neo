@@ -253,7 +253,9 @@ after the normal collision checks.
 Before claiming `halt-state`, the positive backlog survey must name the surfaces
 checked. Minimum shape:
 
-- targeted unread review / re-review requests;
+- targeted review / re-review requests **where you are the assigned github
+  reviewer** (verify: `gh pr view <N> --json reviewRequests`) — do not claim a PR
+  review you were not assigned to;
 - assigned issues and currently self-authored PR follow-ups;
 - recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
   for collision state;
