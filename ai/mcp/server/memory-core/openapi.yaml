@@ -1547,33 +1547,6 @@ components:
                         count:
                           type: integer
                           example: 56
-                    queryCanary:
-                      type: object
-                      nullable: true
-                      description: "Per-collection query-path canary: probes each collection's query() with a dimension-matched vector. A populated collection that count()s but cannot query() (corrupt/desynced vector segment) reports degraded here, closing the count-only blindspot where such a collection previously passed as healthy."
-                      properties:
-                        status:
-                          type: string
-                          enum: [healthy, degraded]
-                          example: "healthy"
-                        error:
-                          type: string
-                          description: "Present when degraded — names the failing collection(s) + reason."
-                        collections:
-                          type: object
-                          description: "Per-collection canary result keyed by collection type (memory, summary)."
-                          additionalProperties:
-                            type: object
-                            properties:
-                              status:
-                                type: string
-                                enum: [healthy, degraded]
-                              count:
-                                type: integer
-                              signature:
-                                type: string
-                              error:
-                                type: string
         features:
           type: object
           properties:

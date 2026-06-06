@@ -226,10 +226,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
     const makeCollection = countGetter => ({
         count: async () => countGetter(),
-        get  : async () => ({ids: [], metadatas: []}),
-        // Queryable-healthy stub: the per-collection query-canary probes query() and degrades on a
-        // throw / _degraded marker. A no-_degraded result models a healthy, reachable collection.
-        query: async () => ({ids: [[]], distances: [[]], metadatas: [[]], documents: undefined})
+        get  : async () => ({ids: [], metadatas: []})
     });
 
     test.beforeAll(async () => {
@@ -331,27 +328,6 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         const ensureHealthyFastPath = await HealthService.healthcheck({freshObservability: false});
         expect(ensureHealthyFastPath).toBe(cached);
         expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
-    });
-
-    test('query canary degrades status when a populated collection cannot be queried', async () => {
-        // Corrupt/unqueryable summary collection: count() works but query() throws the corruption
-        // signature (in production the re-ranker returns the _degraded marker; here the canary catches
-        // the throw directly). This is the count-only blindspot the query-canary closes.
-        StorageRouter.getSummaryCollection = async () => ({
-            count: async () => 20,
-            get  : async () => ({ids: [], metadatas: []}),
-            query: async () => { throw new Error('Error executing plan: Internal error: Error finding id'); }
-        });
-
-        const health = await HealthService.healthcheck();
-
-        expect(health.status).toBe('degraded');
-
-        const canary = health.database.connection.collections.queryCanary;
-        expect(canary.status).toBe('degraded');
-        expect(canary.collections.summary.status).toBe('degraded');
-        expect(canary.collections.memory.status).toBe('healthy');
-        expect(health.details.some(d => d.startsWith('Collection query canary failed:'))).toBe(true);
     });
 
     test('direct healthcheck reuses a recent healthy embedding write canary', async () => {

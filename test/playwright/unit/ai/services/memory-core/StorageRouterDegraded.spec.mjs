@@ -131,4 +131,40 @@ test.describe('memory-core degraded-query tool envelopes', () => {
             StorageRouter.getMemoryCollection = orig;
         }
     });
+
+    // The healthcheck query-canary was removed (it bloated the always-on payload); the same detection
+    // now lives as an on-demand StorageRouter method (+ ai/scripts/maintenance/probeCollectionQueryHealth.mjs).
+    // This proves the capability survives the move: a populated-but-unqueryable collection still surfaces
+    // as degraded (named, with signature) when an operator opts in to probe.
+    test('StorageRouter.probeCollectionQueryHealth() surfaces a degraded collection on-demand (off the healthcheck path)', async () => {
+        const origMem = StorageRouter.getMemoryCollection,
+              origSum = StorageRouter.getSummaryCollection;
+
+        StorageRouter.getMemoryCollection  = async () => ({
+            count: async () => 5,
+            query: async () => ({ids: [[]], distances: [[]], metadatas: [[]], documents: undefined})
+        });
+        StorageRouter.getSummaryCollection = async () => ({
+            count: async () => 20,
+            query: async () => ({
+                ids: [[]], distances: [[]], metadatas: [[]], documents: undefined,
+                _degraded          : true,
+                _degradedReason    : 'Error executing plan: Internal error: Error finding id',
+                _degradedCollection: 'summary',
+                _degradedSignature : 'chroma-error-finding-id'
+            })
+        });
+
+        try {
+            const res = await StorageRouter.probeCollectionQueryHealth();
+
+            expect(res.status).toBe('degraded');
+            expect(res.collections.memory.status).toBe('healthy');
+            expect(res.collections.summary.status).toBe('degraded');
+            expect(res.collections.summary.signature).toBe('chroma-error-finding-id');
+        } finally {
+            StorageRouter.getMemoryCollection  = origMem;
+            StorageRouter.getSummaryCollection = origSum;
+        }
+    });
 });

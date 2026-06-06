@@ -2,6 +2,7 @@ import Base            from '../../../../src/core/Base.mjs';
 import CollectionProxy from './CollectionProxy.mjs';
 import GraphService    from '../GraphService.mjs';
 import logger          from '../../../mcp/server/memory-core/logger.mjs';
+import aiConfig        from '../../../mcp/server/memory-core/config.mjs';
 
 /**
  * StorageRouter acts as a transparent Proxy pattern for the underlying vector databases.
@@ -53,6 +54,56 @@ class StorageRouter extends Base {
     async getGraphCollection() {
         const proxy = Neo.create(CollectionProxy, { collectionType: 'graph' });
         return proxy;
+    }
+
+    /**
+     * @summary On-demand probe of each collection's vector-query (HNSW) path.
+     *
+     * A populated-but-corrupt collection passes `count()` but throws on `query()` (e.g. a desynced
+     * HNSW segment raising "Error finding id"). `injectQueryReRanker` catches that and stamps a
+     * `_degraded` marker; this probe surfaces it per collection. It deliberately lives as a method +
+     * `ai/scripts/maintenance/probeCollectionQueryHealth.mjs` script — NOT a healthcheck field and NOT
+     * an MCP tool — so the always-on "is it healthy?" poll stays terse and the per-collection query
+     * cost (plus its response-schema bytes) is paid only when an operator opts in.
+     *
+     * @returns {Promise<Object>} `{status: 'healthy'|'degraded', collections: {memory, summary}}`
+     */
+    async probeCollectionQueryHealth() {
+        const dimension   = aiConfig.vectorDimension || 4096,
+              probe       = new Array(dimension).fill(0),
+              collections = {},
+              probes      = [
+                  {type: 'memory',  get: () => this.getMemoryCollection()},
+                  {type: 'summary', get: () => this.getSummaryCollection()}
+              ];
+
+        // Unit vector — non-degenerate for ANN distance; the content is irrelevant to the probe,
+        // which only cares whether the query path traverses the vector segment without throwing.
+        probe[0] = 1;
+
+        let degraded = null;
+
+        for (const {type, get} of probes) {
+            try {
+                const collection = await get();
+                const count      = await collection.count().catch(() => 0);
+                const res        = await collection.query({queryEmbeddings: [probe], nResults: 1});
+
+                if (res?._degraded) {
+                    collections[type] = {status: 'degraded', count, signature: res._degradedSignature, error: res._degradedReason};
+                    degraded = degraded || `${type}: ${res._degradedReason}`;
+                } else {
+                    collections[type] = {status: 'healthy', count};
+                }
+            } catch (e) {
+                collections[type] = {status: 'degraded', error: e.message};
+                degraded = degraded || `${type}: ${e.message}`;
+            }
+        }
+
+        return degraded
+            ? {status: 'degraded', error: degraded, collections}
+            : {status: 'healthy', collections};
     }
 
     /**

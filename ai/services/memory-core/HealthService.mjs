@@ -859,23 +859,6 @@ class HealthService extends Base {
     #embeddingWriteCanaryCacheDuration = 60 * 1000;
 
     /**
-     * Caches the healthy per-collection query-canary result, mirroring the embedding write-canary
-     * cache: a populated collection whose vector segment is corrupt passes `count()` but throws on
-     * `query()`, so the query path needs its own probe. Only healthy results are cached, so a
-     * degraded collection re-probes immediately while a recent success avoids re-querying every poll.
-     * @member {Object|null} #collectionQueryCanaryCache
-     * @private
-     */
-    #collectionQueryCanaryCache = null;
-
-    /**
-     * Bounded TTL for the collection query-canary cache (same window as the write canary).
-     * @member {number} #collectionQueryCanaryCacheDuration
-     * @private
-     */
-    #collectionQueryCanaryCacheDuration = 60 * 1000;
-
-    /**
      * The status from the previous health check, used to detect state transitions
      * (e.g., recovery from 'unhealthy' to 'healthy') and log meaningful messages.
      * @member {string|null} #previousStatus
@@ -1052,7 +1035,6 @@ class HealthService extends Base {
             }
         };
 
-        await this.#applyCollectionQueryCanary(freshPayload);
         return this.#applyEmbeddingWriteCanary(freshPayload);
     }
 
@@ -1289,104 +1271,6 @@ class HealthService extends Base {
     }
 
     /**
-     * @summary Adds the per-collection query canary to a healthcheck payload and degrades when a
-     * populated collection cannot be queried.
-     *
-     * Closes the count-only blindspot: `#checkCollections` reports `count()`, which still succeeds on
-     * a collection whose HNSW/vector segment is desynced — so a corrupt collection that throws on every
-     * `query()` previously passed as `healthy`. The re-ranker stays non-throwing and stamps a
-     * `_degraded` marker on such a failure, which this canary surfaces (named, with the signature).
-     *
-     * @param {Object} payload Mutable healthcheck payload under construction.
-     * @returns {Promise<Object>}
-     * @private
-     */
-    async #applyCollectionQueryCanary(payload) {
-        const canary = await this.#getCollectionQueryCanary();
-
-        payload.database = payload.database || {};
-        payload.database.connection = payload.database.connection || {};
-        payload.database.connection.collections = {
-            ...(payload.database.connection.collections || {}),
-            queryCanary: canary
-        };
-
-        if (canary.status !== 'healthy') {
-            payload.status = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
-            payload.details = (payload.details || [])
-                .filter(detail => detail !== 'All features are operational')
-                .filter(detail => !detail.startsWith('Collection query canary failed:'));
-            payload.details.push(`Collection query canary failed: ${canary.error || 'unknown error'}`);
-        }
-
-        return payload;
-    }
-
-    /**
-     * Probes each active collection's query path with a tiny canary query, caching healthy results
-     * on a short TTL like the embedding write-canary.
-     *
-     * A dimension-matched probe vector is supplied via `queryEmbeddings`, so the canary isolates the
-     * vector-query / HNSW path from the embedding provider (which the write-canary already covers).
-     * The re-ranker catches a Pass-1 throw and returns a `_degraded` marker, so a corrupt collection
-     * surfaces here as `degraded` (named, with the underlying signature) rather than a silent empty.
-     *
-     * @returns {Promise<Object>} `{status, collections: {memory, summary}}`
-     * @private
-     */
-    async #getCollectionQueryCanary() {
-        const now    = Date.now(),
-              cached = this.#collectionQueryCanaryCache;
-
-        if (cached && now - cached.checkedAt < this.#collectionQueryCanaryCacheDuration) {
-            return {...cached.result};
-        }
-
-        const dimension   = aiConfig.vectorDimension || 4096,
-              probe       = new Array(dimension).fill(0),
-              collections = {},
-              probes      = [
-                  {type: 'memory',  get: () => StorageRouter.getMemoryCollection()},
-                  {type: 'summary', get: () => StorageRouter.getSummaryCollection()}
-              ];
-
-        // Unit vector — non-degenerate for ANN distance; the content is irrelevant to the canary,
-        // which only cares whether the query path traverses the vector segment without throwing.
-        probe[0] = 1;
-
-        let degraded = null;
-
-        for (const {type, get} of probes) {
-            try {
-                const collection = await get();
-                const count      = await collection.count().catch(() => 0);
-                const res        = await collection.query({queryEmbeddings: [probe], nResults: 1});
-
-                if (res?._degraded) {
-                    collections[type] = {status: 'degraded', count, signature: res._degradedSignature, error: res._degradedReason};
-                    degraded = degraded || `${type}: ${res._degradedReason}`;
-                } else {
-                    collections[type] = {status: 'healthy', count};
-                }
-            } catch (e) {
-                collections[type] = {status: 'degraded', error: e.message};
-                degraded = degraded || `${type}: ${e.message}`;
-            }
-        }
-
-        const result = degraded
-            ? {status: 'degraded', error: degraded, collections}
-            : {status: 'healthy', collections};
-
-        // Cache only healthy results so a degraded collection re-probes immediately.
-        this.#collectionQueryCanaryCache = result.status === 'healthy'
-            ? {checkedAt: now, result: {...result}}
-            : null;
-
-        return result;
-    }
-
-    /**
      * Performs a comprehensive health check without using the cache.
      *
      * Intent: This is the core health check logic, separated from the caching layer
@@ -1489,7 +1373,6 @@ class HealthService extends Base {
         }
 
         await this.#applyEmbeddingWriteCanary(payload);
-        await this.#applyCollectionQueryCanary(payload);
 
         // Step 3: Check API key for summarization feature
         const apiKeyConfigured = this.#checkApiKeyConfigured();
@@ -1728,7 +1611,6 @@ class HealthService extends Base {
         this.#cachedHealth                = null;
         this.#lastCheckTime               = null;
         this.#embeddingWriteCanaryCache   = null;
-        this.#collectionQueryCanaryCache  = null;
         logger.debug('[HealthService] Cache cleared, next health check will be fresh');
     }
 }
