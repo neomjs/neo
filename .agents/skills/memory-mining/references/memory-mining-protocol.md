@@ -23,6 +23,7 @@ Before you propose, compare, or describe:
 - A comparison against external work (e.g. Karpathy Autoresearch, industry patterns, published research)
 - A non-obvious architectural pattern ("should we X or Y?", "what's the Neo way to do Z?")
 - A description of what the project is or where it stands relative to peers
+- A "similar to X" or precedent-comparison cue that would turn a prior ticket, PR, tool description, or sibling implementation into a new rule
 
 If you are about to narrate the organism's state, the organism has probably already narrated itself. Check first.
 
@@ -100,7 +101,7 @@ If neither appears, you have not actually mined; you have theatrically waved at 
 
 ## Integration with other skills
 
-- **`ticket-intake` §1.3 (Historical Amnesia Check)** — the intake skill's Historical Amnesia step IS a memory-mining invocation in a specific context. When running ticket-intake, the memory-mining query is baked into the gate; you do not need to invoke this skill separately unless the intake surfaces a regression symptom that warrants a second sweep.
+- **`ticket-intake` Validation Sweep (Historical Amnesia Check)** — the intake skill's Historical Amnesia step IS a memory-mining invocation in a specific context. When running ticket-intake, the memory-mining query is baked into the gate; you do not need to invoke this skill separately unless the intake surfaces a regression symptom that warrants a second sweep.
 - **`self-repair`** — complementary. Self-repair handles sick infrastructure (MCP server failures, test-suite regressions). Memory-mining handles intact infrastructure where prior reasoning exists but hasn't been surfaced.
 - **`tech-debt-radar`** — also semantic-RAG-driven, but scoped to proactive debt sweeps. Memory-mining is reactive (symptom or claim triggers it); tech-debt-radar is scheduled.
 
