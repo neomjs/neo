@@ -117,6 +117,8 @@ add_message({
 });
 ```
 
+**Wake-control (the `add_message` `wakeSuppressed` param, relaxed in #12635):** the wake is orthogonal to the lane-primitive above. **Actionable** A2A — `[lane-claim]` / `[lane-override]`, "you're the reviewer", `REQUEST_CHANGES`, a lane claimed on you — MUST wake (omit `wakeSuppressed`). **Awareness-only** broadcasts — FYI PR-opened (you're not the reviewer), lane-progress pings, acks — MAY set `wakeSuppressed: true` to cut noise; the recipient still receives them, surfaced on their next `list_messages` rather than via an interrupt. (Additive to the original session-sunset self-DM suppression, which stays valid.)
+
 ### 6.5.1 Lane-Override Protocol (`[lane-override]`)
 
 *(Codified per #11537 AC10, graduated from Discussion #11536 OQ6 resolution.)*
