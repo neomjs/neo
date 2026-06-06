@@ -8,7 +8,7 @@ The name is intentional: like biological REM sleep, the system processes the day
 experiences overnight and wakes up with a clearer model of the world.
 
 For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
-For the agent delegation model, see [Swarm Intelligence](./SwarmIntelligence.md).
+For the intra-harness sub-agent delegation model (tactical tooling within a single agent's cognitive loop), see [Swarm Intelligence](./SwarmIntelligence.md).
 
 ## The Philosophy
 
@@ -346,28 +346,36 @@ flowchart LR
     classDef session fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
     classDef dream fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
     classDef db fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
-    classDef orch fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
+    classDef peer fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
+    classDef human fill:#4a1942,stroke:#e94560,stroke-width:2px,color:#eee
 
     Sessions["Agent Sessions"]:::session
     Dream["DreamService"]:::dream
     Graph["Native Edge Graph"]:::db
     Handoff["sandman_handoff.md"]:::dream
-    Orch["Orchestrator"]:::orch
-    Agent["Autonomous Agent"]:::session
+    Peers["Peer Maintainers"]:::peer
+    Operator["Human Operator"]:::human
 
     Sessions -->|"raw memories"| Dream
     Dream -->|"tri-vectors"| Graph
     Dream -->|"gap inference"| Graph
     Dream -->|"golden path"| Handoff
     Graph -->|"topology + vectors"| Dream
-    Handoff -->|"directives"| Orch
-    Orch -->|"scheduled events"| Agent
-    Agent -->|"new sessions"| Sessions
+    Handoff -.->|"advisory forecast"| Peers
+    Operator -.->|"direction, not assignment"| Peers
+    Peers -->|"self-selected work"| Sessions
 ```
 
 The closed loop: agents create sessions → DreamService digests sessions into graph
-intelligence → graph intelligence informs the Golden Path → Golden Path directs the
-Orchestrator → Orchestrator schedules agent work → agents create new sessions.
+intelligence → graph intelligence informs the Golden Path → the Golden Path is an
+**advisory forecast** (not a work queue): peer maintainers read it and **self-select**
+what to pick up, while the human operator steers direction rather than assigning tickets
+→ the work they choose produces new sessions.
+
+The autonomous runner (`AgentOrchestrator.parseGoldenPath()`) is one *optional* consumer
+of the same advisory handoff — during unattended cycles it auto-processes the top
+`## Computed Golden Path` recommendations. Even then it surfaces the math's forecast; it
+is not an externally assigned queue.
 
 The system evolves by predicting its own evolution.
 
@@ -408,7 +416,7 @@ This is by design — Project metadata is a presentation/coordination convenienc
 ## Related Guides
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) — Platform-level topology
-- [Swarm Intelligence](./SwarmIntelligence.md) — Delegation model and Orchestrator
+- [Swarm Intelligence](./SwarmIntelligence.md) — Sub-agent delegation model and Orchestrator
 - [The Memory Core Server](./MemoryCore.md) — Episodic memory and graph storage
 - [The Knowledge Base Server](./KnowledgeBase.md) — Semantic RAG architecture
 - [The GitHub Workflow Server](./GitHubWorkflow.md) — issue substrate + ProjectV2 derived-view rules
