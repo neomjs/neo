@@ -437,6 +437,71 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(node.properties.readAt).toBeNull();
     });
 
+    test('addMessage stores structured wakeMetadata and surfaces it via getMessage + listMessages (#11909)', async () => {
+        const wakeMetadata = {
+            type                    : 'idle-out-nudge',
+            expectedAction          : 'pick-next-lane',
+            currentLifecycleState   : 'idle',
+            suggestedQueries        : ['list_messages', 'list_pull_requests'],
+            currentSubstrateSnapshot: { openPrCount: 3 }
+        };
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to      : '@alice',
+                subject : 'Idle-out nudge',
+                body    : 'free-form summary for humans',
+                wakeMetadata
+            });
+            msgId = res.messageId;
+
+            // Consumer A: getMessage returns the full structured block verbatim.
+            const message = await MailboxService.getMessage({ messageId: msgId });
+            expect(message.wakeMetadata).toEqual(wakeMetadata);
+
+            // Consumer B: listMessages surfaces the block AND hoists a top-level
+            // wakeType so receivers triage by it without re-parsing the metadata.
+            const inbox   = await MailboxService.listMessages({ status: 'unread' });
+            const summary = inbox.messages.find(msg => msg.messageId === msgId);
+            expect(summary).toBeDefined();
+            expect(summary.wakeMetadata).toEqual(wakeMetadata);
+            expect(summary.wakeType).toBe('idle-out-nudge');
+        });
+
+        // Storage: persisted verbatim on the message node (mirrors the `task` field).
+        const node = GraphService.db.nodes.get(msgId);
+        expect(node.properties.wakeMetadata).toEqual(wakeMetadata);
+    });
+
+    test('addMessage omits wakeMetadata for free-form wakes and rejects non-object values (#11909)', async () => {
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            // Backward-compat: a free-form wake (no wakeMetadata) flows through
+            // unchanged — nothing stored, nothing surfaced, no wakeType hoisted.
+            const res = await MailboxService.addMessage({ to: '@alice', subject: 'Free-form', body: 'plain wake' });
+            msgId = res.messageId;
+
+            const message = await MailboxService.getMessage({ messageId: msgId });
+            expect(message.wakeMetadata).toBeUndefined();
+
+            const inbox   = await MailboxService.listMessages({ status: 'unread' });
+            const summary = inbox.messages.find(msg => msg.messageId === msgId);
+            expect(summary.wakeMetadata).toBeUndefined();
+            expect(summary.wakeType).toBeUndefined();
+
+            // Validation guard: a non-plain-object wakeMetadata is rejected rather
+            // than silently persisting a malformed structured block.
+            await expect(MailboxService.addMessage({ to: '@alice', subject: 'Bad', body: 'x', wakeMetadata: 'not-an-object' }))
+                .rejects.toThrow(/wakeMetadata must be a plain object/);
+            await expect(MailboxService.addMessage({ to: '@alice', subject: 'Bad', body: 'x', wakeMetadata: ['array'] }))
+                .rejects.toThrow(/wakeMetadata must be a plain object/);
+        });
+
+        const node = GraphService.db.nodes.get(msgId);
+        expect(node.properties.wakeMetadata).toBeUndefined();
+    });
+
     test('Reachable Counterparty exception permits replies without explicit grant', async () => {
         // Alice sends to Bob (alice can send to broadcast or we need to ensure alice can send)
         // Actually, to send initially, we need permission unless it is broadcast.

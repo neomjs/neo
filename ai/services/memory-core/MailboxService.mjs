@@ -379,9 +379,16 @@ class MailboxService extends Base {
      *   claim-and-lock semantics. Schema follows Neo's A2A hybrid contract: an A2A spec subset plus
      *   Neo extensions such as `expiresAt` and `Blocked`. See
      *   {@link https://a2a-protocol.org/latest/specification/} for the canonical Task envelope.
+     * @param {Object} [args.wakeMetadata] Optional structured wake-context metadata so the receiving
+     *   agent can program against the wake instead of parsing free-form subject/body. Fields: `type`
+     *   (e.g. `idle-out-nudge` / `sunset-handover` / `review-request`), `expectedAction` (machine-readable
+     *   next step), `currentLifecycleState`, `suggestedQueries` (`String[]`), `currentSubstrateSnapshot`
+     *   (e.g. `{openPrCount}`). Stored verbatim on the MESSAGE node and surfaced by get_message +
+     *   list_messages (the latter also extracts a top-level `wakeType` for triage). Backward-compatible:
+     *   omit for free-form wakes.
      * @returns {Promise<Object>}
      */
-    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task }) {
+    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task, wakeMetadata }) {
         const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
@@ -510,6 +517,17 @@ class MailboxService extends Base {
                 throw new Error(`Invalid task state: ${task.state}. Must be one of: ${MailboxService.VALID_TASK_STATES.join(', ')}`);
             }
             messageProperties.task = task;
+        }
+
+        // Optional structured wake-context metadata so receivers program against the wake
+        // (type / expectedAction / lifecycle / queries / substrate snapshot) instead of parsing
+        // free-form text. Stored verbatim and surfaced by get_message + list_messages; omit for
+        // free-form wakes so existing senders flow through unchanged.
+        if (wakeMetadata !== undefined) {
+            if (typeof wakeMetadata !== 'object' || wakeMetadata === null || Array.isArray(wakeMetadata)) {
+                throw new Error('wakeMetadata must be a plain object when provided.');
+            }
+            messageProperties.wakeMetadata = wakeMetadata;
         }
 
         GraphService.upsertNode({
@@ -739,6 +757,12 @@ class MailboxService extends Base {
                     };
                     if (messageNode.properties.task !== undefined) summary.task = messageNode.properties.task;
                     if (messageNode.properties.wakeSuppressed) summary.wakeSuppressed = true;
+                    if (messageNode.properties.wakeMetadata !== undefined) {
+                        summary.wakeMetadata = messageNode.properties.wakeMetadata;
+                        // Top-level wakeType so receivers triage by it (e.g. summary.wakeType ===
+                        // 'idle-out-nudge') without re-parsing the metadata block.
+                        if (messageNode.properties.wakeMetadata.type) summary.wakeType = messageNode.properties.wakeMetadata.type;
+                    }
                     // Surface archive + retracted state so callers can render distinctly.
                     if (archivedAt) summary.archivedAt = archivedAt;
                     if (messageNode.properties.retracted) summary.retracted = true;
@@ -834,6 +858,7 @@ class MailboxService extends Base {
         };
         if (messageNode.properties.task !== undefined) result.task = messageNode.properties.task;
         if (messageNode.properties.wakeSuppressed) result.wakeSuppressed = true;
+        if (messageNode.properties.wakeMetadata !== undefined) result.wakeMetadata = messageNode.properties.wakeMetadata;
         return result;
     }
 
