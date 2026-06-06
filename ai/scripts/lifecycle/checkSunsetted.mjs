@@ -11,7 +11,7 @@
  *     per-harness terminal restart.
  *   - **`idle_out_candidate`** (recoverable): subscription is active AND the
  *     last `AGENT_MEMORY` is older than the configured idle threshold
- *     (`AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs`, env `IDLE_THRESHOLD_MS`,
+ *     (`AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs`, env `NEO_IDLE_THRESHOLD_MS`,
  *     10 min default — the same leaf `checkAllAgentIdle.mjs` reads). Recovery: in-place A2A
  *     heartbeat nudge — bounded, non-spawning, idempotent.
  *
@@ -54,7 +54,7 @@
  * @see ai/scripts/lifecycle/inflightLock.mjs        — in-flight recovery lock primitive
  * @see ai/daemons/SwarmHeartbeatService.mjs — primary consumer of detector output
  * @see ai/scripts/lifecycle/resumeHarness.mjs       — sunset-mode action dispatcher
- * @see ai/scripts/lifecycle/trioWakeCooldown.mjs    — idle-out-mode action dispatcher
+ * @see ai/scripts/lifecycle/swarmWakeCooldown.mjs   — idle-out-mode action dispatcher
  * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — wake-recovery failure-mode background
  */
 import Neo from '../../../src/Neo.mjs';
@@ -204,7 +204,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     }
 
     // `recommended_action` is the single branch field consumed by Orchestrator
-    // heartbeat recovery, trioWakeCooldown.mjs, and resumeHarness.mjs.
+    // heartbeat recovery, swarmWakeCooldown.mjs, and resumeHarness.mjs.
     let recommendedAction;
     if (sunset)                  recommendedAction = 'sunset_restart';
     else if (idleOutCandidate)   recommendedAction = 'idle_out_nudge';

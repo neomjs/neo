@@ -18,8 +18,8 @@ setup({
 
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before
 // the dynamic SwarmHeartbeatService import below. Required because the class file no
-// longer imports Neo itself (#11058 split — class+wrapper pattern). Mirrors the test-spec
-// bootstrap pattern in TaskStateService.spec / ProcessSupervisorService.spec post-#11049/#11054.
+// longer imports Neo itself (the class+wrapper split pattern). Mirrors the test-spec
+// bootstrap pattern in TaskStateService.spec / ProcessSupervisorService.spec.
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 import AiConfig  from '../../../../../../../ai/config.mjs';
@@ -27,14 +27,14 @@ import AiConfig  from '../../../../../../../ai/config.mjs';
 import {test, expect} from '@playwright/test';
 
 /**
- * @summary Unit coverage for `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs` (#10789 AC6, #11766 fold).
+ * @summary Unit coverage for `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs`.
  *
  * Covers: `beforeSetIdentity` normalization + null-on-empty fork-safety,
  * concurrency-lock skip-vs-clear, sunset-detection-routes-to-resumeHarness, gate-tripped
  * blocks high-authority dispatch, idle-out-nudge routing, push-capable bypass,
  * sweep-failure isolation within `pulse()`.
  *
- * Post-#11874 (core.Base contract restoration): `initAsync()` is identity-agnostic
+ * After the core.Base contract restoration: `initAsync()` is identity-agnostic
  * (peer-service `.ready()` calls only — no `process.env` reads, no `isInitialized`
  * band-aid, no manual idempotency guard). The framework triggers it ONCE during
  * singleton creation; external callers MUST use `await service.ready()` to wait for
@@ -46,7 +46,7 @@ import {test, expect} from '@playwright/test';
  * post-fixture-setup to exercise `beforeSetIdentity` normalization without
  * needing the Orchestrator wire-up dance.
  *
- * Post-#11766 the class is a lane folded into the Orchestrator: the Orchestrator owns the
+ * The class is a lane folded into the Orchestrator: the Orchestrator owns the
  * scheduler. There is no self-rescheduling loop, no `start()`/`stop()`/`scheduleNext()`;
  * `initAsync()` runs once and `pulse()` runs once per Orchestrator cadence tick. The
  * Orchestrator's lane executor provides per-pulse failure isolation — `pulse()` itself
@@ -55,7 +55,7 @@ import {test, expect} from '@playwright/test';
  * Stubbing strategy: SwarmHeartbeatService exposes test-stubbable instance-method seams
  * (`checkHeartbeatLock`, `clearHeartbeatLock`, `sweepExpiredTasks`, `checkGateOpen`,
  * `readGate`, `checkSunsetted`, `resumeHarness`, `idleOutNudge`, `checkAllAgentIdle`,
- * `trioWakeCooldown`, `runScript`, `runScriptJson`, `runCmd`, `getUnreadCount`,
+ * `swarmWakeCooldown`, `runScript`, `runScriptJson`, `runCmd`, `getUnreadCount`,
  * `getIssuesCount`, `isPushCapable`, `getRecentActivityTimestamps`,
  * `getReadinessSentinelMessages`, `getActiveBackoffWindow`) precisely so unit tests can
  * override them without going through the heavy substrate. Module-binding imports (e.g.
@@ -122,7 +122,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
      * Apply a default no-op stub set so every test starts from a deterministic baseline.
      * Individual tests override the seams they care about.
      *
-     * Post-#11874: `identity` assignment exercises `beforeSetIdentity` normalization;
+     * After the core.Base contract restoration: `identity` assignment exercises `beforeSetIdentity` normalization;
      * no explicit `await SwarmHeartbeatService.ready()` is needed for downstream
      * `pulse()` tests because peer-service stubs (LifecycleService/GraphService
      * initAsync no-ops in beforeAll) make the framework's #readyPromise resolve fast
@@ -139,7 +139,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.resumeHarness      = async () => {};
         SwarmHeartbeatService.idleOutNudge       = async () => {};
         SwarmHeartbeatService.checkAllAgentIdle  = async () => null;
-        SwarmHeartbeatService.trioWakeCooldown   = async () => {};
+        SwarmHeartbeatService.swarmWakeCooldown  = async () => {};
         SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => [];
         SwarmHeartbeatService.runScriptJson      = async () => null;
         SwarmHeartbeatService.runScript          = async () => '';
@@ -148,7 +148,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.getUnreadCount     = async () => 0;
         SwarmHeartbeatService.getIssuesCount     = async () => 0;
         SwarmHeartbeatService.isPushCapable      = async () => false;
-        // Sub-iii (#11996) 3-signal-emit-loop seams — default to no-wake by returning
+        // Sub-iii 3-signal-emit-loop seams — default to no-wake by returning
         // empty activity (decideWake returns 'no-active-signal' → no emit fires).
         SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [];
         SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
@@ -424,7 +424,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         applyDefaultStubs();
 
         // Capture both the SQL string and the parameters so the test asserts the
-        // edge taxonomy (the contract from #12003), not just the returned identity list.
+        // edge taxonomy (the resolver contract), not just the returned identity list.
         let capturedSql       = null;
         const capturedParams  = [];
         SwarmHeartbeatService.getGraphDb = () => {
@@ -503,16 +503,16 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(nudgeCalls.length).toBe(0);
     });
 
-    test('pulse() routes allIdle to trioWakeCooldown when gate is open', async () => {
+    test('pulse() routes allIdle to swarmWakeCooldown when gate is open', async () => {
         applyDefaultStubs();
-        const trioCalls = [];
+        const swarmCalls = [];
         SwarmHeartbeatService.checkAllAgentIdle = async () => ({allIdle: true, cycle_id: '1', identities: ['@a', '@b']});
-        SwarmHeartbeatService.trioWakeCooldown  = async (signal) => { trioCalls.push(signal) };
+        SwarmHeartbeatService.swarmWakeCooldown = async (signal) => { swarmCalls.push(signal) };
 
         await SwarmHeartbeatService.pulse();
 
-        expect(trioCalls.length).toBe(1);
-        expect(trioCalls[0].allIdle).toBe(true);
+        expect(swarmCalls.length).toBe(1);
+        expect(swarmCalls[0].allIdle).toBe(true);
     });
 
     test('pulse() does not subprocess-dispatch converted dual-mode wake scripts', async () => {
@@ -699,7 +699,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     });
 
     test('injectTmux method removed entirely (#11996 AC1)', async () => {
-        // Per Epic #11993 cycle-3 + Sub-iii AC1: tmux-inject is dead-path substrate
+        // Per the cycle-3 + Sub-iii AC1 design: tmux-inject is dead-path substrate
         // for non-tmux harnesses (Codex Desktop case); deleted entirely.
         // bridge-daemon's tmux adapter is the canonical tmux delivery path.
         expect(SwarmHeartbeatService.injectTmux).toBeUndefined();
@@ -747,7 +747,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         }
     });
 
-    // (Removed #11996 cycle-3 cleanup) test 'pulse() includes expired-count in prompt when sweep yields > 0'
+    // (Removed in cycle-3 cleanup) test 'pulse() includes expired-count in prompt when sweep yields > 0'
     // tested the old Step 7 tmux-inject prompt formatting. After Sub-iii, the
     // 3-signal-emit loop carries no per-pulse prompt content (bridge-daemon's digest
     // line reads "N heartbeat pulses" — see ai/daemons/bridge/daemon.mjs:572). The
@@ -768,7 +768,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             await SwarmHeartbeatService.pulse();
 
             // The liveness file now exists with a fresh mtime — the producer side of the
-            // `HealthService.daemonRunning` contract restored after the #11766 fold.
+            // `HealthService.daemonRunning` contract restored after the Orchestrator fold.
             const stat = await fs.stat(alivePath);
             expect(stat.mtime.getTime()).toBeGreaterThanOrEqual(before - 1000);
         } finally {

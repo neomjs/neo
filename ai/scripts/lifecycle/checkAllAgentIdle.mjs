@@ -3,7 +3,7 @@
  * @summary All-agent-idle detection at heartbeat layer.
  *
  * This script queries the SQLite GraphLog to determine if ALL configured agents
- * in the swarm trio are idle (i.e. their last AGENT_MEMORY timestamp is older
+ * in the swarm are idle (i.e. their last AGENT_MEMORY timestamp is older
  * than IDLE_THRESHOLD).
  *
  * Detector Contract:
@@ -50,7 +50,7 @@ export function deriveAllAgentIdleCycleId(identities, details) {
 }
 
 /**
- * @summary Compute whether every configured trio identity is past the idle threshold.
+ * @summary Compute whether every configured swarm identity is past the idle threshold.
  * @returns {Promise<Object>} All-agent-idle detector signal.
  */
 export async function checkAllAgentIdle() {
@@ -59,7 +59,7 @@ export async function checkAllAgentIdle() {
     const db = GraphService.db.storage.db;
 
     // All-idle check set: the registered active team (deployment-portable via `identityRoots`),
-    // overridable by the legacy `NEO_TRIO_IDENTITIES` leaf. Distinct from swarm-heartbeat PULSE
+    // overridable by the `NEO_SWARM_IDENTITIES` leaf. Distinct from swarm-heartbeat PULSE
     // targets — idle detection needs the full team, not the recently-A2A-active subset.
     const identities = await resolveTargets({
         targetSource   : 'active-local-team',

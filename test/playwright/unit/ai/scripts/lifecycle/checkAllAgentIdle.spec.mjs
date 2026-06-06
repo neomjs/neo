@@ -63,8 +63,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
             env: {
                 ...process.env,
                 NEO_UNIT_TEST_MODE: 'true',
-                NEO_TRIO_IDENTITIES: identitiesEnv,
-                IDLE_THRESHOLD_MS: '600000' // 10 minutes
+                NEO_SWARM_IDENTITIES: identitiesEnv,
+                NEO_IDLE_THRESHOLD_MS: '600000' // 10 minutes
             }
         });
         const parsed = JSON.parse(output);
@@ -127,8 +127,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
             env: {
                 ...process.env,
                 NEO_UNIT_TEST_MODE: 'true',
-                NEO_TRIO_IDENTITIES: identitiesEnv,
-                IDLE_THRESHOLD_MS: '600000'
+                NEO_SWARM_IDENTITIES: identitiesEnv,
+                NEO_IDLE_THRESHOLD_MS: '600000'
             }
         });
         const parsed = JSON.parse(output);
@@ -146,8 +146,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
             env: {
                 ...process.env,
                 NEO_UNIT_TEST_MODE: 'true',
-                NEO_TRIO_IDENTITIES: '@neo-ghost-agent-1',
-                IDLE_THRESHOLD_MS: '600000'
+                NEO_SWARM_IDENTITIES: '@neo-ghost-agent-1',
+                NEO_IDLE_THRESHOLD_MS: '600000'
             }
         });
         const parsed = JSON.parse(output);
@@ -168,7 +168,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
     });
 
     test('checkAllAgentIdle.mjs default identity set resolves via active-local-team (no hardcoded roster)', async () => {
-        // With NEO_TRIO_IDENTITIES UNSET, the all-idle check set must come from the
+        // With NEO_SWARM_IDENTITIES UNSET, the all-idle check set must come from the
         // resolveTargets({targetSource:'active-local-team'}) registry path — deployment-portable,
         // NOT the retired hardcoded `@neo-gemini-pro,@neo-opus-ada,@neo-gpt` fallback.
         const expected = await resolveTargets({targetSource: 'active-local-team'});
@@ -180,19 +180,19 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
             env: {
                 ...process.env,
                 NEO_UNIT_TEST_MODE: 'true',
-                IDLE_THRESHOLD_MS : '600000'
-                // NEO_TRIO_IDENTITIES intentionally UNSET → exercises the active-local-team default.
+                NEO_IDLE_THRESHOLD_MS : '600000'
+                // NEO_SWARM_IDENTITIES intentionally UNSET → exercises the active-local-team default.
             }
         });
         const parsed = JSON.parse(output);
 
-        // The script's default set equals the resolver's active-local-team, and is NOT the old hardcoded trio.
+        // The script's default set equals the resolver's active-local-team, and is NOT the old hardcoded roster.
         expect(parsed.identities).toEqual(expected);
         expect(parsed.identities).not.toEqual(['@neo-gemini-pro', '@neo-opus-ada', '@neo-gpt']);
     });
 
-    test('honors a non-default IDLE_THRESHOLD_MS through the AiConfig leaf', async () => {
-        // Proves a non-default legacy IDLE_THRESHOLD_MS reaches the entrypoint via
+    test('honors a non-default NEO_IDLE_THRESHOLD_MS through the AiConfig leaf', async () => {
+        // Proves a non-default NEO_IDLE_THRESHOLD_MS reaches the entrypoint via
         // AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs — fails if the env name is misspelled
         // or the entrypoint silently uses the 600000 default. Run in-process so the seeded memory is
         // visible (the subprocess substrate path is bucket-C gated / skipped).
@@ -214,15 +214,15 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         // `setEnvOverride` takes the DECODED leaf type (a Number here, not the raw env string).
         const originalThreshold = AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
         try {
-            AiConfig.setEnvOverride('IDLE_THRESHOLD_MS', 1000);    // 5s > 1s → member idle → all idle
+            AiConfig.setEnvOverride('NEO_IDLE_THRESHOLD_MS', 1000);    // 5s > 1s → member idle → all idle
             expect((await checkAllAgentIdle()).allIdle).toBe(true);
 
             // Same memory, but the 10-min default makes the member active → not all-idle. This flip is
             // impossible unless the entrypoint actually reads the non-default value via the leaf.
-            AiConfig.setEnvOverride('IDLE_THRESHOLD_MS', 600000);
+            AiConfig.setEnvOverride('NEO_IDLE_THRESHOLD_MS', 600000);
             expect((await checkAllAgentIdle()).allIdle).toBe(false);
         } finally {
-            AiConfig.setEnvOverride('IDLE_THRESHOLD_MS', originalThreshold);
+            AiConfig.setEnvOverride('NEO_IDLE_THRESHOLD_MS', originalThreshold);
         }
     });
 

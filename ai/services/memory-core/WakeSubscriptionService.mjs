@@ -71,7 +71,7 @@ class WakeSubscriptionService extends Base {
      * @member {String[]} validAppNames
      *
      * Canonical osascript target app names accepted on Shape C subscription writes. One entry per
-     * harness onboarded into the swarm trio: Antigravity (@neo-gemini-pro), Claude
+     * harness onboarded into the swarm: Antigravity (@neo-gemini-pro), Claude
      * (@neo-opus-ada), Codex (@neo-gpt). The bridge daemon dispatches via `tell application
      * "<appName>"`, so list completeness is load-bearing — a missing entry rejects the canonical
      * AgentIdentity.subscriptionTemplate at auto-bootstrap time and silently strands the

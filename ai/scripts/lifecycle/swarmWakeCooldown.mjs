@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @summary Cooldown-bounded idempotent trio wake (binds to all-agent-idle detector contract).
+ * @summary Cooldown-bounded idempotent swarm wake (binds to all-agent-idle detector contract).
  *
  * Prevents swarm heartbeat from spamming wake events by enforcing a 10-minute cooldown
  * TTL between WAKE messages.
@@ -18,15 +18,15 @@ import MailboxService from '../../services/memory-core/MailboxService.mjs';
 import AiConfig from '../../config.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
-const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
-const COOLDOWN_LOCK_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.lock';
+const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/swarm-wake-cooldown.json';
+const COOLDOWN_LOCK_PATH = '.neo-ai-data/wake-daemon/swarm-wake-cooldown.lock';
 
 /**
  * @summary Dispatch the cooldown-bounded swarm-wide wake for an all-agent-idle signal.
  * @param {Object} signal All-agent-idle detector signal.
  * @returns {Promise<Object|void>} Dispatch outcome when the heartbeat lock implementation returns it.
  */
-export async function trioWakeCooldown(signal) {
+export async function swarmWakeCooldown(signal) {
     if (!signal) {
         return {fired: false, reason: 'missing-signal'};
     }
@@ -35,8 +35,8 @@ export async function trioWakeCooldown(signal) {
     }
 
     return withHeartbeatLock(async () => {
-        // Cooldown TTL resolved from the wake-policy leaf (env TRIO_WAKE_COOLDOWN_SECONDS, 600s default).
-        const ttlSeconds = AiConfig.orchestrator.swarmHeartbeat.trioWakeCooldownSeconds;
+        // Cooldown TTL resolved from the wake-policy leaf (env NEO_SWARM_WAKE_COOLDOWN_SECONDS, 600s default).
+        const ttlSeconds = AiConfig.orchestrator.swarmHeartbeat.swarmWakeCooldownSeconds;
         const ttlMs = ttlSeconds * 1000;
         const now = Date.now();
 
@@ -50,11 +50,11 @@ export async function trioWakeCooldown(signal) {
 
         // If we are within the TTL window, suppress the wake
         if (timeSinceLastFire < ttlMs) {
-            console.error(`[trioWakeCooldown] Suppressed: within TTL window (${ttlSeconds}s) since last wake.`);
+            console.error(`[swarmWakeCooldown] Suppressed: within TTL window (${ttlSeconds}s) since last wake.`);
             return {fired: false, reason: 'cooldown', ttlSeconds};
         }
 
-        console.error(`[trioWakeCooldown] Firing SYSTEM WAKE for cycle ${signal.cycle_id} to ${signal.coordinator_recommendation}`);
+        console.error(`[swarmWakeCooldown] Firing SYSTEM WAKE for cycle ${signal.cycle_id} to ${signal.coordinator_recommendation}`);
 
         // Initialize Services to send an A2A message
         await LifecycleService.initAsync();
@@ -78,7 +78,7 @@ export async function trioWakeCooldown(signal) {
                 });
             });
         } catch (err) {
-            console.error(`[trioWakeCooldown] Failed to send wake message to ${coordinator}:`, err.message);
+            console.error(`[swarmWakeCooldown] Failed to send wake message to ${coordinator}:`, err.message);
             await clearInflightLock(coordinator, 'idle_out_nudge');
             throw err;
         }
@@ -104,18 +104,18 @@ async function main() {
     try {
         signal = JSON.parse(rawSignal);
     } catch (err) {
-        console.error('trioWakeCooldown: Failed to parse signal:', err.message);
+        console.error('swarmWakeCooldown: Failed to parse signal:', err.message);
         process.exit(1);
     }
 
-    await trioWakeCooldown(signal);
+    await swarmWakeCooldown(signal);
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
     main().catch(err => {
-        console.error('trioWakeCooldown failed:', err.stack);
+        console.error('swarmWakeCooldown failed:', err.stack);
         process.exit(1);
     });
 }

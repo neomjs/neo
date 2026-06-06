@@ -437,19 +437,19 @@ class Config extends ConfigProvider {
                      * Idle-out threshold (ms): a `WAKE_SUBSCRIPTION`-active agent whose latest
                      * `AGENT_MEMORY` is older than this is an `idle_out_candidate` for the bounded
                      * in-place heartbeat nudge. Read at the use site by the lifecycle detectors
-                     * (`checkSunsetted.mjs`, `checkAllAgentIdle.mjs`). Bound to the legacy
-                     * `IDLE_THRESHOLD_MS` env name for operator continuity.
+                     * (`checkSunsetted.mjs`, `checkAllAgentIdle.mjs`). Bound to the
+                     * `NEO_IDLE_THRESHOLD_MS` env name (NEO_ prefix convention).
                      * @type {Number}
                      */
-                    idleThresholdMs: leaf(10 * 60 * 1000, 'IDLE_THRESHOLD_MS', 'number'),
+                    idleThresholdMs: leaf(10 * 60 * 1000, 'NEO_IDLE_THRESHOLD_MS', 'number'),
                     /**
-                     * Trio wake cooldown TTL (seconds): minimum gap between swarm-wide
-                     * all-agent-idle WAKE dispatches, enforced by `trioWakeCooldown.mjs` to keep
-                     * the heartbeat idempotent. Bound to the legacy `TRIO_WAKE_COOLDOWN_SECONDS`
-                     * env name for operator continuity.
+                     * Swarm wake cooldown TTL (seconds): minimum gap between swarm-wide
+                     * all-agent-idle WAKE dispatches, enforced by `swarmWakeCooldown.mjs` to keep
+                     * the heartbeat idempotent. Bound to the `NEO_SWARM_WAKE_COOLDOWN_SECONDS`
+                     * env name (NEO_ prefix convention).
                      * @type {Number}
                      */
-                    trioWakeCooldownSeconds: leaf(600, 'TRIO_WAKE_COOLDOWN_SECONDS', 'number'),
+                    swarmWakeCooldownSeconds: leaf(600, 'NEO_SWARM_WAKE_COOLDOWN_SECONDS', 'number'),
                     /**
                      * Explicit override for the all-agent-idle CHECK set (`checkAllAgentIdle.mjs`) —
                      * the identities whose collective idleness triggers a swarm-wide wake. Distinct
@@ -457,10 +457,10 @@ class Config extends ConfigProvider {
                      * resolver): idle detection needs the registered active team, not the recently-
                      * A2A-active subset, so `null` resolves via `resolveTargets({targetSource:
                      * 'active-local-team'})` (deployment-portable `identityRoots` active maintainers,
-                     * never a hardcoded roster). Bound to the legacy `NEO_TRIO_IDENTITIES` env name.
+                     * never a hardcoded roster). Bound to the `NEO_SWARM_IDENTITIES` env name.
                      * @type {String[]|null}
                      */
-                    allIdleIdentities: leaf(null, 'NEO_TRIO_IDENTITIES', 'csv')
+                    allIdleIdentities: leaf(null, 'NEO_SWARM_IDENTITIES', 'csv')
                 },
                 /**
                  * Local-only maintenance lane switches. Cloud deployments can disable these
