@@ -25,11 +25,17 @@ import StorageRouter  from '../../../../../../../ai/services/memory-core/manager
 import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import path           from 'path';
 import {resetMemoryCoreLifecycle} from '../util.mjs';
+import {captureAiConfigKeys} from '../../../../../../fixtures/aiConfigIsolation.mjs';
 
 const tmpDir = path.resolve(process.cwd(), 'tmp');
+const restoreAiConfig = captureAiConfigKeys(aiConfig, ['storagePaths.graph']);
 aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
 
 test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
+    test.afterAll(() => {
+        restoreAiConfig();
+    });
+
     test('logs an operator-actionable config error before throwing on missing Chroma coordinates', () => {
         const errors        = [];
         const originalError = logger.error;
