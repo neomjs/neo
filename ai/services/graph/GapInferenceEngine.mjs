@@ -26,10 +26,10 @@ const ISO_VERIFIED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}\.\d{3}Z
  *
  * Operates in two passes per REM cycle:
  *
- * 1. **TEST_GAP inference (regex, session-scoped):** iterates session-artifact structural nodes
- *    (CLASS / METHOD / COMPONENT) and matches tokenized node names against `test/*` file-path
- *    entries in the graph. This legacy regex path is still acceptable because testing
- *    discipline maps 1:1 to source file names and the test-file namespace is small and flat.
+ * 1. **TEST_GAP inference (session-scoped):** iterates session-artifact structural nodes
+ *    (CLASS / METHOD / COMPONENT) and matches tokenized node names against precise `test/*`
+ *    file evidence in the graph. Multi-token structural names require all name tokens to be
+ *    present in the test path before a `VALIDATES` edge is created.
  *
  * 2. **Concept-graph inference (edge traversal, cycle-scoped):** iterates CONCEPT nodes ingested
  *    by `ConceptIngestor` and emits deterministic signals via metadata + outbound-edge checks:
@@ -80,10 +80,9 @@ class GapInferenceEngine extends Base {
 
     /**
      * Session-scoped TEST_GAP inference entry point. Iterates CLASS / METHOD / COMPONENT nodes
-     * from the session artifact and checks for a matching test file via tokenized regex scan.
-     * The legacy regex path is retained for test-file discovery. Internal-config lifecycle
-     * hooks (`beforeSet*`, `afterSet*`, `beforeGet*`) are excluded since they're structurally
-     * shared and not individually testable.
+     * from the session artifact and checks for precise matching test-file evidence.
+     * Internal-config lifecycle hooks (`beforeSet*`, `afterSet*`, `beforeGet*`) are excluded
+     * since they're structurally shared and not individually testable.
      *
      * Gaps are persisted as a JSON-array-encoded string on `node.properties.capabilityGap` with
      * `[TEST_GAP]` prefix so `GoldenPathSynthesizer` can categorize them into the correct
@@ -128,16 +127,14 @@ class GapInferenceEngine extends Base {
             let matchingTestFiles = [];
 
             if (!isInternalConfigHook) {
-                const nodeTokens = node.name.replace(/([A-Z])/g, ' $1').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 2);
-                if (nodeTokens.length === 0) nodeTokens.push(node.name.toLowerCase());
+                const nodeTokens = this.getStructuralNameTokens(node.name);
 
-                matchingTestFiles = testFileNodes.filter(({pathLower}) => nodeTokens.some(term => {
-                    const regex = new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-                    return regex.test(pathLower);
-                }));
+                matchingTestFiles = testFileNodes.filter(testFile =>
+                    this.doesTestFileValidateStructuralNode(testFile, node, nodeTokens)
+                );
 
                 if (matchingTestFiles.length === 0) {
-                    testGap = `[TEST_GAP] The ${node.type} '${node.name}' lacks corresponding automated validation suites (Playwright) covering its tokens within the test/ directory.`;
+                    testGap = `[TEST_GAP] The ${node.type} '${node.name}' lacks corresponding automated validation suites (Playwright) with precise test-file evidence within the test/ directory.`;
                 } else {
                     this.linkTestEvidenceToStructuralNode(matchingTestFiles, dbNode, node);
                 }
@@ -145,6 +142,67 @@ class GapInferenceEngine extends Base {
 
             this.applyGapsToNode(dbNode, testGap ? [testGap] : []);
         }
+    }
+
+    /**
+     * @summary Tokenizes a structural name for deterministic test-file evidence matching.
+     *
+     * CamelCase boundaries and non-alphanumeric separators are normalized into lower-case
+     * tokens. Short connective tokens are ignored to keep evidence matching focused on semantic
+     * names rather than path noise.
+     * @param {String} name Structural node name or test-path fragment
+     * @returns {String[]} Unique lower-case evidence tokens
+     * @protected
+     */
+    getStructuralNameTokens(name = '') {
+        const
+            raw    = String(name || ''),
+            tokens = raw
+                .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+                .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                .toLowerCase()
+                .split(/[^a-z0-9]+/)
+                .filter(token => token.length > 2);
+
+        return tokens.length > 0 ? [...new Set(tokens)] : (raw ? [raw.toLowerCase()] : []);
+    }
+
+    /**
+     * @summary Extracts comparable evidence tokens from a test-file path.
+     *
+     * Test suffixes are stripped before tokenization so `ButtonFeature.spec.mjs` contributes
+     * `button` + `feature`, while directory segments can still satisfy split evidence paths
+     * such as `button/Feature.spec.mjs`.
+     * @param {String} filePath Test-file path from a graph `FILE` node
+     * @returns {String[]} Unique lower-case evidence tokens
+     * @protected
+     */
+    getTestFileEvidenceTokens(filePath = '') {
+        const pathWithoutTestSuffix = String(filePath || '')
+            .replace(/\.(spec|test)\.[cm]?[jt]sx?$/i, '')
+            .replace(/\.[cm]?[jt]sx?$/i, '');
+
+        return this.getStructuralNameTokens(pathWithoutTestSuffix);
+    }
+
+    /**
+     * @summary Determines whether a test file is strong enough evidence for a structural node.
+     *
+     * A `VALIDATES` edge is only written when the test path contains every semantic token from
+     * the structural node name. This preserves single-token matches while preventing sibling
+     * false positives such as `ButtonFeature` being validated by `ButtonStore.spec.mjs`.
+     * @param {Object}   testFile   Test-file node descriptor
+     * @param {Object}   sourceNode Session-artifact structural node
+     * @param {String[]} nodeTokens Pre-tokenized structural-node name
+     * @returns {Boolean} `true` when the file is precise validation evidence
+     * @protected
+     */
+    doesTestFileValidateStructuralNode(testFile, sourceNode, nodeTokens = this.getStructuralNameTokens(sourceNode?.name)) {
+        if (nodeTokens.length === 0) return false;
+
+        const evidenceTokens = this.getTestFileEvidenceTokens(testFile?.path);
+
+        return nodeTokens.every(token => evidenceTokens.includes(token));
     }
 
     /**
