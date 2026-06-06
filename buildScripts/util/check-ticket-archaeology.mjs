@@ -129,6 +129,85 @@ export function findTicketRefs(content) {
     return hits
 }
 
+/**
+ * @summary Extracts the set of new-side line numbers added by a `git diff --unified=0` patch.
+ *
+ * Walks each hunk header `@@ -old +new[,count] @@` and the following `+` lines so every added line maps to
+ * its line number in the post-image (new) file; `-` (removed) lines do not advance the new-side counter, and
+ * `--unified=0` emits no context lines. Lets the per-commit scan target only what a commit actually adds.
+ * @param {String} diffOutput Raw `git diff --cached --unified=0` text for a single file.
+ * @returns {Set<Number>} 1-based new-file line numbers that were added (empty when the diff adds nothing).
+ */
+export function parseAddedLines(diffOutput) {
+    const added = new Set();
+
+    let newLine = 0,
+        inHunk  = false;
+
+    for (const line of diffOutput.split('\n')) {
+        const header = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+
+        if (header) {
+            newLine = parseInt(header[1], 10);
+            inHunk  = true;
+            continue
+        }
+
+        if (!inHunk) {
+            continue
+        }
+
+        // `+` adds a new-side line (advance the counter); `+++` is the file header, not content.
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+            added.add(newLine);
+            newLine++
+        }
+        // `-` removes an old-side line — absent from the new file, so the new-side counter holds.
+    }
+
+    return added
+}
+
+/**
+ * @summary Scopes archaeology hits to the lines a commit actually adds (per-commit / lint-staged mode).
+ *
+ * Full-file `findTicketRefs` preserves block-comment context; this then keeps only hits on staged-added
+ * lines so a clean diff is never blocked by pre-existing legacy refs in untouched regions. A null
+ * `addedLines` (git unavailable) returns every hit — the safe full-file fallback, never a blind pass.
+ * @param {Object[]} hits `[{line, text}]` from findTicketRefs.
+ * @param {Set<Number>|null} addedLines Staged added line numbers, or null to fall back to all hits.
+ * @returns {Object[]} The retained hits.
+ */
+export function filterToAddedLines(hits, addedLines) {
+    if (addedLines === null) {
+        return hits
+    }
+
+    return hits.filter(hit => addedLines.has(hit.line))
+}
+
+/**
+ * @summary Returns the staged added-line set for a file, or null when git cannot be consulted.
+ *
+ * Runs `git diff --cached --unified=0` for the path and parses it; an empty diff yields an empty set
+ * (nothing added → nothing to flag), while a git error (e.g. no repo / no HEAD on the first commit)
+ * returns null so the caller falls back to a full-file scan rather than passing blindly.
+ * @param {String} file
+ * @param {String} gitRoot
+ * @returns {Set<Number>|null}
+ */
+function stagedAddedLines(file, gitRoot) {
+    let diff;
+
+    try {
+        diff = execSync(`git diff --cached --unified=0 --no-color -- "${file}"`, {cwd: gitRoot, encoding: 'utf-8'})
+    } catch (e) {
+        return null
+    }
+
+    return parseAddedLines(diff)
+}
+
 function main() {
     let gitRoot;
     try {
@@ -173,9 +252,11 @@ function main() {
         return result.stdout.trim().split('\n').filter(Boolean);
     }
 
-    const files = argvFiles.length > 0
-        ? argvFiles.filter(f => f.endsWith('.mjs'))
-        : collectDefaultFiles();
+    // Per-commit mode: lint-staged passes explicit staged paths. Sweep mode: no args → scan --dirs whole.
+    const perCommit = argvFiles.length > 0,
+          files     = perCommit
+              ? argvFiles.filter(f => f.endsWith('.mjs'))
+              : collectDefaultFiles();
 
     if (files.length === 0) {
         console.log('check-ticket-archaeology: 0 .mjs files in scope, nothing to check.');
@@ -192,7 +273,13 @@ function main() {
             continue;
         }
 
-        findTicketRefs(content).forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
+        // Full scan preserves block-comment context; in per-commit mode, scope hits to the lines this
+        // commit adds so a clean diff is never blocked by pre-existing legacy refs it never touched. The
+        // no-args sweep keeps full-file scanning for deliberate cleanup runs.
+        const hits   = findTicketRefs(content),
+              scoped = perCommit ? filterToAddedLines(hits, stagedAddedLines(file, gitRoot)) : hits;
+
+        scoped.forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
     }
 
     if (violations.length > 0) {
