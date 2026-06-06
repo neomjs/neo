@@ -224,7 +224,7 @@ class Config extends ConfigProvider {
              * Maximum stale-assignment candidates rendered into the Sandman handoff.
              * @type {number}
              */
-            goldenPathStaleAssignmentRenderLimit: leaf(20, 'NEO_GOLDEN_PATH_STALE_ASSIGNMENT_RENDER_LIMIT', 'number'),
+            goldenPathStaleAssignmentRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_STALE_ASSIGNMENT_RENDER_LIMIT', 'number'),
             /**
              * Idle threshold used by `GoldenPathSynthesizer` when rendering unassigned
              * Silent Threads. Defaults to 14 days so the section surfaces longer-running
@@ -241,12 +241,19 @@ class Config extends ConfigProvider {
              * Maximum Silent Threads candidates rendered into the Sandman handoff.
              * @type {number}
              */
-            goldenPathSilentThreadRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_SILENT_THREAD_RENDER_LIMIT', 'number'),
+            goldenPathSilentThreadRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_SILENT_THREAD_RENDER_LIMIT', 'number'),
             /**
              * Maximum recent open PR rows rendered inside `Active PR Cycle State`.
              * @type {number}
              */
             goldenPathRecentOpenPrRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
+            /**
+             * Maximum Golden Path priority nodes rendered into the Sandman handoff. The
+             * Golden Path is the one section that earns more depth than the 5-row
+             * convention applied to every other category; defaults to 10.
+             * @type {number}
+             */
+            goldenPathTopNodeRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_TOP_NODE_RENDER_LIMIT', 'number'),
             /**
              * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
              * @type {number}
