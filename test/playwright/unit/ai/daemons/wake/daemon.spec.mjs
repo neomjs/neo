@@ -6,14 +6,14 @@ import { spawn } from 'child_process';
 import crypto from 'crypto';
 import http from 'http';
 import os from 'os';
-import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/bridge/queries.mjs';
+import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/wake/queries.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../../ai/graph/storage/constants.mjs';
 
 /**
  * @summary Stubs `ps` for subprocess daemon tests so instance-resolution branches do not depend
  * on the host machine's live GUI process list.
  *
- * The bridge daemon resolves same-bundle harness instances by shelling out to `ps`. Unit tests that
+ * The wake daemon resolves same-bundle harness instances by shelling out to `ps`. Unit tests that
  * assert the default app-activate AppleScript path must force the resolver to return `null`,
  * otherwise a developer machine with Claude.app already running can take the PID-targeted branch
  * while CI takes the activate branch.
@@ -28,7 +28,7 @@ function writeMockPs(binDir, psOutput = '') {
     fs.chmodSync(mockPsPath, 0o755);
 }
 
-function insertBridgeSubscription(db, {
+function insertWakeSubscription(db, {
     subId = 'sub_' + crypto.randomUUID(),
     agentId,
     harnessTargetMetadata
@@ -104,7 +104,7 @@ function insertMessageWake(db, {agentId, subject = 'Addressed Wake Event'}) {
     return {msgId, edgeId};
 }
 
-test.describe('Bridge Daemon', () => {
+test.describe('Wake Daemon', () => {
     let db;
     let daemonProcess;
     let DB_PATH;
@@ -195,7 +195,7 @@ test.describe('Bridge Daemon', () => {
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
         // Start the daemon with environment overrides
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -205,7 +205,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
                     clearTimeout(timeout);
                     resolve(out);
                 }
@@ -240,7 +240,7 @@ test.describe('Bridge Daemon', () => {
 
         // Wait for delivery
         const output = await deliveryPromise;
-        expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
+        expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('Test Wake Event');
         expect(output).not.toContain('priority: normal');
@@ -250,13 +250,13 @@ test.describe('Bridge Daemon', () => {
         // structured entries (ISO timestamp + PID + INFO/ERROR level prefix). Persistence
         // is the substrate for post-hoc wake-failure investigation; without this audit
         // trail every diagnostic depends on terminal-scrollback luck.
-        const logFile = path.join(DAEMON_DIR, 'bridge.log');
+        const logFile = path.join(DAEMON_DIR, 'wake-daemon.log');
         expect(fs.existsSync(logFile)).toBe(true);
         const logContents = fs.readFileSync(logFile, 'utf8');
         expect(logContents).toMatch(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/); // ISO timestamp
         expect(logContents).toMatch(/\[PID:\d+\]/);                                       // PID prefix
         expect(logContents).toMatch(/\[INFO\]/);                                          // level prefix
-        expect(logContents).toContain('[Bridge Daemon Test Adapter] Delivered');          // Same delivery line as stdout
+        expect(logContents).toContain('[Wake Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 
     test('filters already-read messages out of the wake digest, counting only genuinely-unread (#12479)', async () => {
@@ -282,7 +282,7 @@ test.describe('Bridge Daemon', () => {
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -291,7 +291,7 @@ test.describe('Bridge Daemon', () => {
             const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
                     clearTimeout(timeout);
                     resolve(out);
                 }
@@ -333,7 +333,7 @@ test.describe('Bridge Daemon', () => {
         injectMessage('Genuinely New Signal', null);
 
         const output = await deliveryPromise;
-        expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
+        expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
         expect(output).toContain('1 new messages');         // only the unread one is counted
         expect(output).toContain('Genuinely New Signal');    // ...and previewed as the latest
         expect(output).not.toContain('Already Read Noise');  // the already-read one is reconciled out
@@ -366,7 +366,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -376,7 +376,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
                     clearTimeout(timeout);
                     resolve(out);
                 }
@@ -390,7 +390,7 @@ test.describe('Bridge Daemon', () => {
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
 
         const output = await deliveryPromise;
-        expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
+        expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('heartbeat pulses');
         expect(output).not.toContain('new messages');
@@ -423,7 +423,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -433,7 +433,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
                     clearTimeout(timeout);
                     resolve(out);
                 }
@@ -447,7 +447,7 @@ test.describe('Bridge Daemon', () => {
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
 
         const output = await deliveryPromise;
-        expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
+        expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('heartbeat pulses');
         expect(output).not.toContain('new messages');
@@ -480,7 +480,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -488,7 +488,7 @@ test.describe('Bridge Daemon', () => {
         let deliveryCount = 0;
         daemonProcess.stdout.on('data', (data) => {
             const out = data.toString();
-            if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+            if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
                 deliveryCount++;
             }
         });
@@ -556,7 +556,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -571,7 +571,7 @@ test.describe('Bridge Daemon', () => {
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 console.log('[DAEMON STDOUT]', out);
-                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
                     deliveryCount++;
                     finalDigest = out;
                 }
@@ -650,7 +650,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -660,7 +660,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
                     clearTimeout(timeout);
                     resolve(out);
                 }
@@ -748,7 +748,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -786,7 +786,7 @@ test.describe('Bridge Daemon', () => {
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
         const output = await errorLogPromise;
-        expect(output).toContain('[Bridge Daemon] Cannot deliver subscription');
+        expect(output).toContain('[Wake Daemon] Cannot deliver subscription');
         expect(output).toContain(subId);
     });
 
@@ -827,7 +827,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -838,7 +838,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                if (out.includes('[Wake Daemon] Delivered ' + subId)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -916,7 +916,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -926,7 +926,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                if (out.includes('[Wake Daemon] Delivered ' + subId)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -996,7 +996,7 @@ test.describe('Bridge Daemon', () => {
 
     test('addressType pid dispatch targets the resolved process id when HarnessPresence is fresh (#12422)', async () => {
         const agentId = '@test-agent-pid-address';
-        const subId = insertBridgeSubscription(db, {
+        const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter: 'osascript',
@@ -1016,7 +1016,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1026,7 +1026,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                if (out.includes('[Wake Daemon] Delivered ' + subId)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -1048,7 +1048,7 @@ test.describe('Bridge Daemon', () => {
 
     test('stale HarnessPresence refuses targeted GUI delivery instead of falling through to app activate (#12422)', async () => {
         const agentId = '@test-agent-stale-presence';
-        const subId = insertBridgeSubscription(db, {
+        const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter: 'osascript',
@@ -1071,7 +1071,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1085,7 +1085,7 @@ test.describe('Bridge Daemon', () => {
                     clearTimeout(timeout);
                     resolve();
                 }
-                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                if (out.includes(`[Wake Daemon] Delivered ${subId}`)) {
                     clearTimeout(timeout);
                     reject(new Error('Daemon delivered targeted wake despite stale HarnessPresence'));
                 }
@@ -1105,7 +1105,7 @@ test.describe('Bridge Daemon', () => {
         const agentId     = '@test-agent-userdatadir-live';
         const userDataDir = '/Users/example/.claude-instances/test-live';
         const mainPid     = 47474;
-        const subId = insertBridgeSubscription(db, {
+        const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -1127,7 +1127,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1137,7 +1137,7 @@ test.describe('Bridge Daemon', () => {
 
             daemonProcess.stdout.on('data', data => {
                 const out = data.toString();
-                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) { clearTimeout(timeout); resolve(); }
+                if (out.includes(`[Wake Daemon] Delivered ${subId}`)) { clearTimeout(timeout); resolve(); }
                 if (out.includes(`Targeted wake refused for ${subId}`)) {
                     clearTimeout(timeout);
                     reject(new Error('Daemon refused a live userDataDir wake on stale presence — freshness gate not relaxed'));
@@ -1160,7 +1160,7 @@ test.describe('Bridge Daemon', () => {
     test('userDataDir still fails closed when no live process maps to the address (#12571)', async () => {
         const agentId     = '@test-agent-userdatadir-dead';
         const userDataDir = '/Users/example/.claude-instances/test-dead';
-        const subId = insertBridgeSubscription(db, {
+        const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -1182,7 +1182,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1192,7 +1192,7 @@ test.describe('Bridge Daemon', () => {
 
             // The no-live-process refusal is logged at ERROR (stderr); a delivery would log at INFO (stdout).
             daemonProcess.stdout.on('data', data => {
-                if (data.toString().includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                if (data.toString().includes(`[Wake Daemon] Delivered ${subId}`)) {
                     clearTimeout(timeout);
                     reject(new Error('Daemon delivered a userDataDir wake despite no live process'));
                 }
@@ -1215,7 +1215,7 @@ test.describe('Bridge Daemon', () => {
         // is a live oracle). `pid` has no equivalent live-target proof, so a stale-presence pid wake
         // must still fail closed — proving the relaxation did not generalize beyond userDataDir.
         const agentId = '@test-agent-pid-boundary-stale';
-        const subId = insertBridgeSubscription(db, {
+        const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -1234,7 +1234,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1246,7 +1246,7 @@ test.describe('Bridge Daemon', () => {
             daemonProcess.stdout.on('data', data => {
                 const out = data.toString();
                 if (out.includes(`Targeted wake refused for ${subId}`)) { clearTimeout(timeout); resolve(); }
-                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                if (out.includes(`[Wake Daemon] Delivered ${subId}`)) {
                     clearTimeout(timeout);
                     reject(new Error('Daemon delivered a stale pid wake — the userDataDir relaxation leaked to pid'));
                 }
@@ -1264,7 +1264,7 @@ test.describe('Bridge Daemon', () => {
 
     test('addressType tmuxSession dispatch sends the digest to the instanceAddress session (#12422)', async () => {
         const agentId = '@test-agent-tmux-address';
-        const subId = insertBridgeSubscription(db, {
+        const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter: 'tmux',
@@ -1283,7 +1283,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockTmuxPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockTmuxPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1328,7 +1328,7 @@ test.describe('Bridge Daemon', () => {
             server.listen(0, '127.0.0.1', () => {
                 const {port} = server.address();
                 const agentId = '@test-agent-webhook-address';
-                const subId = insertBridgeSubscription(db, {
+                const subId = insertWakeSubscription(db, {
                     agentId,
                     harnessTargetMetadata: {
                         adapter: 'tmux',
@@ -1340,7 +1340,7 @@ test.describe('Bridge Daemon', () => {
                 });
                 insertHarnessPresence(db, {subId, agentId});
 
-                daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+                daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
                     stdio: 'pipe',
                     env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
                 });
@@ -1420,7 +1420,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1437,7 +1437,7 @@ test.describe('Bridge Daemon', () => {
                 }
                 // Negative case: if the daemon ever logs "Delivered" for this subId, the
                 // fail-closed guard didn't fire. Reject so the test fails loudly.
-                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                if (out.includes(`[Wake Daemon] Delivered ${subId}`)) {
                     clearTimeout(timeout);
                     reject(new Error('Daemon delivered Codex wake despite missing focusSeedKey — fail-closed guard regressed'));
                 }
@@ -1513,7 +1513,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -1685,7 +1685,7 @@ test.describe('Bridge Daemon', () => {
             db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
         }
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
         });
@@ -1694,8 +1694,8 @@ test.describe('Bridge Daemon', () => {
         let peerDeliveryCount   = 0;
         daemonProcess.stdout.on('data', (data) => {
             const out = data.toString();
-            if (out.includes(`[Bridge Daemon Test Adapter] Delivered ${senderSubId}`)) senderDeliveryCount++;
-            if (out.includes(`[Bridge Daemon Test Adapter] Delivered ${peerSubId}`))   peerDeliveryCount++;
+            if (out.includes(`[Wake Daemon Test Adapter] Delivered ${senderSubId}`)) senderDeliveryCount++;
+            if (out.includes(`[Wake Daemon Test Adapter] Delivered ${peerSubId}`))   peerDeliveryCount++;
         });
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1756,7 +1756,7 @@ test.describe('Bridge Daemon', () => {
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
             env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
         });
@@ -1765,7 +1765,7 @@ test.describe('Bridge Daemon', () => {
             const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver self-DM wake within timeout')), 10000);
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes(`[Bridge Daemon Test Adapter] Delivered ${subId}`)) {
+                if (out.includes(`[Wake Daemon Test Adapter] Delivered ${subId}`)) {
                     clearTimeout(timeout);
                     resolve(out);
                 }

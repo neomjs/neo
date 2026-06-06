@@ -8,7 +8,7 @@
  *
  * @see ai/graph/identityRoots.mjs
  * @see ai/scripts/lifecycle/resumeHarness.mjs
- * @see ai/daemons/bridge/daemon.mjs
+ * @see ai/daemons/wake/daemon.mjs
  */
 import {IDENTITIES} from '../../graph/identityRoots.mjs';
 

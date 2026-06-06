@@ -83,8 +83,8 @@ const execFileAsync = promisify(execFile);
  *   `.neo-ai-data/chroma/memory-core/` for vectors. `defragSQLiteDB.mjs` targets a
  *   different filename (`knowledge-graph.sqlite`) and never touches this file. No
  *   production backup or restore path reads it.
- * - `.neo-ai-data/wake-daemon/{bridge.log,inflight-*.txt,lastSyncId,heartbeat-*.log,sweep-errors.log}`
- *   — operational / process state owned by the bridge daemon and heartbeat substrate; classified
+ * - `.neo-ai-data/wake-daemon/{wake-daemon.log,inflight-*.txt,lastSyncId,heartbeat-*.log,sweep-errors.log}`
+ *   — operational / process state owned by the wake daemon and heartbeat substrate; classified
  *   as live-orchestration recovery, not substrate backup. Distinct backup track if needed.
  * - Physical Chroma data directories (`.neo-ai-data/chroma/{kb,mc}/`) — the bundle captures the
  *   logical state via JSONL exports, not the on-disk HNSW indexes. Restore re-ingests via the

@@ -4,10 +4,10 @@ import {
     getInstancePid,
     resolveDefaultInstancePid,
     resolveInstancePid
-} from '../../../../../../ai/daemons/bridge/instanceResolver.mjs';
+} from '../../../../../../ai/daemons/wake/instanceResolver.mjs';
 
 /**
- * Self-test for the bridge-daemon instance resolver: maps a harness instance's `--user-data-dir`
+ * Self-test for the wake-daemon instance resolver: maps a harness instance's `--user-data-dir`
  * to its main app-process pid so the wake daemon can target the intended instance when two
  * same-bundle harnesses run in parallel. Fixtures model real macOS `ps axww -o pid=,ppid=,command=`
  * output for two Claude.app instances — a default one (only Electron helpers carry the dir) and a

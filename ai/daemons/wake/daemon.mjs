@@ -1,5 +1,5 @@
 /**
- * @summary Bridge daemon for Neo.mjs wake-event delivery.
+ * @summary Wake daemon for Neo.mjs wake-event delivery.
  *
  * Polls SQLite GraphLog for new wake-relevant entries, coalesces matching
  * events per active WAKE_SUBSCRIPTION, and delivers digests through the
@@ -12,7 +12,7 @@
  *
  * **Diagnostic log persistence:**
  * All informational and error lines are written to both stdout for live
- * terminal observability and `.neo-ai-data/wake-daemon/bridge.log` for
+ * terminal observability and `.neo-ai-data/wake-daemon/wake-daemon.log` for
  * post-hoc wake-failure investigation.
  *
  * **Rotation:** Daily rotation via `.YYYY-MM-DD` suffix on the previous day's
@@ -57,7 +57,7 @@ import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
 const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
-const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'bridge.log');
+const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'wake-daemon.log');
 const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
@@ -71,8 +71,8 @@ const WAKE_PRIORITY_RANKS      = {
 fs.ensureDirSync(DAEMON_DATA_DIR);
 
 /**
- * Rotates `bridge.log` if its mtime falls on a calendar day different from today's.
- * Renames the previous-day file to `bridge.log.YYYY-MM-DD` so the active file always
+ * Rotates `wake-daemon.log` if its mtime falls on a calendar day different from today's.
+ * Renames the previous-day file to `wake-daemon.log.YYYY-MM-DD` so the active file always
  * holds the current day's lines. Best-effort: failures surface to stderr and the
  * daemon continues (log integrity is not allowed to gate daemon liveness).
  * @protected
@@ -89,12 +89,12 @@ function rotateLogIfNewDay() {
         }
     } catch (e) {
         // Log rotation failure is non-fatal; surface to stderr only
-        process.stderr.write(`[Bridge Daemon] Log rotation failed: ${e.message}\n`);
+        process.stderr.write(`[Wake Daemon] Log rotation failed: ${e.message}\n`);
     }
 }
 
 /**
- * Prunes archived log files (`bridge.log.*`) older than `LOG_RETENTION_DAYS` from
+ * Prunes archived log files (`wake-daemon.log.*`) older than `LOG_RETENTION_DAYS` from
  * `DAEMON_DATA_DIR`. Runs once at daemon startup. Best-effort: per-file unlink
  * failures are silently swallowed (best to lose a stale archive than gate startup).
  * @protected
@@ -104,8 +104,8 @@ function pruneOldLogs() {
     try {
         const entries = fs.readdirSync(DAEMON_DATA_DIR);
         for (const entry of entries) {
-            // Match `bridge.log.YYYY-MM-DD` archive files only — leave `bridge.log` alone
-            if (!entry.startsWith('bridge.log.') || entry === 'bridge.log') continue;
+            // Match `wake-daemon.log.YYYY-MM-DD` archive files only — leave `wake-daemon.log` alone
+            if (!entry.startsWith('wake-daemon.log.') || entry === 'wake-daemon.log') continue;
             const fullPath = path.join(DAEMON_DATA_DIR, entry);
             try {
                 const stats = fs.statSync(fullPath);
@@ -123,7 +123,7 @@ function pruneOldLogs() {
 
 /**
  * Persistent + console log writer. Writes a single line to BOTH stdout (live
- * terminal observability) AND the persistent `bridge.log` file (post-hoc audit
+ * terminal observability) AND the persistent `wake-daemon.log` file (post-hoc audit
  * trail). Format: `[ISO-timestamp] [PID:NNN] [LEVEL] message`. Daily rotation
  * is checked on every call.
  *
@@ -157,7 +157,7 @@ function writeLog(level, message) {
 // One-shot prune at startup; reaper for archived logs older than retention window
 pruneOldLogs();
 
-const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
+const PID_FILE = path.join(DAEMON_DATA_DIR, 'wake-daemon.pid');
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function enforceSingleton() {
@@ -177,15 +177,15 @@ async function enforceSingleton() {
                     try {
                         // Use ps -p to verify the PID hasn't been recycled by a non-daemon process
                         const cmd = execSync(`ps -p ${oldPid} -o command=`).toString().trim();
-                        if (cmd.includes('daemons/bridge/daemon.mjs')) {
-                            writeLog('INFO', `[Bridge Daemon] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
+                        if (cmd.includes('daemons/wake/daemon.mjs')) {
+                            writeLog('INFO', `[Wake Daemon] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
                             process.kill(oldPid, 'SIGTERM');
                         } else {
-                            writeLog('INFO', `[Bridge Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
+                            writeLog('INFO', `[Wake Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
                             isAlive = false; // We won't wait for it to exit
                         }
                     } catch (psErr) {
-                        writeLog('INFO', `[Bridge Daemon] Could not verify process name. Sending SIGTERM to PID ${oldPid} to be safe...`);
+                        writeLog('INFO', `[Wake Daemon] Could not verify process name. Sending SIGTERM to PID ${oldPid} to be safe...`);
                         process.kill(oldPid, 'SIGTERM');
                     }
                 }
@@ -203,7 +203,7 @@ async function enforceSingleton() {
                         }
                     }
                     if (alive) {
-                        writeLog('INFO', `[Bridge Daemon] PID ${oldPid} did not exit after 3s. Escalating to SIGKILL...`);
+                        writeLog('INFO', `[Wake Daemon] PID ${oldPid} did not exit after 3s. Escalating to SIGKILL...`);
                         try {
                             process.kill(oldPid, 'SIGKILL');
                         } catch (e) {}
@@ -215,7 +215,7 @@ async function enforceSingleton() {
                 } catch (e) {}
             }
         } catch (e) {
-            writeLog('ERROR', `[Bridge Daemon] Failed to check existing PID file: ${e.message || e}`);
+            writeLog('ERROR', `[Wake Daemon] Failed to check existing PID file: ${e.message || e}`);
         }
     }
 
@@ -224,7 +224,7 @@ async function enforceSingleton() {
         fs.writeFileSync(PID_FILE, process.pid.toString(), { encoding: 'utf8', flag: 'wx' });
     } catch (e) {
         if (e.code === 'EEXIST') {
-            writeLog('ERROR', `[Bridge Daemon] Failed to claim PID file (EEXIST). Another instance started simultaneously. Exiting.`);
+            writeLog('ERROR', `[Wake Daemon] Failed to claim PID file (EEXIST). Another instance started simultaneously. Exiting.`);
             process.exit(1);
         } else {
             throw e;
@@ -251,7 +251,7 @@ async function enforceSingleton() {
     process.on('SIGTERM', cleanup);
     process.on('exit', cleanup);
     process.on('uncaughtException', (err) => {
-        writeLog('ERROR', `[Bridge Daemon] Uncaught exception: ${err && err.stack ? err.stack : err}`);
+        writeLog('ERROR', `[Wake Daemon] Uncaught exception: ${err && err.stack ? err.stack : err}`);
         cleanup(); // Calls process.exit() automatically
     });
 }
@@ -313,7 +313,7 @@ async function pollLoop() {
         }
 
     } catch (err) {
-        writeLog('ERROR', `[Bridge Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
+        writeLog('ERROR', `[Wake Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
     }
 
     setTimeout(pollLoop, POLL_INTERVAL_MS);
@@ -379,7 +379,7 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     } else if (trigger === 'TASK_STATE_CHANGED' && trace.entity_type === 'nodes' && entity.label === 'MESSAGE') {
         // Task state changed: a MESSAGE node representing a Task was updated.
         // We'd need to compare previous state, but GraphLog only gives us the new state.
-        // For simplicity in the Bridge Daemon, we alert if the task state is assigned to the agent.
+        // For simplicity in the Wake Daemon, we alert if the task state is assigned to the agent.
         const assignee = entity.properties?.task?.assignee;
         if (assignee === agentIdentity) {
             return {
@@ -509,7 +509,7 @@ function normalizeWakePriority(priority) {
 /**
  * @summary Projects coalesced message events into one wake digest priority.
  *
- * The bridge daemon may coalesce several message events into one digest. This helper
+ * The wake daemon may coalesce several message events into one digest. This helper
  * preserves the strongest interruption signal by choosing the highest message priority
  * for the `[WAKE][priority:<level>]` header while keeping normal/low wakes deferrable
  * by agent policy.
@@ -532,7 +532,7 @@ function getHighestWakePriority(messages) {
  * `DELIVERED_TO` edge's `readAt` when that edge exists (broadcasts + delivered DMs), else the MESSAGE
  * node's own `readAt` (direct DM). Read-status is independent of the GraphLog delta that fires the wake,
  * so a large delta (resync / data-sync jump) otherwise re-counts already-read rows as "new".
- * @param {Object} db better-sqlite3 handle (the bridge daemon's graph store).
+ * @param {Object} db better-sqlite3 handle (the wake daemon's graph store).
  * @param {String} messageId
  * @param {String} recipient The agent identity the wake targets.
  * @returns {Boolean} true when the message has been read by the recipient.
@@ -670,7 +670,7 @@ async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appNa
         try {
             await spawnAsync('osascript', osascriptArgs);
             writeLog('INFO',
-                `[Bridge Daemon] Delivered ${subscriptionId} via osascript to ${appName}` +
+                `[Wake Daemon] Delivered ${subscriptionId} via osascript to ${appName}` +
                 (attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ''));
             return
         } catch (err) {
@@ -681,7 +681,7 @@ async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appNa
             // Wake already submitted; only the draft-restore lost frontmost → delivered, do not retry.
             if (isFrontmostRace && afterSubmit) {
                 writeLog('WARN',
-                    `[Bridge Daemon] ${subscriptionId} wake landed but draft-restore lost frontmost; ` +
+                    `[Wake Daemon] ${subscriptionId} wake landed but draft-restore lost frontmost; ` +
                     `not retrying (avoids double-send). ${message}`);
                 return
             }
@@ -689,7 +689,7 @@ async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appNa
             // Lost frontmost before submit → transient focus contention → retry the whole delivery.
             if (attempt < maxAttempts && isFrontmostRace) {
                 writeLog('WARN',
-                    `[Bridge Daemon] Wake delivery ${subscriptionId} attempt ${attempt}/${maxAttempts} ` +
+                    `[Wake Daemon] Wake delivery ${subscriptionId} attempt ${attempt}/${maxAttempts} ` +
                     `lost frontmost before submit (focus contention); retrying in ${backoffMs}ms. ${message}`);
                 await wait(backoffMs);
                 continue
@@ -751,12 +751,12 @@ async function deliverDigest(subscription, digest) {
                 ? instanceAddress
                 : meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
-            writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
+            writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName;
             if (!appName) {
                 writeLog('ERROR',
-                    `[Bridge Daemon] Cannot deliver subscription ${subscription.id}: ` +
+                    `[Wake Daemon] Cannot deliver subscription ${subscription.id}: ` +
                     `harnessTargetMetadata.appName is missing/empty. ` +
                     `Skipping delivery to avoid misrouting. ` +
                     `Verify subscription template via 'manage_wake_subscription({action: \\'list\\'})' ` +
@@ -769,7 +769,7 @@ async function deliverDigest(subscription, digest) {
             let focusSeedKey           = metadataWithDefaults.focusSeedKey;
             let focusSeedSequence      = metadataWithDefaults.focusSeedSequence;
 
-            // Codex Desktop fail-closed guard. The bridge must not drive the destructive
+            // Codex Desktop fail-closed guard. The wake daemon must not drive the destructive
             // Cmd+A/Cmd+X clear path unless subscription metadata provides a verified,
             // non-mutating composer-focus primitive. Printable-key focus probes can mutate
             // drafts, so multi-step probe/undo strategies must use an explicit
@@ -778,7 +778,7 @@ async function deliverDigest(subscription, digest) {
             // UI-keystroke path entirely.
             if (appName === 'Codex' && !focusSeedKey) {
                 writeLog('WARN',
-                    `[Bridge Daemon] Codex UI wake delivery refused for ${subscription.id}: ` +
+                    `[Wake Daemon] Codex UI wake delivery refused for ${subscription.id}: ` +
                     `no validated composer-focus primitive (per #10664). ` +
                     `Subscription must opt in via meta.focusSeedKey with a verified primitive, ` +
                     `or wait for the #10517 Codex app-server adapter.`
@@ -802,7 +802,7 @@ async function deliverDigest(subscription, digest) {
             if (addressType === 'pid') {
                 if (AiConfig.orchestrator.deploymentMode === 'cloud') {
                     writeLog('ERROR',
-                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
                         `pid targeting requires local deployment (deploymentMode='cloud'). ` +
                         `Failing closed — instance-addressed GUI wakes are local-only (ADR 0014).`
                     );
@@ -811,7 +811,7 @@ async function deliverDigest(subscription, digest) {
                 instancePid = normalizePid(instanceAddress);
                 if (!instancePid) {
                     writeLog('ERROR',
-                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
                         `invalid pid instanceAddress='${instanceAddress}'. Failing closed.`
                     );
                     return;
@@ -819,7 +819,7 @@ async function deliverDigest(subscription, digest) {
             } else if (addressType === 'userDataDir' && instanceAddress) {
                 if (AiConfig.orchestrator.deploymentMode === 'cloud') {
                     writeLog('ERROR',
-                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
                         `userDataDir targeting requires local deployment (deploymentMode='cloud'). ` +
                         `Failing closed — instance-addressed GUI wakes are local-only (ADR 0014).`
                     );
@@ -828,7 +828,7 @@ async function deliverDigest(subscription, digest) {
                 instancePid = await getInstancePid({userDataDir: instanceAddress});
                 if (!instancePid) {
                     writeLog('ERROR',
-                        `[Bridge Daemon] Instance wake refused for ${subscription.id}: ` +
+                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
                         `no running process found for userDataDir='${instanceAddress}'. ` +
                         `Failing closed to avoid misrouting to another ${appName} instance.`
                     );
@@ -1013,12 +1013,12 @@ async function deliverDigest(subscription, digest) {
 
             await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName);
         } else if (adapter === 'test') {
-            writeLog('INFO', `[Bridge Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+            writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
         } else {
-            writeLog('ERROR', `[Bridge Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
+            writeLog('ERROR', `[Wake Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
         }
     } catch (err) {
-        writeLog('ERROR', `[Bridge Daemon] Failed to deliver via ${adapter}: ${err.message}`);
+        writeLog('ERROR', `[Wake Daemon] Failed to deliver via ${adapter}: ${err.message}`);
     }
     });
 
@@ -1060,7 +1060,7 @@ function assertFreshTargetPresence(subscription, {addressType}) {
     if (isHarnessPresenceFresh(presence)) return true;
 
     writeLog('WARN',
-        `[Bridge Daemon] Targeted wake refused for ${subscription.id}: ` +
+        `[Wake Daemon] Targeted wake refused for ${subscription.id}: ` +
         `addressType='${addressType}' requires fresh HarnessPresence. ` +
         `Failing closed; recipient will pick up the unread event on next turn.`
     );
@@ -1079,7 +1079,7 @@ function normalizePid(pid) {
 }
 
 /**
- * @summary Posts a wake digest to a bridge-dispatchable webhook address.
+ * @summary Posts a wake digest to a wake-dispatchable webhook address.
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
  * @param {String} webhookUrl Target webhook URL.
@@ -1091,7 +1091,7 @@ async function deliverViaWebhookUrl(subscription, digest, webhookUrl) {
         url = new URL(webhookUrl);
     } catch (error) {
         writeLog('ERROR',
-            `[Bridge Daemon] Webhook wake refused for ${subscription.id}: ` +
+            `[Wake Daemon] Webhook wake refused for ${subscription.id}: ` +
             `invalid webhookUrl instanceAddress. Failing closed.`
         );
         return;
@@ -1112,7 +1112,7 @@ async function deliverViaWebhookUrl(subscription, digest, webhookUrl) {
         throw new Error(`webhookUrl POST failed with HTTP ${response.status}`);
     }
 
-    writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via webhookUrl POST`);
+    writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via webhookUrl POST`);
 }
 
 // Start loop
@@ -1124,7 +1124,7 @@ async function main() {
     // Read lastSyncId
     lastSyncId = getLastSyncId(db, STATE_FILE);
 
-    writeLog('INFO', `[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
+    writeLog('INFO', `[Wake Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
 
     pollLoop();
 }

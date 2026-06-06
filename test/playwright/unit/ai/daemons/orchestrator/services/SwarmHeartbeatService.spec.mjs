@@ -701,7 +701,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     test('injectTmux method removed entirely (#11996 AC1)', async () => {
         // Per the cycle-3 + Sub-iii AC1 design: tmux-inject is dead-path substrate
         // for non-tmux harnesses (Codex Desktop case); deleted entirely.
-        // bridge-daemon's tmux adapter is the canonical tmux delivery path.
+        // wake-daemon's tmux adapter is the canonical tmux delivery path.
         expect(SwarmHeartbeatService.injectTmux).toBeUndefined();
         const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
         expect(serviceProto.injectTmux).toBeUndefined();
@@ -749,8 +749,8 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
     // (Removed in cycle-3 cleanup) test 'pulse() includes expired-count in prompt when sweep yields > 0'
     // tested the old Step 7 tmux-inject prompt formatting. After Sub-iii, the
-    // 3-signal-emit loop carries no per-pulse prompt content (bridge-daemon's digest
-    // line reads "N heartbeat pulses" — see ai/daemons/bridge/daemon.mjs:572). The
+    // 3-signal-emit loop carries no per-pulse prompt content (wake-daemon's digest
+    // line reads "N heartbeat pulses" — see ai/daemons/wake/daemon.mjs:572). The
     // expired-task COUNT is still logged at Step 2 for diagnostics; no need to assert
     // it in the wake-event payload.
 

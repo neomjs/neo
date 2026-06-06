@@ -316,8 +316,8 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).toContain('keystroke "${freshSessionShortcut}" using command down');
     });
 
-    test('bridge daemon consumes shared host app defaults instead of duplicating shortcut literals (#12434)', async () => {
-        const bridgePath = path.resolve(process.cwd(), 'ai/daemons/bridge/daemon.mjs');
+    test('wake daemon consumes shared host app defaults instead of duplicating shortcut literals (#12434)', async () => {
+        const bridgePath = path.resolve(process.cwd(), 'ai/daemons/wake/daemon.mjs');
         const bridgeContent = fs.readFileSync(bridgePath, 'utf-8');
 
         expect(bridgeContent).toContain('applyHarnessMetadataDefaults(meta)');

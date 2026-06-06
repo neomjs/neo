@@ -902,7 +902,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         expect(GraphService.db.nodes.get(subscriptionId)).toBeDefined();
     });
 
-    test('unsubscribe removes cache-cold durable subscription rows visible to bridge daemon (#10717)', async () => {
+    test('unsubscribe removes cache-cold durable subscription rows visible to wake daemon (#10717)', async () => {
         const {subscriptionId, edgeId} = insertDurableSubscription({
             owner                : '@alice',
             trigger              : 'SENT_TO_ME',
@@ -1051,7 +1051,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
-    test('list surfaces cache-cold durable caller-owned subscriptions that bridge daemon would dispatch (#10717)', async () => {
+    test('list surfaces cache-cold durable caller-owned subscriptions that wake daemon would dispatch (#10717)', async () => {
         const {subscriptionId} = insertDurableSubscription({
             owner                : '@alice',
             trigger              : 'SENT_TO_ME',

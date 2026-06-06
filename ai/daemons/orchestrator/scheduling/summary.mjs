@@ -1,7 +1,7 @@
 import {
     getUnreadSunsetHandovers,
     markNodesAsRead
-} from '../../bridge/queries.mjs';
+} from '../../wake/queries.mjs';
 
 /**
  * Reads pending low-latency summarization markers from the coordinator table.

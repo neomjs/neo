@@ -5,7 +5,7 @@ import logger                  from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * @summary Token-economy throttle / coalescing engine for the cross-harness
- * autonomous wake substrate (ADR 0002 §6.4).
+ * autonomous wake substrate.
  *
  * Wake events MUST NOT be 1:1 with the underlying event stream at high velocity. This
  * engine batches per-subscription events within a configurable window (default 30s,
@@ -23,7 +23,7 @@ import logger                  from '../../mcp/server/memory-core/logger.mjs';
  * - `bridge-daemon` → no-op (Shape C handles its own coalescing in-process per ADR §6.3)
  * - `disabled` / `none` → no-op (subscription opted out of push)
  *
- * Bridge daemon (Shape C) maintains a parallel coalescer in `ai/daemons/bridge/daemon.mjs`
+ * Wake daemon (Shape C) maintains a parallel coalescer in `ai/daemons/wake/daemon.mjs`
  * because it runs out-of-process; this engine handles the in-process Shape A + Shape B
  * routing only.
  *
@@ -49,7 +49,7 @@ class CoalescingEngineService extends Base {
     /**
      * @member {Number} defaultWindowSeconds=30
      * @protected
-     * @summary Default coalescing window per ADR 0002 §6.4.1. Overridable per subscription
+     * @summary Default coalescing window for wake-digest delivery. Overridable per subscription
      * via `harnessTargetMetadata.coalesceWindow`. Clamped to [0, 300] at enqueue time.
      */
     defaultWindowSeconds = 30
@@ -324,7 +324,7 @@ class CoalescingEngineService extends Base {
         }
 
         if (target === 'bridge-daemon' || target === 'disabled' || target === 'none') {
-            // Bridge daemon coalesces in-process per ADR §6.3 (out-of-process consumer).
+            // Wake daemon coalesces in-process per ADR §6.3 (out-of-process consumer).
             // disabled/none subscriptions opted out of push; heartbeat polling covers
             // them per ADR §6.5 (Heartbeat-Bypass Detection).
             return;
@@ -369,7 +369,7 @@ class CoalescingEngineService extends Base {
             for (const server of this.mcpServers) {
                 try {
                     // Direct MCP consumers expect raw events over MCP.
-                    // We deliberately bypass the ADR 0002 `wake/digest` wire-contract here.
+                    // We deliberately bypass the `wake/digest` wire-contract here.
                     await server.notification({
                         method: 'notifications/message',
                         params: event

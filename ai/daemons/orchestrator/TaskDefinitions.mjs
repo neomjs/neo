@@ -71,12 +71,14 @@ export function buildTaskDefinitions({
             expectedCommand: 'chroma',
             singletonPort  : chromaPort
         },
+        // `bridgeDaemon` lane id is a frozen lane-taxonomy / continuousTasks wire constant —
+        // kept verbatim on the wake-daemon rename so the orchestrator keeps scheduling the lane.
         bridgeDaemon: {
-            label          : 'bridge daemon',
+            label          : 'wake daemon',
             command        : nodeBin,
-            args           : [path.resolve(scriptDir, '../daemons/bridge/daemon.mjs')],
-            pidFileName    : 'bridge-daemon.pid',
-            expectedCommand: 'daemons/bridge/daemon.mjs'
+            args           : [path.resolve(scriptDir, '../daemons/wake/daemon.mjs')],
+            pidFileName    : 'wake-daemon.pid',
+            expectedCommand: 'daemons/wake/daemon.mjs'
         },
         summary: {
             label          : 'session summarization',

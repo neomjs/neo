@@ -72,7 +72,7 @@ class WakeSubscriptionService extends Base {
      *
      * Canonical osascript target app names accepted on Shape C subscription writes. One entry per
      * harness onboarded into the swarm: Antigravity (@neo-gemini-pro), Claude
-     * (@neo-opus-ada), Codex (@neo-gpt). The bridge daemon dispatches via `tell application
+     * (@neo-opus-ada), Codex (@neo-gpt). The wake daemon dispatches via `tell application
      * "<appName>"`, so list completeness is load-bearing — a missing entry rejects the canonical
      * AgentIdentity.subscriptionTemplate at auto-bootstrap time and silently strands the
      * corresponding harness from Shape C wake delivery.
@@ -584,7 +584,7 @@ class WakeSubscriptionService extends Base {
      *
      * The public `subscribe` action is a restart-boundary surface, not only a fresh-create
      * primitive. Agents routinely re-subscribe after MCP or bridge-daemon restarts, and the
-     * bridge daemon reads every durable active `WAKE_SUBSCRIPTION` row. To keep the
+     * wake daemon reads every durable active `WAKE_SUBSCRIPTION` row. To keep the
      * wake-substrate route topology one-active-row-per-identity, this method first checks the
      * SQLite source of truth for an active route match using `(agentIdentity, trigger,
      * harnessTarget, normalized filters, route metadata)`. If one exists, it warms the
@@ -1263,7 +1263,7 @@ class WakeSubscriptionService extends Base {
      *
      * Public re-subscribe calls are semantically route recovery attempts after restart, while
      * bridge-daemon dispatch consumes every active SQLite row. Matching against SQLite before
-     * creating a new `WAKE_SUBSCRIPTION` keeps the API and bridge daemon aligned and prevents
+     * creating a new `WAKE_SUBSCRIPTION` keeps the API and wake daemon aligned and prevents
      * duplicate wake fanout when the in-memory cache is cold.
      *
      * @param {Object} opts
@@ -1395,7 +1395,7 @@ class WakeSubscriptionService extends Base {
     /**
      * @summary Reads candidate wake subscriptions from SQLite, falling back to graph cache.
      *
-     * The durable-first path mirrors the bridge daemon's source of truth. The in-memory fallback
+     * The durable-first path mirrors the wake daemon's source of truth. The in-memory fallback
      * keeps isolated unit-test harnesses working when they replace the graph storage substrate.
      *
      * @param {String} owner AgentIdentity node id.
@@ -1555,7 +1555,7 @@ class WakeSubscriptionService extends Base {
      *
      * This is the Echo half of the durable-source alignment strategy: once SQLite proves a
      * subscription exists, the hot graph/cache layers are updated so subsequent operations in the
-     * same MCP server lifetime see the same route the bridge daemon sees.
+     * same MCP server lifetime see the same route the wake daemon sees.
      *
      * @param {String} subscriptionId The durable subscription id.
      * @param {Object} node Parsed `WAKE_SUBSCRIPTION` graph node.
@@ -1725,7 +1725,7 @@ class WakeSubscriptionService extends Base {
      * @summary Removes durable SUBSCRIBES_TO edges for cache-cold unsubscribe operations.
      *
      * `unsubscribe` used to scan only loaded `db.edges.items`; after restart, stale active
-     * subscription nodes can still have durable `SUBSCRIBES_TO` edges that the bridge daemon
+     * subscription nodes can still have durable `SUBSCRIBES_TO` edges that the wake daemon
      * observes but the cache has not hydrated. This durable cleanup keeps the public API's remove
      * semantics aligned with the SQLite graph source of truth.
      *

@@ -47,14 +47,14 @@ import {
  */
 /**
  * @summary Self-bootstrapping orchestrator database open — replaces the previous
- * `bridge/queries.mjs::initializeDatabase` consumption in this daemon's `start()`
+ * `wake/queries.mjs::initializeDatabase` consumption in this daemon's `start()`
  * path for fresh `npx-neo-app` workspaces with missing sqlite files.
  *
  * **Behavior contract**:
  * - Fresh workspace with absent sqlite path → creates the directory + opens the
  *   sqlite file + initializes the Memory Core graph schema (Nodes / Edges /
  *   GraphLog / triggers / SummarizationJobs), then returns the underlying
- *   better-sqlite3 handle for downstream orchestrator + bridge daemon consumption.
+ *   better-sqlite3 handle for downstream orchestrator + wake daemon consumption.
  * - Pre-existing sqlite path with valid schema → opens cleanly (no destructive
  *   re-create; `initSchema()` self-skips when schema is already valid).
  * - Invalid/malformed dbPath → throws (orchestrator-scoped; lane-isolated
@@ -68,9 +68,9 @@ import {
  * schema. Day-2 workspaces where the user boots orchestrator before MC produce
  * the same on-disk shape as the inverse boot order.
  *
- * **Why this lives here (not in `bridge/queries.mjs`):** the bridge daemon's
- * `initializeDatabase` (still in `bridge/queries.mjs`) intentionally keeps the
- * `fileMustExist: true` + `process.exit(1)` strict contract — bridge is a child
+ * **Why this lives here (not in `wake/queries.mjs`):** the wake daemon's
+ * `initializeDatabase` (still in `wake/queries.mjs`) intentionally keeps the
+ * `fileMustExist: true` + `process.exit(1)` strict contract — the wake daemon is a child
  * task that assumes a pre-initialized DB inherited from its parent orchestrator.
  * Separating the two open-paths preserves the bridge contract (Contract Ledger
  * Row 2) while giving the orchestrator the safer self-bootstrap discipline.
@@ -81,7 +81,7 @@ import {
  * @param {String} dbPath Absolute path to the sqlite file
  * @returns {Promise<Object>} better-sqlite3 database handle, schema-initialized
  * @see ai/graph/storage/SQLite.mjs — shared schema-creation primitive
- * @see ai/daemons/bridge/queries.mjs — sibling strict-open primitive (preserved)
+ * @see ai/daemons/wake/queries.mjs — sibling strict-open primitive (preserved)
  */
 export async function initializeDatabaseSelfBootstrap(dbPath) {
     const storage = Neo.create(SQLite, {dbPath});

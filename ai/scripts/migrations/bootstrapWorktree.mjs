@@ -56,7 +56,7 @@
  * via the `DATA_SUBDIRS_TO_LINK` allowlist. `concepts/` is never in the allowlist → never
  * touched. This unifies the Memory Core substrate ({@link symlinkDataDir}) so AgentIdentity
  * nodes seeded once are visible to every worktree's MCP server, A2A mailbox handoffs span
- * harnesses, AND the bridge daemon's PID-lock singleton plus persistent log
+ * harnesses, AND the wake daemon's PID-lock singleton plus persistent log
  * span worktrees too — without the tracked `concepts/` clobber risk that
  * empirically broke most active worktrees during cross-process coherence diagnosis.
  *

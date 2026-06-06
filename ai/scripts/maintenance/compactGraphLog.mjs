@@ -24,7 +24,7 @@ import {pathToFileURL}                from 'url';
  *   node ai/scripts/maintenance/compactGraphLog.mjs --consumer-watermark remote=123456
  *
  * @see ai/graph/storage/SQLite.mjs
- * @see ai/daemons/bridge/queries.mjs
+ * @see ai/daemons/wake/queries.mjs
  */
 
 export const DEFAULT_SAFETY_MARGIN_ROWS = 1000;
@@ -130,7 +130,7 @@ export function getGraphLogStats({db, dbPath = null, fsModule = fs}) {
 }
 
 /**
- * @summary Reads the bridge daemon's durable `lastSyncId` watermark.
+ * @summary Reads the wake daemon's durable `lastSyncId` watermark.
  * @param {Object} options
  * @param {String} options.stateFile
  * @param {Number} options.latestLogId
@@ -148,7 +148,7 @@ export function readBridgeWatermark({stateFile, latestLogId, fsModule = fs}) {
         };
     }
 
-    // Mirrors bridge daemon boot semantics: absent state starts at current GraphLog head.
+    // Mirrors wake daemon boot semantics: absent state starts at current GraphLog head.
     return {
         name     : 'bridge-daemon',
         watermark: latestLogId,
@@ -494,7 +494,7 @@ export function createCommand({aiConfig} = {}) {
         .description('Dry-run-first GraphLog CDC compaction past known consumer watermarks.')
         .option('--apply', 'Actually delete eligible GraphLog rows. Without this flag the script is dry-run only.', false)
         .option('--db <path>', 'SQLite graph db path.', defaults.dbPath)
-        .option('--bridge-state-file <path>', 'Bridge daemon lastSyncId file.', defaults.bridgeStateFile)
+        .option('--bridge-state-file <path>', 'Wake daemon lastSyncId file.', defaults.bridgeStateFile)
         .option('--wake-state-file <path>', 'WakeSubscriptionService live cursor file.', defaults.wakeStateFile)
         .option('--safety-margin <rows>', 'Rows to retain below the minimum known consumer watermark.', String(defaults.safetyMarginRows))
         .option('--consumer-watermark <name=logId>', 'Additional durable consumer watermark. May be repeated.', collect, [])
