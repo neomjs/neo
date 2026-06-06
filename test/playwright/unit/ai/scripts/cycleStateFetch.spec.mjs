@@ -23,15 +23,17 @@ test.describe('cycleStateFetch — isCiGreen', () => {
 });
 
 test.describe('cycleStateFetch — mapOwnPRs', () => {
-    test('derives ciGreen / reviewRequested / changesRequested per PR', () => {
+    test('derives ciGreen / reviewRequested / changesRequested / approved per PR', () => {
         const mapped = mapOwnPRs([
             {number: 10, statusCheckRollup: [{conclusion: 'SUCCESS'}], reviewDecision: null,                reviewRequests: []},
             {number: 11, statusCheckRollup: [{conclusion: 'FAILURE'}], reviewDecision: 'CHANGES_REQUESTED',  reviewRequests: [{login: 'x'}]},
-            {number: 12, statusCheckRollup: [],                        reviewDecision: 'REVIEW_REQUIRED',    reviewRequests: [{login: 'y'}]}
+            {number: 12, statusCheckRollup: [],                        reviewDecision: 'REVIEW_REQUIRED',    reviewRequests: [{login: 'y'}]},
+            {number: 13, statusCheckRollup: [{conclusion: 'SUCCESS'}], reviewDecision: 'APPROVED',           reviewRequests: []}
         ]);
-        expect(mapped[0]).toEqual({ref: '#10', ciGreen: true,  reviewRequested: false, changesRequested: false}); // green, no reviewer → step 3
-        expect(mapped[1]).toEqual({ref: '#11', ciGreen: false, reviewRequested: true,  changesRequested: true});  // changes requested → step 1
-        expect(mapped[2]).toEqual({ref: '#12', ciGreen: true,  reviewRequested: true,  changesRequested: false}); // green + reviewer requested → no step
+        expect(mapped[0]).toEqual({ref: '#10', ciGreen: true,  reviewRequested: false, changesRequested: false, approved: false}); // green, no reviewer → step 3
+        expect(mapped[1]).toEqual({ref: '#11', ciGreen: false, reviewRequested: true,  changesRequested: true,  approved: false}); // changes requested → step 1
+        expect(mapped[2]).toEqual({ref: '#12', ciGreen: true,  reviewRequested: true,  changesRequested: false, approved: false}); // green + reviewer requested → no step
+        expect(mapped[3]).toEqual({ref: '#13', ciGreen: true,  reviewRequested: false, changesRequested: false, approved: true});  // APPROVED green, no reviewer → human merge-gate, NOT step 3
     });
 
     test('non-array input → empty', () => {
@@ -100,7 +102,7 @@ test.describe('cycleStateFetch — fetchExternalState (orchestration, injected r
         const gatherContext = async () => ({blockedRefs: new Set(['#31'])});
         const state = await fetchExternalState('@neo-opus-vega', {runQuery, gatherContext});
 
-        expect(state.ownPRs).toEqual([{ref: '#10', ciGreen: true, reviewRequested: false, changesRequested: false}]);
+        expect(state.ownPRs).toEqual([{ref: '#10', ciGreen: true, reviewRequested: false, changesRequested: false, approved: false}]);
         expect(state.reviewRequests).toEqual([{ref: '#20'}]);
         expect(state.backlog).toEqual([
             {ref: '#30', blocked: false, gated: false, claimedByOther: undefined},

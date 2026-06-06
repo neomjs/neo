@@ -42,7 +42,7 @@ export function isCiGreen(rollup) {
  * Maps `gh pr list --author @me --json number,statusCheckRollup,reviewDecision,reviewRequests` output
  * into the discriminator's `ownPRs` shape.
  * @param {Object[]} prListJson
- * @returns {{ref:String, ciGreen:Boolean, reviewRequested:Boolean, changesRequested:Boolean}[]}
+ * @returns {{ref:String, ciGreen:Boolean, reviewRequested:Boolean, changesRequested:Boolean, approved:Boolean}[]}
  */
 export function mapOwnPRs(prListJson) {
     return (Array.isArray(prListJson) ? prListJson : []).map(pr => ({
@@ -50,7 +50,11 @@ export function mapOwnPRs(prListJson) {
         ciGreen         : isCiGreen(pr.statusCheckRollup),
         // A reviewer is currently requested on the PR (so a fresh request is NOT needed).
         reviewRequested : Array.isArray(pr.reviewRequests) && pr.reviewRequests.length > 0,
-        changesRequested: pr.reviewDecision === 'CHANGES_REQUESTED'
+        changesRequested: pr.reviewDecision === 'CHANGES_REQUESTED',
+        // Already approved → the PR sits on the human merge-gate (a human-only action), NOT on an agent
+        // action. The discriminator excludes these from the request-review step so an approved-awaiting-
+        // merge PR is never told to re-request review on work that is already done.
+        approved        : pr.reviewDecision === 'APPROVED'
     }))
 }
 

@@ -36,7 +36,7 @@
 export const CycleStep = {
     ADDRESS_REVIEW_CHANGES: 'address-own-pr-changes-requested', // 1. own PR needs an author response
     REVIEW_REQUESTED_PR   : 'review-requested-pr',              // 2. a review is designated to me
-    REQUEST_REVIEW        : 'request-review-own-green-pr',      // 3. own PR is green but review not requested
+    REQUEST_REVIEW        : 'request-review-own-green-pr',      // 3. own PR green, review neither requested nor already granted (approved PRs are human-gated)
     NEXT_LANE             : 'pick-up-next-lane'                 // 4. claimable-now backlog item
 };
 
@@ -64,7 +64,7 @@ export function isClaimableNow(item) {
  * step (highest-priority claimable item per {@link CycleStep}) plus whether the cycle is genuinely empty.
  *
  * @param {Object} [state={}] The fetched external lifecycle state for one agent identity.
- * @param {Object[]} [state.ownPRs=[]] The agent's open PRs — `{ref, ciGreen, reviewRequested, changesRequested}`.
+ * @param {Object[]} [state.ownPRs=[]] The agent's open PRs — `{ref, ciGreen, reviewRequested, changesRequested, approved}`.
  * @param {Object[]} [state.reviewRequests=[]] PRs with a review designated to this agent + not yet done — `{ref}`.
  * @param {Object[]} [state.backlog=[]] Candidate next-lane items — each may carry `{ref, gated, blocked, claimedByOther}`.
  * @param {Number}  [state.openOwnPrCount] Count of the agent's open PRs (for the ≤10 backpressure hint on `NEXT_LANE`).
@@ -93,8 +93,12 @@ export function computeCycleState(state = {}) {
             'A review is designated to you — review it before a new lane.', backlog)
     }
 
-    // 3. Own PR green but review not requested — request review (event-driven; never wait the CI window).
-    const greenUnrequested = ownPRs.find(pr => pr && pr.ciGreen && !pr.reviewRequested);
+    // 3. Own PR green but review neither requested NOR already granted — request review (event-driven;
+    //    never wait the CI window). An already-APPROVED green PR is excluded: it sits on the human
+    //    merge-gate (a human-only action), not on an agent action — re-requesting review on already-
+    //    approved work would manufacture a false next-step (noise, not progress). Falls through to
+    //    step 4 / empty cycle.
+    const greenUnrequested = ownPRs.find(pr => pr && pr.ciGreen && !pr.reviewRequested && !pr.approved);
     if (greenUnrequested) {
         return verdict(CycleStep.REQUEST_REVIEW, greenUnrequested.ref,
             'An own PR is green but review is not requested — request it.', backlog)

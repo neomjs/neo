@@ -95,6 +95,33 @@ test.describe('cycleState — claimable-now ≠ raw-backlog (the falsification-A
     });
 });
 
+test.describe('cycleState — approved own PRs are human-gated, not a request-review step (#12640 RC)', () => {
+    test('an approved green PR with no reviewer is NOT request-review — it sits on the human merge-gate', () => {
+        const v = computeCycleState({
+            ownPRs: [{ref: '#12605', ciGreen: true, reviewRequested: false, approved: true}]
+        });
+        expect(v.nextStep).toBeNull();              // no agent action; the human merge-gate owns it
+        expect(v.isEmptyCycle).toBe(true)
+    });
+
+    test('an approved own PR does NOT block a claimable backlog lane from surfacing', () => {
+        const v = computeCycleState({
+            ownPRs : [{ref: '#12605', ciGreen: true, reviewRequested: false, approved: true}],
+            backlog: [{ref: '#40'}]
+        });
+        expect(v.nextStep.step).toBe(CycleStep.NEXT_LANE);   // backlog still surfaces past the human-gated PR
+        expect(v.nextStep.ref).toBe('#40')
+    });
+
+    test('a green UN-approved own PR still requests review (the exclusion is precise to approved)', () => {
+        const v = computeCycleState({
+            ownPRs: [{ref: '#11', ciGreen: true, reviewRequested: false, approved: false}]
+        });
+        expect(v.nextStep.step).toBe(CycleStep.REQUEST_REVIEW);
+        expect(v.nextStep.ref).toBe('#11')
+    });
+});
+
 test.describe('cycleState — formatCycleStateLine (the daemon digest fragment)', () => {
     test('renders the next step; null for empty/absent (caller falls back to the count line)', () => {
         const v = computeCycleState({reviewRequests: [{ref: '#20'}]});
