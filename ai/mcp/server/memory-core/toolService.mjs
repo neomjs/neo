@@ -43,6 +43,7 @@ const serviceMapping = {
     list_permissions      : PermissionService       .listPermissions     .bind(PermissionService),
     manage_wake_subscription: WakeSubscriptionService.manage              .bind(WakeSubscriptionService),
     purge_session         : SessionService          .purgeSession        .bind(SessionService),
+    get_recent_session_ids: SessionService          .getRecentSessionIds .bind(SessionService),
     resume_session        : SessionService          .validateSessionForResume.bind(SessionService),
     set_session_id        : SessionService          .setSessionId        .bind(SessionService)
 };

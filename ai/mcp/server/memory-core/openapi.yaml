@@ -527,6 +527,97 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sessions/recent:
+    get:
+      summary: Get recent session IDs
+      operationId: get_recent_session_ids
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Discovers recent Memory Core session IDs from raw memory metadata, including unsummarized sessions.
+
+        Use at boot when an agent needs candidate session IDs before validating one with `resume_session`
+        or reconnecting with an `Mcp-Session-Id` header. This is a read-only discovery primitive; it
+        does not mutate RequestContextService and does not call `set_session_id`.
+      tags: [Sessions]
+      parameters:
+        - name: agentIdentity
+          in: query
+          required: false
+          description: |
+            Optional author-identity scope. `@me` resolves the bound caller and fails closed if no
+            identity is bound; `@<identity>` and bare identity scope to that maintainer; omitted or
+            `all` returns the team-wide view.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum sessions to return. Invalid values fall back to 10; values above 100 are clamped.
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          description: Number of sessions to skip for pagination. Invalid negative values fall back to 0.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: includeFinalized
+          in: query
+          required: false
+          description: Include sessions whose summarization job has completed. Defaults to false.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Recent session candidates, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _channelSeparation:
+                    type: string
+                    description: Security annotation marking the payload as DATA, not executable COMMANDS.
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sessionId:
+                          type: string
+                        lastActivityAt:
+                          type: string
+                          nullable: true
+                        memoryCount:
+                          type: integer
+                        summarizationStatus:
+                          type: string
+                          enum: [none, pending, in_progress, completed, failed]
+                        resumeStatus:
+                          type: string
+                          enum: [resumable, INVALID_SESSION_ID, SESSION_NOT_FOUND, SESSION_FINALIZED, SESSION_BUSY]
+                        title:
+                          type: string
+                          nullable: true
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sessions/resume:
     post:
       summary: Validate session resumability

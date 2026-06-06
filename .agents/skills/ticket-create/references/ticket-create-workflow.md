@@ -117,6 +117,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **Related** — sibling tickets, superseded tickets, dependencies, PRs.
 - **Origin Session ID** — Memory Core session ID that produced the ticket. **Optional, but highly recommended** for genuinely single-session tickets. Serves as a direct pointer for the A2A Contextual Bridge Protocol (`AGENTS.md §14`). Format: `Origin Session ID: <uuid>` on its own line near the end of the body.
 - **Handoff Retrieval Hints** — Semantic query patterns (`query_raw_memories`, `query_summaries`) or exact Git commit-range anchors to assist subsequent agents in resuming the workstream across fragmented session IDs post-restart. **REQUIRED for architecturally substantive tickets or multi-session workflows.** Example: `Retrieval Hint: "cross-harness MCP singleton cache divergence"` or `Retrieval Hint: Commit SHA 1234abcd..5678efgh`.
+- **Session Discovery Hint** — When the producing session id is unknown or may have fragmented, prefer a retrieval hint that tells future agents to start with `get_recent_session_ids({ agentIdentity: '@me', limit: 5 })`, then validate candidate ids with `resume_session` before reconnecting.
 
 ### 5.1 Reference Hygiene: Backtick-Escape for Descriptive `#N`
 
