@@ -9,7 +9,7 @@ export function initializeDatabase(dbPath) {
         db.pragma('busy_timeout = 5000');
         return db;
     } catch (err) {
-        console.error(`[Bridge Daemon] Failed to open database at ${dbPath}. Is the graph initialized?`);
+        console.error(`[Wake Daemon] Failed to open database at ${dbPath}. Is the graph initialized?`);
         process.exit(1);
     }
 }
@@ -28,6 +28,8 @@ export function getLastSyncId(db, stateFile) {
 }
 
 export function getActiveShapeCSubscriptions(db) {
+    // `'bridge-daemon'` is the FROZEN harnessTarget wire value — kept verbatim on the
+    // wake-daemon rename so persisted WAKE_SUBSCRIPTION rows keep matching (no migration).
     const stmt = db.prepare(`
         SELECT data
         FROM Nodes
@@ -41,9 +43,9 @@ export function getActiveShapeCSubscriptions(db) {
 export const HARNESS_PRESENCE_STALE_AFTER_MS = 5 * 60 * 1000;
 
 /**
- * @summary Loads the newest active HarnessPresence row for a bridge-daemon subscription.
+ * @summary Loads the newest active HarnessPresence row for a wake-daemon subscription.
  *
- * Presence is a volatile overlay keyed by subscription and identity. The bridge daemon consumes it
+ * Presence is a volatile overlay keyed by subscription and identity. The wake daemon consumes it
  * only as a freshness guard for targeted delivery; missing or stale presence must fail closed for
  * address-specific dispatch instead of falling through to the legacy untargeted activate path.
  *
@@ -118,16 +120,16 @@ export function isHarnessPresenceFresh(presence, {
 }
 
 /**
- * @summary Collapses duplicate active Shape C wake routes before bridge-daemon dispatch.
+ * @summary Collapses duplicate active Shape C wake routes before wake-daemon dispatch.
  *
- * The bridge daemon is the last-mile consumer of durable `WAKE_SUBSCRIPTION` rows. If a stale
+ * The wake daemon is the last-mile consumer of durable `WAKE_SUBSCRIPTION` rows. If a stale
  * active row survives an MCP restart, dispatching every row wakes the same agent multiple times
  * for the same mailbox event. This defense-in-depth guard mirrors the Memory Core
  * `subscribe` idempotency contract: one active route per `(agentIdentity, trigger, filters,
  * appName)` tuple, with the newest updated/created row winning when legacy duplicates exist.
  *
  * @param {Object[]} subscriptions Parsed WAKE_SUBSCRIPTION graph nodes.
- * @returns {Object[]} Deduplicated subscriptions for bridge delivery.
+ * @returns {Object[]} Deduplicated subscriptions for wake delivery.
  */
 export function collapseDuplicateShapeCRoutes(subscriptions) {
     const byRoute = new Map();

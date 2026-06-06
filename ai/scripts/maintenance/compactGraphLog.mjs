@@ -24,7 +24,7 @@ import {pathToFileURL}                from 'url';
  *   node ai/scripts/maintenance/compactGraphLog.mjs --consumer-watermark remote=123456
  *
  * @see ai/graph/storage/SQLite.mjs
- * @see ai/daemons/bridge/queries.mjs
+ * @see ai/daemons/wake/queries.mjs
  */
 
 export const DEFAULT_SAFETY_MARGIN_ROWS = 1000;
@@ -130,14 +130,14 @@ export function getGraphLogStats({db, dbPath = null, fsModule = fs}) {
 }
 
 /**
- * @summary Reads the bridge daemon's durable `lastSyncId` watermark.
+ * @summary Reads the wake daemon's durable `lastSyncId` watermark.
  * @param {Object} options
  * @param {String} options.stateFile
  * @param {Number} options.latestLogId
  * @param {Object} [options.fsModule=fs]
  * @returns {{name:String, watermark:Number, source:String}}
  */
-export function readBridgeWatermark({stateFile, latestLogId, fsModule = fs}) {
+export function readWakeDaemonWatermark({stateFile, latestLogId, fsModule = fs}) {
     if (fsModule.existsSync(stateFile)) {
         const raw = fsModule.readFileSync(stateFile, 'utf8').trim();
 
@@ -148,7 +148,7 @@ export function readBridgeWatermark({stateFile, latestLogId, fsModule = fs}) {
         };
     }
 
-    // Mirrors bridge daemon boot semantics: absent state starts at current GraphLog head.
+    // Mirrors wake daemon boot semantics: absent state starts at current GraphLog head.
     return {
         name     : 'bridge-daemon',
         watermark: latestLogId,
@@ -240,7 +240,7 @@ export function findExplicitSubscriptionWatermark(subscription, extraWatermarks 
  * @summary Computes the safe GraphLog compaction cutoff from known consumer watermarks.
  * @param {Object} options
  * @param {Object} options.stats
- * @param {Object} options.bridgeWatermark
+ * @param {Object} options.wakeDaemonWatermark
  * @param {Object[]} [options.subscriptions=[]]
  * @param {Object[]} [options.extraWatermarks=[]]
  * @param {Number} [options.wakeLiveCursor=null]
@@ -249,7 +249,7 @@ export function findExplicitSubscriptionWatermark(subscription, extraWatermarks 
  */
 export function computeCompactionPlan({
     stats,
-    bridgeWatermark,
+    wakeDaemonWatermark,
     subscriptions       = [],
     extraWatermarks     = [],
     wakeLiveCursor      = null,
@@ -262,7 +262,7 @@ export function computeCompactionPlan({
     const mcpNeeded        = subscriptions.some(sub => sub.harnessTarget === 'mcp-notifications');
 
     if (bridgeNeeded) {
-        consumers.push(bridgeWatermark);
+        consumers.push(wakeDaemonWatermark);
     }
 
     if (mcpNeeded) {
@@ -403,7 +403,7 @@ export function runGraphLogCompaction({
 
         const before          = getGraphLogStats({db, dbPath, fsModule});
         const subscriptions   = listActiveWakeSubscriptions({db});
-        const bridgeWatermark = readBridgeWatermark({
+        const wakeDaemonWatermark = readWakeDaemonWatermark({
             stateFile  : bridgeStateFile,
             latestLogId: before.maxLogId,
             fsModule
@@ -413,7 +413,7 @@ export function runGraphLogCompaction({
             : null;
         const plan = computeCompactionPlan({
             stats: before,
-            bridgeWatermark,
+            wakeDaemonWatermark,
             subscriptions,
             extraWatermarks,
             wakeLiveCursor,
@@ -435,7 +435,7 @@ export function runGraphLogCompaction({
         }
 
         const after = getGraphLogStats({db, dbPath, fsModule});
-        const result = {before, after, subscriptions, bridgeWatermark, wakeWatermark, plan, compaction, checkpointResult};
+        const result = {before, after, subscriptions, wakeDaemonWatermark, wakeWatermark, plan, compaction, checkpointResult};
 
         logCompactionResult(result, {apply, vacuum, logger});
 
@@ -451,13 +451,13 @@ export function runGraphLogCompaction({
  * @param {Object} options
  */
 export function logCompactionResult(result, {apply = false, vacuum = false, logger = console} = {}) {
-    const {before, after, plan, compaction, subscriptions, bridgeWatermark, wakeWatermark} = result;
+    const {before, after, plan, compaction, subscriptions, wakeDaemonWatermark, wakeWatermark} = result;
 
     logger.log(`GraphLog compaction ${apply ? 'APPLY' : 'DRY-RUN'}`);
     logger.log(`  rows: ${before.rowCount} before -> ${after.rowCount} after`);
     logger.log(`  max log_id: ${before.maxLogId}; cutoff: ${plan.cutoffLogId}; safety margin: ${plan.safetyMarginRows}`);
     logger.log(`  active wake subscriptions: ${subscriptions.length}`);
-    logger.log(`  bridge watermark: ${bridgeWatermark.watermark} (${bridgeWatermark.source})`);
+    logger.log(`  wake-daemon watermark: ${wakeDaemonWatermark.watermark} (${wakeDaemonWatermark.source})`);
     logger.log(`  wake subscription watermark: ${wakeWatermark ? `${wakeWatermark.watermark} (${wakeWatermark.source})` : '(missing)'}`);
 
     if (!plan.canApply) {
@@ -494,7 +494,7 @@ export function createCommand({aiConfig} = {}) {
         .description('Dry-run-first GraphLog CDC compaction past known consumer watermarks.')
         .option('--apply', 'Actually delete eligible GraphLog rows. Without this flag the script is dry-run only.', false)
         .option('--db <path>', 'SQLite graph db path.', defaults.dbPath)
-        .option('--bridge-state-file <path>', 'Bridge daemon lastSyncId file.', defaults.bridgeStateFile)
+        .option('--bridge-state-file <path>', 'Wake daemon lastSyncId file.', defaults.bridgeStateFile)
         .option('--wake-state-file <path>', 'WakeSubscriptionService live cursor file.', defaults.wakeStateFile)
         .option('--safety-margin <rows>', 'Rows to retain below the minimum known consumer watermark.', String(defaults.safetyMarginRows))
         .option('--consumer-watermark <name=logId>', 'Additional durable consumer watermark. May be repeated.', collect, [])

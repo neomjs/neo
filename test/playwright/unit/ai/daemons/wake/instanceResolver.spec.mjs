@@ -4,10 +4,10 @@ import {
     getInstancePid,
     resolveDefaultInstancePid,
     resolveInstancePid
-} from '../../../../../../ai/daemons/bridge/instanceResolver.mjs';
+} from '../../../../../../ai/daemons/wake/instanceResolver.mjs';
 
 /**
- * Self-test for the bridge-daemon instance resolver: maps a harness instance's `--user-data-dir`
+ * Self-test for the wake-daemon instance resolver: maps a harness instance's `--user-data-dir`
  * to its main app-process pid so the wake daemon can target the intended instance when two
  * same-bundle harnesses run in parallel. Fixtures model real macOS `ps axww -o pid=,ppid=,command=`
  * output for two Claude.app instances — a default one (only Electron helpers carry the dir) and a
@@ -35,7 +35,7 @@ const PS_SINGLE_DEFAULT = [
     `13119 13106 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper --type=gpu-process --user-data-dir=${DEFAULT_DIR} --gpu-preferences=xyz`
 ].join('\n');
 
-test.describe('bridge-daemon instanceResolver', () => {
+test.describe('wake-daemon instanceResolver', () => {
     test('resolves the second instance main pid directly when the main executable carries --user-data-dir', () => {
         // The Neo instance's main process carries the dir (open --args), and is preferred over its helper.
         expect(resolveInstancePid({userDataDir: NEO_DIR, psOutput: PS_BOTH_INSTANCES})).toBe(20001);

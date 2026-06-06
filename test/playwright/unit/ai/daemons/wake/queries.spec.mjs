@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import Database from 'better-sqlite3';
-import { getUnreadSunsetHandovers, markNodesAsRead } from '../../../../../../ai/daemons/bridge/queries.mjs';
+import { getUnreadSunsetHandovers, markNodesAsRead } from '../../../../../../ai/daemons/wake/queries.mjs';
 
-test.describe('ai/daemons/bridge/queries', () => {
+test.describe('ai/daemons/wake/queries', () => {
     let db;
 
     test.beforeEach(() => {
