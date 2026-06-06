@@ -35,7 +35,7 @@ const PS_SINGLE_DEFAULT = [
     `13119 13106 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper --type=gpu-process --user-data-dir=${DEFAULT_DIR} --gpu-preferences=xyz`
 ].join('\n');
 
-test.describe('bridge-daemon instanceResolver', () => {
+test.describe('wake-daemon instanceResolver', () => {
     test('resolves the second instance main pid directly when the main executable carries --user-data-dir', () => {
         // The Neo instance's main process carries the dir (open --args), and is preferred over its helper.
         expect(resolveInstancePid({userDataDir: NEO_DIR, psOutput: PS_BOTH_INSTANCES})).toBe(20001);
