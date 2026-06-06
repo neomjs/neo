@@ -1,8 +1,11 @@
 :root .neo-theme-neo-dark { // .neo-dialog
-    --dialog-border-color: var(--sem-color-border-default);
-    --dialog-box-shadow  : 0 5px 10px rgba(0,0,0,.8);
-    --dialog-header-color: var(--sem-color-text-primary-default);
-    --dialog-icon-color  : var(--sem-color-icon-primary-default);
+    --dialog-border-color                : var(--purple-800);
+    --dialog-box-shadow                  : 0 5px 10px rgba(17, 20, 28, .85);
+    --dialog-footer-button-border-radius: 5px;
+    --dialog-footer-button-height       : 1.7em;
+    --dialog-footer-button-margin-left  : 0.3em;
+    --dialog-header-color                : var(--sem-color-text-primary-default);
+    --dialog-icon-color                  : var(--sem-color-icon-primary-default);
 
     .neo-dialog {
         .neo-header-toolbar {

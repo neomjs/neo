@@ -1,6 +1,9 @@
 :root .neo-theme-light { // .neo-dialog
-    --dialog-border-color: #ddd;
-    --dialog-box-shadow  : 0 5px 10px rgba(0,0,0,.4);
-    --dialog-header-color: #1c60a0;
-    --dialog-icon-color  : #1c60a0;
+    --dialog-border-color                : #ddd;
+    --dialog-box-shadow                  : 0 5px 10px rgba(0,0,0,.4);
+    --dialog-footer-button-border-radius: var(--button-border-radius);
+    --dialog-footer-button-height       : var(--button-height);
+    --dialog-footer-button-margin-left  : 0;
+    --dialog-header-color                : #1c60a0;
+    --dialog-icon-color                  : #1c60a0;
 }

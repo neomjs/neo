@@ -66,6 +66,12 @@
         .neo-footer-toolbar {
             border    : none;
             border-top: 1px solid var(--dialog-border-color);
+
+            .neo-button {
+                border-radius: var(--dialog-footer-button-border-radius);
+                height       : var(--dialog-footer-button-height);
+                margin-left  : var(--dialog-footer-button-margin-left);
+            }
         }
 
         .neo-header-toolbar {
