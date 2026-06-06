@@ -5,6 +5,14 @@
     --dialog-icon-color  : var(--purple-500);
 
     .neo-dialog {
+        .neo-footer-toolbar {
+            .neo-button {
+                border-radius: 5px;
+                height       : 1.7em;
+                margin-left  : 0.3em;
+            }
+        }
+
         .neo-header-toolbar {
             .neo-button {
                 background-color: transparent;
