@@ -4,9 +4,9 @@
  * (it can afford the latency; the sync Stop hook reads the cached verdict instead), then maps the JSON
  * here so the derivation (CI-green, changes-requested, review-requested) stays pure + unit-testable.
  *
- * **Increment scope:** the lifecycle-closure mappers (own PRs + review requests = cycle steps 1-3). The
- * next-lane backlog mapper (step 4, with its gated/blocked/colliding flag derivation) + the impure
- * `gh`-runner wrapper are follow-up increments.
+ * **Increment scope:** the mappers for all four cycle steps (own PRs + review requests = steps 1-3;
+ * backlog = step 4). The impure `gh`-runner wrapper — which gathers the cross-source context sets
+ * (issue relations, A2A lane-claims) and runs the queries — is the follow-up increment.
  *
  * @see ai/scripts/lifecycle/cycleState.mjs      — the discriminator these feed
  * @see ai/scripts/lifecycle/cycleStateCache.mjs — where the daemon caches the computed verdict
@@ -55,4 +55,26 @@ export function mapOwnPRs(prListJson) {
  */
 export function mapReviewRequests(prListJson) {
     return (Array.isArray(prListJson) ? prListJson : []).map(pr => ({ref: `#${pr.number}`}))
+}
+
+/**
+ * Maps candidate backlog issues into the discriminator's `backlog` shape, deriving the claimable-now
+ * exclusion flags from cross-source context the caller gathers. Pure over (issue list + context sets) so
+ * the flag logic is unit-testable; the impure caller builds the sets from issue relations + lane-claim A2As.
+ *
+ * The three flags are exactly the discriminator's claimable-now exclusions (a flagged item is NOT a next
+ * step → a backlog of only-flagged items is a legitimately-empty cycle the hook must not fire on).
+ *
+ * @param {Object[]} issueListJson `gh issue list --assignee @me --json number` output.
+ * @param {Object} [context]
+ * @param {Set<String>}        [context.blockedRefs]    Refs with unresolved blocked-by dependencies.
+ * @param {Set<String>}        [context.gatedRefs]      Refs decision-/architecture-gated (e.g. an open design dependency).
+ * @param {Map<String,String>} [context.claimedByOther] ref → another agent's identity holding an active lane-claim.
+ * @returns {{ref:String, blocked:Boolean, gated:Boolean, claimedByOther:(String|undefined)}[]}
+ */
+export function mapBacklog(issueListJson, {blockedRefs = new Set(), gatedRefs = new Set(), claimedByOther = new Map()} = {}) {
+    return (Array.isArray(issueListJson) ? issueListJson : []).map(issue => {
+        const ref = `#${issue.number}`;
+        return {ref, blocked: blockedRefs.has(ref), gated: gatedRefs.has(ref), claimedByOther: claimedByOther.get(ref)}
+    })
 }

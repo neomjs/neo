@@ -1,5 +1,5 @@
 import {test, expect}                            from '@playwright/test';
-import {isCiGreen, mapOwnPRs, mapReviewRequests} from '../../../../../ai/scripts/lifecycle/cycleStateFetch.mjs';
+import {isCiGreen, mapBacklog, mapOwnPRs, mapReviewRequests} from '../../../../../ai/scripts/lifecycle/cycleStateFetch.mjs';
 
 /**
  * Self-test for the GitHub-state → cycle-state-input mappers (the daemon-side fetch-and-map layer). The
@@ -44,5 +44,24 @@ test.describe('cycleStateFetch — mapReviewRequests', () => {
     test('maps to {ref} (designated reviews)', () => {
         expect(mapReviewRequests([{number: 20}, {number: 21}])).toEqual([{ref: '#20'}, {ref: '#21'}]);
         expect(mapReviewRequests(undefined)).toEqual([])
+    });
+});
+
+test.describe('cycleStateFetch — mapBacklog (claimable-now exclusion flags)', () => {
+    test('derives blocked / gated / claimedByOther from the context sets', () => {
+        const mapped = mapBacklog([{number: 30}, {number: 31}, {number: 32}, {number: 33}], {
+            blockedRefs   : new Set(['#30']),
+            gatedRefs     : new Set(['#31']),
+            claimedByOther: new Map([['#32', '@neo-gpt']])
+        });
+        expect(mapped[0]).toEqual({ref: '#30', blocked: true,  gated: false, claimedByOther: undefined});  // blocked
+        expect(mapped[1]).toEqual({ref: '#31', blocked: false, gated: true,  claimedByOther: undefined});  // gated
+        expect(mapped[2]).toEqual({ref: '#32', blocked: false, gated: false, claimedByOther: '@neo-gpt'}); // collision
+        expect(mapped[3]).toEqual({ref: '#33', blocked: false, gated: false, claimedByOther: undefined});  // claimable-now
+    });
+
+    test('no context → all unflagged (all claimable); non-array → empty', () => {
+        expect(mapBacklog([{number: 40}])).toEqual([{ref: '#40', blocked: false, gated: false, claimedByOther: undefined}]);
+        expect(mapBacklog(undefined)).toEqual([])
     });
 });
