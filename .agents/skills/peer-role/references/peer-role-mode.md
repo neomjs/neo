@@ -117,6 +117,8 @@ add_message({
 });
 ```
 
+**Wake-control (the `add_message` `wakeSuppressed` param, relaxed in #12635):** classify by **recipient actionability, not primitive name** — the wake is orthogonal to the lane-primitive above. **Wake** (omit `wakeSuppressed`): a direct review / re-review request, `REQUEST_CHANGES`, `[lane-override]`, or a `[lane-claim]` / coordination message that **overlaps the recipient's active or owned surface** (a lane claimed *on* their work). **May suppress** (`wakeSuppressed: true`): ordinary non-overlapping awareness — PR-opened observer notes (you're not the reviewer), lane-progress pings, acks, and **non-colliding `[lane-claim]` broadcasts**; the recipient still receives them on their next `list_messages` rather than via an interrupt. (Additive to the session-sunset self-DM suppression, which stays valid.)
+
 ### 6.5.1 Lane-Override Protocol (`[lane-override]`)
 
 *(Codified per #11537 AC10, graduated from Discussion #11536 OQ6 resolution.)*
