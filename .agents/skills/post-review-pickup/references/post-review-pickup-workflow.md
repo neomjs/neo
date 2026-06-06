@@ -88,10 +88,10 @@ does not permit two passive misses; it marks the third consecutive miss as a
 critical recovery event.
 
 Three consecutive ignored pulses in the same active goal/session are a critical
-failure, not a legitimate halt-state. On the third pulse, the agent MUST stop
+failure, not a legitimate terminal. On the third pulse, the agent MUST stop
 repeating no-delta/paused/halt prose, name the missed lane or goal, choose one
 concrete recovery action, and emit a `[critical-failure]` A2A signal with the
-evidence chain. Repeating the same unchanged pause/halt reason does not reset
+evidence chain. Repeating the same unchanged no-delta reason does not reset
 the counter.
 
 This threshold governs recipient behavior after a heartbeat is delivered. It is
@@ -105,15 +105,17 @@ these next states before ending the turn:
 
 | Review verdict just posted | Next pickup target |
 |---|---|
-| `Approve` or `Approve+Follow-Up` | Treat the PR as at the human merge gate per `AGENTS.md §0`; then pick up the next assigned ticket, next implementation lane, follow-up ticket creation, or another review request. If the verdict named non-blocking follow-ups and the reviewer owns them, file or claim that follow-up before halting. |
+| `Approve` or `Approve+Follow-Up` | Treat the PR as at the human merge gate per `AGENTS.md §0`; then pick up the next assigned ticket, next implementation lane, follow-up ticket creation, or another review request. If the verdict named non-blocking follow-ups and the reviewer owns them, file or claim that follow-up before any terminal. |
 | `Request Changes` | The author owns the response cycle. Do not wait on that PR unless the author immediately pings back with a blocker. Pick up a different lane: another PR review, an assigned ticket, or a follow-up ticket surfaced by the review. |
 | `Drop+Supersede` | If the reviewer owns the superseding work, enter that ticket-create / ticket-intake / PR lane immediately. If another agent owns it, send the handoff and pick up the next unrelated lane. |
 
-If no next lane is identifiable, report an explicit halt-state instead of
-silently ending the turn, using the formal `lane-state:` vocabulary. You MUST explicitly output your state at the end of your turn:
+If no claimable-now lane survives the survey, declare the externally-falsifiable
+`verified-empty` terminal instead of silently ending the turn, using the formal
+`lane-state:` vocabulary. You MUST explicitly output your state at the end of
+your turn:
 
 ```text
-lane-state: halt-state (backlog self-survey completed after #NNNN review; no positive-ROI lane self-selectable)
+lane-state: verified-empty (backlog self-survey completed after #NNNN review; no claimable-now lane)
 ```
 
 If a lane is identifiable, or if you are blocked by a human merge gate, declare it:
@@ -138,13 +140,18 @@ lane-state: next-lane (picking up ticket #NNNN)
 lane-state: next-lane (claiming #NNNN as primary reviewer)
 lane-state: next-lane (filing follow-up ticket for friction surfaced in #NNNN)
 lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
-lane-state: halt-state (backlog self-survey completed at boundary #NNNN; no positive-ROI lane self-selectable — concrete reason here)
+lane-state: verified-empty (backlog self-survey completed at boundary #NNNN; no claimable-now lane — named survey here)
+lane-state: blocked-task-state (current lane hit <verified blocker>; see blocked-task-state skill)
 ```
 
-The declaration is the explicit substrate-signal that the agent
-backlog-surveyed and either selected a lane OR identified a legitimate halt
-per §5. Without the declaration, the substrate cannot distinguish discipline
-from deference. Per the AGENTS.md self-select mandate and Helpful Assistant
+The only valid terminals are the three externally-falsifiable ones above plus
+the cycle-step `next-lane`; "holding"/"standby"/"nothing-actionable"/"idle"/bare
+`paused` and the miscited reasoned-hold are NOT expressible (§5).
+
+The declaration is the explicit substrate-signal that the agent ran the cycle
+and either selected a lane OR reached an externally-falsifiable terminal per §5.
+Without the declaration, the substrate cannot distinguish discipline from
+deference. Per the AGENTS.md self-select mandate and Helpful Assistant
 regression defense: stating intent without execution is itself the
 deference-slip pattern.
 
@@ -216,7 +223,7 @@ author MUST choose one of these next states before ending the turn:
 | Author state after response | Next pickup target |
 |---|---|
 | Fixup commits pushed and re-review requested | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
-| Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `lane-state: halt-state (awaiting reviewer response on #NNNN; no independent lane assigned.)` |
+| Current PR still blocks all local work | That blocks only that lane; survey the backlog first (§5). If a claimable-now lane survives, take it; otherwise declare `verified-empty` (named survey) or `human-gate` if every candidate is human-blocked. "No independent lane assigned" with an unqueried backlog is NOT a terminal. |
 | Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
 
 ## 4. Author-Concentration Detector (Telemetry)
@@ -225,33 +232,54 @@ author MUST choose one of these next states before ending the turn:
 
 Authorship balance is **telemetry, not policy** (FAIR-band-as-policy retired per Epic #12440 → #12443). The author-concentration detector is defined in [`./author-concentration-detector.md`](./author-concentration-detector.md): a merged-window concentration signal (open-pipeline as amber) read at lane-discovery, with **no band, no scoreboard, no throttle, and no PR-body declaration**. Flat-peer-team self-selection is preserved; when concentration fires it is a liveness/capability signal (route to making cold peers live — the sibling legs #12444 / #12445 / #12446), never a reason to slow the productive author.
 
-## 5. Legitimate Halt States
+## 5. The Cycle Is the Operating Model; Turn-Terminals Are Externally-Falsifiable
 
-Lineage: #10970 established lifecycle pickup; #11165 tightened halt-state
-backlog self-survey; #11221 closed stated-intent-without-execution; #11669
-adds the broadcast-suppressed fallback below.
+Lineage: #10970 established lifecycle pickup; #11165 tightened the backlog
+self-survey; #11221 closed stated-intent-without-execution; #11669 adds the
+broadcast-suppressed fallback below; #12632 (Discussion #12630) deleted the
+holding vocabulary and made the cycle the operating model.
 
-Halt is allowed only when it is explicit and true:
+**Operating model — the cycle.** At every turn boundary, drain the actionable
+lifecycle queue BEFORE opening a new lane, in priority order: (1) own PR
+`REQUEST_CHANGES`/required author-response → address it; (2) designated peer
+review/re-review → review it (unless a higher-priority own author-response is
+active); (3) own PR green (CI event) → request review (event-driven; never wait
+the CI window synchronously); (4) only then → next lane. The ≤10 own-open-PR cap
+gates WHICH next-step (open-new vs drive-existing), NEVER WHETHER lifecycle work
+happens — it is backpressure, not a quota. This is liveness, not throughput: no
+contribution-counter, no per-wake ledger, no N-PR quota; a peer doing less while
+actively working still passes.
 
-1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate / broader non-conflicting backlog such as body, grid, docs, testing, or general Project work) AND found no positive-ROI lane self-selectable, OR all candidate lanes hit conditions 2-5 below. The survey + finding MUST be named in the halt declaration.
-2. Every candidate lane is blocked on human-only action.
-3. A safety gate forbids continuing.
-4. The operator explicitly requested a pause.
-5. **Context exhaustion** requires `session-sunset` — interpreted STRICTLY as a CONCRETE exhaustion-trigger, NOT a vague feel:
+**The ONLY legitimate turn-terminals are externally-falsifiable** (another
+observer can confirm each against repo/board/operator evidence): `verified-empty`
+(the named backlog self-survey below, zero claimable-now lane), `human-gate`
+(every candidate blocked on human-only action), and `blocked-task-state` (a
+current lane hit a verified blocker — see the `blocked-task-state` skill).
+"Claimable-now" = un-gated, non-colliding, un-blocked; a legitimately-gated
+non-empty backlog is a valid non-fire state (owned-issues-exist ≠ a step was
+available) but is NOT `verified-empty` until the survey is named.
+
+There is **no** sanctioned no-delta turn-terminal of "holding", "standby",
+"nothing-actionable", "idle", or a bare `paused` whose reason is not
+externally-falsifiable. A `lane-state:` whose stated reason contradicts its
+cited source (a "miscited reasoned-hold") is an unsourced terminal in disguise
+and is equally forbidden. The externally-falsifiable terminals are qualified by:
+
+1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate / broader non-conflicting backlog such as body, grid, docs, testing, or general Project work) AND found no claimable-now lane, OR all candidate lanes hit conditions 2-4 below. The survey + finding MUST be named in the `verified-empty` declaration.
+2. Every candidate lane is blocked on human-only action (`human-gate`), or a safety gate forbids continuing.
+3. The operator explicitly requested a pause (the operator message is the external falsifier).
+4. **Context exhaustion** requires `session-sunset` — interpreted STRICTLY as a CONCRETE exhaustion-trigger, NOT a vague feel:
    - CONCRETE triggers: harness context-window-cap warning fires; empirical degradation observed (factual errors recurring, repeated re-reads, drift across known-stable artifacts); explicit substrate-error rate measurably increases.
-   - NOT criterion #5 triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
-   - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, criterion #5 does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
+   - NOT context-exhaustion triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
+   - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, context-exhaustion does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
 
-### Gated Own Lanes Are Not a Halt-State
+### Gated Own Lanes Are Not `verified-empty`
 
-When the agent's current PRs or self-owned lanes are blocked on human merge,
-reviewer response, CI, or an operator `CHANGES_REQUESTED`, that state excludes
-only those lanes. It does **not** prove there is no work. The default next move
-is to pull an independent backlog lane, review request, or co-design surface
-after the normal collision checks.
-
-Before claiming `halt-state`, the positive backlog survey must name the surfaces
-checked. Minimum shape:
+Own PRs/lanes blocked on human merge, reviewer response, CI, or operator
+`CHANGES_REQUESTED` exclude only those lanes — not proof there is no work; the
+default next move is an independent backlog lane, review request, or co-design
+surface after collision checks. Before declaring `verified-empty`, the positive
+backlog survey must name the surfaces checked. Minimum shape:
 
 - targeted review / re-review requests **where you are the assigned github
   reviewer** (verify: `gh pr view <N> --json reviewRequests`) — do not claim a PR
@@ -270,33 +298,25 @@ Epic #12440 rejects.
 ### Broadcast-Suppressed Coordination Fallback
 
 `AGENT:*` broadcast is the canonical lane-visibility path, but temporary
-operator suppression of broadcast is not by itself a halt-state. If the operator
-suppresses broadcast to protect an unstable peer harness, the agent MUST:
+operator suppression of broadcast is not by itself a turn-terminal. If the
+operator suppresses broadcast to protect an unstable peer harness, the agent MUST:
 
 1. Avoid the suppressed peer / channel exactly as instructed.
 2. Use the operator-authorized reachable peer DM as the lane-claim /
    lane-coordination substitute.
 3. Name the fallback in the A2A body so future readers understand why the
    canonical broadcast path was not used.
-4. Continue the broad backlog self-survey before considering halt-state.
+4. Continue the broad backlog self-survey before considering `verified-empty`.
 
 Only if no safe coordination channel exists AND all candidate lanes are blocked
-by the halt criteria above may the agent declare halt or enter
-`blocked-task-state`.
+by the externally-falsifiable criteria above may the agent declare
+`verified-empty` / `human-gate` / `blocked-task-state`.
 
 Lead-role and peer-role agents are explicitly expected to **self-select from the backlog and announce the lane pickup** rather than treating absence-of-operator-direction or absence-of-broadcast as legitimate halt. Per AGENTS.md §15.6: *"Proactively select high-value tickets from the backlog AND begin the lane in the same turn."*
 
 ### Substrate-evolution-flywheel reality
 
-Operator-named substrate-work-supply for lead/peer agents:
-- v13 Project board: 300+ items (OPEN + IN PROGRESS)
-- Repository ticket backlog: 300+ items across substrates
-- Creating PRs → surfaces friction → produces new tickets (substrate-evolution flywheel)
-- `tech-debt-radar` skill → surfaces architectural debt as new tickets
-- After resolving → re-invoke `tech-debt-radar` → more tickets (long loop)
-- `industry-friction-radar` skill → surfaces external-precedent friction as new tickets
-
-**The probability of zero positive-ROI work available is "as close to zero as it gets" per operator-framing.** Defaulting to halt-state at any non-concrete trigger is deference-slip.
+Operator-named substrate-work-supply for lead/peer agents: v13 Project board + repository backlog (300+ items each); opening PRs surfaces friction → new tickets; `tech-debt-radar` / `industry-friction-radar` surface debt + external-precedent friction as new tickets on each re-invocation (long loop). **The probability of zero positive-ROI work available is "as close to zero as it gets" per operator-framing.** Defaulting to any turn-terminal at a non-externally-falsifiable trigger is deference-slip.
 
 Do not broadcast generic "idle" state. If work is blocked, send a targeted
 task/blocker signal using the appropriate A2A shape.
@@ -319,7 +339,7 @@ for the next prompt. Ticket #10970 is the instance-codification.
 
 | Anti-pattern | Why it harms |
 |---|---|
-| Declaring halt-state per §5 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
+| Declaring `verified-empty` per §5 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
 | Treating operator-suppressed `AGENT:*` broadcast as work-stop | Confuses coordination visibility with implementation authority; use the authorized direct-DM fallback or declare a real blocker. |
 | Watchdog wake -> ack -> nothing to do without broad lane search | Burns wake cycles while positive-ROI backlog lanes exist; repeat wakes must re-check A2A + live repo state + broad backlog and, for night-shift/driver contexts, apply the leased-driver contract before any no-delta response. |
 | Three delivered heartbeats -> repeated unchanged pause/halt/no-delta | Crosses the critical-failure threshold; the third pulse must route recovery and emit `[critical-failure]`, not another passive state. |
