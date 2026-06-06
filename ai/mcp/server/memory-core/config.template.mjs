@@ -203,6 +203,13 @@ class Config extends ConfigProvider {
              */
             remRunRecentLimit: leaf(5, 'NEO_REM_RUN_RECENT_LIMIT', 'number'),
             /**
+             * Maximum per-cycle REM run/stage JSONL artifacts retained on disk. On each append the
+             * store prunes older artifacts beyond this bound, capping both the directory file count
+             * and the read-path stat fan-out so neither grows with deployment age.
+             * @type {number}
+             */
+            remRunRetentionLimit: leaf(200, 'NEO_REM_RUN_RETENTION_LIMIT', 'number'),
+            /**
              * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
              * @type {string}
              */

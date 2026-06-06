@@ -564,7 +564,7 @@ class DreamService extends Base {
                     logger.warn(`[Orchestrator] REM cycle wall-clock ${stateEntry.wallClockMs}ms exceeded ${Math.round(AiConfig.orchestrator.intervals.dreamOverflowThreshold * 100)}% of configured cadence ${stateEntry.configuredCadenceMs}ms; back-to-back overlap risk`);
                 }
 
-                await appendRemRunState(stateEntry, {dir: aiConfig.remRunStateDir});
+                await appendRemRunState(stateEntry, {dir: aiConfig.remRunStateDir, retentionLimit: aiConfig.remRunRetentionLimit});
             } catch (e) {
                 logger.error('[DreamService] Failed to write REM run state:', e);
                 outcome.stateWriteError = toErrorMessage(e);
