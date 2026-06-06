@@ -1005,7 +1005,25 @@ paths:
                   description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
                 wakeMetadata:
                   type: object
-                  description: "Optional structured wake-context metadata so the receiving agent programs against the wake instead of parsing free-form subject/body. Fields: type (e.g. idle-out-nudge / sunset-handover / review-request), expectedAction (machine-readable next step), currentLifecycleState, suggestedQueries (string[]), currentSubstrateSnapshot (object, e.g. {openPrCount}). Surfaced by get_message + list_messages (list_messages also extracts a top-level wakeType for triage). Omit for free-form wakes."
+                  description: "Optional structured wake-context metadata so the receiving agent programs against the wake instead of parsing free-form subject/body. Surfaced by get_message + list_messages (list_messages also hoists a top-level string wakeType from `type` for triage). Omit for free-form wakes."
+                  properties:
+                    type:
+                      type: string
+                      description: "Wake discriminator, e.g. idle-out-nudge / sunset-handover / review-request. Hoisted by list_messages to a top-level wakeType; must be a string when provided."
+                    expectedAction:
+                      type: string
+                      description: "Machine-readable next step the receiver should take."
+                    currentLifecycleState:
+                      type: string
+                      description: "The agent's lifecycle state from the sender's point of view."
+                    suggestedQueries:
+                      type: array
+                      items:
+                        type: string
+                      description: "Concrete queries/commands the receiver can run to orient (e.g. gh issue list --search ...)."
+                    currentSubstrateSnapshot:
+                      type: object
+                      description: "Snapshot of relevant substrate counters, e.g. {openPrCount, unassignedCurrentReleaseCount}."
       responses:
         '200':
           description: OK

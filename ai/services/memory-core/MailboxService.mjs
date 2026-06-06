@@ -527,6 +527,12 @@ class MailboxService extends Base {
             if (typeof wakeMetadata !== 'object' || wakeMetadata === null || Array.isArray(wakeMetadata)) {
                 throw new Error('wakeMetadata must be a plain object when provided.');
             }
+            // `type` is the wake discriminator that list_messages hoists to a top-level
+            // wakeType — enforce string-ness at the write boundary so the discriminator
+            // contract holds and a non-string type can never reach a triage branch.
+            if (wakeMetadata.type !== undefined && typeof wakeMetadata.type !== 'string') {
+                throw new Error('wakeMetadata.type must be a string when provided (it is the wake discriminator surfaced as wakeType).');
+            }
             messageProperties.wakeMetadata = wakeMetadata;
         }
 
@@ -760,8 +766,10 @@ class MailboxService extends Base {
                     if (messageNode.properties.wakeMetadata !== undefined) {
                         summary.wakeMetadata = messageNode.properties.wakeMetadata;
                         // Top-level wakeType so receivers triage by it (e.g. summary.wakeType ===
-                        // 'idle-out-nudge') without re-parsing the metadata block.
-                        if (messageNode.properties.wakeMetadata.type) summary.wakeType = messageNode.properties.wakeMetadata.type;
+                        // 'idle-out-nudge') without re-parsing the metadata block. Guarded to a
+                        // string so the discriminator never surfaces as a non-string even if a node
+                        // bypassed the addMessage write-time check (legacy / direct graph writes).
+                        if (typeof messageNode.properties.wakeMetadata.type === 'string') summary.wakeType = messageNode.properties.wakeMetadata.type;
                     }
                     // Surface archive + retracted state so callers can render distinctly.
                     if (archivedAt) summary.archivedAt = archivedAt;

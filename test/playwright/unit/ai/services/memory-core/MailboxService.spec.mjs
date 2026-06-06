@@ -474,7 +474,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(node.properties.wakeMetadata).toEqual(wakeMetadata);
     });
 
-    test('addMessage omits wakeMetadata for free-form wakes and rejects non-object values (#11909)', async () => {
+    test('addMessage omits wakeMetadata for free-form wakes and rejects non-object / non-string-type values (#11909)', async () => {
         let msgId;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             // Backward-compat: a free-form wake (no wakeMetadata) flows through
@@ -496,6 +496,19 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 .rejects.toThrow(/wakeMetadata must be a plain object/);
             await expect(MailboxService.addMessage({ to: '@alice', subject: 'Bad', body: 'x', wakeMetadata: ['array'] }))
                 .rejects.toThrow(/wakeMetadata must be a plain object/);
+
+            // Discriminator contract: `type` is hoisted to a top-level string wakeType,
+            // so a non-string type is rejected at the write boundary.
+            await expect(MailboxService.addMessage({ to: '@alice', subject: 'Bad', body: 'x', wakeMetadata: { type: 123 } }))
+                .rejects.toThrow(/wakeMetadata\.type must be a string/);
+
+            // Read-time guard (defense-in-depth): a node that somehow carries a non-string
+            // type (legacy / direct graph write bypassing addMessage) must NOT surface it as
+            // the wakeType discriminator.
+            const valid   = await MailboxService.addMessage({ to: '@alice', subject: 'Valid', body: 'x', wakeMetadata: { type: 'idle-out-nudge' } });
+            GraphService.db.nodes.get(valid.messageId).properties.wakeMetadata.type = 123;
+            const guarded = (await MailboxService.listMessages({ status: 'unread' })).messages.find(m => m.messageId === valid.messageId);
+            expect(guarded.wakeType).toBeUndefined();
         });
 
         const node = GraphService.db.nodes.get(msgId);
