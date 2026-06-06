@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
-import {emitConsumerFriction, invokeWithGuardrail} from '../../services/memory-core/helpers/ConsumerFrictionHelper.mjs';
+import {emitConsumerFriction, invokeWithGuardrail} from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';

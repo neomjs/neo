@@ -4,7 +4,7 @@ import {Command}       from 'commander/esm.mjs';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
-import {sanitizeInput} from '../../util/Sanitizer.mjs';
+import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 /**
  * @module buildScripts.createDiscussionIndex

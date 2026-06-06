@@ -1053,7 +1053,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         // and decide whether to adjust upstream emission (e.g. smaller summarization windows,
         // larger-context consumer choice).
         try {
-            const {renderConsumerFrictionSection} = await import('../../services/memory-core/helpers/ConsumerFrictionHelper.mjs');
+            const {renderConsumerFrictionSection} = await import('../../services/memory-core/helpers/consumerFrictionHelper.mjs');
             const frictionSection = renderConsumerFrictionSection();
 
             if (frictionSection) {

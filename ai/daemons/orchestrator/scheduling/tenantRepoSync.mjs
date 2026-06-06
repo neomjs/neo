@@ -5,7 +5,7 @@
  *
  * Drives the periodic refresh cycle for server-side tenant-repo ingestion: per the
  * `tenant-repo-sync` lane, `Orchestrator` invokes the trigger output → looks up
- * `TenantRepoSyncService.runTask` (registered via `TaskDefinitions.mjs` `serviceTask: true`).
+ * `TenantRepoSyncService.runTask` (registered via `taskDefinitions.mjs` `serviceTask: true`).
  *
  * @param {Object} options
  * @param {Boolean} options.enabled Whether the lane is enabled (typically `NEO_AI_DEPLOYMENT_MODE === 'cloud'`).

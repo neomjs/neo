@@ -2,12 +2,12 @@ import {execFile}  from 'child_process';
 import fs          from 'fs-extra';
 import {promisify} from 'util';
 
-import GitMirror from './GitMirror.mjs';
+import GitMirror from './gitMirror.mjs';
 import {
     deriveTenantRepoMirrorPath,
     normalizeRepoSlug,
     redactTenantRepoSecrets
-} from './TenantRepoAccessContract.mjs';
+} from './tenantRepoAccessContract.mjs';
 
 const execFileAsync = promisify(execFile);
 const GIT_MAX_BUFFER = 50 * 1024 * 1024;

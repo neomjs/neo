@@ -27,7 +27,7 @@
  *
  * @see ai/daemons/kb-gc/KbGarbageCollectionService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/VectorService.mjs — `resolveTenantStamp`, the `ingestedAt` stamp (#11712).
- * @see ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs — the sibling pure-helper precedent (#11640).
+ * @see ai/services/knowledge-base/helpers/kbReconciliationEngine.mjs — the sibling pure-helper precedent (#11640).
  */
 
 /**

@@ -23,7 +23,7 @@ import * as core      from '../../../../../../../../src/core/_export.mjs';
  *
  * Pins the canonical-only contract: `MCP_HTTP_PORT` is the operator-facing env var.
  * Pattern mirrors the #10810 `resolveEmbeddingProvider` testable-pure-helper extraction
- * (`ai/services/memory-core/helpers/EmbeddingProviderConfig.mjs`).
+ * (`ai/services/memory-core/helpers/embeddingProviderConfig.mjs`).
  *
  * @see Neo.ai.mcp.server.shared.helpers.DeploymentConfig#resolveMcpHttpPort
  */
@@ -31,7 +31,7 @@ test.describe('DeploymentConfig #10808 — resolveMcpHttpPort', () => {
     let resolveMcpHttpPort;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/DeploymentConfig.mjs');
+        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/deploymentConfig.mjs');
         resolveMcpHttpPort = mod.resolveMcpHttpPort;
     });
 
@@ -118,7 +118,7 @@ test.describe('DeploymentConfig #10808 — resolveChromaHost', () => {
     let resolveChromaHost;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/DeploymentConfig.mjs');
+        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/deploymentConfig.mjs');
         resolveChromaHost = mod.resolveChromaHost;
     });
 
@@ -150,7 +150,7 @@ test.describe('DeploymentConfig #10808 — resolveChromaPort', () => {
     let resolveChromaPort;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/DeploymentConfig.mjs');
+        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/deploymentConfig.mjs');
         resolveChromaPort = mod.resolveChromaPort;
     });
 
@@ -201,7 +201,7 @@ test.describe('DeploymentConfig.resolvePublicUrl', () => {
     let resolvePublicUrl;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/DeploymentConfig.mjs');
+        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/deploymentConfig.mjs');
         resolvePublicUrl = mod.resolvePublicUrl;
     });
 

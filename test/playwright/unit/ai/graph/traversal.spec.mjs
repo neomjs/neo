@@ -16,7 +16,7 @@ setup({
 import {test, expect}   from '@playwright/test';
 import Neo              from '../../../../../src/Neo.mjs';
 import Database         from '../../../../../ai/graph/Database.mjs';
-import {getPaths, findShortestPath} from '../../../../../ai/graph/queries/Traversal.mjs';
+import {getPaths, findShortestPath} from '../../../../../ai/graph/queries/traversal.mjs';
 
 test.describe('Neo.ai.graph.queries.Traversal', () => {
     let db;
@@ -33,7 +33,7 @@ test.describe('Neo.ai.graph.queries.Traversal', () => {
         // \         /
         //  \-> E --/  (cheaper path to C)
         // A -> A (circular loop)
-        
+
         ['A', 'B', 'C', 'D', 'E', 'F'].forEach(id => {
             let type = (id === 'E') ? 'Microservice' : 'Component';
             db.addNode({ id, properties: { type } });
@@ -42,14 +42,14 @@ test.describe('Neo.ai.graph.queries.Traversal', () => {
         db.addEdge({ source: 'A', target: 'B', weight: 5 });
         db.addEdge({ source: 'B', target: 'C', weight: 5 });
         db.addEdge({ source: 'C', target: 'D', weight: 5 });
-        
+
         db.addEdge({ source: 'A', target: 'E', weight: 1 });
         db.addEdge({ source: 'E', target: 'C', weight: 2 });
-        
+
         // Cyclic relationships to ensure logic handles identical loops safely
         db.addEdge({ source: 'D', target: 'A', weight: 1 });
         db.addEdge({ source: 'A', target: 'A', weight: 0 }); // self-referencing
-        
+
         // Isolated component
         db.addEdge({ source: 'F', target: 'F', weight: 0 });
     });
@@ -64,7 +64,7 @@ test.describe('Neo.ai.graph.queries.Traversal', () => {
         // Depth 0: A
         // Depth 1: B, E
         expect(results.length).toBe(3); // A is included natively since depth=0 ignores matchPredicate
-        
+
         let pathIds = results.map(n => n.id).sort();
         expect(pathIds).toEqual(['A', 'B', 'E']);
     });

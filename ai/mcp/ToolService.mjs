@@ -1,7 +1,7 @@
 import fs                                                 from 'fs';
 import yaml                                               from 'js-yaml';
 import {zodToJsonSchema}                                  from 'zod-to-json-schema';
-import {buildZodSchema, buildOutputZodSchema, resolveRef} from './validation/OpenApiValidator.mjs';
+import {buildZodSchema, buildOutputZodSchema, resolveRef} from './validation/openApiValidator.mjs';
 import Base                                               from '../../src/core/Base.mjs';
 
 /**

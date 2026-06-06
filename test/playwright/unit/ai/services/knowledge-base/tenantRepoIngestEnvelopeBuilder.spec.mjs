@@ -7,10 +7,10 @@ import {execFile}     from 'child_process';
 import {promisify}    from 'util';
 
 import {cloneIfMissing, fetch, resolveHead}
-                       from '../../../../../../ai/services/knowledge-base/helpers/GitMirror.mjs';
+                       from '../../../../../../ai/services/knowledge-base/helpers/gitMirror.mjs';
 import TenantRepoIngestEnvelopeBuilder, {
     buildIngestEnvelope
-} from '../../../../../../ai/services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs';
+} from '../../../../../../ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -23,7 +23,7 @@ const execFileAsync = promisify(execFile);
  * external network access are required.
  *
  * @see https://github.com/neomjs/neo/issues/11789
- * @see ai/services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs
+ * @see ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs
  */
 

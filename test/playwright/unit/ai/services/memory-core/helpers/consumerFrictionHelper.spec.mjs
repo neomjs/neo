@@ -29,13 +29,13 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
  * metrics, `(assetRef, consumer, symptom)` aggregation tuple, `serviceDomain` provenance,
  * `firstSeenAt`/`lastSeenAt`/`count` aggregation fields.
  *
- * @see ai/services/memory-core/helpers/ConsumerFrictionHelper.mjs
+ * @see ai/services/memory-core/helpers/consumerFrictionHelper.mjs
  */
 test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper (#11447)', () => {
     let helper;
 
     test.beforeAll(async () => {
-        helper = await import('../../../../../../../ai/services/memory-core/helpers/ConsumerFrictionHelper.mjs');
+        helper = await import('../../../../../../../ai/services/memory-core/helpers/consumerFrictionHelper.mjs');
     });
 
     test.beforeEach(() => {

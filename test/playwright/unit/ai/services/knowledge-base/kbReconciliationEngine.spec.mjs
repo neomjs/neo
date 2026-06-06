@@ -6,7 +6,7 @@ import {
     diffTenantManifest,
     formatReconciliationDetail,
     resolveOrphanVersionGap
-} from '../../../../../../ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs';
+} from '../../../../../../ai/services/knowledge-base/helpers/kbReconciliationEngine.mjs';
 
 /**
  * Phase 4B (#11640) — `KbReconciliationEngine` coverage: the pure config-invalidation
@@ -23,7 +23,7 @@ import {
  * `KbReconciliationService.spec.mjs`.
  *
  * @see https://github.com/neomjs/neo/issues/11640
- * @see ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs — the module under test.
+ * @see ai/services/knowledge-base/helpers/kbReconciliationEngine.mjs — the module under test.
  */
 
 /** Builds a tenant Chroma row in the `getTenantRows` shape. `v` → `metadata.tenantConfigVersion`. */

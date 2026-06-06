@@ -4,7 +4,7 @@ import {
     formatGcDetail,
     resolveRetention,
     selectExpiredChunks
-} from '../../../../../../ai/services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs';
+} from '../../../../../../ai/services/knowledge-base/helpers/kbGarbageCollectionEngine.mjs';
 
 /**
  * Phase 4C (#11641) — `KbGarbageCollectionEngine` coverage: the pure retention-expiry
@@ -19,7 +19,7 @@ import {
  * on equal `ingestedAt`, the missing-`ingestedAt` fail-safe, and the empty-policy no-op.
  *
  * @see https://github.com/neomjs/neo/issues/11641
- * @see ai/services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs — the module under test.
+ * @see ai/services/knowledge-base/helpers/kbGarbageCollectionEngine.mjs — the module under test.
  */
 
 /** Builds a tenant Chroma row in the daemon's `fetchTenantRows` shape. */

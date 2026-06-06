@@ -10,7 +10,7 @@ import {
     getOpenAiCompatibleHost,
     recordProviderReadinessFailure,
     waitForProvider
-} from '../../services/graph/ProviderReadinessHelper.mjs';
+} from '../../services/graph/providerReadinessHelper.mjs';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {pathToFileURL} from 'url';

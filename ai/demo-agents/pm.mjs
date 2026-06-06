@@ -16,7 +16,7 @@ import yaml            from 'js-yaml';
 import dotenv          from 'dotenv';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import {sanitizeInput} from '../../buildScripts/util/Sanitizer.mjs';
+import {sanitizeInput} from '../../buildScripts/util/sanitizer.mjs';
 import {
     GH_IssueService,
     GH_HealthService,
