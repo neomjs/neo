@@ -26,20 +26,20 @@ This server provides the first dimension of the Agent OS's context model:
 
 ### 1. The Discovery Pattern (Learning)
 
-**Goal:** An agent needs to understand how to use a specific component.  
-**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`  
+**Goal:** An agent needs to understand how to use a specific component.
+**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`
 **Result:** The server returns the "Grid" guide first, followed by relevant examples. The agent learns the *concept* before diving into the code.
 
 ### 2. Forensic Debugging (History)
 
-**Goal:** An agent encounters a regression in the VDOM engine.  
-**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`  
+**Goal:** An agent encounters a regression in the VDOM engine.
+**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`
 **Result:** The server returns closed tickets describing previous bugs and fixes. The agent learns *why* the current logic exists, preventing it from re-introducing an old bug.
 
 ### 3. Architectural Analysis (Intent)
 
-**Goal:** An agent needs to refactor a worker.  
-**Query:** `query_documents(query="worker thread communication patterns", type="src")`  
+**Goal:** An agent needs to refactor a worker.
+**Query:** `query_documents(query="worker thread communication patterns", type="src")`
 **Result:** Thanks to the **inheritance boosting** algorithm, the server returns not just the worker file, but its parent class `Neo.worker.Base` and `Neo.core.Base`, giving the agent the full architectural picture.
 
 ## Architecture
@@ -98,9 +98,13 @@ Inspection and debugging.
 
 ### 3. ChromaDB & Vector Search
 
-The server manages a local instance of **ChromaDB**, a high-performance vector database.
-- **Persistence:** Data is stored locally in `chroma-neo-knowledge-base/`.
-- **Collection:** Uses a single collection `neo-knowledge-base` for all content types.
+The Knowledge Base uses **ChromaDB**, a high-performance vector database. Per ADR 0017,
+the Knowledge Base and Memory Core share one flat Chroma store; separation happens at the
+collection and metadata layers, not by daemon or directory.
+
+- **Persistence:** local data lives in `.neo-ai-data/chroma/unified/`; cloud data lives in
+  `/chroma/unified` via `PERSIST_DIRECTORY=/chroma/unified`.
+- **Collection:** KB content lives in the `neo-knowledge-base` collection.
 
 ## Available Tools
 
@@ -160,11 +164,18 @@ This cycle turns technical debt into an asset, continuously improving the projec
 
 The server is designed to be self-contained. It manages its own database process and configuration to ensure it doesn't conflict with other services.
 
-### Architecture: Service Isolation
+### Architecture: Unified Chroma Boundary
 
-The Agent OS runs multiple cognitive services. The **Knowledge Base** (technical facts) and **Memory Core** (personal history) each require their own dedicated vector storage. To prevent cross-contamination and ensure reliability, they operate as **independent services**.
+The Agent OS runs multiple cognitive services. The **Knowledge Base** (technical facts)
+and **Memory Core** (institutional memory) now share a single Chroma daemon and persist
+directory by design. The shared storage coordinates live in `AiConfig.engines.chroma`;
+the local orchestrator and cloud compose file must point at the same flat `unified`
+store shape.
 
-**Do NOT use global environment variables** (like `CHROMA_PORT` or `CHROMA_DATA_PATH`) to configure these services, as this would force them to share the same database instance, leading to conflicts. Instead, use the dedicated configuration file.
+Use the canonical shared Chroma bindings (`NEO_CHROMA_HOST`, `NEO_CHROMA_PORT`, and
+`AiConfig.engines.chroma.dataDir`) when deployment overrides are needed. Do not recreate
+server-prefixed Chroma aliases or per-realm persist folders; that reintroduces the
+retired local/cloud topology drift from #12153.
 
 ### Key Configurable Items
 
@@ -182,10 +193,6 @@ npm run ai:mcp-server-knowledge-base -- -c ./my-custom-config.mjs
 **Example `my-custom-config.mjs`:**
 ```javascript readonly
 export default {
-    // Isolate this instance on a different port
-    port: 8100,
-    path: './my-custom-chroma-db',
-    
     // Tune the brain to be more sensitive to bug reports
     queryScoreWeights: {
         ticketPenalty: -20, // Reduce penalty from -70
@@ -196,11 +203,14 @@ export default {
 
 #### Configuration Options
 
-*   **Database Isolation:**
-    *   `port`: The port for the local ChromaDB instance (default: `8000`).
-    *   `path`: The filesystem path for vector storage (default: `chroma-neo-knowledge-base`).
+*   **Unified Chroma Coordinates:**
+    *   `host`: The shared ChromaDB host (default from `AiConfig.engines.chroma.host`; env var `NEO_CHROMA_HOST`).
+    *   `port`: The shared ChromaDB port (default from `AiConfig.engines.chroma.port`; env var `NEO_CHROMA_PORT`).
+    *   `path`: The unified Chroma persist directory, read from `AiConfig.engines.chroma.dataDir`.
+    *   `collectionName`: The KB collection name (default: `neo-knowledge-base`).
     *   `dataPath`: The location of the source-of-truth JSONL file.
-    *   *Note:* Ensure these do not overlap with the Memory Core's configuration.
+    *   *Note:* KB and Memory Core intentionally share the same Chroma daemon and persist
+        directory. Do not configure a separate KB Chroma folder.
 
 *   **Transport & Cloud Deployments:**
     *   `transport`: Defines the MCP transport protocol. Defaults to `'stdio'` for local CLI usage. Set to `'sse'` to run the server as a cloud-native HTTP microservice (e.g., in a Docker container).
