@@ -69,26 +69,26 @@ class KbGarbageCollectionService extends Base {
         singleton: true,
         /**
          * Whether the poll loop is running.
-         * @member {Boolean} isPolling_=false
+         * Plain singleton state; no reactive hooks are attached.
+         * @member {Boolean} isPolling=false
          * @protected
-         * @reactive
          */
-        isPolling_: false,
+        isPolling: false,
         /**
          * Active `setTimeout` handle for the next pulse; `null` when not scheduled.
-         * @member {Object|null} pollHandle_=null
+         * Plain singleton state; no reactive hooks are attached.
+         * @member {Object|null} pollHandle=null
          * @protected
-         * @reactive
          */
-        pollHandle_: null,
+        pollHandle: null,
         /**
          * Interval between GC pulses in milliseconds.
          * Populated from `aiConfig.knowledgeBase.gcIntervalMs` when the daemon starts.
-         * @member {Number|null} pollIntervalMs_=null
+         * Plain singleton state; no reactive hooks are attached.
+         * @member {Number|null} pollIntervalMs=null
          * @protected
-         * @reactive
          */
-        pollIntervalMs_: null
+        pollIntervalMs: null
     }
 
     /**

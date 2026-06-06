@@ -92,7 +92,7 @@ function heartbeatAlivePath() {
  *
  * Singleton scope is intentional: initialization only waits for peer services,
  * while `identity` and `pollIntervalMs` are pulse-time runtime config. The
- * Orchestrator sets those reactive configs before awaiting readiness. There is
+ * Orchestrator sets those config slots before awaiting readiness. There is
  * one Orchestrator daemon per host, so the service-to-parent relationship does
  * not share mutable pulse state across multiple scheduler owners.
  *
@@ -131,14 +131,13 @@ class SwarmHeartbeatService extends Base {
          */
         identity_: null,
         /**
-         * Interval between pulses in milliseconds. Parent (Orchestrator) sets this
-         * via reactive config assignment to the orchestrator's
-         * `swarmHeartbeatIntervalMs` value, which already honors the
-         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS` env override.
-         * @member {Number} pollIntervalMs_=300000
-         * @reactive
+         * Interval between pulses in milliseconds. Parent (Orchestrator) assigns
+         * this to the orchestrator's `swarmHeartbeatIntervalMs` value, which
+         * already honors the `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS` env
+         * override. Plain config: there are no get/set hooks for this slot.
+         * @member {Number} pollIntervalMs=300000
          */
-        pollIntervalMs_: DEFAULT_POLL_INTERVAL_MS,
+        pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
         /**
          * Target-resolver source enum consumed by `getPulseIdentities()` per pulse.
          * Controls which identity set the lane pulses for. `'self'` (default) is
