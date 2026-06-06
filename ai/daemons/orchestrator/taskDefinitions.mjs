@@ -180,7 +180,7 @@ export function buildTaskDefinitions({
             // HTTP endpoint instead — the supervisor gates the restart on this probe so a healthy
             // server is a silent no-op rather than a re-spawn loop.
             livenessProbe  : async () => {
-                const {fetchOpenAiCompatibleModelIds} = await import('../../services/graph/ProviderReadinessHelper.mjs');
+                const {fetchOpenAiCompatibleModelIds} = await import('../../services/graph/providerReadinessHelper.mjs');
 
                 try {
                     await fetchOpenAiCompatibleModelIds({host: lmsHost, timeoutMs: providerReadiness?.timeoutMs ?? 2000});
@@ -190,7 +190,7 @@ export function buildTaskDefinitions({
                 }
             },
             postSpawn      : async () => {
-                const {ensureLmsModelsLoaded} = await import('../../services/graph/ProviderReadinessHelper.mjs');
+                const {ensureLmsModelsLoaded} = await import('../../services/graph/providerReadinessHelper.mjs');
 
                 if (requiredModels.length === 0) {
                     return {

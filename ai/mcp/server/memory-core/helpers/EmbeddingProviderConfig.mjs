@@ -7,7 +7,7 @@
  * keeps those worktrees bootable until a tracked config-refresh mechanism can safely update
  * ignored files.
  *
- * @see ai/services/memory-core/helpers/EmbeddingProviderConfig.mjs
+ * @see ai/services/memory-core/helpers/embeddingProviderConfig.mjs
  * @see ai/scripts/migrations/bootstrapWorktree.mjs
  */
-export {resolveEmbeddingProvider, normalizeEmbeddingProviderConfig} from '../../../../services/memory-core/helpers/EmbeddingProviderConfig.mjs';
+export {resolveEmbeddingProvider, normalizeEmbeddingProviderConfig} from '../../../../services/memory-core/helpers/embeddingProviderConfig.mjs';

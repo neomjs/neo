@@ -9,7 +9,7 @@ import {
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 import {
     buildTaskDefinitions
-} from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
+} from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
 let testOrchestratorSeq = 0;

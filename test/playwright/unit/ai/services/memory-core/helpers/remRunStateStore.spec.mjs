@@ -12,7 +12,7 @@ import {
     getRemRunStateFileName,
     pruneRemRunStates,
     readRecentRemRunStates
-} from '../../../../../../../ai/services/memory-core/helpers/RemRunStateStore.mjs';
+} from '../../../../../../../ai/services/memory-core/helpers/remRunStateStore.mjs';
 
 test.describe('RemRunStateStore', () => {
     let tmpDir;

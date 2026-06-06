@@ -19,7 +19,7 @@ import os              from 'os';
 import path            from 'path';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
-import {createLogger}  from '../../../../../../../ai/mcp/server/shared/Logger.mjs';
+import {createLogger}  from '../../../../../../../ai/mcp/server/shared/logger.mjs';
 
 /**
  * @summary Shared MCP logger primitive coverage for #11878.

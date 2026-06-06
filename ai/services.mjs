@@ -3,7 +3,7 @@ import fs               from 'fs';
 import path             from 'path';
 import {fileURLToPath}  from 'url';
 import yaml             from 'js-yaml';
-import {buildZodSchema} from './mcp/validation/OpenApiValidator.mjs';
+import {buildZodSchema} from './mcp/validation/openApiValidator.mjs';
 
 import Neo             from '../src/Neo.mjs';
 import * as core       from '../src/core/_export.mjs';

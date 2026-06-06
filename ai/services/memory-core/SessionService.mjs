@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
-import {invokeWithGuardrail} from './helpers/ConsumerFrictionHelper.mjs';
+import {invokeWithGuardrail} from './helpers/consumerFrictionHelper.mjs';
 import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import OpenAiCompatibleProvider from '../../provider/OpenAiCompatible.mjs';

@@ -4,7 +4,7 @@ import * as core       from '../../../../src/core/_export.mjs';
 import Bridge          from './Bridge.mjs';
 import aiConfig        from './config.mjs';
 import logger          from './logger.mjs';
-import {sanitizeInput} from '../../../../buildScripts/util/Sanitizer.mjs';
+import {sanitizeInput} from '../../../../buildScripts/util/sanitizer.mjs';
 
 const program = new Command();
 

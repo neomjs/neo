@@ -10,7 +10,7 @@ import {
 } from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
 import {
     buildTaskDefinitions
-} from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
+} from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 
 test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
 
@@ -51,7 +51,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     test('buildTaskDefinitions is pure: no env-var lookups; concrete mlxModel/mlxPort flow through', () => {
-        // Architectural contract post-#11075: TaskDefinitions.mjs has no embedded MLX
+        // Architectural contract post-#11075: taskDefinitions.mjs has no embedded MLX
         // defaults and no env-var reads. Caller (Orchestrator via its mlx* getters
         // reading AiConfig + env-vars) forwards concrete values. This test documents
         // the pure-function contract by setting env-vars that would have been picked
@@ -129,7 +129,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     test('buildTaskDefinitions is pure: no env-var lookups; concrete lmsModel/lmsPort flow through', () => {
-        // Architectural contract: TaskDefinitions.mjs has no embedded LM Studio
+        // Architectural contract: taskDefinitions.mjs has no embedded LM Studio
         // defaults and no env-var reads. Caller (Orchestrator via its lms* getters
         // reading AiConfig + env-vars) forwards concrete values. This test documents
         // the pure-function contract by setting env-vars that would have been picked
@@ -219,7 +219,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/bridge/daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/daemon.mjs'), 'utf8');
         const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/Orchestrator.mjs'), 'utf8');
-        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/TaskDefinitions.mjs'), 'utf8');
+        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/taskDefinitions.mjs'), 'utf8');
 
         expect(bridgeSource).not.toContain('summarize-sessions.mjs');
         expect(bridgeSource).not.toContain('Piece C periodic summarization sweep');

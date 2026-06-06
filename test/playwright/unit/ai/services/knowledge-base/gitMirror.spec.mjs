@@ -12,7 +12,7 @@ import GitMirror, {
     fetch,
     isAncestor,
     resolveHead
-} from '../../../../../../ai/services/knowledge-base/helpers/GitMirror.mjs';
+} from '../../../../../../ai/services/knowledge-base/helpers/gitMirror.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -24,7 +24,7 @@ const execFileAsync = promisify(execFile);
  * credentials or network availability.
  *
  * @see https://github.com/neomjs/neo/issues/11788
- * @see ai/services/knowledge-base/helpers/GitMirror.mjs
+ * @see ai/services/knowledge-base/helpers/gitMirror.mjs
  */
 
 test.describe('GitMirror (#11788)', () => {

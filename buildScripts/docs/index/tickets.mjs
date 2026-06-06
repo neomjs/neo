@@ -5,7 +5,7 @@ import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
 import semver          from 'semver';
-import {sanitizeInput} from '../../util/Sanitizer.mjs';
+import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 /**
  * @module buildScripts.createTicketIndex

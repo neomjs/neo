@@ -24,7 +24,7 @@ import * as core          from '../../../../../src/core/_export.mjs';
 import {
     appendRemRunState,
     createRemRunStateEntry
-} from '../../../../../ai/services/memory-core/helpers/RemRunStateStore.mjs';
+} from '../../../../../ai/services/memory-core/helpers/remRunStateStore.mjs';
 
 /**
  * @summary Cross-service unit coverage for the 5-axis REM observability primitive

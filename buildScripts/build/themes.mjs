@@ -8,7 +8,7 @@ import inquirer        from 'inquirer';
 import path            from 'path';
 import postcss         from 'postcss';
 import * as sass       from 'sass';
-import {sanitizeInput} from '../util/Sanitizer.mjs';
+import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
     __dirname    = path.resolve(),

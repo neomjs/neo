@@ -5,7 +5,7 @@ import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
 } from './HeavyMaintenanceLeaseService.mjs';
-import {DEFAULT_DATA_DIR} from '../TaskDefinitions.mjs';
+import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
 /**
  * Canonical set of heavy-maintenance task names that participate in the cross-poll

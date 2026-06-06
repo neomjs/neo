@@ -2,7 +2,7 @@ import chalk           from 'chalk';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {Command}       from 'commander/esm.mjs';
-import {sanitizeInput} from '../../util/Sanitizer.mjs';
+import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 const
     __dirname   = path.resolve(),

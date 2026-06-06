@@ -8,10 +8,10 @@ import AiConfig from '../../../../../../ai/config.mjs';
 import {
     Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
-import {buildLmsPreloadConfig} from '../../../../../../ai/services/graph/ProviderReadinessHelper.mjs';
+import {buildLmsPreloadConfig} from '../../../../../../ai/services/graph/providerReadinessHelper.mjs';
 import {
     buildTaskDefinitions
-} from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
+} from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 import TaskStateService, {createInitialTaskState} from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,7 +20,7 @@ const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
 
 const ORCHESTRATOR_MJS_PATH    = path.join(REPO_ROOT, 'ai/daemons/orchestrator/Orchestrator.mjs');
 const ORCHESTRATOR_DAEMON_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/daemon.mjs');
-const TASK_DEFINITIONS_MJS_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/TaskDefinitions.mjs');
+const TASK_DEFINITIONS_MJS_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/taskDefinitions.mjs');
 
 let invariantSeq         = 0;
 let savedIntervals       = null;
@@ -356,11 +356,11 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         expect(matches, 'Orchestrator.mjs must NOT define a `configure()` method (Sub-1 anti-pattern; lazy getters supersede it).').toHaveLength(0);
     });
 
-    test('TaskDefinitions.mjs has no `DEFAULT_*_INTERVAL_MS` exports', async () => {
+    test('taskDefinitions.mjs has no `DEFAULT_*_INTERVAL_MS` exports', async () => {
         const source = await fs.readFile(TASK_DEFINITIONS_MJS_PATH, 'utf8');
         const matches = source.match(/export\s+(?:const|let)\s+DEFAULT_\w*INTERVAL_MS/g) || [];
 
-        expect(matches, 'TaskDefinitions.mjs must NOT export `DEFAULT_*_INTERVAL_MS` constants (Sub-1 anti-pattern; AiConfig.orchestrator.intervals owns these values).').toHaveLength(0);
+        expect(matches, 'taskDefinitions.mjs must NOT export `DEFAULT_*_INTERVAL_MS` constants (Sub-1 anti-pattern; AiConfig.orchestrator.intervals owns these values).').toHaveLength(0);
     });
 
     test('Orchestrator.mjs has no `parseInterval` / `parseEnabledFlag` call sites', async () => {

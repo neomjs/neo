@@ -49,7 +49,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         logger           = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         runSandmanModule = await import('../../../../../../ai/scripts/runners/runSandman.mjs');
-        providerReadinessHelper = await import('../../../../../../ai/services/graph/ProviderReadinessHelper.mjs');
+        providerReadinessHelper = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
     });
 
     test.afterAll(() => {
