@@ -61,7 +61,7 @@ If the user explicitly pivots the top-level focus of the session, you **MUST** a
 Classify the user's request:
 - **A) Conceptual/Informational:** Use knowledge base, no ticket required.
 - **B) Actionable/Modification:** Apply Ticket-First Gate.
-**Meta Gate:** Deduplication & Linking, Ticket Intake validation, Graph Linking (`update_issue_relationship`), and State Topologies drafting.
+**Meta Gate:** Deduplication & Linking (`ticket-create` Gate 0 and `ideation-sandbox` Gate 0), Ticket Intake validation, Graph Linking (`update_issue_relationship`), and State Topologies drafting.
 
 ## §pull_request_mandate [MACHINE-ENFORCEABLE-CANDIDATE]
 You are strictly FORBIDDEN from committing code or running `gh pr create` via raw bash commands. Formally open a PR using the `pull-request` skill. Cross-Review Response Cycle requires Triangular Evaluation.
