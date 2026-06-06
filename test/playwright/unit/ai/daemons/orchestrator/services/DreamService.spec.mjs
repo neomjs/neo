@@ -266,6 +266,67 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         expect(edge.properties.validatedNodeType).toBe('CLASS');
     });
 
+    test('inferTestGapsFromSession does not link sibling token matches via VALIDATES edges (#12639)', async () => {
+        GraphService.upsertNode({
+            id        : 'button-feature-class',
+            type      : 'CLASS',
+            name      : 'ButtonFeature',
+            properties: {}
+        });
+        GraphService.upsertNode({
+            id        : 'button-store-class',
+            type      : 'CLASS',
+            name      : 'ButtonStore',
+            properties: {}
+        });
+        GraphService.upsertNode({
+            id        : 'test-file-button-store',
+            type      : 'FILE',
+            name      : 'ButtonStore.spec.mjs',
+            properties: {path: 'test/playwright/unit/button/ButtonStore.spec.mjs'}
+        });
+
+        const payload = {
+            session_artifact: {
+                graph: {
+                    nodes: [{
+                        id        : 'button-feature-class',
+                        type      : 'CLASS',
+                        name      : 'ButtonFeature',
+                        confidence: 0.9
+                    }, {
+                        id        : 'button-store-class',
+                        type      : 'CLASS',
+                        name      : 'ButtonStore',
+                        confidence: 0.9
+                    }],
+                    edges: []
+                }
+            }
+        };
+
+        await DreamService.inferTestGapsFromSession(payload);
+
+        const
+            featureNode = GraphService.db.nodes.get('button-feature-class'),
+            storeNode   = GraphService.db.nodes.get('button-store-class'),
+            featureEdge = GraphService.db.edges.items.find(e =>
+                e.source === 'test-file-button-store' &&
+                e.target === 'button-feature-class' &&
+                e.type === 'VALIDATES'
+            ),
+            storeEdge = GraphService.db.edges.items.find(e =>
+                e.source === 'test-file-button-store' &&
+                e.target === 'button-store-class' &&
+                e.type === 'VALIDATES'
+            );
+
+        expect(featureNode.properties.capabilityGap).toContain('[TEST_GAP]');
+        expect(featureEdge).toBeUndefined();
+        expect(storeNode.properties.capabilityGap).toBeUndefined();
+        expect(storeEdge).toBeTruthy();
+    });
+
     test('findUndigestedSessions fails loud when remSleepBatchLimit is malformed in the imported config', async () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
               originalRemSleepBatchLimit = aiConfig.remSleepBatchLimit;
