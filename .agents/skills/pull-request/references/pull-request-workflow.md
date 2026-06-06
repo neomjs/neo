@@ -16,13 +16,14 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 
-If your PR touches **any** of the following paths:
-- `AGENTS.md`
-- `AGENTS_ATLAS.md`
-- `.agents/skills/**`
-- `learn/agentos/**`
+If your PR touches memory substrate per `/turn-memory-pre-flight` (`AGENTS.md`,
+`learn/agentos/AGENTS_ATLAS.md`, `.agents/skills/**`, or directly loaded
+`learn/agentos/**`):
 
-You MUST include a **slot-rationale section** in your PR body. This satisfies the `AGENTS.md §13` mandate requiring explicit decay-mitigation rationale for all substrate mutations.
+Ordinary `learn/agentos/**` operator/reference docs that are not directly loaded
+can cite in-doc lifecycle rationale instead of duplicating PR-body slot-rationale.
+
+For in-scope memory substrate, you MUST include a **slot-rationale section** in your PR body. This satisfies the `AGENTS.md §13` mandate requiring explicit decay-mitigation rationale for all substrate mutations.
 Your PR body's slot-rationale section MUST enumerate:
 - For each *added* section: its disposition (`keep` / `move` / `compress-to-trigger` / `rewrite` / `retire`) + 3-axis rating (trigger-frequency × failure-severity × enforceability).
 - For each *modified* section: its disposition delta + the reason for the shift.
