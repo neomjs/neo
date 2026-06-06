@@ -18,6 +18,7 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import Database       from '../../../../../ai/graph/Database.mjs';
 import SQLite         from '../../../../../ai/graph/storage/SQLite.mjs';
+import BetterSqlite   from 'better-sqlite3';
 import fs             from 'fs-extra';
 import path           from 'path';
 
@@ -39,6 +40,55 @@ test.describe('Neo.ai.graph.Database', () => {
             id: 'my-graph-db-' + testRun
         });
     });
+
+    function seedLegacyGraphFile({schemaVersion} = {}) {
+        const legacyDb = new BetterSqlite(dbPath);
+
+        try {
+            legacyDb.exec(`
+                CREATE TABLE Nodes (
+                    id TEXT PRIMARY KEY,
+                    data TEXT NOT NULL
+                );
+                CREATE TABLE Edges (
+                    id TEXT PRIMARY KEY,
+                    source TEXT NOT NULL,
+                    target TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    data TEXT NOT NULL
+                );
+            `);
+
+            legacyDb.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(
+                'legacy-source',
+                JSON.stringify({id: 'legacy-source', label: 'Legacy', properties: {name: 'Source'}})
+            );
+            legacyDb.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(
+                'legacy-target',
+                JSON.stringify({id: 'legacy-target', label: 'Legacy', properties: {name: 'Target'}})
+            );
+            legacyDb.prepare('INSERT INTO Edges (id, source, target, type, data) VALUES (?, ?, ?, ?, ?)').run(
+                'legacy-edge',
+                'legacy-source',
+                'legacy-target',
+                'LEGACY',
+                JSON.stringify({id: 'legacy-edge', source: 'legacy-source', target: 'legacy-target', type: 'LEGACY'})
+            );
+
+            if (schemaVersion !== undefined) {
+                legacyDb.exec(`
+                    CREATE TABLE SchemaVersion (
+                        id TEXT PRIMARY KEY,
+                        version INTEGER NOT NULL,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                `);
+                legacyDb.prepare('INSERT INTO SchemaVersion (id, version) VALUES (?, ?)').run('graph', schemaVersion);
+            }
+        } finally {
+            legacyDb.close();
+        }
+    }
 
     test.afterEach(() => {
         db?.destroy();
@@ -158,6 +208,79 @@ test.describe('Neo.ai.graph.Database', () => {
             expect(() => storage.addNodes([{ id: null, label: 'Broken', properties: {} }])).toThrow(/non-empty string id/);
             expect(() => storage.addNodes([{ label: 'Broken', properties: {} }])).toThrow(/non-empty string id/);
         } finally {
+            storage.destroy();
+        }
+    });
+
+    test('SQLite initSchema preserves legacy graph rows when GraphLog is missing (#10233)', async () => {
+        seedLegacyGraphFile();
+
+        let storage = Neo.create(SQLite, { dbPath });
+        await storage.initAsync();
+
+        try {
+            expect(storage.db.prepare('SELECT COUNT(*) as c FROM Nodes').get().c).toBe(2);
+            expect(storage.db.prepare('SELECT COUNT(*) as c FROM Edges').get().c).toBe(1);
+            expect(storage.db.prepare('SELECT version FROM SchemaVersion WHERE id = ?').get('graph').version).toBe(1);
+            expect(storage.db.prepare('PRAGMA table_info(Nodes)').all().map(column => column.name)).toContain('user_id');
+            expect(storage.db.prepare('PRAGMA table_info(Edges)').all().map(column => column.name)).toContain('user_id');
+            expect(storage.db.prepare('SELECT COUNT(*) as c FROM GraphLog').get().c).toBe(0);
+        } finally {
+            if (storage.db?.open) storage.db.close();
+            storage.destroy();
+        }
+    });
+
+    test('SQLite initSchema refuses unsupported graph schema versions without wipe opt-in (#10233)', async () => {
+        seedLegacyGraphFile({schemaVersion: 999});
+
+        let storage = Neo.create(SQLite, { dbPath });
+
+        try {
+            await expect(storage.initAsync()).rejects.toThrow(/Unsupported SQLite graph schema version 999/);
+        } finally {
+            if (storage.db?.open) storage.db.close();
+            storage.destroy();
+        }
+
+        const verifyDb = new BetterSqlite(dbPath);
+
+        try {
+            expect(verifyDb.prepare('SELECT COUNT(*) as c FROM Nodes').get().c).toBe(2);
+            expect(verifyDb.prepare('SELECT COUNT(*) as c FROM Edges').get().c).toBe(1);
+            expect(verifyDb.prepare('SELECT version FROM SchemaVersion WHERE id = ?').get('graph').version).toBe(999);
+        } finally {
+            verifyDb.close();
+        }
+    });
+
+    test('SQLite initSchema resets unsupported graph schema only with explicit wipe opt-in (#10233)', async () => {
+        seedLegacyGraphFile({schemaVersion: 999});
+
+        const previousWipeOptIn = process.env.NEO_ALLOW_SCHEMA_WIPE;
+        const originalWarn      = console.warn;
+        const warnings          = [];
+        let storage             = Neo.create(SQLite, { dbPath });
+
+        try {
+            process.env.NEO_ALLOW_SCHEMA_WIPE = 'true';
+            console.warn = message => warnings.push(String(message));
+
+            await storage.initAsync();
+
+            expect(storage.db.prepare('SELECT COUNT(*) as c FROM Nodes').get().c).toBe(0);
+            expect(storage.db.prepare('SELECT COUNT(*) as c FROM Edges').get().c).toBe(0);
+            expect(storage.db.prepare('SELECT version FROM SchemaVersion WHERE id = ?').get('graph').version).toBe(1);
+            expect(warnings.join('\n')).toContain('NEO_ALLOW_SCHEMA_WIPE=true');
+            expect(warnings.join('\n')).toContain('Unsupported SQLite graph schema version 999');
+        } finally {
+            console.warn = originalWarn;
+            if (previousWipeOptIn === undefined) {
+                delete process.env.NEO_ALLOW_SCHEMA_WIPE;
+            } else {
+                process.env.NEO_ALLOW_SCHEMA_WIPE = previousWipeOptIn;
+            }
+            if (storage.db?.open) storage.db.close();
             storage.destroy();
         }
     });
