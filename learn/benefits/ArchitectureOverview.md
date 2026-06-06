@@ -299,7 +299,7 @@ flowchart TD
 
 4. **Capability Gap Inference:** This phase is **deterministic** — it does not use an LLM.
    It cross-references graph nodes directly against the filesystem:
-   - Does `test/` contain files matching this class's tokens? If not: **TEST_GAP**; if yes, add a `VALIDATES` edge from the test `FILE` node to the structural source node.
+   - Does `test/` contain files with precise evidence for this class's semantic name tokens? If not: **TEST_GAP**; if yes, add a `VALIDATES` edge from the test `FILE` node to the structural source node.
    - Does `learn/guides/` have a matching guide? If not: **GUIDE_GAP**
 
 5. **Hebbian Decay:** Universal edge weight fade and garbage collection of stale nodes,
