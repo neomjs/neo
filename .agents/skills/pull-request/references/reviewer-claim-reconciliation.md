@@ -2,7 +2,7 @@
 
 This payload governs the reviewer-side check a peer MUST run before **proactively self-claiming** the review of a PR it was not assigned — i.e. pulling an un-reviewed PR from the open queue during the `post-review-pickup` backlog survey and broadcasting a `[review-claim]` / declaring `lane-state: next-lane (claiming #N as primary reviewer)`.
 
-It is the reviewer-side counterpart to [`ci-green-review-routing.md`](./ci-green-review-routing.md) (author-side routing). Together they close the review-routing loop so the two mechanisms — author-assigns-primary (§6.2) and reviewer-proactive-claim (`post-review-pickup`) — stop colliding.
+It is the reviewer-side counterpart to [`ci-green-review-routing.md`](./ci-green-review-routing.md) (author-side routing). Together they close the review-routing loop so the two mechanisms — author-assigns-primary (`pull-request-workflow.md §6.2`) and reviewer-proactive-claim (`post-review-pickup`) — stop colliding.
 
 ## 1. Why This Gate Exists
 
@@ -10,7 +10,7 @@ It is the reviewer-side counterpart to [`ci-green-review-routing.md`](./ci-green
 
 **Empirical:** three collisions in one nightshift (2026-06-06) — #12616, #12620, #12625 — two same-family reviewers each independently posted formal reviews on the same PR before either saw the other's claim.
 
-**The structural subtlety (#12625):** `manage_pr_reviewers` is NOT a sufficient check by itself. Per `ci-green-review-routing.md` / §6.2.1, the author assigns the primary via `manage_pr_reviewers` **only after the CI-green gate passes** — which structurally lags the PR-open broadcast by the entire CI window (minutes). During that window the author's primary is declared in the `[pr-opened]` broadcast **text** but is not yet machine-readable in `manage_pr_reviewers`. A check keyed only on `manage_pr_reviewers` is blind in exactly that window (in #12625 the assignment landed at `08:05`, ~6 min after the `07:59` broadcast that already named the primary; the colliding claim landed at `08:03`).
+**The structural subtlety (#12625):** `manage_pr_reviewers` is NOT a sufficient check by itself. Per `ci-green-review-routing.md`, the author assigns the primary via `manage_pr_reviewers` **only after the CI-green gate passes** — which structurally lags the PR-open broadcast by the entire CI window (minutes). During that window the author's primary is declared in the `[pr-opened]` broadcast **text** but is not yet machine-readable in `manage_pr_reviewers`. A check keyed only on `manage_pr_reviewers` is blind in exactly that window (in #12625 the assignment landed at `08:05`, ~6 min after the `07:59` broadcast that already named the primary; the colliding claim landed at `08:03`).
 
 ## 2. The Check (before any proactive `[review-claim]`)
 
@@ -32,9 +32,9 @@ A re-check immediately before posting (not only at survey time) closes the resid
 
 ## 4. Scope
 
-Reviewer-side only — this gate adds NO change to §6.2's author flow (the author still assigns ONE primary + single-peer-pings, deliberately not broadcasting). The reconciliation burden sits with the proactive self-claimer, whose check (three reads) is far cheaper than a duplicated cross-family review.
+Reviewer-side only — this gate adds NO change to the `pull-request-workflow.md §6.2` author flow (the author still assigns ONE primary + single-peer-pings, deliberately not broadcasting). The reconciliation burden sits with the proactive self-claimer, whose check (three reads) is far cheaper than a duplicated cross-family review.
 
-The symmetric author-side check (author scans for an earlier reviewer `[review-claim]` before assigning a *different* primary post-CI-green) is OUT of scope here; if recurrence data later shows author-side collisions dominate, route that as a separate §6.2 refinement.
+The symmetric author-side check (author scans for an earlier reviewer `[review-claim]` before assigning a *different* primary post-CI-green) is OUT of scope here; if recurrence data later shows author-side collisions dominate, route that as a separate `pull-request-workflow.md §6.2` refinement.
 
 ## 5. Anti-Patterns
 
@@ -42,5 +42,5 @@ The symmetric author-side check (author scans for an earlier reviewer `[review-c
 |---|---|
 | Checking only `manage_pr_reviewers` | Blind during the PR-open → CI-green window where the author's primary is broadcast-text-only (#12625). |
 | Keying precedence on wake-digest delivery order | Digest order is unreliable under flood (#11182); use durable `sentAt`. |
-| Claiming because the single-peer ping "wasn't to me" | §6.2's single-peer ping is by design; absence of a ping to you is not absence of a primary. |
+| Claiming because the single-peer ping "wasn't to me" | the `pull-request-workflow.md §6.2` single-peer ping is by design; absence of a ping to you is not absence of a primary. |
 | Posting a formal `reviewDecision` as a same-family bonus ahead of the assigned primary | Flips the gate state ahead of the cross-family primary; relabel as a non-primary observation or defer. |
