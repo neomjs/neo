@@ -999,7 +999,7 @@ paths:
                 wakeSuppressed:
                   type: boolean
                   default: false
-                  description: "Persist the message without emitting SENT_TO_ME wake events. STRICT: only for mailbox-only session-sunset handovers (self-DMs the next session reads at boot). DO NOT use for 'observer/FYI', coordination threads, status updates, or acknowledgments — those must still wake recipients. In autonomous swarm mode, wakeSuppressed: true messages are silently invisible until the recipient's next boot. Default: omit (= false)."
+                  description: "Persist + deliver the message but emit NO wake event — the recipient sees it on their next list_messages rather than via an interrupt. Use for awareness/FYI (e.g. PR-opened-you're-not-the-reviewer, lane-progress, acks) or session-sunset self-DM handovers. Do NOT suppress actionable messages (you're the reviewer, a lane was claimed on you, REQUEST_CHANGES) — those must wake. In autonomous mode a suppressed message stays unseen until the recipient next lists/boots. Default: omit (= false)."
                 task:
                   type: object
                   description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
