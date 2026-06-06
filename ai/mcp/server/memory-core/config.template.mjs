@@ -161,7 +161,8 @@ class Config extends ConfigProvider {
             wakeDaemon: {
                 dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
                 bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
-                wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
+                wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string'),
+                cycleStateCacheMaxAgeMs: leaf(5 * 60 * 1000, 'NEO_CYCLE_STATE_CACHE_MAX_AGE_MS', 'number')
             },
             /**
              * Data Schema/Table Names

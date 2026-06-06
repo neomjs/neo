@@ -4,49 +4,48 @@
  * reads it WITHOUT a network round-trip — the hook blocks the turn-end, so it cannot afford to live-query
  * GitHub. A plain JSON file under the wake-daemon runtime dir (sibling to `inflightLock.mjs`).
  *
+ * **Pure helper — owns no defaults, reads no config:** the cache directory + staleness bound are resolved
+ * `AiConfig` leaves (`wakeDaemon.dataDir` + `wakeDaemon.cycleStateCacheMaxAgeMs`), INJECTED by the
+ * entrypoints that already import `AiConfig` (the bridge daemon + `idleOutNudge`). Keeping this module
+ * config-free means a non-entrypoint consumer (the sync Stop hook) never pays framework bootstrap weight
+ * to read a path, and the config SSOT stays the single owner of the path + TTL.
+ *
  * **Fail-soft + staleness-bounded:** a write failure never breaks the daemon; a read returns `null` on
- * missing / malformed / stale state, so the hook fail-opens (never enforces on a stale or absent verdict).
+ * missing / malformed / stale state — AND on an absent `maxAgeMs` (fail-open with no injected bound) — so
+ * the hook never enforces on a stale, absent, or un-bounded verdict.
  *
  * @see ai/scripts/lifecycle/cycleState.mjs   — computes the verdict this caches
  * @see ai/scripts/lifecycle/inflightLock.mjs — sibling .neo-ai-data/wake-daemon/ runtime-file convention
  */
 
-import fs                 from 'fs';
-import path               from 'path';
-import {fileURLToPath}    from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import fs   from 'fs';
+import path from 'path';
 
 /**
- * Default staleness bound. A cached verdict older than this is treated as absent — the daemon recomputes
- * each heartbeat cycle, so a stale file means the daemon stopped; the hook must not enforce on it.
- * @type {Number}
- */
-export const DEFAULT_MAX_AGE_MS = 5 * 60 * 1000; // 5 min
-
-/**
- * Resolves the per-identity cache file path under the wake-daemon runtime dir (sibling to inflightLock).
+ * Resolves the per-identity cache file path under the (injected) wake-daemon runtime dir.
+ * @param {String} dataDir The resolved `AiConfig.wakeDaemon.dataDir` leaf (injected by the entrypoint).
  * @param {String} identity
  * @returns {String}
  */
-export function cacheFilePath(identity) {
+export function cacheFilePath(dataDir, identity) {
     const clean = String(identity || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
-    return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/cycle-state-${clean}.json`)
+    return path.join(dataDir, `cycle-state-${clean}.json`)
 }
 
 /**
  * Writes the computed cycle-state verdict to the cache (daemon / producer side). Fail-soft — any error
  * (dir missing, disk) is swallowed and reported via the boolean; a cache-write must never break the daemon.
+ * @param {String} dataDir The resolved wake-daemon dir (`AiConfig.wakeDaemon.dataDir`); injected by the caller.
  * @param {String} identity
  * @param {Object} verdict The `computeCycleState()` output.
  * @param {Object} [opts]
  * @param {Number} [opts.now=Date.now()]  Injectable timestamp (testability).
- * @param {String} [opts.filePath]        Override the cache path (testability); defaults to {@link cacheFilePath}.
+ * @param {String} [opts.filePath]        Override the resolved path (testability); defaults to {@link cacheFilePath}.
  * @returns {Boolean} true on success.
  */
-export function writeCycleState(identity, verdict, {now = Date.now(), filePath} = {}) {
+export function writeCycleState(dataDir, identity, verdict, {now = Date.now(), filePath} = {}) {
     try {
-        const file = filePath || cacheFilePath(identity);
+        const file = filePath || cacheFilePath(dataDir, identity);
         fs.mkdirSync(path.dirname(file), {recursive: true});
         fs.writeFileSync(file, JSON.stringify({verdict, computedAt: now}), 'utf8');
         return true
@@ -57,21 +56,24 @@ export function writeCycleState(identity, verdict, {now = Date.now(), filePath} 
 
 /**
  * Reads the cached cycle-state verdict (hook / consumer side). Fail-soft + staleness-bounded: returns
- * `null` when the file is missing, malformed, or older than `maxAgeMs` — so a stale or absent verdict
- * never drives enforcement (the hook fail-opens).
+ * `null` when the file is missing, malformed, older than `maxAgeMs`, OR when no numeric `maxAgeMs` was
+ * injected — so a stale, absent, or un-bounded verdict never drives enforcement (the hook fail-opens).
+ * @param {String} dataDir The resolved wake-daemon dir (`AiConfig.wakeDaemon.dataDir`); injected by the caller.
  * @param {String} identity
  * @param {Object} [opts]
- * @param {Number} [opts.maxAgeMs=DEFAULT_MAX_AGE_MS]
+ * @param {Number} [opts.maxAgeMs] Resolved `AiConfig.wakeDaemon.cycleStateCacheMaxAgeMs`; required to read (no default here).
  * @param {Number} [opts.now=Date.now()]
  * @param {String} [opts.filePath]
  * @returns {{verdict:Object, computedAt:Number, ageMs:Number}|null}
  */
-export function readCycleState(identity, {maxAgeMs = DEFAULT_MAX_AGE_MS, now = Date.now(), filePath} = {}) {
+export function readCycleState(dataDir, identity, {maxAgeMs, now = Date.now(), filePath} = {}) {
     try {
-        const {verdict, computedAt} = JSON.parse(fs.readFileSync(filePath || cacheFilePath(identity), 'utf8'));
+        const {verdict, computedAt} = JSON.parse(fs.readFileSync(filePath || cacheFilePath(dataDir, identity), 'utf8'));
         if (typeof computedAt !== 'number' || !verdict) return null;
         const ageMs = now - computedAt;
-        if (ageMs > maxAgeMs) return null; // stale → ignore (daemon stopped); hook fail-opens
+        // No injected bound OR stale → fail-open. This helper owns no default staleness policy — the
+        // config leaf does; a missing bound means the entrypoint didn't resolve it, so we must not enforce.
+        if (typeof maxAgeMs !== 'number' || ageMs > maxAgeMs) return null;
         return {verdict, computedAt, ageMs}
     } catch {
         return null

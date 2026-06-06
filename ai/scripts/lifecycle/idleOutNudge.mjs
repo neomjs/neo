@@ -66,6 +66,7 @@ import {writeInflightLock, clearInflightLock, checkInflightLock} from './infligh
 import {computeCycleState}       from './cycleState.mjs';
 import {writeCycleState}         from './cycleStateCache.mjs';
 import {fetchExternalState}      from './cycleStateFetch.mjs';
+import memoryCoreConfig          from '../../mcp/server/memory-core/config.mjs';
 
 /**
  * @summary Dispatch a single idle-out heartbeat pulse to the target identity.
@@ -129,7 +130,7 @@ export async function idleOutNudge(identity) {
     //      gated/colliding lane; lifecycle-closure steps 1-3 (own PRs + review requests) are computed now.
     try {
         const {ownPRs, reviewRequests, openOwnPrCount} = await fetchExternalState(identity);
-        writeCycleState(identity, computeCycleState({ownPRs, reviewRequests, backlog: [], openOwnPrCount}));
+        writeCycleState(memoryCoreConfig.wakeDaemon.dataDir, identity, computeCycleState({ownPRs, reviewRequests, backlog: [], openOwnPrCount}));
     } catch (cacheErr) {
         console.error(`[idleOutNudge] cycle-state cache-compute failed (non-blocking): ${cacheErr.message}`);
     }

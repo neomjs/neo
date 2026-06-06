@@ -617,7 +617,7 @@ async function flushSubscription(subId) {
         const latest = heartbeats[heartbeats.length - 1];
         // Surface the cached cycle-state next-step instead of the opaque count, when a fresh verdict is
         // cached for this identity (the daemon computes + caches it; this is the read/render side).
-        const cached    = readCycleState(identity);
+        const cached    = readCycleState(DAEMON_DATA_DIR, identity, {maxAgeMs: memoryCoreConfig.wakeDaemon.cycleStateCacheMaxAgeMs});
         const cycleLine = cached && formatCycleStateLine(cached.verdict);
         breakdown += cycleLine
             ? `\n- ${heartbeats.length} heartbeat pulses — ${cycleLine}`
