@@ -18,6 +18,7 @@ import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {captureAiConfigKeys}  from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 /**
  * #10017 write-side invariant regression coverage.
@@ -51,6 +52,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
     let MailboxService, GraphService, LifecycleService;
     let dbPath;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const tmpDir = path.resolve(process.cwd(), 'tmp');
@@ -60,6 +62,7 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         dbPath = path.join(tmpDir, `neo-writeside-invariant-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        restoreAiConfig = captureAiConfigKeys(aiConfig, ['storagePaths.graph', 'collections']);
         aiConfig.storagePaths.graph = dbPath;
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory = `test-memory-${Date.now()}`;
@@ -79,6 +82,7 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager();
+        restoreAiConfig?.();
         if (fs.existsSync(dbPath)) {
             try { fs.unlinkSync(dbPath); } catch (e) {}
             try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
