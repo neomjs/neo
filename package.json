@@ -21,6 +21,7 @@
         "ai:audit-integrity"           : "node ./ai/scripts/maintenance/auditGraphIntegrity.mjs",
         "ai:backup"                    : "node ./ai/scripts/maintenance/backup.mjs",
         "ai:benchmark-gemma4"          : "node ./ai/scripts/benchmark/gemma4-rem-benchmark.mjs",
+        "ai:benchmark-setup-class"     : "node --expose-gc ./ai/scripts/benchmark/setupClass-cold-start.mjs",
         "ai:bootstrap-codex-sandbox"   : "node ./ai/scripts/diagnostics/bootstrapCodexSandbox.mjs",
         "ai:check-identity-facts"      : "node ./ai/scripts/diagnostics/check-identity-facts.mjs",
         "ai:check-retired-primitives"  : "node ./ai/scripts/diagnostics/check-retired-primitives.mjs",
