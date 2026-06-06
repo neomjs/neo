@@ -1,6 +1,10 @@
 import Base from './Base.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from './constants.mjs';
 
+const GRAPH_SCHEMA_VERSION = 1;
+const GRAPH_SCHEMA_VERSION_ID = 'graph';
+const GRAPH_SCHEMA_WIPE_ENV = 'NEO_ALLOW_SCHEMA_WIPE';
+
 /**
  * Native Write-Ahead Logging (WAL) SQLite engine proxy driving memory graph persistence logic.
  * Bounded uniquely inside backend Node.js domains, this integration leverages dynamic imports natively,
@@ -60,24 +64,16 @@ class SQLite extends Base {
     }
 
     /**
+     * @summary Initializes or migrates the persisted graph schema without silently dropping graph data.
+     *
      * Evaluates current disk schemas, verifying universal JSON mapping configurations.
      * Injects strict Graph relational maps internally mitigating corrupted Edge cascade cascades cleanly.
      */
     initSchema() {
         if (!this.db) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
-        let upgradeRequired = false;
 
-        try {
-            this.db.prepare('SELECT log_id FROM GraphLog LIMIT 1').get();
-        } catch (e) {
-            upgradeRequired = true;
-        }
-
-        if (upgradeRequired) {
-            this.db.exec('DROP TABLE IF EXISTS Edges');
-            this.db.exec('DROP TABLE IF EXISTS Nodes');
-        }
+        this.assertSupportedSchemaVersion();
 
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS Nodes (
@@ -103,17 +99,7 @@ class SQLite extends Base {
             CREATE INDEX IF NOT EXISTS idx_edges_target ON Edges(target);
         `);
 
-        // Add user_id when migrating from older graph schemas.
-        try {
-            this.db.prepare('SELECT user_id FROM Nodes LIMIT 1').get();
-        } catch (e) {
-            try {
-                this.db.exec('ALTER TABLE Nodes ADD COLUMN user_id TEXT');
-                this.db.exec('ALTER TABLE Edges ADD COLUMN user_id TEXT');
-            } catch (alterErr) {
-                console.error('--- Migration failed ---', alterErr);
-            }
-        }
+        this.migrateLegacyGraphColumns();
 
         // The Delta Log Hardware Mechanism mimicking Global Broadcast matrices securely natively without network payloads cleanly!
         this.db.exec(`
@@ -144,6 +130,155 @@ class SQLite extends Base {
                 retry_count INTEGER DEFAULT 0
             );
         `);
+
+        this.stampSchemaVersion();
+    }
+
+    /**
+     * @summary Refuses unsupported persisted schemas unless the operator explicitly opts into a destructive reset.
+     * @protected
+     */
+    assertSupportedSchemaVersion() {
+        const schemaVersion = this.readGraphSchemaVersion();
+
+        if (schemaVersion === null || schemaVersion === GRAPH_SCHEMA_VERSION) {
+            return;
+        }
+
+        this.resetGraphSchemaOrThrow(
+            `Unsupported SQLite graph schema version ${schemaVersion}; expected ${GRAPH_SCHEMA_VERSION}.`
+        );
+    }
+
+    /**
+     * @summary Reads the current graph schema version row, treating absent version metadata as legacy v1-compatible.
+     * @returns {Number|null}
+     * @protected
+     */
+    readGraphSchemaVersion() {
+        if (!this.hasTable('SchemaVersion')) {
+            return null;
+        }
+
+        let row;
+
+        try {
+            row = this.db.prepare('SELECT version FROM SchemaVersion WHERE id = ? LIMIT 1').get(GRAPH_SCHEMA_VERSION_ID);
+        } catch (e) {
+            this.resetGraphSchemaOrThrow(`Unreadable SQLite graph SchemaVersion table: ${e.message}`);
+            return null;
+        }
+
+        if (!row) {
+            return null;
+        }
+
+        const version = Number(row.version);
+
+        if (!Number.isInteger(version) || version < 1) {
+            this.resetGraphSchemaOrThrow(`Invalid SQLite graph schema version value: ${String(row.version)}.`);
+            return null;
+        }
+
+        return version;
+    }
+
+    /**
+     * @summary Adds backward-compatible columns to legacy graph tables without deleting existing rows.
+     * @protected
+     */
+    migrateLegacyGraphColumns() {
+        if (!this.hasColumn('Nodes', 'user_id')) {
+            this.db.exec('ALTER TABLE Nodes ADD COLUMN user_id TEXT');
+        }
+
+        if (!this.hasColumn('Edges', 'user_id')) {
+            this.db.exec('ALTER TABLE Edges ADD COLUMN user_id TEXT');
+        }
+    }
+
+    /**
+     * @summary Writes the current graph schema version row after successful schema creation/migration.
+     * @protected
+     */
+    stampSchemaVersion() {
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS SchemaVersion (
+                id TEXT PRIMARY KEY,
+                version INTEGER NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        this.db.prepare(`
+            INSERT INTO SchemaVersion (id, version, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                version = excluded.version,
+                updated_at = excluded.updated_at
+        `).run(GRAPH_SCHEMA_VERSION_ID, GRAPH_SCHEMA_VERSION);
+    }
+
+    /**
+     * @summary Resets graph schema tables only under the explicit schema-wipe environment gate.
+     * @param {String} reason Operator-facing reset reason.
+     * @protected
+     */
+    resetGraphSchemaOrThrow(reason) {
+        if (process.env[GRAPH_SCHEMA_WIPE_ENV] !== 'true') {
+            throw new Error(
+                `${reason} Refusing destructive graph schema reset for ${this.dbPath || ':memory:'}. ` +
+                `Set ${GRAPH_SCHEMA_WIPE_ENV}=true only for deliberate maintenance.`
+            );
+        }
+
+        console.warn(
+            `[SQLite] ${GRAPH_SCHEMA_WIPE_ENV}=true; resetting graph schema at ` +
+            `${this.dbPath || ':memory:'}. Reason: ${reason}`
+        );
+
+        this.db.exec(`
+            DROP TRIGGER IF EXISTS node_insert;
+            DROP TRIGGER IF EXISTS node_update;
+            DROP TRIGGER IF EXISTS node_delete;
+            DROP TRIGGER IF EXISTS edge_insert;
+            DROP TRIGGER IF EXISTS edge_update;
+            DROP TRIGGER IF EXISTS edge_delete;
+            DROP TABLE IF EXISTS SummarizationJobs;
+            DROP TABLE IF EXISTS GraphLog;
+            DROP TABLE IF EXISTS Edges;
+            DROP TABLE IF EXISTS Nodes;
+            DROP TABLE IF EXISTS SchemaVersion;
+        `);
+    }
+
+    /**
+     * @summary Checks whether a persisted SQLite table exists.
+     * @param {String} tableName
+     * @returns {Boolean}
+     * @protected
+     */
+    hasTable(tableName) {
+        return Boolean(this.db.prepare(`
+            SELECT name FROM sqlite_master
+            WHERE type = 'table' AND name = ?
+            LIMIT 1
+        `).get(tableName));
+    }
+
+    /**
+     * @summary Checks whether a persisted SQLite table contains a column.
+     * @param {String} tableName
+     * @param {String} columnName
+     * @returns {Boolean}
+     * @protected
+     */
+    hasColumn(tableName, columnName) {
+        if (!this.hasTable(tableName)) {
+            return false;
+        }
+
+        return this.db.prepare(`PRAGMA table_info(${tableName})`).all().some(column => column.name === columnName);
     }
 
     /**
