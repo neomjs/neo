@@ -97,9 +97,11 @@ Each line in `nodes.jsonl` is a JSON object:
 | `tags` | string[] | ✅ | Categorization tags for search and filtering |
 | `aliases` | string[] | ❌ | Alternative terms that refer to the exact same concept (O(1) lookup) |
 | `verifiedAt` | string \| null | ❌ | ISO date string for the last source-grounded verification, or `null` / missing when never explicitly verified |
+| `extraction_metadata` | object \| null | ❌ | Present only on **LLM-mined candidate rows** (written by `ConceptDiscoveryService`): the extraction pass's objective self-report `{missing_fields, ambiguous_references, confidence_score}`, denormalized onto each candidate it produced. **JSONL-only** — not projected to graph node `properties` or the `ConceptIngestor` payload hash; legacy rows without it load unchanged. |
 
 ```jsonl
 {"id":"off-main-thread","name":"Off-Main-Thread Execution","tier":1,"description":"Application business logic runs inside a dedicated App Worker.","uniqueToNeo":true,"tags":["architecture","workers"],"aliases":["off the main thread","OMT"],"verifiedAt":null}
+{"id":"mined-example","name":"Mined Example","tier":3,"description":"An LLM-mined candidate awaiting curator review.","uniqueToNeo":false,"tags":["mined-candidate"],"aliases":[],"verifiedAt":null,"extraction_metadata":{"missing_fields":[],"ambiguous_references":["'the module' — three modules exist"],"confidence_score":0.7}}
 ```
 
 > [!IMPORTANT]

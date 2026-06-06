@@ -305,4 +305,67 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         expect(sharedLine).toContain('from-epic');
         expect(sharedLine).not.toContain('from-pr');
     });
+
+    test('runDiscoveryCycle captures envelope extraction_metadata, denormalizes onto each candidate, and persists it (#10106)', async () => {
+        writeEmptyConceptGraph();
+        writeIssueFile('issue-900.md', {labels: ['epic'], id: 900});
+
+        llmResponses = [{
+            candidates: [
+                {id: 'persisted-a', name: 'Persisted A', description: 'a', reasoning: 'y', aliases: []},
+                {id: 'persisted-b', name: 'Persisted B', description: 'b', reasoning: 'y', aliases: []}
+            ],
+            extraction_metadata: {
+                missing_fields      : ['reasoning'],
+                ambiguous_references: ['the module — three modules exist'],
+                confidence_score    : 0.7
+            }
+        }];
+
+        const result = await ConceptDiscoveryService.runDiscoveryCycle();
+        expect(result.candidatesAdded).toBe(2);
+
+        // Envelope metadata describes the extraction pass → denormalized onto EACH candidate it produced
+        for (const c of result.candidates) {
+            expect(c.extraction_metadata).toEqual({
+                missing_fields      : ['reasoning'],
+                ambiguous_references: ['the module — three modules exist'],
+                confidence_score    : 0.7
+            });
+        }
+
+        // ...and persisted to nodes.jsonl as the additive optional field
+        const nodesContent = fs.readFileSync(path.join(tmpConceptsDir, 'nodes.jsonl'), 'utf8');
+        const row          = JSON.parse(nodesContent.split('\n').find(l => l.includes('"persisted-a"')));
+        expect(row.extraction_metadata.confidence_score).toBe(0.7);
+        expect(row.extraction_metadata.missing_fields).toEqual(['reasoning']);
+    });
+
+    test('extractConceptsFromSource omits extraction_metadata for legacy responses and coerces malformed blocks (#10106)', async () => {
+        writeEmptyConceptGraph();
+        ConceptService.loadGraph();
+
+        llmResponses = [
+            // Legacy: no extraction_metadata envelope at all
+            {candidates: [{id: 'legacy-c', name: 'Legacy C', description: 'x', reasoning: 'y', aliases: []}]},
+            // Malformed: non-array fields + out-of-range score → coerced to safe defaults
+            {
+                candidates         : [{id: 'malformed-c', name: 'Malformed C', description: 'x', reasoning: 'y', aliases: []}],
+                extraction_metadata: {missing_fields: 'not-an-array', ambiguous_references: null, confidence_score: 5}
+            }
+        ];
+
+        const body = 'Enough content to exceed MIN_SOURCE_LENGTH. '.repeat(20);
+
+        const legacy = await ConceptDiscoveryService.extractConceptsFromSource('legacy-source', body);
+        expect(legacy.length).toBe(1);
+        expect(legacy[0].extraction_metadata).toBeUndefined(); // additive — legacy rows carry no field
+
+        const malformed = await ConceptDiscoveryService.extractConceptsFromSource('malformed-source', body);
+        expect(malformed[0].extraction_metadata).toEqual({
+            missing_fields      : [],   // 'not-an-array' → []
+            ambiguous_references: [],   // null → []
+            confidence_score    : null  // 5 (outside [0,1]) → null
+        });
+    });
 });
