@@ -49,6 +49,16 @@ const
 /**
  * The base module to enhance classes, create instances and the Neo namespace.
  *
+ * `Neo` deliberately exists as both an ES module export and the shared `globalThis.Neo`
+ * registry. The dual role is the class-system boundary that lets bundled production code,
+ * dynamically loaded ESM modules, workers, and unit-test entry points meet at one namespace.
+ * `setupClass()` is the gatekeeper for that registry: the first loaded class wins, later loads
+ * resolve to the existing namespace entry, and `unitTestMode` turns accidental duplicate loads
+ * into explicit failures. Do not split this registry or decompose `setupClass()` without first
+ * proving cold-start neutrality with `ai/scripts/benchmark/setupClass-cold-start.mjs`; it runs
+ * once per class during application boot, so helper extraction must account for wall time,
+ * allocation pressure, descriptor churn, and mixed-runtime namespace behavior.
+ *
  * **Note:** The `Neo` namespace is explicitly augmented by core modules like `src/core/Util.mjs`
  * and `src/core/Compare.mjs`. Global utility methods (e.g. `Neo.isArray`, `Neo.isEqual`) are defined
  * there and mapped here. To ensure these methods are available, make sure to import the core package:

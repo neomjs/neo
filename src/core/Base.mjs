@@ -13,6 +13,15 @@ const configSymbol       = Symbol.for('configSymbol'),
 /**
  * The base class for (almost) all classes inside the Neo namespace
  * Exceptions are e.g. core.IdGenerator, vdom.VNode
+ *
+ * `className` and `ntype` intentionally live on instances as well as on static class config.
+ * This costs a few prototype slots, but it keeps Chrome DevTools and Neural Link inspection
+ * direct: expanding an instance immediately reveals its framework identity and creation
+ * shortcut without walking the constructor or prototype chain. That ergonomics choice is part
+ * of the core debugging contract; do not demote these values to static-only metadata without
+ * measuring the runtime/debugging trade-off and updating every consumer that serializes,
+ * routes, or instantiates by class identity.
+ *
  * @class Neo.core.Base
  */
 class Base {
@@ -946,7 +955,7 @@ class Base {
      *
      * **[CRITICAL]** This is the correct, architecture-compliant way to wait for an instance to spin up externally.
      * Never call `initAsync()` externally!
-     * 
+     *
      * @example await ChromaManager.ready();
      * @example await orchestrator.ready();
      * @returns {Promise<void>}
