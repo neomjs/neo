@@ -7,6 +7,7 @@ import aiConfig               from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService  from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                 from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService from './CoalescingEngineService.mjs';
+import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 
 /**
  * @summary Service for managing graph-resident WAKE_SUBSCRIPTION nodes and the
@@ -53,13 +54,13 @@ class WakeSubscriptionService extends Base {
      * @member {String} heartbeatPulseEntityType='heartbeat_pulse'
      * @protected
      */
-    heartbeatPulseEntityType = 'heartbeat_pulse'
+    heartbeatPulseEntityType = HEARTBEAT_PULSE_ENTITY_TYPE
 
     /**
      * @member {String} heartbeatPulseEntityPrefix='HEARTBEAT_PULSE'
      * @protected
      */
-    heartbeatPulseEntityPrefix = 'HEARTBEAT_PULSE'
+    heartbeatPulseEntityPrefix = HEARTBEAT_PULSE_ENTITY_PREFIX
 
     /**
      * @member {String[]} validHarnessTargets
@@ -1123,18 +1124,24 @@ class WakeSubscriptionService extends Base {
      * @returns {Object|null} Wrapped heartbeat-pulse event or null.
      */
     _evaluateHeartbeatPulseAgainstSubscription(trace, subscription) {
-        // Dispatch pulses through the existing bridge-daemon route, independent of the
-        // subscription trigger that originally established the route.
-        if (trace.entity_type !== this.heartbeatPulseEntityType) return null;
-        if (subscription.harnessTarget !== 'bridge-daemon') return null;
-
-        const pulse = this._parseHeartbeatPulseEntityId(trace.entity_id);
-        if (!pulse || pulse.targetIdentity !== subscription.agentIdentity) return null;
+        // Heartbeat pulses dispatch through the established bridge-daemon route regardless of the
+        // subscription's original trigger. The parse + eligibility live in the shared,
+        // GraphService-free `heartbeatPulseEvaluator` (also consumed by the standalone wake-daemon),
+        // so the two heartbeat-pulse evaluators cannot drift; this service still owns the
+        // wake-notification envelope wrapping.
+        const match = matchHeartbeatPulse({
+            trace,
+            harnessTarget: subscription.harnessTarget,
+            agentIdentity: subscription.agentIdentity,
+            entityType   : this.heartbeatPulseEntityType,
+            prefix       : this.heartbeatPulseEntityPrefix
+        });
+        if (!match) return null;
 
         return this._wrapEvent('wake/heartbeat_pulse', subscription, {
-            targetIdentity: pulse.targetIdentity,
-            pulseId       : pulse.pulseId
-        }, trace.log_id);
+            targetIdentity: match.targetIdentity,
+            pulseId       : match.pulseId
+        }, match.logId);
     }
 
     /**
@@ -1186,26 +1193,6 @@ class WakeSubscriptionService extends Base {
      */
     _createHeartbeatPulseEntityId(targetIdentity) {
         return `${this.heartbeatPulseEntityPrefix}:${targetIdentity}:${crypto.randomUUID()}`;
-    }
-
-    /**
-     * Parses a heartbeat pulse GraphLog entity id.
-     * @protected
-     * @param {String} entityId Encoded heartbeat pulse entity id.
-     * @returns {{targetIdentity:String,pulseId:String}|null} Parsed pulse identity.
-     */
-    _parseHeartbeatPulseEntityId(entityId) {
-        const prefix = `${this.heartbeatPulseEntityPrefix}:`;
-        if (!entityId?.startsWith(prefix)) return null;
-
-        const body      = entityId.slice(prefix.length);
-        const separator = body.lastIndexOf(':');
-        if (separator <= 0 || separator === body.length - 1) return null;
-
-        return {
-            targetIdentity: body.slice(0, separator),
-            pulseId       : body.slice(separator + 1)
-        };
     }
 
     /**

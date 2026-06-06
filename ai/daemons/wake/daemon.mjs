@@ -53,6 +53,7 @@ import {
 } from './queries.mjs';
 import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
+import {HEARTBEAT_PULSE_ENTITY_TYPE, matchHeartbeatPulse} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
@@ -295,7 +296,7 @@ async function pollLoop() {
                 for (const trace of logs) {
                     const entity = trace.entity_type === 'nodes' ? nodesMap.get(trace.entity_id)
                         : trace.entity_type === 'edges' ? edgesMap.get(trace.entity_id)
-                        : trace.entity_type === 'heartbeat_pulse' ? {id: trace.entity_id, type: 'HEARTBEAT_PULSE'}
+                        : trace.entity_type === HEARTBEAT_PULSE_ENTITY_TYPE ? {id: trace.entity_id, type: 'HEARTBEAT_PULSE'}
                         : null;
                     if (!entity) continue; // entity might have been deleted, skipping for wake events unless it's a deletion trigger, but currently we focus on creation/updates
 
@@ -398,41 +399,23 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
                 logId: trace.log_id
             };
         }
-    } else if (harnessTarget === 'bridge-daemon' && trace.entity_type === 'heartbeat_pulse') {
-        const pulse = parseHeartbeatPulseEntityId(trace.entity_id);
-        if (pulse?.targetIdentity === agentIdentity) {
+    } else if (trace.entity_type === HEARTBEAT_PULSE_ENTITY_TYPE) {
+        // Parse + eligibility are delegated to the shared `heartbeatPulseEvaluator` (the single
+        // source of truth also consumed by `WakeSubscriptionService`); this daemon still owns its
+        // flat coalescing payload shape.
+        const match = matchHeartbeatPulse({trace, harnessTarget, agentIdentity});
+        if (match) {
             return {
-                type: 'heartbeat',
-                targetIdentity: pulse.targetIdentity,
-                pulseId: pulse.pulseId,
-                logId: trace.log_id
+                type          : 'heartbeat',
+                targetIdentity: match.targetIdentity,
+                pulseId       : match.pulseId,
+                logId         : match.logId
             };
         }
     }
 
     return null;
 }
-
-/**
- * Parses a GraphLog-only heartbeat pulse entity id.
- * @param {String} entityId Encoded `HEARTBEAT_PULSE:<identity>:<uuid>` id.
- * @returns {{targetIdentity:String,pulseId:String}|null} Parsed pulse.
- */
-function parseHeartbeatPulseEntityId(entityId) {
-    const prefix = 'HEARTBEAT_PULSE:';
-    if (!entityId?.startsWith(prefix)) return null;
-
-    const body      = entityId.slice(prefix.length);
-    const separator = body.lastIndexOf(':');
-    if (separator <= 0 || separator === body.length - 1) return null;
-
-    return {
-        targetIdentity: body.slice(0, separator),
-        pulseId       : body.slice(separator + 1)
-    };
-}
-
-
 
 /**
  * Queues an event for coalescing.
