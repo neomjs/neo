@@ -256,7 +256,11 @@ checked. Minimum shape:
 - targeted unread review / re-review requests;
 - assigned issues and currently self-authored PR follow-ups;
 - recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
-  for collision state;
+  for collision state; **if the candidate lane is a PR review you were not
+  assigned**, run the reviewer-claim reconciliation gate
+  ([`pull-request/references/reviewer-claim-reconciliation.md`](../../pull-request/references/reviewer-claim-reconciliation.md))
+  before claiming — the author's primary may be broadcast-text-only during the
+  CI-green window, so `manage_pr_reviewers` alone under-detects it;
 - open unassigned current-epic or recently surfaced substrate lanes;
 - broader non-conflicting backlog if the current-epic surface is empty.
 

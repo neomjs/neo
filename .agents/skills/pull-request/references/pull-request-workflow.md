@@ -208,6 +208,7 @@ You MUST follow this exact handoff protocol:
 If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST send a lifecycle A2A notification.
 
 <!-- trigger: author-side review/re-review request -> read ./ci-green-review-routing.md before reviewer assignment -->
+<!-- trigger: reviewer-side proactive review-claim (before claiming a PR you were not assigned) -> read ./reviewer-claim-reconciliation.md -->
 
 To prevent redundant parallel effort and reviewer collision, you MUST adhere to this explicit role-routing protocol rather than broadcasting naked multi-peer pings:
 
