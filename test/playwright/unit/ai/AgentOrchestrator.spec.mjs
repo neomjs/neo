@@ -354,7 +354,7 @@ Based on priorities, the following tasks are mathematically recommended:
                 runId           : 'run-expired',
                 issueId         : '9900',
                 status          : 'expired',
-                reasonCode      : 'turn-limit',
+                reasonCode      : 'execution-timeout',
                 retryPolicy     : 'preserve-urgency',
                 handoffMessageId: 'MESSAGE:expired'
             });

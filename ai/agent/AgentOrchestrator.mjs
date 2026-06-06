@@ -9,6 +9,7 @@ const OUTCOME_STATUSES = new Set(['completed', 'failed', 'blocked', 'expired', '
           'agent-uncaught-error',
           'productive-failure-tripwire',
           'turn-limit',
+          'execution-timeout',
           'context-limit',
           'tool-failure',
           'blocked-task-state',
@@ -478,7 +479,7 @@ class AgentOrchestrator extends Base {
                                 directives,
                                 startedAt,
                                 status     : 'expired',
-                                reasonCode : 'turn-limit',
+                                reasonCode : 'execution-timeout',
                                 retryPolicy: 'preserve-urgency',
                                 error
                             });
