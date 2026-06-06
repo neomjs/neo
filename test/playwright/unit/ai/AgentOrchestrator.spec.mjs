@@ -15,7 +15,12 @@ const createTestHandoff = (filename, content) => {
           .split('\n')
           .filter(Boolean)
           .map(line => JSON.parse(line)),
-      createFakeAgent = ({failedEvents = [], initError = null, onSchedule = null} = {}) => {
+      createFakeAgent = ({
+          failedEvents = [],
+          initError = null,
+          onSchedule = null,
+          schedulerEmpty = true
+      } = {}) => {
           const agent = {
               activeSubAgents: {},
               disconnected   : false,
@@ -23,7 +28,7 @@ const createTestHandoff = (filename, content) => {
                   failedEvents,
                   processing: false,
                   scheduler : {
-                      isEmpty: () => true
+                      isEmpty: () => schedulerEmpty
                   }
               },
               scheduled: [],
@@ -251,6 +256,111 @@ Based on priorities, the following tasks are mathematically recommended:
             });
             test.expect(handoffCalls).toHaveLength(1);
             test.expect(healthCalls[0][1]).toBe('failed');
+        } finally {
+            if (fs.existsSync(testHandoffPath)) {
+                fs.unlinkSync(testHandoffPath);
+            }
+            fs.rmSync(path.dirname(outcomePath), {recursive: true, force: true});
+        }
+    });
+
+    test('execute records blocked outcomes for blocked-task-state dead-letter events', async () => {
+        const content = `
+# Autonomous Handoff
+
+## Computed Golden Path (Strategic Recommendation)
+
+1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
+   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
+`;
+
+        const testHandoffPath = createTestHandoff('.neo-test-handoff-blocked.md', content),
+              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/blocked.jsonl'),
+              failedEvents    = [{
+                  error     : 'blocked-task-state: credentials required',
+                  event     : {
+                      type: 'system:golden-path',
+                      data: {
+                          issueId: '9900'
+                      }
+                  },
+                  reasonCode: 'blocked-task-state'
+              }];
+
+        try {
+            const orchestrator = Neo.create(AgentOrchestrator, {
+                agentFactory     : () => createFakeAgent({failedEvents}),
+                exitHandler      : () => {},
+                handoffPath      : testHandoffPath,
+                monitorIntervalMs: 1,
+                outcomePath
+            });
+
+            await orchestrator.execute({runId: 'run-blocked'});
+
+            const outcomes = readJsonl(outcomePath);
+
+            test.expect(outcomes).toHaveLength(1);
+            test.expect(outcomes[0]).toMatchObject({
+                runId      : 'run-blocked',
+                issueId    : '9900',
+                status     : 'blocked',
+                reasonCode : 'blocked-task-state',
+                retryPolicy: 'blocked-handoff'
+            });
+        } finally {
+            if (fs.existsSync(testHandoffPath)) {
+                fs.unlinkSync(testHandoffPath);
+            }
+            fs.rmSync(path.dirname(outcomePath), {recursive: true, force: true});
+        }
+    });
+
+    test('execute records expired outcomes when execution timeout fires', async () => {
+        const content = `
+# Autonomous Handoff
+
+## Computed Golden Path (Strategic Recommendation)
+
+1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
+   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
+`;
+
+        const testHandoffPath = createTestHandoff('.neo-test-handoff-expired.md', content),
+              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/expired.jsonl'),
+              exitCodes       = [],
+              handoffCalls    = [];
+
+        try {
+            const orchestrator = Neo.create(AgentOrchestrator, {
+                agentFactory      : () => createFakeAgent({schedulerEmpty: false}),
+                executionTimeoutMs: 1,
+                exitHandler       : code => exitCodes.push(code),
+                handoffEmitter    : outcome => {
+                    handoffCalls.push(outcome);
+                    return 'MESSAGE:expired';
+                },
+                handoffPath       : testHandoffPath,
+                monitorIntervalMs : 50,
+                outcomePath
+            });
+
+            await orchestrator.execute({runId: 'run-expired'});
+
+            const outcomes = readJsonl(outcomePath);
+
+            test.expect(outcomes).toHaveLength(1);
+            test.expect(outcomes[0]).toMatchObject({
+                runId           : 'run-expired',
+                issueId         : '9900',
+                status          : 'expired',
+                reasonCode      : 'turn-limit',
+                retryPolicy     : 'preserve-urgency',
+                handoffMessageId: 'MESSAGE:expired'
+            });
+            test.expect(outcomes[0].error.message).toContain('execution exceeded 1ms');
+            test.expect(exitCodes).toEqual([1]);
+            test.expect(handoffCalls).toHaveLength(1);
         } finally {
             if (fs.existsSync(testHandoffPath)) {
                 fs.unlinkSync(testHandoffPath);

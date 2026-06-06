@@ -41,6 +41,12 @@ class AgentOrchestrator extends Base {
          */
         monitorIntervalMs: 5000,
         /**
+         * Maximum execution window before pending directives are recorded as expired.
+         * A value of `0` disables the timeout for current CLI compatibility.
+         * @member {Number} executionTimeoutMs=0
+         */
+        executionTimeoutMs: 0,
+        /**
          * Optional factory seam for tests or host runtimes that need a custom agent.
          * @member {Function|null} agentFactory=null
          */
@@ -190,6 +196,20 @@ class AgentOrchestrator extends Base {
     }
 
     /**
+     * @param {Object} failedEvent Loop dead-letter entry.
+     * @returns {String}
+     */
+    getFailedEventReasonCode(failedEvent) {
+        if (REASON_CODES.has(failedEvent?.reasonCode)) {
+            return failedEvent.reasonCode;
+        }
+
+        return String(failedEvent?.error || '').includes('blocked-task-state') ?
+            'blocked-task-state' :
+            'productive-failure-tripwire';
+    }
+
+    /**
      * Emits an optional peer-visible handoff and returns its stable identifier.
      * @param {Object} outcome
      * @returns {Promise<String|null>}
@@ -335,13 +355,15 @@ class AgentOrchestrator extends Base {
 
         for (const directive of directives) {
             const failedEvent = this.getFailedEventForDirective(agent, directive),
+                  reasonCode  = failedEvent ? this.getFailedEventReasonCode(failedEvent) : 'queue-exhausted',
+                  isBlocked   = reasonCode === 'blocked-task-state',
                   recorded    = await this.recordDirectiveOutcomes({
                       runId,
                       directives : [directive],
                       startedAt,
-                      status     : failedEvent ? 'failed' : 'completed',
-                      reasonCode : failedEvent ? 'productive-failure-tripwire' : 'queue-exhausted',
-                      retryPolicy: failedEvent ? 'demote-next-cycle' : 'no-retry',
+                      status     : failedEvent ? (isBlocked ? 'blocked' : 'failed') : 'completed',
+                      reasonCode,
+                      retryPolicy: failedEvent ? (isBlocked ? 'blocked-handoff' : 'demote-next-cycle') : 'no-retry',
                       error      : failedEvent?.error || null
                   });
 
@@ -405,14 +427,33 @@ class AgentOrchestrator extends Base {
 
             // Monitor loop exhaustion safely
             await new Promise((resolve, reject) => {
-                const monitorInterval = setInterval(async () => {
+                let finished = false,
+                    monitorInterval,
+                    timeoutTimer;
+
+                const finish = async callback => {
+                    if (finished) {
+                        return;
+                    }
+
+                    finished = true;
+                    clearInterval(monitorInterval);
+                    clearTimeout(timeoutTimer);
+
+                    try {
+                        await callback();
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+
+                monitorInterval = setInterval(async () => {
                     const hasPendingTasks = this.hasPendingAgentTasks(agent),
                           hasActiveJobs   = agent.loop.processing;
 
                     if (!hasPendingTasks && !hasActiveJobs && Object.keys(agent.activeSubAgents).length === 0) {
-                        clearInterval(monitorInterval);
-
-                        try {
+                        await finish(async () => {
                             await this.recordExhaustedDirectiveOutcomes({
                                 runId,
                                 directives,
@@ -423,12 +464,31 @@ class AgentOrchestrator extends Base {
                             console.log('\n====================================\n✅ Autonomous Loop Exhausted. Exiting cleanly.');
                             agent.disconnect();
                             this.exitHandler(0);
-                            resolve();
-                        } catch (err) {
-                            reject(err);
-                        }
+                        });
                     }
                 }, this.monitorIntervalMs);
+
+                if (this.executionTimeoutMs > 0) {
+                    timeoutTimer = setTimeout(async () => {
+                        await finish(async () => {
+                            const error = new Error(`AgentOrchestrator execution exceeded ${this.executionTimeoutMs}ms`);
+
+                            await this.recordDirectiveOutcomes({
+                                runId,
+                                directives,
+                                startedAt,
+                                status     : 'expired',
+                                reasonCode : 'turn-limit',
+                                retryPolicy: 'preserve-urgency',
+                                error
+                            });
+
+                            console.error(`❌ ${error.message}`);
+                            agent.disconnect();
+                            this.exitHandler(1);
+                        });
+                    }, this.executionTimeoutMs);
+                }
             });
 
         } catch (err) {
