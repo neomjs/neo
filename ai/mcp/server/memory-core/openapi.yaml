@@ -1547,6 +1547,33 @@ components:
                         count:
                           type: integer
                           example: 56
+                    queryCanary:
+                      type: object
+                      nullable: true
+                      description: "Per-collection query-path canary: probes each collection's query() with a dimension-matched vector. A populated collection that count()s but cannot query() (corrupt/desynced vector segment) reports degraded here, closing the count-only blindspot where such a collection previously passed as healthy."
+                      properties:
+                        status:
+                          type: string
+                          enum: [healthy, degraded]
+                          example: "healthy"
+                        error:
+                          type: string
+                          description: "Present when degraded — names the failing collection(s) + reason."
+                        collections:
+                          type: object
+                          description: "Per-collection canary result keyed by collection type (memory, summary)."
+                          additionalProperties:
+                            type: object
+                            properties:
+                              status:
+                                type: string
+                                enum: [healthy, degraded]
+                              count:
+                                type: integer
+                              signature:
+                                type: string
+                              error:
+                                type: string
         features:
           type: object
           properties:
@@ -1985,6 +2012,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MemorySearchResult'
+        degraded:
+          type: boolean
+          description: "Present and true ONLY when the query path is degraded (e.g. a corrupt/unqueryable collection whose vector segment throws). Lets callers distinguish a failed query path from a genuine no-match, which omits this field. When true, count is 0 and results is empty but it is NOT a no-match."
+          example: true
+        code:
+          type: string
+          description: "Set to QUERY_PATH_DEGRADED when degraded is true."
+          example: "QUERY_PATH_DEGRADED"
+        collection:
+          type: string
+          description: "The degraded collection (present when degraded)."
+          example: "memory"
+        signature:
+          type: string
+          description: "Corruption/error signature (present when degraded), e.g. chroma-error-finding-id."
+          example: "chroma-error-finding-id"
+        message:
+          type: string
+          description: "Human-readable degraded reason (present when degraded)."
 
     MemorySearchResult:
       allOf:
@@ -2144,6 +2190,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SummarySearchResult'
+        degraded:
+          type: boolean
+          description: "Present and true ONLY when the query path is degraded (e.g. a corrupt/unqueryable collection whose vector segment throws). Lets callers distinguish a failed query path from a genuine no-match, which omits this field. When true, count is 0 and results is empty but it is NOT a no-match."
+          example: true
+        code:
+          type: string
+          description: "Set to QUERY_PATH_DEGRADED when degraded is true."
+          example: "QUERY_PATH_DEGRADED"
+        collection:
+          type: string
+          description: "The degraded collection (present when degraded)."
+          example: "summary"
+        signature:
+          type: string
+          description: "Corruption/error signature (present when degraded), e.g. chroma-error-finding-id."
+          example: "chroma-error-finding-id"
+        message:
+          type: string
+          description: "Human-readable degraded reason (present when degraded)."
 
     SummarySearchResult:
       allOf:

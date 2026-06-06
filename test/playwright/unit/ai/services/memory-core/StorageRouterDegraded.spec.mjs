@@ -15,10 +15,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import StorageRouter  from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import SummaryService        from '../../../../../../ai/services/memory-core/SummaryService.mjs';
+import MemoryService         from '../../../../../../ai/services/memory-core/MemoryService.mjs';
+import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 // Pure unit coverage for the degraded-query observability contract: injectQueryReRanker must stay
 // non-throwing on a Pass-1 query failure (preserving the Pass-2 resilience the catch exists for) but
@@ -72,5 +75,60 @@ test.describe('StorageRouter degraded-query observability', () => {
         // distinction the whole fix exists to preserve (degraded query path vs genuine no-match).
         expect(res._degraded).toBeUndefined();
         expect(res.ids).toEqual([[]]);
+    });
+});
+
+// Consumer-surface coverage: the tool-facing readers must translate the _degraded marker into an
+// explicit QUERY_PATH_DEGRADED envelope, so a degraded query path is distinguishable from a genuine
+// no-match (which returns count:0 WITHOUT `degraded`). Pure unit — a degraded collection is mocked at
+// the StorageRouter boundary; no Chroma substrate.
+test.describe('memory-core degraded-query tool envelopes', () => {
+    const degradedCollection = collectionType => ({
+        query: async () => ({
+            ids: [[]], distances: [[]], metadatas: [[]], documents: undefined,
+            _degraded          : true,
+            _degradedReason    : 'Error executing plan: Internal error: Error finding id',
+            _degradedCollection: collectionType,
+            _degradedSignature : 'chroma-error-finding-id'
+        })
+    });
+
+    const runAs = fn => RequestContextService.run(
+        {agentIdentityNodeId: '@neo-claude-opus', source: 'unit-test', userId: 'neo-claude-opus'}, fn
+    );
+
+    test('querySummaries returns a QUERY_PATH_DEGRADED envelope (not a silent {count:0}) on a degraded collection', async () => {
+        const orig = StorageRouter.getSummaryCollection;
+        StorageRouter.getSummaryCollection = async () => degradedCollection('summary');
+
+        try {
+            const res = await runAs(() => SummaryService.querySummaries({query: 'anything', nResults: 3}));
+
+            expect(res.degraded).toBe(true);
+            expect(res.code).toBe('QUERY_PATH_DEGRADED');
+            expect(res.collection).toBe('summary');
+            expect(res.count).toBe(0);
+            expect(res.results).toEqual([]);
+            expect(res.message).toContain('Error finding id');
+        } finally {
+            StorageRouter.getSummaryCollection = orig;
+        }
+    });
+
+    test('queryMemories returns a QUERY_PATH_DEGRADED envelope (not a silent {count:0}) on a degraded collection', async () => {
+        const orig = StorageRouter.getMemoryCollection;
+        StorageRouter.getMemoryCollection = async () => degradedCollection('memory');
+
+        try {
+            const res = await runAs(() => MemoryService.queryMemories({query: 'anything', nResults: 3}));
+
+            expect(res.degraded).toBe(true);
+            expect(res.code).toBe('QUERY_PATH_DEGRADED');
+            expect(res.collection).toBe('memory');
+            expect(res.count).toBe(0);
+            expect(res.results).toEqual([]);
+        } finally {
+            StorageRouter.getMemoryCollection = orig;
+        }
     });
 });
