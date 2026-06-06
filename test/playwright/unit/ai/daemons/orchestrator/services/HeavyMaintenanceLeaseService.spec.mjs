@@ -109,7 +109,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         });
     });
 
-    test('#12264: dead owner pid makes a wall-clock-active lease stale', async () => {
+    test('Sub 9 hypothesis 5: dead owner pid makes a wall-clock-active lease stale (#12617, #12264)', async () => {
         const leasePath = createLeasePath('dead-owner-pid');
         const now       = new Date('2026-05-16T20:00:00.000Z');
 
@@ -250,7 +250,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         });
     });
 
-    test('malformed leases recover at acquisition time', async () => {
+    test('Sub 9 hypothesis 5: malformed leases recover at acquisition time (#12617)', async () => {
         const leasePath = createLeasePath('malformed');
         await fs.writeFile(leasePath, '{not-json', 'utf8');
 
@@ -324,8 +324,8 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     });
 
     test('withLease release-timing invariant: task inner finally runs INSIDE the lease window (#11515)', async () => {
-        // Empirical anchor: PR #11509 cycles 1 + 2 surfaced the same root failure-mode at two
-        // different surfaces — substrate mutation placed AFTER `await withHeavyMaintenanceLease(...)`
+        // Empirical anchor: prior review cycles surfaced the same root failure-mode at two
+        // different surfaces: substrate mutation placed AFTER `await withHeavyMaintenanceLease(...)`
         // runs OUTSIDE the lease window because the helper's own `finally` (release) fires before
         // the awaited promise settles.
         //
@@ -351,8 +351,8 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 // Primary "heavy work" stand-in
                 await Promise.resolve();
             } finally {
-                // Substrate-protected side effect (canonical inner-finally pattern from
-                // ai/scripts/runners/runSandman.mjs post-PR #11509).
+                // Substrate-protected side effect matching the canonical inner-finally pattern
+                // from ai/scripts/runners/runSandman.mjs.
                 order.push('task-finally');
                 leaseDuringFinally = await inspectHeavyMaintenanceLease({leasePath, now});
             }

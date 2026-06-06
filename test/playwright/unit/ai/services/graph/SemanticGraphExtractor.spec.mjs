@@ -105,7 +105,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
     });
 
-    test('should normalize Memory/Session provenance targets before lazy queue (#10172)', async () => {
+    test('Sub 9 hypothesis 12: provenance Memory/Session edges are lazy-queued, not silently culled (#12617, #10172)', async () => {
         const baseGenerate = OpenAiCompatible.prototype.generate;
 
         try {
@@ -289,7 +289,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         }
     });
 
-    test('detects silent empty-response as context-overflow + aborts retry amplification (#12091)', async () => {
+    test('Sub 9 hypotheses 9 and 11: empty-response overflow records friction and aborts retry amplification (#12617, #12091)', async () => {
         const baseGenerate = OpenAiCompatible.prototype.generate;
         let invocationCount = 0;
 
@@ -339,7 +339,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         }
     });
 
-    test('uses configured graph-provider model for consumer friction telemetry (#12059)', async () => {
+    test('Sub 9 hypotheses 2, 8, 9: guardrail telemetry uses configured graph-provider model (#12617, #12059)', async () => {
         const originalGraphProvider                  = aiConfig.graphProvider;
         const originalOllamaModel                    = aiConfig.ollama?.model;
         const originalContextLimitTokens             = aiConfig.localModels.chat.contextLimitTokens;
