@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'TrioWakeCooldownTest';
+const appName = 'SwarmWakeCooldownTest';
 
 setup({
     neoConfig: {
@@ -14,7 +14,7 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import {execFileSync, exec} from 'child_process';
+import {execFileSync, exec, spawnSync} from 'child_process';
 import path           from 'path';
 import fs             from 'fs-extra';
 import util           from 'util';
@@ -23,12 +23,12 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 
 const execAsync = util.promisify(exec);
 
-test.describe('ai/scripts/trioWakeCooldown', () => {
+test.describe('ai/scripts/swarmWakeCooldown', () => {
     // Shared cooldown state path; focused runs must not race the file state.
     test.describe.configure({mode: 'serial'});
 
-    const STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
-    const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/trioWakeCooldown.mjs');
+    const STATE_PATH = '.neo-ai-data/wake-daemon/swarm-wake-cooldown.json';
+    const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/swarmWakeCooldown.mjs');
 
     // The subprocess invokes `MailboxService.addMessage({to: coordinator, ...})`,
     // and `validateMailboxTarget` rejects unrecognized targets at addMessage-time.
@@ -57,7 +57,7 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
 
         const output = execFileSync('node', [scriptPath, JSON.stringify(signal)], {
             encoding: 'utf-8',
-            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', TRIO_WAKE_COOLDOWN_SECONDS: '600' }
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', NEO_SWARM_WAKE_COOLDOWN_SECONDS: '600' }
         });
 
         // The script writes to stderr when it fires
@@ -80,7 +80,7 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
         // Fire once
         execFileSync('node', [scriptPath, JSON.stringify(signal)], {
             encoding: 'utf-8',
-            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', TRIO_WAKE_COOLDOWN_SECONDS: '600' }
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', NEO_SWARM_WAKE_COOLDOWN_SECONDS: '600' }
         });
 
         const stateBefore = await fs.readJson(STATE_PATH);
@@ -90,7 +90,7 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
             execFileSync('node', [scriptPath, JSON.stringify(signal)], {
                 encoding: 'utf-8',
                 stdio: 'pipe',
-                env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', TRIO_WAKE_COOLDOWN_SECONDS: '600' }
+                env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', NEO_SWARM_WAKE_COOLDOWN_SECONDS: '600' }
             });
         } catch(err) {
             expect(err.stderr.toString()).toContain('Suppressed: within TTL window');
@@ -112,7 +112,7 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
 
         execFileSync('node', [scriptPath, JSON.stringify(signal1)], {
             encoding: 'utf-8',
-            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', TRIO_WAKE_COOLDOWN_SECONDS: '600' }
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', NEO_SWARM_WAKE_COOLDOWN_SECONDS: '600' }
         });
 
         const signal2 = {
@@ -125,10 +125,34 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
             execFileSync('node', [scriptPath, JSON.stringify(signal2)], {
                 encoding: 'utf-8',
                 stdio: 'pipe',
-                env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', TRIO_WAKE_COOLDOWN_SECONDS: '600' }
+                env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', NEO_SWARM_WAKE_COOLDOWN_SECONDS: '600' }
             });
         } catch(err) {
             expect(err.stderr.toString()).toContain('Suppressed: within TTL window');
         }
+    });
+
+    // Cooldown-TTL leaf resolution — kept INSIDE this serial describe (not a parallel sibling) so it
+    // shares the single hardcoded cooldown-state file without a cross-describe concurrency race. The
+    // suppression branch reads `swarmWakeCooldownSeconds` and returns BEFORE the MailboxService dispatch,
+    // so these verify the leaf default/override without the substrate-mailbox dependency.
+    const seedRecentFire = async () => {
+        await fs.ensureDir(path.dirname(STATE_PATH));
+        await fs.writeJson(STATE_PATH, {last_fire_at_iso: new Date().toISOString(), last_fire_cycle_id: 'seed'});
+    };
+    const runSuppressed = (env) => spawnSync('node', [scriptPath, JSON.stringify({
+        allIdle: true, cycle_id: 'cycle-ttl', coordinator_recommendation: TEST_COORDINATOR, details: {}
+    })], {encoding: 'utf-8', env: {...process.env, NEO_UNIT_TEST_MODE: 'true', ...env}});
+
+    test('reads the TTL default (600s) from the AiConfig leaf when env is unset', async () => {
+        await seedRecentFire();
+        const res = runSuppressed({}); // NEO_SWARM_WAKE_COOLDOWN_SECONDS unset → leaf default 600
+        expect(res.stderr).toContain('within TTL window (600s)');
+    });
+
+    test('reads the TTL override from the AiConfig leaf via the env name', async () => {
+        await seedRecentFire();
+        const res = runSuppressed({NEO_SWARM_WAKE_COOLDOWN_SECONDS: '1200'});
+        expect(res.stderr).toContain('within TTL window (1200s)');
     });
 });

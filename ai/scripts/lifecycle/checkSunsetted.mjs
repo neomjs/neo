@@ -10,8 +10,9 @@
  *     authoritative signal; staleness alone is NOT a sunset signal. Recovery:
  *     per-harness terminal restart.
  *   - **`idle_out_candidate`** (recoverable): subscription is active AND the
- *     last `AGENT_MEMORY` is older than `IDLE_THRESHOLD_MS` (10 min default,
- *     matches `checkAllAgentIdle.mjs` convention). Recovery: in-place A2A
+ *     last `AGENT_MEMORY` is older than the configured idle threshold
+ *     (`AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs`, env `NEO_IDLE_THRESHOLD_MS`,
+ *     10 min default — the same leaf `checkAllAgentIdle.mjs` reads). Recovery: in-place A2A
  *     heartbeat nudge — bounded, non-spawning, idempotent.
  *
  * The two signals are mutually exclusive by construction: `sunset` requires
@@ -53,7 +54,7 @@
  * @see ai/scripts/lifecycle/inflightLock.mjs        — in-flight recovery lock primitive
  * @see ai/daemons/SwarmHeartbeatService.mjs — primary consumer of detector output
  * @see ai/scripts/lifecycle/resumeHarness.mjs       — sunset-mode action dispatcher
- * @see ai/scripts/lifecycle/trioWakeCooldown.mjs    — idle-out-mode action dispatcher
+ * @see ai/scripts/lifecycle/swarmWakeCooldown.mjs   — idle-out-mode action dispatcher
  * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — wake-recovery failure-mode background
  */
 import Neo from '../../../src/Neo.mjs';
@@ -62,14 +63,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
+import AiConfig from '../../config.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
-
-/**
- * @summary Idle-out threshold — fresh `AGENT_MEMORY` newer than this is "active";
- * older is `idle_out_candidate`. Matches the all-agent-idle detector convention so
- * downstream consumers see consistent idle semantics across detectors.
- */
-const IDLE_THRESHOLD_MS = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
 
 /**
  * @summary Compute the sunset / idle-out detector payload for one agent identity.
@@ -195,7 +190,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
             sunset = true;
             reason = `No active WAKE_SUBSCRIPTION (status: ${subscriptionStatus})`;
         }
-    } else if (lastMemoryAgeMin !== null && memAgeMs > IDLE_THRESHOLD_MS) {
+    } else if (lastMemoryAgeMin !== null && memAgeMs > AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs) {
         // Active subscription + stale memory = candidate idle-out nudge.
         // This signal is "candidate in-place nudge," NOT "agent is idle." The
         // consumer is responsible for bounded, non-spawning, idempotent dispatch
@@ -209,7 +204,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     }
 
     // `recommended_action` is the single branch field consumed by Orchestrator
-    // heartbeat recovery, trioWakeCooldown.mjs, and resumeHarness.mjs.
+    // heartbeat recovery, swarmWakeCooldown.mjs, and resumeHarness.mjs.
     let recommendedAction;
     if (sunset)                  recommendedAction = 'sunset_restart';
     else if (idleOutCandidate)   recommendedAction = 'idle_out_nudge';

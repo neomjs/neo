@@ -3,7 +3,7 @@
  * @summary All-agent-idle detection at heartbeat layer.
  *
  * This script queries the SQLite GraphLog to determine if ALL configured agents
- * in the swarm trio are idle (i.e. their last AGENT_MEMORY timestamp is older
+ * in the swarm are idle (i.e. their last AGENT_MEMORY timestamp is older
  * than IDLE_THRESHOLD).
  *
  * Detector Contract:
@@ -24,6 +24,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
+import AiConfig from '../../config.mjs';
+import {resolveTargets} from '../../daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
 
 /**
@@ -48,7 +50,7 @@ export function deriveAllAgentIdleCycleId(identities, details) {
 }
 
 /**
- * @summary Compute whether every configured trio identity is past the idle threshold.
+ * @summary Compute whether every configured swarm identity is past the idle threshold.
  * @returns {Promise<Object>} All-agent-idle detector signal.
  */
 export async function checkAllAgentIdle() {
@@ -56,10 +58,15 @@ export async function checkAllAgentIdle() {
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
 
-    const identitiesEnv = process.env.NEO_TRIO_IDENTITIES || '@neo-gemini-pro,@neo-opus-ada,@neo-gpt';
-    const identities = identitiesEnv.split(',').map(s => s.trim()).filter(Boolean);
+    // All-idle check set: the registered active team (deployment-portable via `identityRoots`),
+    // overridable by the `NEO_SWARM_IDENTITIES` leaf. Distinct from swarm-heartbeat PULSE
+    // targets — idle detection needs the full team, not the recently-A2A-active subset.
+    const identities = await resolveTargets({
+        targetSource   : 'active-local-team',
+        explicitTargets: AiConfig.orchestrator.swarmHeartbeat.allIdleIdentities
+    });
 
-    const thresholdMs = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
+    const thresholdMs = AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
     const now = Date.now();
 
     let allIdle = true;

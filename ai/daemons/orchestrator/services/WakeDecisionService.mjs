@@ -22,7 +22,7 @@ export const DEFAULT_IDLE_WINDOW_MS = 15 * 60 * 1000;
 
 /**
  * Default location for orchestrator-local backoff state. Sibling to
- * `.neo-ai-data/wake-daemon/heartbeat.alive` and `trioWakeCooldown` precedent.
+ * `.neo-ai-data/wake-daemon/heartbeat.alive` and `swarmWakeCooldown` precedent.
  * Backoff state lives in orchestrator-local persisted file, NOT on
  * `WAKE_SUBSCRIPTION` properties (would pollute client-deployment graph
  * substrate), NOT a new graph node type.
