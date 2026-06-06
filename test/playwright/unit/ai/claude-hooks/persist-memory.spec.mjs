@@ -1,5 +1,5 @@
 import {test, expect}                                  from '@playwright/test';
-import {isRealUserPrompt, parseLastTurn, userPromptText} from '../../../../../.claude/hooks/persist-memory.mjs';
+import {isRealUserPrompt, parseLastTurn, resolveHarnessIdentity, userPromptText} from '../../../../../.claude/hooks/persist-memory.mjs';
 
 /**
  * Self-test for the Claude Code `Stop`-hook turn parser. The hook auto-persists each turn into
@@ -32,6 +32,15 @@ test.describe('persist-memory hook — helpers', () => {
     test('userPromptText: joins text blocks, ignores non-text (attachments / tool_result)', () => {
         expect(userPromptText(userMsg('plain'))).toBe('plain');
         expect(userPromptText(userMsg([{type: 'text', text: 'a'}, {type: 'image'}, {type: 'text', text: 'b'}]))).toBe('a\nb')
+    });
+
+    test('resolveHarnessIdentity: reads NEO_AGENT_IDENTITY (trimmed) for provenance; undefined when unset/blank', () => {
+        // Threaded into addMemory as `agent` → canonicalized to a trusted `agentIdentity`, not `unclassified`.
+        expect(resolveHarnessIdentity({NEO_AGENT_IDENTITY: '@neo-opus-vega'})).toBe('@neo-opus-vega');
+        expect(resolveHarnessIdentity({NEO_AGENT_IDENTITY: '  neo-opus-vega  '})).toBe('neo-opus-vega');
+        expect(resolveHarnessIdentity({NEO_AGENT_IDENTITY: ''})).toBeUndefined();
+        expect(resolveHarnessIdentity({NEO_AGENT_IDENTITY: '   '})).toBeUndefined();
+        expect(resolveHarnessIdentity({})).toBeUndefined()
     });
 });
 

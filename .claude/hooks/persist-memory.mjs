@@ -130,6 +130,19 @@ export function parseLastTurn(jsonl) {
 }
 
 /**
+ * Resolves the harness-owner agent identity for provenance stamping, from `NEO_AGENT_IDENTITY` — the
+ * canonical Agent OS harness-identity env var (`Orchestrator.swarmHeartbeatIdentity`, `KbAlertingService`
+ * et al. read the same source). Threaded into `addMemory` as `agent` so hook-written memories carry a
+ * trusted `agentIdentity` instead of falling to `unclassified`: the `Stop` hook runs standalone and
+ * bypasses MCP, so `RequestContextService` provenance is absent — this env identity is the only source.
+ * @param {Object} [env=process.env]
+ * @returns {String|undefined} The trimmed identity, or `undefined` when unset (graceful single-tenant fallthrough).
+ */
+export function resolveHarnessIdentity(env = process.env) {
+    return env.NEO_AGENT_IDENTITY?.trim() || undefined
+}
+
+/**
  * Hook entrypoint: read stdin → parse the turn → persist via the direct Memory Core SDK. Never throws;
  * always exits 0.
  * @returns {Promise<void>}
@@ -180,6 +193,9 @@ export async function main() {
             thought        : turn.thought,
             response       : turn.response,
             sessionId,
+            // Provenance: thread the harness identity so the memory carries a trusted `agentIdentity`
+            // rather than `unclassified` — the standalone hook has no MCP request context to derive it.
+            agent          : resolveHarnessIdentity(),
             model          : turn.model || undefined,
             toolsUsed      : turn.toolsUsed,
             amountToolCalls: turn.amountToolCalls

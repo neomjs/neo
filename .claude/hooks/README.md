@@ -44,6 +44,7 @@ extended-thinking over plain narration:
 | `amountToolCalls` | Total `tool_use` block count. |
 | `sessionId` | From the hook stdin `session_id` (groups the turn under the session). |
 | `model` | The assistant entry's `message.model` (optional). |
+| `agent` | The harness-owner identity from `NEO_AGENT_IDENTITY`, canonicalized by `MemoryService` into a trusted `agentIdentity`. **Required for trusted provenance** — without it, hook-written memories fall to `unclassified` trust (see Provenance below). |
 
 **Why Option B over the alternatives:** **A** loses extended-thinking blocks (the richest reasoning
 signal — verified present in real transcripts). **C** uses an empty `thought`, which would require a
@@ -61,6 +62,10 @@ spans **many** assistant entries (`text`/`thinking` → `tool_use` → `tool_res
 2. reverse-scans for the real turn-start — the last `user` entry that is an actual prompt, **not** a
    `tool_result` continuation;
 3. folds every assistant entry from there to EOF into the mapping above.
+
+### Provenance — set `NEO_AGENT_IDENTITY`
+
+The hook runs standalone and bypasses MCP, so there is no `RequestContextService` to derive the author from. It reads the harness-owner identity from the `NEO_AGENT_IDENTITY` env var (the same source `Orchestrator.swarmHeartbeatIdentity` / `KbAlertingService` use) and passes it as `addMemory`'s `agent`, which `MemoryService` canonicalizes into `metadata.agentIdentity` and resolves to a trust tier. **Set `NEO_AGENT_IDENTITY` (e.g. `@neo-opus-vega`) in the harness environment** so hook-written memories carry trusted author provenance. If unset, persistence still works but the memories are `unclassified` — queryable by session, not by trusted author identity.
 
 ### Wiring
 
