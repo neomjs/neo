@@ -124,14 +124,66 @@ export function createRemRunStateEntry({
 }
 
 /**
- * @summary Appends one REM run state entry into its per-run JSONL artifact.
+ * @summary Prunes the REM run-state directory down to the most-recent `retentionLimit` artifacts.
+ *
+ * This is the write-side retention cap: bounding the on-disk artifact count on each append also
+ * bounds the read-path stat fan-out, because {@link readRecentRemRunStates} can never scan more
+ * files than the retained set. Choosing a write-side cap over an orchestrator cleanup lane avoids
+ * a cross-service boundary (the JSONL store stays self-contained, filesystem-durable). Retention
+ * sorts by `mtime` so it is robust to any run-id shape, and removes the oldest beyond the bound.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Directory for per-run state files.
+ * @param {Number} options.retentionLimit Maximum artifacts to retain; older ones are removed.
+ *   Non-positive / non-finite values disable pruning (no-op).
+ * @returns {Promise<Number>} Count of artifacts removed.
+ */
+export async function pruneRemRunStates({dir, retentionLimit} = {}) {
+    if (!dir || !Number.isFinite(retentionLimit) || retentionLimit <= 0) {
+        return 0;
+    }
+
+    let names;
+    try {
+        names = await fs.readdir(dir);
+    } catch (e) {
+        if (e?.code === 'ENOENT') return 0;
+        throw e;
+    }
+
+    const jsonlNames = names.filter(name => name.endsWith('.jsonl'));
+    if (jsonlNames.length <= retentionLimit) {
+        return 0;
+    }
+
+    const files = await Promise.all(jsonlNames.map(async name => {
+        const filePath = path.join(dir, name);
+        const stat     = await fs.stat(filePath);
+        return {filePath, mtimeMs: stat.mtimeMs};
+    }));
+
+    // Newest first; everything beyond the retention bound is the oldest and gets removed.
+    const toRemove = files
+        .sort((a, b) => b.mtimeMs - a.mtimeMs)
+        .slice(retentionLimit);
+
+    await Promise.all(toRemove.map(file => fs.rm(file.filePath, {force: true})));
+
+    return toRemove.length;
+}
+
+/**
+ * @summary Appends one REM run state entry into its per-run JSONL artifact, then applies a
+ * write-side retention cap when `retentionLimit` is supplied.
  *
  * @param {Object} entry JSONL-ready REM run state entry.
  * @param {Object} options
  * @param {String} options.dir Directory for per-run state files.
+ * @param {Number} [options.retentionLimit] Maximum artifacts to retain; older ones are pruned
+ *   after the append. Omitted / non-positive disables retention (no prune).
  * @returns {Promise<String>} Written file path.
  */
-export async function appendRemRunState(entry, {dir} = {}) {
+export async function appendRemRunState(entry, {dir, retentionLimit} = {}) {
     if (!dir) {
         throw new TypeError('appendRemRunState: dir is required');
     }
@@ -140,6 +192,12 @@ export async function appendRemRunState(entry, {dir} = {}) {
 
     const filePath = path.join(dir, getRemRunStateFileName(entry.runId));
     await fs.appendFile(filePath, `${JSON.stringify(entry)}\n`, 'utf8');
+
+    // Write-side retention cap: bound the artifact count (and thus the read-path stat fan-out)
+    // on each append, instead of relying on a separate orchestrator cleanup lane.
+    if (Number.isFinite(retentionLimit) && retentionLimit > 0) {
+        await pruneRemRunStates({dir, retentionLimit});
+    }
 
     return filePath;
 }
