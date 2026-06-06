@@ -1,5 +1,5 @@
 import {test, expect}                    from '@playwright/test';
-import {extractComment, filterToAddedLines, findTicketRefs, parseAddedLines} from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
+import {extractComment, filterToAddedLines, findTicketRefs, parseAddedLines, stagedAddedLines} from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
 
 /**
  * Self-test for the ticket-archaeology guard: the mechanical replacement for the discipline-only
@@ -144,5 +144,18 @@ test.describe('check-ticket-archaeology diff-aware scoping (#12609)', () => {
 
         expect(hits.map(h => h.line)).toEqual([1, 3]);
         expect(filterToAddedLines(hits, added).map(h => h.line)).toEqual([3])
+    });
+
+    test('stagedAddedLines parses a successful diff, empties on no-change, and falls back to null on git failure', () => {
+        // Happy path: a spawnSync-shaped success result is parsed to the added-line set.
+        const ok = stagedAddedLines('x.mjs', '/repo', () => ({status: 0, stdout: '@@ -0,0 +1,2 @@\n+a\n+b'}));
+        expect([...ok]).toEqual([1, 2]);
+
+        // File staged with no changes → empty diff → empty set (nothing added), NOT a fallback.
+        expect(stagedAddedLines('x.mjs', '/repo', () => ({status: 0, stdout: ''})).size).toBe(0);
+
+        // Git-failure boundary → null, so the caller does the full-file fallback (never a blind pass).
+        expect(stagedAddedLines('x.mjs', '/repo', () => ({error: new Error('spawn ENOENT')}))).toBeNull(); // git absent
+        expect(stagedAddedLines('x.mjs', '/repo', () => ({status: 128, stdout: ''}))).toBeNull();          // not a repo / no HEAD
     });
 });

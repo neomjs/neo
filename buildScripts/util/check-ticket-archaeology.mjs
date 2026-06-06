@@ -187,25 +187,37 @@ export function filterToAddedLines(hits, addedLines) {
 }
 
 /**
- * @summary Returns the staged added-line set for a file, or null when git cannot be consulted.
- *
- * Runs `git diff --cached --unified=0` for the path and parses it; an empty diff yields an empty set
- * (nothing added → nothing to flag), while a git error (e.g. no repo / no HEAD on the first commit)
- * returns null so the caller falls back to a full-file scan rather than passing blindly.
+ * @summary Default git-diff runner: argv-based `spawnSync` (never a shell string — staged filenames are
+ * untrusted hook input), comparing staged content against HEAD with zero context lines.
  * @param {String} file
  * @param {String} gitRoot
+ * @returns {Object} The `spawnSync` result (`{status, stdout, error}`).
+ */
+function defaultGitDiff(file, gitRoot) {
+    return spawnSync('git', ['diff', '--cached', '--unified=0', '--no-color', '--', file], {cwd: gitRoot, encoding: 'utf-8'})
+}
+
+/**
+ * @summary Returns the staged added-line set for a file, or null when git cannot be consulted.
+ *
+ * Parses the injected git-diff result: an empty diff yields an empty set (nothing added → nothing to
+ * flag), while a git failure (spawn error, non-zero status, or missing stdout — git absent / not a repo)
+ * returns null so the caller falls back to a full-file scan rather than passing blindly. The runner is
+ * argv-based (no shell string built from the staged filename) and injectable so the fallback branch is
+ * unit-testable without a live repo.
+ * @param {String} file
+ * @param {String} gitRoot
+ * @param {Function} [runGitDiff=defaultGitDiff] (file, gitRoot) → spawnSync-shaped result.
  * @returns {Set<Number>|null}
  */
-function stagedAddedLines(file, gitRoot) {
-    let diff;
+export function stagedAddedLines(file, gitRoot, runGitDiff = defaultGitDiff) {
+    const result = runGitDiff(file, gitRoot);
 
-    try {
-        diff = execSync(`git diff --cached --unified=0 --no-color -- "${file}"`, {cwd: gitRoot, encoding: 'utf-8'})
-    } catch (e) {
+    if (!result || result.error || result.status !== 0 || typeof result.stdout !== 'string') {
         return null
     }
 
-    return parseAddedLines(diff)
+    return parseAddedLines(result.stdout)
 }
 
 function main() {
