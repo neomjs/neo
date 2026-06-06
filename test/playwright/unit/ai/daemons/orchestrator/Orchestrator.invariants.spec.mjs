@@ -21,6 +21,12 @@ const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
 const ORCHESTRATOR_MJS_PATH    = path.join(REPO_ROOT, 'ai/daemons/orchestrator/Orchestrator.mjs');
 const ORCHESTRATOR_DAEMON_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/daemon.mjs');
 const TASK_DEFINITIONS_MJS_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/taskDefinitions.mjs');
+const SIBLING_DAEMON_CONFIG_PATHS = {
+    'SwarmHeartbeatService.mjs'     : path.join(REPO_ROOT, 'ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs'),
+    'KbAlertingService.mjs'         : path.join(REPO_ROOT, 'ai/daemons/kb-alerting/KbAlertingService.mjs'),
+    'KbReconciliationService.mjs'   : path.join(REPO_ROOT, 'ai/daemons/kb-reconciliation/KbReconciliationService.mjs'),
+    'KbGarbageCollectionService.mjs': path.join(REPO_ROOT, 'ai/daemons/kb-gc/KbGarbageCollectionService.mjs')
+};
 
 let invariantSeq         = 0;
 let savedIntervals       = null;
@@ -423,6 +429,17 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         });
 
         expect(missingHook, `Reactive config slots with \`_\`-suffix MUST have a corresponding \`beforeSetX\` or \`afterSetX\` hook (Sub-1 anti-pattern: cargo-cult underscores without hooks). Offending slots: ${missingHook.join(', ')}.`).toEqual([]);
+    });
+});
+
+test.describe('Sibling daemon source-level invariants (#11836)', () => {
+    test('poll-loop singleton state does not use hookless reactive config suffixes', async () => {
+        for (const [name, filePath] of Object.entries(SIBLING_DAEMON_CONFIG_PATHS)) {
+            const source  = stripCommentsAndStrings(await fs.readFile(filePath, 'utf8'));
+            const matches = source.match(/\b(?:isPolling|pollHandle|pollIntervalMs)_\s*:/g) || [];
+
+            expect(matches, `${name} must keep poll-loop state as plain config unless a real before/after hook is added.`).toHaveLength(0);
+        }
     });
 });
 
