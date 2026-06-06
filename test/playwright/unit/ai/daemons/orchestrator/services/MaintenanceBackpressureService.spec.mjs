@@ -63,7 +63,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             'summary'
         ].sort());
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
-        // Golden Path is light maintenance per #11511 / PR #11512 — must NOT be in heavy set
+        // Golden Path is light maintenance and must NOT be in the heavy-maintenance set.
         expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain('golden-path');
     });
 
@@ -322,7 +322,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(activeHeavyTask.name).toBeNull();
     });
 
-    test('acquireLeaseAndExecute defers intra-process when another heavy task is running', () => {
+    test('Sub 9 hypothesis 4: acquireLeaseAndExecute records intra-process backpressure as skipped (#12617)', () => {
         const outcomeCalls = [];
         const service      = buildService({
             taskStateService: buildTaskStateService({summary: {running: true}}),
@@ -345,7 +345,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(outcomeCalls[0].p.blockingTaskName).toBe('summary');
     });
 
-    test('acquireLeaseAndExecute defers cross-daemon when lease is held', () => {
+    test('Sub 9 hypotheses 4 and 5: acquireLeaseAndExecute records held lease as skipped (#12617)', () => {
         const outcomeCalls = [];
         const service      = buildService({
             taskStateService: buildTaskStateService({}),

@@ -106,6 +106,56 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(() => runSandmanModule.checkProvider({config: {graphProvider: 'openAiCompatible'}})).toThrow(/timeoutMs.*required/);
     });
 
+    test('Sub 9 hypothesis 7: manual CLI delegates to canonical REM cycle without autoDream coupling (#12617)', async () => {
+        const calls = [];
+        const output = {
+            log  : message => calls.push({type: 'log', message}),
+            error: message => calls.push({type: 'error', message}),
+            write: message => calls.push({type: 'write', message})
+        };
+        const lifecycleService = {
+            ready: async () => calls.push({type: 'lifecycle-ready'})
+        };
+        const dreamService = {
+            ready: async () => calls.push({type: 'dream-ready'}),
+            executeRemCycle: async options => {
+                calls.push({type: 'execute-rem-cycle', options});
+                return {
+                    status           : 'skipped',
+                    skipReason       : 'no undigested sessions',
+                    sessionsProcessed: 0,
+                    durationMs       : 5
+                };
+            }
+        };
+        let leaseOptions;
+
+        const exitCode = await runSandmanModule.runSandman({
+            dreamService,
+            lifecycleService,
+            output,
+            withLease: async (fn, options) => {
+                leaseOptions = options;
+                return {status: 'completed', result: await fn()};
+            },
+            exit: code => code
+        });
+
+        expect(exitCode).toBe(0);
+        expect(leaseOptions).toEqual({
+            owner   : 'sandman',
+            reason  : 'manual-cli',
+            metadata: {script: 'ai/scripts/runners/runSandman.mjs'}
+        });
+        expect(calls.find(call => call.type === 'execute-rem-cycle').options).toEqual({
+            reason      : 'manual-cli',
+            mode        : 'cli',
+            includeDecay: true
+        });
+        expect(calls.map(call => call.type)).toContain('lifecycle-ready');
+        expect(calls.map(call => call.type)).toContain('dream-ready');
+    });
+
     test('extracts OpenAI-compatible model ids from provider variants', () => {
         expect(providerReadinessHelper.getOpenAiCompatibleModelIds({
             data: [
