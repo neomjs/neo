@@ -68,7 +68,7 @@ This is a trigger-ordering guard, not a quota or blame mechanism.
 
 ## 1.6 Night-Shift Leased Driver Gate
 
-<!-- trigger: watchdog/night-shift wake, direct operator driver command, lane-driver handoff, or repeated no-progress cycles -> read learn/agentos/wake-substrate/NightShiftLeasedDriver.md before declaring no-delta or halt-state -->
+<!-- trigger: watchdog/night-shift wake, direct operator driver command, lane-driver handoff, or repeated no-progress cycles -> read learn/agentos/wake-substrate/NightShiftLeasedDriver.md before declaring no-delta or any turn-terminal -->
 
 Night-shift driver handling is a lane-ownership contract, not a generic
 review-pickup variant. The linked wake-substrate document defines the TTL,

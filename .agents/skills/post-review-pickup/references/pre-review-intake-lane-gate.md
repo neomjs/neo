@@ -53,11 +53,12 @@ Use explicit wording:
 review-first rationale: <why review precedes author-lane pickup>
 ```
 
-## Halt Boundary
+## Terminal Boundary
 
-Do not halt merely because no operator assigned a lane. A halt-state is valid
-only after the backlog self-survey in `post-review-pickup-workflow.md §5`
-passes and the blocker is named.
+Do not stop merely because no operator assigned a lane. An externally-falsifiable
+terminal (`verified-empty` / `human-gate` / `blocked-task-state`) is valid only
+after the backlog self-survey in `post-review-pickup-workflow.md §5` passes and
+the blocker is named.
 
 ## Anti-Patterns
 
