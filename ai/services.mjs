@@ -26,6 +26,7 @@ GH_Config.data.syncOnStartup = false;
 
 // --- GitLab Workflow Services ---
 import _GL_IssueService from './services/gitlab-workflow/IssueService.mjs';
+import _GL_MergeRequestService from './services/gitlab-workflow/MergeRequestService.mjs';
 
 // --- Knowledge Base Services ---
 import _KB_DatabaseService from './services/knowledge-base/DatabaseService.mjs';
@@ -202,6 +203,7 @@ const GH_SyncService = makeSafe(_GH_SyncService, ghSpec);
 
 // GitLab
 const GL_IssueService = makeSafe(_GL_IssueService, gitlabSpec);
+const GL_MergeRequestService = makeSafe(_GL_MergeRequestService, gitlabSpec);
 
 // Knowledge Base
 const KB_DatabaseService = makeSafe(_KB_DatabaseService, kbSpec);
@@ -273,6 +275,7 @@ export {
 
     // GitLab Workflow
     GL_IssueService,
+    GL_MergeRequestService,
 
     // Knowledge Base
     KB_Config,
