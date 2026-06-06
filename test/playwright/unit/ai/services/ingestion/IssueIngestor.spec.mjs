@@ -23,18 +23,24 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     let StorageRouter;
     let _originalExistsSync;
     let _originalReaddir;
+    let _originalReaddirSync;
     let _originalReadFile;
+    let _originalReadFileSync;
     let _originalGetGraphCollection;
     let GraphService;
     let _originalGraphDb;
+    let _originalUpsertNode;
+    let _originalLinkNodes;
     let graphNodes;
+    let graphEdges;
 
     // We will use a mock index.json and mock markdown files
     const mockIndexMap = [
         { type: 'issues', id: 2001, path: 'issues/issue-2001.md' },
         { type: 'issues', id: 2002, path: 'archive/issues/v1.0.0/issue-2002.md' },
         { type: 'discussions', id: 3001, path: 'discussions/discussion-3001.md' },
-        { type: 'discussions', id: 3002, path: 'discussions/discussion-3002.md' }
+        { type: 'discussions', id: 3002, path: 'discussions/discussion-3002.md' },
+        { type: 'pulls', id: 4001, path: 'pulls/pr-4001.md' }
     ];
 
     const mockFiles = {
@@ -63,6 +69,19 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             '---',
             '# Closed Discussion Body'
         ].join('\n'),
+        'resources/content/pulls/pr-4001.md': [
+            '---',
+            'number: 4001',
+            'title: Resolve graph ticket',
+            'state: MERGED',
+            "createdAt: '2026-06-06T10:00:00Z'",
+            "updatedAt: '2026-06-06T11:00:00Z'",
+            '---',
+            'Resolves #2001',
+            '',
+            '## Summary',
+            'Hardens the PR resolution graph path.'
+        ].join('\n'),
         'resources/content/_index.json': JSON.stringify(mockIndexMap)
     };
 
@@ -84,7 +103,27 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
 
         _originalExistsSync = fs.existsSync;
         _originalReaddir = fs.promises.readdir;
+        _originalReaddirSync = fs.readdirSync;
         _originalReadFile = fs.promises.readFile;
+        _originalReadFileSync = fs.readFileSync;
+        _originalUpsertNode = GraphService.upsertNode;
+        _originalLinkNodes = GraphService.linkNodes;
+        GraphService.upsertNode = nodeData => {
+            graphNodes.push({
+                id        : nodeData.id,
+                label     : nodeData.type || 'NODE',
+                properties: {
+                    name       : nodeData.name,
+                    description: nodeData.description,
+                    state      : nodeData.state,
+                    updatedAt  : nodeData.updatedAt,
+                    ...(nodeData.properties || {})
+                }
+            });
+        };
+        GraphService.linkNodes = (source, target, relationship, weight = 1.0, properties = {}) => {
+            graphEdges.push({source, target, relationship, weight, properties});
+        };
 
         fs.existsSync = (p) => {
             if (typeof p === 'string' && p.includes('resources/content')) {
@@ -118,6 +157,16 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             return _originalReaddir.call(fs.promises, dirPath, options);
         };
 
+        fs.readdirSync = (dirPath, options) => {
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/archive/pulls')) {
+                return [];
+            }
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/pulls')) {
+                return ['pr-4001.md'];
+            }
+            return _originalReaddirSync.call(fs, dirPath, options);
+        };
+
         fs.promises.readFile = async (filePath, encoding) => {
             if (typeof filePath === 'string') {
                 const normPath = filePath.replace(/\\/g, '/');
@@ -130,21 +179,38 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             }
             return _originalReadFile.call(fs.promises, filePath, encoding);
         };
+
+        fs.readFileSync = (filePath, encoding) => {
+            if (typeof filePath === 'string') {
+                const normPath = filePath.replace(/\\/g, '/');
+                for (const key of Object.keys(mockFiles)) {
+                    if (normPath.endsWith(key)) {
+                        return mockFiles[key];
+                    }
+                }
+            }
+            return _originalReadFileSync.call(fs, filePath, encoding);
+        };
     });
 
     test.beforeEach(() => {
         graphNodes = [];
+        graphEdges = [];
     });
 
     test.afterAll(() => {
         fs.existsSync = _originalExistsSync;
         fs.promises.readdir = _originalReaddir;
+        fs.readdirSync = _originalReaddirSync;
         fs.promises.readFile = _originalReadFile;
+        fs.readFileSync = _originalReadFileSync;
         if (StorageRouter) {
             StorageRouter.getGraphCollection = _originalGetGraphCollection;
         }
         if (GraphService) {
             GraphService.db = _originalGraphDb;
+            GraphService.upsertNode = _originalUpsertNode;
+            GraphService.linkNodes = _originalLinkNodes;
         }
     });
 
@@ -205,6 +271,26 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             closed  : true,
             closedAt: '2026-05-20T12:00:00Z',
             category: 'Q&A'
+        });
+    });
+
+    test('ingestPullRequestFeedback() creates PR nodes and RESOLVES edges from PR markdown (#12644)', async () => {
+        await IssueIngestor.ingestPullRequestFeedback();
+
+        expect(graphNodes.find(node => node.id === 'pr-4001')).toMatchObject({
+            id   : 'pr-4001',
+            label: 'PULL_REQUEST'
+        });
+
+        expect(graphEdges.find(edge =>
+            edge.source === 'pr-4001' &&
+            edge.target === 'issue-2001' &&
+            edge.relationship === 'RESOLVES'
+        )).toMatchObject({
+            weight    : 1.0,
+            properties: {
+                justification: 'PR #4001 explicitly resolves Issue #2001.'
+            }
         });
     });
 });

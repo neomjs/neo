@@ -44,6 +44,13 @@ function isValidGraphNodeId(id) {
     return typeof id === 'string' && id.length > 0;
 }
 
+const PROTECTED_EDGE_TYPES = Object.freeze([
+    'IMPLEMENTS',
+    'EXTENDS',
+    'SYSTEM_TENET',
+    'RESOLVES'
+]);
+
 /**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
  *
@@ -562,22 +569,25 @@ class GraphService extends Base {
 
         logger.info(`[GraphService] Running ambient topology decay (factor: ${decayFactor})...`);
 
-        // Shield structural edges completely from decay
+        const protectedEdgePlaceholders = PROTECTED_EDGE_TYPES.map(() => '?').join(', ');
+
+        // Shield durable structural/provenance edges completely from decay and pruning.
         const decayStmt = this.db.storage.db.prepare(`
             UPDATE Edges
             SET data = json_set(data, '$.properties.weight',
                                 MAX(COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) * ?, 0.1))
-            WHERE type NOT IN ('IMPLEMENTS', 'EXTENDS', 'SYSTEM_TENET')
+            WHERE type NOT IN (${protectedEdgePlaceholders})
         `);
-        decayStmt.run(decayFactor);
+        decayStmt.run(decayFactor, ...PROTECTED_EDGE_TYPES);
 
         // Prune dead pathways permanently mapping via physical SQL
         const pruneStmt = this.db.storage.db.prepare(`
             DELETE
             FROM Edges
-            WHERE COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) < ?
+            WHERE type NOT IN (${protectedEdgePlaceholders})
+              AND COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) < ?
         `);
-        const info      = pruneStmt.run(pruningThreshold);
+        const info      = pruneStmt.run(...PROTECTED_EDGE_TYPES, pruningThreshold);
 
         // Commit global clock update
         this.upsertGlobalNode({
