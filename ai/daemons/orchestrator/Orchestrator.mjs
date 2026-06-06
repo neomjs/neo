@@ -10,7 +10,7 @@ import path                        from 'path';
 import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import AiConfig                    from '../../config.mjs';
-import {buildLmsPreloadConfig}     from '../../services/graph/ProviderReadinessHelper.mjs';
+import {buildLmsPreloadConfig}     from '../../services/graph/providerReadinessHelper.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import SQLite                      from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
@@ -36,7 +36,7 @@ import {
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR,
     buildTaskDefinitions
-} from './TaskDefinitions.mjs';
+} from './taskDefinitions.mjs';
 
 /**
  * Resolves the dev-sync roots config while preserving env-var precedence.

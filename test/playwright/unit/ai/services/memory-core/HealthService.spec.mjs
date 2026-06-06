@@ -792,7 +792,7 @@ test.describe('EmbeddingProviderConfig #11596 — resolveEmbeddingProvider', () 
     let resolveEmbeddingProvider;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/helpers/EmbeddingProviderConfig.mjs');
+        const mod = await import('../../../../../../ai/services/memory-core/helpers/embeddingProviderConfig.mjs');
         resolveEmbeddingProvider = mod.resolveEmbeddingProvider;
     });
 

@@ -7,7 +7,7 @@ import fs          from 'fs-extra';
 import inquirer    from 'inquirer';
 import os          from 'os';
 import path        from 'path';
-import {sanitizeInput} from '../util/Sanitizer.mjs';
+import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
     __dirname   = path.resolve(),

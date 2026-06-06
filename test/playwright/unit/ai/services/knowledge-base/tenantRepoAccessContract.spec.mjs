@@ -9,7 +9,7 @@ import {
     normalizeTenantRepoConfig,
     normalizeTenantRepoEntry,
     redactTenantRepoSecrets
-} from '../../../../../../ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
+} from '../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 
 /**
  * @summary Contract tests for tenant repo-access config normalization (#11787).
@@ -19,7 +19,7 @@ import {
  * owns credential injection; this layer owns the no-secret persistence boundary.
  *
  * @see https://github.com/neomjs/neo/issues/11787
- * @see ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs
+ * @see ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs
  */
 
 test.describe('TenantRepoAccessContract (#11787)', () => {

@@ -8,7 +8,7 @@ import {
     formatAlertMessage,
     KNOWN_METRICS,
     validateAlertRule
-} from '../../../../../../ai/services/knowledge-base/helpers/KbAlertRuleEngine.mjs';
+} from '../../../../../../ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs';
 
 /**
  * Phase 4D (#11642) — `KbAlertRuleEngine` coverage: the pure rule-evaluation core of the
@@ -23,7 +23,7 @@ import {
  * independence). Channel *dispatch* is the daemon's concern and is tested separately.
  *
  * @see https://github.com/neomjs/neo/issues/11642
- * @see ai/services/knowledge-base/helpers/KbAlertRuleEngine.mjs — the module under test.
+ * @see ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs — the module under test.
  */
 
 /** A baseline well-formed rule — individual tests clone + mutate it. */

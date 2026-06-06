@@ -30,7 +30,7 @@ test.describe('Memory Core HarnessClassifier #10206', () => {
     let classifyHarness, groupProcessesByHarness, formatHarnessGroups;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/helpers/HarnessClassifier.mjs');
+        const mod = await import('../../../../../../ai/services/memory-core/helpers/harnessClassifier.mjs');
         classifyHarness        = mod.classifyHarness;
         groupProcessesByHarness = mod.groupProcessesByHarness;
         formatHarnessGroups     = mod.formatHarnessGroups;

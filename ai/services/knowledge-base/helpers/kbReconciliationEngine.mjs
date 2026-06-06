@@ -33,7 +33,7 @@
  * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs — `getTenantConfig`, the version source.
  * @see ai/services/knowledge-base/VectorService.mjs — `resolveTenantStamp`, the `tenantConfigVersion` stamp.
- * @see ai/services/knowledge-base/helpers/KbAlertRuleEngine.mjs — the sibling pure-helper precedent (#11642).
+ * @see ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs — the sibling pure-helper precedent (#11642).
  */
 
 /**

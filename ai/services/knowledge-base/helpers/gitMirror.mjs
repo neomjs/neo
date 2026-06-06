@@ -7,7 +7,7 @@ import {
     assertCleanCloneUrl,
     deriveTenantRepoMirrorPath,
     redactTenantRepoSecrets
-} from './TenantRepoAccessContract.mjs';
+} from './tenantRepoAccessContract.mjs';
 
 /**
  * @summary Git-backed persistent mirror primitive for server-side tenant repo ingestion.

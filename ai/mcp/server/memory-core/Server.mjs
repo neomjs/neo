@@ -9,7 +9,7 @@ import BootEnvelopeResolver        from '../shared/services/BootEnvelopeResolver
 import {
     formatHarnessGroups,
     groupProcessesByHarness
-} from '../../../services/memory-core/helpers/HarnessClassifier.mjs';
+} from '../../../services/memory-core/helpers/harnessClassifier.mjs';
 
 import {
     Memory_Config                  as aiConfig,

@@ -5,7 +5,7 @@ import {fileURLToPath}       from 'url';
 import yaml                  from 'js-yaml';
 import {zodToJsonSchema}     from 'zod-to-json-schema';
 import {buildZodSchema,
-        buildOutputZodSchema} from '../../../../../../ai/mcp/validation/OpenApiValidator.mjs';
+        buildOutputZodSchema} from '../../../../../../ai/mcp/validation/openApiValidator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

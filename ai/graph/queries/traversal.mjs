@@ -1,20 +1,20 @@
 /**
  * @module Neo.ai.graph.queries.Traversal
- * 
+ *
  * @anchor Functional Traversal Queries
  * @description
  * Graph traversals in the Native Edge database are architected as pure functions rather than Neo classes.
- * This directly prevents RAM locking and constructor overhead for queries that might execute thousands 
- * of times concurrently. 
- * 
- * @echo 
+ * This directly prevents RAM locking and constructor overhead for queries that might execute thousands
+ * of times concurrently.
+ *
+ * @echo
  * By maintaining strict stateless logic and passing the `database` reference per invocation,
  * V8 can heavily optimize and inline these loops natively.
  */
 
 /**
  * Executes a deep-first or breadth-first walk spanning topological bounds resolving nodes based on dynamic rules.
- * 
+ *
  * @param {Neo.ai.graph.Database} database The graph database instance to query against.
  * @param {String} startNodeId The root injection point algorithm starts expanding from.
  * @param {Object} config
@@ -93,7 +93,7 @@ export const getPaths = (database, startNodeId, config = {}) => {
 /**
  * Utilizes Dijkstra's algorithm to resolve the absolute shortest structural span.
  * Evaluates custom edge weights natively avoiding exhaustive N-hop checks manually.
- * 
+ *
  * @param {Neo.ai.graph.Database} database The graph database instance holding structural bounds.
  * @param {String} startNodeId Origin execution block.
  * @param {String} targetNodeId Destination block we are hunting.
@@ -118,9 +118,9 @@ export const findShortestPath = (database, startNodeId, targetNodeId, config = {
         distances.set(node.id, Infinity);
         unvisited.add(node.id);
     }
-    
+
     if (!distances.has(startNodeId)) return [];
-    
+
     distances.set(startNodeId, 0);
 
     while (unvisited.size > 0) {
@@ -167,7 +167,7 @@ export const findShortestPath = (database, startNodeId, targetNodeId, config = {
             let neighborId = (edge.source === currentId) ? edge.target : edge.source;
 
             if (!unvisited.has(neighborId)) continue;
-            
+
             let weight = weightFn(edge);
             let totalDist = distances.get(currentId) + weight;
 

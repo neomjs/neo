@@ -7,7 +7,7 @@ import RequestContextService,
        {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
 import SourceRegistry        from './source/_export.mjs';
 import {normalizeTenantRepoConfig}
-                             from './helpers/TenantRepoAccessContract.mjs';
+                             from './helpers/tenantRepoAccessContract.mjs';
 import VectorService         from './VectorService.mjs';
 import aiConfig              from '../../mcp/server/knowledge-base/config.mjs';
 import crypto                from 'crypto';

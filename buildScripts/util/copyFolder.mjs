@@ -1,6 +1,6 @@
 import {Command}       from 'commander/esm.mjs';
 import fs              from 'fs-extra';
-import {sanitizeInput} from './Sanitizer.mjs';
+import {sanitizeInput} from './sanitizer.mjs';
 
 const program = new Command('copyFolder')
     .version('1.0.0')
