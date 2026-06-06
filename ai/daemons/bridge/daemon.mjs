@@ -527,6 +527,35 @@ function getHighestWakePriority(messages) {
 }
 
 /**
+ * @summary Whether `messageId` is already read by `recipient` — for reconciling the wake digest
+ * against actual mailbox read-status. Mirrors `MailboxService.getReadAtForMessage`: the per-recipient
+ * `DELIVERED_TO` edge's `readAt` when that edge exists (broadcasts + delivered DMs), else the MESSAGE
+ * node's own `readAt` (direct DM). Read-status is independent of the GraphLog delta that fires the wake,
+ * so a large delta (resync / data-sync jump) otherwise re-counts already-read rows as "new".
+ * @param {Object} db better-sqlite3 handle (the bridge daemon's graph store).
+ * @param {String} messageId
+ * @param {String} recipient The agent identity the wake targets.
+ * @returns {Boolean} true when the message has been read by the recipient.
+ * @private
+ */
+function isMessageReadFor(db, messageId, recipient) {
+    const edge = db.prepare(
+        `SELECT json_extract(data, '$.properties.readAt') AS readAt
+         FROM Edges WHERE source = ? AND target = ? AND type = 'DELIVERED_TO' LIMIT 1`
+    ).get(messageId, recipient);
+
+    if (edge !== undefined) {
+        return edge.readAt != null;
+    }
+
+    const node = db.prepare(
+        `SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ? LIMIT 1`
+    ).get(messageId);
+
+    return node ? node.readAt != null : false;
+}
+
+/**
  * @summary Flushes the coalesced wake queue into a priority-tagged digest.
  *
  * The digest header carries the highest coalesced message priority so agent policy can
@@ -542,7 +571,6 @@ async function flushSubscription(subId) {
 
     if (queue.length === 0) return;
 
-    const N = queue.length;
     const identity = subscription.properties?.agentIdentity;
 
     let messages = [], tasks = [], permissions = [], heartbeats = [];
@@ -552,6 +580,19 @@ async function flushSubscription(subId) {
         else if (ev.type === 'permission') permissions.push(ev);
         else if (ev.type === 'heartbeat') heartbeats.push(ev);
     }
+
+    // A large GraphLog delta (resync / data-sync jump) re-includes already-read message rows, so the raw
+    // delta over-counts "new messages" and can spoof a HIGH digest priority. Reconcile against actual
+    // read-status: keep only genuinely-unread messages for the count / preview / priority — without
+    // dropping real wakes (unread messages, tasks, permissions, and heartbeats all still fire).
+    messages = messages.filter(ev => !isMessageReadFor(db, ev.messageId, identity));
+
+    // Nothing genuinely-new survived (the delta was entirely already-read messages) → suppress the stale wake.
+    if (messages.length === 0 && tasks.length === 0 && permissions.length === 0 && heartbeats.length === 0) {
+        return;
+    }
+
+    const N = messages.length + tasks.length + permissions.length + heartbeats.length;
 
     let breakdown = '';
     const digestPriority = getHighestWakePriority(messages);
