@@ -253,14 +253,12 @@ after the normal collision checks.
 Before claiming `halt-state`, the positive backlog survey must name the surfaces
 checked. Minimum shape:
 
-- targeted unread review / re-review requests;
+- targeted review / re-review requests **where you are the assigned github
+  reviewer** (verify: `gh pr view <N> --json reviewRequests`) — do not claim a PR
+  review you were not assigned to;
 - assigned issues and currently self-authored PR follow-ups;
 - recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
-  for collision state; **if the candidate lane is a PR review you were not
-  assigned**, run the reviewer-claim reconciliation gate
-  ([`pull-request/references/reviewer-claim-reconciliation.md`](../../pull-request/references/reviewer-claim-reconciliation.md))
-  before claiming — the author's primary may be broadcast-text-only during the
-  CI-green window, so `manage_pr_reviewers` alone under-detects it;
+  for collision state;
 - open unassigned current-epic or recently surfaced substrate lanes;
 - broader non-conflicting backlog if the current-epic surface is empty.
 
