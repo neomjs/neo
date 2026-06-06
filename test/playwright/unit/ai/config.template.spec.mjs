@@ -156,8 +156,13 @@ test.describe('Tier 1 Config Immutability', () => {
         // optional explicit-handle-list override (highest resolver precedence) — null by
         // default so the resolver falls through to `targetSource` semantics.
         expect(Config.orchestrator.swarmHeartbeat).toEqual({
-            targetSource: 'active-a2a-participants',
-            targets     : null
+            targetSource           : 'active-a2a-participants',
+            targets                : null,
+            // Wake-policy leaves: legacy env names bound (IDLE_THRESHOLD_MS /
+            // TRIO_WAKE_COOLDOWN_SECONDS / NEO_TRIO_IDENTITIES), deployment-portable defaults.
+            idleThresholdMs        : 10 * 60 * 1000,
+            trioWakeCooldownSeconds: 600,
+            allIdleIdentities      : null
         });
         const graphLogCompactionEnabledEnv = process.env.NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_ENABLED?.trim().toLowerCase();
         const graphLogCompactionVacuumEnv  = process.env.NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_VACUUM?.trim().toLowerCase();
