@@ -396,7 +396,7 @@ class GoldenPathSynthesizer extends Base {
 
         for (const candidate of visibleCandidates) {
             const assignees = candidate.assignees.map(assignee => `@${assignee}`).join(', ');
-            const issueRef  = candidate.url ? `[#${candidate.number}](${candidate.url})` : `#${candidate.number}`;
+            const issueRef  = `#${candidate.number}`;
             section += `- **${issueRef}** — ${candidate.title} — assignee ${assignees} — last qualifying activity ${candidate.lastActivityAt} by @${candidate.lastActivityBy} (${candidate.daysIdle} days ago; ${candidate.reason})\n`;
         }
 
@@ -641,7 +641,7 @@ class GoldenPathSynthesizer extends Base {
         }
 
         for (const candidate of visibleCandidates) {
-            const issueRef = candidate.url ? `[#${candidate.number}](${candidate.url})` : `#${candidate.number}`;
+            const issueRef = `#${candidate.number}`;
             section += `- **${issueRef}** — ${candidate.title} — ${candidate.daysIdle} days idle; ` +
                 `last activity ${candidate.lastActivityAt} by @${candidate.lastActivityBy}; ` +
                 `structural weight ${candidate.structuralWeight.toFixed(2)}; ` +
@@ -694,7 +694,7 @@ class GoldenPathSynthesizer extends Base {
 
         for (const pr of recent) {
             const author = pr.author?.login || 'unknown';
-            section += `- **PR #${pr.number}**: [${pr.title}](${pr.url}) — author @${author} — opened ${pr.createdAt} — cross-family reviewed: ${this.hasCrossFamilyReview(pr) ? 'yes' : 'no'}\n`;
+            section += `- **PR #${pr.number}**: ${pr.title} — author @${author} — opened ${pr.createdAt} — cross-family reviewed: ${this.hasCrossFamilyReview(pr) ? 'yes' : 'no'}\n`;
         }
 
         section += `\n`;
@@ -876,7 +876,7 @@ class GoldenPathSynthesizer extends Base {
         scoredNodes.sort((a, b) => b.score - a.score);
 
         // Remove mathematically rejected targets (Negative ROI), then slice
-        const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, 5);
+        const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
         const goldenIds = new Set(topNodes.map(item => item.node.id));
 
         let markdownAppend = '';
@@ -1171,7 +1171,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                     }
                                 }
 
-                                prStateAppend += `- **PR #${pr.number}**: [${pr.title}](${pr.url})\n`;
+                                prStateAppend += `- **PR #${pr.number}**: ${pr.title}\n`;
                                 prStateAppend += `  - **Lane State**: \`${laneState}\`\n`;
                                 prStateAppend += `  - **Cycle**: \`${cycle}\`\n`;
                                 prStateAppend += `  - **Reviewers**: ${reviewers}\n`;

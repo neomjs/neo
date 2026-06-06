@@ -42,6 +42,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let originalEmbeddingModel;
     let originalEmbeddingProvider;
     let originalGoldenPathRecentOpenPrRenderLimit;
+    let originalGoldenPathTopNodeRenderLimit;
     let originalGoldenPathStaleAssignmentRenderLimit;
     let originalGoldenPathStaleAssignmentThresholdMs;
     let originalGoldenPathSilentThreadMinScore;
@@ -85,6 +86,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         originalEmbeddingProvider = aiConfig.embeddingProvider;
         originalExecSync          = child_process.execSync;
         originalGoldenPathRecentOpenPrRenderLimit       = aiConfig.goldenPathRecentOpenPrRenderLimit;
+        originalGoldenPathTopNodeRenderLimit            = aiConfig.goldenPathTopNodeRenderLimit;
         originalGoldenPathStaleAssignmentRenderLimit    = aiConfig.goldenPathStaleAssignmentRenderLimit;
         originalGoldenPathStaleAssignmentThresholdMs    = aiConfig.goldenPathStaleAssignmentThresholdMs;
         originalGoldenPathSilentThreadMinScore          = aiConfig.goldenPathSilentThreadMinScore;
@@ -94,6 +96,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         originalWarn              = logger.warn;
 
         aiConfig.goldenPathRecentOpenPrRenderLimit       = 5;
+        aiConfig.goldenPathTopNodeRenderLimit            = 10;
         aiConfig.goldenPathStaleAssignmentRenderLimit    = 20;
         aiConfig.goldenPathStaleAssignmentThresholdMs    = 7 * 24 * 60 * 60 * 1000;
         aiConfig.goldenPathSilentThreadMinScore          = 14;
@@ -105,6 +108,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         aiConfig.embeddingModel    = originalEmbeddingModel;
         aiConfig.embeddingProvider = originalEmbeddingProvider;
         aiConfig.goldenPathRecentOpenPrRenderLimit       = originalGoldenPathRecentOpenPrRenderLimit;
+        aiConfig.goldenPathTopNodeRenderLimit            = originalGoldenPathTopNodeRenderLimit;
         aiConfig.goldenPathStaleAssignmentRenderLimit    = originalGoldenPathStaleAssignmentRenderLimit;
         aiConfig.goldenPathStaleAssignmentThresholdMs    = originalGoldenPathStaleAssignmentThresholdMs;
         aiConfig.goldenPathSilentThreadMinScore          = originalGoldenPathSilentThreadMinScore;
@@ -236,7 +240,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain('### Recent Open PRs');
         expect(handoffContent).toContain('cross-family reviewed: yes');
         expect(handoffContent).toContain('### @neo-gemini-pro');
-        expect(handoffContent).toContain('- **PR #11178**: [feat(ai): Automate PR Cycle State Extraction](https://github.com/neomjs/neo/pull/11178)');
+        expect(handoffContent).toContain('- **PR #11178**: feat(ai): Automate PR Cycle State Extraction');
+        expect(handoffContent).not.toContain('](https://github.com/');
         expect(handoffContent).toContain('- **Lane State**: `AWAITING_REVIEW`');
         expect(handoffContent).toContain('- **Cycle**: `2`');
         expect(handoffContent).toContain('- **Reviewers**: neo-opus-ada');
@@ -368,7 +373,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
         expect(handoffContent).toContain('## Stale Assignment Candidates');
-        expect(handoffContent).toContain('[#9001](https://github.com/neomjs/neo/issues/9001)');
+        expect(handoffContent).toContain('**#9001**');
+        expect(handoffContent).not.toContain('](https://github.com/');
         expect(handoffContent).toContain('assignee @neo-opus-ada');
         expect(handoffContent).toContain('last qualifying activity 2026-05-10T00:00:00.000Z by @neo-opus-ada');
         expect(handoffContent).not.toContain('Fresh assigned issue');
@@ -449,7 +455,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         expect(handoffContent).toContain('## Stale Assignment Candidates');
         expect(handoffContent).toContain('## Silent Threads');
-        expect(handoffContent).toContain('[#9401](https://github.com/neomjs/neo/issues/9401)');
+        expect(handoffContent).toContain('**#9401**');
+        expect(handoffContent).not.toContain('](https://github.com/');
         expect(handoffContent).toContain('visibility-only, no routing');
         expect(handoffContent).not.toContain('Fresh unassigned issue');
         expect(handoffContent.indexOf('## Stale Assignment Candidates')).toBeLessThan(handoffContent.indexOf('## Silent Threads'));
