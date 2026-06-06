@@ -79,7 +79,7 @@ BEHIND=$(git -C "$PRIMARY_ROOT" rev-list --count dev..origin/dev 2>/dev/null || 
 
 **Conditional handover-comment block (fire only when `BEHIND > 0`):**
 
-> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. The `orchestrator-daemon` (Agent OS canonical scheduled-maintenance daemon) and its siblings (`bridge-daemon`, `DreamService`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` in your main checkout to refresh `orchestrator-daemon` and downstream-daemon state.
+> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. The `orchestrator-daemon` (Agent OS canonical scheduled-maintenance daemon) and its siblings (`bridge-daemon`, `DreamService`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` **then `node <PRIMARY_ROOT>/ai/scripts/setup/initServerConfigs.mjs --migrate-config`** in your main checkout to refresh `orchestrator-daemon` and downstream-daemon state. **A `git pull` alone is not enough:** it updates the committed `config.template.mjs`, but the daemons read the gitignored `config.mjs` operator-overlay — which only reconciles to new template leaves via `--migrate-config`, so without it the daemons run fresh code against stale config.
 
 When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh primary.
 
