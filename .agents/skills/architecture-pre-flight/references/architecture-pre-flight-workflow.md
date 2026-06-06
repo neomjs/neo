@@ -36,7 +36,7 @@ When facing genuine cross-substrate architectural ambiguity, follow these steps:
 ## Empirical Anchors
 
 - **PR #11250:** Empirical anchor for substrate-placement gaps.
-- **#10449:** `bridge-daemon.mjs` misplacement origin.
+- **#10449:** `ai/daemons/wake/daemon.mjs` (originally misplaced in `ai/scripts/` as `bridge-daemon.mjs`) misplacement origin.
 - **PR #11008 → #11009:** `orchestrator-daemon.mjs` misplacement and corrective action.
 - **PR #11246 → #11251:** One-shot script "playbook" framing corrective action.
 - **Epic #11256:** Serves as the router-of-uncertainty anchor itself.

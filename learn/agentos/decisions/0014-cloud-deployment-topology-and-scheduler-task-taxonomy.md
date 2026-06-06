@@ -22,7 +22,7 @@ The blocking gap is not a missing capability — it is **substrate drift plus an
 
 D0 is the **first** Epic workstream because the topology cannot be designed until every scheduler lane is classified. **The classification *is* the unblock:** once the local-only lanes are identified and excluded by config, the `Orchestrator` has no local-checkout / git / desktop-harness dependency and containerizes cleanly.
 
-**Substrate audited at `dev`:** `ai/daemons/TaskDefinitions.mjs`, `ai/daemons/Orchestrator.mjs#poll`, `ai/daemons/services/PrimaryRepoSyncService.mjs`, `ai/scripts/bridge-daemon.mjs`, `buildScripts/ai/syncKnowledgeBase.mjs`, `ai/daemons/services/GoldenPathSynthesizer.mjs`, `buildScripts/ai/backup.mjs`, `ai/deploy/docker-compose.yml`.
+**Substrate audited at `dev`:** `ai/daemons/TaskDefinitions.mjs`, `ai/daemons/Orchestrator.mjs#poll`, `ai/daemons/services/PrimaryRepoSyncService.mjs`, `ai/daemons/wake/daemon.mjs`, `buildScripts/ai/syncKnowledgeBase.mjs`, `ai/daemons/services/GoldenPathSynthesizer.mjs`, `buildScripts/ai/backup.mjs`, `ai/deploy/docker-compose.yml`.
 
 ## 2. Decision
 
@@ -33,7 +33,7 @@ D0 is the **first** Epic workstream because the topology cannot be designed unti
 | Lane | Kind | Classification | Rationale |
 |---|---|---|---|
 | `chroma` | continuous | **shared primitive** | The unified vector store (ADR 0003). Both profiles need it; in cloud it is a dedicated compose-managed container with its own `healthcheck:`, not an `Orchestrator`-supervised child. The `Orchestrator`'s `chroma` supervision is the local-dev substitute for compose. |
-| `bridgeDaemon` | continuous | **local-only** | `bridge-daemon.mjs` delivers A2A wake digests to *local desktop agent harnesses* via `osascript` (macOS) / `tmux` keystroke simulation. A cloud tenant deployment has no local harness apps to key into. (A2A *message storage* via the MC server stays cloud-relevant — distinct from this wake-*delivery* daemon.) |
+| `bridgeDaemon` | continuous | **local-only** | `ai/daemons/wake/daemon.mjs` delivers A2A wake digests to *local desktop agent harnesses* via `osascript` (macOS) / `tmux` keystroke simulation. A cloud tenant deployment has no local harness apps to key into. (A2A *message storage* via the MC server stays cloud-relevant — distinct from this wake-*delivery* daemon.) |
 | `mlx` | continuous (default off) | **local-only** | `mlx_lm.server` is macOS / Apple-Silicon local inference. Cloud model inference is a *provider-profile* decision (external API default; an optional self-hosted container is a D1 variant) — not an `Orchestrator` child. Already `NEO_ORCHESTRATOR_MLX_ENABLED`-gated, default `false`. |
 | `summary` | periodic, heavy | **cloud-deployable** | `summarize-sessions.mjs` digests agent sessions from the graph and writes summaries back. No local-checkout dependency (verified — no git / spawn). Needs a model-provider endpoint. Config-gated per deployment. |
 | `kbSync` | periodic, heavy | **local-only** | `syncKnowledgeBase.mjs` runs `KB_DatabaseService.syncDatabase()` — a full re-scan of the **Neo repo's own corpus** from the local checkout, also cascaded after a `dev` pull. A cloud tenant's KB content arrives via push-based `ingest_source_files` (Sub E #11726), not this local cascade. |
@@ -142,7 +142,7 @@ Service boundaries derive from the lane taxonomy + resource-isolation needs. Pic
 - **Unblocks:** #11723, #11724, #11725, #11727
 - **Informs:** #11722 (Sub A — the toggle + `golden-path`-gating handoff), #11726 (Sub E — the local `kbSync` exclusion is *why* push-based ingestion is the cloud KB path)
 - **ADRs:** 0003 (unified Chroma — swept, not stale), 0009 (cross-daemon lease — swept, not stale), 0005 (ADR-at-graduation), 0006 (ADRs as graph-queryable entities)
-- **Substrate:** `ai/daemons/TaskDefinitions.mjs`, `ai/daemons/Orchestrator.mjs`, `ai/daemons/services/PrimaryRepoSyncService.mjs`, `ai/scripts/bridge-daemon.mjs`, `buildScripts/ai/syncKnowledgeBase.mjs`, `ai/daemons/services/GoldenPathSynthesizer.mjs`, `buildScripts/ai/backup.mjs`, `ai/deploy/docker-compose.yml`
+- **Substrate:** `ai/daemons/TaskDefinitions.mjs`, `ai/daemons/Orchestrator.mjs`, `ai/daemons/services/PrimaryRepoSyncService.mjs`, `ai/daemons/wake/daemon.mjs`, `buildScripts/ai/syncKnowledgeBase.mjs`, `ai/daemons/services/GoldenPathSynthesizer.mjs`, `buildScripts/ai/backup.mjs`, `ai/deploy/docker-compose.yml`
 
 ## 8. Amendments
 

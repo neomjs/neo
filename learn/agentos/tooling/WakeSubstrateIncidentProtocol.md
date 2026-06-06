@@ -14,7 +14,7 @@ Declare a wake-substrate incident when any of these symptoms occur:
 
 - **Unsanctioned harness spawning** — Claude Desktop / Antigravity / Codex Desktop sessions opening without an explicit `session-sunset` predicate having fired.
 - **Wake payload landing outside the agent prompt surface** — file writes, focus-steal into editors, or any side effect downstream of `osascript` exit-0 that did NOT reach the chat composer.
-- **Cross-harness wake delivery divergence** — bridge log reports successful delivery to one harness while the other silently strands (per [#10644](https://github.com/neomjs/neo/issues/10644) Antigravity case + [#10645](https://github.com/neomjs/neo/issues/10645) Codex case).
+- **Cross-harness wake delivery divergence** — wake-daemon log reports successful delivery to one harness while the other silently strands (per [#10644](https://github.com/neomjs/neo/issues/10644) Antigravity case + [#10645](https://github.com/neomjs/neo/issues/10645) Codex case).
 - **Operator manual intervention to stop scheduler-driven actions** — if you are killing PIDs to halt orphan-spawn, that IS the incident's existence proof.
 - **Repeated regression of a previously-shipped substrate primitive** — if a wake substrate behavior that worked in a prior session breaks after a release/restart, treat the regression as substrate-incident shape rather than ordinary bug.
 
@@ -24,7 +24,7 @@ Once declared, the protocol's freeze rule applies until reactivation evidence is
 
 ## The Freeze Rule
 
-**While an incident is active, no individual local fix authorizes wake-substrate reactivation.** Heartbeat stays off, the wake safety gate stays `tripped` (or `disabled`), bridge stays stopped, and `WAKE_GATE_OVERRIDE=1` is NOT set unless the operator explicitly authorizes a controlled validation step.
+**While an incident is active, no individual local fix authorizes wake-substrate reactivation.** Heartbeat stays off, the wake safety gate stays `tripped` (or `disabled`), the wake daemon stays stopped, and `WAKE_GATE_OVERRIDE=1` is NOT set unless the operator explicitly authorizes a controlled validation step.
 
 This rule exists because the failure mode is cross-layer. Empirical experience has shown the swarm repeatedly marking one of the eight wake-substrate layers green and discovering a failure at a neighboring layer:
 
@@ -32,7 +32,7 @@ This rule exists because the failure mode is cross-layer. Empirical experience h
 2. unread / list semantics
 3. `WAKE_SUBSCRIPTION` bootstrap and metadata
 4. coalescing / raw envelope shape
-5. bridge / MCP / native adapter targeting
+5. wake-daemon / MCP / native adapter targeting
 6. prompt payload landing in agent prompt surface
 7. fresh-session recovery (only after explicit sunset)
 8. heartbeat / scheduler treating uncertain state as unsafe
@@ -43,14 +43,14 @@ Reactivation requires green at the loop level, not at any single layer.
 
 ## Restart Preflight Checklist
 
-Before any bridge daemon, Memory Core MCP, or harness app restart during an active incident, the operator (or their delegated agent) MUST execute and record this inventory:
+Before any wake daemon, Memory Core MCP, or harness app restart during an active incident, the operator (or their delegated agent) MUST execute and record this inventory:
 
 ### Process inventory
 
 ```bash
-# Bridge daemon
-cat .neo-ai-data/wake-daemon/bridge-daemon.pid 2>/dev/null
-ps aux | grep -E "bridge-daemon" | grep -v grep
+# Wake daemon
+cat .neo-ai-data/wake-daemon/wake-daemon.pid 2>/dev/null
+ps aux | grep -E "daemons/wake/daemon" | grep -v grep
 
 # Orchestrator daemon — drives the swarm-heartbeat lane since #11766
 # (there is no standalone swarm-heartbeat process anymore)
@@ -79,14 +79,14 @@ sqlite3 .neo-ai-data/sqlite/memory-core-graph.sqlite \
    FROM Nodes WHERE json_extract(data, '\$.label') = 'WAKE_SUBSCRIPTION'"
 ```
 
-Active subscriptions for `@neo-opus-ada`, `@neo-gemini-pro`, and `@neo-gpt` mean the bridge will deliver wake events to those identities the moment it starts. If the substrate is unsafe, those subscriptions must either be temporarily disabled OR the bridge must be started in a controlled validation mode that ignores them.
+Active subscriptions for `@neo-opus-ada`, `@neo-gemini-pro`, and `@neo-gpt` mean the wake daemon will deliver wake events to those identities the moment it starts. If the substrate is unsafe, those subscriptions must either be temporarily disabled OR the wake daemon must be started in a controlled validation mode that ignores them.
 
-### Bridge backlog fence
+### Wake backlog fence
 
-This is the load-bearing preflight that distinguishes "bridge restart" from "drain every wake-eligible event since `lastSyncId`."
+This is the load-bearing preflight that distinguishes "wake-daemon restart" from "drain every wake-eligible event since `lastSyncId`."
 
 ```bash
-# Bridge's last-acknowledged GraphLog ID
+# Wake daemon's last-acknowledged GraphLog ID
 cat .neo-ai-data/wake-daemon/lastSyncId 2>/dev/null
 
 # Current max GraphLog log_id
@@ -99,13 +99,13 @@ sqlite3 .neo-ai-data/sqlite/memory-core-graph.sqlite \
    WHERE log_id > <lastSyncId>"
 ```
 
-If the pending count is non-zero, the operator MUST choose ONE of these paths and document the choice in the incident record before bridge starts:
+If the pending count is non-zero, the operator MUST choose ONE of these paths and document the choice in the incident record before the wake daemon starts:
 
-- **Disable bridge subscriptions** — the bridge starts and drains, but no wake events reach harnesses (subscriptions are inert).
-- **Advance `lastSyncId` after a durable-mailbox audit** — the operator confirms that no pending event needs to wake a harness (because the recipient already saw the message via mailbox poll), then writes the new `lastSyncId` so the bridge skips the backlog on start.
-- **Run a targeted matrix / test bridge** — a non-production bridge instance that ignores the canonical backlog and exercises only the [#10649](https://github.com/neomjs/neo/issues/10649) prompt-landing matrix tests.
+- **Disable wake subscriptions** — the wake daemon starts and drains, but no wake events reach harnesses (subscriptions are inert).
+- **Advance `lastSyncId` after a durable-mailbox audit** — the operator confirms that no pending event needs to wake a harness (because the recipient already saw the message via mailbox poll), then writes the new `lastSyncId` so the wake daemon skips the backlog on start.
+- **Run a targeted matrix / test wake-daemon** — a non-production wake-daemon instance that ignores the canonical backlog and exercises only the [#10649](https://github.com/neomjs/neo/issues/10649) prompt-landing matrix tests.
 
-**Bridge restart as a background service action is prohibited** while active subscriptions exist AND wake delivery is considered unsafe. Backlogs of hundreds of pending rows are common after even short downtime windows; restarting the bridge without a chosen path floods the harnesses with the entire pending stream the moment it acks subscriptions.
+**Wake-daemon restart as a background service action is prohibited** while active subscriptions exist AND wake delivery is considered unsafe. Backlogs of hundreds of pending rows are common after even short downtime windows; restarting the wake daemon without a chosen path floods the harnesses with the entire pending stream the moment it acks subscriptions.
 
 ---
 
@@ -116,7 +116,7 @@ The freeze rule lifts only when ALL of the following hold:
 - **Wake safety gate is `enabled`** ([#10648](https://github.com/neomjs/neo/issues/10648)). `node ai/scripts/wakeSafetyGate.mjs check` exits 0 without `WAKE_GATE_OVERRIDE`.
 - **Cross-harness prompt-landing matrix is green** ([#10649](https://github.com/neomjs/neo/issues/10649)). Each row (Claude Desktop, Antigravity, Codex Desktop) has documented evidence at every column from A2A storage through prompt landing through no-editor-mutation.
 - **Active local-regression tickets are merged** — at minimum the regressions known to break the loop. Tickets per incident vary; the principle is that no known broken-loop regression remains open at reactivation time.
-- **Bridge backlog fence has been chosen and documented** per the preflight checklist above.
+- **Wake backlog fence has been chosen and documented** per the preflight checklist above.
 
 OR
 
@@ -132,7 +132,7 @@ While wake delivery is disabled, the swarm coordinates exclusively via the durab
 
 **Do not assume wake interrupts will arrive during an incident.** If a peer is silent on a coordination question, the cause is more likely "they have not polled their mailbox since you wrote" than "they declined to respond." When in doubt, ask the operator to relay (manual ping pattern: operator pokes the recipient's IDE chat to trigger a mailbox poll).
 
-The mailbox path is independent from wake delivery — the `add_message` SQLite write succeeds even when bridge is down, embedding-write contention blocks `add_memory`, or osascript fails for keystroke delivery. This is the path-asymmetry property that makes mailbox the durable coordination substrate during incidents.
+The mailbox path is independent from wake delivery — the `add_message` SQLite write succeeds even when the wake daemon is down, embedding-write contention blocks `add_memory`, or osascript fails for keystroke delivery. This is the path-asymmetry property that makes mailbox the durable coordination substrate during incidents.
 
 ---
 
@@ -141,7 +141,7 @@ The mailbox path is independent from wake delivery — the `add_message` SQLite 
 During an active incident, ownership splits across two complementary roles:
 
 - **Local bug owners** — fix specific tickets in their substrate territory. Local-regression batches route naturally to whichever agent has the deepest subsystem familiarity for each fix.
-- **One reactivation-gate owner** — coordinates the loop-level validation, runs the cross-harness matrix execution, decides bridge-backlog-fence path, and writes the operator-facing reactivation request. This role is singular by design: cross-layer judgment must concentrate, not split, or the swarm risks a "narrow fix landed → reactivate" failure mode.
+- **One reactivation-gate owner** — coordinates the loop-level validation, runs the cross-harness matrix execution, decides wake-backlog-fence path, and writes the operator-facing reactivation request. This role is singular by design: cross-layer judgment must concentrate, not split, or the swarm risks a "narrow fix landed → reactivate" failure mode.
 
 The reactivation-gate owner is not a permanent role. It is assigned per-incident by the operator (`@tobiu` for canonical) and rotates across the trio as appropriate to subsystem context.
 
@@ -167,7 +167,7 @@ After reactivation, the incident closes with a retrospective recorded as a comme
 <list of #N tickets that closed the regression class>
 
 ### Validation evidence
-<which #10649 matrix rows ran green; which #10648 gate state transitions occurred; bridge-backlog-fence path chosen>
+<which #10649 matrix rows ran green; which #10648 gate state transitions occurred; wake-backlog-fence path chosen>
 
 ### Recurrence guard
 <the test, drift-guard, or protocol change that institutionalizes the lesson — without this, the retrospective is a postmortem-without-substrate, not a guard>

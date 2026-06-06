@@ -14,7 +14,7 @@ v13 ships **tiny slim MCP servers** backed by a **mature SDK** and a **clean dae
 
 2. **A common base server class consolidates cross-server concerns.** Authentication, transport setup, request-context propagation (Factory pattern or evaluated alternative), healthcheck registration, lifecycle. Today every server has its own `Server.mjs` with 80% boilerplate duplication; v13's base class eliminates that and makes Factory-pattern adoption uniform across all 5 servers (currently in 2/5 only).
 
-3. **A single orchestrator daemon process owns scheduled work — including summarization, sandman/dream cycle, and golden-path synthesis — under a single-source-of-truth pattern.** Per-host singleton enforcement via PID file. Bridge-daemon stays specialized for its wake-event-delivery domain; the orchestrator daemon is its sibling, not its extension. The orchestrator's existence eliminates the `NEO_MC_PRIMARY` in-process single-writer gate (which exists today only because in-process summarization in LOCAL multi-harness deployments has no other coordination primitive).
+3. **A single orchestrator daemon process owns scheduled work — including summarization, sandman/dream cycle, and golden-path synthesis — under a single-source-of-truth pattern.** Per-host singleton enforcement via PID file. Wake-daemon stays specialized for its wake-event-delivery domain; the orchestrator daemon is its sibling, not its extension. The orchestrator's existence eliminates the `NEO_MC_PRIMARY` in-process single-writer gate (which exists today only because in-process summarization in LOCAL multi-harness deployments has no other coordination primitive).
 
 [#9999](https://github.com/neomjs/neo/issues/9999) ("Cloud-Native Knowledge & Multi-Tenant Memory Core") remains the v13 main epic. Some of its sub-issues predate the 2026-05-07 Factory-pattern landing and the 2026-05-08 architectural correction; they need targeted re-scoping rather than wholesale revision (see §6).
 
@@ -29,7 +29,7 @@ v13 ships **tiny slim MCP servers** backed by a **mature SDK** and a **clean dae
 | Factory pattern (request-scoped identity binding via `RequestContextService.run`) | 2 of 5 (memory-core direct, knowledge-base via shared `TransportService`) | 5 of 5 (via common base) |
 | Service logic placement | Mostly in MCP server `services/*` directories | Mostly in SDK (`ai/services.mjs`); MCP servers thin |
 | In-process daemon-shaped services | `ai/daemons/` (DreamService, SwarmHeartbeatService, services/*) — invoked via SDK or operator scripts | Same classes, scheduled by Orchestrator daemon |
-| Standalone daemon processes | 1 (`ai/scripts/bridge-daemon.mjs` — wake-event delivery, per-host singleton) | 2 (bridge + orchestrator); both per-host singleton |
+| Standalone daemon processes | 1 (`ai/daemons/wake/daemon.mjs` — wake-event delivery, per-host singleton) | 2 (wake + orchestrator); both per-host singleton |
 | Summarization automation | Gated off ([#9942](https://github.com/neomjs/neo/issues/9942) daemon-collision fix); operator-runs only via `npm run ai:summarize-sessions` | Auto, daemon-driven, single-source-of-truth |
 | Sandman / Golden Path automation | Manual via `npm run ai:run-sandman` | Auto, scheduled by Orchestrator |
 | `NEO_MC_PRIMARY` single-writer gate | Active in-process gate for LOCAL multi-harness fleet (Claude Code worktrees + Antigravity + Codex Desktop + per-workspace language servers each spawning their own MC instance) | Retired (Orchestrator's per-host singleton supersedes it) |
@@ -92,7 +92,7 @@ A new per-host singleton Node process responsible for ALL scheduled work that to
 - **Filesystem ingestor for graph** (transitive via DreamService — already wired at `ai/daemons/DreamService.mjs:16-179` invoking `FileSystemIngestor.syncWorkspaceToGraph()`; orchestrator-drives-DreamService-cycle naturally restores FS ingestion without separate scope item)
 - **Cadence design** — graph-blocking awareness, time-windowed scheduling for high-impact tasks (see D3.1 below)
 
-**Out of scope:** wake-event delivery — bridge-daemon's specialized HTTP/osascript-driven domain stays separate. The two daemons sit at the same architectural tier (per-host singleton, PID-file-enforced) but own different concerns.
+**Out of scope:** wake-event delivery — wake-daemon's specialized HTTP/osascript-driven domain stays separate. The two daemons sit at the same architectural tier (per-host singleton, PID-file-enforced) but own different concerns.
 
 **Structure (post-Epic #11831 harmonization):**
 ```
@@ -174,7 +174,7 @@ Build `ai/mcp/server/shared/Server.mjs` (D2). Migrate one MCP server (smallest f
 ### M3 — Orchestrator Daemon Skeleton + Piece C
 Build `ai/daemons/orchestrator/Orchestrator.mjs` + `ai/daemons/orchestrator/daemon.mjs` boot wrapper (D3). First task: a summarization sweep coordinator running drift-detection on configurable cadence. Strip the in-process `runPeriodicSummarizationSweep` from `SessionService` (which I added in PR [#10954](https://github.com/neomjs/neo/pull/10954) — wrong-substrate; reshape to Orchestrator). _(Post-#11864 shape: `ai/daemons/orchestrator/scheduling/summary.mjs` pure-function module; the historical `SummarizationCoordinatorService` class was retired as Sub 20 of Epic #11831.)_
 
-**MVP split:** [#11006](https://github.com/neomjs/neo/issues/11006) moved existing summary + KB sync triggers out of `bridge-daemon.mjs`. PR #11008 initially concentrated too much scheduling logic inside the Orchestrator boot wrapper; [#11009](https://github.com/neomjs/neo/issues/11009) corrects that by restoring the intended shape: the wrapper is thin, `ai/daemons/orchestrator/Orchestrator.mjs` owns task scheduling and failure isolation, the summarization coordinator owns Piece C trigger selection (now `scheduling/summary.mjs` post-#11864), and `HealthService.recordTaskOutcome(...)` exposes per-task outcomes.
+**MVP split:** [#11006](https://github.com/neomjs/neo/issues/11006) moved existing summary + KB sync triggers out of `ai/daemons/wake/daemon.mjs` (then named `bridge-daemon.mjs` in `ai/scripts/`). PR #11008 initially concentrated too much scheduling logic inside the Orchestrator boot wrapper; [#11009](https://github.com/neomjs/neo/issues/11009) corrects that by restoring the intended shape: the wrapper is thin, `ai/daemons/orchestrator/Orchestrator.mjs` owns task scheduling and failure isolation, the summarization coordinator owns Piece C trigger selection (now `scheduling/summary.mjs` post-#11864), and `HealthService.recordTaskOutcome(...)` exposes per-task outcomes.
 
 **Exit gate:** orchestrator daemon runs on the operator's host; summarization sweep fires automatically on cadence; healthcheck observability in place; PR #10954 closed in favor of corrected-substrate successor.
 
