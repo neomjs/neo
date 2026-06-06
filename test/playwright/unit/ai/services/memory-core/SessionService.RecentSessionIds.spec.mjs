@@ -19,7 +19,6 @@ import * as core             from '../../../../../../src/core/_export.mjs';
 import SessionService        from '../../../../../../ai/services/memory-core/SessionService.mjs';
 import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
-import aiConfig              from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * @summary Creates a minimal Chroma collection spy for metadata-only read tests.
@@ -83,7 +82,6 @@ test.describe('SessionService.getRecentSessionIds (#10194)', () => {
     let memoryCollection, summaryCollection;
     let originalGetMemoryCollection, originalGetSummaryCollection;
     let originalValidateSessionForResume, originalGetSummarizationStatusBySessionIds;
-    let originalMemorySharingPolicy;
 
     test.beforeEach(() => {
         memoryCollection = createSpyCollection();
@@ -93,7 +91,6 @@ test.describe('SessionService.getRecentSessionIds (#10194)', () => {
         originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         originalValidateSessionForResume = SessionService.validateSessionForResume;
         originalGetSummarizationStatusBySessionIds = SessionService.constructor.getSummarizationStatusBySessionIds;
-        originalMemorySharingPolicy = aiConfig.memorySharing.defaultPolicy;
 
         StorageRouter.getMemoryCollection = async () => memoryCollection;
         StorageRouter.getSummaryCollection = async () => summaryCollection;
@@ -106,7 +103,6 @@ test.describe('SessionService.getRecentSessionIds (#10194)', () => {
             lastActivityAt: new Date(1).toISOString(),
             summarizationStatus: 'none'
         });
-        aiConfig.memorySharing.defaultPolicy = 'team';
     });
 
     test.afterEach(() => {
@@ -114,7 +110,6 @@ test.describe('SessionService.getRecentSessionIds (#10194)', () => {
         StorageRouter.getSummaryCollection = originalGetSummaryCollection;
         SessionService.validateSessionForResume = originalValidateSessionForResume;
         SessionService.constructor.getSummarizationStatusBySessionIds = originalGetSummarizationStatusBySessionIds;
-        aiConfig.memorySharing.defaultPolicy = originalMemorySharingPolicy;
     });
 
     test('discovers raw sessions newest-first and augments title from summaries when available', async () => {
