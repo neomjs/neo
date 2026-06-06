@@ -87,6 +87,27 @@ export function mapBacklog(issueListJson, {blockedRefs = new Set(), gatedRefs = 
 }
 
 /**
+ * Maps recent A2A lane-claim messages into the backlog `claimedByOther` context — `ref` → the OTHER
+ * agent's identity holding an active claim. Self-claims are excluded (claiming your own lane is not a
+ * collision). Pure; the impure caller fetches the lane-claim messages (graph) + passes them. One source
+ * of `gatherContext`; issue blocked-by relations + gated labels are the other sources (follow-ups).
+ *
+ * @param {Object[]} messages       Recent messages, each `{subject, from}`.
+ * @param {String}   selfIdentity   This agent's identity (its own claims are not collisions).
+ * @returns {Map<String,String>} `ref` (`#N`) → claiming agent identity.
+ */
+export function mapLaneClaims(messages, selfIdentity) {
+    const map = new Map();
+    for (const msg of Array.isArray(messages) ? messages : []) {
+        if (!msg || msg.from === selfIdentity || typeof msg.subject !== 'string') continue;
+        // "[lane-claim] taking #N …" / "[lane-claim] #N …" — the first #N after the tag is the claimed lane.
+        const match = /\[lane-claim\][^#]*#(\d+)/.exec(msg.subject);
+        if (match) map.set(`#${match[1]}`, msg.from)
+    }
+    return map
+}
+
+/**
  * Default query-runner: spawns `gh` with the given args and parses the JSON stdout. Impure; injected by
  * {@link fetchExternalState} so the orchestration is testable without `gh`.
  * @param {String[]} args

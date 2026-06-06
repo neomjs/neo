@@ -1,5 +1,5 @@
 import {test, expect}                            from '@playwright/test';
-import {fetchExternalState, isCiGreen, mapBacklog, mapOwnPRs, mapReviewRequests} from '../../../../../ai/scripts/lifecycle/cycleStateFetch.mjs';
+import {fetchExternalState, isCiGreen, mapBacklog, mapLaneClaims, mapOwnPRs, mapReviewRequests} from '../../../../../ai/scripts/lifecycle/cycleStateFetch.mjs';
 
 /**
  * Self-test for the GitHub-state → cycle-state-input mappers (the daemon-side fetch-and-map layer). The
@@ -63,6 +63,28 @@ test.describe('cycleStateFetch — mapBacklog (claimable-now exclusion flags)', 
     test('no context → all unflagged (all claimable); non-array → empty', () => {
         expect(mapBacklog([{number: 40}])).toEqual([{ref: '#40', blocked: false, gated: false, claimedByOther: undefined}]);
         expect(mapBacklog(undefined)).toEqual([])
+    });
+});
+
+test.describe('cycleStateFetch — mapLaneClaims (the claimedByOther collision source)', () => {
+    test('extracts ref → other-agent; excludes self-claims + non-lane-claim subjects', () => {
+        const map = mapLaneClaims([
+            {subject: '[lane-claim] taking #100 some work', from: '@neo-gpt'},
+            {subject: '[lane-claim] resuming #101 — REM prune',  from: '@neo-opus-ada'},
+            {subject: '[lane-claim] #102 mine',                  from: '@neo-opus-vega'},  // self → excluded
+            {subject: '[pr-opened] PR #103 (#104)',              from: '@neo-gpt'},        // not a lane-claim → ignored
+            {subject: 'no ref here [lane-claim] taking it',      from: '@neo-gpt'}         // no #N → ignored
+        ], '@neo-opus-vega');
+
+        expect(map.get('#100')).toBe('@neo-gpt');
+        expect(map.get('#101')).toBe('@neo-opus-ada');
+        expect(map.has('#102')).toBe(false);   // self-claim
+        expect(map.has('#103')).toBe(false);   // pr-opened, not lane-claim
+        expect(map.size).toBe(2)
+    });
+
+    test('non-array → empty map', () => {
+        expect(mapLaneClaims(undefined, '@me').size).toBe(0)
     });
 });
 
