@@ -29,12 +29,12 @@ import {
     getGraphProviderReadinessTarget,
     waitForProvider,
     warnProviderParallelModelCapacity
-} from '../../../services/graph/ProviderReadinessHelper.mjs';
+} from '../../../services/graph/providerReadinessHelper.mjs';
 import {
     appendRemRunState,
     createRemPhaseState,
     createRemRunStateEntry
-} from '../../../services/memory-core/helpers/RemRunStateStore.mjs';
+} from '../../../services/memory-core/helpers/remRunStateStore.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

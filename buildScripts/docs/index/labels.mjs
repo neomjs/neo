@@ -3,7 +3,7 @@ import path              from 'path';
 import {Command}         from 'commander/esm.mjs';
 import {fileURLToPath}   from 'url';
 import {GH_LabelService} from '../../../ai/services.mjs';
-import {sanitizeInput}   from '../../util/Sanitizer.mjs';
+import {sanitizeInput}   from '../../util/sanitizer.mjs';
 
 /**
  * @module buildScripts.createLabelIndex

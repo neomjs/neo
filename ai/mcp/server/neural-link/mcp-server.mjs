@@ -6,7 +6,7 @@ import InstanceManager from '../../../../src/manager/Instance.mjs';
 import aiConfig        from './config.mjs';
 import logger          from './logger.mjs';
 import Server          from './Server.mjs';
-import {sanitizeInput} from '../../../../buildScripts/util/Sanitizer.mjs';
+import {sanitizeInput} from '../../../../buildScripts/util/sanitizer.mjs';
 
 const program = new Command();
 

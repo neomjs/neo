@@ -10,7 +10,7 @@ import logger                      from '../../mcp/server/knowledge-base/logger.
 import {
     formatGcDetail,
     selectExpiredChunks
-} from '../../services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs';
+} from '../../services/knowledge-base/helpers/kbGarbageCollectionEngine.mjs';
 
 /**
  * @summary Chroma `collection.get` page size for the batched per-tenant rows fetch.
@@ -33,7 +33,7 @@ const ROWS_PAGE_SIZE = 2000;
  * `pulse()`. The entry-point wrapper `ai/daemons/kb-gc/daemon.mjs` owns the Neo bootstrap +
  * SIGTERM.
  *
- * **Split** — the *pure* retention classification lives in `KbGarbageCollectionEngine.mjs`
+ * **Split** — the *pure* retention classification lives in `kbGarbageCollectionEngine.mjs`
  * and is unit-tested in isolation; this class owns only the I/O: the poll loop, tenant
  * enumeration, the Chroma read, telemetry emission, and the opt-in delete.
  *
@@ -52,7 +52,7 @@ const ROWS_PAGE_SIZE = 2000;
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/kb-gc/daemon.mjs — the entry-point wrapper.
- * @see ai/services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs — the pure retention engine.
+ * @see ai/services/knowledge-base/helpers/kbGarbageCollectionEngine.mjs — the pure retention engine.
  * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the sibling poll-loop daemon precedent.
  */
 class KbGarbageCollectionService extends Base {

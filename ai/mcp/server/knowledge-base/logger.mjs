@@ -1,5 +1,5 @@
 import aiConfig       from './config.mjs';
-import {createLogger} from '../shared/Logger.mjs';
+import {createLogger} from '../shared/logger.mjs';
 
 export default createLogger(aiConfig, {
     filePrefix    : 'kb-server',

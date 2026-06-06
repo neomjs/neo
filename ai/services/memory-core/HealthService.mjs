@@ -14,7 +14,7 @@ import {
     hasCoreSwarmParticipant,
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {readRecentRemRunStates} from './helpers/RemRunStateStore.mjs';
+import {readRecentRemRunStates} from './helpers/remRunStateStore.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

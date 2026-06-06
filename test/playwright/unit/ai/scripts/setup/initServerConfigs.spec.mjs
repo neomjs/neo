@@ -229,7 +229,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const templateSrc = [
             `import path from 'path';`,
             `import {parsePort, parseUrl} from '../../../../src/util/Env.mjs';`,
-            `import {resolveChromaHost} from '../shared/helpers/DeploymentConfig.mjs';`,
+            `import {resolveChromaHost} from '../shared/helpers/deploymentConfig.mjs';`,
             `export default {x: 1};`,
             ``
         ].join('\n');
@@ -257,16 +257,16 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const action = result.processed.find(p => p.serverName === 'memory-core');
         expect(action.action).toBe('warn');
         expect(action.drift.hasDrift).toBe(true);
-        expect(action.drift.missingImports).toContain('../shared/helpers/DeploymentConfig.mjs');
+        expect(action.drift.missingImports).toContain('../shared/helpers/deploymentConfig.mjs');
         // Same-source named-specifier drift: template added `parseUrl` to the existing
         // Env.mjs import block; even though the source path is shared, the
         // specifier-level projection must catch this.
         expect(action.drift.missingImports).toContain('../../../../src/util/Env.mjs:parseUrl');
-        expect(action.drift.missingImports).toContain('../shared/helpers/DeploymentConfig.mjs:resolveChromaHost');
+        expect(action.drift.missingImports).toContain('../shared/helpers/deploymentConfig.mjs:resolveChromaHost');
 
         // Multi-line warning shape: header + per-item bullet + recovery prompt
         expect(logger.entries.warn.some(l => l.includes("Stale config.mjs for 'memory-core'"))).toBe(true);
-        expect(logger.entries.warn.some(l => l.includes('+ import: ../shared/helpers/DeploymentConfig.mjs'))).toBe(true);
+        expect(logger.entries.warn.some(l => l.includes('+ import: ../shared/helpers/deploymentConfig.mjs'))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('+ import: ../../../../src/util/Env.mjs:parseUrl'))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('npm run prepare -- --migrate-config'))).toBe(true);
 

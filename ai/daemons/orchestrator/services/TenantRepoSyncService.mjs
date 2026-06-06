@@ -2,9 +2,9 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import Base from '../../../../src/core/Base.mjs';
 import AiConfig from '../../../config.mjs';
-import {DEFAULT_DATA_DIR} from '../TaskDefinitions.mjs';
-import GitMirror from '../../../services/knowledge-base/helpers/GitMirror.mjs';
-import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs';
+import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
+import GitMirror from '../../../services/knowledge-base/helpers/gitMirror.mjs';
+import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
@@ -83,7 +83,7 @@ function createConcurrencySemaphore({limit, timeoutMs = 0}) {
  * @summary Cloud-deployable scheduler lane that pulls tenant repos into the deployment KB.
  *
  * Bridges the `tenant-repo-sync` Orchestrator periodic lane (registered via
- * `TaskDefinitions.mjs` `serviceTask: true`) to the per-repo refresh cycle:
+ * `taskDefinitions.mjs` `serviceTask: true`) to the per-repo refresh cycle:
  *
  * ```
  *   tenantRepos[] config (normalized via TenantRepoAccessContract)
@@ -110,9 +110,9 @@ function createConcurrencySemaphore({limit, timeoutMs = 0}) {
  * @class Neo.ai.daemons.services.TenantRepoSyncService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/services/knowledge-base/helpers/GitMirror.mjs
- * @see ai/services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs
- * @see ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs
+ * @see ai/services/knowledge-base/helpers/gitMirror.mjs
+ * @see ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs
+ * @see ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs
  * @see learn/agentos/cloud-deployment/TenantIngestionModel.md
  */
 class TenantRepoSyncService extends Base {

@@ -20,7 +20,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import path            from 'path';
 import os              from 'os';
-import {getPaths}      from '../../../../../../ai/graph/queries/Traversal.mjs';
+import {getPaths}      from '../../../../../../ai/graph/queries/traversal.mjs';
 
 test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let GraphService;

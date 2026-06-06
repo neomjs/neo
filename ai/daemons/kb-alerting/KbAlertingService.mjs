@@ -12,7 +12,7 @@ import {normalizeAgentIdentityNodeId} from '../../scripts/lifecycle/resumeHarnes
 import {
     evaluateAlertRules,
     formatAlertMessage
-} from '../../services/knowledge-base/helpers/KbAlertRuleEngine.mjs';
+} from '../../services/knowledge-base/helpers/kbAlertRuleEngine.mjs';
 
 /**
  * @summary Sender identity fallback for A2A alert dispatch when `NEO_AGENT_IDENTITY` is unset.
@@ -33,7 +33,7 @@ const DEFAULT_SENDER = '@system';
  * entry-point wrapper `ai/daemons/kb-alerting/daemon.mjs` owns the Neo bootstrap + SIGTERM.
  *
  * **Split** — the *pure* threshold logic (rule validation, breach evaluation, hysteresis,
- * message formatting) lives in `KbAlertRuleEngine.mjs` and is unit-tested in isolation; this
+ * message formatting) lives in `kbAlertRuleEngine.mjs` and is unit-tested in isolation; this
  * class owns only the I/O: the poll loop, the telemetry read, and channel dispatch.
  *
  * **Opt-in** — `start()` is a no-op unless `aiConfig.knowledgeBase.alertingEnabled` is true,
@@ -47,7 +47,7 @@ const DEFAULT_SENDER = '@system';
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/kb-alerting/daemon.mjs — the entry-point wrapper.
- * @see ai/services/knowledge-base/helpers/KbAlertRuleEngine.mjs — the pure rule engine.
+ * @see ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs — the pure rule engine.
  * @see ai/daemons/SwarmHeartbeatService.mjs — the poll-loop daemon precedent.
  * @see ai/scripts/lifecycle/idleOutNudge.mjs — the daemon-side `MailboxService.addMessage` precedent.
  */

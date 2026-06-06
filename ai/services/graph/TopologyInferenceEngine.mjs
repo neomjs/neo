@@ -3,7 +3,7 @@ import { Memory_Config as aiConfig } from '../../services.mjs';
 import Base from '../../../src/core/Base.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import {emitConsumerFriction} from '../memory-core/helpers/ConsumerFrictionHelper.mjs';
+import {emitConsumerFriction} from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 
 /**

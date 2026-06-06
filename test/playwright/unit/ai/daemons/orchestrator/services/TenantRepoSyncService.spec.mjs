@@ -25,7 +25,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
-import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
+import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

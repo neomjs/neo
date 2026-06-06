@@ -11,21 +11,26 @@ const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
 /**
- * @summary GitLab Workflow scaffold tool registry.
+ * @summary GitLab Workflow tool registry.
  *
- * The operation IDs intentionally match the initial GitHub Workflow-compatible
- * surface. Service implementations return scaffold responses until the GitLab
- * client and syncer replace them with real GitLab API behavior.
+ * The operation IDs intentionally match the GitHub Workflow-compatible surface. The issue and
+ * merge-request operations call the real GitLab GraphQL API via the shared `GitLabClient`; the
+ * local-file syncer surface remains scaffold-level pending its subtask.
  */
 const serviceMapping = {
-    create_issue             : IssueService       .createIssue          .bind(IssueService),
-    get_local_issue_by_id    : LocalFileService   .getIssueById         .bind(LocalFileService),
-    healthcheck              : HealthService      .healthcheck          .bind(HealthService),
-    list_issues              : IssueService       .listIssues           .bind(IssueService),
-    list_merge_requests      : MergeRequestService.listMergeRequests    .bind(MergeRequestService),
-    manage_issue_assignees   : IssueService       .manageIssueAssignees .bind(IssueService),
-    manage_issue_comment     : IssueService       .manageIssueComment   .bind(IssueService),
-    manage_issue_labels      : IssueService       .manageIssueLabels    .bind(IssueService)
+    create_issue           : IssueService       .createIssue                .bind(IssueService),
+    get_local_issue_by_id  : LocalFileService   .getIssueById               .bind(LocalFileService),
+    get_merge_request      : MergeRequestService.getMergeRequest            .bind(MergeRequestService),
+    healthcheck            : HealthService      .healthcheck                .bind(HealthService),
+    list_issues            : IssueService       .listIssues                 .bind(IssueService),
+    list_merge_requests    : MergeRequestService.listMergeRequests          .bind(MergeRequestService),
+    manage_issue_assignees : IssueService       .manageIssueAssignees       .bind(IssueService),
+    manage_issue_comment   : IssueService       .manageIssueComment         .bind(IssueService),
+    manage_issue_labels    : IssueService       .manageIssueLabels          .bind(IssueService),
+    manage_mr_assignees    : MergeRequestService.manageMergeRequestAssignees.bind(MergeRequestService),
+    manage_mr_comment      : MergeRequestService.manageMergeRequestComment  .bind(MergeRequestService),
+    manage_mr_labels       : MergeRequestService.manageMergeRequestLabels   .bind(MergeRequestService),
+    manage_mr_reviewers    : MergeRequestService.manageMergeRequestReviewers.bind(MergeRequestService)
 };
 
 const toolService = Neo.create(ToolService, {

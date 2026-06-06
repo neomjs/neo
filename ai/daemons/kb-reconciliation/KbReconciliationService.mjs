@@ -13,7 +13,7 @@ import {
     diffTenantManifest,
     formatReconciliationDetail,
     resolveOrphanVersionGap
-} from '../../services/knowledge-base/helpers/KbReconciliationEngine.mjs';
+} from '../../services/knowledge-base/helpers/kbReconciliationEngine.mjs';
 
 /**
  * @summary Chroma `collection.get` page size for the batched per-tenant rows fetch.
@@ -37,7 +37,7 @@ const ROWS_PAGE_SIZE = 2000;
  * bootstrap + SIGTERM.
  *
  * **Split** — the *pure* classification (config-stale detection, version-gap partition,
- * telemetry-detail shaping) lives in `KbReconciliationEngine.mjs` and is unit-tested in
+ * telemetry-detail shaping) lives in `kbReconciliationEngine.mjs` and is unit-tested in
  * isolation; this class owns only the I/O: the poll loop, tenant enumeration, the Chroma
  * read, telemetry emission, and the opt-in delete.
  *
@@ -56,7 +56,7 @@ const ROWS_PAGE_SIZE = 2000;
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/kb-reconciliation/daemon.mjs — the entry-point wrapper.
- * @see ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs — the pure diff engine.
+ * @see ai/services/knowledge-base/helpers/kbReconciliationEngine.mjs — the pure diff engine.
  * @see ai/daemons/kb-alerting/KbAlertingService.mjs — the sibling poll-loop daemon precedent.
  */
 class KbReconciliationService extends Base {

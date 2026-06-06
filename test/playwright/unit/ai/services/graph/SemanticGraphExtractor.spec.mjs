@@ -22,7 +22,7 @@ import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 import {
     clearAggregatedFrictions,
     getAggregatedFrictions
-} from '../../../../../../ai/services/memory-core/helpers/ConsumerFrictionHelper.mjs';
+} from '../../../../../../ai/services/memory-core/helpers/consumerFrictionHelper.mjs';
 
 test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     test.describe.configure({mode: 'serial'});
