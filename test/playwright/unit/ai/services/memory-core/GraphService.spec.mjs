@@ -21,7 +21,7 @@ import fs              from 'fs-extra';
 import path            from 'path';
 import os              from 'os';
 import {getPaths}      from '../../../../../../ai/graph/queries/traversal.mjs';
-import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
+import {captureAiConfigKeys} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let GraphService;

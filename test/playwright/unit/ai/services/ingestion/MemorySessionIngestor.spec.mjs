@@ -19,7 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
-import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
+import {captureAiConfigKeys} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     // Serial within this describe — `beforeAll` performs a cold import cascade of the Neo

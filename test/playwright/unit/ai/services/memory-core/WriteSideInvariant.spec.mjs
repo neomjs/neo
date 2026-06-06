@@ -18,7 +18,7 @@ import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
-import {captureAiConfigKeys}  from '../../../../../fixtures/aiConfigIsolation.mjs';
+import {captureAiConfigKeys}  from '../../../../fixtures/aiConfigIsolation.mjs';
 
 /**
  * #10017 write-side invariant regression coverage.

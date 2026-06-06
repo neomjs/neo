@@ -25,7 +25,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import dotenv          from 'dotenv';
-import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
+import {captureAiConfigKeys} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

@@ -23,7 +23,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import crypto          from 'crypto';
 import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
-import {captureAiConfigKeys}  from '../../../../../../fixtures/aiConfigIsolation.mjs';
+import {captureAiConfigKeys}  from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

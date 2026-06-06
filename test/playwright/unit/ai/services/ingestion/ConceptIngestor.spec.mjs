@@ -20,7 +20,7 @@ import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
-import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
+import {captureAiConfigKeys} from '../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     let GraphService;

@@ -18,7 +18,7 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import path           from 'path';
 import fs             from 'fs-extra';
-import {captureAiConfigKeys} from '../../../../../../fixtures/aiConfigIsolation.mjs';
+import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
     let toolService;
