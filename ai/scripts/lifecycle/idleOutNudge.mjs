@@ -63,6 +63,9 @@ import WakeSubscriptionService   from '../../services/memory-core/WakeSubscripti
 import RequestContextService     from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {hasOverride, readGateState} from './wakeSafetyGate.mjs';
 import {writeInflightLock, clearInflightLock, checkInflightLock} from './inflightLock.mjs';
+import {computeCycleState}       from './cycleState.mjs';
+import {writeCycleState}         from './cycleStateCache.mjs';
+import {fetchExternalState}      from './cycleStateFetch.mjs';
 
 /**
  * @summary Dispatch a single idle-out heartbeat pulse to the target identity.
@@ -118,6 +121,18 @@ export async function idleOutNudge(identity) {
     await writeInflightLock(identity, 'idle_out_nudge', 0);
 
     const sender = process.env.NEO_AGENT_IDENTITY || '@system';
+
+    // 4.5. Compute + cache the cycle-state for this identity so the bridge-daemon renders the next step
+    //      in this pulse's digest (and the liveness Stop hook can read it). Fail-soft: a cache-compute
+    //      failure must NEVER block the nudge. Backlog (cycle step 4) is deferred — passing `[]` until the
+    //      gatherContext flag-derivation (lane-claims + blocked-by) lands, so we never suggest a
+    //      gated/colliding lane; lifecycle-closure steps 1-3 (own PRs + review requests) are computed now.
+    try {
+        const {ownPRs, reviewRequests, openOwnPrCount} = await fetchExternalState(identity);
+        writeCycleState(identity, computeCycleState({ownPRs, reviewRequests, backlog: [], openOwnPrCount}));
+    } catch (cacheErr) {
+        console.error(`[idleOutNudge] cycle-state cache-compute failed (non-blocking): ${cacheErr.message}`);
+    }
 
     // 5. Emit Shape B heartbeat pulse. Creates an ephemeral GraphLog entry tagged
     //    as `heartbeat_pulse`; bridge-daemon's resync() picks it up + dispatches
