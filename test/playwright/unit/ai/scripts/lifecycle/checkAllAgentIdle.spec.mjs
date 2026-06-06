@@ -19,8 +19,9 @@ import {execFileSync} from 'child_process';
 import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
-import {deriveAllAgentIdleCycleId} from '../../../../../../ai/scripts/lifecycle/checkAllAgentIdle.mjs';
+import {deriveAllAgentIdleCycleId, checkAllAgentIdle} from '../../../../../../ai/scripts/lifecycle/checkAllAgentIdle.mjs';
 import {resolveTargets}            from '../../../../../../ai/daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
+import AiConfig                    from '../../../../../../ai/config.mjs';
 
 /**
  * @summary Validation for the Phase 3 Substrate Primitive: All-Agent-Idle Detection.
@@ -188,6 +189,41 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         // The script's default set equals the resolver's active-local-team, and is NOT the old hardcoded trio.
         expect(parsed.identities).toEqual(expected);
         expect(parsed.identities).not.toEqual(['@neo-gemini-pro', '@neo-opus-ada', '@neo-gpt']);
+    });
+
+    test('honors a non-default IDLE_THRESHOLD_MS through the AiConfig leaf', async () => {
+        // Proves a non-default legacy IDLE_THRESHOLD_MS reaches the entrypoint via
+        // AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs — fails if the env name is misspelled
+        // or the entrypoint silently uses the 600000 default. Run in-process so the seeded memory is
+        // visible (the subprocess substrate path is bucket-C gated / skipped).
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.initAsync();
+
+        // Seed one active-local-team member with 5s-old memory; the rest have none (Infinity age → idle),
+        // so all-idle hinges solely on whether THIS member's 5s age clears the threshold.
+        const team = await resolveTargets({targetSource: 'active-local-team'});
+        expect(team.length).toBeGreaterThan(0);
+        const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
+        GraphService.db.storage.db.prepare(
+            `INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`
+        ).run('memory-threshold-probe', team[0], JSON.stringify({
+            id: 'memory-threshold-probe', label: 'AGENT_MEMORY', type: 'AGENT_MEMORY',
+            properties: {agentIdentity: team[0], timestamp: fiveSecondsAgo}
+        }));
+
+        // `setEnvOverride` takes the DECODED leaf type (a Number here, not the raw env string).
+        const originalThreshold = AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
+        try {
+            AiConfig.setEnvOverride('IDLE_THRESHOLD_MS', 1000);    // 5s > 1s → member idle → all idle
+            expect((await checkAllAgentIdle()).allIdle).toBe(true);
+
+            // Same memory, but the 10-min default makes the member active → not all-idle. This flip is
+            // impossible unless the entrypoint actually reads the non-default value via the leaf.
+            AiConfig.setEnvOverride('IDLE_THRESHOLD_MS', 600000);
+            expect((await checkAllAgentIdle()).allIdle).toBe(false);
+        } finally {
+            AiConfig.setEnvOverride('IDLE_THRESHOLD_MS', originalThreshold);
+        }
     });
 
     test('deriveAllAgentIdleCycleId is stable for the same observed all-idle state', () => {
