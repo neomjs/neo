@@ -24,6 +24,9 @@ import _GH_SyncService from './services/github-workflow/SyncService.mjs';
 
 GH_Config.data.syncOnStartup = false;
 
+// --- GitLab Workflow Services ---
+import _GL_IssueService from './services/gitlab-workflow/IssueService.mjs';
+
 // --- Knowledge Base Services ---
 import _KB_DatabaseService from './services/knowledge-base/DatabaseService.mjs';
 import _KB_LifecycleService from './services/knowledge-base/DatabaseLifecycleService.mjs';
@@ -184,6 +187,7 @@ const ghSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/github-workflow/op
 const kbSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));
 const memSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'));
 const nlSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'));
+const gitlabSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/gitlab-workflow/openapi.yaml'));
 
 // --- Apply Safety Wrappers ---
 
@@ -195,6 +199,9 @@ const GH_LocalFileService = makeSafe(_GH_LocalFileService, ghSpec);
 const GH_PullRequestService = makeSafe(_GH_PullRequestService, ghSpec);
 const GH_RepositoryService = makeSafe(_GH_RepositoryService, ghSpec);
 const GH_SyncService = makeSafe(_GH_SyncService, ghSpec);
+
+// GitLab
+const GL_IssueService = makeSafe(_GL_IssueService, gitlabSpec);
 
 // Knowledge Base
 const KB_DatabaseService = makeSafe(_KB_DatabaseService, kbSpec);
@@ -263,6 +270,9 @@ export {
     GH_PullRequestService,
     GH_RepositoryService,
     GH_SyncService,
+
+    // GitLab Workflow
+    GL_IssueService,
 
     // Knowledge Base
     KB_Config,
