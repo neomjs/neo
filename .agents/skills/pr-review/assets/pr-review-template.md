@@ -152,8 +152,9 @@ For every modified or added OpenAPI tool description:
 
 Expand these audits only when their trigger fires; otherwise omit them rather than rendering default N/A sections:
 
-- **🛂 Provenance Audit (§7.3):** PR introduces a major architectural abstraction or core subsystem.
+- **🛂 Provenance Audit:** PR introduces a major architectural abstraction or core subsystem.
 - **📜 Source-of-Authority Audit:** review cites operator or peer authority for a demand.
+- **🧠 Turn-Memory / Substrate-Load Audit:** PR modifies turn-loaded or skill-loaded memory substrate covered by `/turn-memory-pre-flight`; use the loading-runtime-effect audit in `pr-review-guide.md` if the PR body lacks the placement decision-tree + load-effect audit. For `learn/agentos/**`, fire only when the file is directly turn-loaded, skill-loaded, or ambiguous.
 - **🔌 Wire-Format Compatibility Audit:** PR alters JSON-RPC notification schemas, payload envelopes, native API wire formats, event payloads, tool signatures, or database schemas.
 
 ---
@@ -199,7 +200,7 @@ To proceed with merging, please address the following:
 
 No required actions — eligible for human merge.
 
-*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.7 anti-patterns table.*
+*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per the guide's Zero-Issue PR Semantics and anti-patterns table.*
 
 ---
 
