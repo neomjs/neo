@@ -110,32 +110,69 @@ class GapInferenceEngine extends Base {
         // INTERNAL MAPPING NOTE: The native SQLite items iterate over `Neo.ai.graph.NodeModel`
         // instances. To align with formal Graph Database taxonomy, the DTO `.type` property
         // is mapped to `.label` on Nodes (while Edges retain `.type`).
-        const testFilePaths = GraphService.db.nodes.items.filter(n =>
+        const testFileNodes = GraphService.db.nodes.items.filter(n =>
             n.label === 'FILE' && n.properties?.path?.startsWith('test/')
-        ).map(n => n.properties?.path || '').map(p => p.toLowerCase());
+        ).map(n => ({
+            id       : n.id,
+            path     : n.properties?.path || '',
+            pathLower: (n.properties?.path || '').toLowerCase()
+        }));
 
         for (const node of structuralNodes) {
             const isInternalConfigHook = node.type === 'METHOD' && /^(beforeGet|beforeSet|afterSet)[A-Z]/.test(node.name);
-            let testGap = null;
+            const dbNode = GraphService.db.nodes.get(node.id) || GraphService.db.nodes.get(node._resolvedId);
+
+            if (!dbNode) continue;
+
+            let testGap           = null;
+            let matchingTestFiles = [];
 
             if (!isInternalConfigHook) {
                 const nodeTokens = node.name.replace(/([A-Z])/g, ' $1').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 2);
                 if (nodeTokens.length === 0) nodeTokens.push(node.name.toLowerCase());
 
-                const hasTest = testFilePaths.some(p => nodeTokens.some(term => {
+                matchingTestFiles = testFileNodes.filter(({pathLower}) => nodeTokens.some(term => {
                     const regex = new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-                    return regex.test(p);
+                    return regex.test(pathLower);
                 }));
 
-                if (!hasTest) {
+                if (matchingTestFiles.length === 0) {
                     testGap = `[TEST_GAP] The ${node.type} '${node.name}' lacks corresponding automated validation suites (Playwright) covering its tokens within the test/ directory.`;
+                } else {
+                    this.linkTestEvidenceToStructuralNode(matchingTestFiles, dbNode, node);
                 }
             }
 
-            const dbNode = GraphService.db.nodes.get(node.id) || GraphService.db.nodes.get(node._resolvedId);
-            if (!dbNode) continue;
-
             this.applyGapsToNode(dbNode, testGap ? [testGap] : []);
+        }
+    }
+
+    /**
+     * @summary Links durable test-file evidence to a structural graph node.
+     *
+     * `FILE` nodes whose `properties.path` starts with `test/` are the canonical evidence node
+     * for this first relation contract. The edge metadata keeps downstream reward / gap-downgrade
+     * consumers from re-parsing `capabilityGap` strings once a matching test file exists.
+     * @param {Object[]} testFileNodes Matching test-file node descriptors
+     * @param {Object}   dbNode        SQLite-persisted structural graph node
+     * @param {Object}   sourceNode    Session-artifact structural node
+     * @protected
+     */
+    linkTestEvidenceToStructuralNode(testFileNodes, dbNode, sourceNode) {
+        const linkedIds = new Set();
+
+        for (const testFile of testFileNodes) {
+            if (!testFile.id || linkedIds.has(testFile.id)) continue;
+
+            linkedIds.add(testFile.id);
+
+            GraphService.linkNodes(testFile.id, dbNode.id, 'VALIDATES', 1.0, {
+                evidenceKind      : 'permanent-test-file',
+                evidencePath      : testFile.path,
+                inferredBy        : 'GapInferenceEngine.inferTestGapsFromSession',
+                validatedNodeName : sourceNode.name,
+                validatedNodeType : sourceNode.type
+            });
         }
     }
 
