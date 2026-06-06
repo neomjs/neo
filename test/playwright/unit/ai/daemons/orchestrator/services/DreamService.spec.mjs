@@ -21,6 +21,7 @@ import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
 import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
+import {captureAiConfigKeys} from '../../../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let GraphService;
@@ -35,6 +36,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let logger;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath; // Reassigned in beforeAll
+    let restoreAiConfig;
 
     let originalGenerate;
     let originalAppendFile;
@@ -53,6 +55,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = captureAiConfigKeys(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'handoffFilePath', 'remSleepBatchLimit']);
         aiConfig.storagePaths.graph = testDbPath;
         aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
@@ -157,6 +160,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // → take the `ready()` branch → never honor their own `aiConfig.storagePaths.graph`
         // → real `getContextFrontier()` returns null. Empirically traced via bisection.
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'destroy');
+
+        restoreAiConfig?.();
 
         if (KBRecorderService?.db) {
             KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs;');
