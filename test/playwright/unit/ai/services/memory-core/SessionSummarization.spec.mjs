@@ -25,6 +25,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import dotenv          from 'dotenv';
+import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -39,6 +40,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
     let SDK, TextEmbeddingService, dummySessionId;
     let localModelActive = false;
+    let restoreAiConfig;
 
     // We must use dynamic imports in Playwright tests inside beforeAll or the test body
     // because Neo globals are established during setup()
@@ -48,6 +50,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Load and mock config FIRST before starting any services
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        restoreAiConfig = captureAiConfigKeys(aiConfig, ['storagePaths.graph', 'collections']);
         const path = await import("path");
         const tmpDir = path.resolve(process.cwd(), "tmp");
         aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
@@ -106,6 +109,7 @@ test.describe('Memory Core Offline Summarization', () => {
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager(SDK);
+        restoreAiConfig?.();
         if (dummySessionId && localModelActive) {
             console.log(`[Cleanup] Deleted dummy Chroma collections for session ${dummySessionId}.`);
         }

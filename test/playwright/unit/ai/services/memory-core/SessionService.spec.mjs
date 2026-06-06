@@ -25,6 +25,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import dotenv          from 'dotenv';
+import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -34,6 +35,7 @@ test.describe('SessionService setSessionId', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
     let SDK, TextEmbeddingService, dummySessionId;
+    let restoreAiConfig;
 
     test.beforeAll(async () => {
         const os = await import('os');
@@ -42,6 +44,7 @@ test.describe('SessionService setSessionId', () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const path = await import("path");
         const tmpDir = path.resolve(process.cwd(), "tmp");
+        restoreAiConfig = captureAiConfigKeys(aiConfig, ['storagePaths.graph', 'collections']);
         aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
         
@@ -72,6 +75,7 @@ test.describe('SessionService setSessionId', () => {
     test.afterAll(async () => {
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager(SDK);
+        restoreAiConfig?.();
     });
 
     test.beforeEach(async () => {
