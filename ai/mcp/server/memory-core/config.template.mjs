@@ -1,9 +1,9 @@
 // Loads the Tier-1 realm root (Neo.ai.Config) so getParent() inheritance resolves in this process;
 // MC reads no AiConfig values directly — they resolve via the chain, not a binding.
 import '../../../config.template.mjs';
-import path                                  from 'path';
+import path                                      from 'path';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
-import {fileURLToPath}                       from 'url';
+import {fileURLToPath}                           from 'url';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
@@ -397,8 +397,8 @@ class Config extends ConfigProvider {
             // `collections.memory` / `collections.session` unchanged — the single resolution point.
             // Replaces the prior inline-`process.env` leaf ternaries.
             'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
-            'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest   : data.collections.memoryProd,
-            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest  : data.collections.sessionProd
+            'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
+            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd
         }
     }
 }
