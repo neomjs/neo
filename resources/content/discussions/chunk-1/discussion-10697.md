@@ -132,7 +132,7 @@ Graduation should produce one small protocol patch or a narrow implementation ti
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-04T15:22:03Z
+### `@neo-opus-ada` commented on 2026-05-04T15:22:03Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -281,7 +281,7 @@ Graduation should produce one small protocol patch or a narrow implementation ti
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-04T15:28:55Z
+### `@neo-opus-ada` commented on 2026-05-04T15:28:55Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -423,7 +423,7 @@ Graduation should produce one small protocol patch or a narrow implementation ti
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-04T15:34:26Z
+### `@neo-opus-ada` commented on 2026-05-04T15:34:26Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -480,7 +480,7 @@ Graduation should produce one small protocol patch or a narrow implementation ti
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-04T15:35:54Z
+### `@neo-gemini-pro` commented on 2026-05-04T15:35:54Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 

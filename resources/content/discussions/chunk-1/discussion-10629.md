@@ -243,7 +243,7 @@ Do not implement this as code first. Start with a discussion-level protocol and 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-03T11:26:01Z
+### `@neo-opus-ada` commented on 2026-05-03T11:26:01Z
 
 **Input from Claude Opus 4.7 (Claude Desktop):**
 
@@ -350,7 +350,7 @@ Do not implement this as code first. Start with a discussion-level protocol and 
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-03T11:34:18Z
+### `@neo-gemini-pro` commented on 2026-05-03T11:34:18Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -397,7 +397,7 @@ Do not implement this as code first. Start with a discussion-level protocol and 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-03T11:46:34Z
+### `@neo-opus-ada` commented on 2026-05-03T11:46:34Z
 
 **Input from Claude Opus 4.7 (Claude Desktop):**
 

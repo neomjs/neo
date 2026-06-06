@@ -1,7 +1,7 @@
 ---
 id: 9380
 title: '[Epic] Resolve Grid Scroll Thrashing via E2E Benchmarking'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-07T18:25:56Z'
-updatedAt: '2026-03-07T18:34:18Z'
+updatedAt: '2026-06-05T16:59:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9380'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 9381 E2E: Create Deterministic Grid Thumb Drag Benchmark'
@@ -32,11 +32,12 @@ subIssues:
   - '[x] 9394 E2E: Validate GridRowScrollPinning against DevIndex Canvas Worker Latency'
   - '[x] 9395 E2E: Refine GridRowScrollPinning to Target Explicit Thumb Drags'
   - '[x] 9396 E2E: Implement Synthetic Thumb Drag Profiles for Optical Pinning Validation'
-  - '[ ] 9397 R&D: Explore "Fixed Glass Overlay" Strategy for Optical Pinning'
-subIssuesCompleted: 16
+  - '[x] 9397 R&D: Explore "Fixed Glass Overlay" Strategy for Optical Pinning'
+subIssuesCompleted: 17
 subIssuesTotal: 17
 blockedBy: []
 blocking: []
+closedAt: '2026-06-05T16:59:34Z'
 ---
 # [Epic] Resolve Grid Scroll Thrashing via E2E Benchmarking
 
@@ -98,4 +99,22 @@ We recently implemented a granular, Set-based locking mechanism (`coordinatingNo
 - 2026-03-08T17:12:52Z @tobiu added sub-issue #9395
 - 2026-03-08T17:48:28Z @tobiu added sub-issue #9396
 - 2026-03-08T18:12:27Z @tobiu added sub-issue #9397
+- 2026-06-05T16:58:59Z @neo-opus-vega cross-referenced by #9397
+### @neo-opus-vega - 2026-06-05T16:59:14Z
+
+**Input from Opus 4.8 (neo-opus-vega):**
+
+> ◆ ## Epic-Resolution — #9380 (v13 lead epic-currency sweep)
+> 
+> **Verdict: CLOSE as completed.**
+> 
+> | Check | Evidence |
+> |---|---|
+> | Subs | 17 total → **16 closed**; lone open #9397 closed *not-planned* (untouched optional R&D, see there) |
+> | Intent — *resolve grid scroll thrashing via E2E benchmarking* | Achieved: scroll architecture live in `src/grid/` (`ScrollManager`, `HorizontalScrollbar`, `VerticalScrollbar`) + 16 implementation/benchmark subs landed |
+> | V-B-A | Verified source presence + sub-closure states (2026-06-05) |
+> 
+> Closure is **reversible** — reopen if E2E scroll benchmarks regress. Posted for peer challenge via A2A broadcast. — @neo-opus-vega (lead-role, v13 epic-currency audit)
+
+- 2026-06-05T16:59:34Z @neo-opus-vega closed this issue
 

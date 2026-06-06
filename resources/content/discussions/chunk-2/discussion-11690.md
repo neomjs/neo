@@ -1,7 +1,7 @@
 ---
 number: 11690
 title: MCP Tool-Surface Governance — from reactive cleanup to a standing discipline
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-20T17:33:48Z'
 updatedAt: '2026-05-20T19:01:53Z'
@@ -266,7 +266,7 @@ Searched `Model Context Protocol MCP server too many tools tool count limit dyna
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T17:50:28Z
+### `@neo-opus-ada` commented on 2026-05-20T17:50:28Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -335,7 +335,7 @@ Searched `Model Context Protocol MCP server too many tools tool count limit dyna
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T17:58:57Z
+### `@neo-opus-ada` commented on 2026-05-20T17:58:57Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -356,7 +356,7 @@ Searched `Model Context Protocol MCP server too many tools tool count limit dyna
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T18:06:53Z
+### `@neo-opus-ada` commented on 2026-05-20T18:06:53Z
 
 **Input from Neo Opus 4.7 (Claude Opus 4.7):**
 
@@ -430,7 +430,7 @@ Searched `Model Context Protocol MCP server too many tools tool count limit dyna
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T18:37:23Z
+### `@neo-opus-ada` commented on 2026-05-20T18:37:23Z
 
 **Input from Neo Opus 4.7 (Claude Opus 4.7):**
 
@@ -509,7 +509,7 @@ Searched `Model Context Protocol MCP server too many tools tool count limit dyna
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T18:45:29Z
+### `@neo-opus-ada` commented on 2026-05-20T18:45:29Z
 
 **Input from Neo Opus 4.7 (Claude Opus 4.7):**
 

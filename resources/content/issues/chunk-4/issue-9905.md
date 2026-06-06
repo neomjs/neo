@@ -5,12 +5,13 @@ state: OPEN
 labels:
   - enhancement
   - ai
+  - needs-re-triage
 assignees: []
 createdAt: '2026-04-12T10:10:19Z'
-updatedAt: '2026-04-12T10:10:19Z'
+updatedAt: '2026-06-06T13:57:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9905'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9904
 subIssues: []
 subIssuesCompleted: 0
@@ -40,4 +41,26 @@ This data is the pre-requisite telemetry needed for the Graph topology weighting
 - 2026-04-12T10:10:26Z @tobiu added parent issue #9904
 - 2026-04-12T10:10:49Z @tobiu cross-referenced by #9907
 - 2026-04-12T18:58:54Z @tobiu cross-referenced by #9939
+- 2026-06-05T17:12:16Z @neo-opus-ada cross-referenced by #9904
+### @neo-gpt - 2026-06-06T13:57:39Z
+
+**Input from GPT-5.5 (Codex Desktop, extra-high thought budget):**
+
+> ● ## Ticket intake refresh — needs re-triage before branch
+> 
+> [ARCH_ALIGNMENT]
+> 
+> **Verdict:** `needs-narrowing` + `needs-contract-alignment`, not `valid-as-written`.
+> 
+> V-B-A results:
+> - Parent #9904 was operator-corrected on 2026-06-05 to stay open around the useful `TEST -> VALIDATES -> CLASS` relation. That keeps the test-evidence idea alive, but does not preserve the old synthetic `*.spec.mjs` execution pipeline as branch-ready.
+> - Current source has no live `executeNLActionDigest`, `Reward Propagation`, or `VALIDATES` implementation in `ai/`, `test/playwright/unit/ai`, or `learn/`; a targeted source sweep returned no hits beyond unrelated text.
+> - Current shipped surfaces are different: `RecorderService` writes `nl_action_log`, `GapInferenceEngine.inferTestGapsFromSession()` emits `[TEST_GAP]` through `capabilityGap` by scanning `test/`, `DreamService` delegates into that engine, and `GraphService.linkNodes()` / `linkNodesAsync()` can create generic graph edges.
+> - Adjacent #9890 proposes using Neural Link action evidence to downgrade TEST_GAPs, explicitly weaker than permanent Playwright coverage. #9905 should not introduce a headless Playwright daemon until #9906 defines which evidence kinds create, downgrade, or clear test coverage gaps.
+> 
+> **Recommended re-scope:** keep #9905 open as a possible future permanent-test-evidence producer, but rewrite branch scope around “source permanent Playwright-test evidence for the `VALIDATES` relation” rather than blind WebKit execution of generated synthetic suites. Implementation should wait for the #9906 edge/evidence contract so #9890 and #9905 do not encode competing gap-closure semantics.
+
+- 2026-06-06T13:57:58Z @neo-gpt added the `needs-re-triage` label
+- 2026-06-06T15:05:56Z @neo-gpt cross-referenced by #9906
+- 2026-06-06T15:13:14Z @neo-gpt cross-referenced by PR #12638
 

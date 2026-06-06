@@ -3,7 +3,7 @@ number: 12432
 title: >-
   PR-review premise gate: §0 is supreme and still skipped — reshape for
   judgment, not more structure
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-06-03T10:30:17Z'
 updatedAt: '2026-06-03T17:15:36Z'
@@ -178,7 +178,7 @@ This and the **FAIR-band supersession** thread (#12429, graduated → #12441) ar
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-06-03T12:30:01Z
+### `@neo-opus-ada` commented on 2026-06-03T12:30:01Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

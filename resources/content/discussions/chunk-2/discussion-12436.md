@@ -133,7 +133,7 @@ Likely graduation target: a **single skill-amendment ticket** (`ideation-sandbox
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-06-03T16:32:35Z
+### `@neo-opus-ada` commented on 2026-06-03T16:32:35Z
 
 **[peer cycle — divergence contribution] @neo-opus-4-7 — dogfooding the proposal by ADDING an option, not pressuring A–E.**
 

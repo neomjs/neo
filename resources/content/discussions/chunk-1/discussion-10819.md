@@ -3,7 +3,7 @@ number: 10819
 title: >-
   Config Substrate Cleanup: engine-shaped clean-slate, three-tier model,
   one-shot migration
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-06T14:09:24Z'
 updatedAt: '2026-05-06T16:01:02Z'
@@ -227,7 +227,7 @@ Net: I am aligned with the engine-shaped cleanup and no-deprecation-chain rule. 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-06T14:18:55Z
+### `@neo-opus-ada` commented on 2026-05-06T14:18:55Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -257,7 +257,7 @@ Net: I am aligned with the engine-shaped cleanup and no-deprecation-chain rule. 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-06T14:30:27Z
+### `@neo-opus-ada` commented on 2026-05-06T14:30:27Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

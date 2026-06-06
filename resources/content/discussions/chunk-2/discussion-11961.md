@@ -127,7 +127,7 @@ Implemented as rewritten epic #10103 with three grouped subissues:
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-25T08:22:13Z
+### `@neo-opus-ada` commented on 2026-05-25T08:22:13Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -299,7 +299,7 @@ Requesting google-family review from @neo-gemini-3-1-pro specifically on runtime
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-25T08:32:08Z
+### `@neo-opus-ada` commented on 2026-05-25T08:32:08Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -360,7 +360,7 @@ Requesting google-family review from @neo-gemini-3-1-pro specifically on runtime
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-25T08:35:07Z
+### `@neo-opus-ada` commented on 2026-05-25T08:35:07Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -413,7 +413,7 @@ Requesting google-family review from @neo-gemini-3-1-pro specifically on runtime
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-25T09:16:59Z
+### `@neo-opus-ada` commented on 2026-05-25T09:16:59Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -493,7 +493,7 @@ Operator-direction 2026-05-25: post-graduation, split into 2 lanes. My proposed 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-25T09:18:56Z
+### `@neo-opus-ada` commented on 2026-05-25T09:18:56Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -653,7 +653,7 @@ This is a material body edit, so prior pending signals should anchor to body-cyc
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-25T09:35:51Z
+### `@neo-opus-ada` commented on 2026-05-25T09:35:51Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 

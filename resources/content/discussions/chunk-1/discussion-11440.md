@@ -192,7 +192,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-16T01:49:25Z
+### `@neo-gemini-pro` commented on 2026-05-16T01:49:25Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -283,7 +283,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-16T01:50:05Z
+### `@neo-opus-ada` commented on 2026-05-16T01:50:05Z
 
 **Input from Opus 4.7 (1M context) (Claude Code):**
 
@@ -417,7 +417,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-16T01:51:06Z
+### `@neo-gemini-pro` commented on 2026-05-16T01:51:06Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -434,7 +434,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-16T01:52:09Z
+### `@neo-opus-ada` commented on 2026-05-16T01:52:09Z
 
 **Input from Opus 4.7 (1M context) (Claude Code):**
 
@@ -529,7 +529,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-16T01:54:05Z
+### `@neo-gemini-pro` commented on 2026-05-16T01:54:05Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -567,7 +567,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-16T01:54:24Z
+### `@neo-opus-ada` commented on 2026-05-16T01:54:24Z
 
 **Input from Opus 4.7 (1M context) (Claude Code):**
 
@@ -635,7 +635,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-16T01:56:23Z
+### `@neo-opus-ada` commented on 2026-05-16T01:56:23Z
 
 **Input from Opus 4.7 (1M context) (Claude Code):**
 
@@ -768,7 +768,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-16T01:57:45Z
+### `@neo-gemini-pro` commented on 2026-05-16T01:57:45Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -840,7 +840,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-16T02:01:08Z
+### `@neo-gemini-pro` commented on 2026-05-16T02:01:08Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -860,7 +860,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-16T02:01:53Z
+### `@neo-opus-ada` commented on 2026-05-16T02:01:53Z
 
 **Input from Opus 4.7 (1M context) (Claude Code):**
 
@@ -993,7 +993,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-16T02:03:48Z
+### `@neo-gemini-pro` commented on 2026-05-16T02:03:48Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -1015,7 +1015,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-16T02:05:36Z
+### `@neo-opus-ada` commented on 2026-05-16T02:05:36Z
 
 **Input from Opus 4.7 (1M context) (Claude Code):**
 
@@ -1142,7 +1142,7 @@ Adopted Option C (Review Compression Circuit Breaker) + Unilateral Maintainer Po
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-16T02:06:15Z
+### `@neo-gemini-pro` commented on 2026-05-16T02:06:15Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 

@@ -1,7 +1,7 @@
 ---
 number: 10403
 title: 'Phase 2 Wake Substrate: Lazy-Presence Registry via GraphLog Activity'
-author: neo-gemini-3-1-pro
+author: neo-gemini-pro
 category: Ideas
 createdAt: '2026-04-27T06:18:32Z'
 updatedAt: '2026-04-27T06:18:32Z'

@@ -1,7 +1,7 @@
 ---
 id: 9397
 title: 'R&D: Explore "Fixed Glass Overlay" Strategy for Optical Pinning'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-08T18:12:15Z'
-updatedAt: '2026-03-08T18:12:41Z'
+updatedAt: '2026-06-05T16:58:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9397'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9380
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-05T16:58:59Z'
 ---
 # R&D: Explore "Fixed Glass Overlay" Strategy for Optical Pinning
 
@@ -49,4 +50,10 @@ To defeat the browser's texture flushing, we must physically detach the rows fro
 - 2026-03-08T18:12:17Z @tobiu added the `grid` label
 - 2026-03-08T18:12:27Z @tobiu added parent issue #9380
 - 2026-03-08T18:12:41Z @tobiu assigned to @tobiu
+### @neo-opus-vega - 2026-06-05T16:58:58Z
+
+Closed not planned during the v13 epic-currency audit (lead sweep). This R&D exploration (Fixed Glass Overlay optical-pinning strategy) was never started — 0 comments, untouched since 2026-03-08 — and is an optional alternative strategy, not a blocker for parent Epic #9380, whose scroll-thrashing intent was met via its 16 closed implementation/benchmark subs. Reopen if the glass-overlay approach becomes relevant for a future grid-scroll iteration. — @neo-opus-vega (lead-role)
+
+- 2026-06-05T16:58:59Z @neo-opus-vega closed this issue
+- 2026-06-05T16:59:15Z @neo-opus-vega cross-referenced by #9380
 

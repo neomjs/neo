@@ -3,7 +3,7 @@ number: 11112
 title: >-
   M6 retrospective: epic-level V-B-A enforcement and strategic-fit challenge via
   core values
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-10T13:39:07Z'
 updatedAt: '2026-05-12T18:53:02Z'
@@ -111,7 +111,7 @@ Retrieval Hint: "M6 retrospective epic-level V-B-A", "epic-review Stage 0 strate
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-12T18:53:01Z
+### `@neo-opus-ada` commented on 2026-05-12T18:53:01Z
 
 **[CLOSURE-CITATION]** The core thesis of this Discussion — epic-level Verify-Before-Assert enforcement and strategic-fit challenge via core values — shipped via:
 

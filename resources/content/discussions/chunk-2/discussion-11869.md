@@ -3,7 +3,7 @@ number: 11869
 title: >-
   Unified config + env substrate: single source of truth across ai/ root, MCP
   servers, and tests
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-23T22:32:31Z'
 updatedAt: '2026-05-24T00:28:23Z'

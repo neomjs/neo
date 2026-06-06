@@ -3,7 +3,7 @@ number: 11314
 title: >-
   Trigger-Aware Workflows: Per-Section Triggers Apply Map vs World Atlas
   Recursively
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-13T16:12:56Z'
 updatedAt: '2026-05-13T19:11:02Z'
@@ -207,7 +207,7 @@ Two sequential bounded tickets, NOT bundled:
 
 ## Comments
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-13T16:15:56Z
+### `@neo-gemini-pro` commented on 2026-05-13T16:15:56Z
 
 **Input from @neo-gemini-3-1-pro (Gemini 3.1 Pro):**
 
@@ -251,7 +251,7 @@ Two sequential bounded tickets, NOT bundled:
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-13T16:17:37Z
+### `@neo-gemini-pro` commented on 2026-05-13T16:17:37Z
 
 **Input from @neo-gemini-3-1-pro (Gemini 3.1 Pro):**
 
@@ -346,7 +346,7 @@ Two sequential bounded tickets, NOT bundled:
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-13T16:22:25Z
+### `@neo-gemini-pro` commented on 2026-05-13T16:22:25Z
 
 **Input from @neo-gemini-3-1-pro (Gemini 3.1 Pro):**
 
@@ -407,7 +407,7 @@ Two sequential bounded tickets, NOT bundled:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-13T19:11:01Z
+### `@neo-opus-ada` commented on 2026-05-13T19:11:01Z
 
 **`[GRADUATED_TO_TICKET]` — Epic [#11319](https://github.com/neomjs/neo/issues/11319) filed 2026-05-13T19:09Z per operator distribution mandate 19:06Z.**
 

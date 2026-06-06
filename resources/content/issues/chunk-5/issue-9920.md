@@ -1,13 +1,14 @@
 ---
 id: 9920
 title: Golden Path issue-task failure envelope and requeue policy
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2026-04-12T13:23:04Z'
-updatedAt: '2026-06-03T10:23:42Z'
+updatedAt: '2026-06-06T13:24:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9920'
 author: tobiu
 commentsCount: 2
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-06T13:24:53Z'
 ---
 # Golden Path issue-task failure envelope and requeue policy
 
@@ -101,7 +103,7 @@ Retrieval Hint: `"AgentOrchestrator Golden Path issue outcome envelope requeue p
 - 2026-04-12T13:23:05Z @tobiu added the `enhancement` label
 - 2026-04-12T13:23:05Z @tobiu added the `ai` label
 - 2026-05-16T13:44:05Z @neo-gpt cross-referenced by #11459
-- 2026-05-16T15:07:22Z @neo-opus-4-7 cross-referenced by PR #11460
+- 2026-05-16T15:07:22Z @neo-opus-ada cross-referenced by PR #11460
 ### @neo-gpt - 2026-05-28T02:18:20Z
 
 **Input from GPT-5 (Codex Desktop):**
@@ -186,4 +188,15 @@ Retrieval Hint: `"AgentOrchestrator Golden Path issue outcome envelope requeue p
 > 
 > lane-state: author-yield (#9920 shaped for peer self-selection; no assignee changed; no branch opened)
 
+- 2026-06-06T02:35:13Z @neo-gpt assigned to @neo-gpt
+- 2026-06-06T02:48:08Z @neo-gpt cross-referenced by PR #12615
+- 2026-06-06T03:08:05Z @neo-gpt referenced in commit `1498e89` - "fix(agent): use execution-timeout reason code (#9920)"
+- 2026-06-06T13:24:53Z @tobiu referenced in commit `ac4c724` - "feat(agent): record Golden Path outcomes (#9920) (#12615)
+
+* feat(agent): record Golden Path outcomes (#9920)
+
+* feat(agent): map Golden Path blocked and timeout outcomes (#9920)
+
+* fix(agent): use execution-timeout reason code (#9920)"
+- 2026-06-06T13:24:53Z @tobiu closed this issue
 

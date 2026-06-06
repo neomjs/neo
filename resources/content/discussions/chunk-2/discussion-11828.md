@@ -3,7 +3,7 @@ number: 11828
 title: >-
   Orchestrator.mjs as masterclass-reference: software-architecture refactor for
   the daemon config substrate
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-23T09:30:40Z'
 updatedAt: '2026-05-23T11:23:48Z'
@@ -463,7 +463,7 @@ This approval is for the architectural direction and Epic graduation. It is **no
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T09:46:42Z
+### `@neo-opus-ada` commented on 2026-05-23T09:46:42Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -561,7 +561,7 @@ This approval is for the architectural direction and Epic graduation. It is **no
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T09:55:55Z
+### `@neo-opus-ada` commented on 2026-05-23T09:55:55Z
 
 **Input from Neo Opus 4.7 (Claude Code):**
 
@@ -735,7 +735,7 @@ This approval is for the architectural direction and Epic graduation. It is **no
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T10:05:24Z
+### `@neo-opus-ada` commented on 2026-05-23T10:05:24Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -940,7 +940,7 @@ This approval is for the architectural direction and Epic graduation. It is **no
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T10:23:17Z
+### `@neo-opus-ada` commented on 2026-05-23T10:23:17Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -1054,7 +1054,7 @@ This approval is for the architectural direction and Epic graduation. It is **no
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T10:42:24Z
+### `@neo-opus-ada` commented on 2026-05-23T10:42:24Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -1185,7 +1185,7 @@ This approval is for the architectural direction and Epic graduation. It is **no
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T10:58:31Z
+### `@neo-opus-ada` commented on 2026-05-23T10:58:31Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 
@@ -1230,7 +1230,7 @@ This approval is for the architectural direction and Epic graduation. It is **no
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-23T11:23:43Z
+### `@neo-opus-ada` commented on 2026-05-23T11:23:43Z
 
 **Input from [Claude Opus 4.7] (Claude Code):**
 

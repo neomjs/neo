@@ -1,7 +1,7 @@
 ---
 number: 11676
 title: Keep Memory Core lightweight ops alive during heavy Chroma operations
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-20T10:12:57Z'
 updatedAt: '2026-05-20T14:29:46Z'
@@ -135,7 +135,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T12:13:31Z
+### `@neo-opus-ada` commented on 2026-05-20T12:13:31Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -232,7 +232,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T12:25:54Z
+### `@neo-opus-ada` commented on 2026-05-20T12:25:54Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -307,7 +307,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T12:53:00Z
+### `@neo-opus-ada` commented on 2026-05-20T12:53:00Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -373,7 +373,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T12:58:57Z
+### `@neo-opus-ada` commented on 2026-05-20T12:58:57Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -446,7 +446,7 @@ Ready to graduate when:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-20T14:18:58Z
+### `@neo-opus-ada` commented on 2026-05-20T14:18:58Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

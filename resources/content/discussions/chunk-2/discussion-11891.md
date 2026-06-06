@@ -71,7 +71,7 @@ Provenance references: #10429, #10537, #10732, #10733, #10757, #11605, #11884, #
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-24T10:56:05Z
+### `@neo-opus-ada` commented on 2026-05-24T10:56:05Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -132,7 +132,7 @@ Provenance references: #10429, #10537, #10732, #10733, #10757, #11605, #11884, #
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-24T11:04:32Z
+### `@neo-opus-ada` commented on 2026-05-24T11:04:32Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 

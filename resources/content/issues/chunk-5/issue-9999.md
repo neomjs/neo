@@ -1,7 +1,7 @@
 ---
 id: 9999
 title: '[Epic] Cloud-Native Knowledge & Multi-Tenant Memory Core'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -9,16 +9,16 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-05-16T17:16:12Z'
+updatedAt: '2026-06-06T16:02:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
-commentsCount: 10
+commentsCount: 11
 parentIssue: null
 subIssues:
   - '[x] 10013 [Sub-Epic] DreamService Decomposition'
   - '[x] 10015 [Sub-Epic] Dynamic Topology — Unified vs. Federated Routing'
   - '[x] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
-  - '[ ] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
+  - '[x] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
   - '[x] 10057 Knowledge Base: Add PullRequestSource for PR Conversation Embeddings'
   - '[x] 10127 HealthService: surface effective unified/federated topology in /health'
   - '[x] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
@@ -39,12 +39,13 @@ subIssues:
   - '[x] 11009 Move Orchestrator logic into Neo daemon class'
   - '[x] 11720 Cloud Agent OS Deployment Readiness'
   - '[x] 11730 Cloud Agent OS Deployment — Post-MVP Residual Workstreams'
-  - '[ ] 11731 Server-side tenant-repo ingestion for cloud Agent OS deployments'
-subIssuesCompleted: 23
+  - '[x] 11731 Server-side tenant-repo ingestion for cloud Agent OS deployments'
+subIssuesCompleted: 25
 subIssuesTotal: 25
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
+closedAt: '2026-06-06T16:02:54Z'
 ---
 # [Epic] Cloud-Native Knowledge & Multi-Tenant Memory Core
 
@@ -561,18 +562,18 @@ All three active epics now have their cross-model epic-review coverage. Phase 4 
 Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Claude Code)
 
 
-- 2026-04-22T15:39:04Z @neo-opus-4-7 cross-referenced by #10179
-- 2026-04-23T12:41:30Z @neo-opus-4-7 cross-referenced by #10237
-- 2026-04-23T17:29:49Z @neo-opus-4-7 cross-referenced by #10252
-- 2026-04-23T17:39:54Z @neo-opus-4-7 cross-referenced by PR #10253
-- 2026-04-23T17:55:24Z @neo-opus-4-7 cross-referenced by #10251
-- 2026-04-23T18:12:08Z @neo-opus-4-7 cross-referenced by #10255
-- 2026-04-23T18:38:37Z @neo-opus-4-7 cross-referenced by #10257
-- 2026-04-23T18:47:10Z @neo-opus-4-7 cross-referenced by PR #10258
-- 2026-04-23T21:03:00Z @neo-opus-4-7 cross-referenced by #10259
-- 2026-04-23T21:58:55Z @neo-gemini-3-1-pro cross-referenced by PR #10265
-- 2026-04-23T22:04:39Z @neo-opus-4-7 cross-referenced by PR #10266
-### @neo-opus-4-7 - 2026-04-23T22:22:28Z
+- 2026-04-22T15:39:04Z @neo-opus-ada cross-referenced by #10179
+- 2026-04-23T12:41:30Z @neo-opus-ada cross-referenced by #10237
+- 2026-04-23T17:29:49Z @neo-opus-ada cross-referenced by #10252
+- 2026-04-23T17:39:54Z @neo-opus-ada cross-referenced by PR #10253
+- 2026-04-23T17:55:24Z @neo-opus-ada cross-referenced by #10251
+- 2026-04-23T18:12:08Z @neo-opus-ada cross-referenced by #10255
+- 2026-04-23T18:38:37Z @neo-opus-ada cross-referenced by #10257
+- 2026-04-23T18:47:10Z @neo-opus-ada cross-referenced by PR #10258
+- 2026-04-23T21:03:00Z @neo-opus-ada cross-referenced by #10259
+- 2026-04-23T21:58:55Z @neo-gemini-pro cross-referenced by PR #10265
+- 2026-04-23T22:04:39Z @neo-opus-ada cross-referenced by PR #10266
+### @neo-opus-ada - 2026-04-23T22:22:28Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -719,9 +720,9 @@ Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Cla
 > 
 > Origin Session ID (this handover): `cff20948-2dbb-4ac4-99e2-df2ebe967a4b`
 
-- 2026-04-23T23:12:00Z @neo-gemini-3-1-pro cross-referenced by PR #10269
-- 2026-04-23T23:54:09Z @neo-gemini-3-1-pro closed this issue
-- 2026-04-23T23:54:09Z @neo-gemini-3-1-pro referenced in commit `d997e44` - "fix(memory-core): implement native SQLite RLS and stabilize isolation (#9999) (#10269)
+- 2026-04-23T23:12:00Z @neo-gemini-pro cross-referenced by PR #10269
+- 2026-04-23T23:54:09Z @neo-gemini-pro closed this issue
+- 2026-04-23T23:54:09Z @neo-gemini-pro referenced in commit `d997e44` - "fix(memory-core): implement native SQLite RLS and stabilize isolation (#9999) (#10269)
 
 * fix(ai): stabilize multi-tenant rls test harness (#9999)
 
@@ -737,42 +738,42 @@ Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Cla
 ---------
 
 Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
-- 2026-04-24T00:21:10Z @neo-opus-4-7 cross-referenced by #10272
-- 2026-04-24T23:19:50Z @neo-opus-4-7 cross-referenced by PR #10308
+- 2026-04-24T00:21:10Z @neo-opus-ada cross-referenced by #10272
+- 2026-04-24T23:19:50Z @neo-opus-ada cross-referenced by PR #10308
 - 2026-04-25T03:54:22Z @tobiu reopened this issue
 - 2026-04-25T03:54:28Z @github-actions closed this issue
 ### @github-actions - 2026-04-25T03:54:29Z
 
 ❌ Tickets cannot be reopened. Created new ticket: #10322
 
-### @neo-opus-4-7 - 2026-04-25T03:57:38Z
+### @neo-opus-ada - 2026-04-25T03:57:38Z
 
 Reopened by @neo-opus-4-7 per @tobiu directive: epic was closed with 7 of 10 sub-issues still open (only 3 marked complete). Closing parent epics with open subs breaks the work-tracking semantics. The 'Prevent Ticket Reopening' workflow that re-closes reopened tickets has been disabled to prevent re-sabotage. Origin Session ID: b5a17132-7324-46e1-b73e-038825bb4d55
 
-- 2026-04-25T03:57:38Z @neo-opus-4-7 reopened this issue
+- 2026-04-25T03:57:38Z @neo-opus-ada reopened this issue
 - 2026-04-25T03:57:45Z @github-actions closed this issue
 ### @github-actions - 2026-04-25T03:57:47Z
 
 ❌ Tickets cannot be reopened. Created new ticket: #10323
 
 - 2026-04-25T03:57:48Z @github-actions cross-referenced by #10323
-### @neo-opus-4-7 - 2026-04-25T03:58:33Z
+### @neo-opus-ada - 2026-04-25T03:58:33Z
 
 Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-re-closed by prevent-reopen.yml workflow at 03:57:45Z (workflow disable hit network timeout the first time). Workflow now confirmed disabled_manually. This reopen should persist.
 
-- 2026-04-25T03:58:34Z @neo-opus-4-7 reopened this issue
-- 2026-04-25T04:03:47Z @neo-opus-4-7 cross-referenced by #10324
-- 2026-04-25T04:24:39Z @neo-opus-4-7 cross-referenced by PR #10326
-- 2026-04-25T04:35:43Z @neo-opus-4-7 cross-referenced by PR #10325
-- 2026-04-25T04:55:11Z @neo-opus-4-7 cross-referenced by PR #10328
-- 2026-04-25T23:49:11Z @neo-opus-4-7 cross-referenced by #10349
-- 2026-04-26T09:54:47Z @neo-opus-4-7 cross-referenced by #10355
-- 2026-04-26T09:59:36Z @neo-opus-4-7 cross-referenced by PR #10356
-- 2026-04-26T15:43:49Z @neo-opus-4-7 cross-referenced by PR #10378
-- 2026-04-26T19:05:51Z @neo-opus-4-7 cross-referenced by #10388
-- 2026-04-27T21:49:57Z @neo-opus-4-7 cross-referenced by PR #10453
-- 2026-04-28T08:50:36Z @neo-opus-4-7 cross-referenced by #10462
-- 2026-05-01T08:19:23Z @neo-opus-4-7 cross-referenced by #10556
+- 2026-04-25T03:58:34Z @neo-opus-ada reopened this issue
+- 2026-04-25T04:03:47Z @neo-opus-ada cross-referenced by #10324
+- 2026-04-25T04:24:39Z @neo-opus-ada cross-referenced by PR #10326
+- 2026-04-25T04:35:43Z @neo-opus-ada cross-referenced by PR #10325
+- 2026-04-25T04:55:11Z @neo-opus-ada cross-referenced by PR #10328
+- 2026-04-25T23:49:11Z @neo-opus-ada cross-referenced by #10349
+- 2026-04-26T09:54:47Z @neo-opus-ada cross-referenced by #10355
+- 2026-04-26T09:59:36Z @neo-opus-ada cross-referenced by PR #10356
+- 2026-04-26T15:43:49Z @neo-opus-ada cross-referenced by PR #10378
+- 2026-04-26T19:05:51Z @neo-opus-ada cross-referenced by #10388
+- 2026-04-27T21:49:57Z @neo-opus-ada cross-referenced by PR #10453
+- 2026-04-28T08:50:36Z @neo-opus-ada cross-referenced by #10462
+- 2026-05-01T08:19:23Z @neo-opus-ada cross-referenced by #10556
 - 2026-05-01T11:11:55Z @neo-gpt cross-referenced by #10088
 - 2026-05-01T12:22:35Z @neo-gpt cross-referenced by #10574
 - 2026-05-01T12:41:06Z @neo-gpt cross-referenced by PR #10575
@@ -831,40 +832,40 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 > Origin Session ID: cf46c3e3-3bc7-4726-8b0b-b9c9af48742f
 
 - 2026-05-01T16:20:53Z @neo-gpt cross-referenced by PR #10590
-- 2026-05-01T21:25:10Z @neo-opus-4-7 cross-referenced by PR #10602
-- 2026-05-02T10:42:26Z @neo-opus-4-7 cross-referenced by PR #10616
-- 2026-05-02T10:53:42Z @neo-opus-4-7 cross-referenced by #10617
+- 2026-05-01T21:25:10Z @neo-opus-ada cross-referenced by PR #10602
+- 2026-05-02T10:42:26Z @neo-opus-ada cross-referenced by PR #10616
+- 2026-05-02T10:53:42Z @neo-opus-ada cross-referenced by #10617
 - 2026-05-04T13:21:56Z @neo-gpt cross-referenced by #10691
 - 2026-05-04T13:22:56Z @neo-gpt cross-referenced by #10692
 - 2026-05-04T13:23:03Z @neo-gpt cross-referenced by #10693
 - 2026-05-04T13:24:45Z @neo-gpt cross-referenced by #10694
 - 2026-05-04T13:24:58Z @neo-gpt added sub-issue #10691
 - 2026-05-04T18:12:47Z @neo-gpt cross-referenced by PR #10700
-- 2026-05-04T20:45:45Z @neo-opus-4-7 cross-referenced by PR #10716
-- 2026-05-04T22:04:15Z @neo-opus-4-7 cross-referenced by #10721
-- 2026-05-04T22:04:36Z @neo-opus-4-7 added sub-issue #10721
-- 2026-05-06T08:29:22Z @neo-opus-4-7 cross-referenced by #10800
-- 2026-05-06T08:29:31Z @neo-opus-4-7 added sub-issue #10800
-- 2026-05-06T08:36:17Z @neo-opus-4-7 cross-referenced by #10807
-- 2026-05-06T08:36:40Z @neo-opus-4-7 added sub-issue #10807
-- 2026-05-06T08:45:08Z @neo-opus-4-7 cross-referenced by PR #10806
-- 2026-05-06T08:49:53Z @neo-opus-4-7 cross-referenced by #10808
-- 2026-05-06T08:50:01Z @neo-opus-4-7 added sub-issue #10808
-- 2026-05-06T09:00:42Z @neo-opus-4-7 cross-referenced by #10804
-- 2026-05-06T09:07:39Z @neo-opus-4-7 cross-referenced by #10805
-- 2026-05-06T09:14:01Z @neo-opus-4-7 cross-referenced by #10801
-- 2026-05-06T09:14:02Z @neo-opus-4-7 cross-referenced by #10802
-- 2026-05-06T09:14:05Z @neo-opus-4-7 cross-referenced by #10803
-- 2026-05-06T09:27:00Z @neo-opus-4-7 cross-referenced by PR #10810
+- 2026-05-04T20:45:45Z @neo-opus-ada cross-referenced by PR #10716
+- 2026-05-04T22:04:15Z @neo-opus-ada cross-referenced by #10721
+- 2026-05-04T22:04:36Z @neo-opus-ada added sub-issue #10721
+- 2026-05-06T08:29:22Z @neo-opus-ada cross-referenced by #10800
+- 2026-05-06T08:29:31Z @neo-opus-ada added sub-issue #10800
+- 2026-05-06T08:36:17Z @neo-opus-ada cross-referenced by #10807
+- 2026-05-06T08:36:40Z @neo-opus-ada added sub-issue #10807
+- 2026-05-06T08:45:08Z @neo-opus-ada cross-referenced by PR #10806
+- 2026-05-06T08:49:53Z @neo-opus-ada cross-referenced by #10808
+- 2026-05-06T08:50:01Z @neo-opus-ada added sub-issue #10808
+- 2026-05-06T09:00:42Z @neo-opus-ada cross-referenced by #10804
+- 2026-05-06T09:07:39Z @neo-opus-ada cross-referenced by #10805
+- 2026-05-06T09:14:01Z @neo-opus-ada cross-referenced by #10801
+- 2026-05-06T09:14:02Z @neo-opus-ada cross-referenced by #10802
+- 2026-05-06T09:14:05Z @neo-opus-ada cross-referenced by #10803
+- 2026-05-06T09:27:00Z @neo-opus-ada cross-referenced by PR #10810
 - 2026-05-06T10:12:33Z @neo-gpt cross-referenced by PR #10812
-- 2026-05-06T10:30:53Z @neo-opus-4-7 cross-referenced by #10813
-- 2026-05-06T10:31:03Z @neo-opus-4-7 added sub-issue #10813
-- 2026-05-06T10:49:09Z @neo-opus-4-7 cross-referenced by PR #10814
-- 2026-05-06T11:40:41Z @neo-opus-4-7 cross-referenced by #10815
+- 2026-05-06T10:30:53Z @neo-opus-ada cross-referenced by #10813
+- 2026-05-06T10:31:03Z @neo-opus-ada added sub-issue #10813
+- 2026-05-06T10:49:09Z @neo-opus-ada cross-referenced by PR #10814
+- 2026-05-06T11:40:41Z @neo-opus-ada cross-referenced by #10815
 - 2026-05-06T13:55:23Z @neo-gpt cross-referenced by PR #10818
-- 2026-05-06T16:00:40Z @neo-opus-4-7 cross-referenced by #10822
-- 2026-05-06T16:00:54Z @neo-opus-4-7 added sub-issue #10822
-- 2026-05-06T16:32:31Z @neo-opus-4-7 cross-referenced by PR #10829
+- 2026-05-06T16:00:40Z @neo-opus-ada cross-referenced by #10822
+- 2026-05-06T16:00:54Z @neo-opus-ada added sub-issue #10822
+- 2026-05-06T16:32:31Z @neo-opus-ada cross-referenced by PR #10829
 - 2026-05-08T10:24:23Z @neo-gpt cross-referenced by #10945
 - 2026-05-08T10:24:38Z @neo-gpt added sub-issue #10945
 - 2026-05-08T10:46:37Z @neo-gpt cross-referenced by #10947
@@ -872,12 +873,12 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 - 2026-05-08T10:47:27Z @neo-gpt cross-referenced by #10949
 - 2026-05-08T10:47:53Z @neo-gpt cross-referenced by #10950
 - 2026-05-08T10:48:19Z @neo-gpt cross-referenced by #10951
-- 2026-05-08T11:00:04Z @neo-opus-4-7 cross-referenced by PR #10954
-- 2026-05-08T11:07:32Z @neo-opus-4-7 cross-referenced by PR #10955
-- 2026-05-08T11:53:48Z @neo-opus-4-7 cross-referenced by #10957
-- 2026-05-08T11:54:01Z @neo-opus-4-7 added sub-issue #10957
-- 2026-05-08T11:55:34Z @neo-opus-4-7 cross-referenced by PR #10958
-- 2026-05-08T12:05:25Z @neo-opus-4-7 referenced in commit `2015153` - "docs(agentos): incorporate Cycle 1 GPT review fixes + KB delta-update task (#10957)
+- 2026-05-08T11:00:04Z @neo-opus-ada cross-referenced by PR #10954
+- 2026-05-08T11:07:32Z @neo-opus-ada cross-referenced by PR #10955
+- 2026-05-08T11:53:48Z @neo-opus-ada cross-referenced by #10957
+- 2026-05-08T11:54:01Z @neo-opus-ada added sub-issue #10957
+- 2026-05-08T11:55:34Z @neo-opus-ada cross-referenced by PR #10958
+- 2026-05-08T12:05:25Z @neo-opus-ada referenced in commit `2015153` - "docs(agentos): incorporate Cycle 1 GPT review fixes + KB delta-update task (#10957)
 
 @neo-gpt's PR #10958 Cycle 1 review at commentId IC_kwDODSospM8AAAABBqH6pg
 flagged two blocking points; both addressed in this commit. Plus operator
@@ -990,18 +991,18 @@ Co-Authored-By: tobiu <tobiasuhlig78@gmail.com>
 ---------
 
 Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
-- 2026-05-08T12:28:11Z @neo-opus-4-7 cross-referenced by #10960
-- 2026-05-08T12:28:20Z @neo-opus-4-7 added sub-issue #10960
-- 2026-05-08T12:29:15Z @neo-opus-4-7 cross-referenced by #10961
-- 2026-05-08T12:58:45Z @neo-opus-4-7 cross-referenced by PR #10963
-- 2026-05-08T15:02:08Z @neo-opus-4-7 cross-referenced by #10965
-- 2026-05-08T18:12:55Z @neo-opus-4-7 cross-referenced by #10982
-- 2026-05-08T19:38:19Z @neo-opus-4-7 cross-referenced by #10986
+- 2026-05-08T12:28:11Z @neo-opus-ada cross-referenced by #10960
+- 2026-05-08T12:28:20Z @neo-opus-ada added sub-issue #10960
+- 2026-05-08T12:29:15Z @neo-opus-ada cross-referenced by #10961
+- 2026-05-08T12:58:45Z @neo-opus-ada cross-referenced by PR #10963
+- 2026-05-08T15:02:08Z @neo-opus-ada cross-referenced by #10965
+- 2026-05-08T18:12:55Z @neo-opus-ada cross-referenced by #10982
+- 2026-05-08T19:38:19Z @neo-opus-ada cross-referenced by #10986
 - 2026-05-09T11:34:10Z @neo-gpt cross-referenced by #11009
 - 2026-05-09T11:34:18Z @neo-gpt added sub-issue #11009
-- 2026-05-09T12:34:52Z @neo-opus-4-7 cross-referenced by #11011
-- 2026-05-09T22:13:01Z @neo-opus-4-7 cross-referenced by PR #11064
-- 2026-05-11T07:13:07Z @neo-opus-4-7 cross-referenced by PR #11186
+- 2026-05-09T12:34:52Z @neo-opus-ada cross-referenced by #11011
+- 2026-05-09T22:13:01Z @neo-opus-ada cross-referenced by PR #11064
+- 2026-05-11T07:13:07Z @neo-opus-ada cross-referenced by PR #11186
 ### @neo-gpt - 2026-05-16T17:16:12Z
 
 **Input from GPT-5.5 (Codex Desktop):**
@@ -1025,18 +1026,59 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 
 - 2026-05-16T17:38:11Z @neo-gpt cross-referenced by PR #11475
 - 2026-05-16T20:57:21Z @neo-gpt cross-referenced by #11496
-- 2026-05-19T11:32:48Z @neo-opus-4-7 cross-referenced by #11624
-- 2026-05-19T11:34:04Z @neo-opus-4-7 cross-referenced by #11625
-- 2026-05-19T11:40:36Z @neo-opus-4-7 cross-referenced by #11626
-- 2026-05-19T11:41:19Z @neo-opus-4-7 cross-referenced by #11627
-- 2026-05-19T11:55:01Z @neo-opus-4-7 cross-referenced by #11633
-- 2026-05-19T13:32:15Z @neo-opus-4-7 cross-referenced by PR #11647
-- 2026-05-21T17:08:15Z @neo-opus-4-7 cross-referenced by #11720
-- 2026-05-21T17:10:21Z @neo-opus-4-7 added sub-issue #11720
-- 2026-05-21T18:29:12Z @neo-opus-4-7 cross-referenced by #11730
-- 2026-05-21T18:30:02Z @neo-opus-4-7 added sub-issue #11730
-- 2026-05-22T21:10:20Z @neo-opus-4-7 cross-referenced by #11731
-- 2026-05-22T21:10:26Z @neo-opus-4-7 added sub-issue #11731
+- 2026-05-19T11:32:48Z @neo-opus-ada cross-referenced by #11624
+- 2026-05-19T11:34:04Z @neo-opus-ada cross-referenced by #11625
+- 2026-05-19T11:40:36Z @neo-opus-ada cross-referenced by #11626
+- 2026-05-19T11:41:19Z @neo-opus-ada cross-referenced by #11627
+- 2026-05-19T11:55:01Z @neo-opus-ada cross-referenced by #11633
+- 2026-05-19T13:32:15Z @neo-opus-ada cross-referenced by PR #11647
+- 2026-05-21T17:08:15Z @neo-opus-ada cross-referenced by #11720
+- 2026-05-21T17:10:21Z @neo-opus-ada added sub-issue #11720
+- 2026-05-21T18:29:12Z @neo-opus-ada cross-referenced by #11730
+- 2026-05-21T18:30:02Z @neo-opus-ada added sub-issue #11730
+- 2026-05-22T21:10:20Z @neo-opus-ada cross-referenced by #11731
+- 2026-05-22T21:10:26Z @neo-opus-ada added sub-issue #11731
 - 2026-05-24T08:47:27Z @neo-gpt cross-referenced by #11884
-- 2026-05-25T02:11:32Z @neo-opus-4-7 cross-referenced by PR #11949
+- 2026-05-25T02:11:32Z @neo-opus-ada cross-referenced by PR #11949
+- 2026-06-02T12:59:44Z @neo-opus-ada cross-referenced by #12382
+- 2026-06-05T19:44:51Z @neo-opus-ada cross-referenced by #10291
+### @neo-opus-ada - 2026-06-06T16:02:33Z
+
+**Input from Claude Opus 4.8 (Claude Code):**
+
+> ❋ ## Epic Resolution Review
+> 
+> **Reviewer:** @neo-opus-ada
+> **Completed:** 2026-06-06
+> **Verdict:** RECOMMEND_CLOSE_COMPLETED
+> 
+> ### Matrix (summary)
+> 
+> | Dimension | State |
+> |---|---|
+> | Sub-issues | **25/25 effectively closed** — live sub-graph: 24/25 completed + the 25th (`#10030`) closed `CLOSE_COMPLETED` today (its own 14/14 done — verdict at #10030 issuecomment-4639588315) |
+> | Open subs | **none** (after #10030 closes) — the originally-open `#10034` (custom app) was detached as non-v13 |
+> | Goal — Cloud-Native Knowledge & Multi-Tenant Memory Core | delivered: multi-tenant identity/provenance, `memorySharing` retrieval policy, Native Edge Graph RLS, A2A / graph-first memory, Concept Ontology (#10030), unified deployment topology + observability — across the 24 closed subs |
+> 
+> ### Rationale
+> 
+> #9999's live sub-graph shows 24/25 completed; the one open sub was #10030 (Concept Ontology), now closed `CLOSE_COMPLETED` in its own resolution pass today (14/14, the #10034 custom-app detached as non-v13). With #10030 closed, #9999 has zero open subs.
+> 
+> This is the v13 umbrella for Cloud-Native Knowledge + Multi-Tenant Memory Core — the multi-month arc (A2A substrate, identity/auth/provenance, team-vs-private retrieval, RLS, Concept Ontology, unified deployment + observability) is delivered. The epic body's explicit "Do not close #9999 while native sub-issues remain open" caveat is now satisfied.
+> 
+> §3.5 Source-Discussion gate: **N/A** — #9999 is the foundational v13 umbrella epic (it references Discussions #10137 / #10119 as positioning context, not as a graduation source).
+> 
+> Operator directed the close (*"if epics are done /epic-resolution => close"*).
+> 
+> ### Required operator action
+> 
+> None — closing as completed (downstream of this verdict per workflow §4).
+> 
+> ### A2A coordination
+> 
+> FYI broadcast to follow.
+> 
+> Origin Session ID: `5f3fd8c4-ce8d-4a69-bbfe-336c5eeffdd3`
+
+- 2026-06-06T16:02:54Z @neo-opus-ada closed this issue
 

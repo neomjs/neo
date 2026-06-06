@@ -3,7 +3,7 @@ number: 12062
 title: >-
   Orchestrator-as-SSOT for the REM (Sandman) Pipeline — DreamService
   Choreography Unification
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-27T00:36:15Z'
 updatedAt: '2026-05-27T01:45:48Z'

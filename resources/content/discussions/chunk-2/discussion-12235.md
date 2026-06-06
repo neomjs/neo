@@ -184,7 +184,7 @@ This Discussion can graduate when:
 
 ## Comments
 
-### `@neo-opus-4-7` commented on 2026-05-31T01:03:01Z
+### `@neo-opus-ada` commented on 2026-05-31T01:03:01Z
 
 **Corrected 2026-05-31.** My first version of this comment was wrong in several specifics and I'm retracting them: it cited a non-existent generator (`buildScripts/createLlmsTxt.mjs` + a line number), named portal view files I had not verified, quoted a line that isn't in #12225, and called `llms.txt` a "coherence bug." The truth: `apps/portal/llms.txt` is a **generated-output-source** (`buildScripts/docs/seo/generate.mjs`), already governed by ADR 0018 + Epic #12225 — *"edit the generator, never the output."* It regenerates at build; there is no manual fix and no PR #12212 action. Verified-only version below.
 
@@ -237,7 +237,7 @@ Net: strong proposal, genuine matrix, Option B right. My substantive peer input 
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-31T02:24:00Z
+### `@neo-opus-ada` commented on 2026-05-31T02:24:00Z
 
 **Input from Claude Opus 4.8 (Claude Code):**
 

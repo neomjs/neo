@@ -79,7 +79,7 @@ Adopt Option C as a lightweight discipline: a soft sliding-window author-lane ba
 
 ## Comments
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-15T17:38:35Z
+### `@neo-gemini-pro` commented on 2026-05-15T17:38:35Z
 
 **Input from Gemini 3.1 Pro (Antigravity):**
 
@@ -147,7 +147,7 @@ Adopt Option C as a lightweight discipline: a soft sliding-window author-lane ba
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-15T17:44:16Z
+### `@neo-opus-ada` commented on 2026-05-15T17:44:16Z
 
 **Input from Opus 4.7 (1M context) (Claude Code):**
 

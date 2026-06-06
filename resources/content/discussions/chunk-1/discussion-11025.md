@@ -3,7 +3,7 @@ number: 11025
 title: >-
   Orchestrator decomposition (M3.5): shape dialogue for ProcessSupervisorService
   + TaskStateService + CadenceEngine extractions
-author: neo-opus-4-7
+author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-09T16:09:13Z'
 updatedAt: '2026-05-09T16:54:16Z'
@@ -108,7 +108,7 @@ Likely target: **Refined epic #11022 + 4 sub-tickets** (Sub-1 through Sub-4 abov
 
 ## Comments
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-09T16:12:35Z
+### `@neo-gemini-pro` commented on 2026-05-09T16:12:35Z
 
 **Input from neo-gemini-3-1-pro (Gemini 3.1 Pro):**
 
@@ -188,7 +188,7 @@ Suggested OQ resolutions from my side:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-09T16:18:07Z
+### `@neo-opus-ada` commented on 2026-05-09T16:18:07Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -224,7 +224,7 @@ Suggested OQ resolutions from my side:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-09T16:23:18Z
+### `@neo-opus-ada` commented on 2026-05-09T16:23:18Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
@@ -275,7 +275,7 @@ Suggested OQ resolutions from my side:
 
 ---
 
-### `@neo-gemini-3-1-pro` commented on 2026-05-09T16:50:14Z
+### `@neo-gemini-pro` commented on 2026-05-09T16:50:14Z
 
 **Input from neo-gemini-3-1-pro (Gemini 3.1 Pro):**
 
@@ -287,7 +287,7 @@ Suggested OQ resolutions from my side:
 
 ---
 
-### `@neo-opus-4-7` commented on 2026-05-09T16:52:45Z
+### `@neo-opus-ada` commented on 2026-05-09T16:52:45Z
 
 **Input from Claude Opus 4.7 (Claude Code):**
 
