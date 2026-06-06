@@ -1,11 +1,15 @@
-import Base from '../../../src/core/Base.mjs';
+import Base          from '../../../src/core/Base.mjs';
+import GitLabClient  from './GitLabClient.mjs';
+import aiConfig      from '../../mcp/server/gitlab-workflow/config.mjs';
+import {LIST_ISSUES} from './queries/issueQueries.mjs';
 
 /**
- * @summary Scaffold issue-tool service for GitLab Workflow MCP.
+ * @summary Issue-tool service for the GitLab Workflow MCP server.
  *
- * Registers the #11768 issue operations with truthful scaffold responses. Real
- * GitLab API calls are intentionally deferred to the GitLabClient subtask so this
- * lane can establish the MCP contract without fabricating persistence behavior.
+ * `listIssues` is implemented against the GitLab GraphQL API via `GitLabClient`; the remaining
+ * issue mutations (create / comment / labels / assignees) are still truthful scaffold responses
+ * pending follow-up subtasks. Argument validation lives at the OpenAPI/Zod `makeSafe` boundary
+ * in `ai/services.mjs`, not inside these methods.
  *
  * @class Neo.ai.services.gitlab-workflow.IssueService
  * @extends Neo.core.Base
@@ -42,15 +46,37 @@ class IssueService extends Base {
     }
 
     /**
-     * @summary Lists GitLab issues once the GitLabClient subtask is implemented.
+     * @summary Lists the configured GitLab project's issues via the GitLab GraphQL API.
      * @param {Object} [options={}]
-     * @returns {Promise<Object>}
+     * @param {Number} [options.limit=30]
+     * @param {String} [options.state='opened'] One of `opened` / `closed` / `all`.
+     * @param {String} [options.labels] Comma-separated label names to filter by.
+     * @param {String} [options.assignee] A single GitLab username to filter by.
+     * @returns {Promise<Object>} `{items, count}`.
      */
-    async listIssues(options = {}) {
+    async listIssues({limit=30, state='opened', labels=null, assignee=null} = {}) {
+        const data = await GitLabClient.query(LIST_ISSUES, {
+            fullPath         : aiConfig.gitlab.projectPath,
+            state,
+            first            : limit,
+            labelName        : labels ? labels.split(',').map(label => label.trim()).filter(Boolean) : null,
+            assigneeUsernames: assignee ? [assignee] : null
+        });
+
+        const nodes = data?.project?.issues?.nodes || [];
+
         return {
-            ...this.#scaffold('list_issues', options),
-            items: [],
-            count: 0
+            items: nodes.map(node => ({
+                iid      : node.iid,
+                title    : node.title,
+                state    : node.state,
+                webUrl   : node.webUrl,
+                createdAt: node.createdAt,
+                updatedAt: node.updatedAt,
+                labels   : (node.labels?.nodes    || []).map(label => label.title),
+                assignees: (node.assignees?.nodes || []).map(user  => user.username)
+            })),
+            count: nodes.length
         };
     }
 

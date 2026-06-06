@@ -95,7 +95,14 @@ class Config extends ConfigProvider {
                  * GitLab Personal Access Token. Empty in the tracked template.
                  * @member {String} token=''
                  */
-                token: leaf('', 'NEO_GITLAB_PAT', 'string')
+                token: leaf('', 'NEO_GITLAB_PAT', 'string'),
+                /**
+                 * Default GitLab project full path (e.g. `group/subgroup/project`) for issue / MR
+                 * operations — analogous to github-workflow's owner/repo. The leaf owns env-default
+                 * resolution; services read the resolved `aiConfig.gitlab.projectPath` at the use site.
+                 * @member {String} projectPath=''
+                 */
+                projectPath: leaf('', 'NEO_GITLAB_PROJECT', 'string')
             }
         }
     }
