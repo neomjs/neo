@@ -66,6 +66,11 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         } else {
             await SystemLifecycleService.ready();
         }
+
+        if (!GraphService.db) {
+            GraphService._initPromise = null;
+            await GraphService.initAsync();
+        }
     });
 
     test.beforeEach(async () => {
@@ -152,6 +157,32 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         const systemNode = await GraphService.getNodeRecord({id: '_SYSTEM_STATE'});
         expect(typeof systemNode.properties.lastDecayedAt).toBe('number');
         expect(systemNode.properties.lastDecayedAt).toBeGreaterThan(0);
+    });
+
+    test('decayGlobalTopology preserves factual RESOLVES edges while pruning weak ambient edges (#12644)', async () => {
+        await GraphService.upsertNode({id: 'pr-12644', type: 'PULL_REQUEST'});
+        await GraphService.upsertNode({id: 'issue-12644', type: 'ISSUE'});
+        await GraphService.upsertNode({id: 'AmbientSource', type: 'TEST_NODE'});
+        await GraphService.upsertNode({id: 'AmbientTarget', type: 'TEST_NODE'});
+
+        GraphService.linkNodes('pr-12644', 'issue-12644', 'RESOLVES', 0.05);
+        GraphService.linkNodes('AmbientSource', 'AmbientTarget', 'RELATES_TO', 0.05);
+
+        GraphService.decayGlobalTopology(0.5, 0.2, true);
+
+        const edgeRow = GraphService.db.storage.db.prepare(`
+            SELECT data
+            FROM Edges
+            WHERE source = ?
+              AND target = ?
+              AND type = ?
+        `);
+
+        const resolvesRow = edgeRow.get('pr-12644', 'issue-12644', 'RESOLVES');
+        expect(resolvesRow).toBeTruthy();
+        expect(JSON.parse(resolvesRow.data).properties.weight).toBe(0.05);
+
+        expect(edgeRow.get('AmbientSource', 'AmbientTarget', 'RELATES_TO')).toBeUndefined();
     });
 
     test('getNodeRecord returns the properties blob that getNode strips (#11637)', async () => {
