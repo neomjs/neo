@@ -20,6 +20,7 @@ import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     let GraphService;
@@ -27,6 +28,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     let ConceptService;
     let logger;
     let SystemLifecycleService;
+    let restoreAiConfig;
 
     const testDbName = `memory-core-concept-ingestor-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
@@ -44,6 +46,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = captureAiConfigKeys(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'handoffFilePath']);
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.autoIngestFileSystem = false;
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
@@ -119,6 +122,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     /**

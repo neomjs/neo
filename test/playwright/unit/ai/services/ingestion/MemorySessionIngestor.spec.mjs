@@ -19,6 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {captureAiConfigKeys} from '../../../../../fixtures/aiConfigIsolation.mjs';
 
 test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     // Serial within this describe — `beforeAll` performs a cold import cascade of the Neo
@@ -27,6 +28,8 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     // intermittent ESM partial-evaluation errors (`ClassSystem.mjs does not provide default`,
     // etc.) result. Serial runs the imports once, then reuses the warm module cache across tests.
     test.describe.configure({mode: 'serial'});
+
+    let restoreAiConfig;
 
     let GraphService;
     let MemorySessionIngestor;
@@ -76,6 +79,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
+        restoreAiConfig = captureAiConfigKeys(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'handoffFilePath']);
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.autoIngestFileSystem = false;
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
@@ -140,6 +144,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        restoreAiConfig?.();
     });
 
     test('should return stats object with the documented shape', async () => {
