@@ -324,6 +324,47 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         expect(sessionsToSummarize).not.toContain(activeSessionId);
     });
 
+    test('#9959: externally active detection should protect parallel sessions for the same identity', async () => {
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        const firstSessionId  = `external-active-a-${crypto.randomUUID()}`;
+        const secondSessionId = `external-active-b-${crypto.randomUUID()}`;
+        const agentIdentity   = `@parallel-active-${crypto.randomUUID()}`;
+        const now             = Date.now();
+
+        insertActiveWakeSubscription(sqlite, agentIdentity);
+        insertAgentMemoryNode(sqlite, {sessionId: firstSessionId,  agentIdentity, timestampMs: now - 1000});
+        insertAgentMemoryNode(sqlite, {sessionId: secondSessionId, agentIdentity, timestampMs: now});
+
+        const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
+        await collection.add({
+            ids      : [
+                `external-parallel-memory-a-${crypto.randomUUID()}`,
+                `external-parallel-memory-b-${crypto.randomUUID()}`
+            ],
+            documents: [
+                'First parallel externally active session memory',
+                'Second parallel externally active session memory'
+            ],
+            metadatas: [
+                {sessionId: firstSessionId,  timestamp: now - 1000, type: 'agent-interaction'},
+                {sessionId: secondSessionId, timestamp: now,        type: 'agent-interaction'}
+            ]
+        });
+
+        const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({now});
+        expect(externallyActiveSessionIds.has(firstSessionId)).toBe(true);
+        expect(externallyActiveSessionIds.has(secondSessionId)).toBe(true);
+
+        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+        expect(sessionsToSummarize).not.toContain(firstSessionId);
+        expect(sessionsToSummarize).not.toContain(secondSessionId);
+    });
+
     test('#9959: explicit named-session summarization should bypass the externally active drift filter', async () => {
         const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.ready();

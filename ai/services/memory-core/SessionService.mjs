@@ -299,7 +299,7 @@ class SessionService extends Base {
      *
      * The spawned `summarize-sessions.mjs` child has its own `currentSessionId`, so drift detection
      * cannot rely on `this.currentSessionId` alone. `AGENT_MEMORY` graph nodes already carry the
-     * source identity, session id, and timestamp; pairing the latest fresh rows with an active
+     * source identity, session id, and timestamp; pairing fresh rows with an active
      * `WAKE_SUBSCRIPTION` gives the drift sweep a cross-process exclusion predicate without
      * introducing a second session registry.
      *
@@ -352,26 +352,14 @@ class SessionService extends Base {
                   )
             `).all();
 
-            const latestByIdentity = new Map();
             const activeSessionIds = new Set();
 
             for (const row of rows) {
                 const timestampMs = this.resolveGraphTimestampMs(row.timestampField, row.nameField);
                 if (timestampMs === null) continue;
 
-                const current = latestByIdentity.get(row.agentIdentity);
-
-                if (!current || timestampMs > current.timestampMs) {
-                    latestByIdentity.set(row.agentIdentity, {
-                        sessionId: row.sessionId,
-                        timestampMs
-                    });
-                }
-            }
-
-            for (const {sessionId, timestampMs} of latestByIdentity.values()) {
                 if (timestampMs >= cutoffMs) {
-                    activeSessionIds.add(sessionId);
+                    activeSessionIds.add(row.sessionId);
                 }
             }
 
