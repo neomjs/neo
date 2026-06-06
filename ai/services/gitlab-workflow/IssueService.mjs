@@ -17,9 +17,10 @@ import {CREATE_ISSUE, CREATE_NOTE, UPDATE_NOTE, UPDATE_ISSUE_LABELS, ISSUE_SET_A
  *
  * Argument validation lives at the OpenAPI/Zod `makeSafe` boundary in `ai/services.mjs`, not
  * inside these methods; the per-method `action` guards here are domain routing, not schema
- * validation. The GraphQL strings are integration-validated against a live GitLab instance —
- * the unit suite mocks `GitLabClient.query` and exercises this service's logic (routing, id
- * resolution, variable forwarding, error surfacing).
+ * validation. The GraphQL strings are best-knowledge against GitLab's current schema and are
+ * not yet integration-validated against a live instance (that validation is a deferred
+ * follow-up); the unit suite mocks `GitLabClient.query` and exercises this service's logic
+ * (routing, id resolution, variable forwarding, error surfacing).
  *
  * @class Neo.ai.services.gitlab-workflow.IssueService
  * @extends Neo.core.Base

@@ -5,6 +5,7 @@ setup({neoConfig: {unitTestMode: true}, appConfig: {name: appName, isMounted: ()
 
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
  * Unit coverage for the GitLab GraphQL client. Mocks global `fetch` and uses the

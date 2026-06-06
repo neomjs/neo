@@ -23,7 +23,7 @@ paths:
     get:
       operationId: list_issues
       summary: List GitLab issues
-      description: Lists GitLab issues. Scaffolded until the GitLabClient subtask lands.
+      description: Lists GitLab project issues via the GitLab GraphQL API, with optional state / label / assignee filters.
       tags: [Issues]
       x-pass-as-object: true
       x-annotations:
@@ -68,7 +68,7 @@ paths:
     post:
       operationId: create_issue
       summary: Create a GitLab issue
-      description: Creates a GitLab issue. Scaffolded until the GitLabClient subtask lands.
+      description: Creates a GitLab issue via the GitLab GraphQL API; optionally assigns labels (by name) and assignees (by username).
       tags: [Issues]
       x-pass-as-object: true
       x-annotations:
@@ -102,11 +102,11 @@ paths:
                   default: []
       responses:
         '200':
-          description: Scaffolded create response.
+          description: The created issue, or a structured error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScaffoldResponse'
+                $ref: '#/components/schemas/CreateIssueResponse'
 
   /merge-requests:
     get:
@@ -177,7 +177,7 @@ paths:
     post:
       operationId: manage_issue_comment
       summary: Manage GitLab issue comments
-      description: Creates or updates GitLab issue comments. Scaffolded until the GitLabClient subtask lands.
+      description: Creates or updates a GitLab issue comment (note) via the GitLab GraphQL API.
       tags: [Issues]
       x-pass-as-object: true
       x-annotations:
@@ -205,17 +205,17 @@ paths:
                   description: Comment body.
       responses:
         '200':
-          description: Scaffolded comment-management response.
+          description: The comment result, or a structured error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScaffoldResponse'
+                $ref: '#/components/schemas/IssueCommentResponse'
 
   /issues/{issue_number}/labels/manage:
     post:
       operationId: manage_issue_labels
       summary: Manage GitLab issue labels
-      description: Adds or removes GitLab issue labels. Scaffolded until the GitLabClient subtask lands.
+      description: Adds or removes GitLab issue labels (by name) via the GitLab GraphQL API.
       tags: [Issues]
       x-pass-as-object: true
       x-annotations:
@@ -246,17 +246,17 @@ paths:
                   description: Labels to add or remove.
       responses:
         '200':
-          description: Scaffolded label-management response.
+          description: The label result, or a structured error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScaffoldResponse'
+                $ref: '#/components/schemas/IssueLabelResponse'
 
   /issues/{issue_number}/assignees/manage:
     post:
       operationId: manage_issue_assignees
       summary: Manage GitLab issue assignees
-      description: Adds or removes GitLab issue assignees. Scaffolded until the GitLabClient subtask lands.
+      description: Adds or removes GitLab issue assignees (by username) via the GitLab GraphQL API.
       tags: [Issues]
       x-pass-as-object: true
       x-annotations:
@@ -287,11 +287,11 @@ paths:
                   description: GitLab usernames to add or remove.
       responses:
         '200':
-          description: Scaffolded assignee-management response.
+          description: The assignee result, or a structured error.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScaffoldResponse'
+                $ref: '#/components/schemas/IssueAssigneeResponse'
 
 components:
   schemas:
@@ -333,3 +333,65 @@ components:
         received:
           type: object
           additionalProperties: true
+    CreateIssueResponse:
+      type: object
+      description: A created GitLab issue, or a structured error.
+      properties:
+        iid:
+          type: string
+        title:
+          type: string
+        webUrl:
+          type: string
+        assignees:
+          type: array
+          items:
+            type: string
+        assigneeWarning:
+          type: string
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+    IssueCommentResponse:
+      type: object
+      description: The result of a GitLab issue comment (note) operation, or a structured error.
+      properties:
+        message:
+          type: string
+        noteId:
+          type: string
+        error:
+          type: string
+        code:
+          type: string
+    IssueLabelResponse:
+      type: object
+      description: The resulting GitLab issue labels, or a structured error.
+      properties:
+        message:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        error:
+          type: string
+        code:
+          type: string
+    IssueAssigneeResponse:
+      type: object
+      description: The resulting GitLab issue assignees, or a structured error.
+      properties:
+        message:
+          type: string
+        assignees:
+          type: array
+          items:
+            type: string
+        error:
+          type: string
+        code:
+          type: string

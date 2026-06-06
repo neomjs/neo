@@ -4,9 +4,10 @@
  * Each GitLab mutation payload carries a top-level `errors: [String!]` array of user-facing
  * validation errors (distinct from transport / GraphQL-level errors, which `GitLabClient.query`
  * raises in strict mode). `IssueService` inspects this array and surfaces a structured error
- * when it is non-empty. These mutation strings are integration-validated against a live GitLab
- * instance; the unit tests exercise the `IssueService` logic (action routing, id resolution,
- * variable forwarding, error surfacing) against a mocked `GitLabClient`.
+ * when it is non-empty. These mutation strings are best-knowledge against GitLab's GraphQL
+ * schema and are not yet integration-validated against a live instance; the unit tests exercise
+ * the `IssueService` logic (action routing, id resolution, variable forwarding, error
+ * surfacing) against a mocked `GitLabClient`.
  */
 
 /**

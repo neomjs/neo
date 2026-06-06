@@ -3,9 +3,10 @@
  *
  * GitLab's GraphQL surface differs from GitHub's: issues live under `project(fullPath)`, the
  * user-facing id is `iid`, and labels/assignees are connection nodes (`labels.nodes`,
- * `assignees.nodes`). These query strings are integration-validated against a live GitLab
- * instance; the unit tests validate the `IssueService` response-parsing against mocked
- * `GitLabClient` responses (the query strings themselves are not exercised by unit mocks).
+ * `assignees.nodes`). These query strings are best-knowledge against GitLab's GraphQL schema
+ * and are not yet integration-validated against a live instance; the unit tests validate the
+ * `IssueService` response-parsing against mocked `GitLabClient` responses (the query strings
+ * themselves are not exercised by unit mocks).
  *
  * Lookup queries (`GET_ISSUE_GID`, `GET_PROJECT_LABEL_IDS`) resolve the opaque global ids
  * (`gid://gitlab/Issue/...`, `gid://gitlab/ProjectLabel/...`) that GitLab mutations require but
