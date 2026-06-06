@@ -79,21 +79,19 @@ BEHIND=$(git -C "$PRIMARY_ROOT" rev-list --count dev..origin/dev 2>/dev/null || 
 
 **Conditional handover-comment block (fire only when `BEHIND > 0`):**
 
-> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. The `orchestrator-daemon` (Agent OS canonical scheduled-maintenance daemon) and its siblings (`wake-daemon`, `DreamService`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` in your main checkout to refresh `orchestrator-daemon` and downstream-daemon state.
+> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. The `orchestrator-daemon` (Agent OS canonical scheduled-maintenance daemon) and its siblings (`wake-daemon`, `DreamService`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` **then `node <PRIMARY_ROOT>/ai/scripts/setup/initServerConfigs.mjs --migrate-config`** in your main checkout to refresh `orchestrator-daemon` and downstream-daemon state. **A `git pull` alone is not enough:** it updates the committed `config.template.mjs`, but the daemons read the gitignored `config.mjs` operator-overlay — which only reconciles to new template leaves via `--migrate-config`, so without it the daemons run fresh code against stale config.
 
 When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh primary.
 
 **Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness is unaddressed by this probe; the daemon-driven Shape A solution under #11013's follow-up will register a `primary-dev-sync` periodic task in the `orchestrator-daemon` (post-#11009 `Orchestrator.mjs` class extraction) to close that gap with an automatic `git pull --ff-only`.
 
-### Step 2: Refresh Active PR Cycle State (The Pre-Sunset Capture)
+### Step 2: Active PR Cycle State is daemon-owned — agents must NOT trigger sandman
 
-**Scope-conditional execution:**
+`sandman_handoff.md` (incl. the `## Active PR Cycle State`) is written **exclusively by the orchestrator-daemon's periodic `dream` + `golden-path` service-tasks** (`ai/daemons/TaskDefinitions.mjs`) — the canonical SSOT writer (the REM / Golden-Path "sandman" pipeline is orchestrator-owned; Epic #12065). This step therefore requires **no agent action**.
 
-- **`scope: solo-refresh`** (single-agent sunset, daemon-driven path unavailable or stale): You MUST execute `npm run ai:run-sandman` via the `run_command` tool. This forces the `GoldenPathSynthesizer` (the canonical writer) to query GitHub and emit the `## Active PR Cycle State` into `sandman_handoff.md`.
+**Agents must NOT trigger sandman (`npm run ai:run-sandman` / `GoldenPathSynthesizer`) at sunset, under any scope (`solo-refresh` or `convergent`).** Running it ad-hoc duplicates the daemon, contends on the shared SQLite + Chroma substrate (parallel invocations serialize for ~45min, last-write-wins), and couples a deployment-specific local command into the sunset flow. If `sandman_handoff.md` is stale (mtime > 4h) or the daemon is verified dead, **surface it as a daemon-health issue** (A2A the swarm / file a ticket) — do NOT run the pipeline yourself. Session continuity is preserved without it by the Step 10 Sandman memory + the A2A continuity ping + Memory Core context-priming.
 
-- **`scope: convergent`** (multi-agent coordinated sunset event): **SKIP** this step. Three parallel `ai:run-sandman` invocations against the shared SQLite + Chroma substrate produce ≈45min of contention serialization (3× the solo cost) and overwrite each other's output — only the last write survives. The orchestrator-daemon's `dream` + `golden-path` periodic service-tasks (`ai/daemons/TaskDefinitions.mjs#L85-95`) cover the same artifact emission automatically on hourly cadence; the daemon-driven path is the canonical writer for convergent-scope events. The lead-role agent (per `lead-role-mode.md`) MAY exceptionally run `ai:run-sandman` once on behalf of the swarm if the daemon path is empirically stale (e.g., `sandman_handoff.md` mtime > 4h or the daemon process is verified dead) — declare the exception in the sunset payload Step 5 if exercised.
-
-Do NOT attempt to edit `sandman_handoff.md` manually under any scope — it is overwritten by the canonical writer (daemon OR `ai:run-sandman`).
+Do NOT edit `sandman_handoff.md` manually under any scope — it is overwritten by the canonical daemon writer.
 
 ### Step 3: Handovers Posted (Active Work)
 For any tickets or tasks that you actively worked on but did not fully complete, you MUST post a self-contained handover comment directly on the GitHub Issue (using `manage_issue_comment`).

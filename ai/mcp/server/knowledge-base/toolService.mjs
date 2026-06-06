@@ -1,12 +1,12 @@
-import path                          from 'path';
-import {fileURLToPath}               from 'url';
-import DatabaseService               from '../../../services/knowledge-base/DatabaseService.mjs';
-import DocumentService               from '../../../services/knowledge-base/DocumentService.mjs';
-import HealthService                 from '../../../services/knowledge-base/HealthService.mjs';
-import KBRecorderService             from '../../../services/knowledge-base/KBRecorderService.mjs';
-import QueryService                  from '../../../services/knowledge-base/QueryService.mjs';
-import SearchService                 from '../../../services/knowledge-base/SearchService.mjs';
-import ToolService                   from '../../ToolService.mjs';
+import path              from 'path';
+import {fileURLToPath}   from 'url';
+import DatabaseService   from '../../../services/knowledge-base/DatabaseService.mjs';
+import DocumentService   from '../../../services/knowledge-base/DocumentService.mjs';
+import HealthService     from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService from '../../../services/knowledge-base/KBRecorderService.mjs';
+import QueryService      from '../../../services/knowledge-base/QueryService.mjs';
+import SearchService     from '../../../services/knowledge-base/SearchService.mjs';
+import ToolService       from '../../ToolService.mjs';
 import {
     assertToolTransportAllowed,
     ingestSourceFilesViaMcp,
