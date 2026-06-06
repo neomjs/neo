@@ -23,11 +23,9 @@ import {CHROMA_PRODUCTION_DATABASE, CHROMA_TEST_DATABASE} from '../../../../../.
 import logger         from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
 import StorageRouter  from '../../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import path           from 'path';
 import {resetMemoryCoreLifecycle} from '../util.mjs';
 
-const tmpDir = path.resolve(process.cwd(), 'tmp');
-aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
+// ADR 0019 B4: storagePaths.graph resolves to ':memory:' by construction under UNIT_TEST_MODE.
 
 test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
     test('logs an operator-actionable config error before throwing on missing Chroma coordinates', () => {
