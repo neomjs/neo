@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
-import {mkdtemp, rm}   from 'fs/promises';
+import {mkdtemp, rm, readdir, utimes} from 'fs/promises';
 import os              from 'os';
 import path            from 'path';
 
@@ -10,6 +10,7 @@ import {
     createRemPhaseState,
     createRemRunStateEntry,
     getRemRunStateFileName,
+    pruneRemRunStates,
     readRecentRemRunStates
 } from '../../../../../../../ai/services/memory-core/helpers/RemRunStateStore.mjs';
 
@@ -98,5 +99,72 @@ test.describe('RemRunStateStore', () => {
         const recent = await readRecentRemRunStates({dir: tmpDir, limit: 1});
 
         expect(recent.map(entry => entry.runId)).toEqual(['rem-new']);
+    });
+
+    const makeEntry = (runId, completedAt) => createRemRunStateEntry({
+        runId,
+        reason             : 'manual',
+        startedAt          : completedAt - 100,
+        completedAt,
+        configuredCadenceMs: 1000,
+        overflowThreshold  : 0.8,
+        outcome            : 'completed',
+        reasonCode         : 'ok'
+    });
+
+    const jsonlCount = async dir => (await readdir(dir)).filter(name => name.endsWith('.jsonl')).length;
+
+    test('appendRemRunState without retentionLimit keeps every artifact (backward compatible)', async () => {
+        for (let i = 0; i < 8; i++) {
+            await appendRemRunState(makeEntry(`rem-${i}`, 1000 + i), {dir: tmpDir});
+        }
+        expect(await jsonlCount(tmpDir)).toBe(8);
+    });
+
+    test('appendRemRunState applies the write-side retention cap (AC2)', async () => {
+        for (let i = 0; i < 12; i++) {
+            await appendRemRunState(makeEntry(`rem-${String(i).padStart(2, '0')}`, 1000 + i), {dir: tmpDir, retentionLimit: 5});
+        }
+        expect(await jsonlCount(tmpDir)).toBe(5);
+    });
+
+    test('read fan-out is bounded by retention, not by lifetime cycle count (AC1/AC4)', async () => {
+        // 30 lifetime cycles, retentionLimit 5: the on-disk set — exactly what readRecentRemRunStates
+        // readdir/stats — stays at 5, independent of the 30 cycles run. The read no longer scales with age.
+        for (let i = 0; i < 30; i++) {
+            await appendRemRunState(makeEntry(`rem-${String(i).padStart(2, '0')}`, 1000 + i), {dir: tmpDir, retentionLimit: 5});
+        }
+        expect(await jsonlCount(tmpDir)).toBe(5);
+
+        const recent = await readRecentRemRunStates({dir: tmpDir, limit: 5});
+        expect(recent.length).toBe(5);
+    });
+
+    test('retention removes the oldest and never the recent window (AC6)', async () => {
+        for (let i = 0; i < 10; i++) {
+            const runId = `rem-${String(i).padStart(2, '0')}`;
+            await appendRemRunState(makeEntry(runId, 1000 + i), {dir: tmpDir});
+            // Deterministic age ordering: explicit mtime per artifact (oldest -> newest).
+            const filePath = path.join(tmpDir, getRemRunStateFileName(runId));
+            await utimes(filePath, new Date(1000 + i), new Date(1000 + i));
+        }
+
+        const removed = await pruneRemRunStates({dir: tmpDir, retentionLimit: 3});
+        expect(removed).toBe(7);
+
+        const survivors = (await readdir(tmpDir)).filter(name => name.endsWith('.jsonl')).sort();
+        expect(survivors).toEqual(['rem-07', 'rem-08', 'rem-09'].map(getRemRunStateFileName));
+
+        const recent = await readRecentRemRunStates({dir: tmpDir, limit: 3});
+        expect(recent.map(entry => entry.runId)).toEqual(['rem-09', 'rem-08', 'rem-07']);
+    });
+
+    test('pruneRemRunStates is a no-op below the bound or when disabled', async () => {
+        for (let i = 0; i < 3; i++) {
+            await appendRemRunState(makeEntry(`rem-${i}`, 1000 + i), {dir: tmpDir});
+        }
+        expect(await pruneRemRunStates({dir: tmpDir, retentionLimit: 5})).toBe(0);
+        expect(await pruneRemRunStates({dir: tmpDir, retentionLimit: 0})).toBe(0);
+        expect(await jsonlCount(tmpDir)).toBe(3);
     });
 });

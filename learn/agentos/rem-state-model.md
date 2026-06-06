@@ -113,6 +113,28 @@ projects only the recent cycle summary fields so operator dashboards stay small;
 inspect the JSONL artifact directly when phase-level or per-session failure
 reasons are needed.
 
+## Retention
+
+Each REM cycle appends one new `<runId>.jsonl` artifact, so the directory would grow
+without bound across a deployment's lifetime (~24 files/day at the default 1h dream
+cadence). `appendRemRunState` applies a **write-side retention cap** on every append:
+after writing, it prunes the oldest artifacts beyond `remRunRetentionLimit`
+(`NEO_REM_RUN_RETENTION_LIMIT`, default `200`). Retention sorts by `mtime`, removing the
+oldest and never the recent window.
+
+Bounding the artifact count on the write side also bounds the **read path**:
+`readRecentRemRunStates` — and therefore every `get_rem_pipeline_state` / healthcheck call
+— `readdir`s + `stat`s the directory, so its cost is capped by the retention bound rather
+than growing with the total number of cycles ever run.
+
+A write-side cap is preferred over an orchestrator cleanup lane: the JSONL store stays
+self-contained and filesystem-durable, with no cross-service boundary and no graph
+mutation during a REM run.
+
+**Disabled mode:** a non-positive or non-finite `remRunRetentionLimit` disables pruning —
+`appendRemRunState` then keeps every artifact (unbounded). Use this only for short-lived
+forensic captures where you want the full history and will clean the directory yourself.
+
 Set `NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD` to tune the overflow warning
 ratio against the configured dream cadence. The default is `0.8`, meaning a
 cycle that consumes more than 80% of its cadence is flagged as an overlap risk.
