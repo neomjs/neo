@@ -21,6 +21,7 @@ import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 import { createSpawnRequest } from './windowsBatchSpawn.mjs';
+import { getInstancePid } from '../../daemons/wake/instanceResolver.mjs';
 import {
     normalizeAgentIdentityNodeId,
     resolveHarnessTargetForIdentity
@@ -30,6 +31,7 @@ export {normalizeAgentIdentityNodeId};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+const INSTANCE_ADDRESS_TYPES = Object.freeze(['userDataDir', 'pid']);
 
 /**
  * @summary Spawn a child process and (optionally) record its PID for later harness cleanup.
@@ -242,6 +244,133 @@ function assertCodexAppServerAllowed() {
 }
 
 /**
+ * @summary Normalize a pid-like value into a positive integer.
+ * @param {*} value Candidate process id.
+ * @returns {Number|null}
+ */
+function normalizeInstancePid(value) {
+    const pid = Number(String(value ?? '').trim());
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+/**
+ * @summary Normalize and validate a generic instance-address tuple.
+ * @param {Object} options
+ * @param {String} [options.instanceAddress] Instance address value.
+ * @param {String} [options.addressType] Address type.
+ * @param {String} options.source Human-readable source for diagnostics.
+ * @returns {{instanceAddress:String,addressType:String}|null}
+ */
+function normalizeInstanceAddressTuple({instanceAddress, addressType, source}) {
+    const address = String(instanceAddress ?? '').trim(),
+          type    = String(addressType ?? '').trim();
+
+    if (!address && !type) return null;
+
+    if (!address || !type) {
+        throw new Error(
+            `Partial resumeHarness instance address from ${source}: ` +
+            'instanceAddress and addressType must be set together. ' +
+            'Failing closed to avoid routing a targeted resume into the default Claude instance.'
+        );
+    }
+
+    if (!INSTANCE_ADDRESS_TYPES.includes(type)) {
+        throw new Error(
+            `Unsupported resumeHarness instance addressType '${type}' from ${source}. ` +
+            `Supported types: ${INSTANCE_ADDRESS_TYPES.join(', ')}.`
+        );
+    }
+
+    return {
+        instanceAddress: address,
+        addressType    : type
+    };
+}
+
+/**
+ * @summary Resolve the instance-address tuple for an osascript resume.
+ *
+ * Caller-provided wake-subscription metadata wins over the CLI/manual environment envelope. This
+ * keeps the central heartbeat path identity-specific while preserving the existing direct-script
+ * escape hatch for operator probes.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.metadata={}] Wake route metadata (`instanceAddress` + `addressType`,
+ *     or legacy `userDataDir`).
+ * @param {Object} [options.env=process.env] Environment map for direct CLI invocations.
+ * @returns {{instanceAddress:String,addressType:String}|null}
+ */
+export function resolveResumeHarnessInstanceAddress({metadata = {}, env = process.env} = {}) {
+    const metadataType = metadata.addressType || (metadata.userDataDir ? 'userDataDir' : null),
+          metadataAddr = metadata.instanceAddress || (metadataType === 'userDataDir' ? metadata.userDataDir : null),
+          fromMetadata = normalizeInstanceAddressTuple({
+              instanceAddress: metadataAddr,
+              addressType    : metadataType,
+              source         : 'harnessTargetMetadata'
+          });
+
+    if (fromMetadata) return fromMetadata;
+
+    return normalizeInstanceAddressTuple({
+        instanceAddress: env.NEO_HARNESS_INSTANCE_ADDRESS,
+        addressType    : env.NEO_HARNESS_INSTANCE_ADDRESS_TYPE,
+        source         : 'environment'
+    });
+}
+
+/**
+ * @summary Resolve an osascript-addressable process id for a configured resume instance.
+ *
+ * An explicit instance address is a safety boundary: missing/stale processes throw instead of
+ * falling back to app activation, because app activation is ambiguous across same-bundle Claude
+ * instances.
+ *
+ * @param {Object} options
+ * @param {String} options.instanceAddress
+ * @param {String} options.addressType `userDataDir` or `pid`.
+ * @param {Function} [options.getInstancePidFn=getInstancePid] Injectable resolver for tests.
+ * @returns {Promise<Number>}
+ */
+export async function resolveResumeHarnessInstancePid({
+    instanceAddress,
+    addressType,
+    deploymentMode = process.env.NEO_AI_DEPLOYMENT_MODE || 'local',
+    getInstancePidFn = getInstancePid
+} = {}) {
+    if (deploymentMode === 'cloud') {
+        throw new Error(
+            `resumeHarness instance targeting requires local deployment (deploymentMode='cloud'). ` +
+            'Failing closed — instance-addressed GUI resumes are local-only (ADR 0014).'
+        );
+    }
+
+    if (addressType === 'pid') {
+        const pid = normalizeInstancePid(instanceAddress);
+        if (!pid) {
+            throw new Error(
+                `Invalid resumeHarness pid instanceAddress='${instanceAddress}'. ` +
+                'Failing closed to avoid generic app activation.'
+            );
+        }
+        return pid;
+    }
+
+    if (addressType === 'userDataDir') {
+        const pid = await getInstancePidFn({userDataDir: instanceAddress});
+        if (!pid) {
+            throw new Error(
+                `No running Claude instance found for userDataDir='${instanceAddress}'. ` +
+                'Failing closed to avoid routing resume into another Claude instance.'
+            );
+        }
+        return pid;
+    }
+
+    throw new Error(`Unsupported resumeHarness instance addressType '${addressType}'.`);
+}
+
+/**
  * Build a boot-grounding prompt that instructs the fresh agent to read
  * AGENTS_STARTUP.md and pick up prior context via Memory Core + sandman_handoff.
  * @param {string} identity        Agent identity (e.g. '@neo-opus-ada').
@@ -268,7 +397,11 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
  * @param {Number} [abandonedCount=0] Prior abandoned wake action count for lock bookkeeping.
  * @returns {Promise<void>}
  */
-export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
+export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0, {
+    deploymentMode        = process.env.NEO_AI_DEPLOYMENT_MODE || 'local',
+    env                   = process.env,
+    harnessTargetMetadata = {}
+} = {}) {
     identity = normalizeAgentIdentityNodeId(identity);
 
     // Direct fresh-session-spawn invocations must fail closed when the wake
@@ -413,8 +546,16 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
             console.log(`Successfully resumed ${identity} via codex-app-server`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
+            const instanceAddress = resolveResumeHarnessInstanceAddress({metadata: harnessTargetMetadata, env});
+            const instancePid     = instanceAddress
+                ? await resolveResumeHarnessInstancePid({
+                    ...instanceAddress,
+                    deploymentMode
+                })
+                : null;
             // Fresh-session spawn flow:
             //   1. Activate target app
+            //      - With an explicit instance address, raise the resolved PID before any keystrokes.
             //   2. (Optional) Cmd+`tabShortcut` — get to the right tab (Code tab = Cmd+3 for Claude Desktop)
             //   3. Cmd+`freshSessionShortcut` — spawn a NEW chat session (Cmd+N for Antigravity + Claude Desktop).
             //      This creates a new chat instead of writing into the sunsetted one.
@@ -431,6 +572,10 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
                 '-e', '    set savedClipboard to ""',
                 '-e', '  end try',
                 '-e', `  tell application "${appName}" to activate`,
+                ...(instancePid ? [
+                '-e', '  delay 0.2',
+                '-e', `  tell application "System Events" to set frontmost of (first process whose unix id is ${instancePid}) to true`
+                ] : []),
                 '-e', '  delay 0.5',
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
@@ -483,7 +628,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
             ];
 
             await spawnAsync('osascript', osascriptArgs);
-            console.log(`Successfully resumed ${identity} via osascript (${appName})`);
+            console.log(`Successfully resumed ${identity} via osascript (${appName}${instancePid ? ` pid=${instancePid}` : ''})`);
         } else if (adapter === 'tmux') {
             // Provide tmux fallback
             const tmuxSession = harnessTarget.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';

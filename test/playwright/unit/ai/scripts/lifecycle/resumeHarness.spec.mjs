@@ -26,6 +26,10 @@ import {
     applyHarnessMetadataDefaults,
     resolveHarnessTargetForIdentity
 } from '../../../../../../ai/scripts/lifecycle/harnessRouting.mjs';
+import {
+    resolveResumeHarnessInstanceAddress,
+    resolveResumeHarnessInstancePid
+} from '../../../../../../ai/scripts/lifecycle/resumeHarness.mjs';
 
 test.describe('ai/scripts/resumeHarness', () => {
     test.describe.configure({mode: 'serial'});
@@ -125,6 +129,92 @@ test.describe('ai/scripts/resumeHarness', () => {
             tabShortcut         : '3',
             freshSessionShortcut: 'n'
         });
+    });
+
+    test('resumeHarness resolves addressed Claude instance metadata without hardcoded paths (#12536)', async () => {
+        expect(resolveResumeHarnessInstanceAddress({
+            metadata: {
+                appName        : 'Claude',
+                instanceAddress: '/Users/example/.claude-instances/neo-opus-vega',
+                addressType    : 'userDataDir'
+            },
+            env: {}
+        })).toEqual({
+            instanceAddress: '/Users/example/.claude-instances/neo-opus-vega',
+            addressType    : 'userDataDir'
+        });
+
+        expect(resolveResumeHarnessInstanceAddress({
+            metadata: {
+                appName    : 'Claude',
+                userDataDir: '/Users/example/.claude-instances/legacy'
+            },
+            env: {}
+        })).toEqual({
+            instanceAddress: '/Users/example/.claude-instances/legacy',
+            addressType    : 'userDataDir'
+        });
+
+        expect(resolveResumeHarnessInstanceAddress({
+            metadata: {},
+            env: {
+                NEO_HARNESS_INSTANCE_ADDRESS     : '  4242  ',
+                NEO_HARNESS_INSTANCE_ADDRESS_TYPE: '  pid  '
+            }
+        })).toEqual({
+            instanceAddress: '4242',
+            addressType    : 'pid'
+        });
+
+        expect(() => resolveResumeHarnessInstanceAddress({
+            metadata: {
+                appName    : 'Claude',
+                addressType: 'userDataDir'
+            },
+            env: {
+                NEO_HARNESS_INSTANCE_ADDRESS     : '/env/must-not-mask-partial-metadata',
+                NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'userDataDir'
+            }
+        })).toThrow(/Partial resumeHarness instance address/);
+
+        expect(() => resolveResumeHarnessInstanceAddress({
+            metadata: {},
+            env: {
+                NEO_HARNESS_INSTANCE_ADDRESS     : '/tmp/vega',
+                NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'tmuxSession'
+            }
+        })).toThrow(/Unsupported resumeHarness instance addressType/);
+    });
+
+    test('resumeHarness resolves instance PID and fails closed on stale addressed routes (#12536)', async () => {
+        expect(await resolveResumeHarnessInstancePid({
+            addressType    : 'pid',
+            instanceAddress: '12345'
+        })).toBe(12345);
+
+        expect(await resolveResumeHarnessInstancePid({
+            addressType      : 'userDataDir',
+            instanceAddress  : '/Users/example/.claude-instances/neo-opus-vega',
+            getInstancePidFn : async ({userDataDir}) =>
+                userDataDir === '/Users/example/.claude-instances/neo-opus-vega' ? 24680 : null
+        })).toBe(24680);
+
+        await expect(resolveResumeHarnessInstancePid({
+            addressType      : 'userDataDir',
+            instanceAddress  : '/Users/example/.claude-instances/missing',
+            getInstancePidFn : async () => null
+        })).rejects.toThrow(/No running Claude instance found/);
+
+        await expect(resolveResumeHarnessInstancePid({
+            addressType    : 'pid',
+            instanceAddress: 'not-a-pid'
+        })).rejects.toThrow(/Invalid resumeHarness pid/);
+
+        await expect(resolveResumeHarnessInstancePid({
+            addressType    : 'pid',
+            instanceAddress: '12345',
+            deploymentMode : 'cloud'
+        })).rejects.toThrow(/instance targeting requires local deployment/);
     });
 
     test('normalizes GitHub-login identity form before harness dispatch (#11797)', async () => {

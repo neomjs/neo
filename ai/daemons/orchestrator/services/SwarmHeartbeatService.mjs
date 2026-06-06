@@ -472,7 +472,67 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async resumeHarness(identity, reason, originSessionId, abandonedCount) {
-        return resumeHarnessScript(identity, reason, originSessionId, abandonedCount)
+        const harnessTargetMetadata = await this.getResumeHarnessTargetMetadata(identity);
+        return resumeHarnessScript(identity, reason, originSessionId, abandonedCount, {
+            deploymentMode: AiConfig.orchestrator.deploymentMode,
+            env           : {},
+            harnessTargetMetadata
+        })
+    }
+
+    /**
+     * @summary Resolve the active bridge-daemon route metadata used by resumeHarness.
+     *
+     * Central swarm heartbeat runs in the Orchestrator process, not inside the target harness. It
+     * therefore cannot rely on the target harness's process environment for `userDataDir` routing.
+     * The bootstrapped wake subscription is the current route authority: prefer an active
+     * bridge-daemon `SENT_TO_ME` subscription with an instance-address tuple, falling back to the
+     * latest active bridge route so default-instance resumes keep their legacy behavior.
+     *
+     * @param {String} identity Agent identity node id.
+     * @returns {Promise<Object>} Harness target metadata or an empty object.
+     * @protected
+     */
+    async getResumeHarnessTargetMetadata(identity) {
+        try {
+            return await RequestContextService.run({agentIdentityNodeId: identity}, async () => {
+                const result = await WakeSubscriptionService.list({});
+                const candidates = (result?.subscriptions || [])
+                    .filter(subscription =>
+                        subscription.trigger === 'SENT_TO_ME' &&
+                        subscription.harnessTarget === 'bridge-daemon' &&
+                        (subscription.status || 'active') === 'active'
+                    )
+                    .sort((a, b) =>
+                        Date.parse(b.updatedAt || b.createdAt || '') -
+                        Date.parse(a.updatedAt || a.createdAt || '')
+                    );
+
+                const addressed = candidates.find(subscription =>
+                    this.hasInstanceAddressMetadata(subscription.harnessTargetMetadata || {})
+                );
+
+                return {
+                    ...((addressed || candidates[0])?.harnessTargetMetadata || {})
+                };
+            })
+        } catch (err) {
+            logger.error(`[SwarmHeartbeatService] getResumeHarnessTargetMetadata failed for ${identity}: ${err.message}`);
+            return {}
+        }
+    }
+
+    /**
+     * @summary Whether wake route metadata carries a complete generic instance address.
+     * @param {Object} metadata Harness target metadata.
+     * @returns {Boolean}
+     * @protected
+     */
+    hasInstanceAddressMetadata(metadata = {}) {
+        const addressType = metadata.addressType || (metadata.userDataDir ? 'userDataDir' : null),
+              address     = metadata.instanceAddress || (addressType === 'userDataDir' ? metadata.userDataDir : null);
+
+        return Boolean(addressType && address)
     }
 
     /**
