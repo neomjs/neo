@@ -305,18 +305,16 @@ class SessionService extends Base {
      *
      * @param {Object} [options]
      * @param {Number|Date|String} [options.now=Date.now()] Clock source for tests.
-     * @param {Number} [options.idleThresholdMs] Explicit test seam; production reads
-     *     `aiConfig.activeSessionIdleThresholdMs`.
      * @returns {Set<String>} Session ids considered active outside the current process.
      */
-    getExternallyActiveSessionIds({now = Date.now(), idleThresholdMs} = {}) {
+    getExternallyActiveSessionIds({now = Date.now()} = {}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) return new Set();
 
         const nowMs = typeof now === 'number' ? now : new Date(now).getTime();
         if (!Number.isFinite(nowMs)) return new Set();
 
-        const thresholdMs = idleThresholdMs ?? aiConfig.activeSessionIdleThresholdMs;
+        const thresholdMs = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
         const cutoffMs = nowMs - thresholdMs;
 
         try {

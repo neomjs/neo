@@ -122,13 +122,6 @@ class Config extends ConfigProvider {
              */
             summarizationConcurrency: leaf(5),
             /**
-             * Freshness window for graph-backed externally-active session detection during
-             * opportunistic drift summarization. Consumers read the resolved value from
-             * AiConfig instead of parsing process env at the use site.
-             * @type {number}
-             */
-            activeSessionIdleThresholdMs: leaf(10 * 60 * 1000, 'NEO_ACTIVE_SESSION_IDLE_THRESHOLD_MS', 'number'),
-            /**
              * The target Storage Architecture to use.
              * Note: Chroma is the only supported Vector DB.
              * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Chroma vectors only).

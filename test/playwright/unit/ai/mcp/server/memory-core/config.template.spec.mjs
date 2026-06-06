@@ -89,28 +89,6 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.memorySharing.defaultPolicy).toBe('team');
     });
 
-    test('activeSessionIdleThresholdMs resolves through AiConfig, not service env parsing (#9959)', () => {
-        expect(config.activeSessionIdleThresholdMs).toBe(10 * 60 * 1000);
-
-        const originalThreshold = process.env.NEO_ACTIVE_SESSION_IDLE_THRESHOLD_MS;
-        process.env.NEO_ACTIVE_SESSION_IDLE_THRESHOLD_MS = '12345';
-
-        try {
-            const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
-            try {
-                expect(freshCfg.activeSessionIdleThresholdMs).toBe(12345);
-            } finally {
-                freshCfg.destroy();
-            }
-        } finally {
-            if (originalThreshold === undefined) {
-                delete process.env.NEO_ACTIVE_SESSION_IDLE_THRESHOLD_MS;
-            } else {
-                process.env.NEO_ACTIVE_SESSION_IDLE_THRESHOLD_MS = originalThreshold;
-            }
-        }
-    });
-
     test('inherits deployment-wide Tier-1 defaults (provider, auth, ollama, openAiCompatible, storage) via the realm chain', () => {
         // MC declares none of these locally — they resolve UP the getParent() chain to the
         // Tier-1 realm root. Read KEYED, never whole-namespace: `toEqual(config.ollama)` would
@@ -142,6 +120,10 @@ test.describe('Memory Core Config (#10010)', () => {
         // Was the stale `.neo-ai-data/chroma/memory-core` — the bug.
         expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDir);
         expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/unified');
+    });
+
+    test('inherits the Tier-1 active-session idle threshold (#9959)', () => {
+        expect(config.orchestrator.swarmHeartbeat.idleThresholdMs).toBe(10 * 60 * 1000);
     });
 
     test('inherits concrete graphProvider defaults from Tier-1 config', () => {
