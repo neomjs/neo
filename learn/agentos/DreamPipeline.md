@@ -125,7 +125,7 @@ and checks three coverage dimensions:
 
 | Gap Type | Detection Method |
 |---|---|
-| `[TEST_GAP]` | No test file paths in `test/` contain tokens matching the node name |
+| `[TEST_GAP]` | No test file paths in `test/` contain tokens matching the node name; matching test `FILE` nodes create `VALIDATES` edges to the structural source node |
 | `[GUIDE_GAP]` | No guide paths in `learn/guides/` match the node name (with LLM verification fallback) |
 
 The `[GUIDE_GAP]` detection has a two-stage pipeline:

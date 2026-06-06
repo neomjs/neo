@@ -220,6 +220,52 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         expect(updatedNode.properties.capabilityGap).toContain('[TEST_GAP]');
     });
 
+    test('inferTestGapsFromSession links matching test files via VALIDATES edges (#9906)', async () => {
+        GraphService.upsertNode({
+            id        : 'covered-class',
+            type      : 'CLASS',
+            name      : 'ButtonFeature',
+            properties: {}
+        });
+        GraphService.upsertNode({
+            id        : 'test-file-button-feature',
+            type      : 'FILE',
+            name      : 'ButtonFeature.spec.mjs',
+            properties: {path: 'test/playwright/unit/button/ButtonFeature.spec.mjs'}
+        });
+
+        const payload = {
+            session_artifact: {
+                graph: {
+                    nodes: [{
+                        id        : 'covered-class',
+                        type      : 'CLASS',
+                        name      : 'ButtonFeature',
+                        confidence: 0.9
+                    }],
+                    edges: []
+                }
+            }
+        };
+
+        await DreamService.inferTestGapsFromSession(payload);
+
+        const coveredNode = GraphService.db.nodes.get('covered-class');
+        const edge = GraphService.db.edges.items.find(e =>
+            e.source === 'test-file-button-feature' &&
+            e.target === 'covered-class' &&
+            e.type === 'VALIDATES'
+        );
+
+        expect(coveredNode.properties.capabilityGap).toBeUndefined();
+        expect(edge).toBeTruthy();
+        expect(edge.properties.evidenceKind).toBe('permanent-test-file');
+        expect(edge.properties.evidencePath).toBe('test/playwright/unit/button/ButtonFeature.spec.mjs');
+        expect(edge.properties.inferredBy).toBe('GapInferenceEngine.inferTestGapsFromSession');
+        expect(edge.properties.validatedNodeName).toBe('ButtonFeature');
+        expect(edge.properties.validatedNodeType).toBe('CLASS');
+    });
+
     test('findUndigestedSessions fails loud when remSleepBatchLimit is malformed in the imported config', async () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
               originalRemSleepBatchLimit = aiConfig.remSleepBatchLimit;
