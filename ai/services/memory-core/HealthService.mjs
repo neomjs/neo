@@ -1608,9 +1608,9 @@ class HealthService extends Base {
      * without waiting for the 5-minute cache to expire.
      */
     clearCache() {
-        this.#cachedHealth              = null;
-        this.#lastCheckTime             = null;
-        this.#embeddingWriteCanaryCache = null;
+        this.#cachedHealth                = null;
+        this.#lastCheckTime               = null;
+        this.#embeddingWriteCanaryCache   = null;
         logger.debug('[HealthService] Cache cleared, next health check will be fresh');
     }
 }
