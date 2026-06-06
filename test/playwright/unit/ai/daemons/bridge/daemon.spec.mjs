@@ -259,6 +259,86 @@ test.describe('Bridge Daemon', () => {
         expect(logContents).toContain('[Bridge Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 
+    test('filters already-read messages out of the wake digest, counting only genuinely-unread (#12479)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-readfilter';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent ReadFilter' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: { adapter: 'test', coalesceWindow: 1 }
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Inject a MESSAGE addressable to the agent: SENT_TO is the routing/detection edge the wake fires on;
+        // DELIVERED_TO carries the per-recipient readAt the daemon must reconcile against. Only SENT_TO + the
+        // node go into GraphLog (the wake trigger) — DELIVERED_TO is read live at flush time, not a trigger.
+        const injectMessage = (subject, readAt) => {
+            const msgId = 'msg_' + crypto.randomUUID();
+            db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+                id: msgId,
+                label: 'MESSAGE',
+                properties: { from: '@sender', subject, priority: 'normal' }
+            }));
+            db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+            const sentId = 'edge_' + crypto.randomUUID();
+            db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(
+                sentId, JSON.stringify({ id: sentId, source: msgId, target: agentId, type: 'SENT_TO' }),
+                msgId, agentId, 'SENT_TO'
+            );
+            db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(sentId, 'edges');
+
+            const delId = 'edge_' + crypto.randomUUID();
+            db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(
+                delId, JSON.stringify({ id: delId, source: msgId, target: agentId, type: 'DELIVERED_TO', properties: { readAt } }),
+                msgId, agentId, 'DELIVERED_TO'
+            );
+            return msgId;
+        };
+
+        // One already-read message (readAt set) and one genuinely-unread (readAt null), in the same coalesce window.
+        injectMessage('Already Read Noise',   '2026-06-06T00:00:00.000Z');
+        injectMessage('Genuinely New Signal', null);
+
+        const output = await deliveryPromise;
+        expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
+        expect(output).toContain('1 new messages');         // only the unread one is counted
+        expect(output).toContain('Genuinely New Signal');    // ...and previewed as the latest
+        expect(output).not.toContain('Already Read Noise');  // the already-read one is reconciled out
+    });
+
     test('delivers GraphLog-only heartbeat pulses via test adapter', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-heartbeat';
