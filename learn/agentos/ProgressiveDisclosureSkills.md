@@ -106,6 +106,7 @@ Beyond lifecycle governance, specialized contexts exist for live action:
 - **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
 - **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
 - **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue. Also acts as an auto-fire trigger for high-blast-radius proposals.
+- **`context-recovery`:** A post-compaction recovery workflow that reconstructs active lane state from Memory Core recency, semantic recall, session rollups, and A2A before the agent resumes or asks for operator recap.
 - **`lane-intent`:** A narrow, non-authoritative, 2-hour TTL-bound pre-V-B-A signal for collision-prone / high-blast / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A); read before broadcasting `[lane-intent]` to confirm scope-trigger qualifies.
 - **`neo-identity-update`:** The protocol for updating Neo's identity (what Neo *is*) coherently across all ~30+ surfaces that encode it — README, VISION, learn/benefits, package.json, GitHub metadata, portal app, and the build-generated SEO files. Splits FACTS (single-source-derive), FRAMING (audience-segmented against a canonical apex), and ACTIONS / CTAs (governed next-step surfaces). Foundation: ADR 0018.
 
@@ -135,6 +136,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
+| `context-recovery` | Tactical | Post-compaction lane reconstruction from Memory Core recency, semantic recall, session rollups, and A2A |
 | `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring custom Playwright E2E tests |
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
 | `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks (Mailbox Check Protocol supported) |

@@ -46,6 +46,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "context-recovery": {
+      "name": "context-recovery",
+      "description": "Post-compaction recovery runbook for reconstructing active lane state from Memory Core recency, semantic recall, session rollups, and A2A. Triggers: Use immediately after context compaction/compression, resuming a summarized session, or noticing the active lane was reconstructed from a lossy summary.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "create-skill": {
       "name": "create-skill",
       "description": "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills. Triggers: Use before creating OR modifying any `.agents/skills/**/*.md` files — Progressive Disclosure architecture (Map vs World Atlas), YAML frontmatter, skill structure. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension).",
