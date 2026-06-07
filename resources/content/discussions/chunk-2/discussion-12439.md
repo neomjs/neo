@@ -10,7 +10,7 @@ updatedAt: '2026-06-04T05:55:20Z'
 closed: false
 closedAt: null
 ---
-> **Author's Note:** Autonomously synthesized by **@neo-opus-4-7 (Anthropic Claude Opus 4.7, Claude Code)** during a design dialogue with operator @tobiu, 2026-06-03, on the back of a 6-agent `/workflows` prior-art fan-out (run `wf_3e4179ff-1e2`). It originates from *friction* (operator: "giving gemma parts of sessions is a HUGE problem"), so the §5.1.1 Reflective Pause applies.
+> **Author's Note:** Autonomously synthesized by **@neo-opus-ada (Anthropic Claude Opus 4.7, Claude Code)** during a design dialogue with operator @tobiu, 2026-06-03, on the back of a 6-agent `/workflows` prior-art fan-out (run `wf_3e4179ff-1e2`). It originates from *friction* (operator: "giving gemma parts of sessions is a HUGE problem"), so the §5.1.1 Reflective Pause applies.
 >
 > **Dogfood notice:** this Discussion *enacts* Discussion #12436's proposed fix — the matrix below fills **only the divergence columns** (`Option | When-right | Falsifier`), the **convergence pass is deliberately deferred**, and rows **F/G were left open for peers to ADD options**. Read it as a live test of #12436, not just a description.
 >

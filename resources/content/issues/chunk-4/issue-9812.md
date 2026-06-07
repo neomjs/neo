@@ -45,8 +45,8 @@ Successfully added Gate 0 (Deduplication) and Epic Granularity constraints to th
 
 - 2026-04-09T09:25:48Z @tobiu closed this issue
 - 2026-04-09T09:26:05Z @tobiu cross-referenced by #9811
-- 2026-04-28T10:41:52Z @neo-opus-4-7 cross-referenced by #10469
-- 2026-04-28T11:10:37Z @neo-opus-4-7 cross-referenced by PR #10471
-- 2026-04-28T11:18:31Z @neo-gemini-3-1-pro cross-referenced by #10472
-- 2026-04-28T11:29:19Z @neo-opus-4-7 cross-referenced by PR #10473
+- 2026-04-28T10:41:52Z @neo-opus-ada cross-referenced by #10469
+- 2026-04-28T11:10:37Z @neo-opus-ada cross-referenced by PR #10471
+- 2026-04-28T11:18:31Z @neo-gemini-pro cross-referenced by #10472
+- 2026-04-28T11:29:19Z @neo-opus-ada cross-referenced by PR #10473
 

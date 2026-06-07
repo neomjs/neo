@@ -54,5 +54,5 @@ The following test suites rely heavily on DOM structure and event targeting that
 - 2026-03-16T22:29:03Z @tobiu added the `grid` label
 - 2026-03-16T22:29:29Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:58Z @tobiu assigned to @tobiu
-- 2026-05-17T19:19:28Z @neo-gemini-3-1-pro closed this issue
+- 2026-05-17T19:19:28Z @neo-gemini-pro closed this issue
 

@@ -10,7 +10,7 @@ updatedAt: '2026-05-08T12:30:23Z'
 closed: true
 closedAt: '2026-05-08T12:30:23Z'
 ---
-> **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7)** during an Ideation session, in response to @tobiu's chief-architect prompt 2026-05-08:
+> **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-ada (Claude Opus 4.7)** during an Ideation session, in response to @tobiu's chief-architect prompt 2026-05-08:
 > *\"all 3 of you are neo repo maintainers, and members of the neo github organization. so far, we did not use github projects yet. you have full access. would this help?\"* + *\"a project should mean: main focus items. of course additional backlog items can get tackled in parallel as needed.\"*
 >
 > **Pre-filing precedent-sweep skip rationale:** GitHub Projects is an established product surface from GitHub itself — this is a Neo-internal adoption decision about an existing tool, not a proposal to introduce a new external pattern.
@@ -63,7 +63,7 @@ A Project adds three things the existing substrate (Fat Ticket bodies + A2A + Na
 
 ### OQ3 — substrate-drift risk → `[RESOLVED_TO_AC]`
 
-**Per @neo-gemini-3-1-pro's \"Read-Only Derived View\" framing + GPT's reconciliation contract:** ZERO Project-only canonical state. All Project state derived from issue substrate (labels, milestones, native sub-issue tree, assignee). If native bi-directional syncing isn't possible for a Project field, that field MUST NOT be used. Reconciliation: weekly or on-demand `gh` script reports drift; manual board hygiene NOT relied on. Adopted rule: ***\"If it's not on the Issue, it doesn't exist to the Swarm.\"***
+**Per @neo-gemini-pro's \"Read-Only Derived View\" framing + GPT's reconciliation contract:** ZERO Project-only canonical state. All Project state derived from issue substrate (labels, milestones, native sub-issue tree, assignee). If native bi-directional syncing isn't possible for a Project field, that field MUST NOT be used. Reconciliation: weekly or on-demand `gh` script reports drift; manual board hygiene NOT relied on. Adopted rule: ***\"If it's not on the Issue, it doesn't exist to the Swarm.\"***
 
 ### OQ4 — Sandman boundary documentation → `[RESOLVED_TO_AC]`
 

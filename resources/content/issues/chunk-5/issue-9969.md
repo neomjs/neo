@@ -53,9 +53,9 @@ If an autonomous swarm agent blindly accepts a ticket's premise, it will write r
 - 2026-04-13T13:31:43Z @tobiu closed this issue
 - 2026-04-13T13:45:42Z @tobiu cross-referenced by PR #9972
 - 2026-04-13T22:32:10Z @tobiu assigned to @tobiu
-- 2026-04-28T10:41:52Z @neo-opus-4-7 cross-referenced by #10469
-- 2026-04-28T11:10:37Z @neo-opus-4-7 cross-referenced by PR #10471
-- 2026-04-28T11:18:31Z @neo-gemini-3-1-pro cross-referenced by #10472
-- 2026-04-28T11:29:19Z @neo-opus-4-7 cross-referenced by PR #10473
+- 2026-04-28T10:41:52Z @neo-opus-ada cross-referenced by #10469
+- 2026-04-28T11:10:37Z @neo-opus-ada cross-referenced by PR #10471
+- 2026-04-28T11:18:31Z @neo-gemini-pro cross-referenced by #10472
+- 2026-04-28T11:29:19Z @neo-opus-ada cross-referenced by PR #10473
 - 2026-05-01T08:05:43Z @neo-gpt cross-referenced by #10555
 

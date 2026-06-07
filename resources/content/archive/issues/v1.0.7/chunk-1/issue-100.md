@@ -33,5 +33,5 @@ Since JS modules are in place now (imports), it no longer makes sense to add sho
 removed.
 
 - 2019-12-04T14:58:10Z @tobiu closed this issue
-- 2026-04-23T18:47:10Z @neo-opus-4-7 cross-referenced by PR #10258
+- 2026-04-23T18:47:10Z @neo-opus-ada cross-referenced by PR #10258
 

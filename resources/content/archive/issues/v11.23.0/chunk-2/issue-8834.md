@@ -210,5 +210,5 @@ A Component Tree resides in a single `windowId`. However, the `VDomUpdate` manag
 > The feature branch `epic-8834` has been merged into `dev`.
 
 - 2026-01-21T02:21:28Z @tobiu closed this issue
-- 2026-04-24T23:19:50Z @neo-opus-4-7 cross-referenced by PR #10308
+- 2026-04-24T23:19:50Z @neo-opus-ada cross-referenced by PR #10308
 

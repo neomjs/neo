@@ -60,9 +60,9 @@ Upgrade all GitHub Actions references in our workflows to their latest major ver
 > Tested and committed to both `neo` and `create-app` repositories.
 
 - 2026-04-20T07:13:24Z @coderabbitai cross-referenced by PR #293
-- 2026-05-13T07:57:15Z @neo-opus-4-7 cross-referenced by #11292
-- 2026-05-13T08:00:01Z @neo-opus-4-7 cross-referenced by PR #11293
-- 2026-05-13T08:29:33Z @neo-opus-4-7 referenced in commit `9188c46` - "chore(ci): bump GitHub Actions workflows from node-version 22 to 24 (#11292)
+- 2026-05-13T07:57:15Z @neo-opus-ada cross-referenced by #11292
+- 2026-05-13T08:00:01Z @neo-opus-ada cross-referenced by PR #11293
+- 2026-05-13T08:29:33Z @neo-opus-ada referenced in commit `9188c46` - "chore(ci): bump GitHub Actions workflows from node-version 22 to 24 (#11292)
 
 Coordinated 4-file bump per operator-authorized V-B-A:
 - .github/workflows/test.yml: '22' → '24'

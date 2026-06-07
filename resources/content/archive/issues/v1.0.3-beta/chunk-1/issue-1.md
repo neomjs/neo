@@ -48,38 +48,38 @@ missing classname and ntype"
 - 2026-04-21T14:54:08Z @tobiu cross-referenced by PR #10160
 - 2026-04-21T17:03:02Z @tobiu cross-referenced by #9999
 - 2026-04-21T21:06:49Z @tobiu cross-referenced by PR #10167
-- 2026-04-22T14:40:12Z @neo-opus-4-7 cross-referenced by PR #10175
-- 2026-04-22T16:15:11Z @neo-opus-4-7 cross-referenced by #10184
-- 2026-04-22T18:47:14Z @neo-opus-4-7 cross-referenced by PR #10193
-- 2026-04-22T19:37:53Z @neo-opus-4-7 cross-referenced by PR #10198
-- 2026-04-23T22:04:39Z @neo-opus-4-7 cross-referenced by PR #10266
-- 2026-04-23T23:38:39Z @neo-opus-4-7 cross-referenced by PR #10269
-- 2026-04-24T01:23:53Z @neo-opus-4-7 cross-referenced by PR #10277
-- 2026-04-24T11:14:19Z @neo-opus-4-7 cross-referenced by #10294
-- 2026-04-24T20:30:49Z @neo-opus-4-7 cross-referenced by PR #10306
-- 2026-04-24T20:42:57Z @neo-opus-4-7 cross-referenced by PR #10303
-- 2026-04-25T01:56:06Z @neo-opus-4-7 cross-referenced by PR #10308
-- 2026-04-25T02:55:41Z @neo-opus-4-7 cross-referenced by PR #10317
-- 2026-04-25T04:55:11Z @neo-opus-4-7 cross-referenced by PR #10328
-- 2026-04-26T12:03:13Z @neo-gemini-3-1-pro cross-referenced by #10367
-- 2026-04-26T15:51:32Z @neo-opus-4-7 cross-referenced by PR #10379
-- 2026-04-26T16:26:23Z @neo-opus-4-7 cross-referenced by PR #10381
-- 2026-04-26T18:42:40Z @neo-opus-4-7 cross-referenced by PR #10386
-- 2026-04-26T18:50:10Z @neo-opus-4-7 cross-referenced by PR #10387
-- 2026-04-26T21:33:20Z @neo-opus-4-7 cross-referenced by PR #10392
-- 2026-04-26T22:26:21Z @neo-opus-4-7 cross-referenced by PR #10397
-- 2026-04-27T05:26:57Z @neo-opus-4-7 cross-referenced by PR #10401
-- 2026-04-27T07:29:43Z @neo-opus-4-7 cross-referenced by PR #10404
-- 2026-04-27T09:31:39Z @neo-opus-4-7 cross-referenced by PR #10409
-- 2026-04-27T10:49:24Z @neo-opus-4-7 cross-referenced by PR #10411
-- 2026-04-27T11:18:14Z @neo-opus-4-7 cross-referenced by PR #10416
-- 2026-04-27T12:09:08Z @neo-opus-4-7 cross-referenced by PR #10423
-- 2026-04-28T00:00:39Z @neo-gemini-3-1-pro cross-referenced by PR #10455
-- 2026-04-28T10:41:52Z @neo-opus-4-7 cross-referenced by #10469
-- 2026-04-30T20:47:08Z @neo-opus-4-7 cross-referenced by PR #10536
-- 2026-05-01T09:27:08Z @neo-opus-4-7 cross-referenced by #10564
-- 2026-05-01T11:42:29Z @neo-opus-4-7 cross-referenced by #10572
-- 2026-05-01T11:53:08Z @neo-opus-4-7 cross-referenced by PR #10573
+- 2026-04-22T14:40:12Z @neo-opus-ada cross-referenced by PR #10175
+- 2026-04-22T16:15:11Z @neo-opus-ada cross-referenced by #10184
+- 2026-04-22T18:47:14Z @neo-opus-ada cross-referenced by PR #10193
+- 2026-04-22T19:37:53Z @neo-opus-ada cross-referenced by PR #10198
+- 2026-04-23T22:04:39Z @neo-opus-ada cross-referenced by PR #10266
+- 2026-04-23T23:38:39Z @neo-opus-ada cross-referenced by PR #10269
+- 2026-04-24T01:23:53Z @neo-opus-ada cross-referenced by PR #10277
+- 2026-04-24T11:14:19Z @neo-opus-ada cross-referenced by #10294
+- 2026-04-24T20:30:49Z @neo-opus-ada cross-referenced by PR #10306
+- 2026-04-24T20:42:57Z @neo-opus-ada cross-referenced by PR #10303
+- 2026-04-25T01:56:06Z @neo-opus-ada cross-referenced by PR #10308
+- 2026-04-25T02:55:41Z @neo-opus-ada cross-referenced by PR #10317
+- 2026-04-25T04:55:11Z @neo-opus-ada cross-referenced by PR #10328
+- 2026-04-26T12:03:13Z @neo-gemini-pro cross-referenced by #10367
+- 2026-04-26T15:51:32Z @neo-opus-ada cross-referenced by PR #10379
+- 2026-04-26T16:26:23Z @neo-opus-ada cross-referenced by PR #10381
+- 2026-04-26T18:42:40Z @neo-opus-ada cross-referenced by PR #10386
+- 2026-04-26T18:50:10Z @neo-opus-ada cross-referenced by PR #10387
+- 2026-04-26T21:33:20Z @neo-opus-ada cross-referenced by PR #10392
+- 2026-04-26T22:26:21Z @neo-opus-ada cross-referenced by PR #10397
+- 2026-04-27T05:26:57Z @neo-opus-ada cross-referenced by PR #10401
+- 2026-04-27T07:29:43Z @neo-opus-ada cross-referenced by PR #10404
+- 2026-04-27T09:31:39Z @neo-opus-ada cross-referenced by PR #10409
+- 2026-04-27T10:49:24Z @neo-opus-ada cross-referenced by PR #10411
+- 2026-04-27T11:18:14Z @neo-opus-ada cross-referenced by PR #10416
+- 2026-04-27T12:09:08Z @neo-opus-ada cross-referenced by PR #10423
+- 2026-04-28T00:00:39Z @neo-gemini-pro cross-referenced by PR #10455
+- 2026-04-28T10:41:52Z @neo-opus-ada cross-referenced by #10469
+- 2026-04-30T20:47:08Z @neo-opus-ada cross-referenced by PR #10536
+- 2026-05-01T09:27:08Z @neo-opus-ada cross-referenced by #10564
+- 2026-05-01T11:42:29Z @neo-opus-ada cross-referenced by #10572
+- 2026-05-01T11:53:08Z @neo-opus-ada cross-referenced by PR #10573
 - 2026-05-01T13:15:55Z @tobiu referenced in commit `b8a4fc9` - "feat(knowledge-base): work-volume-aware gate on manage_knowledge_base sync (#10572) (#10573)
 
 * feat(knowledge-base): work-volume-aware gate on manage_knowledge_base sync (#10572)
@@ -201,12 +201,12 @@ flakiness.
 
 Co-authored-by: tobiu <tobiasuhlig78@gmail.com>
 Co-authored-by: Claude Opus 4.7 (Claude Code) <claude@anthropic.com>"
-- 2026-05-01T22:36:28Z @neo-opus-4-7 cross-referenced by PR #10607
-- 2026-05-03T10:34:09Z @neo-opus-4-7 cross-referenced by #10624
-- 2026-05-03T10:35:00Z @neo-opus-4-7 cross-referenced by #10625
-- 2026-05-03T11:11:51Z @neo-opus-4-7 cross-referenced by PR #10628
-- 2026-05-03T11:29:57Z @neo-opus-4-7 cross-referenced by PR #10631
-- 2026-05-03T20:32:02Z @neo-opus-4-7 referenced in commit `45bc8c7` - "fix(ai): clarify single-key vs multi-step seed primitive distinction (#10664)
+- 2026-05-01T22:36:28Z @neo-opus-ada cross-referenced by PR #10607
+- 2026-05-03T10:34:09Z @neo-opus-ada cross-referenced by #10624
+- 2026-05-03T10:35:00Z @neo-opus-ada cross-referenced by #10625
+- 2026-05-03T11:11:51Z @neo-opus-ada cross-referenced by PR #10628
+- 2026-05-03T11:29:57Z @neo-opus-ada cross-referenced by PR #10631
+- 2026-05-03T20:32:02Z @neo-opus-ada referenced in commit `45bc8c7` - "fix(ai): clarify single-key vs multi-step seed primitive distinction (#10664)
 
 Cycle 2 polish addressing @neo-gpt's PR #10665 review (commentId
 IC_kwDODSospM8AAAABBEy2HQ) Required Action #2: tighten the
@@ -346,13 +346,13 @@ addressing Required Action #1 (replacement-vs-append framing).
 ---------
 
 Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
-- 2026-05-04T22:04:15Z @neo-opus-4-7 cross-referenced by #10721
-- 2026-05-05T19:30:03Z @neo-opus-4-7 cross-referenced by #10494
-- 2026-05-05T20:08:23Z @neo-opus-4-7 cross-referenced by #10776
-- 2026-05-06T16:00:40Z @neo-opus-4-7 cross-referenced by #10822
-- 2026-05-06T23:57:12Z @neo-opus-4-7 cross-referenced by PR #10861
-- 2026-05-07T08:03:53Z @neo-opus-4-7 cross-referenced by PR #10883
-- 2026-05-07T21:53:45Z @neo-opus-4-7 referenced in commit `7e19cd3` - "feat(ci): re-add unit suite to matrix post-bucket-cascade (#10897)
+- 2026-05-04T22:04:15Z @neo-opus-ada cross-referenced by #10721
+- 2026-05-05T19:30:03Z @neo-opus-ada cross-referenced by #10494
+- 2026-05-05T20:08:23Z @neo-opus-ada cross-referenced by #10776
+- 2026-05-06T16:00:40Z @neo-opus-ada cross-referenced by #10822
+- 2026-05-06T23:57:12Z @neo-opus-ada cross-referenced by PR #10861
+- 2026-05-07T08:03:53Z @neo-opus-ada cross-referenced by PR #10883
+- 2026-05-07T21:53:45Z @neo-opus-ada referenced in commit `7e19cd3` - "feat(ci): re-add unit suite to matrix post-bucket-cascade (#10897)
 
 The full per-bucket substrate audit from #10903 has landed across two epics:
 
@@ -382,40 +382,40 @@ time since #10903 deferral.
 Continues #10897 (Lane C followup); the original Lane C scaffolding
 shipped via 4fb4bcab7. Bucket epics #10903 + #10924 close-out tracked
 separately as project-management events when their last subs close."
-- 2026-05-08T20:48:45Z @neo-opus-4-7 cross-referenced by #10991
-- 2026-05-09T17:16:22Z @neo-opus-4-7 cross-referenced by #11028
-- 2026-05-09T19:16:41Z @neo-opus-4-7 cross-referenced by PR #11044
-- 2026-05-10T00:42:25Z @neo-opus-4-7 cross-referenced by #11084
-- 2026-05-10T01:21:09Z @neo-opus-4-7 cross-referenced by PR #11087
-- 2026-05-10T12:13:58Z @neo-opus-4-7 cross-referenced by #11077
-- 2026-05-10T13:24:04Z @neo-opus-4-7 cross-referenced by PR #11106
-- 2026-05-10T13:35:28Z @neo-opus-4-7 cross-referenced by #11110
-- 2026-05-10T14:04:20Z @neo-opus-4-7 cross-referenced by PR #11114
-- 2026-05-10T23:53:23Z @neo-opus-4-7 cross-referenced by PR #11164
-- 2026-05-10T23:55:27Z @neo-opus-4-7 cross-referenced by #11165
-- 2026-05-11T00:18:24Z @neo-opus-4-7 cross-referenced by PR #11167
-- 2026-05-11T00:40:11Z @neo-gemini-3-1-pro cross-referenced by PR #11172
-- 2026-05-11T00:52:15Z @neo-gemini-3-1-pro cross-referenced by PR #11176
-- 2026-05-11T00:58:57Z @neo-opus-4-7 cross-referenced by #11177
-- 2026-05-11T01:16:53Z @neo-opus-4-7 cross-referenced by PR #11178
-- 2026-05-11T05:09:04Z @neo-opus-4-7 cross-referenced by #11182
-- 2026-05-11T08:50:42Z @neo-opus-4-7 cross-referenced by PR #11194
-- 2026-05-11T14:05:27Z @neo-opus-4-7 cross-referenced by #11209
-- 2026-05-12T23:05:24Z @neo-opus-4-7 cross-referenced by PR #11277
-- 2026-05-12T23:26:17Z @neo-opus-4-7 cross-referenced by PR #11278
-- 2026-05-13T05:43:24Z @neo-opus-4-7 cross-referenced by #11187
-- 2026-05-13T06:07:22Z @neo-opus-4-7 cross-referenced by PR #11282
-- 2026-05-13T06:55:00Z @neo-opus-4-7 cross-referenced by PR #11280
-- 2026-05-13T08:10:40Z @neo-opus-4-7 cross-referenced by PR #11294
-- 2026-05-13T10:55:47Z @neo-opus-4-7 cross-referenced by PR #11299
-- 2026-05-13T11:08:45Z @neo-opus-4-7 cross-referenced by PR #11300
-- 2026-05-13T11:41:19Z @neo-opus-4-7 cross-referenced by PR #11302
-- 2026-05-13T11:52:18Z @neo-opus-4-7 cross-referenced by PR #11303
-- 2026-05-13T19:09:02Z @neo-opus-4-7 cross-referenced by #11319
+- 2026-05-08T20:48:45Z @neo-opus-ada cross-referenced by #10991
+- 2026-05-09T17:16:22Z @neo-opus-ada cross-referenced by #11028
+- 2026-05-09T19:16:41Z @neo-opus-ada cross-referenced by PR #11044
+- 2026-05-10T00:42:25Z @neo-opus-ada cross-referenced by #11084
+- 2026-05-10T01:21:09Z @neo-opus-ada cross-referenced by PR #11087
+- 2026-05-10T12:13:58Z @neo-opus-ada cross-referenced by #11077
+- 2026-05-10T13:24:04Z @neo-opus-ada cross-referenced by PR #11106
+- 2026-05-10T13:35:28Z @neo-opus-ada cross-referenced by #11110
+- 2026-05-10T14:04:20Z @neo-opus-ada cross-referenced by PR #11114
+- 2026-05-10T23:53:23Z @neo-opus-ada cross-referenced by PR #11164
+- 2026-05-10T23:55:27Z @neo-opus-ada cross-referenced by #11165
+- 2026-05-11T00:18:24Z @neo-opus-ada cross-referenced by PR #11167
+- 2026-05-11T00:40:11Z @neo-gemini-pro cross-referenced by PR #11172
+- 2026-05-11T00:52:15Z @neo-gemini-pro cross-referenced by PR #11176
+- 2026-05-11T00:58:57Z @neo-opus-ada cross-referenced by #11177
+- 2026-05-11T01:16:53Z @neo-opus-ada cross-referenced by PR #11178
+- 2026-05-11T05:09:04Z @neo-opus-ada cross-referenced by #11182
+- 2026-05-11T08:50:42Z @neo-opus-ada cross-referenced by PR #11194
+- 2026-05-11T14:05:27Z @neo-opus-ada cross-referenced by #11209
+- 2026-05-12T23:05:24Z @neo-opus-ada cross-referenced by PR #11277
+- 2026-05-12T23:26:17Z @neo-opus-ada cross-referenced by PR #11278
+- 2026-05-13T05:43:24Z @neo-opus-ada cross-referenced by #11187
+- 2026-05-13T06:07:22Z @neo-opus-ada cross-referenced by PR #11282
+- 2026-05-13T06:55:00Z @neo-opus-ada cross-referenced by PR #11280
+- 2026-05-13T08:10:40Z @neo-opus-ada cross-referenced by PR #11294
+- 2026-05-13T10:55:47Z @neo-opus-ada cross-referenced by PR #11299
+- 2026-05-13T11:08:45Z @neo-opus-ada cross-referenced by PR #11300
+- 2026-05-13T11:41:19Z @neo-opus-ada cross-referenced by PR #11302
+- 2026-05-13T11:52:18Z @neo-opus-ada cross-referenced by PR #11303
+- 2026-05-13T19:09:02Z @neo-opus-ada cross-referenced by #11319
 - 2026-05-15T17:47:43Z @neo-gpt cross-referenced by #11430
-- 2026-05-15T18:04:28Z @neo-opus-4-7 cross-referenced by PR #11432
-- 2026-05-15T18:26:43Z @neo-opus-4-7 cross-referenced by PR #11434
-- 2026-05-15T18:59:33Z @neo-opus-4-7 cross-referenced by PR #11436
-- 2026-05-16T14:21:54Z @neo-opus-4-7 cross-referenced by PR #11462
-- 2026-05-16T14:30:15Z @neo-opus-4-7 cross-referenced by PR #11461
+- 2026-05-15T18:04:28Z @neo-opus-ada cross-referenced by PR #11432
+- 2026-05-15T18:26:43Z @neo-opus-ada cross-referenced by PR #11434
+- 2026-05-15T18:59:33Z @neo-opus-ada cross-referenced by PR #11436
+- 2026-05-16T14:21:54Z @neo-opus-ada cross-referenced by PR #11462
+- 2026-05-16T14:30:15Z @neo-opus-ada cross-referenced by PR #11461
 

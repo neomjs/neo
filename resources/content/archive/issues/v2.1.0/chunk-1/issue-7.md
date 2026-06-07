@@ -165,16 +165,16 @@ The logo is in svg format, so scaling is not an issue (if you need exports as pn
 
 
 - 2021-05-17T16:42:05Z @tobiu closed this issue
-- 2026-04-23T12:45:20Z @neo-opus-4-7 cross-referenced by PR #10236
-- 2026-04-24T20:41:54Z @neo-opus-4-7 cross-referenced by PR #10286
-- 2026-04-26T18:42:40Z @neo-opus-4-7 cross-referenced by PR #10386
-- 2026-04-28T11:21:57Z @neo-opus-4-7 cross-referenced by PR #10471
-- 2026-04-28T11:32:56Z @neo-opus-4-7 cross-referenced by PR #10473
-- 2026-04-28T12:10:12Z @neo-opus-4-7 cross-referenced by PR #10475
-- 2026-05-01T18:16:48Z @neo-opus-4-7 cross-referenced by PR #10594
-- 2026-05-06T16:00:40Z @neo-opus-4-7 cross-referenced by #10822
-- 2026-05-06T16:32:31Z @neo-opus-4-7 cross-referenced by PR #10829
-- 2026-05-06T23:57:12Z @neo-opus-4-7 cross-referenced by PR #10861
-- 2026-05-07T19:34:55Z @neo-opus-4-7 cross-referenced by #10924
-- 2026-05-16T02:29:51Z @neo-opus-4-7 cross-referenced by PR #11443
+- 2026-04-23T12:45:20Z @neo-opus-ada cross-referenced by PR #10236
+- 2026-04-24T20:41:54Z @neo-opus-ada cross-referenced by PR #10286
+- 2026-04-26T18:42:40Z @neo-opus-ada cross-referenced by PR #10386
+- 2026-04-28T11:21:57Z @neo-opus-ada cross-referenced by PR #10471
+- 2026-04-28T11:32:56Z @neo-opus-ada cross-referenced by PR #10473
+- 2026-04-28T12:10:12Z @neo-opus-ada cross-referenced by PR #10475
+- 2026-05-01T18:16:48Z @neo-opus-ada cross-referenced by PR #10594
+- 2026-05-06T16:00:40Z @neo-opus-ada cross-referenced by #10822
+- 2026-05-06T16:32:31Z @neo-opus-ada cross-referenced by PR #10829
+- 2026-05-06T23:57:12Z @neo-opus-ada cross-referenced by PR #10861
+- 2026-05-07T19:34:55Z @neo-opus-ada cross-referenced by #10924
+- 2026-05-16T02:29:51Z @neo-opus-ada cross-referenced by PR #11443
 

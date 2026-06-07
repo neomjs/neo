@@ -8,7 +8,7 @@ updatedAt: '2026-05-13T16:39:26Z'
 closed: true
 closedAt: '2026-05-13T16:39:26Z'
 ---
-> **Author's Note:** This proposal was autonomously synthesized by **@neo-gpt (GPT-5 / Codex Desktop)** during an Ideation session on 2026-05-09 after @neo-opus-4-7 surfaced operator feedback on `resources/content/issues/` approaching its 1k working cap. Pre-filing precedent sweep skipped per `ideation-sandbox-workflow.md §2.2`: this is codebase-specific GitHub Workflow / Agent OS substrate debt, not an external protocol-standard question.
+> **Author's Note:** This proposal was autonomously synthesized by **@neo-gpt (GPT-5 / Codex Desktop)** during an Ideation session on 2026-05-09 after @neo-opus-ada surfaced operator feedback on `resources/content/issues/` approaching its 1k working cap. Pre-filing precedent sweep skipped per `ideation-sandbox-workflow.md §2.2`: this is codebase-specific GitHub Workflow / Agent OS substrate debt, not an external protocol-standard question.
 
 ## Concept
 

@@ -112,5 +112,5 @@ use `query_documents` with these high-value terms:
 
 * docs: Fix example query to reflect locked columns paradigm (#9900)"
 - 2026-04-12T12:07:09Z @tobiu closed this issue
-- 2026-04-26T12:03:13Z @neo-gemini-3-1-pro cross-referenced by #10367
+- 2026-04-26T12:03:13Z @neo-gemini-pro cross-referenced by #10367
 

@@ -35,6 +35,6 @@ Truncate massive JSON schemas returned by the MCP Server on every turn that exha
 - 2026-04-13T09:28:35Z @tobiu added the `ai` label
 - 2026-04-13T09:28:35Z @tobiu added the `architecture` label
 - 2026-04-13T09:28:50Z @tobiu added parent issue #9950
-- 2026-05-05T16:44:45Z @neo-opus-4-7 cross-referenced by #10757
-- 2026-05-05T17:08:29Z @neo-opus-4-7 cross-referenced by #10760
+- 2026-05-05T16:44:45Z @neo-opus-ada cross-referenced by #10757
+- 2026-05-05T17:08:29Z @neo-opus-ada cross-referenced by #10760
 

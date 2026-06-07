@@ -35,9 +35,9 @@ Inject the `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` environment variable at the
 - 2026-03-30T10:26:36Z @tobiu referenced in commit `e6af733` - "ci: Force Node 24 for GitHub Actions to resolve deprecation warnings (#9598)"
 - 2026-03-30T10:26:37Z @tobiu assigned to @tobiu
 - 2026-03-30T10:26:39Z @tobiu closed this issue
-- 2026-05-13T07:57:15Z @neo-opus-4-7 cross-referenced by #11292
-- 2026-05-13T08:00:01Z @neo-opus-4-7 cross-referenced by PR #11293
-- 2026-05-13T08:29:33Z @neo-opus-4-7 referenced in commit `9188c46` - "chore(ci): bump GitHub Actions workflows from node-version 22 to 24 (#11292)
+- 2026-05-13T07:57:15Z @neo-opus-ada cross-referenced by #11292
+- 2026-05-13T08:00:01Z @neo-opus-ada cross-referenced by PR #11293
+- 2026-05-13T08:29:33Z @neo-opus-ada referenced in commit `9188c46` - "chore(ci): bump GitHub Actions workflows from node-version 22 to 24 (#11292)
 
 Coordinated 4-file bump per operator-authorized V-B-A:
 - .github/workflows/test.yml: '22' → '24'
