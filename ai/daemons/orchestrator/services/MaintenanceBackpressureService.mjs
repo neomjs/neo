@@ -17,6 +17,7 @@ import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
  */
 export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
+    'memory-summary-backfill',
     'kbSync',
     'backup',
     'graphlog-compaction',

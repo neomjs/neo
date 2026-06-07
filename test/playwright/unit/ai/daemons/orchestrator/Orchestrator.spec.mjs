@@ -167,7 +167,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -729,9 +729,11 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(orchestrator.stateFile).toBe(path.join(dataDir, 'orchestrator-state.json'));
 
         const expectedSummaryScript = path.resolve(repoRoot, 'ai/scripts/lifecycle/summarize-sessions.mjs');
-        const expectedKbSyncScript = path.resolve(repoRoot, 'ai/scripts/maintenance/syncKnowledgeBase.mjs');
+        const expectedBackfillScript = path.resolve(repoRoot, 'ai/scripts/lifecycle/backfill-memory-summaries.mjs');
+        const expectedKbSyncScript   = path.resolve(repoRoot, 'ai/scripts/maintenance/syncKnowledgeBase.mjs');
 
         expect(orchestrator.taskDefinitions.summary.args[0]).toBe(expectedSummaryScript);
+        expect(orchestrator.taskDefinitions['memory-summary-backfill'].args[0]).toBe(expectedBackfillScript);
         expect(orchestrator.taskDefinitions.kbSync.args[0]).toBe(expectedKbSyncScript);
         expect(orchestrator.taskDefinitions.mlx).toBeUndefined();
     });
@@ -906,6 +908,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             'backup',
             'graphlog-compaction',
             'kbSync',
+            'memory-summary-backfill',
             'primary-dev-sync',
             'dream',
             'summary'

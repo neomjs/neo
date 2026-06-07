@@ -87,6 +87,13 @@ export function buildTaskDefinitions({
             pidFileName    : 'summarization.pid',
             expectedCommand: 'summarize-sessions.mjs'
         },
+        'memory-summary-backfill': {
+            label          : 'memory miniSummary backfill',
+            command        : nodeBin,
+            args           : [path.join(scriptDir, 'lifecycle', 'backfill-memory-summaries.mjs')],
+            pidFileName    : 'memory-summary-backfill.pid',
+            expectedCommand: 'backfill-memory-summaries.mjs'
+        },
         kbSync: {
             label          : 'knowledge base sync',
             command        : nodeBin,
