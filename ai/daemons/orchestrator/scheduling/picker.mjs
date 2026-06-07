@@ -22,7 +22,7 @@
  * @param {Object} options
  * @param {Array<Object>} options.candidates Due candidates from `collectDueCandidates`.
  * @param {Set<String>|Array<String>} options.runningTasks Task names currently running
- *   (per `TaskStateService.getRunning()` or equivalent).
+ *   (derived from the current task-state snapshot).
  * @param {Object} options.policyContext Additional policy state (currently unused;
  *   reserved for future deployment-profile + cross-daemon-lease integration).
  * @returns {Object|null} The winning candidate, or null if no candidate survives the pipeline.
