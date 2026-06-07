@@ -104,8 +104,8 @@ function isMessageWakeEligible(messageNode) {
 }
 
 /**
- * @summary Builds the inner `SENT_TO_ME` payload from a resolved MESSAGE node (canonical shape,
- * matching `WakeSubscriptionService._buildSentToMePayload`).
+ * @summary Builds the inner `SENT_TO_ME` payload from a resolved MESSAGE node — the canonical
+ * shape consumed verbatim by both wake call-sites (the daemon + `WakeSubscriptionService`).
  * @param {Object} messageNode
  * @returns {Object}
  */
@@ -123,9 +123,9 @@ function buildSentToMeInner(messageNode) {
 }
 
 /**
- * @summary AND-conjunctive subscription filter match — every configured filter must pass.
- * Mirrors `WakeSubscriptionService._matchesFilters` (verified identical to the daemon's former
- * inline filters): `priority` / `senderFilter` / `inReplyToFilter` / `taggedConcepts`.
+ * @summary AND-conjunctive subscription filter match — every configured filter must pass. The
+ * canonical filter pass for both wake call-sites (consolidates the daemon's former inline filters
+ * and the service's former filter pass): `priority` / `senderFilter` / `inReplyToFilter` / `taggedConcepts`.
  * @param {Object} payload The `buildSentToMeInner` output.
  * @param {Object} [filters={}]
  * @returns {Boolean}
@@ -153,8 +153,8 @@ function matchesFilters(payload, filters = {}) {
  * Unread state is split by delivery shape: direct DMs + legacy broadcasts carry `readAt` on the
  * MESSAGE node, while receipt-backed fan-out broadcasts carry it on the per-recipient `DELIVERED_TO`
  * edge — so receipt-backed broadcasts are evaluated through `DELIVERED_TO` only, and the legacy
- * `SENT_TO -> AGENT:*` path defers (`hasDeliveryReceipts`) when receipts exist. Mirrors
- * `WakeSubscriptionService._buildSentToMePayloadForEdge`.
+ * `SENT_TO -> AGENT:*` path defers (`hasDeliveryReceipts`) when receipts exist. This is the
+ * canonical edge evaluation consumed by both wake call-sites (the daemon + `WakeSubscriptionService`).
  *
  * @param {Object}   edge                Candidate mailbox delivery edge (`{type, source, target, properties}`).
  * @param {String}   owner               Subscription owner AgentIdentity.

@@ -7,7 +7,7 @@ import aiConfig               from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService  from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                 from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService from './CoalescingEngineService.mjs';
-import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
+import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 
 /**
  * @summary Service for managing graph-resident WAKE_SUBSCRIPTION nodes and the
@@ -984,87 +984,20 @@ class WakeSubscriptionService extends Base {
      * @returns {Object|null} Wrapped wake-event payload (per §6.1.1 / §6.1.3 envelope) or null when no match
      */
     _evaluateEdgeAgainstSubscription(edgeRef, subscription, logIdAnchor) {
-        const db   = GraphService.db;
-        const edge = db.edges.get(edgeRef.id);
+        const edge = GraphService.db.edges.get(edgeRef.id);
         if (!edge) return null;
 
-        const owner = subscription.agentIdentity;
+        // Delegate all edge triggers (SENT_TO_ME / PERMISSION_GRANTED) to the shared `match()`
+        // evaluator — the single source of truth also consumed by the standalone wake-daemon, so the
+        // two call-sites cannot drift. This service owns only its GraphService-backed data accessors
+        // and the notification envelope (`_wrapEvent`).
+        const result = match(subscription, {
+            entity             : edge,
+            getNode            : id    => GraphService.db.nodes.get(id),
+            hasDeliveryReceipts: msgId => this._messageHasDeliveryReceipts(msgId)
+        }, {entity_type: 'edges', entity_id: edge.id, log_id: logIdAnchor});
 
-        if (subscription.trigger === 'SENT_TO_ME') {
-            const payload = this._buildSentToMePayloadForEdge(edge, owner);
-            if (!payload) return null;
-            if (!this._matchesFilters(payload, subscription.filters)) return null;
-            return this._wrapEvent('wake/sent_to_me', subscription, payload, logIdAnchor);
-        }
-
-        if (subscription.trigger === 'PERMISSION_GRANTED'
-            && ['CAN_REPLY_TO', 'CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF'].includes(edge.type)
-            && edge.target === owner) {
-            const payload = {
-                scope     : edge.type,
-                grantedBy : edge.source,
-                grantedAt : new Date().toISOString()
-            };
-            return this._wrapEvent('wake/permission_granted', subscription, payload, logIdAnchor);
-        }
-
-        return null;
-    }
-
-    /**
-     * @summary Builds a `SENT_TO_ME` wake payload only for unread recipient-visible edges.
-     *
-     * Mailbox unread state is split by delivery shape: direct DMs and legacy broadcasts store
-     * `readAt` on the MESSAGE node, while fan-out broadcasts store it on each recipient's
-     * `DELIVERED_TO` edge. Wake replay follows that same taxonomy so stale already-read
-     * messages do not reopen sunsetted or caught-up harnesses.
-     *
-     * @protected
-     * @param {Object} edge Candidate mailbox delivery edge from GraphLog.
-     * @param {String} owner Subscription owner AgentIdentity node id.
-     * @returns {Object|null} `wake/sent_to_me` payload or null when the edge is not wake-eligible.
-     */
-    _buildSentToMePayloadForEdge(edge, owner) {
-        const db = GraphService.db;
-
-        if (edge.type === 'DELIVERED_TO' && edge.target === owner) {
-            if (edge.properties?.readAt) return null;
-
-            const messageNode = db.nodes.get(edge.source);
-            if (!this._messageIsWakeEligible(messageNode)) return null;
-
-            return this._buildSentToMePayload(messageNode);
-        }
-
-        if (edge.type !== 'SENT_TO') return null;
-
-        const messageNode = db.nodes.get(edge.source);
-        if (!this._messageIsWakeEligible(messageNode)) return null;
-
-        if (edge.target === owner) {
-            return messageNode.properties?.readAt ? null : this._buildSentToMePayload(messageNode);
-        }
-
-        if (edge.target === 'AGENT:*') {
-            if (messageNode.properties?.from === owner) return null;
-            if (messageNode.properties?.readAt) return null;
-            if (this._messageHasDeliveryReceipts(messageNode.id)) return null;
-
-            return this._buildSentToMePayload(messageNode);
-        }
-
-        return null;
-    }
-
-    /**
-     * @summary Checks message-level wake suppressors shared by direct and broadcast delivery paths.
-     *
-     * @protected
-     * @param {Object|null} messageNode Candidate MESSAGE graph node.
-     * @returns {Boolean}
-     */
-    _messageIsWakeEligible(messageNode) {
-        return !!messageNode && messageNode.label === 'MESSAGE' && !messageNode.properties?.wakeSuppressed;
+        return result ? this._wrapEvent('wake/' + result.type, subscription, result.payload, result.logId) : null;
     }
 
     /**
@@ -1093,27 +1026,15 @@ class WakeSubscriptionService extends Base {
      * @returns {Object|null} Wrapped wake-event payload (per §6.1.2 envelope) or null when no match
      */
     _evaluateNodeAgainstSubscription(nodeId, subscription, logIdAnchor) {
-        if (subscription.trigger !== 'TASK_STATE_CHANGED') return null;
-
         const node = GraphService.db.nodes.get(nodeId);
-        if (!node || node.label !== 'MESSAGE') return null;
+        if (!node) return null;
 
-        const props = node.properties || {};
-        const task  = props.task;
-        if (!task || !task.state) return null;
+        // TASK_STATE_CHANGED semantics (MESSAGE node carrying a Task envelope, owner = originator OR
+        // assignee, current-state-only resync) live in the shared `match()` evaluator; this service
+        // wraps the matched result in its notification envelope.
+        const result = match(subscription, {entity: node}, {entity_type: 'nodes', entity_id: nodeId, log_id: logIdAnchor});
 
-        const owner = subscription.agentIdentity;
-        if (props.from !== owner && task.assignee !== owner) return null;
-
-        const payload = {
-            taskId        : nodeId,
-            previousState : null,                          // Not retained in node properties; resync semantics return current state only.
-            newState      : task.state,
-            originator    : props.from,
-            assignee      : task.assignee,
-            lastModifiedAt: props.updatedAt || props.sentAt
-        };
-        return this._wrapEvent('wake/task_state_changed', subscription, payload, logIdAnchor);
+        return result ? this._wrapEvent('wake/' + result.type, subscription, result.payload, result.logId) : null;
     }
 
     /**
@@ -1129,38 +1050,19 @@ class WakeSubscriptionService extends Base {
         // GraphService-free `heartbeatPulseEvaluator` (also consumed by the standalone wake-daemon),
         // so the two heartbeat-pulse evaluators cannot drift; this service still owns the
         // wake-notification envelope wrapping.
-        const match = matchHeartbeatPulse({
+        const pulse = matchHeartbeatPulse({
             trace,
             harnessTarget: subscription.harnessTarget,
             agentIdentity: subscription.agentIdentity,
             entityType   : this.heartbeatPulseEntityType,
             prefix       : this.heartbeatPulseEntityPrefix
         });
-        if (!match) return null;
+        if (!pulse) return null;
 
         return this._wrapEvent('wake/heartbeat_pulse', subscription, {
-            targetIdentity: match.targetIdentity,
-            pulseId       : match.pulseId
-        }, match.logId);
-    }
-
-    /**
-     * Builds the wake/sent_to_me payload from a MESSAGE node.
-     * @protected
-     * @param {Object} messageNode Graph node with `properties` (from / subject / priority / taggedConcepts / inReplyTo / to)
-     * @returns {{messageId:String,from:String,subject:String,priority:String,taggedConcepts:String[],isReplyTo:?String,isBroadcast:Boolean}}
-     */
-    _buildSentToMePayload(messageNode) {
-        const props = messageNode.properties || {};
-        return {
-            messageId     : messageNode.id,
-            from          : props.from,
-            subject       : (props.subject || '').slice(0, 200),
-            priority      : props.priority || 'normal',
-            taggedConcepts: props.taggedConcepts || [],
-            isReplyTo     : props.inReplyTo || null,
-            isBroadcast   : props.to === 'AGENT:*'
-        };
+            targetIdentity: pulse.targetIdentity,
+            pulseId       : pulse.pulseId
+        }, pulse.logId);
     }
 
     /**
@@ -1168,7 +1070,7 @@ class WakeSubscriptionService extends Base {
      * @protected
      * @param {String} eventType One of `wake/sent_to_me`, `wake/task_state_changed`, `wake/permission_granted`, `wake/heartbeat_pulse`
      * @param {Object} subscription Cached WAKE_SUBSCRIPTION entry (provides `id` + `agentIdentity`)
-     * @param {Object} payload Trigger-specific inner payload built by the matching `_build*Payload` helper
+     * @param {Object} payload Trigger-specific inner payload returned by the shared `match()` evaluator
      * @param {String|Number} logIdAnchor GraphLog `log_id` anchor preserved across re-emissions for cursor-based catchup
      * @returns {Object} Full notification envelope (`schemaVersion`, `eventType`, `eventId`, `logId`, `agentIdentity`, `subscriptionId`, `payload`, `emittedAt`)
      */
@@ -1193,31 +1095,6 @@ class WakeSubscriptionService extends Base {
      */
     _createHeartbeatPulseEntityId(targetIdentity) {
         return `${this.heartbeatPulseEntityPrefix}:${targetIdentity}:${crypto.randomUUID()}`;
-    }
-
-    /**
-     * Applies optional filter spec (taggedConcepts, priority, senderFilter, inReplyToFilter)
-     * to a sent_to_me payload. Returns true if all configured filters pass.
-     * @protected
-     * @param {Object} payload The `_buildSentToMePayload` output to evaluate
-     * @param {Object} [filters={}] Subscription filter spec (taggedConcepts / priority / senderFilter / inReplyToFilter)
-     * @returns {Boolean} `true` if every configured filter passes (AND-conjunctive); `false` otherwise
-     */
-    _matchesFilters(payload, filters = {}) {
-        if (filters.priority && payload.priority !== filters.priority) return false;
-
-        if (Array.isArray(filters.senderFilter) && filters.senderFilter.length > 0
-            && !filters.senderFilter.includes(payload.from)) return false;
-
-        if (Array.isArray(filters.inReplyToFilter) && filters.inReplyToFilter.length > 0
-            && !filters.inReplyToFilter.includes(payload.isReplyTo)) return false;
-
-        if (Array.isArray(filters.taggedConcepts) && filters.taggedConcepts.length > 0) {
-            const hasMatch = (payload.taggedConcepts || []).some(c => filters.taggedConcepts.includes(c));
-            if (!hasMatch) return false;
-        }
-
-        return true;
     }
 
     /**
