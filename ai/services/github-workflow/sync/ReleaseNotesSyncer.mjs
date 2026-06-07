@@ -77,7 +77,12 @@ class ReleaseNotesSyncer extends Base {
         logger.info('Checking for new releases...');
 
         const cachedReleases     = metadata.releases || {};
-        const cachedReleaseArray = Object.values(cachedReleases);
+        // Persisted metadata keeps release tags as object keys and prunes body fields.
+        const cachedReleaseArray = Object.entries(cachedReleases).map(([tagName, release]) => ({
+            ...release,
+            tagName,
+            metadataOnly: !Object.hasOwn(release, 'name') && !Object.hasOwn(release, 'description')
+        }));
 
         // Fast-path check against the cached latest release.
         if (cachedReleaseArray.length > 0) {
@@ -96,7 +101,7 @@ class ReleaseNotesSyncer extends Base {
                     latestRelease.tagName === cachedLatest.tagName &&
                     latestRelease.publishedAt === cachedLatest.publishedAt) {
                     logger.info(`✅ Releases are up-to-date (latest: ${latestRelease.tagName})`);
-                    this.releases = cachedReleases;
+                    this.releases = Object.fromEntries(cachedReleaseArray.map(release => [release.tagName, release]));
                     this.sortedReleases = cachedReleaseArray.map(r => ({
                         tagName    : r.tagName,
                         publishedAt: r.publishedAt
@@ -235,6 +240,18 @@ class ReleaseNotesSyncer extends Base {
                     chunkDir: `chunk-${chunkNumber}`
                 };
 
+                const cachedRelease = cachedReleases[release.tagName];
+
+                if (release.metadataOnly) {
+                    if (cachedRelease?.contentHash) {
+                        logger.debug(`Skipping release notes for ${release.tagName}, cached metadata has no body fields.`);
+                        release.contentHash = cachedRelease.contentHash;
+                    } else {
+                        logger.warn(`⚠️ Cannot sync release notes for ${release.tagName}: cached metadata has no body fields or contentHash.`);
+                    }
+                    continue;
+                }
+
                 const frontmatter = {
                     tagName     : release.tagName,
                     name        : release.name,
@@ -250,8 +267,6 @@ class ReleaseNotesSyncer extends Base {
 
                 // Store the hash on the release object for the main loop to cache later
                 release.contentHash = currentHash;
-
-                const cachedRelease = cachedReleases[release.tagName];
 
                 if (cachedRelease && cachedRelease.contentHash === currentHash) {
                     logger.debug(`Skipping release notes for ${release.tagName}, content unchanged.`);
