@@ -2,8 +2,10 @@ import {test, expect} from '@playwright/test';
 import {
     HEARTBEAT_PULSE_ENTITY_PREFIX,
     HEARTBEAT_PULSE_ENTITY_TYPE,
+    match,
     matchHeartbeatPulse,
-    parseHeartbeatPulseEntityId
+    parseHeartbeatPulseEntityId,
+    PERMISSION_EDGE_TYPES
 } from '../../../../../../ai/services/memory-core/heartbeatPulseEvaluator.mjs';
 
 /**
@@ -68,5 +70,138 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator', () => {
     test('exposes the canonical constants the daemon + service both source (#12008)', () => {
         expect(HEARTBEAT_PULSE_ENTITY_TYPE).toBe('heartbeat_pulse');
         expect(HEARTBEAT_PULSE_ENTITY_PREFIX).toBe('HEARTBEAT_PULSE');
+    });
+});
+
+/**
+ * Coverage for the shared `match()` evaluator — the option-3 consolidation that adopts the
+ * WakeSubscriptionService (superset, correct) logic for all four triggers, so the wake-daemon stops
+ * diverging. Pure functions + injected `entityData` accessors, so no Neo bootstrap / DB is required.
+ * The cases that re-prove the three daemon-divergence fixes are called out inline.
+ */
+test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (all 4 triggers)', () => {
+    const OWNER     = '@neo-opus-vega';
+    const edgeTrace = {entity_type: 'edges', entity_id: 'EDGE:e1', log_id: 7};
+    const nodeTrace = {entity_type: 'nodes', entity_id: 'MESSAGE:t1', log_id: 9};
+
+    const sub  = (over = {}) => ({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications', agentIdentity: OWNER, filters: {}, ...over});
+    const msg  = (props = {}) => ({id: 'MESSAGE:m1', label: 'MESSAGE', properties: {from: '@neo-gpt', subject: 'hi', priority: 'normal', ...props}});
+    const data = (entity, {node = null, receipts = false} = {}) => ({entity, getNode: () => node, hasDeliveryReceipts: () => receipts});
+
+    // --- guards ---
+    test('returns null without an agentIdentity', () => {
+        expect(match({trigger: 'SENT_TO_ME'}, data({type: 'SENT_TO'}), edgeTrace)).toBe(null);
+    });
+
+    test('returns null for a non-heartbeat trace with no resolved entity', () => {
+        expect(match(sub(), {entity: null}, edgeTrace)).toBe(null);
+    });
+
+    // --- HEARTBEAT_PULSE (match() wraps matchHeartbeatPulse into the canonical envelope) ---
+    test('heartbeat_pulse: wraps an eligible bridge-daemon pulse', () => {
+        const trace = {entity_type: 'heartbeat_pulse', entity_id: `HEARTBEAT_PULSE:${OWNER}:p1`, log_id: 42};
+        expect(match(sub({trigger: 'HEARTBEAT_PULSE', harnessTarget: 'bridge-daemon'}), {entity: null}, trace))
+            .toEqual({type: 'heartbeat_pulse', payload: {targetIdentity: OWNER, pulseId: 'p1'}, logId: 42});
+    });
+
+    // --- SENT_TO_ME ---
+    test('sent_to_me: an unread direct SENT_TO to the owner fires', () => {
+        const node = msg();
+        expect(match(sub(), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace))
+            .toMatchObject({type: 'sent_to_me', payload: {messageId: node.id, from: '@neo-gpt'}, logId: 7});
+    });
+
+    test('sent_to_me: an already-read direct message does NOT fire (daemon over-wake fix)', () => {
+        const node = msg({readAt: '2026-06-07T00:00:00Z'});
+        expect(match(sub(), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: a wakeSuppressed message does NOT fire', () => {
+        const node = msg({wakeSuppressed: true});
+        expect(match(sub(), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: a broadcast from another agent fires', () => {
+        const node = msg({from: '@neo-gpt', to: 'AGENT:*'});
+        expect(match(sub(), data({type: 'SENT_TO', source: node.id, target: 'AGENT:*'}, {node}), edgeTrace))
+            .toMatchObject({type: 'sent_to_me', payload: {isBroadcast: true}});
+    });
+
+    test('sent_to_me: the sender does NOT get woken by their own broadcast (same-sender suppression)', () => {
+        const node = msg({from: OWNER, to: 'AGENT:*'});
+        expect(match(sub(), data({type: 'SENT_TO', source: node.id, target: 'AGENT:*'}, {node}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: a receipt-backed broadcast defers the legacy SENT_TO path (dedup)', () => {
+        const node = msg({from: '@neo-gpt', to: 'AGENT:*'});
+        expect(match(sub(), data({type: 'SENT_TO', source: node.id, target: 'AGENT:*'}, {node, receipts: true}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: an unread DELIVERED_TO receipt fires', () => {
+        const node = msg({from: '@neo-gpt'});
+        expect(match(sub(), data({type: 'DELIVERED_TO', source: node.id, target: OWNER, properties: {}}, {node}), edgeTrace))
+            .toMatchObject({type: 'sent_to_me', payload: {messageId: node.id}});
+    });
+
+    test('sent_to_me: a read DELIVERED_TO receipt does NOT fire', () => {
+        const node = msg();
+        expect(match(sub(), data({type: 'DELIVERED_TO', source: node.id, target: OWNER, properties: {readAt: 'x'}}, {node}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: the priority filter gates a non-matching message', () => {
+        const node = msg({priority: 'normal'});
+        expect(match(sub({filters: {priority: 'high'}}), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: the senderFilter passes a whitelisted sender', () => {
+        const node = msg({from: '@neo-gpt'});
+        expect(match(sub({filters: {senderFilter: ['@neo-gpt']}}), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace))
+            .toMatchObject({type: 'sent_to_me'});
+    });
+
+    // --- PERMISSION_GRANTED (the dead-code fix: daemon keyed on HAS_PERMISSION, created nowhere) ---
+    test('permission_granted: a CAN_* grant to the owner fires (was dead on the daemon)', () => {
+        const edge = {type: 'CAN_REPLY_TO', source: '@neo-gpt', target: OWNER, properties: {}};
+        expect(match(sub({trigger: 'PERMISSION_GRANTED'}), {entity: edge}, edgeTrace))
+            .toEqual({type: 'permission_granted', payload: {scope: 'CAN_REPLY_TO', grantedBy: '@neo-gpt'}, logId: 7});
+    });
+
+    test('permission_granted: the legacy HAS_PERMISSION edge no longer matches anything', () => {
+        const edge = {type: 'HAS_PERMISSION', source: '@neo-gpt', target: OWNER, properties: {}};
+        expect(match(sub({trigger: 'PERMISSION_GRANTED'}), {entity: edge}, edgeTrace)).toBe(null);
+    });
+
+    test('permission_granted: a grant to a different target does not fire', () => {
+        const edge = {type: 'CAN_READ_INBOX_OF', source: '@neo-gpt', target: '@someone-else', properties: {}};
+        expect(match(sub({trigger: 'PERMISSION_GRANTED'}), {entity: edge}, edgeTrace)).toBe(null);
+    });
+
+    test('exposes the canonical CAN_* permission edge types', () => {
+        expect(PERMISSION_EDGE_TYPES).toEqual(['CAN_REPLY_TO', 'CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF']);
+    });
+
+    // --- TASK_STATE_CHANGED (the broadening fix: daemon matched assignee only) ---
+    const taskNode = (task, extra = {}) => ({id: 'MESSAGE:t1', label: 'MESSAGE', properties: {from: '@neo-gpt', task, ...extra}});
+
+    test('task_state_changed: fires when the owner is the assignee', () => {
+        const node = taskNode({state: 'in_progress', assignee: OWNER});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace))
+            .toMatchObject({type: 'task_state_changed', payload: {newState: 'in_progress', assignee: OWNER}});
+    });
+
+    test('task_state_changed: ALSO fires when the owner is the originator (broadened from assignee-only)', () => {
+        const node = taskNode({state: 'completed', assignee: '@neo-gpt'}, {from: OWNER});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace))
+            .toMatchObject({type: 'task_state_changed', payload: {originator: OWNER}});
+    });
+
+    test('task_state_changed: does not fire when the owner is neither originator nor assignee', () => {
+        const node = taskNode({state: 'in_progress', assignee: '@neo-gpt'}, {from: '@neo-gpt'});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace)).toBe(null);
+    });
+
+    test('task_state_changed: requires a task state', () => {
+        const node = taskNode({assignee: OWNER});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace)).toBe(null);
     });
 });
