@@ -57,6 +57,11 @@ import {
     resolveGuiInstancePid
 } from './instanceResolver.mjs';
 import {HEARTBEAT_PULSE_ENTITY_TYPE, match} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
+import {
+    HEAVY_DELTA_SETTLE_MS,
+    isHeavyDeltaPoll,
+    shouldDeferFlush
+} from './flushDeferPolicy.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
@@ -267,6 +272,11 @@ let lastSyncId;
 // Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...} } }
 const coalesceState = {};
 
+// Epoch ms of the most recent poll that observed a heavy GraphLog / data-sync delta. flushSubscription
+// defers while within the settle window of this, so digests are computed against committed read-state
+// (see ./flushDeferPolicy.mjs for the failure mode + policy).
+let lastHeavyPollAt = 0;
+
 /**
  * Main polling loop
  */
@@ -274,6 +284,17 @@ async function pollLoop() {
     try {
         // Fetch deltas
         const logs = getGraphLogEntries(db, lastSyncId);
+
+        // A heavy GraphLog / data-sync delta commits in batches; mid-sync the per-message read-state
+        // lookup transiently under-reports readAt, leaking already-read backlog into the digest. Flag it
+        // so flushSubscription defers until the delta settles + read-state is committed.
+        if (isHeavyDeltaPoll(logs.length)) {
+            const wasSettled = (Date.now() - lastHeavyPollAt) >= HEAVY_DELTA_SETTLE_MS;
+            lastHeavyPollAt  = Date.now();
+            if (wasSettled) {
+                writeLog('INFO', `[Wake Daemon] Heavy GraphLog delta in flight (${logs.length} entries); deferring digest flushes until read-state settles.`);
+            }
+        }
 
         if (logs.length > 0) {
             const invalidNodes = new Set();
@@ -504,6 +525,16 @@ function isMessageReadFor(db, messageId, recipient) {
 async function flushSubscription(subId) {
     const state = coalesceState[subId];
     if (!state) return;
+
+    // Defer while a heavy GraphLog / data-sync delta is still settling: mid-sync the per-message
+    // read-state lookup is transiently inconsistent, so already-read backlog would leak into the
+    // "N new messages" count and spoof a HIGH digest priority. Keep the coalesced queue intact + re-arm;
+    // the cap inside shouldDeferFlush guarantees a genuine wake is delayed, never dropped.
+    if (shouldDeferFlush({now: Date.now(), lastHeavyPollAt, deferCount: state.deferCount})) {
+        state.deferCount = (state.deferCount || 0) + 1;
+        state.timer      = setTimeout(() => flushSubscription(subId), HEAVY_DELTA_SETTLE_MS);
+        return;
+    }
 
     const { queue, subscription } = state;
     delete coalesceState[subId]; // reset
