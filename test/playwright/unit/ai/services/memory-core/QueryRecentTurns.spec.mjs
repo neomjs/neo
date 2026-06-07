@@ -108,4 +108,18 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // AC5 — public projection must NOT surface the private thought field.
         expect(result.turns[0].thought).toBeUndefined();
     });
+
+    test('AC8 fail-soft: add_memory succeeds and the turn is recallable when summarization is unavailable', async () => {
+        // Unit tests reach no chat-model provider (gemini has no API key) → buildMiniSummary returns
+        // null. The write MUST still succeed and the turn MUST still be recallable (raw fallback) —
+        // a null summary never blocks the write or hides the turn.
+        const result = await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: '@agent-a'}, async () => {
+            const write = await MemoryService.addMemory({prompt: 'no-summarizer prompt', response: 'r', thought: 't'});
+            expect(write.error).toBeUndefined();
+            return MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1});
+        });
+
+        expect(result.count).toBe(1);
+        expect(result.turns[0].miniSummary).toBeNull();
+    });
 });

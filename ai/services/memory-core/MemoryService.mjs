@@ -3,7 +3,7 @@ import StorageRouter         from './managers/StorageRouter.mjs';
 import crypto                from 'crypto';
 import GraphService          from './GraphService.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
-import SessionService        from './SessionService.mjs';
+import SessionService, {buildChatModel} from './SessionService.mjs';
 import aiConfig              from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
@@ -316,18 +316,20 @@ class MemoryService extends Base {
             });
 
             // 1. Topologically inject the new memory into the Native Edge Graph
+            const memoryProperties = {
+                ...(canonicalIdentity ? { agentIdentity: canonicalIdentity } : {}),
+                ...(userId ? { userId } : {}),
+                sessionId,
+                timestamp
+            };
+
             GraphService.upsertNode({
                 id: memoryId,
                 type: 'AGENT_MEMORY',
                 name: `Memory: ${timestamp}`,
                 description: `Agent thought flow inside session ${sessionId}.`,
                 semanticVectorId: memoryId,
-                properties: {
-                    ...(canonicalIdentity ? { agentIdentity: canonicalIdentity } : {}),
-                    ...(userId ? { userId } : {}),
-                    sessionId,
-                    timestamp
-                }
+                properties: memoryProperties
             });
 
             // 2. Stamp write-time provenance when the transport resolved a real AgentIdentity.
@@ -344,7 +346,27 @@ class MemoryService extends Base {
             // 3. Link this memory dynamically to the active context frontier
             GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
 
-            // 4. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
+            // 4. Best-effort inline tweet-summary via the configured chat model (the modelProvider
+            //    SSOT — reads the resolved leaf at the use site, never aliases it). Fire-and-forget
+            //    so the per-turn write stays fast: the memory node above is already written (fresh
+            //    for recency recall); this only enriches it asynchronously. Fully self-contained —
+            //    errors/timeouts never touch the write path, and a null summary never hides the turn
+            //    (recency recall falls back to raw content). The summarizer choice (local gemma4 OR
+            //    remote gemini-flash) is the user's deployment-agnostic provider setting → cloud-ready.
+            this.buildMiniSummary({prompt, response}).then(miniSummary => {
+                if (miniSummary) {
+                    GraphService.upsertNode({
+                        id: memoryId,
+                        type: 'AGENT_MEMORY',
+                        name: `Memory: ${timestamp}`,
+                        description: `Agent thought flow inside session ${sessionId}.`,
+                        semanticVectorId: memoryId,
+                        properties: {...memoryProperties, miniSummary}
+                    });
+                }
+            }).catch(() => {});
+
+            // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
             //    so a degraded mailbox query never blocks a successful memory write.
             const mailbox = buildMailboxDelta();
@@ -583,6 +605,47 @@ class MemoryService extends Base {
             }
             return turn;
         });
+    }
+
+    /**
+     * @summary Best-effort inline tweet-summary for a single turn, via the configured chat model.
+     *
+     * Reuses the `modelProvider` reactive-Provider SSOT through {@link buildChatModel} — the user's
+     * deployment-agnostic choice resolves to **local** (gemma4 via `openAiCompatible`/`ollama`) OR
+     * **remote** (gemini-flash via `gemini`), identically in local + cloud. **Fail-soft:** returns
+     * `null` on no-provider (e.g. gemini without an API key), timeout, or error — the caller stores
+     * no summary and recency recall falls back to raw content. Never throws into the write path.
+     *
+     * @param {Object} options
+     * @param {String} options.prompt
+     * @param {String} options.response
+     * @returns {Promise<String|null>} A ≤280-char one-line summary, or `null`.
+     */
+    async buildMiniSummary({prompt, response}) {
+        const TIMEOUT_MS = 4000;
+        let timer;
+        try {
+            const model = buildChatModel({
+                modelProvider         : aiConfig.modelProvider,
+                openAiCompatibleConfig: aiConfig.openAiCompatible,
+                ollamaConfig          : aiConfig.ollama,
+                geminiApiKey          : process.env.GEMINI_API_KEY,
+                geminiModelName       : aiConfig.modelName
+            });
+            if (!model) return null;
+
+            const promptText = `Summarize this agent turn in one line, max 280 characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
+            const timeout    = new Promise(resolve => { timer = setTimeout(() => resolve(null), TIMEOUT_MS); });
+            const result     = await Promise.race([model.generateContent(promptText).catch(() => null), timeout]);
+
+            const text = result?.response?.text?.() ?? null;
+            return text ? String(text).replace(/\s+/g, ' ').trim().slice(0, 280) : null;
+        } catch (error) {
+            logger.warn(`[MemoryService] miniSummary generation failed (fail-soft): ${error.message}`);
+            return null;
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     /**
