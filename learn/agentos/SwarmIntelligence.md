@@ -205,7 +205,7 @@ without proportionally scaling API costs.
 
 ## Sub-Agent Training & RLAIF (Demonstrations of Intelligence)
 
-While the Orchestrator delegates tasks live, the `nl_action_log` captured during **Frontier agent** (e.g., Gemini 3.1 Pro / Claude Opus) interactions via the Neural Link represents highly valuable "Demonstrations of Intelligence". 
+While the Orchestrator delegates tasks live, the `nl_action_log` captured during **Frontier agent** (e.g., Gemini 3.1 Pro / Claude Opus) interactions via the Neural Link represents highly valuable "Demonstrations of Intelligence".
 
 Instead of treating these interactions as ephemeral, they are extracted into format-compliant `.jsonl` datasets for Reinforcement Learning from AI Feedback (RLAIF). The intelligence of the Frontier models is stockpiled to feed future SLM fine-tuning pipelines (SFT/DPO), directly raising the baseline capability of the local Sub-Agent tiers (like Gemma 4).
 
@@ -278,8 +278,11 @@ lifecycle.
 
 ## The Event Scheduler
 
-All work enters the system through the `Scheduler` — a priority queue that
-ensures critical events are processed before lower-priority ones:
+The **autonomous (unattended) runner** feeds its work through the `Scheduler` — a priority
+queue that ensures critical events are processed before lower-priority ones. (Interactive peer
+maintainers self-select work directly — see [Architecture Overview](../benefits/ArchitectureOverview.md)
+and [The Dream Pipeline](./DreamPipeline.md); the `Scheduler` is the unattended runner's intake,
+not a universal work source.)
 
 | Priority | Event Types | Example |
 |---|---|---|
@@ -294,8 +297,9 @@ becomes a `system:golden-path` event with `high` priority.
 
 ## The Orchestration Pipeline
 
-The `Orchestrator` ties everything together. It reads the DreamService's
-prioritized roadmap and feeds it into the autonomous agent loop:
+The `Orchestrator` is the **unattended autonomous-runner** path — one advisory consumer of the
+handoff (peer maintainers self-select interactively). It reads the DreamService's prioritized
+roadmap and feeds it into the autonomous agent loop:
 
 ```mermaid
 flowchart TD
