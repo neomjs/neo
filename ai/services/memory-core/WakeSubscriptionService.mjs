@@ -997,7 +997,16 @@ class WakeSubscriptionService extends Base {
             hasDeliveryReceipts: msgId => this._messageHasDeliveryReceipts(msgId)
         }, {entity_type: 'edges', entity_id: edge.id, log_id: logIdAnchor});
 
-        return result ? this._wrapEvent('wake/' + result.type, subscription, result.payload, result.logId) : null;
+        if (!result) return null;
+
+        // The `wake/permission_granted` payload carries `grantedAt` — a delivery-time stamp, distinct
+        // from the envelope's `emittedAt`. The shared evaluator stays pure / Date-free, so the service
+        // restores this documented wire-contract field in its own delivery path.
+        if (result.type === 'permission_granted') {
+            result.payload.grantedAt = new Date().toISOString();
+        }
+
+        return this._wrapEvent('wake/' + result.type, subscription, result.payload, result.logId);
     }
 
     /**
