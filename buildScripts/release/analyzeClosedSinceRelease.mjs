@@ -223,6 +223,7 @@ function limitItems(rows, itemLimit) {
  */
 function mdCell(value) {
     return String(value ?? '')
+        .replace(/\\/g, '\\\\')
         .replace(/\|/g, '\\|')
         .replace(/\n/g, ' ')
 }
