@@ -62,8 +62,8 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
     test('warm-cache path properly hydrates sortedReleases and skips full fetch', async () => {
         const metadata = {
             releases: {
-                'v1.0.0': { tagName: 'v1.0.0', publishedAt: '2024-01-01T00:00:00Z', contentHash: 'hash1' },
-                'v1.1.0': { tagName: 'v1.1.0', publishedAt: '2024-02-01T00:00:00Z', contentHash: 'hash2' }
+                'v1.0.0': {publishedAt: '2024-01-01T00:00:00Z', contentHash: 'hash1'},
+                'v1.1.0': {publishedAt: '2024-02-01T00:00:00Z', contentHash: 'hash2'}
             }
         };
 
@@ -88,7 +88,52 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
             { tagName: 'v1.0.0', publishedAt: '2024-01-01T00:00:00Z' },
             { tagName: 'v1.1.0', publishedAt: '2024-02-01T00:00:00Z' }
         ]);
-        expect(ReleaseNotesSyncer.releases).toEqual(metadata.releases);
+        expect(ReleaseNotesSyncer.releases['v1.0.0']).toEqual(expect.objectContaining({
+            tagName     : 'v1.0.0',
+            publishedAt : '2024-01-01T00:00:00Z',
+            contentHash : 'hash1',
+            metadataOnly: true
+        }));
+        expect(ReleaseNotesSyncer.releases['v1.1.0']).toEqual(expect.objectContaining({
+            tagName     : 'v1.1.0',
+            publishedAt : '2024-02-01T00:00:00Z',
+            contentHash : 'hash2',
+            metadataOnly: true
+        }));
+    });
+
+    test('syncNotes skips pruned warm-cache releases instead of writing undefined markdown', async () => {
+        const start    = new Date(issueSyncConfig.syncStartDate).getTime();
+        const inWindow = new Date(start + 86400000).toISOString();
+        const metadata = {
+            releases: {
+                vCached: {publishedAt: inWindow, contentHash: 'cached-hash'}
+            }
+        };
+
+        GraphqlService.query = async () => ({
+            repository: {
+                latestRelease: {tagName: 'vCached', publishedAt: inWindow}
+            }
+        });
+
+        await ReleaseNotesSyncer.fetchAndCacheReleases(metadata);
+
+        const releaseDir = path.join(tmpRoot, 'release-notes');
+        await fs.emptyDir(releaseDir);
+
+        const stats = await ReleaseNotesSyncer.syncNotes(metadata);
+
+        expect(stats.count).toBe(0);
+        expect(stats.synced).toEqual([]);
+        expect(ReleaseNotesSyncer.releases.vCached.contentHash).toBe('cached-hash');
+        const filename = 'vCached'.startsWith(issueSyncConfig.releaseFilenamePrefix)
+            ? 'vCached'
+            : issueSyncConfig.releaseFilenamePrefix + 'vCached';
+        expect(await fs.pathExists(path.join(releaseDir, 'chunk-1', `${filename}.md`))).toBe(false);
+
+        const indexData = await fs.readJson(path.join(releaseDir, '_index.json'));
+        expect(indexData.items.vCached).toEqual({itemIndex: 0, chunk: 1, chunkDir: 'chunk-1'});
     });
 
     test('syncNotes generates ordinal pathing and updates _index.json correctly', async () => {
