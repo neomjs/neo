@@ -30,7 +30,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
  *                     mechanically prevents the fail-open default — AC7a alone passes even if this path is broken).
  */
 test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
-    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection;
+    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText;
 
     test.beforeAll(async () => {
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -60,7 +60,10 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             await LifecycleService.ready();
         }
 
-        // Offline tests cannot hit a real embedder.
+        // Offline tests cannot hit a real embedder. Save the original first so afterAll can restore
+        // it: an unrestored embedText mock leaks a 4096-length vector into sibling specs sharing the
+        // worker (e.g. the retry spec asserting a [0.1, 0.2, 0.3] return), reddening their unit run.
+        originalEmbedText              = TextEmbeddingService.embedText;
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
 
         // Seed the AgentIdentity nodes the AUTHORED_BY edge + '@me' resolution depend on.
@@ -70,6 +73,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
 
     test.afterAll(async () => {
         if (originalGetMemoryCollection) StorageRouter.getMemoryCollection = originalGetMemoryCollection;
+        if (originalEmbedText)           TextEmbeddingService.embedText     = originalEmbedText;
         const {cleanupChromaManager} = await import('./util.mjs');
         await cleanupChromaManager();
     });
