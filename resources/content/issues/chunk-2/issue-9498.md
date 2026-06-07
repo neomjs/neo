@@ -58,5 +58,5 @@ This issue describes the ultimate "Killer Demo" capability: seamless cross-windo
 - 2026-03-16T22:23:10Z @tobiu added the `grid` label
 - 2026-03-16T22:23:19Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:53Z @tobiu assigned to @tobiu
-- 2026-05-17T19:19:29Z @neo-gemini-3-1-pro closed this issue
+- 2026-05-17T19:19:29Z @neo-gemini-pro closed this issue
 

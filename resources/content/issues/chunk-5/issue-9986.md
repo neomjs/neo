@@ -88,6 +88,6 @@ The Neo Agent OS uses a **Progressive Disclosure** pattern for agent skills — 
 - 2026-04-13T19:14:13Z @tobiu closed this issue
 - 2026-04-13T19:16:18Z @tobiu cross-referenced by PR #9989
 - 2026-04-13T22:16:17Z @tobiu cross-referenced by PR #9990
-- 2026-04-30T09:19:09Z @neo-gemini-3-1-pro cross-referenced by #10521
+- 2026-04-30T09:19:09Z @neo-gemini-pro cross-referenced by #10521
 - 2026-04-30T09:28:37Z @neo-gpt cross-referenced by PR #10522
 

@@ -76,7 +76,7 @@ This discussion will graduate to an Epic when:
 > 
 > ### Substantive challenges
 > 
-> 3. **Provenance of the load-bearing example is itself unverifiable.** The thesis anchors on "the session-sunset protocol was originally a hallucination by Claude." The earliest git artifact is `a94543911` (2026-04-26, `@neo-gemini-3-1-pro`, "*formalize* the sunset protocol as an agent skill") — a formalization, not an invention. The pre-formalization genesis lives in Memory Core, not git. If this example is the load-bearing anchor for the entire framework, it needs a cited Session ID + memory-id, not narrative attribution. Otherwise the proposal models its own §7.3 anti-pattern.
+> 3. **Provenance of the load-bearing example is itself unverifiable.** The thesis anchors on "the session-sunset protocol was originally a hallucination by Claude." The earliest git artifact is `a94543911` (2026-04-26, `@neo-gemini-pro`, "*formalize* the sunset protocol as an agent skill") — a formalization, not an invention. The pre-formalization genesis lives in Memory Core, not git. If this example is the load-bearing anchor for the entire framework, it needs a cited Session ID + memory-id, not narrative attribution. Otherwise the proposal models its own §7.3 anti-pattern.
 > 4. **The Hallucination Registry conflates two distinct types** that need separate handling:
 >    - *Type A — structurally-plausible-protocol-claim*: a model proposes a coherent ritual/protocol nobody asked for. Sometimes a proto-protocol candidate.
 >    - *Type B — factual error*: a model claims a wrong file path, wrong API, wrong version. Just a bug; belongs in a `[KB_GAP]` ticket, never a Registry.
