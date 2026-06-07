@@ -343,7 +343,11 @@ class BaseServer extends Base {
 
                 return this.formatToolResult(result);
             } catch (error) {
-                this.logger?.error?.(`[MCP] Error executing tool ${name}:`, error);
+                if (error?.code === 'POLICY_REFUSED') {
+                    this.logger?.warn?.(`[MCP] Policy refused tool ${name}:`, error.reason || error.message);
+                } else {
+                    this.logger?.error?.(`[MCP] Error executing tool ${name}:`, error);
+                }
                 return this.formatToolError(name, error);
             }
         });
@@ -417,6 +421,28 @@ class BaseServer extends Base {
      * @protected
      */
     formatToolError(toolName, error) {
+        if (error?.code === 'POLICY_REFUSED') {
+            const structuredContent = {
+                error : 'Policy Refused',
+                code  : 'POLICY_REFUSED',
+                reason: error.reason || error.message
+            };
+
+            if (error.policyId) structuredContent.policyId = error.policyId;
+            if (error.action)   structuredContent.action   = error.action;
+            if (error.tenet)    structuredContent.tenet    = error.tenet;
+            if (error.details)  structuredContent.details  = error.details;
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: `Policy Refused executing ${toolName}: ${structuredContent.reason}`
+                }],
+                isError: true,
+                structuredContent
+            };
+        }
+
         return {
             content: [{type: 'text', text: `Error executing ${toolName}: ${error.message}`}],
             isError: true

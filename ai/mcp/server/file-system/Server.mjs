@@ -1,4 +1,5 @@
 import BaseServer            from '../BaseServer.mjs';
+import PolicyService         from '../shared/services/PolicyService.mjs';
 import {listTools, callTool} from './services/toolService.mjs';
 
 /**
@@ -55,6 +56,27 @@ class Server extends BaseServer {
      */
     getToolService() {
         return {listTools, callTool};
+    }
+
+    /**
+     * @summary Refuses MCP file writes to the operator-ratified tenets document placeholder.
+     *
+     * This v0 guard hardcodes the exact repo-root path. Future
+     * runtime-configurable policy must flow through AiConfig leaves; do not add
+     * a parallel policy config file under `ai/`.
+     * @param {Object} context
+     * @param {String} context.toolName
+     * @param {Object} context.args
+     */
+    async beforeToolDispatch({toolName, args}) {
+        PolicyService.assertProtectedRepoRootWrite({
+            toolName,
+            args,
+            protectedRelativePath: 'AGENTS_TENETS.md',
+            policyId             : 'file-system.agents-tenets.write-protect',
+            tenet                : '#10293',
+            reason               : 'AGENTS_TENETS.md is operator-ratified tenets substrate; MCP file-system writes are refused until the multi-party update path exists.'
+        });
     }
 }
 
