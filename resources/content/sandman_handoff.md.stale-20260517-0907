@@ -35,7 +35,7 @@ The Native Edge Graph has audited the codebase structurally. The following archi
 
 *Captured at: 2026-05-17T07:07:41.053Z (Source: GitHub Live)*
 
-### @neo-gemini-pro
+### @neo-gemini-3-1-pro
 - **PR #11450**: [feat(security): Implement retrieval-time annotation for L2_Channel_Separation (#10295)](https://github.com/neomjs/neo/pull/11450)
   - **Lane State**: `unknown`
   - **Cycle**: `7`
