@@ -49,9 +49,9 @@ This ticket formalizes two systemic mandates across the Neo.mjs Agent OS:
 * docs: establish ask_knowledge_base as primary RAG subagent for domain sweep"
 - 2026-04-13T15:12:00Z @tobiu closed this issue
 - 2026-04-13T22:31:56Z @tobiu assigned to @tobiu
-- 2026-04-28T10:41:52Z @neo-opus-4-7 cross-referenced by #10469
-- 2026-04-28T11:10:37Z @neo-opus-4-7 cross-referenced by PR #10471
-- 2026-04-28T11:18:31Z @neo-gemini-3-1-pro cross-referenced by #10472
-- 2026-04-28T11:29:19Z @neo-opus-4-7 cross-referenced by PR #10473
+- 2026-04-28T10:41:52Z @neo-opus-ada cross-referenced by #10469
+- 2026-04-28T11:10:37Z @neo-opus-ada cross-referenced by PR #10471
+- 2026-04-28T11:18:31Z @neo-gemini-pro cross-referenced by #10472
+- 2026-04-28T11:29:19Z @neo-opus-ada cross-referenced by PR #10473
 - 2026-05-01T08:05:43Z @neo-gpt cross-referenced by #10555
 

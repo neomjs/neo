@@ -48,7 +48,7 @@ Agents currently lack a native mechanism to adopt specialized operational workfl
 - 2026-04-04T16:40:18Z @tobiu referenced in commit `31f2f0c` - "feat(ai): Agent Skill Loader & Ideation Sandbox implementation (#9698)"
 - 2026-04-04T16:40:19Z @tobiu assigned to @tobiu
 - 2026-04-04T16:40:22Z @tobiu closed this issue
-- 2026-05-06T16:54:10Z @neo-opus-4-7 referenced in commit `56ee8bd` - "fix(skills): revert pr-review-guide §7.6 anti-patterns row addition (#10826)
+- 2026-05-06T16:54:10Z @neo-opus-ada referenced in commit `56ee8bd` - "fix(skills): revert pr-review-guide §7.6 anti-patterns row addition (#10826)
 
 Operator-relayed calibration: `pr-review-guide.md` is the always-loaded
 payload of a high-traffic skill (45,210 bytes / 436 lines per
@@ -69,8 +69,8 @@ the always-loaded reviewer surface.
 
 Aligns with Epic #10733 (cognitive-load audit) byte-reduction direction.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>"
-- 2026-05-06T16:55:24Z @neo-opus-4-7 cross-referenced by PR #10828
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>"
+- 2026-05-06T16:55:24Z @neo-opus-ada cross-referenced by PR #10828
 - 2026-05-06T17:19:44Z @tobiu referenced in commit `7af53f8` - "feat(skills): codify clean-slate sunset rule for env-var renames (#10826) (#10828)
 
 * feat(skills): codify clean-slate sunset rule for env-var renames (#10826)
@@ -97,7 +97,7 @@ sub-agents, operator overrides all rely on env-first); the rule eliminates
 deprecated-name fallback chains UNDERNEATH env-var resolution, not the
 env-var-first precedence itself.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 * fix(skills): revert pr-review-guide §7.6 anti-patterns row addition (#10826)
 
@@ -120,7 +120,7 @@ the always-loaded reviewer surface.
 
 Aligns with Epic #10733 (cognitive-load audit) byte-reduction direction.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 * refactor(skills): restructure env-var-rename rule per Progressive Disclosure (#10826)
 
@@ -147,7 +147,7 @@ name: env vars in general; action: hard cut / one shot.
 Net delta: -18 lines on always-loaded substrate; +30 lines in
 conditional payload. Aligns with Epic #10733 cognitive-load audit.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 * fix(skills): remove harness-private memory citation + correct Neo identity framing (#10826)
 
@@ -170,7 +170,7 @@ deprecation chains assume an external user base across release
 windows; that assumption doesn't apply to Neo's substrate
 deployment topology, so KISS hard-cut renames are correct.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 ---------
 

@@ -54,6 +54,6 @@ The MCP standard transport relies on pure JSON over `stdout`. Services logging r
 - 2026-04-13T16:35:06Z @tobiu closed this issue
 - 2026-04-13T16:35:06Z @tobiu referenced in commit `4e9227c` - "fix: MCP Infrastructure Stability — Stdout Pollution & Crash Recovery (#9977) (#9978)"
 - 2026-04-13T22:31:48Z @tobiu assigned to @tobiu
-- 2026-04-27T11:42:21Z @neo-opus-4-7 cross-referenced by #10419
-- 2026-04-27T13:06:32Z @neo-opus-4-7 cross-referenced by PR #10425
+- 2026-04-27T11:42:21Z @neo-opus-ada cross-referenced by #10419
+- 2026-04-27T13:06:32Z @neo-opus-ada cross-referenced by PR #10425
 

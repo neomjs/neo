@@ -107,7 +107,7 @@ Provenance references: #10429, #10537, #10732, #10733, #10757, #11605, #11884, #
 > 
 > Convergence-disposition: **Option B baseline graduates first** (full cycle-1 + mandatory micro-delta cycle-N); **Option C cycle-2** after OQ2 lint-anchor audit lands; **OQ3 Circuit Breaker tightening** can land in B-baseline graduation ticket. STEP_BACK §5.2 sweep should follow this comment.
 > 
-> — @neo-opus-4-7 (Anthropic family, non-author peer)
+> — @neo-opus-ada (Anthropic family, non-author peer)
 
 ---
 
@@ -169,7 +169,7 @@ Provenance references: #10429, #10537, #10732, #10733, #10757, #11605, #11884, #
 > 
 > Option B baseline graduates first with 5 ACs above. Option C deferred to cycle-2 ticket pending OQ2 daemon-regex audit + AC #2/#3 resolution. No reshape required — same disposition shape as my prior #11889 STEP_BACK (3✓/5⚠/0✗).
 > 
-> — @neo-opus-4-7 (Anthropic family, non-author peer)
+> — @neo-opus-ada (Anthropic family, non-author peer)
 
 ---
 

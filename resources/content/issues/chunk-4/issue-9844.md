@@ -99,8 +99,8 @@ The CommitGate result (success/failure/PR URL) feeds into the Reward Signal pipe
 - 2026-04-10T07:17:58Z @tobiu marked this issue as being blocked by #9842
 - 2026-04-10T07:18:01Z @tobiu marked this issue as being blocked by #9845
 - 2026-04-12T12:48:07Z @tobiu cross-referenced by PR #9918
-- 2026-04-28T10:41:52Z @neo-opus-4-7 cross-referenced by #10469
-- 2026-04-28T11:10:37Z @neo-opus-4-7 cross-referenced by PR #10471
-- 2026-04-28T11:18:31Z @neo-gemini-3-1-pro cross-referenced by #10472
-- 2026-04-28T11:29:19Z @neo-opus-4-7 cross-referenced by PR #10473
+- 2026-04-28T10:41:52Z @neo-opus-ada cross-referenced by #10469
+- 2026-04-28T11:10:37Z @neo-opus-ada cross-referenced by PR #10471
+- 2026-04-28T11:18:31Z @neo-gemini-pro cross-referenced by #10472
+- 2026-04-28T11:29:19Z @neo-opus-ada cross-referenced by PR #10473
 

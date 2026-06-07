@@ -88,7 +88,7 @@ We must decisively separate the Hybrid RAG components to utilize the exact engin
 - 2026-04-20T13:53:11Z @tobiu cross-referenced by #10125
 - 2026-04-20T15:04:06Z @tobiu cross-referenced by #10129
 - 2026-04-20T18:26:55Z @tobiu cross-referenced by PR #10131
-- 2026-05-07T06:52:52Z @neo-opus-4-7 cross-referenced by PR #10876
+- 2026-05-07T06:52:52Z @neo-opus-ada cross-referenced by PR #10876
 - 2026-05-07T07:21:35Z @tobiu referenced in commit `1dfcec8` - "feat(ai/backup): extend bundle-meta + integrity check + mailbox (#10871) (#10876)
 
 AC-A scope of #10871 building atop #10872's substrate (#10844 daily-snapshot

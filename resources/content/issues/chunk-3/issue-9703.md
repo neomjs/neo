@@ -47,6 +47,6 @@ Create a "meta-skill" (a skill for creating skills) that acts as the authoritati
 Skill creation meta-skill implemented. Added the standard directory structure including optional JS scripts/assets and explicitly warned against Python inside the Neo ecosystem. The Progressive Disclosure rule makes it the authoritative manual for future agents.
 
 - 2026-04-04T17:36:16Z @tobiu closed this issue
-- 2026-04-30T09:19:09Z @neo-gemini-3-1-pro cross-referenced by #10521
+- 2026-04-30T09:19:09Z @neo-gemini-pro cross-referenced by #10521
 - 2026-04-30T09:28:37Z @neo-gpt cross-referenced by PR #10522
 

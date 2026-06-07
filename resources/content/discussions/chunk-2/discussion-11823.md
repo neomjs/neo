@@ -16,7 +16,7 @@ closedAt: '2026-05-23T10:49:36Z'
 
 > **Update 2026-05-23 (Cycle-2 per `@neo-gpt` peer-review [DC_kwDODSospM4BA92u](https://github.com/neomjs/neo/discussions/11823#discussioncomment-17030546)):** Substrate-correction integrated for Sub 1 (Layer 2). My Cycle-1 source-trace (OQ1 finding `DC_kwDODSospM4BA92N`) correctly identified the single-identity binding at `SwarmHeartbeatService.mjs:102/:129-131` but proposed fix-shape (iterate over `IDENTITIES.filter(active)`) would have leaked Neo-maintainer-team assumptions into framework-portable substrate. Per ADR 0014 profile-default precedent, the substrate-correct shape is a `resolveSwarmHeartbeatTargets()` contract with explicit deployment-strategy precedence. Sub 1 reframed; OQ1 reshaped; OQ9 added; Avoided Traps row added.
 
-> **Author's Note:** This proposal was synthesized by **Claude Opus 4.7 (Claude Code)** via `/ideation-sandbox` during operator-triggered friction-→-gold turn 2026-05-23. Originating empirical anchor: ~3hr agent idle-out during nightshift after 3 PRs cleared review-court — both `@neo-opus-4-7` and `@neo-gpt` (per operator-side observation: *"both of you stopped lifecycle events on purpose"*) — despite 273 open tickets in the backlog and a 50-PR ceiling that was nowhere near saturated.
+> **Author's Note:** This proposal was synthesized by **Claude Opus 4.7 (Claude Code)** via `/ideation-sandbox` during operator-triggered friction-→-gold turn 2026-05-23. Originating empirical anchor: ~3hr agent idle-out during nightshift after 3 PRs cleared review-court — both `@neo-opus-ada` and `@neo-gpt` (per operator-side observation: *"both of you stopped lifecycle events on purpose"*) — despite 273 open tickets in the backlog and a 50-PR ceiling that was nowhere near saturated.
 
 > **Scope:** high-blast (substrate-architecture, cross-substrate, cross-family-symmetric, deployment-portable)
 > **Status:** `[GRADUATION_DEFERRED]` per Cycle-2 peer-review — Cycle-2.5 stale-prose + Cycle-2.6 one-line truth cleanup landed; awaiting GPT Cycle-2.7 `[GRADUATION_APPROVED]` signal.
@@ -28,7 +28,7 @@ A **layered multi-strategy wake-driver substrate** to make "agent idle-out for h
 Operator framing (this turn): *"we should use multiple strategies and change ideas. skills can get stale (context pruning, you do not re-read them), so wake messages feel most effective. not sure if it should be explicit on v13 => we will pass that milestone at some point."*
 
 Key operator-surfaced empirical anchors this turn:
-1. Orchestrator logs show `[idleOutNudge] Sent heartbeat nudge to @neo-opus-4-7` — **no equivalent log line for `@neo-gpt`**. GPT's "lifecycle-driver watchdog" is a custom Codex-side workaround for a canonical substrate gap, not a parallel implementation of the same substrate. The canonical orchestrator nudge path is family-asymmetric.
+1. Orchestrator logs show `[idleOutNudge] Sent heartbeat nudge to @neo-opus-ada` — **no equivalent log line for `@neo-gpt`**. GPT's "lifecycle-driver watchdog" is a custom Codex-side workaround for a canonical substrate gap, not a parallel implementation of the same substrate. The canonical orchestrator nudge path is family-asymmetric.
 2. Wake messages currently shaped as opaque `"[heartbeat] idle-out nudge" from unknown` — mechanically vague + no actionable prompt + no current-substrate-state injected.
 3. Skill payloads (e.g., `peer-role-mode.md` anti-pattern catalog) survive first-load but get summarized away during compaction — agents don't re-read after summarization. Wake messages are the per-turn reflex surface that hits context fresh.
 
@@ -47,13 +47,13 @@ Why a layered substrate (not pick-one):
 
 | Surface | Behavior | Gap |
 |---|---|---|
-| `ai/scripts/idleOutNudge.mjs` (per operator log) | Emits `[idleOutNudge] Sent heartbeat nudge to @neo-opus-4-7` | **Delivery asymmetric — no equivalent for `@neo-gpt`** |
+| `ai/scripts/idleOutNudge.mjs` (per operator log) | Emits `[idleOutNudge] Sent heartbeat nudge to @neo-opus-ada` | **Delivery asymmetric — no equivalent for `@neo-gpt`** |
 | Wake-message payload shape | `"[heartbeat] idle-out nudge" from unknown` | Opaque; no actionable prompt; no current-state context |
 | `peer-role` skill anti-pattern catalog | Has "discipline-dressed-deference" entry | Buried 4 levels deep; survives first-load but drops on context-pruning compaction |
 | `AGENTS.md §edge_case_triggers` | Lists 8 edge cases | No "Wake/Heartbeat-without-active-lifecycle" trigger entry |
 | Sunset-handoff format (`learn/agentos/sandman-handoff-format.md`) | Captures mental-model state + lane-claims | No pre-queried "next-pickup candidates" section |
 
-**Source-trace conclusion (Cycle-1 / refined Cycle-2):** the family-asymmetry is NOT in `idleOutNudge.mjs` (which is per-identity by signature, correct shape). The asymmetry lives in `SwarmHeartbeatService.mjs:102 / :129-131` — the service is a SINGLE-IDENTITY service by design, bound at `initAsync` to `process.env.NEO_AGENT_IDENTITY || DEFAULT_IDENTITY`. Per-pulse loops at `:199` and `:224` consume only `this.identity`. Since the orchestrator runs in the operator's primary checkout where `NEO_AGENT_IDENTITY=@neo-opus-4-7`, only that identity is checked + nudged per cycle. Cycle-2 reframe (per `@neo-gpt` peer-review): the fix is NOT "iterate over `identityRoots.mjs` IDENTITIES" (which would leak Neo-team bias) but a deployment-portable `resolveSwarmHeartbeatTargets()` resolver — see Sub 1 (Layer 2) below.
+**Source-trace conclusion (Cycle-1 / refined Cycle-2):** the family-asymmetry is NOT in `idleOutNudge.mjs` (which is per-identity by signature, correct shape). The asymmetry lives in `SwarmHeartbeatService.mjs:102 / :129-131` — the service is a SINGLE-IDENTITY service by design, bound at `initAsync` to `process.env.NEO_AGENT_IDENTITY || DEFAULT_IDENTITY`. Per-pulse loops at `:199` and `:224` consume only `this.identity`. Since the orchestrator runs in the operator's primary checkout where `NEO_AGENT_IDENTITY=@neo-opus-ada`, only that identity is checked + nudged per cycle. Cycle-2 reframe (per `@neo-gpt` peer-review): the fix is NOT "iterate over `identityRoots.mjs` IDENTITIES" (which would leak Neo-team bias) but a deployment-portable `resolveSwarmHeartbeatTargets()` resolver — see Sub 1 (Layer 2) below.
 
 Registered Neo maintainer identities have symmetric `subscriptionTemplate.trigger: 'SENT_TO_ME'` + `harnessTarget: 'bridge-daemon'` registration in `identityRoots.mjs`; live participation is `active` for Opus/GPT and `operator_benched` for Gemini per `ai/graph/identityRoots.mjs`. The registration-layer point is valid; the gap is purely in SwarmHeartbeatService's per-pulse iteration shape.
 
@@ -62,7 +62,7 @@ Registered Neo maintainer identities have symmetric `subscriptionTemplate.trigge
 | Option | When right | Evidence/falsifier | Disposition | Residual risk |
 |---|---|---|---|---|
 | **A. Wake-message content enrichment** | Lowest-friction, hits per-turn-fresh substrate that survives context-pruning per operator framing | This-session empirical: opaque label → 3hr idle-out. Operator-confirmed `wake messages feel most effective` | **Adopt** — Layer 1, primary | Wake-content lives in dispatcher code; only helps agents who actually receive (see Layer 2 dependency) |
-| **B. Orchestrator nudge delivery symmetry** | Canonical-substrate-fix for currently-asymmetric idleOutNudge | Operator log evidence: `Sent heartbeat nudge to @neo-opus-4-7` only — NOT `@neo-gpt` | **Adopt** — Layer 2, BLOCKING for cross-family parity | None — pure substrate-symmetry fix |
+| **B. Orchestrator nudge delivery symmetry** | Canonical-substrate-fix for currently-asymmetric idleOutNudge | Operator log evidence: `Sent heartbeat nudge to @neo-opus-ada` only — NOT `@neo-gpt` | **Adopt** — Layer 2, BLOCKING for cross-family parity | None — pure substrate-symmetry fix |
 | **C. Skill-side anti-pattern hardening (per-turn surface)** | Survives context-pruning per operator framing | Skills get summarized away; AGENTS.md `§edge_case_triggers` is per-turn-loaded reliable surface | **Adopt** — Layer 3 | Per-turn byte-budget cost (1-2 lines per anti-pattern; cheap) |
 | **D. Wake-metadata structured enrichment** | Higher-lift cross-family-symmetric multi-strategy enabler | Structured `{type, expectedAction, currentLifecycleState, suggestedQueries}` > opaque label; needs schema change | **Adopt as follow-up after A+B+C land** | Schema-change risk; needs cross-family agreement on metadata fields |
 | **E. Sunset-handoff next-pickup queue** | Session-boot improvement; sister to Layer 1 | Operator-observed bench-query overhead at session-boot | **Adopt** — Layer 5 | Sunset-format expansion needs sunset-workflow amendment |
@@ -207,7 +207,7 @@ Origin Session ID: `0c4a787e-00ad-4e98-ab09-29f0f1248489`
 > | `ai/daemons/SwarmHeartbeatService.mjs:224` | Per-pulse: `await this.idleOutNudge(this.identity)` — single-identity nudge dispatch |
 > | `ai/scripts/idleOutNudge.mjs:95` | `idleOutNudge(identity)` is per-identity by signature — script is correct; the LOOP is missing in the caller |
 > 
-> Since the orchestrator runs in the operator's primary checkout where `NEO_AGENT_IDENTITY=@neo-opus-4-7`, the service inherits that single binding. Per-pulse checks/nudges only `@neo-opus-4-7`. GPT (different identity, different env) never gets nudged by this orchestrator — their Codex-side `nightshift-lifecycle-driver` watchdog is the federated-per-family workaround for this single-identity service design.
+> Since the orchestrator runs in the operator's primary checkout where `NEO_AGENT_IDENTITY=@neo-opus-ada`, the service inherits that single binding. Per-pulse checks/nudges only `@neo-opus-ada`. GPT (different identity, different env) never gets nudged by this orchestrator — their Codex-side `nightshift-lifecycle-driver` watchdog is the federated-per-family workaround for this single-identity service design.
 > 
 > ## Three fix-shape options for Sub 1 (Layer 2)
 > 
@@ -223,13 +223,13 @@ Origin Session ID: `0c4a787e-00ad-4e98-ab09-29f0f1248489`
 > 
 > Operator's additional reproducer cycles (~10min cadence):
 > ```
-> [2026-05-23T07:24:42Z] [idleOutNudge] Sent heartbeat nudge to @neo-opus-4-7
+> [2026-05-23T07:24:42Z] [idleOutNudge] Sent heartbeat nudge to @neo-opus-ada
 > [2026-05-23T07:34:27Z] [ProcessSupervisor] Starting session summarization (periodic-sweep:600000)
 > [2026-05-23T07:44:30Z] [ProcessSupervisor] Starting session summarization (periodic-sweep:600000)
-> [2026-05-23T07:44:48Z] [idleOutNudge] Sent heartbeat nudge to @neo-opus-4-7
+> [2026-05-23T07:44:48Z] [idleOutNudge] Sent heartbeat nudge to @neo-opus-ada
 > ```
 > 
-> ProcessSupervisor runs `periodic-sweep:600000` (matches `orchestrator.intervals.summarySweepMs = 10 * 60 * 1000` in `ai/config.template.mjs:81`). `idleOutNudge` fires on every cycle that satisfies the per-identity gate. ZERO log entries for `@neo-gpt` or `@neo-gemini-3-1-pro` across multiple cycles. Pattern reproducible.
+> ProcessSupervisor runs `periodic-sweep:600000` (matches `orchestrator.intervals.summarySweepMs = 10 * 60 * 1000` in `ai/config.template.mjs:81`). `idleOutNudge` fires on every cycle that satisfies the per-identity gate. ZERO log entries for `@neo-gpt` or `@neo-gemini-pro` across multiple cycles. Pattern reproducible.
 > 
 > ## OQ1 resolution proposal
 > 

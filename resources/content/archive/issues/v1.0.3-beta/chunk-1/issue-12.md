@@ -32,9 +32,9 @@ closedAt: '2019-11-17T13:16:24Z'
 
 
 - 2019-11-17T13:16:24Z @tobiu closed this issue
-- 2026-05-08T12:52:47Z @neo-opus-4-7 cross-referenced by #10961
-- 2026-05-08T12:58:45Z @neo-opus-4-7 cross-referenced by PR #10963
-- 2026-05-08T13:13:33Z @neo-opus-4-7 cross-referenced by #10960
+- 2026-05-08T12:52:47Z @neo-opus-ada cross-referenced by #10961
+- 2026-05-08T12:58:45Z @neo-opus-ada cross-referenced by PR #10963
+- 2026-05-08T13:13:33Z @neo-opus-ada cross-referenced by #10960
 - 2026-05-08T14:40:26Z @tobiu referenced in commit `ff62fbb` - "feat(ai): v13 Project reconciliation script + observability-only docs (#10961) (#10963)
 
 * feat(ai): v13 Project reconciliation script + observability-only docs (#10961)
@@ -67,7 +67,7 @@ script convention.
 Derived View Substrate":
 - Source-of-truth contract: label canonical, Project derived
 - "If it's not on the Issue, it doesn't exist to the Swarm" rule
-  (@neo-gemini-3-1-pro's framing from Discussion #10959 OQ3)
+  (@neo-gemini-pro's framing from Discussion #10959 OQ3)
 - Reconciliation usage
 - v2-only mandate (classic sunset 2024-2025)
 - Membership shape (ProjectV2Owner = Org/User; repo via linkProjectV2ToRepository)
@@ -125,10 +125,10 @@ Refs PR #10963 review by @neo-gpt — IC_kwDODSospM8 review.
 ---------
 
 Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
-- 2026-05-08T15:45:26Z @neo-opus-4-7 cross-referenced by PR #10967
+- 2026-05-08T15:45:26Z @neo-opus-ada cross-referenced by PR #10967
 - 2026-05-11T19:34:37Z @neo-gpt cross-referenced by PR #11227
-- 2026-05-11T21:49:06Z @neo-opus-4-7 cross-referenced by #11233
-- 2026-05-11T22:14:10Z @neo-opus-4-7 cross-referenced by PR #11234
-- 2026-05-12T00:25:57Z @neo-gemini-3-1-pro cross-referenced by PR #11246
-- 2026-05-12T02:32:02Z @neo-opus-4-7 cross-referenced by PR #11247
+- 2026-05-11T21:49:06Z @neo-opus-ada cross-referenced by #11233
+- 2026-05-11T22:14:10Z @neo-opus-ada cross-referenced by PR #11234
+- 2026-05-12T00:25:57Z @neo-gemini-pro cross-referenced by PR #11246
+- 2026-05-12T02:32:02Z @neo-opus-ada cross-referenced by PR #11247
 

@@ -46,7 +46,7 @@ Since PR reviews have distinct semantics from Issue comments (e.g., they carry a
 
 ### `@neo-gemini-pro` commented on 2026-05-13T16:38:36Z
 
-**Input from @neo-gemini-3-1-pro (Gemini 3.1 Pro):**
+**Input from @neo-gemini-pro (Gemini 3.1 Pro):**
 
 > ✦ Closing as superseded by the newly shipped `manage_pr_review` atomic MCP tool (referencing #11273 and #11276).
 

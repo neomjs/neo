@@ -200,17 +200,17 @@ Orchestrator's `poll()` (post-Sub-18) calls `MaintenanceBackpressureService.acqu
 
 | Family | Signal | Comment | Anchor (body updatedAt) | Status |
 |---|---|---|---|---|
-| @neo-opus-4-7 (Claude) | `[AUTHOR]` Cycle-0 (original α/β/γ framing) | original body 2026-05-23T18:34:09Z | 18:34:09Z | superseded by V-B-A self-correction |
-| @neo-opus-4-7 (Claude) | `[AUTHOR]` Cycle-1 V-B-A self-correction | DC_kwDODSospM4BA-yA | 18:42:01Z | folded into Cycle-2 body |
-| @neo-opus-4-7 (Claude) | `[AUTHOR]` Cycle-2 reconciliation | DC_kwDODSospM4BA-yo | 18:48:41Z | folded into Cycle-2 body |
-| @neo-opus-4-7 (Claude) | `[AUTHOR_RESUBMIT]` Cycle-2 body | n/a (body update) | 2026-05-23T18:50:12Z | superseded by Cycle-3 |
+| @neo-opus-ada (Claude) | `[AUTHOR]` Cycle-0 (original α/β/γ framing) | original body 2026-05-23T18:34:09Z | 18:34:09Z | superseded by V-B-A self-correction |
+| @neo-opus-ada (Claude) | `[AUTHOR]` Cycle-1 V-B-A self-correction | DC_kwDODSospM4BA-yA | 18:42:01Z | folded into Cycle-2 body |
+| @neo-opus-ada (Claude) | `[AUTHOR]` Cycle-2 reconciliation | DC_kwDODSospM4BA-yo | 18:48:41Z | folded into Cycle-2 body |
+| @neo-opus-ada (Claude) | `[AUTHOR_RESUBMIT]` Cycle-2 body | n/a (body update) | 2026-05-23T18:50:12Z | superseded by Cycle-3 |
 | @neo-gpt (GPT-5) | `[GRADUATION_APPROVED]` Cycle-2 | DC_kwDODSospM4BA-zJ | 18:50:52Z | **SUPERSEDED by Cycle-3.5** — version-bound to pre-Cycle-3 body |
-| @neo-opus-4-7 (Claude) | `[AUTHOR]` Cycle-3 substrate-staleness check | DC_kwDODSospM4BA-0B | 19:03:50Z | folded into Cycle-3.5 body |
+| @neo-opus-ada (Claude) | `[AUTHOR]` Cycle-3 substrate-staleness check | DC_kwDODSospM4BA-0B | 19:03:50Z | folded into Cycle-3.5 body |
 | @neo-gpt (GPT-5) | `[GRADUATION_DEFERRED]` Cycle-3 | DC_kwDODSospM4BA-0T | 19:07:35Z | resolved by Cycle-3.5 convergence |
-| @neo-opus-4-7 (Claude) | `[AUTHOR]` Cycle-3.5 responsibility-map + B-prime | DC_kwDODSospM4BA-0r | 19:11:45Z | folded into current body |
+| @neo-opus-ada (Claude) | `[AUTHOR]` Cycle-3.5 responsibility-map + B-prime | DC_kwDODSospM4BA-0r | 19:11:45Z | folded into current body |
 | @neo-gpt (GPT-5) | `[GRADUATION_APPROVAL_PENDING_BODY_UPDATE]` Cycle-3.5 | DC_kwDODSospM4BA-0_ | 19:15:46Z | **pending live-body verification of this update** |
-| @neo-opus-4-7 (Claude) | `[AUTHOR_RESUBMIT]` Cycle-3.5 body update | n/a (this body) | 2026-05-23T19:18Z | live |
-| @neo-gemini-3-1-pro (Gemini) | not present — see Unresolved Liveness | — | — | benched per operator |
+| @neo-opus-ada (Claude) | `[AUTHOR_RESUBMIT]` Cycle-3.5 body update | n/a (this body) | 2026-05-23T19:18Z | live |
+| @neo-gemini-pro (Gemini) | not present — see Unresolved Liveness | — | — | benched per operator |
 | @tobiu (operator) | **pending architectural ratify** post-GPT-Cycle-3.5-approval | — | — | gate after GPT re-approval |
 
 ## Unresolved Dissent
@@ -219,7 +219,7 @@ None. Cycle-3.5 converged with GPT on B-prime substructure + responsibility-map 
 
 ## Unresolved Liveness
 
-`@neo-gemini-3-1-pro` (Gemini family) — benched per operator framing during Epic #11831 lane ("you and me" mode). Family-keyed quorum substrate (#11217 / #11796 / #11793) satisfied by cross-family signal from @neo-gpt (non-author family). Tier-2 graduation does NOT require Gemini re-poll given the explicit operator-authorized bench. If Gemini liveness returns before any sub merges, operator may request a Gemini cycle-4 review as a courtesy challenge layer.
+`@neo-gemini-pro` (Gemini family) — benched per operator framing during Epic #11831 lane ("you and me" mode). Family-keyed quorum substrate (#11217 / #11796 / #11793) satisfied by cross-family signal from @neo-gpt (non-author family). Tier-2 graduation does NOT require Gemini re-poll given the explicit operator-authorized bench. If Gemini liveness returns before any sub merges, operator may request a Gemini cycle-4 review as a courtesy challenge layer.
 
 ## Discussion Criteria Mapping
 

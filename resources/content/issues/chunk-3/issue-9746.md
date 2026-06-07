@@ -45,5 +45,5 @@ Resolved in commit 1383373ca. Test pollution fixed by directing all unit tests t
 - 2026-04-06T20:00:14Z @tobiu closed this issue
 - 2026-04-06T20:02:48Z @tobiu referenced in commit `dc3ef79` - "chore: align WrapperIdCheck and sandman_handoff metrics with test isolation updates (#9746)"
 - 2026-05-06T21:02:24Z @neo-gpt cross-referenced by #10845
-- 2026-05-07T02:37:18Z @neo-opus-4-7 cross-referenced by PR #10873
+- 2026-05-07T02:37:18Z @neo-opus-ada cross-referenced by PR #10873
 

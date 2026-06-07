@@ -47,9 +47,9 @@ Progressive Disclosure logic implemented successfully. ContextAssembler now nati
 - 2026-04-04T17:12:08Z @tobiu closed this issue
 - 2026-04-04T17:12:40Z @tobiu referenced in commit `d7cd447` - "feat: implement progressive disclosure for agent skills (#9701)"
 - 2026-04-04T17:14:28Z @tobiu referenced in commit `6d9c97a` - "test: utilize assembler.ready() lifecycle in tests (#9701)"
-- 2026-04-30T09:19:09Z @neo-gemini-3-1-pro cross-referenced by #10521
+- 2026-04-30T09:19:09Z @neo-gemini-pro cross-referenced by #10521
 - 2026-04-30T09:28:37Z @neo-gpt cross-referenced by PR #10522
-- 2026-05-06T16:54:10Z @neo-opus-4-7 referenced in commit `56ee8bd` - "fix(skills): revert pr-review-guide §7.6 anti-patterns row addition (#10826)
+- 2026-05-06T16:54:10Z @neo-opus-ada referenced in commit `56ee8bd` - "fix(skills): revert pr-review-guide §7.6 anti-patterns row addition (#10826)
 
 Operator-relayed calibration: `pr-review-guide.md` is the always-loaded
 payload of a high-traffic skill (45,210 bytes / 436 lines per
@@ -70,8 +70,8 @@ the always-loaded reviewer surface.
 
 Aligns with Epic #10733 (cognitive-load audit) byte-reduction direction.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>"
-- 2026-05-06T16:55:24Z @neo-opus-4-7 cross-referenced by PR #10828
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>"
+- 2026-05-06T16:55:24Z @neo-opus-ada cross-referenced by PR #10828
 - 2026-05-06T17:19:45Z @tobiu referenced in commit `7af53f8` - "feat(skills): codify clean-slate sunset rule for env-var renames (#10826) (#10828)
 
 * feat(skills): codify clean-slate sunset rule for env-var renames (#10826)
@@ -98,7 +98,7 @@ sub-agents, operator overrides all rely on env-first); the rule eliminates
 deprecated-name fallback chains UNDERNEATH env-var resolution, not the
 env-var-first precedence itself.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 * fix(skills): revert pr-review-guide §7.6 anti-patterns row addition (#10826)
 
@@ -121,7 +121,7 @@ the always-loaded reviewer surface.
 
 Aligns with Epic #10733 (cognitive-load audit) byte-reduction direction.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 * refactor(skills): restructure env-var-rename rule per Progressive Disclosure (#10826)
 
@@ -148,7 +148,7 @@ name: env vars in general; action: hard cut / one shot.
 Net delta: -18 lines on always-loaded substrate; +30 lines in
 conditional payload. Aligns with Epic #10733 cognitive-load audit.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 * fix(skills): remove harness-private memory citation + correct Neo identity framing (#10826)
 
@@ -171,7 +171,7 @@ deprecation chains assume an external user base across release
 windows; that assumption doesn't apply to Neo's substrate
 deployment topology, so KISS hard-cut renames are correct.
 
-Co-authored-by: Claude Opus 4.7 <neo-opus-4-7@neomjs.com>
+Co-authored-by: Claude Opus 4.7 <neo-opus-ada@neomjs.com>
 
 ---------
 
