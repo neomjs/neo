@@ -36,7 +36,7 @@ Nobody hand-maintains that priority order. It emerges from the system's own mode
 
 ## It finds its own gaps
 
-One pipeline phase is fully deterministic — no LLM guessing. The DreamService cross-references graph nodes directly against the filesystem and flags where the codebase is under-covered: a class with no matching tests becomes a **test gap**; a component with no matching guide becomes a **documentation gap**. The system surfaces its own blind spots and routes them into the next cycle's priorities, with stale gaps pruned automatically so the signal stays fresh.
+One pipeline phase is fully deterministic — no LLM guessing. The DreamService cross-references graph nodes against explicit evidence: a class with no precise `test/` coverage becomes a **test gap**; a high-weight concept with no `EXPLAINED_BY` edge to a guide becomes a **documentation gap**; a documented concept with no example becomes an **example gap**. The system surfaces its own blind spots and routes them into the next cycle's priorities, with stale gaps pruned automatically so the signal stays fresh.
 
 ## Friction becomes substrate
 
