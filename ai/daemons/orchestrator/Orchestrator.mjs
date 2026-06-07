@@ -23,14 +23,17 @@ import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary
 import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
 import {getDueTask as graphLogCompactionGetDueTaskImport} from './scheduling/graphLogCompaction.mjs';
 import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
+import {getDueTask as goldenPathGetDueTaskImport} from './scheduling/goldenPath.mjs';
 import {getDueTask as dreamGetDueTaskImport}          from './scheduling/dream.mjs';
 import TaskStateService                  from './services/TaskStateService.mjs';
 import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
-import CadenceEngine                     from './services/CadenceEngine.mjs';
 import DreamService                      from './services/DreamService.mjs';
 import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
 import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
+import {TASK_REGISTRY}                   from './scheduling/registry.mjs';
+import {collectDueCandidates}            from './scheduling/collector.mjs';
+import {pickNextCandidate}               from './scheduling/picker.mjs';
 import {
     DEFAULT_DB_PATH,
     DEFAULT_DATA_DIR,
@@ -143,23 +146,21 @@ function resolveCloudOnlyEnabled(key) {
  * sweep.
  *
  * **Service-DI 4-way classification:**
- * - **(A) Class-system-managed utility collaborator** — `cadenceEngine_` reactive
- *   config with `beforeSet` + `ClassSystemUtil.beforeSetInstance` for polymorphic
- *   class/instance/config-object input and proper lifecycle on swap.
- * - **(B) Parent-configured child collaborator** — `processSupervisorService_`
+ * - **(A) Parent-configured child collaborator** — `processSupervisorService_`
  *   reactive config with `beforeSet` creation from parent-sourced config + parent
  *   `afterSet*` propagation hooks for `dataDir`/`taskDefinitions`/`taskStateService`/
  *   `healthService`/`spawnFn` so subsequent parent mutations flow to the child.
- * - **(C) Simple imported collaborator** — direct-import instance fields
- *   (`primaryRepoSyncService`, `dreamService`, etc.) for class-shaped execution
+ * - **(B) Simple imported collaborator** — direct-import instance fields
+ *   (`primaryRepoSyncService`, `tenantRepoSyncService`, `dreamService`, etc.) for class-shaped execution
  *   collaborators, and function-typed instance fields
  *   (`summaryGetDueTask`, `backupGetDueTask`, `graphLogCompactionGetDueTask`,
- *   `primaryDevSyncGetDueTask`, `dreamGetDueTask`) for
+ *   `primaryDevSyncGetDueTask`, `tenantRepoSyncGetDueTask`, `dreamGetDueTask`,
+ *   `goldenPathGetDueTask`) for
  *   pure-function scheduling triggers from `./scheduling/<task>.mjs` — no
  *   class-system conversion, no parent-child propagation, no lifecycle side effect.
  *   The function-typed fields default to the imported pure functions so tests can
  *   override the seam without touching module-level mocks.
- * - **(D) Operator policy value** — pure config values (intervals, ports, model/host,
+ * - **(C) Operator policy value** — pure config values (intervals, ports, model/host,
  *   cadence/jitter) are read inline as `AiConfig.<path>` at their call sites; the env
  *   override is layered into the aiConfig substrate at config-load time, so there is no
  *   per-access env probe and no delegation getter re-exposing them. A few getters remain
@@ -191,14 +192,7 @@ export class Orchestrator extends Base {
          */
         singleton: true,
 
-        // === Service-DI Class A: class-system-managed utility collaborator ===
-        /**
-         * @member {Neo.ai.daemons.services.CadenceEngine|Object|null} cadenceEngine_=null
-         * @reactive
-         */
-        cadenceEngine_: null,
-
-        // === Service-DI Class B: parent-configured child collaborator + propagated parent props ===
+        // === Service-DI Class A: parent-configured child collaborator + propagated parent props ===
         /**
          * @member {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} processSupervisorService_=null
          * @reactive
@@ -245,7 +239,7 @@ export class Orchestrator extends Base {
         heavyMaintenanceLeasePath_: null
     }
 
-    // === Service-DI Class C: simple imported collaborators (instance fields) ===
+    // === Service-DI Class B: simple imported collaborators (instance fields) ===
     primaryRepoSyncService   = PrimaryRepoSyncService
     tenantRepoSyncService    = TenantRepoSyncService
     dreamService             = DreamService
@@ -258,6 +252,7 @@ export class Orchestrator extends Base {
     primaryDevSyncGetDueTask = primaryDevSyncGetDueTaskImport
     tenantRepoSyncGetDueTask = tenantRepoSyncGetDueTaskImport
     dreamGetDueTask          = dreamGetDueTaskImport
+    goldenPathGetDueTask     = goldenPathGetDueTaskImport
 
     // === Instance state (mutated at runtime; non-reactive) ===
     isPolling                     = false
@@ -285,18 +280,7 @@ export class Orchestrator extends Base {
      */
     maintenanceBackpressureWriteLog = (level, msg) => this.writeLog(level, msg)
 
-    // === Service-DI Class A: cadenceEngine beforeSet (polymorphic class/instance/config input) ===
-    /**
-     * @param {Neo.ai.daemons.services.CadenceEngine|Object|null} value
-     * @param {Neo.ai.daemons.services.CadenceEngine|null} oldValue
-     * @returns {Neo.ai.daemons.services.CadenceEngine}
-     */
-    beforeSetCadenceEngine(value, oldValue) {
-        oldValue?.destroy?.();
-        return ClassSystemUtil.beforeSetInstance(value, CadenceEngine, {});
-    }
-
-    // === Service-DI Class B: processSupervisorService + maintenanceBackpressureService beforeSet + parent afterSet propagation ===
+    // === Service-DI Class A: processSupervisorService + maintenanceBackpressureService beforeSet + parent afterSet propagation ===
     /**
      * @param {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} value
      * @returns {Neo.ai.daemons.services.ProcessSupervisorService}
@@ -563,7 +547,7 @@ export class Orchestrator extends Base {
      * to {@link MaintenanceBackpressureService#acquireLeaseAndExecute}. MBS owns the
      * two-tier backpressure (intra-process `activeHeavyTask` tracker + inter-process
      * file lease at `heavyMaintenanceLeasePath`) + deferral logging + lease lifecycle.
-     * Class B propagation keeps MBS bindings synced with parent Orchestrator state.
+     * Class A propagation keeps MBS bindings synced with parent Orchestrator state.
      *
      * @param {Function} executeFn Task executor; receives `(taskName, reason, onSuccess, options)`.
      * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
@@ -627,16 +611,361 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary Builds the read-only scheduling context consumed by the registry descriptors.
+     *
+     * The `enables` map reads Orchestrator getter SSOTs at the use site, so cloud/local
+     * policy stays aligned with `AiConfig` without duplicating deployment rules inside
+     * static descriptors or the picker.
+     *
+     * @param {Number} now Epoch milliseconds for this poll cycle.
+     * @returns {Object} Uniform collector context for `TASK_REGISTRY`.
+     */
+    buildSchedulingContext(now) {
+        return {
+            db       : this.db,
+            state    : this.taskStateService.getState(),
+            now,
+            intervals: {
+                summarySweep          : AiConfig.orchestrator.intervals.summarySweepMs,
+                kbSync                : AiConfig.orchestrator.intervals.kbSyncMs,
+                backup                : AiConfig.orchestrator.intervals.backupMs,
+                graphLogCompaction    : AiConfig.orchestrator.intervals.graphLogCompactionMs,
+                primaryDevSync        : AiConfig.orchestrator.intervals.primaryDevSyncMs,
+                tenantRepoSync        : AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs,
+                dream                 : AiConfig.orchestrator.intervals.dreamMs,
+                dreamOverflowThreshold: AiConfig.orchestrator.intervals.dreamOverflowThreshold,
+                goldenPath            : AiConfig.orchestrator.intervals.goldenPathMs,
+                swarmHeartbeat        : AiConfig.orchestrator.intervals.swarmHeartbeatMs
+            },
+            enables: {
+                kbSync             : this.kbSyncEnabled,
+                graphLogCompaction : this.graphLogCompactionEnabled,
+                primaryDevSync     : this.primaryDevSyncEnabled,
+                tenantRepoSync     : this.tenantRepoSyncEnabled,
+                swarmHeartbeat     : this.swarmHeartbeatEnabled
+            },
+            hooks: {
+                log                       : this.writeLog.bind(this),
+                summaryGetDueTask         : this.summaryGetDueTask,
+                backupGetDueTask          : this.backupGetDueTask,
+                graphLogCompactionGetDueTask: this.graphLogCompactionGetDueTask,
+                primaryDevSyncGetDueTask  : this.primaryDevSyncGetDueTask,
+                tenantRepoSyncGetDueTask  : this.tenantRepoSyncGetDueTask,
+                dreamGetDueTask           : this.dreamGetDueTask,
+                goldenPathGetDueTask      : this.goldenPathGetDueTask,
+                swarmHeartbeatGetDueTask  : this.swarmHeartbeatGetDueTask,
+                swarmHeartbeatInitFailed  : !!this.swarmHeartbeatService.initFailed
+            }
+        };
+    }
+
+    /**
+     * @summary Reports scheduling projection failures with the same isolation semantics
+     * formerly provided by `CadenceEngine.runIfDue`.
+     * @param {Object[]} errors Collector error envelopes.
+     * @returns {void}
+     */
+    recordSchedulingErrors(errors) {
+        for (const {taskName, error} of errors) {
+            this.writeLog?.('ERROR', `[Orchestrator] ${taskName} scheduling failed: ${error.message}`);
+            this.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                phase: 'schedule',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * @summary Resolves running task names from the persisted task-state envelope.
+     * @param {Object} state Current task-state map.
+     * @returns {String[]} Running task names.
+     */
+    getRunningTaskNames(state) {
+        return Object.keys(state).filter(taskName => state[taskName]?.running);
+    }
+
+    /**
+     * @summary Resolves running heavy tasks for picker policy without extending
+     * `TaskStateService`'s public API.
+     * @param {String[]} runningTaskNames Running task names.
+     * @returns {Set<String>} Running heavy task names.
+     */
+    getRunningHeavyTaskNames(runningTaskNames) {
+        return new Set(
+            runningTaskNames.filter(taskName => this.maintenanceBackpressureService.isHeavyMaintenanceTask(taskName))
+        );
+    }
+
+    /**
+     * @summary Records observable deferrals for candidates the pure picker will filter.
+     *
+     * `pickNextCandidate` must stay a side-effect-free selector. The Orchestrator still
+     * owns operator-visible deferral telemetry, so it mirrors the picker filters that
+     * correspond to existing backpressure outcomes before selecting the winner.
+     *
+     * @param {Object[]} candidates Due candidates before picker filtering.
+     * @param {String[]} runningTaskNames Running task names.
+     * @param {Set<String>} runningHeavyTasks Running heavy task names.
+     * @returns {void}
+     */
+    recordPickerDeferrals(candidates, runningTaskNames, runningHeavyTasks) {
+        const runningSet        = new Set(runningTaskNames);
+        const blockingHeavyTask = runningHeavyTasks.values().next().value;
+
+        for (const candidate of candidates) {
+            if (runningSet.has(candidate.taskName)) continue;
+
+            if (blockingHeavyTask && candidate.descriptor.maintenanceClass === 'heavy') {
+                this.maintenanceBackpressureService.recordDeferral({
+                    taskName        : candidate.taskName,
+                    reasonCode      : 'heavy-maintenance-backpressure',
+                    reasonText      : candidate.trigger.reason,
+                    blockingTaskName: blockingHeavyTask
+                });
+                continue;
+            }
+
+            const blockingDependency = (candidate.descriptor.dependencies || [])
+                .find(taskName => runningSet.has(taskName));
+
+            if (blockingDependency) {
+                this.maintenanceBackpressureService.recordDeferral({
+                    taskName        : candidate.taskName,
+                    reasonCode      : 'golden-path-dependency-backpressure',
+                    reasonText      : candidate.trigger.reason,
+                    blockingTaskName: blockingDependency
+                });
+            }
+        }
+    }
+
+    /**
+     * @summary Executes the selected registry candidate via the dispatch surface declared
+     * by its descriptor.
+     * @param {Object} candidate Winner from `pickNextCandidate`.
+     * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
+     * @returns {*}
+     */
+    executeCandidate(candidate, activeHeavyTask) {
+        const dispatch = {
+            'supervised-child-process': () => this.executeSupervisedCandidate(candidate, activeHeavyTask),
+            'service-runner'          : () => this.executeServiceRunnerCandidate(candidate, activeHeavyTask),
+            'in-process-async'        : () => this.executeInProcessCandidate(candidate, activeHeavyTask)
+        };
+
+        const execute = dispatch[candidate.descriptor.executionKind];
+
+        if (!execute) {
+            this.recordUnsupportedCandidate(candidate, `Unsupported executionKind: ${candidate.descriptor.executionKind}`);
+            return false;
+        }
+
+        return execute();
+    }
+
+    /**
+     * @param {Object} candidate Supervised child-process candidate.
+     * @param {Object} activeHeavyTask Mutable active-heavy tracker.
+     * @returns {*}
+     */
+    executeSupervisedCandidate(candidate, activeHeavyTask) {
+        const {taskName, trigger} = candidate;
+        return this.createMaintenanceExecutor(
+            this.processSupervisorService.runTask.bind(this.processSupervisorService),
+            activeHeavyTask
+        )(taskName, trigger.reason, trigger.onSuccess);
+    }
+
+    /**
+     * @param {Object} candidate Service-backed candidate.
+     * @param {Object} activeHeavyTask Mutable active-heavy tracker.
+     * @returns {*}
+     */
+    executeServiceRunnerCandidate(candidate, activeHeavyTask) {
+        const runners = {
+            'primary-dev-sync': (taskName, reason) => this.primaryRepoSyncService.runTask({
+                taskName,
+                reason,
+                taskStateService  : this.taskStateService,
+                healthService     : this.healthService,
+                writeLog          : this.writeLog.bind(this),
+                devSyncRootsConfig: this.primaryDevSyncRootsConfig
+            }),
+            'tenant-repo-sync': (taskName, reason) => this.tenantRepoSyncService.runTask({
+                taskName,
+                reason,
+                taskStateService: this.taskStateService,
+                healthService   : this.healthService,
+                writeLog        : this.writeLog.bind(this),
+                globalCadenceMs : AiConfig.orchestrator.intervals.tenantRepoSyncMs,
+                jitterRatio     : AiConfig.orchestrator.tenantRepoSync.jitterRatio
+            })
+        };
+
+        const executeFn = runners[candidate.taskName];
+        if (!executeFn) {
+            this.recordUnsupportedCandidate(candidate, `Unsupported service-runner task: ${candidate.taskName}`);
+            return false;
+        }
+
+        return this.createMaintenanceExecutor(executeFn, activeHeavyTask)(
+            candidate.taskName,
+            candidate.trigger.reason,
+            candidate.trigger.onSuccess
+        );
+    }
+
+    /**
+     * @param {Object} candidate In-process async candidate.
+     * @param {Object} activeHeavyTask Mutable active-heavy tracker.
+     * @returns {*}
+     */
+    executeInProcessCandidate(candidate, activeHeavyTask) {
+        const runners = {
+            dream          : (taskName, reason) => this.runDreamTask(taskName, reason),
+            'golden-path'  : (taskName, reason) => this.runGoldenPathTask(taskName, reason),
+            'swarm-heartbeat': (taskName, reason) => this.runSwarmHeartbeatTask(taskName, reason)
+        };
+
+        const executeFn = runners[candidate.taskName];
+        if (!executeFn) {
+            this.recordUnsupportedCandidate(candidate, `Unsupported in-process task: ${candidate.taskName}`);
+            return false;
+        }
+
+        if (candidate.taskName === 'golden-path') {
+            return this.createGoldenPathExecutor(executeFn, activeHeavyTask)(
+                candidate.taskName,
+                candidate.trigger.reason
+            );
+        }
+
+        if (candidate.taskName === 'swarm-heartbeat') {
+            return executeFn(candidate.taskName, candidate.trigger.reason);
+        }
+
+        return this.createMaintenanceExecutor(executeFn, activeHeavyTask)(
+            candidate.taskName,
+            candidate.trigger.reason,
+            candidate.trigger.onSuccess
+        );
+    }
+
+    /**
+     * @param {String} taskName Task name.
+     * @param {String} reason Scheduling reason.
+     * @returns {Promise<void>}
+     */
+    async runDreamTask(taskName, reason) {
+        this.taskStateService.markStarted(taskName, reason);
+        this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
+
+        const outcome = await this.dreamService.executeRemCycle({
+            reason,
+            mode        : 'periodic',
+            includeDecay: true
+        });
+
+        const recordPayload = {
+            reason,
+            completedAt      : outcome.completedAt,
+            durationMs       : outcome.durationMs,
+            sessionsProcessed: outcome.sessionsProcessed,
+            runId            : outcome.runId
+        };
+
+        switch (outcome.status) {
+            case 'completed':
+                this.taskStateService.markCompleted(taskName);
+                this.healthService?.recordTaskOutcome?.(taskName, 'completed', recordPayload);
+                break;
+            case 'skipped':
+                this.taskStateService.markCompleted(taskName);
+                this.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
+                    ...recordPayload,
+                    skipReason: outcome.skipReason
+                });
+                break;
+            case 'failed': {
+                const state = this.taskStateService.getTaskState(taskName);
+                if (state) {
+                    state.lastReason = outcome.diagnostic?.reason || outcome.error?.message;
+                }
+                this.taskStateService.markFailed(taskName, 1);
+                this.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                    ...recordPayload,
+                    failedAt    : outcome.completedAt,
+                    failurePhase: outcome.diagnostic ? 'provider-readiness' : 'in-pipeline',
+                    diagnostic  : outcome.diagnostic,
+                    error       : outcome.error?.message
+                });
+                break;
+            }
+        }
+    }
+
+    /**
+     * @param {String} taskName Task name.
+     * @param {String} reason Scheduling reason.
+     * @returns {Promise<void>}
+     */
+    async runGoldenPathTask(taskName, reason) {
+        this.taskStateService.markStarted(taskName, reason);
+        this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
+        try {
+            await this.goldenPathSynthesizer.synthesizeGoldenPath({
+                repoEnrichmentEnabled: this.goldenPathRepoEnrichmentEnabled
+            });
+            this.taskStateService.markCompleted(taskName);
+            this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
+        } catch (e) {
+            const state = this.taskStateService.getTaskState(taskName);
+            if (state) state.lastReason = e.message;
+            this.taskStateService.markFailed(taskName, 1);
+            this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
+        }
+    }
+
+    /**
+     * @param {String} taskName Task name.
+     * @param {String} reason Scheduling reason.
+     * @returns {Promise<void>}
+     */
+    async runSwarmHeartbeatTask(taskName, reason) {
+        this.taskStateService.markStarted(taskName, reason);
+        this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
+        try {
+            await this.swarmHeartbeatService.pulse();
+            this.taskStateService.markCompleted(taskName);
+            this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
+        } catch (e) {
+            const state = this.taskStateService.getTaskState(taskName);
+            if (state) state.lastReason = e.message;
+            this.taskStateService.markFailed(taskName, 1);
+            this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
+        }
+    }
+
+    /**
+     * @param {Object} candidate Unsupported candidate.
+     * @param {String} error Error text.
+     * @returns {void}
+     */
+    recordUnsupportedCandidate(candidate, error) {
+        this.writeLog?.('ERROR', `[Orchestrator] ${error}`);
+        this.healthService?.recordTaskOutcome?.(candidate.taskName, 'failed', {
+            phase: 'dispatch',
+            error
+        });
+    }
+
+    /**
      * Executes a sweep and schedules the next poll when the daemon remains active.
      * @returns {void}
      */
     poll() {
         const now = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
-        const context = {
-            writeLog     : this.writeLog.bind(this),
-            healthService: this.healthService
-        };
 
         const continuousTasks = [
             ...(this.chromaDaemonEnabled ? ['chroma'] : []),
@@ -685,208 +1014,32 @@ export class Orchestrator extends Base {
             }
         }
 
-        const activeHeavyTask = {name: this.maintenanceBackpressureService.getActiveHeavyMaintenanceTask()};
-        const executeMaintenanceTask = executeFn => this.createMaintenanceExecutor(executeFn, activeHeavyTask);
+        const schedulingContext = this.buildSchedulingContext(now);
+        const {candidates, errors} = collectDueCandidates({
+            registry: TASK_REGISTRY,
+            context : schedulingContext
+        });
 
-        this.cadenceEngine.runIfDue('summary', () => {
-            return this.summaryGetDueTask({
-                db                    : this.db,
-                state                 : this.taskStateService.getState(),
-                now,
-                summarySweepIntervalMs: AiConfig.orchestrator.intervals.summarySweepMs,
-                log                   : this.writeLog.bind(this)
-            });
-        }, executeMaintenanceTask(executeTask), context);
+        this.recordSchedulingErrors(errors);
 
-        this.cadenceEngine.runIfDue('kbSync', () => {
-            if (!this.kbSyncEnabled) {
-                return null;
+        const runningTaskNames  = this.getRunningTaskNames(schedulingContext.state);
+        const runningHeavyTasks = this.getRunningHeavyTaskNames(runningTaskNames);
+
+        this.recordPickerDeferrals(candidates, runningTaskNames, runningHeavyTasks);
+
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks  : runningTaskNames,
+            policyContext : {
+                runningHeavyTasks
             }
+        });
 
-            if (this.cadenceEngine.shouldRunIntervalTask({
-                now,
-                lastRunAt : this.taskStateService.getTaskState('kbSync').lastRunAt,
-                intervalMs: AiConfig.orchestrator.intervals.kbSyncMs
-            })) {
-                return { reason: `periodic-sync:${AiConfig.orchestrator.intervals.kbSyncMs}` };
-            }
-            return null;
-        }, executeMaintenanceTask(executeTask), context);
-
-        this.cadenceEngine.runIfDue('backup', () => {
-            return this.backupGetDueTask({
-                state           : this.taskStateService.getState(),
-                now,
-                backupIntervalMs: AiConfig.orchestrator.intervals.backupMs
+        if (winner) {
+            this.executeCandidate(winner, {
+                name: this.maintenanceBackpressureService.getActiveHeavyMaintenanceTask()
             });
-        }, executeMaintenanceTask(executeTask), context);
-
-        this.cadenceEngine.runIfDue('graphlog-compaction', () => {
-            return this.graphLogCompactionGetDueTask({
-                state                        : this.taskStateService.getState(),
-                now,
-                graphLogCompactionIntervalMs: AiConfig.orchestrator.intervals.graphLogCompactionMs,
-                enabled                      : this.graphLogCompactionEnabled
-            });
-        }, executeMaintenanceTask(executeTask), context);
-
-        this.cadenceEngine.runIfDue('primary-dev-sync', () => {
-            return this.primaryDevSyncGetDueTask({
-                state     : this.taskStateService.getState(),
-                now,
-                intervalMs: AiConfig.orchestrator.intervals.primaryDevSyncMs,
-                enabled   : this.primaryDevSyncEnabled
-            });
-        }, executeMaintenanceTask((taskName, reason) => {
-            return this.primaryRepoSyncService.runTask({
-                taskName,
-                reason,
-                taskStateService  : this.taskStateService,
-                healthService     : this.healthService,
-                writeLog          : this.writeLog.bind(this),
-                devSyncRootsConfig: this.primaryDevSyncRootsConfig
-            });
-        }), context);
-
-        // Two distinct cadences: the SWEEP cadence (`tenantRepoSync.sweepCadenceMs`, short by
-        // design) is how often the sweep is invoked; the per-repo `intervals.tenantRepoSyncMs` is
-        // the actual interval between a single repo's sync attempts, with `jitterRatio` spreading
-        // per-repo work across the window instead of synchronizing it onto the sweep boundary.
-        this.cadenceEngine.runIfDue('tenant-repo-sync', () => {
-            return this.tenantRepoSyncGetDueTask({
-                state     : this.taskStateService.getState(),
-                now,
-                intervalMs: AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs,
-                enabled   : this.tenantRepoSyncEnabled
-            });
-        }, executeMaintenanceTask((taskName, reason) => {
-            return this.tenantRepoSyncService.runTask({
-                taskName,
-                reason,
-                taskStateService: this.taskStateService,
-                healthService   : this.healthService,
-                writeLog        : this.writeLog.bind(this),
-                globalCadenceMs : AiConfig.orchestrator.intervals.tenantRepoSyncMs,
-                jitterRatio     : AiConfig.orchestrator.tenantRepoSync.jitterRatio
-            });
-        }), context);
-
-        this.cadenceEngine.runIfDue('dream', () => {
-            return this.dreamGetDueTask({
-                state                 : this.taskStateService.getTaskState('dream') ?? {},
-                now,
-                dreamIntervalMs       : AiConfig.orchestrator.intervals.dreamMs,
-                dreamOverflowThreshold: AiConfig.orchestrator.intervals.dreamOverflowThreshold
-            });
-        }, executeMaintenanceTask(async (taskName, reason) => {
-            this.taskStateService.markStarted(taskName, reason);
-            this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
-
-            const outcome = await this.dreamService.executeRemCycle({
-                reason,
-                mode        : 'periodic',
-                includeDecay: true
-            });
-
-            const recordPayload = {
-                reason,
-                completedAt      : outcome.completedAt,
-                durationMs       : outcome.durationMs,
-                sessionsProcessed: outcome.sessionsProcessed,
-                runId            : outcome.runId
-            };
-
-            switch (outcome.status) {
-                case 'completed':
-                    this.taskStateService.markCompleted(taskName);
-                    this.healthService?.recordTaskOutcome?.(taskName, 'completed', recordPayload);
-                    break;
-                case 'skipped':
-                    this.taskStateService.markCompleted(taskName);
-                    this.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
-                        ...recordPayload,
-                        skipReason: outcome.skipReason
-                    });
-                    break;
-                case 'failed': {
-                    const state = this.taskStateService.getTaskState(taskName);
-                    if (state) {
-                        state.lastReason = outcome.diagnostic?.reason || outcome.error?.message;
-                    }
-                    this.taskStateService.markFailed(taskName, 1);
-                    this.healthService?.recordTaskOutcome?.(taskName, 'failed', {
-                        ...recordPayload,
-                        failedAt    : outcome.completedAt,
-                        failurePhase: outcome.diagnostic ? 'provider-readiness' : 'in-pipeline',
-                        diagnostic  : outcome.diagnostic,
-                        error       : outcome.error?.message
-                    });
-                    break;
-                }
-            }
-        }), context);
-
-        this.cadenceEngine.runIfDue('golden-path', () => {
-            if (this.cadenceEngine.shouldRunIntervalTask({
-                now,
-                lastRunAt : this.taskStateService.getTaskState('golden-path')?.lastRunAt,
-                intervalMs: AiConfig.orchestrator.intervals.goldenPathMs
-            })) {
-                return { reason: `periodic-golden-path:${AiConfig.orchestrator.intervals.goldenPathMs}` };
-            }
-            return null;
-        }, this.createGoldenPathExecutor(async (taskName, reason) => {
-            this.taskStateService.markStarted(taskName, reason.reason);
-            this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
-            try {
-                await this.goldenPathSynthesizer.synthesizeGoldenPath({
-                    repoEnrichmentEnabled: this.goldenPathRepoEnrichmentEnabled
-                });
-                this.taskStateService.markCompleted(taskName);
-                this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
-            } catch (e) {
-                const state = this.taskStateService.getTaskState(taskName);
-                if (state) state.lastReason = e.message;
-                this.taskStateService.markFailed(taskName, 1);
-                this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
-            }
-        }, activeHeavyTask), context);
-
-        // Swarm-heartbeat lane. NOT heavy maintenance — the pulse is a light
-        // wake-substrate check, so the executor runs directly (no `executeMaintenanceTask`
-        // wrap). `reason` is passed as a string straight from `CadenceEngine.runIfDue`.
-        this.cadenceEngine.runIfDue('swarm-heartbeat', () => {
-            if (!this.swarmHeartbeatEnabled) {
-                return null;
-            }
-            // Daemon-local runtime guard: swarm-heartbeat init failure sets
-            // `initFailed = true` on the service in start(); skip pulse() for the rest
-            // of this run regardless of static enable-config (the fail-safe invariant).
-            if (this.swarmHeartbeatService.initFailed) {
-                return null;
-            }
-            if (this.cadenceEngine.shouldRunIntervalTask({
-                now,
-                lastRunAt : this.taskStateService.getTaskState('swarm-heartbeat')?.lastRunAt,
-                intervalMs: AiConfig.orchestrator.intervals.swarmHeartbeatMs
-            })) {
-                return { reason: `periodic-heartbeat:${AiConfig.orchestrator.intervals.swarmHeartbeatMs}` };
-            }
-            return null;
-        }, async (taskName, reason) => {
-            this.taskStateService.markStarted(taskName, reason);
-            this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
-            try {
-                await this.swarmHeartbeatService.pulse();
-                this.taskStateService.markCompleted(taskName);
-                this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
-            } catch (e) {
-                const state = this.taskStateService.getTaskState(taskName);
-                if (state) state.lastReason = e.message;
-                this.taskStateService.markFailed(taskName, 1);
-                this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
-            }
-        }, context);
+        }
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);

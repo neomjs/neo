@@ -5,9 +5,9 @@ import Base from '../../../../src/core/Base.mjs';
  * @extends Neo.core.Base
  * @summary A pure functional service that manages polling intervals and timing triggers for maintenance tasks.
  *
- * The engine is intentionally non-singleton because it receives parent-provided
- * runtime configuration. The orchestrator owns the instance through a reactive
- * config slot and `ClassSystemUtil.beforeSetInstance`.
+ * The engine is intentionally non-singleton. Orchestrator scheduling now routes
+ * through registry descriptors; this helper remains the narrow interval predicate
+ * used by direct consumers and unit tests.
  */
 export class CadenceEngine extends Base {
     static config = {
@@ -31,27 +31,6 @@ export class CadenceEngine extends Base {
         return intervalMs > 0 && now - lastRunAt >= intervalMs;
     }
 
-    /**
-     * @summary Evaluates a due-check and executes the task if due, with failure isolation.
-     * @param {String} taskName Task key.
-     * @param {Function} dueCheckFn Function returning a trigger object or boolean.
-     * @param {Function} executeFn Function to run the task if triggered.
-     * @param {Object} context Context for logging and health reporting.
-     * @returns {void}
-     */
-    runIfDue(taskName, dueCheckFn, executeFn, context) {
-        try {
-            const trigger = dueCheckFn();
-            if (trigger) {
-                const reason    = typeof trigger === 'object' ? trigger.reason : `periodic-sync`;
-                const onSuccess = typeof trigger === 'object' ? trigger.onSuccess : undefined;
-                executeFn(taskName, reason, onSuccess);
-            }
-        } catch (e) {
-            context.writeLog?.('ERROR', `[Orchestrator] ${taskName} scheduling failed: ${e.message}`);
-            context.healthService?.recordTaskOutcome(taskName, 'failed', {phase: 'schedule', error: e.message});
-        }
-    }
 }
 
 export default Neo.setupClass(CadenceEngine);
