@@ -120,23 +120,22 @@ reads these on startup and can reconcile them before beginning work.
 ### Phase 3: Capability Gap Inference
 
 This is the **deterministic** phase — no LLM is used for the core analysis. The
-DreamService scans the graph for nodes of type `CLASS`, `METHOD`, or `COMPONENT`
-and checks three coverage dimensions:
+DreamService delegates to `GapInferenceEngine`, which keeps structural test
+coverage and ontology-wide concept coverage separate:
 
 | Gap Type | Detection Method |
 |---|---|
 | `[TEST_GAP]` | No test file paths in `test/` provide precise evidence for the structural node name; matching test `FILE` nodes create `VALIDATES` edges only when all semantic name tokens are present |
-| `[GUIDE_GAP]` | No guide paths in `learn/guides/` match the node name (with LLM verification fallback) |
+| `[GUIDE_GAP]` | A high-weight `CONCEPT` node has no outbound `EXPLAINED_BY` edge in the Concept Ontology |
+| `[EXAMPLE_GAP]` | A high-weight `CONCEPT` node has `EXPLAINED_BY` coverage but no `EXEMPLIFIED_BY` edge |
+| `[ORPHAN_CONCEPT]` | A high-weight `CONCEPT` node has no `IMPLEMENTED_BY` edge |
 
-The `[GUIDE_GAP]` detection has a two-stage pipeline:
-
-1. **Filesystem match:** Tokenize the node name and scan `learn/guides/` paths
-2. **LLM verification:** If a path matches, truncate the guide to 3000 chars and
-   ask the LLM: "Does this guide ACTUALLY describe `{node.name}`?" with a strict
-   `{verified: true/false}` response
-
-This prevents false negatives where a file named `ConfigSystem.md` exists but
-doesn't actually cover the specific class being checked.
+The historical guide-path scan and LLM verification fallback were retired by the
+concept-graph refactor. Guide coverage is now an explicit ontology fact:
+`ConceptIngestor` materializes `EXPLAINED_BY` / `EXEMPLIFIED_BY` /
+`IMPLEMENTED_BY` edges, and `GapInferenceEngine.inferConceptGraphGaps()` traverses
+those edges once per REM cycle. The LLM no longer rubber-stamps whether a guide
+filename happens to match a structural class or component name.
 
 Capability gaps are stored as JSON arrays on the graph node's `properties.capabilityGap`
 field, with a `lastGapCheck` timestamp for TTL pruning.
