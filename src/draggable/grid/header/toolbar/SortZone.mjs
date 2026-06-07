@@ -51,6 +51,22 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * Resolves the `grid.Body` paired with this SortZone's owner header toolbar, keyed by the
+     * toolbar's `layoutLock` region. The prior single `grid.body` lookup only saw the center body,
+     * so locked-column cells — which live in the start / end bodies — were missed once the grid
+     * split into separate locked-start / center / locked-end bodies. Mirrors the body resolution
+     * in `grid.header.Toolbar`.
+     * @returns {Neo.grid.Body}
+     */
+    get gridBody() {
+        let {gridContainer, layoutLock} = this.owner;
+
+        if (layoutLock === 'start') return gridContainer.bodyStart;
+        if (layoutLock === 'end')   return gridContainer.bodyEnd;
+        return gridContainer.body
+    }
+
+    /**
      * @param {Neo.util.Rectangle} rect
      * @param {Neo.util.Rectangle} parentRect
      */
@@ -77,8 +93,8 @@ class SortZone extends BaseSortZone {
         }
 
         let me = this,
-            grid = me.owner.parent,
-            { body } = grid,
+            grid = me.owner.gridContainer,
+            body = me.gridBody,
             viewId = Neo.getId('grid-view'),
             columnIndex = me.dragElement['aria-colindex'] - 1,
             { dataField } = body.columnPositions.getAt(columnIndex),
@@ -181,7 +197,7 @@ class SortZone extends BaseSortZone {
      */
     moveTo(fromIndex, toIndex) {
         super.moveTo(fromIndex, toIndex);
-        this.owner.parent.columns.move(fromIndex, toIndex)
+        this.owner.gridContainer.columns.move(fromIndex, toIndex)
     }
 
     /**
@@ -213,7 +229,7 @@ class SortZone extends BaseSortZone {
         }
 
         let { owner } = me,
-            grid = owner.parent,
+            grid = owner.gridContainer,
             { columns } = grid,
             toIndex = me.dragElement['aria-colindex'] - 1,
             column = columns.getAt(toIndex),
@@ -249,7 +265,7 @@ class SortZone extends BaseSortZone {
 
             await this.timeout(20);
 
-            grid.body.createViewData(false, true)
+            me.gridBody.createViewData(false, true)
         }
     }
 
@@ -277,7 +293,7 @@ class SortZone extends BaseSortZone {
         await super.onDragStart(data);
 
         if (me.dragComponent && me.moveColumnContent) {
-            let { body } = me.owner.parent,
+            let body = me.gridBody,
                 columnIndex = me.dragElement['aria-colindex'] - 1,
                 columnPosition = body.columnPositions.getAt(columnIndex),
                 { dataField } = columnPosition,
@@ -305,7 +321,7 @@ class SortZone extends BaseSortZone {
         if (this.moveColumnContent) {
             let me = this,
                 { itemRects } = me,
-                { body } = me.owner.parent,
+                body = me.gridBody,
                 { columnPositions } = body,
                 column1Position = columnPositions.getAt(index1),
                 column2Position = columnPositions.getAt(index2),
