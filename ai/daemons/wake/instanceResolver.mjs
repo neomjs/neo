@@ -2,6 +2,7 @@ import {execFile} from 'child_process';
 import {promisify} from 'util';
 
 const execFileAsync = promisify(execFile);
+const GUI_INSTANCE_ADDRESS_TYPES = Object.freeze(['userDataDir', 'pid']);
 
 /**
  * @summary Resolves the OS process id of a specific GUI harness *instance* from its
@@ -109,6 +110,154 @@ export async function getInstancePid({userDataDir, exec = execFileAsync} = {}) {
     }
 
     return resolveInstancePid({userDataDir, psOutput});
+}
+
+/**
+ * @summary Normalize a pid-like value into a positive integer.
+ * @param {*} value Candidate process id.
+ * @returns {Number|null}
+ */
+export function normalizeInstancePid(value) {
+    const pid = Number(String(value ?? '').trim());
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+/**
+ * @summary Normalize metadata/env GUI instance-address tuples shared by wake delivery and resume.
+ *
+ * A partial tuple is refused because falling through from a targeted route into default app
+ * activation can wake or resume the wrong same-bundle harness instance. This helper covers the
+ * GUI address types that are directly osascript-addressable (`pid`) or resolve to one
+ * (`userDataDir`); tmux/webhook addresses remain transport-specific in the wake daemon.
+ *
+ * @param {Object} options
+ * @param {String} [options.instanceAddress] Instance address value.
+ * @param {String} [options.addressType] Address type (`userDataDir` or `pid`).
+ * @param {String} [options.source='metadata'] Human-readable source for diagnostics.
+ * @param {String} [options.target='harness'] Human-readable target surface for diagnostics.
+ * @returns {{instanceAddress:String,addressType:String}|null}
+ */
+export function normalizeGuiInstanceAddressTuple({
+    instanceAddress,
+    addressType,
+    source = 'metadata',
+    target = 'harness'
+} = {}) {
+    const address = String(instanceAddress ?? '').trim(),
+          type    = String(addressType ?? '').trim();
+
+    if (!address && !type) return null;
+
+    if (!address || !type) {
+        throw new Error(
+            `Partial ${target} instance address from ${source}: ` +
+            'instanceAddress and addressType must be set together. ' +
+            'Failing closed to avoid routing a targeted GUI action into the default instance.'
+        );
+    }
+
+    if (!GUI_INSTANCE_ADDRESS_TYPES.includes(type)) {
+        throw new Error(
+            `Unsupported ${target} instance addressType '${type}' from ${source}. ` +
+            `Supported types: ${GUI_INSTANCE_ADDRESS_TYPES.join(', ')}.`
+        );
+    }
+
+    return {
+        instanceAddress: address,
+        addressType    : type
+    };
+}
+
+/**
+ * @summary Resolve GUI instance-address metadata, preferring wake route metadata over env probes.
+ *
+ * Caller-provided wake-subscription metadata wins over the CLI/manual environment envelope. This
+ * keeps orchestrator-driven recovery identity-specific while preserving direct-script probes where
+ * the caller supplies an explicit local deployment mode.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.metadata={}] Wake route metadata (`instanceAddress` + `addressType`,
+ *     or legacy `userDataDir`).
+ * @param {Object} [options.env={}] Environment map for direct CLI invocations.
+ * @param {String} [options.target='harness'] Human-readable target surface for diagnostics.
+ * @returns {{instanceAddress:String,addressType:String}|null}
+ */
+export function resolveGuiInstanceAddress({metadata = {}, env = {}, target = 'harness'} = {}) {
+    const metadataType = metadata.addressType || (metadata.userDataDir ? 'userDataDir' : null),
+          metadataAddr = metadata.instanceAddress || (metadataType === 'userDataDir' ? metadata.userDataDir : null),
+          fromMetadata = normalizeGuiInstanceAddressTuple({
+              instanceAddress: metadataAddr,
+              addressType    : metadataType,
+              source         : 'harnessTargetMetadata',
+              target
+          });
+
+    if (fromMetadata) return fromMetadata;
+
+    return normalizeGuiInstanceAddressTuple({
+        instanceAddress: env.NEO_HARNESS_INSTANCE_ADDRESS,
+        addressType    : env.NEO_HARNESS_INSTANCE_ADDRESS_TYPE,
+        source         : 'environment',
+        target
+    });
+}
+
+/**
+ * @summary Resolve an osascript-addressable pid for a GUI instance address.
+ *
+ * Deployment mode is intentionally caller-supplied instead of re-read from env: the Orchestrator
+ * and wake daemon read `AiConfig.orchestrator.deploymentMode` at their use site, preserving the
+ * reactive Provider SSOT. Missing/unknown/non-local modes fail closed before any GUI targeting.
+ *
+ * @param {Object} options
+ * @param {String} options.instanceAddress
+ * @param {String} options.addressType `userDataDir` or `pid`.
+ * @param {String} options.deploymentMode Resolved deployment mode from AiConfig.
+ * @param {String} [options.target='harness'] Human-readable target surface for diagnostics.
+ * @param {String} [options.appName='harness'] Human-readable app name for diagnostics.
+ * @param {Function} [options.getInstancePidFn=getInstancePid] Injectable resolver for tests.
+ * @returns {Promise<Number>}
+ */
+export async function resolveGuiInstancePid({
+    instanceAddress,
+    addressType,
+    deploymentMode,
+    target = 'harness',
+    appName = 'harness',
+    getInstancePidFn = getInstancePid
+} = {}) {
+    const mode = String(deploymentMode ?? '').trim();
+    if (mode !== 'local') {
+        throw new Error(
+            `${target} instance targeting requires local deployment (deploymentMode='${mode || 'unset'}'). ` +
+            'Failing closed — instance-addressed GUI actions are local-only (ADR 0014).'
+        );
+    }
+
+    if (addressType === 'pid') {
+        const pid = normalizeInstancePid(instanceAddress);
+        if (!pid) {
+            throw new Error(
+                `Invalid ${target} pid instanceAddress='${instanceAddress}'. ` +
+                'Failing closed to avoid generic app activation.'
+            );
+        }
+        return pid;
+    }
+
+    if (addressType === 'userDataDir') {
+        const pid = await getInstancePidFn({userDataDir: instanceAddress});
+        if (!pid) {
+            throw new Error(
+                `No running ${appName} instance found for userDataDir='${instanceAddress}'. ` +
+                `Failing closed to avoid routing into another ${appName} instance.`
+            );
+        }
+        return pid;
+    }
+
+    throw new Error(`Unsupported ${target} instance addressType '${addressType}'.`);
 }
 
 /**

@@ -22,6 +22,10 @@ import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 import { createSpawnRequest } from './windowsBatchSpawn.mjs';
 import {
+    resolveGuiInstanceAddress,
+    resolveGuiInstancePid
+} from '../../daemons/wake/instanceResolver.mjs';
+import {
     normalizeAgentIdentityNodeId,
     resolveHarnessTargetForIdentity
 } from './harnessRouting.mjs';
@@ -242,6 +246,52 @@ function assertCodexAppServerAllowed() {
 }
 
 /**
+ * @summary Resolve the instance-address tuple for an osascript resume.
+ *
+ * Caller-provided wake-subscription metadata wins over the CLI/manual environment envelope. This
+ * keeps the central heartbeat path identity-specific while preserving the existing direct-script
+ * escape hatch for operator probes.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.metadata={}] Wake route metadata (`instanceAddress` + `addressType`,
+ *     or legacy `userDataDir`).
+ * @param {Object} [options.env=process.env] Environment map for direct CLI invocations.
+ * @returns {{instanceAddress:String,addressType:String}|null}
+ */
+export function resolveResumeHarnessInstanceAddress({metadata = {}, env = process.env} = {}) {
+    return resolveGuiInstanceAddress({metadata, env, target: 'resumeHarness'});
+}
+
+/**
+ * @summary Resolve an osascript-addressable process id for a configured resume instance.
+ *
+ * An explicit instance address is a safety boundary: missing/stale processes throw instead of
+ * falling back to app activation, because app activation is ambiguous across same-bundle Claude
+ * instances.
+ *
+ * @param {Object} options
+ * @param {String} options.instanceAddress
+ * @param {String} options.addressType `userDataDir` or `pid`.
+ * @param {Function} [options.getInstancePidFn=getInstancePid] Injectable resolver for tests.
+ * @returns {Promise<Number>}
+ */
+export async function resolveResumeHarnessInstancePid({
+    instanceAddress,
+    addressType,
+    deploymentMode,
+    getInstancePidFn
+} = {}) {
+    return resolveGuiInstancePid({
+        instanceAddress,
+        addressType,
+        deploymentMode,
+        getInstancePidFn,
+        target : 'resumeHarness',
+        appName: 'Claude'
+    });
+}
+
+/**
  * Build a boot-grounding prompt that instructs the fresh agent to read
  * AGENTS_STARTUP.md and pick up prior context via Memory Core + sandman_handoff.
  * @param {string} identity        Agent identity (e.g. '@neo-opus-ada').
@@ -268,7 +318,11 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
  * @param {Number} [abandonedCount=0] Prior abandoned wake action count for lock bookkeeping.
  * @returns {Promise<void>}
  */
-export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
+export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0, {
+    deploymentMode,
+    env                   = process.env,
+    harnessTargetMetadata = {}
+} = {}) {
     identity = normalizeAgentIdentityNodeId(identity);
 
     // Direct fresh-session-spawn invocations must fail closed when the wake
@@ -413,8 +467,16 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
             console.log(`Successfully resumed ${identity} via codex-app-server`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
+            const instanceAddress = resolveResumeHarnessInstanceAddress({metadata: harnessTargetMetadata, env});
+            const instancePid     = instanceAddress
+                ? await resolveResumeHarnessInstancePid({
+                    ...instanceAddress,
+                    deploymentMode
+                })
+                : null;
             // Fresh-session spawn flow:
             //   1. Activate target app
+            //      - With an explicit instance address, raise the resolved PID before any keystrokes.
             //   2. (Optional) Cmd+`tabShortcut` — get to the right tab (Code tab = Cmd+3 for Claude Desktop)
             //   3. Cmd+`freshSessionShortcut` — spawn a NEW chat session (Cmd+N for Antigravity + Claude Desktop).
             //      This creates a new chat instead of writing into the sunsetted one.
@@ -431,6 +493,10 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
                 '-e', '    set savedClipboard to ""',
                 '-e', '  end try',
                 '-e', `  tell application "${appName}" to activate`,
+                ...(instancePid ? [
+                '-e', '  delay 0.2',
+                '-e', `  tell application "System Events" to set frontmost of (first process whose unix id is ${instancePid}) to true`
+                ] : []),
                 '-e', '  delay 0.5',
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
@@ -483,7 +549,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
             ];
 
             await spawnAsync('osascript', osascriptArgs);
-            console.log(`Successfully resumed ${identity} via osascript (${appName})`);
+            console.log(`Successfully resumed ${identity} via osascript (${appName}${instancePid ? ` pid=${instancePid}` : ''})`);
         } else if (adapter === 'tmux') {
             // Provide tmux fallback
             const tmuxSession = harnessTarget.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
