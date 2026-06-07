@@ -279,6 +279,65 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(resumeCalls[0]).toEqual(['@test', 'Subscription missing', 'sid-456', 2]);
     });
 
+    test('getResumeHarnessTargetMetadata prefers addressed active bridge route (#12536)', async () => {
+        applyDefaultStubs();
+        const originalList = WakeSubscriptionService.list;
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [{
+                id                   : 'WAKE_SUB:generic',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                updatedAt            : '2026-06-06T22:00:00.000Z',
+                harnessTargetMetadata: {
+                    appName    : 'Claude',
+                    tabShortcut: '3'
+                }
+            }, {
+                id                   : 'WAKE_SUB:addressed',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                updatedAt            : '2026-06-06T21:00:00.000Z',
+                harnessTargetMetadata: {
+                    appName        : 'Claude',
+                    tabShortcut    : '3',
+                    instanceAddress: '/Users/example/.claude-instances/neo-opus-vega',
+                    addressType    : 'userDataDir'
+                }
+            }]
+        });
+
+        try {
+            await expect(SwarmHeartbeatService.getResumeHarnessTargetMetadata('@neo-opus-vega')).resolves.toMatchObject({
+                appName        : 'Claude',
+                instanceAddress: '/Users/example/.claude-instances/neo-opus-vega',
+                addressType    : 'userDataDir'
+            });
+        } finally {
+            WakeSubscriptionService.list = originalList;
+        }
+    });
+
+    test('resumeHarness fails closed when route metadata lookup fails (#12536)', async () => {
+        applyDefaultStubs();
+        const originalGetMetadata = SwarmHeartbeatService.getResumeHarnessTargetMetadata;
+        SwarmHeartbeatService.getResumeHarnessTargetMetadata = async () => {
+            throw new Error('simulated route lookup failure')
+        };
+
+        try {
+            await expect(SwarmHeartbeatService.resumeHarness(
+                '@neo-opus-ada',
+                'sunset_restart',
+                'sid-route-failure',
+                0
+            )).resolves.toBeUndefined();
+        } finally {
+            SwarmHeartbeatService.getResumeHarnessTargetMetadata = originalGetMetadata;
+        }
+    });
+
     test('pulse() routes idle_out_nudge when gate is open and recommendation matches', async () => {
         applyDefaultStubs();
         const nudgeCalls = [];
