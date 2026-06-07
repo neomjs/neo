@@ -5,11 +5,8 @@ import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
-
-
 
 /**
  * @summary Configuration manager for the Knowledge Base MCP server.
