@@ -82,8 +82,12 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
 
         expect(result.count).toBe(1);
         expect(result.turns[0].sessionId).toBeTruthy();
-        // default detail='summary' → compact projection, no raw content
+        // No live summarizer in unit → summary falls back to truncated raw (never content-empty).
+        expect(result.turns[0].summary).toBeTruthy();
+        expect(result.turns[0].summaryFallback).toBe(true);
+        // summary projection does not surface raw prompt/thought directly
         expect(result.turns[0].prompt).toBeUndefined();
+        expect(result.turns[0].thought).toBeUndefined();
     });
 
     test('AC7a isolation: tenant B cannot see tenant A\'s recent turns', async () => {
@@ -126,10 +130,10 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         expect(result.turns[0].thought).toBeUndefined();
     });
 
-    test('AC8 fail-soft: add_memory succeeds and the turn is recallable when summarization is unavailable', async () => {
+    test('AC8 fail-soft: add_memory succeeds and the turn is recallable (raw fallback) when summarization is unavailable', async () => {
         // Unit tests reach no chat-model provider (gemini has no API key) → buildMiniSummary returns
-        // null. The write MUST still succeed and the turn MUST still be recallable (raw fallback) —
-        // a null summary never blocks the write or hides the turn.
+        // null. The write MUST still succeed; the turn MUST still be recallable; and the summary
+        // projection falls back to truncated raw (RA3) so the feed is never content-empty.
         const result = await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: '@agent-a'}, async () => {
             const write = await MemoryService.addMemory({prompt: 'no-summarizer prompt', response: 'r', thought: 't'});
             expect(write.error).toBeUndefined();
@@ -137,6 +141,54 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         });
 
         expect(result.count).toBe(1);
-        expect(result.turns[0].miniSummary).toBeNull();
+        expect(result.turns[0].summary).toBeTruthy();
+        expect(result.turns[0].summaryFallback).toBe(true);
+    });
+
+    test('RA1 privacy: own-agent private projection includes thought', async () => {
+        const result = await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: '@agent-a'}, async () => {
+            await MemoryService.addMemory({prompt: 'own prompt', response: 'own response', thought: 'own secret'});
+            return MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1, detail: 'full', projection: 'private'});
+        });
+
+        expect(result.count).toBe(1);
+        expect(result.turns[0].thought).toBe('own secret');   // own-agent → private grants thought
+    });
+
+    test('RA1 privacy: a peer cannot read another agent\'s thought via private (downgraded to public)', async () => {
+        // agent-b writes in tenant-a.
+        await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: '@agent-b'}, async () => {
+            await MemoryService.addMemory({prompt: 'b prompt', response: 'b response', thought: 'b secret'});
+        });
+        // agent-a (same tenant) requests agent-b's turns with private → must be forced to public.
+        const result = await RequestContextService.run({userId: 'tenant-a', agentIdentityNodeId: '@agent-a'}, async () =>
+            MemoryService.queryRecentTurns({agentIdentity: '@agent-b', limit: 1, detail: 'full', projection: 'private'})
+        );
+
+        expect(result.count).toBe(1);
+        expect(result.turns[0].response).toBe('b response');   // same-tenant content is visible
+        expect(result.turns[0].thought).toBeUndefined();        // but thought NEVER crosses to a non-owner
+    });
+
+    test('RA2 cursor: (timestamp,id) pagination disambiguates equal timestamps (no dup, no skip)', async () => {
+        // Two AGENT_MEMORY nodes, SAME timestamp, distinct ids, under an isolated identity so other
+        // tests' memories can't interfere. miniSummary set → summary projection stays graph-only.
+        const ts   = '2026-01-01T00:00:00.000Z';
+        const seed = id => GraphService.upsertNode({
+            id, type: 'AGENT_MEMORY', name: `Memory: ${ts}`, description: 'cursor test', semanticVectorId: id,
+            properties: {agentIdentity: '@agent-cursor', userId: 'tenant-cursor', sessionId: 'cur-sess', timestamp: ts, miniSummary: id}
+        });
+        seed('mem-cursor-2');   // lexically-greater id → first under ORDER BY (timestamp DESC, id DESC)
+        seed('mem-cursor-1');
+
+        const ctx   = {userId: 'tenant-cursor', agentIdentityNodeId: '@agent-cursor'};
+        const page1 = await RequestContextService.run(ctx, async () => MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1}));
+        expect(page1.count).toBe(1);
+        expect(page1.turns[0].id).toBe('mem-cursor-2');
+        expect(page1.nextCursor).toEqual({timestamp: ts, id: 'mem-cursor-2'});
+
+        const page2 = await RequestContextService.run(ctx, async () => MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1, before: page1.nextCursor}));
+        expect(page2.count).toBe(1);
+        expect(page2.turns[0].id).toBe('mem-cursor-1');   // the OTHER equal-timestamp turn — no dup, no skip
     });
 });

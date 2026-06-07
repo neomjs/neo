@@ -266,9 +266,14 @@ paths:
         - name: before
           in: query
           required: false
-          description: Cursor — ISO timestamp; returns turns strictly older than it (reverse-chronological pagination)
+          description: "Cursor for reverse-chronological pagination — pass back the nextCursor from the previous page. The {timestamp, id} pair disambiguates equal timestamps (no dup/skip)."
           schema:
-            type: string
+            type: object
+            properties:
+              timestamp:
+                type: string
+              id:
+                type: string
         - name: detail
           in: query
           required: false

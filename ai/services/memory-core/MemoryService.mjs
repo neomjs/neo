@@ -516,14 +516,21 @@ class MemoryService extends Base {
                 return {_channelSeparation: channelSeparation, count: 0, turns: [], nextCursor: null, scope: 'fail-closed: no resolvable tenant'};
             }
 
-            // AC1 — resolve the agent filter. '@me' (or omitted) → the request-bound caller identity.
+            // AC1 — resolve the agent filter; capture the caller's bound identity for the privacy gate.
+            const callerIdentity = RequestContextService.getAgentIdentityNodeId();
             let identity = agentIdentity;
             if (!identity || identity === '@me') {
-                identity = RequestContextService.getAgentIdentityNodeId();
+                identity = callerIdentity;
                 if (!identity) {
                     return {_channelSeparation: channelSeparation, count: 0, turns: [], nextCursor: null, scope: 'fail-closed: no resolvable agent identity'};
                 }
             }
+
+            // Privacy authorization (not a formatting flag): the 'private' projection exposes the
+            // private `thought` field, so it is permitted ONLY for own-agent recall. A caller asking
+            // for a PEER's turns is forced to 'public' — `thought` never crosses the MCP boundary to
+            // a non-owner. Same fail-closed posture as the tenant scope, one layer deeper.
+            const effectiveProjection = (projection === 'private' && identity === callerIdentity) ? 'private' : 'public';
 
             const boundedLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
 
@@ -531,9 +538,11 @@ class MemoryService extends Base {
             // (timestamp, id) DESC for a stable reverse-chronological page even at equal timestamps.
             const params = [identity, userId];
             let cursorClause = '';
-            if (before) {
-                cursorClause = `AND json_extract(memory.data, '$.properties.timestamp') < ?`;
-                params.push(String(before));
+            if (before && before.timestamp) {
+                // Stable (timestamp, id) cursor — matches ORDER BY (timestamp DESC, id DESC), so
+                // equal-timestamp turns neither duplicate nor skip across pages.
+                cursorClause = `AND (json_extract(memory.data, '$.properties.timestamp') < ? OR (json_extract(memory.data, '$.properties.timestamp') = ? AND memory.id < ?))`;
+                params.push(String(before.timestamp), String(before.timestamp), String(before.id ?? ''));
             }
             params.push(boundedLimit);
 
@@ -551,21 +560,20 @@ class MemoryService extends Base {
                 LIMIT ?
             `).all(...params);
 
-            // AC3 — 'summary' returns straight from the graph (no Chroma join); 'full' joins Chroma.
+            // 'summary' = compact graph-only projection (with a raw fallback for not-yet-summarized
+            // turns); 'full' joins Chroma for content.
             const turns = detail === 'full'
-                ? await this._hydrateRecentTurnContent(rows, projection)
-                : rows.map(row => ({
-                    id         : row.id,
-                    sessionId  : row.sessionId,
-                    timestamp  : row.timestamp,
-                    miniSummary: row.miniSummary ?? null   // AC8: a null summary never hides the turn
-                }));
+                ? await this._hydrateRecentTurnContent(rows, effectiveProjection)
+                : await this._hydrateRecentTurnSummaries(rows);
 
             return {
                 _channelSeparation: channelSeparation,
                 count     : turns.length,
                 turns,
-                nextCursor: turns.length === boundedLimit ? turns[turns.length - 1].timestamp : null
+                // Cursor is the (timestamp, id) pair; pass it back as `before` for the next page.
+                nextCursor: turns.length === boundedLimit
+                    ? {timestamp: turns[turns.length - 1].timestamp, id: turns[turns.length - 1].id}
+                    : null
             };
         } catch (error) {
             logger.error('[MemoryService] Error querying recent turns:', error);
@@ -598,13 +606,58 @@ class MemoryService extends Base {
                 prompt     : meta.prompt   ?? null,
                 response   : meta.response ?? null
             };
-            // AC5 — privacy: the private `thought` field is excluded unless the explicit
-            // 'private' projection is requested (own-agent recall).
+            // Privacy: the private `thought` field is included only when the caller passed the
+            // already-authorized 'private' projection (own-agent recall — gated in queryRecentTurns).
             if (projection === 'private') {
                 turn.thought = meta.thought ?? null;
             }
             return turn;
         });
+    }
+
+    /**
+     * @summary Builds the compact 'summary' projection for {@link queryRecentTurns}.
+     *
+     * Each turn carries `summary` = its stored `miniSummary`, OR a truncated raw fallback when no
+     * summary exists yet (pre-backfill turns, or turns written while the summarizer was unavailable)
+     * — so the recency feed is never content-empty (`summaryFallback: true` marks the raw-derived
+     * ones). Summarized turns stay graph-only; the Chroma fetch runs **best-effort and only for the
+     * un-summarized subset** — a no-op once the backfill has run, and silently skipped if the content
+     * store is unreachable (the turn then keeps `summary: null` rather than failing the read).
+     * @param {Object[]} rows Graph rows from {@link queryRecentTurns}.
+     * @returns {Promise<Object[]>}
+     */
+    async _hydrateRecentTurnSummaries(rows) {
+        const turns = rows.map(row => ({
+            id             : row.id,
+            sessionId      : row.sessionId,
+            timestamp      : row.timestamp,
+            summary        : row.miniSummary ?? null,
+            summaryFallback: false
+        }));
+
+        const unsummarized = turns.filter(turn => !turn.summary);
+        if (unsummarized.length > 0) {
+            try {
+                const collection = await StorageRouter.getMemoryCollection();
+                const fetched    = await collection.get({ids: unsummarized.map(turn => turn.id), include: ['metadatas']});
+                const byId       = new Map(fetched.ids.map((id, i) => [id, fetched.metadatas[i] || {}]));
+
+                for (const turn of turns) {
+                    if (turn.summary) continue;
+                    const meta = byId.get(turn.id) || {};
+                    const raw  = [meta.prompt, meta.response].filter(Boolean).join(' — ').replace(/\s+/g, ' ').trim();
+                    if (raw) {
+                        turn.summary         = raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
+                        turn.summaryFallback = true;
+                    }
+                }
+            } catch {
+                // Best-effort: if the content store is unreachable, un-summarized turns keep summary:null.
+            }
+        }
+
+        return turns;
     }
 
     /**
