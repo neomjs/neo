@@ -53,7 +53,7 @@ import {
 } from './queries.mjs';
 import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
 import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
-import {HEARTBEAT_PULSE_ENTITY_TYPE, matchHeartbeatPulse} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
+import {HEARTBEAT_PULSE_ENTITY_TYPE, match} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
@@ -321,100 +321,53 @@ async function pollLoop() {
 }
 
 /**
- * Evaluates a GraphLog entry against a WAKE_SUBSCRIPTION trigger + filters.
+ * Evaluates a GraphLog entry against a WAKE_SUBSCRIPTION trigger + filters by delegating to the
+ * shared, GraphService-free `match()` evaluator — the single source of truth also consumed by
+ * `WakeSubscriptionService`, so the two call-sites cannot drift. This daemon owns only its GraphLog
+ * delta data source (the `entityData` accessor bag) and its flat coalescing payload shape; all
+ * trigger semantics live in `match()`: unread-gating + `DELIVERED_TO` receipt-dedup for
+ * `SENT_TO_ME`, the `CAN_*` permission edges (the former `HAS_PERMISSION` branch was dead — those
+ * edges are created nowhere), and task `from`-OR-`assignee` targeting (formerly assignee-only).
  */
 function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
-    const trigger       = sub.properties?.trigger;
-    const harnessTarget = sub.properties?.harnessTarget;
-    const filters       = sub.properties?.filters || {};
-    const agentIdentity = sub.properties?.agentIdentity;
+    const result = match(sub.properties || {}, {
+        entity,
+        getNode            : id    => nodesMap.get(id) ?? getDbNode(db, id),
+        hasDeliveryReceipts: msgId => daemonHasDeliveryReceipts(msgId, edgesMap)
+    }, trace);
 
-    if (!agentIdentity) return null;
+    if (!result) return null;
 
-    if (trigger === 'SENT_TO_ME' && trace.entity_type === 'edges' && entity.type === 'SENT_TO') {
-        // A SENT_TO edge points to the agent.
-        if (entity.target === agentIdentity || entity.target === 'AGENT:*') {
-            const messageNode = nodesMap.get(entity.source) || getDbNode(db, entity.source);
-            if (messageNode && messageNode.label === 'MESSAGE') {
-                if (messageNode.properties?.wakeSuppressed) return null;
-
-                // Suppress same-sender broadcast wakes. The sender already has the
-                // broadcast in active context, so wake-as-interrupt carries no new
-                // information and inflates unread/no-op load during coordination loops.
-                // Audit/outbox visibility is preserved by MailboxService listings;
-                // this gates wake delivery only, not graph storage. Direct self-DMs
-                // remain delivered for deliberate self-handoff flows.
-                if (entity.target === 'AGENT:*' && messageNode.properties?.from === agentIdentity) {
-                    return null;
-                }
-
-                // Apply filters
-                if (filters.priority && messageNode.properties?.priority !== filters.priority) return null;
-                if (filters.senderFilter && !filters.senderFilter.includes(messageNode.properties?.from)) return null;
-                if (filters.taggedConcepts && !filters.taggedConcepts.some(c => (messageNode.properties?.taggedConcepts || []).includes(c))) return null;
-                if (filters.inReplyToFilter && !filters.inReplyToFilter.includes(messageNode.properties?.inReplyTo)) return null;
-
-                let fromIdentity = 'unknown';
-                for (const edge of edgesMap.values()) {
-                    if (edge.type === 'SENT_BY' && edge.source === messageNode.id) {
-                        fromIdentity = edge.target;
-                        break;
-                    }
-                }
-                if (fromIdentity === 'unknown') {
-                    const stmt = db.prepare("SELECT target FROM Edges WHERE source = ? AND type = 'SENT_BY' LIMIT 1");
-                    const row = stmt.get(messageNode.id);
-                    if (row) fromIdentity = row.target;
-                }
-
-                return {
-                    type: 'message',
-                    messageId: messageNode.id,
-                    from: fromIdentity,
-                    subject: messageNode.properties?.subject,
-                    priority: messageNode.properties?.priority || 'normal',
-                    logId: trace.log_id
-                };
-            }
-        }
-    } else if (trigger === 'TASK_STATE_CHANGED' && trace.entity_type === 'nodes' && entity.label === 'MESSAGE') {
-        // Task state changed: a MESSAGE node representing a Task was updated.
-        // We'd need to compare previous state, but GraphLog only gives us the new state.
-        // For simplicity in the Wake Daemon, we alert if the task state is assigned to the agent.
-        const assignee = entity.properties?.task?.assignee;
-        if (assignee === agentIdentity) {
-            return {
-                type: 'task',
-                taskId: entity.id,
-                newState: entity.properties?.task?.state,
-                logId: trace.log_id
-            };
-        }
-    } else if (trigger === 'PERMISSION_GRANTED' && trace.entity_type === 'edges' && entity.type === 'HAS_PERMISSION') {
-        if (entity.target === agentIdentity) {
-            return {
-                type: 'permission',
-                scope: entity.properties?.scope,
-                grantedBy: entity.source,
-                logId: trace.log_id
-            };
-        }
-    } else if (trace.entity_type === HEARTBEAT_PULSE_ENTITY_TYPE) {
-        // Parse + eligibility are delegated to the shared `heartbeatPulseEvaluator` (the single
-        // source of truth also consumed by `WakeSubscriptionService`); this daemon still owns its
-        // flat coalescing payload shape.
-        const match = matchHeartbeatPulse({trace, harnessTarget, agentIdentity});
-        if (match) {
-            return {
-                type          : 'heartbeat',
-                targetIdentity: match.targetIdentity,
-                pulseId       : match.pulseId,
-                logId         : match.logId
-            };
-        }
+    // Map the shared evaluator's {type, payload, logId} onto the daemon's flat coalescing payload.
+    const {payload, logId} = result;
+    switch (result.type) {
+        case 'sent_to_me':
+            return {type: 'message', messageId: payload.messageId, from: payload.from, subject: payload.subject, priority: payload.priority, logId};
+        case 'task_state_changed':
+            return {type: 'task', taskId: payload.taskId, newState: payload.newState, logId};
+        case 'permission_granted':
+            return {type: 'permission', scope: payload.scope, grantedBy: payload.grantedBy, logId};
+        case 'heartbeat_pulse':
+            return {type: 'heartbeat', targetIdentity: payload.targetIdentity, pulseId: payload.pulseId, logId};
+        default:
+            return null;
     }
+}
 
-    return null;
+/**
+ * Does a MESSAGE carry any `DELIVERED_TO` receipt edges? Drives the shared evaluator's
+ * `SENT_TO -> AGENT:*` receipt-dedup gate (receipt-backed broadcasts wake via `DELIVERED_TO`
+ * instead). Checks the in-delta edges first, then falls back to the persisted graph.
+ * @param {String} messageId MESSAGE node id.
+ * @param {Map}    edgesMap  GraphLog delta edges keyed by id.
+ * @returns {Boolean}
+ */
+function daemonHasDeliveryReceipts(messageId, edgesMap) {
+    for (const edge of edgesMap.values()) {
+        if (edge.source === messageId && edge.type === 'DELIVERED_TO') return true;
+    }
+    const stmt = db.prepare("SELECT 1 FROM Edges WHERE source = ? AND type = 'DELIVERED_TO' LIMIT 1");
+    return !!stmt.get(messageId);
 }
 
 /**
