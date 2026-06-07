@@ -259,6 +259,70 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toContain('[Wake Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 
+    test('detects and delivers a CAN_* permission_granted wake via the dead-to-live edge path', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-perm';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id        : agentId,
+            label     : 'AGENT',
+            properties: { name: 'Test Agent Permission' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'PERMISSION_GRANTED',
+                harnessTargetMetadata: { adapter: 'test', coalesceWindow: 1 }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver permission wake within timeout')), 10000);
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // A CAN_REPLY_TO grant edge @granter -> @test-agent-perm. The old daemon keyed PERMISSION_GRANTED
+        // on a HAS_PERMISSION edge that is created nowhere (a dead branch); through the shared match() the
+        // live CAN_* edge now fires and maps to the daemon's flat {type:'permission', scope, grantedBy}
+        // payload. This is the one daemon-local surface the pure evaluator spec cannot exercise.
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id    : edgeId,
+            source: '@granter',
+            target: agentId,
+            type  : 'CAN_REPLY_TO'
+        }), '@granter', agentId, 'CAN_REPLY_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        const output = await deliveryPromise;
+        expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
+        expect(output).toContain('[WAKE]');
+        expect(output).toContain('permissions granted');
+        expect(output).toContain('CAN_REPLY_TO');
+        expect(output).toContain('@granter');
+    });
+
     test('filters already-read messages out of the wake digest, counting only genuinely-unread (#12479)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-readfilter';
