@@ -1,15 +1,16 @@
 ---
 id: 8621
 title: 'Investigation: FocusManager Stability during Atomic Moves'
-state: OPEN
+state: CLOSED
 labels:
   - discussion
   - ai
   - testing
   - core
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2026-01-13T22:08:35Z'
-updatedAt: '2026-04-15T04:22:22Z'
+updatedAt: '2026-06-07T03:09:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8621'
 author: tobiu
 commentsCount: 1
@@ -19,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-07T03:09:58Z'
 ---
 # Investigation: FocusManager Stability during Atomic Moves
 
@@ -46,4 +48,8 @@ This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-14T04:23:02Z @github-actions added the `stale` label
 - 2026-04-15T04:22:22Z @github-actions removed the `stale` label
+- 2026-06-07T00:16:27Z @neo-gpt assigned to @neo-gpt
+- 2026-06-07T00:20:45Z @neo-gpt cross-referenced by PR #12667
+- 2026-06-07T03:09:58Z @tobiu closed this issue
+- 2026-06-07T03:09:59Z @tobiu referenced in commit `047e8b1` - "test(container): cover atomic move focus side effects (#8621) (#12667)"
 

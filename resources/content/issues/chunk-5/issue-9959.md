@@ -1,7 +1,7 @@
 ---
 id: 9959
 title: 'fix(memory): periodic summarization must skip externally active sessions'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -12,7 +12,7 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2026-04-13T10:25:29Z'
-updatedAt: '2026-06-05T23:44:50Z'
+updatedAt: '2026-06-06T17:01:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9959'
 author: tobiu
 commentsCount: 2
@@ -23,6 +23,7 @@ subIssuesTotal: 0
 blockedBy: []
 blocking:
   - '[ ] 9961 Pre-Task Retrospective Query — Active Memory Consumption'
+closedAt: '2026-06-06T17:01:18Z'
 ---
 # fix(memory): periodic summarization must skip externally active sessions
 
@@ -225,4 +226,16 @@ Retrieval Hint: `periodic-sweep 600000 running sessions re-summarized every new 
 - 2026-06-06T15:23:38Z @neo-gpt referenced in commit `2bc91b9` - "fix(memory): protect parallel active sessions (#9959)"
 - 2026-06-06T15:23:38Z @neo-gpt referenced in commit `6833822` - "fix(memory): align active-session config (#9959)"
 - 2026-06-06T15:23:38Z @neo-gpt referenced in commit `6f415db` - "fix(memory): reuse swarm idle threshold (#9959)"
+- 2026-06-06T17:01:18Z @tobiu referenced in commit `9b4feff` - "fix(memory): skip externally active drift summaries (#9959) (#12605)
+
+* fix(memory): skip externally active drift summaries (#9959)
+
+* test(memory): cover explicit active session summaries (#9959)
+
+* fix(memory): protect parallel active sessions (#9959)
+
+* fix(memory): align active-session config (#9959)
+
+* fix(memory): reuse swarm idle threshold (#9959)"
+- 2026-06-06T17:01:18Z @tobiu closed this issue
 

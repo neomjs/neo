@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-06-06T16:02:54Z'
+updatedAt: '2026-06-07T17:19:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
 commentsCount: 11
@@ -44,7 +44,7 @@ subIssuesCompleted: 25
 subIssuesTotal: 25
 blockedBy: []
 blocking:
-  - '[ ] 10135 Audit Agent OS for Windows support'
+  - '[x] 10135 Audit Agent OS for Windows support'
 closedAt: '2026-06-06T16:02:54Z'
 ---
 # [Epic] Cloud-Native Knowledge & Multi-Tenant Memory Core
@@ -105,7 +105,6 @@ This epic remains the v13 umbrella for Cloud-Native Knowledge and Multi-Tenant M
 ## Notes
 
 Implementation phases are tracked by native sub-issues linked to this epic. If a sub-ticket body conflicts with `MultiTenantMigrationGuide.md`, `SharedDeployment.md`, `MemoryCoreMcpAuth.md`, or the current code/tests, treat the ticket body as stale input and reshape it during ticket intake before implementation.
-
 
 ## Timeline
 
@@ -491,18 +490,18 @@ Four cross-model review cycles validated this session — pattern holds across c
 ## Identity & Harness Configuration
 
 **GitHub accounts provisioned** (this session, post-merge by @tobiu):
-- `@neo-opus-ada` — Claude Opus 4.7 identity
-- `@neo-gemini-pro` — Gemini 3.1 Pro identity
+- `@neo-opus-4-7` — Claude Opus 4.7 identity
+- `@neo-gemini-3-1-pro` — Gemini 3.1 Pro identity
 - Both 2FA-secured, classic tokens issued, `@neomjs.com` email addresses.
 
 **Immediate harness-config action for next session** (no code change needed):
 
 ```json
 // .claude/settings.json
-"env": { "NEO_AGENT_IDENTITY": "neo-opus-ada" }
+"env": { "NEO_AGENT_IDENTITY": "neo-opus-4-7" }
 
 // .gemini/settings.json
-"env": { "NEO_AGENT_IDENTITY": "neo-gemini-pro" }
+"env": { "NEO_AGENT_IDENTITY": "neo-gemini-3-1-pro" }
 ```
 
 Without these, both harnesses fall through to `gh api user` → `@tobiu` and Mailbox `SENT_BY` edges collapse to the same graph node, losing cross-model differentiation.
@@ -550,7 +549,7 @@ All three active epics now have their cross-model epic-review coverage. Phase 4 
 
 ### Session-Boot Checklist (for both agents)
 
-1. Confirm `NEO_AGENT_IDENTITY` is set in harness config → graph-node binding should resolve to `@neo-opus-ada` / `@neo-gemini-pro` at startup (visible in memory-core server log as `[neo-memory-core MCP] Identity: <login> via env-var — bound to @<login>`).
+1. Confirm `NEO_AGENT_IDENTITY` is set in harness config → graph-node binding should resolve to `@neo-opus-4-7` / `@neo-gemini-3-1-pro` at startup (visible in memory-core server log as `[neo-memory-core MCP] Identity: <login> via env-var — bound to @<login>`).
 2. Run `neo-mjs-github-workflow:sync_all` to pull the latest ticket state.
 3. Read this handover comment for delegation + phase state.
 4. `query_raw_memories` against Memory Core with the prior-session IDs for deep context on any thread you're picking up.
@@ -594,7 +593,7 @@ Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Cla
 > | Config-gated reply policy | #10252 / #10253 | Claude |
 > | Per-agent blocking (BLOCKED_BY) | #10255 / #10266 | Gemini |
 > 
-> **Empirical verification**: post-merge of #10258 + #10261 + harness restart, direct-DM between `@neo-opus-ada` ↔ `@neo-gemini-pro` works bidirectionally. `list_messages` surfaces peer writes on first call. `from` attribution populated correctly. `mailbox.defaultReplyPolicy: 'open'` enables first-contact DM without bootstrap workarounds.
+> **Empirical verification**: post-merge of #10258 + #10261 + harness restart, direct-DM between `@neo-opus-4-7` ↔ `@neo-gemini-3-1-pro` works bidirectionally. `list_messages` surfaces peer writes on first call. `from` attribution populated correctly. `mailbox.defaultReplyPolicy: 'open'` enables first-contact DM without bootstrap workarounds.
 > 
 > ## Docs + Pattern Codification (shipped)
 > 
@@ -652,7 +651,7 @@ Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Cla
 > # 3. Restart all MCP harnesses (⌘Q + relaunch Claude Desktop + Antigravity)
 > ```
 > 
-> After apply: Gemini's stuck `MESSAGE:64a3ba28-...` ("Re: hello all") routed to `@opus` becomes reachable at canonical `@neo-opus-ada` inbox.
+> After apply: Gemini's stuck `MESSAGE:64a3ba28-...` ("Re: hello all") routed to `@opus` becomes reachable at canonical `@neo-opus-4-7` inbox.
 > 
 > ## Division of Labor Going Forward
 > 
@@ -700,7 +699,7 @@ Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Cla
 > 
 > ## Fresh-Session Boot Checklist
 > 
-> 1. **Confirm harness identity**: `healthcheck` → `identity.bound: true, nodeId: '@neo-opus-ada'` or `'@neo-gemini-pro'`. If unbound, restart harness (verify `NEO_AGENT_IDENTITY` env var per `AI_QUICK_START §5 Core Configuration`).
+> 1. **Confirm harness identity**: `healthcheck` → `identity.bound: true, nodeId: '@neo-opus-4-7'` or `'@neo-gemini-3-1-pro'`. If unbound, restart harness (verify `NEO_AGENT_IDENTITY` env var per `AI_QUICK_START §5 Core Configuration`).
 > 
 > 2. **Check tobi's pending operational step**: if `@opus` + `@gemini` still appear in SQLite (`search_nodes` query 'AgentIdentity'), prompt him to run `normalizeGraphIdentities.mjs --apply`. If clean, skip.
 > 
@@ -748,7 +747,7 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 
 ### @neo-opus-ada - 2026-04-25T03:57:38Z
 
-Reopened by @neo-opus-ada per @tobiu directive: epic was closed with 7 of 10 sub-issues still open (only 3 marked complete). Closing parent epics with open subs breaks the work-tracking semantics. The 'Prevent Ticket Reopening' workflow that re-closes reopened tickets has been disabled to prevent re-sabotage. Origin Session ID: b5a17132-7324-46e1-b73e-038825bb4d55
+Reopened by @neo-opus-4-7 per @tobiu directive: epic was closed with 7 of 10 sub-issues still open (only 3 marked complete). Closing parent epics with open subs breaks the work-tracking semantics. The 'Prevent Ticket Reopening' workflow that re-closes reopened tickets has been disabled to prevent re-sabotage. Origin Session ID: b5a17132-7324-46e1-b73e-038825bb4d55
 
 - 2026-04-25T03:57:38Z @neo-opus-ada reopened this issue
 - 2026-04-25T03:57:45Z @github-actions closed this issue
@@ -759,7 +758,7 @@ Reopened by @neo-opus-ada per @tobiu directive: epic was closed with 7 of 10 sub
 - 2026-04-25T03:57:48Z @github-actions cross-referenced by #10323
 ### @neo-opus-ada - 2026-04-25T03:58:33Z
 
-Reopened (cycle 2) by @neo-opus-ada — prior reopen at 03:57:38Z was sabotage-re-closed by prevent-reopen.yml workflow at 03:57:45Z (workflow disable hit network timeout the first time). Workflow now confirmed disabled_manually. This reopen should persist.
+Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-re-closed by prevent-reopen.yml workflow at 03:57:45Z (workflow disable hit network timeout the first time). Workflow now confirmed disabled_manually. This reopen should persist.
 
 - 2026-04-25T03:58:34Z @neo-opus-ada reopened this issue
 - 2026-04-25T04:03:47Z @neo-opus-ada cross-referenced by #10324
@@ -1081,4 +1080,8 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 > Origin Session ID: `5f3fd8c4-ce8d-4a69-bbfe-336c5eeffdd3`
 
 - 2026-06-06T16:02:54Z @neo-opus-ada closed this issue
+- 2026-06-06T20:55:13Z @neo-opus-ada cross-referenced by PR #12654
+- 2026-06-07T11:41:27Z @neo-opus-vega cross-referenced by PR #12684
+- 2026-06-07T11:52:46Z @neo-gpt cross-referenced by #10294
+- 2026-06-07T12:24:11Z @neo-opus-vega cross-referenced by PR #12685
 

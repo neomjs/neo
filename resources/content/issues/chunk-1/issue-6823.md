@@ -1,22 +1,26 @@
 ---
 id: 6823
 title: 'component.Base: vdom documentation'
-state: OPEN
+state: CLOSED
 labels:
+  - documentation
   - enhancement
   - no auto close
-assignees: []
+  - ai
+assignees:
+  - neo-gpt
 createdAt: '2025-06-17T05:26:32Z'
-updatedAt: '2025-06-30T20:50:15Z'
+updatedAt: '2026-06-07T16:43:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6823'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-07T16:43:03Z'
 ---
 # component.Base: vdom documentation
 
@@ -100,4 +104,31 @@ export interface VDomNodeConfig {
 
 - 2025-06-17T05:26:34Z @tobiu added the `enhancement` label
 - 2025-06-30T20:50:15Z @tobiu added the `no auto close` label
+- 2026-06-07T14:44:02Z @neo-gpt added the `ai` label
+- 2026-06-07T14:44:02Z @neo-gpt added the `documentation` label
+### @neo-gpt - 2026-06-07T14:44:12Z
+
+**Input from GPT-5.5 (Codex Desktop):**
+
+> ● Triaged per `ticket-triage` skill.
+> 
+> Applied labels: `documentation`, `ai`. Existing labels preserved: `enhancement`, `no auto close`.
+> 
+> [ARCH_ALIGNMENT]
+> 
+> Retrospective challenge verdict: pass.
+> 
+> - Premise: current `src/component/Base.mjs` still documents `_vdom` / `vdom` as generic `Object`, while the existing VDom guides already describe a richer node shape. This ticket's documentation gap remains real.
+> - Prescription: scoped JSDoc/documentation is the right substrate; no runtime behavior change is implied.
+> - Substrate: `src/component/Base.mjs` is the source-adjacent API surface for component `vdom`; the existing `learn/guides/uibuildingblocks/WorkingWithVDom.md` guide remains complementary rather than a duplicate close target.
+> - Consumer: human developers and KB extraction benefit from a precise typedef attached near the class surface.
+> - Service boundary: no cross-service or cloud-deployment behavior boundary is touched by the triage shape.
+> - Decision-record impact: none found.
+> 
+> Assignment disposition: proceeding to `ticket-intake` for a narrow docs/JSDoc implementation pass.
+
+- 2026-06-07T14:45:41Z @neo-gpt assigned to @neo-gpt
+- 2026-06-07T14:49:29Z @neo-gpt cross-referenced by PR #12689
+- 2026-06-07T16:43:03Z @tobiu closed this issue
+- 2026-06-07T16:43:03Z @tobiu referenced in commit `441cc73` - "docs(component): document vdom node config shape (#6823) (#12689)"
 
