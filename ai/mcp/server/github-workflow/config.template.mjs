@@ -2,11 +2,10 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
 
-const __filename  = fileURLToPath(import.meta.url);
-const __dirname   = path.dirname(__filename);
-
-const packageRoot = path.resolve(__dirname, '../../../../');
-const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
+const __filename     = fileURLToPath(import.meta.url);
+const __dirname      = path.dirname(__filename);
+const packageRoot    = path.resolve(__dirname, '../../../../');
+const projectRoot    = process.cwd() === '/' ? packageRoot : process.cwd();
 const validLogLevels = ['error', 'warn', 'info', 'log', 'debug'];
 
 function parseLogLevel(envVarName, {env = process.env, warn = console.warn} = {}) {
@@ -21,8 +20,6 @@ function parseLogLevel(envVarName, {env = process.env, warn = console.warn} = {}
     warn(`[Config] Invalid ${envVarName} value: "${rawValue}" (must be one of: ${validLogLevels.join(', ')}); falling back.`);
     return undefined;
 }
-
-
 
 /**
  * @summary Configuration manager for the GitHub Workflow MCP server.

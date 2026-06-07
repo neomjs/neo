@@ -6,9 +6,6 @@ import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
-const cwd        = process.cwd();
-
-
 
 /**
  * @summary Configuration manager for the Neural Link MCP server.
