@@ -36,35 +36,13 @@ test.describe('SessionService setSessionId', () => {
     let SDK, TextEmbeddingService, dummySessionId;
 
     test.beforeAll(async () => {
-        const os = await import('os');
-        const fs = await import('fs');
-
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const path = await import("path");
-        const tmpDir = path.resolve(process.cwd(), "tmp");
-        aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
-
-        
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-
-        const testDbName              = `memory-core-session-service-test-${process.pid}-${Date.now()}.sqlite`;
-        const testDbPath              = path.join(tmpDir, testDbName);
-
-        if (fs.existsSync(testDbPath)) {
-            fs.unlinkSync(testDbPath);
-        }
-
-        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
-
+        // Test isolation by construction: under UNIT_TEST_MODE the config resolves storagePaths.graph
+        // (→ ':memory:') + collections.{memory,session} (→ test-*) to test values — never mutate the
+        // shared singleton (a write routes through the proxy set-trap → live-DB bleed). modelProvider
+        // resolves from NEO_MODEL_PROVIDER (set above); embeddingProvider defaults to 'openAiCompatible';
+        // autoSummarize is a retired primitive (no reader).
         SDK                  = await import('../../../../../../ai/services.mjs');
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
-
-        SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
-        SDK.Memory_Config.data.embeddingProvider     = 'openAiCompatible';
-        SDK.Memory_Config.data.autoSummarize         = false;
 
         TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
     });

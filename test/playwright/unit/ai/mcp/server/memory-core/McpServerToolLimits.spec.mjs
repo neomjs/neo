@@ -16,23 +16,13 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
-import path           from 'path';
-import fs             from 'fs-extra';
 
 test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
     let toolService;
 
     test.beforeAll(async () => {
-        // Import the config and apply any required setup
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-
-        // Setup temporary directory for db paths to avoid crashing
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-
-        aiConfig.storagePaths.graph = path.join(tmpDir, `tool-limits-test-${Date.now()}.sqlite`);
+        // ADR 0019 B4: storagePaths.graph resolves to ':memory:' by construction under
+        // UNIT_TEST_MODE — no singleton mutation, no temp DB path needed.
 
         const ToolServiceModule = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         toolService = {
