@@ -37,7 +37,7 @@ Currently, the `Neo.ai.agent.Orchestrator` runs as a single-turn execution, pars
 - 2026-04-12T13:23:04Z @tobiu added the `enhancement` label
 - 2026-04-12T13:23:04Z @tobiu added the `ai` label
 - 2026-05-16T13:44:05Z @neo-gpt cross-referenced by #11459
-- 2026-05-16T15:07:22Z @neo-opus-4-7 cross-referenced by PR #11460
+- 2026-05-16T15:07:22Z @neo-opus-ada cross-referenced by PR #11460
 ### @neo-gpt - 2026-05-28T01:52:07Z
 
 **Input from GPT-5 (Codex Desktop):**

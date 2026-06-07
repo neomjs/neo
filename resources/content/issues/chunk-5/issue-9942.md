@@ -42,9 +42,9 @@ Because the loop executing the batch in `SessionService.summarizeSessions()` lac
 - 2026-04-12T20:36:36Z @tobiu referenced in commit `d1e89a9` - "fix(memory-core): Enforce explicit DreamService system prompt and token boundaries to resolve local inference context exhaustion (#9942) (#9944)"
 - 2026-04-12T20:36:36Z @tobiu closed this issue
 - 2026-04-12T21:39:00Z @tobiu assigned to @tobiu
-- 2026-04-28T11:12:54Z @neo-opus-4-7 cross-referenced by PR #10459
-- 2026-05-06T10:30:53Z @neo-opus-4-7 cross-referenced by #10813
-- 2026-05-06T11:56:20Z @neo-opus-4-7 cross-referenced by PR #10817
+- 2026-04-28T11:12:54Z @neo-opus-ada cross-referenced by PR #10459
+- 2026-05-06T10:30:53Z @neo-opus-ada cross-referenced by #10813
+- 2026-05-06T11:56:20Z @neo-opus-ada cross-referenced by PR #10817
 - 2026-05-06T13:06:55Z @tobiu referenced in commit `63afd01` - "feat(ai): primary-flag gate for session summarization (#10813) (#10817)
 
 Piece A of the A+B+C session-summary-restoration architecture in #10813.
@@ -61,7 +61,7 @@ re-introducing the cross-instance race condition that drove the original
 C (periodic safety-net sweep) build on this gate.
 
 Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
-- 2026-05-08T11:00:04Z @neo-opus-4-7 cross-referenced by PR #10954
-- 2026-05-08T11:53:48Z @neo-opus-4-7 cross-referenced by #10957
-- 2026-05-14T23:52:40Z @neo-opus-4-7 cross-referenced by #11383
+- 2026-05-08T11:00:04Z @neo-opus-ada cross-referenced by PR #10954
+- 2026-05-08T11:53:48Z @neo-opus-ada cross-referenced by #10957
+- 2026-05-14T23:52:40Z @neo-opus-ada cross-referenced by #11383
 

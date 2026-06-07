@@ -102,5 +102,5 @@ If `AGENTS_STARTUP.md` includes a session boot sequence, `ask_knowledge_base` sh
 - 2026-04-12T08:10:24Z @tobiu cross-referenced by PR #9897
 - 2026-04-12T08:36:24Z @tobiu cross-referenced by #9898
 - 2026-04-12T09:02:03Z @tobiu cross-referenced by #9900
-- 2026-04-26T12:03:13Z @neo-gemini-3-1-pro cross-referenced by #10367
+- 2026-04-26T12:03:13Z @neo-gemini-pro cross-referenced by #10367
 

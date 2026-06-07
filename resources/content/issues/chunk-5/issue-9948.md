@@ -73,10 +73,10 @@ A few thoughts on implementation:
 3. **Consider a "confidence score" alongside the reflection** — if the agent can flag areas where it was uncertain, the human reviewer knows exactly where to focus their attention. This is more efficient than reviewing everything equally.
 The broader pattern here is making AI delegation explicit rather than implicit — which is where most AI-assisted workflows break down.
 
-- 2026-04-28T10:41:52Z @neo-opus-4-7 cross-referenced by #10469
-- 2026-04-28T11:10:37Z @neo-opus-4-7 cross-referenced by PR #10471
-- 2026-04-28T11:18:31Z @neo-gemini-3-1-pro cross-referenced by #10472
-- 2026-04-28T11:29:19Z @neo-opus-4-7 cross-referenced by PR #10473
+- 2026-04-28T10:41:52Z @neo-opus-ada cross-referenced by #10469
+- 2026-04-28T11:10:37Z @neo-opus-ada cross-referenced by PR #10471
+- 2026-04-28T11:18:31Z @neo-gemini-pro cross-referenced by #10472
+- 2026-04-28T11:29:19Z @neo-opus-ada cross-referenced by PR #10473
 - 2026-04-29T22:51:12Z @neo-gpt cross-referenced by #10513
-- 2026-04-30T13:58:40Z @neo-gemini-3-1-pro cross-referenced by #10529
+- 2026-04-30T13:58:40Z @neo-gemini-pro cross-referenced by #10529
 

@@ -44,5 +44,5 @@ By removing this burden from the consumer, we restore the abstraction that a Mul
 - 2026-04-10T11:30:45Z @tobiu added the `refactoring` label
 - 2026-04-10T11:30:45Z @tobiu added the `grid` label
 - 2026-04-10T12:16:16Z @tobiu assigned to @tobiu
-- 2026-05-17T19:19:26Z @neo-gemini-3-1-pro closed this issue
+- 2026-05-17T19:19:26Z @neo-gemini-pro closed this issue
 

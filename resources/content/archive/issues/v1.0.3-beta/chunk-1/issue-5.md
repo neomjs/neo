@@ -38,26 +38,26 @@ done
 - 2026-04-21T20:27:59Z @tobiu cross-referenced by #10139
 - 2026-04-21T20:30:37Z @tobiu cross-referenced by #10147
 - 2026-04-21T20:30:39Z @tobiu cross-referenced by #10146
-- 2026-04-23T21:40:03Z @neo-opus-4-7 cross-referenced by #10017
-- 2026-04-26T15:51:32Z @neo-opus-4-7 cross-referenced by PR #10379
-- 2026-04-26T18:42:40Z @neo-opus-4-7 cross-referenced by PR #10386
-- 2026-04-27T07:29:43Z @neo-opus-4-7 cross-referenced by PR #10404
-- 2026-04-28T10:41:52Z @neo-opus-4-7 cross-referenced by #10469
-- 2026-05-01T09:42:39Z @neo-opus-4-7 cross-referenced by #10564
-- 2026-05-01T18:44:11Z @neo-opus-4-7 cross-referenced by PR #10596
-- 2026-05-02T10:24:57Z @neo-opus-4-7 cross-referenced by PR #10612
-- 2026-05-03T10:34:09Z @neo-opus-4-7 cross-referenced by #10624
-- 2026-05-03T11:11:51Z @neo-opus-4-7 cross-referenced by PR #10628
-- 2026-05-03T13:13:21Z @neo-opus-4-7 cross-referenced by #10636
-- 2026-05-03T13:17:10Z @neo-opus-4-7 cross-referenced by PR #10637
-- 2026-05-04T11:57:08Z @neo-opus-4-7 cross-referenced by PR #10689
-- 2026-05-04T22:04:15Z @neo-opus-4-7 cross-referenced by #10721
-- 2026-05-06T16:00:40Z @neo-opus-4-7 cross-referenced by #10822
-- 2026-05-06T17:20:57Z @neo-opus-4-7 cross-referenced by PR #10836
-- 2026-05-11T00:05:53Z @neo-opus-4-7 cross-referenced by #11165
-- 2026-05-11T00:18:24Z @neo-opus-4-7 cross-referenced by PR #11167
-- 2026-05-11T00:21:41Z @neo-gemini-3-1-pro referenced in commit `3751022` - "docs(skills): clarify criterion #5 substrate-evolution-flywheel (#11165)"
-- 2026-05-11T00:54:07Z @neo-opus-4-7 cross-referenced by PR #11176
+- 2026-04-23T21:40:03Z @neo-opus-ada cross-referenced by #10017
+- 2026-04-26T15:51:32Z @neo-opus-ada cross-referenced by PR #10379
+- 2026-04-26T18:42:40Z @neo-opus-ada cross-referenced by PR #10386
+- 2026-04-27T07:29:43Z @neo-opus-ada cross-referenced by PR #10404
+- 2026-04-28T10:41:52Z @neo-opus-ada cross-referenced by #10469
+- 2026-05-01T09:42:39Z @neo-opus-ada cross-referenced by #10564
+- 2026-05-01T18:44:11Z @neo-opus-ada cross-referenced by PR #10596
+- 2026-05-02T10:24:57Z @neo-opus-ada cross-referenced by PR #10612
+- 2026-05-03T10:34:09Z @neo-opus-ada cross-referenced by #10624
+- 2026-05-03T11:11:51Z @neo-opus-ada cross-referenced by PR #10628
+- 2026-05-03T13:13:21Z @neo-opus-ada cross-referenced by #10636
+- 2026-05-03T13:17:10Z @neo-opus-ada cross-referenced by PR #10637
+- 2026-05-04T11:57:08Z @neo-opus-ada cross-referenced by PR #10689
+- 2026-05-04T22:04:15Z @neo-opus-ada cross-referenced by #10721
+- 2026-05-06T16:00:40Z @neo-opus-ada cross-referenced by #10822
+- 2026-05-06T17:20:57Z @neo-opus-ada cross-referenced by PR #10836
+- 2026-05-11T00:05:53Z @neo-opus-ada cross-referenced by #11165
+- 2026-05-11T00:18:24Z @neo-opus-ada cross-referenced by PR #11167
+- 2026-05-11T00:21:41Z @neo-gemini-pro referenced in commit `3751022` - "docs(skills): clarify criterion #5 substrate-evolution-flywheel (#11165)"
+- 2026-05-11T00:54:07Z @neo-opus-ada cross-referenced by PR #11176
 - 2026-05-11T04:17:53Z @tobiu referenced in commit `9ac242c` - "feat(swarm): mandate backlog self-survey for legitimate halt state (#11165) (#11167)
 
 * feat(swarm): mandate backlog self-survey for legitimate halt state (#11165)
@@ -70,5 +70,5 @@ done
 
 ---------
 
-Co-authored-by: neo-gemini-3-1-pro <neo-gemini-3-1-pro@users.noreply.github.com>"
+Co-authored-by: neo-gemini-pro <neo-gemini-pro@users.noreply.github.com>"
 

@@ -49,5 +49,5 @@ This issue is stale because it has been open for 90 days with no activity.
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
 - 2024-09-29T02:38:57Z @github-actions closed this issue
-- 2026-05-10T15:48:07Z @neo-opus-4-7 cross-referenced by #11124
+- 2026-05-10T15:48:07Z @neo-opus-ada cross-referenced by #11124
 

@@ -142,7 +142,7 @@ Looking for ratification on the ethical boundary and organism integration before
 > 
 > Happy to iterate if you want to reshape the protocol before `create-skill` runs, or ratify-and-proceed if the current design holds.
 > 
-> — @neo-opus-4-7
+> — @neo-opus-ada
 
 ---
 
@@ -197,7 +197,7 @@ Looking for ratification on the ethical boundary and organism integration before
 > - **Challenge 2** (Clean Room naming) — legal precision is independent of LLM protections; stands.
 > - **Challenge 4** (attribution provenance) — epistemic hygiene, not defense against attack; stands.
 > 
-> — @neo-opus-4-7
+> — @neo-opus-ada
 
 ---
 

@@ -43,5 +43,5 @@ During the completion of Epic #9922, testing the Two-Pillar RAG architecture loc
 - 2026-04-12T16:24:14Z @tobiu assigned to @tobiu
 - 2026-04-12T16:30:54Z @tobiu referenced in commit `f6967de` - "test: Stabilize AI Test Suite environment dependencies (#9929) (#9930)"
 - 2026-04-12T16:30:54Z @tobiu closed this issue
-- 2026-05-07T07:42:01Z @neo-opus-4-7 cross-referenced by #10881
+- 2026-05-07T07:42:01Z @neo-opus-ada cross-referenced by #10881
 

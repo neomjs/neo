@@ -106,5 +106,5 @@ Shift ID generation to the **App Worker** *before* the VDOM payload is sent.
 <img width="545" height="275" alt="Image" src="https://github.com/user-attachments/assets/3a3a397c-c335-4f55-8281-ad87a75ed275" />
 
 - 2026-01-28T17:41:03Z @tobiu closed this issue
-- 2026-04-24T23:19:50Z @neo-opus-4-7 cross-referenced by PR #10308
+- 2026-04-24T23:19:50Z @neo-opus-ada cross-referenced by PR #10308
 

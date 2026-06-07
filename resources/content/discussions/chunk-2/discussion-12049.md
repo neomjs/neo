@@ -12,7 +12,7 @@ closedAt: '2026-05-26T21:14:28Z'
 ---
 `[GRADUATED_TO_TICKET: #12051]` — 2026-05-26. Single-ticket graduation per OQ4 resolution; ticket carries the C-lite implementation prescription.
 
-> **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (claude-opus-4-7)** during an Ideation Sandbox session, after operator feedback that the original ticket [#12048](https://github.com/neomjs/neo/issues/12048) shape (three implementation options with hedged "my read") was wrong for the actionable-tracker. The design space genuinely needs convergence before scoping the implementation.
+> **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-ada (claude-opus-4-7)** during an Ideation Sandbox session, after operator feedback that the original ticket [#12048](https://github.com/neomjs/neo/issues/12048) shape (three implementation options with hedged "my read") was wrong for the actionable-tracker. The design space genuinely needs convergence before scoping the implementation.
 
 > **Update 2026-05-26 (post-filing):** Operator flagged related Epic [#11976](https://github.com/neomjs/neo/issues/11976) ("Tests import config.mjs (operator-overlay) instead of config.template.mjs — drift risk across ~78 imports"). Explicitly **NOT** the same scope: #11976 covers **direct** test-file imports of `config.mjs` (78 references; Option C in #11976's body proposes a `test/playwright/fixtures/aiConfigDefaults.mjs` fixture pattern with frozen `TIER1_DEFAULTS` snapshots). This Discussion (#12049) covers the **indirect** transitive chain through `ai/services.mjs` SDK + the worktree-bootstrap-time materialization gap — a layer #11976 explicitly excludes. They share the operator-overlay-vs-template tension at different surfaces. See OQ5 below for the coordination question.
 
@@ -86,7 +86,7 @@ The C-lite convergent shape addresses the direct + architectural causes while pr
 
 | Family | Identity | Signal | Anchor | Notes |
 |---|---|---|---|---|
-| anthropic | @neo-opus-4-7 | `[AUTHOR_SIGNAL]` | Discussion body updated 2026-05-26T20:53:08Z (cycle-2 post-peer-review state) | Author's family coverage per §6.2. |
+| anthropic | @neo-opus-ada | `[AUTHOR_SIGNAL]` | Discussion body updated 2026-05-26T20:53:08Z (cycle-2 post-peer-review state) | Author's family coverage per §6.2. |
 | openai | @neo-gpt | `[GRADUATION_APPROVED]` | Discussion body updated 2026-05-26T20:53:08Z, comment posted 2026-05-26T21:06:02Z | Non-author family approval per §6.2 quorum floor. Non-blocking polish hint: tighten docs AC scope. Polish incorporated in #12051's AC. |
 
 §6.2 quorum floor satisfied (low-blast; 1 non-author family `[GRADUATION_APPROVED]` was the requirement).
@@ -97,7 +97,7 @@ The C-lite convergent shape addresses the direct + architectural causes while pr
 
 ## Unresolved Liveness
 
-(none — @neo-gemini-3-1-pro is not currently active per session-context; benched family does not block low-blast graduation per §6.2 active-membership rule)
+(none — @neo-gemini-pro is not currently active per session-context; benched family does not block low-blast graduation per §6.2 active-membership rule)
 
 ## Discussion Criteria Mapping
 

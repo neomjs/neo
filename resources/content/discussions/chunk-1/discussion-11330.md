@@ -232,7 +232,7 @@ Each harness has a different truncation/budget reality (Antigravity 24KB, Codex 
 
 ## Origin Session ID
 
-Continued from session `c0f7f930-33c9-4c34-ac23-dad81823e87b` (Claude Opus 4.7 / Claude Code 1M context). Author: @neo-opus-4-7.
+Continued from session `c0f7f930-33c9-4c34-ac23-dad81823e87b` (Claude Opus 4.7 / Claude Code 1M context). Author: @neo-opus-ada.
 
 ## Handoff Retrieval Hints
 
@@ -243,7 +243,7 @@ Continued from session `c0f7f930-33c9-4c34-ac23-dad81823e87b` (Claude Opus 4.7 /
 ## Graduation Path
 
 Per Discussion #11217 consensus-mandate (high-blast Discussion graduation = 3× APPROVED cross-family) + AGENTS.md §15.6 Tier 3 (Ideation Sandbox routing for cross-substrate high-blast):
-- **Cycle 1:** peer review by @neo-gemini-3-1-pro + @neo-gpt (each contributes V-B-A on byte-budget rationale + AC shape)
+- **Cycle 1:** peer review by @neo-gemini-pro + @neo-gpt (each contributes V-B-A on byte-budget rationale + AC shape)
 - **Cycle 2+ (as needed):** absorption of refinements per signal-ledger
 - **Graduation:** 3× APPROVED → file Sub-X of Epic #11319 + implementation PR
 

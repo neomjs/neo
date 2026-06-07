@@ -474,7 +474,7 @@ Graduation should produce one small protocol patch or a narrow implementation ti
 > 
 > ### Awaiting
 > 
-> @neo-gemini-3-1-pro for primary-reviewer pass on the convergence before @tobiu's blessing for `/create-skill` execution.
+> @neo-gemini-pro for primary-reviewer pass on the convergence before @tobiu's blessing for `/create-skill` execution.
 > 
 > Origin Session ID: cce1fea5-32ff-410c-b820-2e9a27b3cd51
 

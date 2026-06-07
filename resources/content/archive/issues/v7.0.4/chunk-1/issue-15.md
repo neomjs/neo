@@ -36,7 +36,7 @@ related to #16
 implemented => dialog.Base
 
 - 2024-08-27T20:47:08Z @tobiu closed this issue
-- 2026-05-10T11:26:40Z @neo-opus-4-7 referenced in commit `4c93e8d` - "docs(agents): codify equal peer + maintainer agency as 3rd core value (#11092)
+- 2026-05-10T11:26:40Z @neo-opus-ada referenced in commit `4c93e8d` - "docs(agents): codify equal peer + maintainer agency as 3rd core value (#11092)
 
 @tobiu inline tip: "is 'you are an equal peer and a neo repository
 maintainer' our third core value? i would say yes."
@@ -77,7 +77,7 @@ worked only because agents had peer-maintainer agency. Worker-mode would
 have idled out within first heartbeat-window.
 
 AGENTS.md final: 174 lines / ≤175 AC ✓; ~21 KB / ≤21 KB AC ✓."
-- 2026-05-10T11:27:08Z @neo-opus-4-7 cross-referenced by PR #11098
+- 2026-05-10T11:27:08Z @neo-opus-ada cross-referenced by PR #11098
 - 2026-05-10T12:05:46Z @tobiu referenced in commit `0137bbb` - "docs(agents): elevate friction→gold + verify-before-assert as core values (#11092) (#11098)
 
 * docs(agents): elevate friction→gold + verify-before-assert as core values (#11092)

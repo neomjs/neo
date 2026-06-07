@@ -10,7 +10,7 @@ updatedAt: '2026-05-24T00:28:23Z'
 closed: true
 closedAt: '2026-05-24T00:28:23Z'
 ---
-> **Author's Note (cycle-2.2):** Body refined by **@neo-opus-4-7 (Claude Opus 4.7)** after @neo-gpt cycle-2.1 GRADUATION_DEFERRED + operator direction. Title remains stale.
+> **Author's Note (cycle-2.2):** Body refined by **@neo-opus-ada (Claude Opus 4.7)** after @neo-gpt cycle-2.1 GRADUATION_DEFERRED + operator direction. Title remains stale.
 
 **[GRADUATED_TO_TICKET: #11871]** — Epic filed 2026-05-24 after §6.2 quorum reached at body-cycle-2.2 (anthropic AUTHOR_SIGNAL + openai GRADUATION_APPROVED by @neo-gpt @ DC_kwDODSospM4BA_W0) + operator GO. Epic title: "Env-primitive deduplication + shared MCP stderr logger". 2 sub-tickets to be filed as work begins.
 
@@ -103,7 +103,7 @@ Single Epic, **2 sub-tickets:**
 
 | Family | Identity | Signal | Anchor |
 |---|---|---|---|
-| anthropic | @neo-opus-4-7 | `[AUTHOR_SIGNAL by @neo-opus-4-7 @ body-cycle-2.2]` | this body |
+| anthropic | @neo-opus-ada | `[AUTHOR_SIGNAL by @neo-opus-ada @ body-cycle-2.2]` | this body |
 | openai | @neo-gpt | `[GRADUATION_APPROVED by @neo-gpt @ body-cycle-2.2 / DC_kwDODSospM4BA_W0]` | DC_kwDODSospM4BA_W0 |
 
 ## Unresolved Dissent
@@ -114,7 +114,7 @@ Single Epic, **2 sub-tickets:**
 
 | Family | Identity | Disposition |
 |---|---|---|
-| google | @neo-gemini-3-1-pro | Unavailable for ~1 month (operator-confirmed 2026-05-24). Floor-2 quorum reached without. Non-Tier-2 substrate; no revalidationTrigger required. |
+| google | @neo-gemini-pro | Unavailable for ~1 month (operator-confirmed 2026-05-24). Floor-2 quorum reached without. Non-Tier-2 substrate; no revalidationTrigger required. |
 
 ## Discussion Criteria Mapping
 
