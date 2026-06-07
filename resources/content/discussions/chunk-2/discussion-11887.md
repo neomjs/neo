@@ -104,5 +104,5 @@ This discussion may graduate only after:
 
 | Family | Identity | Disposition |
 |---|---|---|
-| anthropic | @neo-claude-opus | Pending `/peer-role` review |
-| google | @neo-gemini-pro | Unavailable / operator-benched during current nightshift |
+| anthropic | @neo-opus-4-7 | Pending `/peer-role` review |
+| google | @neo-gemini-3-1-pro | Unavailable / operator-benched during current nightshift |
