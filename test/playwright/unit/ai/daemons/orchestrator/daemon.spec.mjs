@@ -26,6 +26,10 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.summary.args).toEqual([path.join(scriptDir, 'lifecycle', 'summarize-sessions.mjs')]);
         expect(tasks.summary.expectedCommand).toBe('summarize-sessions.mjs');
 
+        expect(tasks['memory-summary-backfill'].command).toBe('/test/node');
+        expect(tasks['memory-summary-backfill'].args).toEqual([path.join(scriptDir, 'lifecycle', 'backfill-memory-summaries.mjs')]);
+        expect(tasks['memory-summary-backfill'].expectedCommand).toBe('backfill-memory-summaries.mjs');
+
         expect(tasks.kbSync.command).toBe('/test/node');
         expect(tasks.kbSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')]);
         expect(tasks.kbSync.expectedCommand).toBe('syncKnowledgeBase.mjs');
@@ -41,6 +45,17 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             '--apply'
         ]);
         expect(tasks['graphlog-compaction'].expectedCommand).toBe('compactGraphLog.mjs');
+    });
+
+    test('memory-summary backfill CLI is guarded by the shared heavy-maintenance lease', () => {
+        const source = fs.readFileSync(
+            path.resolve(process.cwd(), 'ai/scripts/lifecycle/backfill-memory-summaries.mjs'),
+            'utf8'
+        );
+
+        expect(source).toContain('withHeavyMaintenanceLease');
+        expect(source).toContain("owner   : 'memory-summary-backfill'");
+        expect(source).toContain("reason  : 'manual-cli'");
     });
 
     test('buildTaskDefinitions is pure: tasks.mlx is omitted when mlxEnabled is false', () => {

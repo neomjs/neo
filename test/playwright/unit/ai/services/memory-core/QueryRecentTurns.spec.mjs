@@ -30,7 +30,9 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
  *                     mechanically prevents the fail-open default — AC7a alone passes even if this path is broken).
  */
 test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
-    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText;
+    test.describe.configure({mode: 'serial'});
+
+    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText, memStore;
 
     test.beforeAll(async () => {
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -44,7 +46,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // an in-memory fake so the spec exercises the real addMemory→queryRecentTurns flow without a
         // live Chroma. The recency query reads the GRAPH; the fake only stands in for the content
         // store (the write + the detail:'full' join).
-        const memStore = new Map();
+        memStore = new Map();
         originalGetMemoryCollection = StorageRouter.getMemoryCollection;
         StorageRouter.getMemoryCollection = async () => ({
             add: async ({ids = [], metadatas = []} = {}) => { ids.forEach((id, i) => memStore.set(id, metadatas[i] || {})); },
@@ -194,5 +196,68 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         const page2 = await RequestContextService.run(ctx, async () => MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1, before: page1.nextCursor}));
         expect(page2.count).toBe(1);
         expect(page2.turns[0].id).toBe('mem-cursor-1');   // the OTHER equal-timestamp turn — no dup, no skip
+    });
+
+    test('backfillMiniSummaries summarizes pending rows most-recent-first and preserves tenant metadata', async () => {
+        const oldTs = '2099-01-01T00:00:00.000Z';
+        const newTs = '2099-01-02T00:00:00.000Z';
+
+        memStore.set('backfill-old', {prompt: 'old prompt', response: 'old response'});
+        memStore.set('backfill-new', {prompt: 'new prompt', response: 'new response'});
+
+        GraphService.upsertNode({
+            id: 'backfill-old', type: 'AGENT_MEMORY', name: 'Memory: old', description: 'old',
+            semanticVectorId: 'backfill-old',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'backfill', timestamp: oldTs}
+        });
+        GraphService.upsertNode({
+            id: 'backfill-new', type: 'AGENT_MEMORY', name: 'Memory: new', description: 'new',
+            semanticVectorId: 'backfill-new',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'backfill', timestamp: newTs}
+        });
+
+        const calls = [];
+        const result = await MemoryService.backfillMiniSummaries({
+            limit: 1,
+            buildMiniSummary: async ({prompt}) => {
+                calls.push(prompt);
+                return `summary:${prompt}`;
+            }
+        });
+        expect(calls).toEqual(['new prompt']);
+        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0});
+
+        const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-new');
+        const data = JSON.parse(row.data);
+        expect(data.properties.miniSummary).toBe('summary:new prompt');
+        expect(data.properties.userId).toBe('tenant-a');
+        expect(data.properties.agentIdentity).toBe('@agent-a');
+
+        const oldRow  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-old');
+        const oldData = JSON.parse(oldRow.data);
+        expect(oldData.properties.miniSummary).toBeUndefined();
+    });
+
+    test('backfillMiniSummaries leaves provider failures retryable without aborting the batch', async () => {
+        const ts = '2099-01-03T00:00:00.000Z';
+
+        memStore.set('backfill-failure', {prompt: 'failure prompt', response: 'failure response'});
+        GraphService.upsertNode({
+            id: 'backfill-failure', type: 'AGENT_MEMORY', name: 'Memory: failure', description: 'failure',
+            semanticVectorId: 'backfill-failure',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'backfill', timestamp: ts}
+        });
+
+        const result = await MemoryService.backfillMiniSummaries({
+            limit: 1,
+            buildMiniSummary: async () => {
+                throw new Error('provider unavailable');
+            }
+        });
+        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0});
+
+        const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-failure');
+        const data = JSON.parse(row.data);
+        expect(data.properties.miniSummary).toBeUndefined();
     });
 });

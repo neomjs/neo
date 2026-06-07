@@ -704,6 +704,130 @@ class MemoryService extends Base {
     }
 
     /**
+     * @summary Merges a generated `miniSummary` into an existing `AGENT_MEMORY` node without changing tenant ownership.
+     *
+     * Backfill runs as daemon/system work, usually without a request-bound tenant. Plain
+     * {@link GraphService#upsertNode} is intentionally RLS-aware and may not see private
+     * tenant rows from that context, so it can treat an existing tenant-owned memory as a
+     * new node. The backfill path must instead update the full persisted node JSON in
+     * place, preserving `userId`, `agentIdentity`, `sessionId`, timestamps, and every
+     * other property while adding only `miniSummary`.
+     *
+     * @param {Object} options
+     * @param {String} options.id          Existing `AGENT_MEMORY` node id.
+     * @param {String} options.miniSummary Generated compact summary to merge.
+     * @returns {Boolean} `true` when the node was updated, `false` when the row is missing.
+     * @private
+     */
+    updateMemoryMiniSummary({id, miniSummary}) {
+        const graph  = GraphService.db,
+              sqlite = graph?.storage?.db;
+
+        if (!sqlite) {
+            return false;
+        }
+
+        const row = sqlite.prepare('SELECT data FROM Nodes WHERE id = ? LIMIT 1').get(id);
+        if (!row?.data) {
+            return false;
+        }
+
+        const existing   = JSON.parse(row.data),
+              properties = {...(existing.properties || {}), miniSummary},
+              nodeData   = {
+                  id        : existing.id || id,
+                  label     : existing.label || 'AGENT_MEMORY',
+                  properties
+              };
+
+        graph.storage.addNodes([nodeData]);
+
+        return true;
+    }
+
+    /**
+     * @summary Backfills compact per-turn summaries for existing `AGENT_MEMORY` graph rows.
+     *
+     * Mirrors the inline {@link addMemory} enrichment path for pre-existing memories and for
+     * turns written while the summarizer was unavailable. The scan is graph-first and
+     * most-recent-first; Chroma is only joined by the selected node ids to fetch that memory's own
+     * prompt/response. Updates merge `miniSummary` into the same graph node through a
+     * tenant-preserving storage-layer merge, preserving tenant attribution (`userId`, `agentIdentity`)
+     * and every other property already present on the row.
+     *
+     * Fail-soft by construction: model/provider failures leave the row unmodified so a later batch
+     * can retry it. A failure for one row never aborts the batch.
+     *
+     * @param {Object} [options]
+     * @param {Number} [options.limit] Maximum rows to process. Defaults to
+     *     `aiConfig.summarizationBatchLimit`.
+     * @param {Function} [options.buildMiniSummary] Optional summarizer seam for deterministic tests.
+     * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number}>}
+     */
+    async backfillMiniSummaries({limit, buildMiniSummary} = {}) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) {
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0};
+        }
+
+        const defaultLimit = Number(aiConfig.summarizationBatchLimit) || 50;
+        const numericLimit = Number(limit) || defaultLimit;
+        const boundedLimit = Math.max(1, Math.min(numericLimit, defaultLimit));
+        const summarize    = buildMiniSummary || (options => this.buildMiniSummary(options));
+
+        const rows = sqlite.prepare(`
+            SELECT memory.id                                          AS id,
+                   json_extract(memory.data, '$.properties.timestamp') AS timestamp
+            FROM Nodes memory
+            WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
+              AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+            ORDER BY json_extract(memory.data, '$.properties.timestamp') DESC, memory.id DESC
+            LIMIT ?
+        `).all(boundedLimit);
+
+        if (rows.length === 0) {
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0};
+        }
+
+        const collection = await StorageRouter.getMemoryCollection();
+        const fetched    = await collection.get({ids: rows.map(row => row.id), include: ['metadatas']});
+        const byId       = new Map((fetched.ids || []).map((id, index) => [id, fetched.metadatas?.[index] || {}]));
+
+        let updated = 0, deferred = 0, missingContent = 0;
+
+        for (const row of rows) {
+            const metadata = byId.get(row.id);
+            if (!metadata || (!metadata.prompt && !metadata.response)) {
+                missingContent++;
+                continue;
+            }
+
+            try {
+                const miniSummary = await summarize({
+                    prompt  : metadata.prompt,
+                    response: metadata.response
+                });
+
+                if (!miniSummary) {
+                    deferred++;
+                    continue;
+                }
+
+                if (this.updateMemoryMiniSummary({id: row.id, miniSummary})) {
+                    updated++;
+                } else {
+                    missingContent++;
+                }
+            } catch (error) {
+                logger.warn(`[MemoryService] miniSummary backfill deferred for ${row.id} (fail-soft): ${error.message}`);
+                deferred++;
+            }
+        }
+
+        return {processed: rows.length, updated, deferred, missingContent};
+    }
+
+    /**
      * Executes a semantic search against the memory collection.
      * @param {Object} options
      * @param {String} options.query         The search query string.

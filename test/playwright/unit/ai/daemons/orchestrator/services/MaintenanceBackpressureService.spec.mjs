@@ -59,6 +59,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             'dream',
             'graphlog-compaction',
             'kbSync',
+            'memory-summary-backfill',
             'primary-dev-sync',
             'summary'
         ].sort());
