@@ -47,5 +47,20 @@ test.describe('ai/daemons/wake/flushDeferPolicy (#12479 phantom wake-flood guard
             const lastHeavyPollAt = now - 1;
             expect(shouldDeferFlush({now, lastHeavyPollAt})).toBe(true);
         });
+
+        test('keeps deferring through a sustained heavy op while polls stay hot (capped only by the backstop)', () => {
+            // lastHeavyPollAt refreshes on every heavy poll, so a long-but-active sync stays within the
+            // settle window; deferral continues until the op stops (settle) or the stuck-signal cap.
+            const lastHeavyPollAt  = now - 1; // a heavy poll just landed
+            const midRunDeferCount = Math.floor(MAX_FLUSH_DEFERS / 2);
+            expect(shouldDeferFlush({now, lastHeavyPollAt, deferCount: midRunDeferCount})).toBe(true);
+        });
+
+        test('absolute backstop comfortably exceeds a multi-minute heavy op (operator: "a heavy OP can easily take 15m")', () => {
+            // The cap is a stuck-signal net, so it must dwarf a real heavy op — otherwise it would
+            // force-flush mid-sync and re-expose the leak this guards. Encode the floor: >= 2x a 15-min op.
+            const fifteenMinutes = 15 * 60 * 1000;
+            expect(MAX_FLUSH_DEFERS * HEAVY_DELTA_SETTLE_MS).toBeGreaterThanOrEqual(2 * fifteenMinutes);
+        });
     });
 });

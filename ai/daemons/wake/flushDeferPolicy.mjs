@@ -30,20 +30,27 @@
 export const HEAVY_DELTA_THRESHOLD = 500;
 
 /**
- * Quiet period (ms) after the most recent heavy poll before per-message read-state is trusted again.
- * Spans several poll cycles so the daemon observes the sync stop producing large batches before it
- * resumes flushing digests.
+ * Quiet period (ms) of no heavy polls after the most recent heavy poll before per-message read-state is
+ * trusted again, and also the re-check interval while deferring. `lastHeavyPollAt` refreshes on every
+ * heavy poll, so this window only elapses once the sync genuinely stops producing large batches — it
+ * therefore rides out a *sustained* multi-minute heavy op (data-syncs can run many minutes) regardless
+ * of total duration. Sized to absorb brief inter-batch gaps within one sync; the cost is a one-time
+ * post-sync wake delay of roughly this window.
  * @type {Number}
  */
-export const HEAVY_DELTA_SETTLE_MS = 15000;
+export const HEAVY_DELTA_SETTLE_MS = 60000;
 
 /**
- * Maximum number of times a single coalesced flush may defer. Bounds total deferral
- * (`MAX_FLUSH_DEFERS * HEAVY_DELTA_SETTLE_MS`) so a genuine wake is delayed, never dropped, even if a
- * sync runs unusually long.
+ * Absolute backstop on consecutive deferrals for a single flush. `MAX_FLUSH_DEFERS *
+ * HEAVY_DELTA_SETTLE_MS` (~60 min) is a **stuck-signal safety net, NOT a normal-operation limit**: a
+ * real heavy op — even an "easily 15-minute" data-sync — settles and flushes well before this, because
+ * deferral ends as soon as heavy polls stop (the settle window), not at a fixed time budget. The cap
+ * only fires if the heavy-delta signal wedges on (e.g. a poll-batch bug), so a genuine wake is delayed,
+ * never dropped indefinitely. (Earlier `10` capped total deferral at ~2.5 min, which would force a flush
+ * mid-sync on a multi-minute heavy op and re-expose the very leak this guards — hence the larger net.)
  * @type {Number}
  */
-export const MAX_FLUSH_DEFERS = 10;
+export const MAX_FLUSH_DEFERS = 60;
 
 /**
  * @summary Whether a single poll's GraphLog batch marks a heavy / sync delta in flight.
