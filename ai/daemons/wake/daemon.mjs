@@ -52,7 +52,10 @@ import {
     isHarnessPresenceFresh
 } from './queries.mjs';
 import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
-import {getDefaultInstancePid, getInstancePid} from './instanceResolver.mjs';
+import {
+    getDefaultInstancePid,
+    resolveGuiInstancePid
+} from './instanceResolver.mjs';
 import {HEARTBEAT_PULSE_ENTITY_TYPE, match} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
@@ -735,42 +738,22 @@ async function deliverDigest(subscription, digest) {
             // app-activate — a targeted wake must never silently degrade to an untargeted one. Uses
             // the canonical AiConfig.orchestrator.deploymentMode signal.
             let instancePid = null;
-            if (addressType === 'pid') {
-                if (AiConfig.orchestrator.deploymentMode === 'cloud') {
+            if (addressType === 'pid' || addressType === 'userDataDir') {
+                try {
+                    instancePid = await resolveGuiInstancePid({
+                        instanceAddress,
+                        addressType,
+                        deploymentMode: AiConfig.orchestrator.deploymentMode,
+                        target        : 'wake daemon',
+                        appName
+                    });
+                } catch (err) {
                     writeLog('ERROR',
-                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
-                        `pid targeting requires local deployment (deploymentMode='cloud'). ` +
-                        `Failing closed — instance-addressed GUI wakes are local-only (ADR 0014).`
+                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ${err.message}`
                     );
                     return;
                 }
-                instancePid = normalizePid(instanceAddress);
-                if (!instancePid) {
-                    writeLog('ERROR',
-                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
-                        `invalid pid instanceAddress='${instanceAddress}'. Failing closed.`
-                    );
-                    return;
-                }
-            } else if (addressType === 'userDataDir' && instanceAddress) {
-                if (AiConfig.orchestrator.deploymentMode === 'cloud') {
-                    writeLog('ERROR',
-                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
-                        `userDataDir targeting requires local deployment (deploymentMode='cloud'). ` +
-                        `Failing closed — instance-addressed GUI wakes are local-only (ADR 0014).`
-                    );
-                    return;
-                }
-                instancePid = await getInstancePid({userDataDir: instanceAddress});
-                if (!instancePid) {
-                    writeLog('ERROR',
-                        `[Wake Daemon] Instance wake refused for ${subscription.id}: ` +
-                        `no running process found for userDataDir='${instanceAddress}'. ` +
-                        `Failing closed to avoid misrouting to another ${appName} instance.`
-                    );
-                    return;
-                }
-            } else if (AiConfig.orchestrator.deploymentMode !== 'cloud') {
+            } else if (AiConfig.orchestrator.deploymentMode === 'local') {
                 // No userDataDir = the DEFAULT instance, started as the normal macOS app (which can
                 // never carry --user-data-dir without breaking its system app / menu-bar integration).
                 // When a same-bundle sibling instance is running, "activate + frontmost" is ambiguous;
@@ -1001,17 +984,6 @@ function assertFreshTargetPresence(subscription, {addressType}) {
         `Failing closed; recipient will pick up the unread event on next turn.`
     );
     return false;
-}
-
-/**
- * @summary Normalizes a pid string for direct-pid address dispatch.
- * @param {*} pid Process id candidate.
- * @returns {Number|null}
- */
-function normalizePid(pid) {
-    const numericPid = Number(pid);
-
-    return Number.isInteger(numericPid) && numericPid > 0 ? numericPid : null;
 }
 
 /**

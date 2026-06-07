@@ -6,9 +6,10 @@
  * the descriptor as metadata so downstream `pickNextCandidate` can apply policy rules.
  *
  * The collector is intentionally policy-blind: it contains no task-kind,
- * maintenance-class, or deployment-profile branching. Policy decisions live in
- * `pickNextCandidate`; per-task destructuring lives in registry descriptor adapters.
- * The collector itself is pure iteration + normalization + metadata attachment.
+ * maintenance-class, or deployment-profile branching. Eligibility decisions live in
+ * registry descriptor adapters via caller-provided getter values; cross-candidate
+ * policy decisions live in `pickNextCandidate`. The collector itself is pure
+ * iteration + normalization + metadata attachment.
  *
  * Descriptor failures are reported as data, not written directly to Orchestrator
  * state. The caller owns state-mutating health reporting, keeping this module
@@ -47,9 +48,8 @@ export function collectDueCandidates({registry, context}) {
 /**
  * Normalizes a getDueTask return value to a uniform `{reason, onSuccess}` shape.
  *
- * `CadenceEngine.runIfDue` accepts both boolean-true and object triggers. The
- * registry uses object triggers, but this normalizer keeps the collector tolerant
- * of any future bare-boolean trigger.
+ * Registry descriptors use object triggers, but this normalizer keeps the collector
+ * tolerant of any future bare-boolean trigger.
  *
  * @param {Object|Boolean} trigger Raw trigger from `getDueTask`.
  * @returns {Object} Normalized `{reason, onSuccess?, ...originalFields}`.

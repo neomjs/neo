@@ -220,7 +220,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('backpressures overdue heavy maintenance tasks within the same poll', () => {
+    test('selects only the first due maintenance candidate per poll (#11900)', () => {
         const logs     = [];
         const outcomes = [];
         const started  = [];
@@ -251,19 +251,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: 'summary',
             reason  : 'periodic-sweep:600000'
         }]);
-        expect(outcomes).toContainEqual({
-            taskName: 'kbSync',
-            status  : 'skipped',
-            details : expect.objectContaining({
-                blockingTaskName: 'summary',
-                reason          : 'periodic-sync:600000',
-                reasonCode      : 'heavy-maintenance-backpressure'
-            })
-        });
-        expect(logs).toContainEqual({
-            level  : 'INFO',
-            message: expect.stringContaining('Deferring knowledge base sync')
-        });
+        expect(outcomes).toEqual([]);
+        expect(logs).toEqual([]);
     });
 
     test('defers due heavy maintenance when another heavy task is already running', () => {
@@ -1341,6 +1330,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         };
 
         const orchestrator = createTestOrchestrator({
+            kbSyncEnabled : false,
             dreamIntervalMs: 1,
             healthService  : {
                 recordTaskOutcome(taskName, status, details) {

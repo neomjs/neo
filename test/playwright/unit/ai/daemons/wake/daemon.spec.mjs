@@ -1198,7 +1198,7 @@ test.describe('Wake Daemon', () => {
                 }
             });
             daemonProcess.stderr.on('data', data => {
-                if (data.toString().includes('no running process found for userDataDir')) { clearTimeout(timeout); resolve(); }
+                if (data.toString().includes('No running Claude instance found for userDataDir')) { clearTimeout(timeout); resolve(); }
             });
             daemonProcess.on('error', reject);
         });

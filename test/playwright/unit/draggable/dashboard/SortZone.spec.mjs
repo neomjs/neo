@@ -117,4 +117,73 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.70);
         expect(sortZone.isWindowDragging).toBe(true);
     });
+
+    test('does not move a remote drag visitor into the target when it leaves (#8162)', async () => {
+        const appliedDeltas = [];
+
+        Neo.applyDeltas = (windowId, deltas) => {
+            appliedDeltas.push(...deltas);
+            return Promise.resolve()
+        };
+
+        const existingItem = {
+            id          : 'target-item',
+            vdom        : {cls: ['neo-draggable']},
+            wrapperStyle: {}
+        };
+        const placeholder = {
+            id          : 'placeholder',
+            vdom        : {cls: []},
+            wrapperStyle: {},
+            destroy     : () => {}
+        };
+        const remoteItem = {
+            id          : 'remote-item',
+            wrapperStyle: {}
+        };
+
+        const mockOwner = {
+            id              : 'mockOwner',
+            cls             : [],
+            dragResortable  : true,
+            items           : [existingItem, placeholder],
+            style           : {},
+            vdom            : {},
+            addDomListeners : () => {},
+            getDomRect      : () => Promise.resolve([{x:0, y:0, width:200, height:100}]),
+            getVdomItemsRoot: () => ({id: 'mockOwner-items'}),
+            on              : () => {}
+        };
+
+        sortZone = Neo.create(DashboardSortZone, {
+            owner  : mockOwner,
+            timeout: () => Promise.resolve()
+        });
+
+        Object.assign(sortZone, {
+            currentIndex    : 1,
+            dragComponent   : remoteItem,
+            dragPlaceholder : placeholder,
+            dragProxy       : {id: 'proxy', cls: [], destroy: () => {}},
+            isRemoteDragging: true,
+            itemRects       : [
+                {height: 100, left: 0, top: 0, width: 100},
+                {height: 100, left: 100, top: 0, width: 100}
+            ],
+            itemStyles: [
+                {height: '100px', width: '100px'},
+                {height: '100px', width: '100px'}
+            ],
+            ownerStyle   : {},
+            sortableItems: [existingItem, placeholder],
+            startIndex   : 1,
+            windowId     : 1
+        });
+
+        await sortZone.onRemoteDragLeave({});
+
+        expect(appliedDeltas.some(delta => delta.action === 'moveNode' && delta.id === remoteItem.id)).toBe(false);
+        expect(sortZone.isRemoteDragging).toBe(false);
+        expect(sortZone.isWindowDragging).toBe(false)
+    });
 });

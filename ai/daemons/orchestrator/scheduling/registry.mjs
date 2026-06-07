@@ -1,9 +1,11 @@
 import {getDueTask as getSummaryDueTask}             from './summary.mjs';
 import {getDueTask as getBackupDueTask}              from './backup.mjs';
 import {getDueTask as getDreamDueTask}               from './dream.mjs';
+import {getDueTask as getGraphLogCompactionDueTask}  from './graphLogCompaction.mjs';
 import {getDueTask as getGoldenPathDueTask}          from './goldenPath.mjs';
 import {getDueTask as getPrimaryDevSyncDueTask}      from './primaryDevSync.mjs';
 import {getDueTask as getSwarmHeartbeatDueTask}      from './swarmHeartbeat.mjs';
+import {getDueTask as getTenantRepoSyncDueTask}      from './tenantRepoSync.mjs';
 
 /**
  * Coordinator-descriptor registry for the Orchestrator scheduling pipeline.
@@ -23,8 +25,8 @@ import {getDueTask as getSwarmHeartbeatDueTask}      from './swarmHeartbeat.mjs'
  * Continuous tasks (`chroma`, `bridgeDaemon`, `mlx`) are intentionally NOT in this registry
  * — they are supervisor-restart-cooldown tasks handled directly in `Orchestrator#poll()`
  * before the cadence-driven pipeline runs. They have no cadence trigger, no due-check, and
- * no backpressure interaction. Forcing them into the descriptor model would require a
- * `maintenanceClass: 'continuous'` discriminator the picker would just bypass — pure ceremony.
+ * no backpressure interaction. Forcing them into the descriptor model would add
+ * trigger-less descriptors the picker would just bypass — pure ceremony.
  *
  * @see Orchestrator#poll
  * @see collectDueCandidates
@@ -34,11 +36,11 @@ export const TASK_REGISTRY = Object.freeze([
     {
         taskName        : 'summary',
         executionKind   : 'supervised-child-process',
-        maintenanceClass: 'continuous',
-        backpressure    : 'none',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
         dependencies    : [],
         getDueTask({db, state, now, intervals, hooks}) {
-            return getSummaryDueTask({
+            return (hooks.summaryGetDueTask || getSummaryDueTask)({
                 db,
                 state,
                 now,
@@ -73,8 +75,8 @@ export const TASK_REGISTRY = Object.freeze([
         maintenanceClass: 'heavy',
         backpressure    : 'exclusive-heavy',
         dependencies    : [],
-        getDueTask({state, now, intervals}) {
-            return getBackupDueTask({
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.backupGetDueTask || getBackupDueTask)({
                 state,
                 now,
                 backupIntervalMs: intervals.backup
@@ -82,13 +84,28 @@ export const TASK_REGISTRY = Object.freeze([
         }
     },
     {
+        taskName        : 'graphlog-compaction',
+        executionKind   : 'supervised-child-process',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
+        dependencies    : [],
+        getDueTask({state, now, intervals, enables, hooks}) {
+            return (hooks.graphLogCompactionGetDueTask || getGraphLogCompactionDueTask)({
+                state,
+                now,
+                graphLogCompactionIntervalMs: intervals.graphLogCompaction,
+                enabled                      : enables.graphLogCompaction
+            });
+        }
+    },
+    {
         taskName        : 'primary-dev-sync',
         executionKind   : 'service-runner',
-        maintenanceClass: 'continuous',
-        backpressure    : 'none',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
         dependencies    : [],
-        getDueTask({state, now, intervals, enables}) {
-            return getPrimaryDevSyncDueTask({
+        getDueTask({state, now, intervals, enables, hooks}) {
+            return (hooks.primaryDevSyncGetDueTask || getPrimaryDevSyncDueTask)({
                 state,
                 now,
                 intervalMs: intervals.primaryDevSync,
@@ -97,13 +114,28 @@ export const TASK_REGISTRY = Object.freeze([
         }
     },
     {
+        taskName        : 'tenant-repo-sync',
+        executionKind   : 'service-runner',
+        maintenanceClass: 'continuous',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals, enables, hooks}) {
+            return (hooks.tenantRepoSyncGetDueTask || getTenantRepoSyncDueTask)({
+                state,
+                now,
+                intervalMs: intervals.tenantRepoSync,
+                enabled   : enables.tenantRepoSync
+            });
+        }
+    },
+    {
         taskName        : 'dream',
         executionKind   : 'in-process-async',
-        maintenanceClass: 'graph-dependent',
-        backpressure    : 'after-heavy',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
         dependencies    : [],
-        getDueTask({state, now, intervals}) {
-            return getDreamDueTask({
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.dreamGetDueTask || getDreamDueTask)({
                 state                 : state.dream ?? {},
                 now,
                 dreamIntervalMs       : intervals.dream,
@@ -117,8 +149,8 @@ export const TASK_REGISTRY = Object.freeze([
         maintenanceClass: 'graph-dependent',
         backpressure    : 'after-heavy',
         dependencies    : ['dream'],
-        getDueTask({state, now, intervals}) {
-            return getGoldenPathDueTask({
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.goldenPathGetDueTask || getGoldenPathDueTask)({
                 state               : state['golden-path'] ?? {},
                 now,
                 goldenPathIntervalMs: intervals.goldenPath
@@ -134,7 +166,7 @@ export const TASK_REGISTRY = Object.freeze([
         getDueTask({state, now, intervals, enables, hooks}) {
             if (!enables.swarmHeartbeat) return null;
             if (hooks.swarmHeartbeatInitFailed) return null;
-            return getSwarmHeartbeatDueTask({
+            return (hooks.swarmHeartbeatGetDueTask || getSwarmHeartbeatDueTask)({
                 state                   : state['swarm-heartbeat'] ?? {},
                 now,
                 swarmHeartbeatIntervalMs: intervals.swarmHeartbeat

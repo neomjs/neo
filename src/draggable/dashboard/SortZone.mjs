@@ -306,7 +306,9 @@ class DashboardSortZone extends SortZone {
         let me = this;
 
         if (me.isRemoteDragging) {
-            me.isRemoteDragging = false;
+            // A target-zone visitor leaving is cleanup, not a local drop. Keep remote state active and
+            // suppress the shared onDragEnd() moveNode path so the remote component is not inserted here.
+            me.isWindowDragging = true;
             await me.onDragEnd({})
         }
     }

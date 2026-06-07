@@ -27,6 +27,7 @@ const serviceMapping = {
     pre_brief_session       : MemoryService          .preBriefSession         .bind(MemoryService),
     query_hybrid_graph      : GraphService           .queryNodeTopology       .bind(GraphService),
     query_raw_memories      : MemoryService          .queryMemories           .bind(MemoryService),
+    query_recent_turns      : MemoryService          .queryRecentTurns        .bind(MemoryService),
     query_summaries         : SummaryService         .querySummaries          .bind(SummaryService),
     search_nodes            : GraphService           .searchNodes             .bind(GraphService),
     add_message             : MailboxService         .addMessage              .bind(MailboxService),

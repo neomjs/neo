@@ -323,24 +323,28 @@ flowchart TD
     classDef kb fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
     classDef code fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
 
-    Human["Human"]:::human
-    Agent["Agent works on ticket"]:::agent
+    Human["Human Operator"]:::human
+    Agent["Peer maintainer (self-selects)"]:::agent
     Memory["Memory Core records"]:::memory
     Dream["Sandman digests"]:::dream
     GraphNode["Graph re-prioritizes"]:::dream
     KB["Knowledge Base updated"]:::kb
     Code["Codebase improved"]:::code
 
-    Human -->|"Assigns ticket"| Agent
+    GraphNode -->|"sandman_handoff.md (advisory forecast)"| Agent
+    Human -.->|"Gives direction (optional)"| Agent
     Agent -->|"add_memory"| Memory
     Memory -->|"Undigested sessions"| Dream
     Dream --> GraphNode
-    GraphNode -->|"sandman_handoff.md"| Agent
-    Agent -->|"PR merged"| Code
+    Agent -->|"Opens PR"| Code
+    Human -->|"Reviews + merges PR"| Code
     Code -->|"KB sync"| KB
     KB -->|"ask_knowledge_base"| Agent
-    Human -->|"Reviews PR"| Code
 ```
+
+The Golden Path (`sandman_handoff.md`) is an **advisory forecast**, not a work queue: peer
+maintainers self-select what to work on, while the human operator steers direction and holds
+the merge gate rather than assigning tickets.
 
 The agent's improvements to the framework also improve the agent's knowledge base,
 which improves the agent's future decisions. This is what distinguishes Neo.mjs from tools
