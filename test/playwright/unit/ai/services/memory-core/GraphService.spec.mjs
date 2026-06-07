@@ -38,7 +38,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
-        // ADR 0019 B4: storagePaths.graph (→ `:memory:`) + collections.{memory,session} (→ test-*)
+        // Reactive provider SSOT: storagePaths.graph (→ `:memory:`) + collections.{memory,session} (→ test-*)
         // resolve to test values BY CONSTRUCTION under UNIT_TEST_MODE (config.template's
         // `useTestDatabase` toggle). The test never mutates the shared AiConfig singleton.
 
@@ -136,6 +136,18 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     test('removeNodes rejects invalid node ids before Database.removeNode null path (#11698)', async () => {
         expect(() => GraphService.removeNodes([null])).toThrow(/invalid node id/);
         expect(() => GraphService.removeNodes(['ValidNode', undefined])).toThrow(/invalid node id/);
+    });
+
+    test('getOrphanedNodes preserves SYSTEM_ANCHOR nodes while returning ordinary orphans (#9945)', async () => {
+        await GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR'});
+        await GraphService.upsertNode({id: 'DisposableConcept', type: 'CONCEPT'});
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const orphaned = GraphService.getOrphanedNodes();
+
+        expect(orphaned).toContain('DisposableConcept');
+        expect(orphaned).not.toContain('frontier');
     });
 
     test('decayGlobalTopology updates cached _SYSTEM_STATE records without losing the node id (#12070)', async () => {
