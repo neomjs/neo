@@ -242,18 +242,12 @@ class GridDragScroll extends Base {
             return
         }
 
-        // Ignore clicks on the native scrollbar (including Mac OS overlay scrollbars)
-        if (event.target === registration.bodyElement) {
-            let style = window.getComputedStyle(registration.bodyElement);
-            let hasVisibleScrollbar = style.scrollbarWidth !== 'none' && style.display !== 'none';
-            let rect = registration.bodyElement.getBoundingClientRect();
-
-            let isRightEdge = hasVisibleScrollbar && (event.offsetX >= registration.bodyElement.clientWidth  || event.clientX >= (rect.right - 18));
-            let isBottomEdge = hasVisibleScrollbar && (event.offsetY >= registration.bodyElement.clientHeight || event.clientY >= (rect.bottom - 18));
-            
-            if (isRightEdge || isBottomEdge) {
-                return
-            }
+        // Ignore mousedown / touchstart on the proxy scrollbar overlays. The dedicated
+        // grid.VerticalScrollbar / grid.HorizontalScrollbar components are discrete overlay
+        // nodes, so a thumb-drag is detected directly via the event path instead of
+        // bounding-box math against the body element.
+        if (path.some(el => el.classList?.contains('neo-grid-vertical-scrollbar') || el.classList?.contains('neo-grid-horizontal-scrollbar'))) {
+            return
         }
 
         if (event.type === 'mousedown') {
