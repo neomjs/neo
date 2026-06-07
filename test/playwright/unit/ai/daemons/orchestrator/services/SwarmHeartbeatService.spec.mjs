@@ -319,6 +319,25 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         }
     });
 
+    test('resumeHarness fails closed when route metadata lookup fails (#12536)', async () => {
+        applyDefaultStubs();
+        const originalGetMetadata = SwarmHeartbeatService.getResumeHarnessTargetMetadata;
+        SwarmHeartbeatService.getResumeHarnessTargetMetadata = async () => {
+            throw new Error('simulated route lookup failure')
+        };
+
+        try {
+            await expect(SwarmHeartbeatService.resumeHarness(
+                '@neo-opus-ada',
+                'sunset_restart',
+                'sid-route-failure',
+                0
+            )).resolves.toBeUndefined();
+        } finally {
+            SwarmHeartbeatService.getResumeHarnessTargetMetadata = originalGetMetadata;
+        }
+    });
+
     test('pulse() routes idle_out_nudge when gate is open and recommendation matches', async () => {
         applyDefaultStubs();
         const nudgeCalls = [];

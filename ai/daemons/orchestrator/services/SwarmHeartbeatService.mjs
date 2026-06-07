@@ -472,7 +472,17 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async resumeHarness(identity, reason, originSessionId, abandonedCount) {
-        const harnessTargetMetadata = await this.getResumeHarnessTargetMetadata(identity);
+        let harnessTargetMetadata;
+        try {
+            harnessTargetMetadata = await this.getResumeHarnessTargetMetadata(identity);
+        } catch (err) {
+            logger.error(
+                `[SwarmHeartbeatService] Skipping resumeHarness for ${identity}: ` +
+                `failed to resolve wake route metadata (${err.message}).`
+            );
+            return
+        }
+
         return resumeHarnessScript(identity, reason, originSessionId, abandonedCount, {
             deploymentMode: AiConfig.orchestrator.deploymentMode,
             env           : {},
@@ -490,36 +500,33 @@ class SwarmHeartbeatService extends Base {
      * latest active bridge route so default-instance resumes keep their legacy behavior.
      *
      * @param {String} identity Agent identity node id.
-     * @returns {Promise<Object>} Harness target metadata or an empty object.
+     * @returns {Promise<Object>} Harness target metadata or an empty object when no active route exists.
+     * @throws {Error} When the route lookup itself fails; callers fail closed instead of resuming
+     *     through generic app activation.
      * @protected
      */
     async getResumeHarnessTargetMetadata(identity) {
-        try {
-            return await RequestContextService.run({agentIdentityNodeId: identity}, async () => {
-                const result = await WakeSubscriptionService.list({});
-                const candidates = (result?.subscriptions || [])
-                    .filter(subscription =>
-                        subscription.trigger === 'SENT_TO_ME' &&
-                        subscription.harnessTarget === 'bridge-daemon' &&
-                        (subscription.status || 'active') === 'active'
-                    )
-                    .sort((a, b) =>
-                        Date.parse(b.updatedAt || b.createdAt || '') -
-                        Date.parse(a.updatedAt || a.createdAt || '')
-                    );
-
-                const addressed = candidates.find(subscription =>
-                    this.hasInstanceAddressMetadata(subscription.harnessTargetMetadata || {})
+        return RequestContextService.run({agentIdentityNodeId: identity}, async () => {
+            const result = await WakeSubscriptionService.list({});
+            const candidates = (result?.subscriptions || [])
+                .filter(subscription =>
+                    subscription.trigger === 'SENT_TO_ME' &&
+                    subscription.harnessTarget === 'bridge-daemon' &&
+                    (subscription.status || 'active') === 'active'
+                )
+                .sort((a, b) =>
+                    Date.parse(b.updatedAt || b.createdAt || '') -
+                    Date.parse(a.updatedAt || a.createdAt || '')
                 );
 
-                return {
-                    ...((addressed || candidates[0])?.harnessTargetMetadata || {})
-                };
-            })
-        } catch (err) {
-            logger.error(`[SwarmHeartbeatService] getResumeHarnessTargetMetadata failed for ${identity}: ${err.message}`);
-            return {}
-        }
+            const addressed = candidates.find(subscription =>
+                this.hasInstanceAddressMetadata(subscription.harnessTargetMetadata || {})
+            );
+
+            return {
+                ...((addressed || candidates[0])?.harnessTargetMetadata || {})
+            };
+        })
     }
 
     /**

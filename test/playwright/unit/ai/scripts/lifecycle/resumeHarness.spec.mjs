@@ -189,12 +189,14 @@ test.describe('ai/scripts/resumeHarness', () => {
     test('resumeHarness resolves instance PID and fails closed on stale addressed routes (#12536)', async () => {
         expect(await resolveResumeHarnessInstancePid({
             addressType    : 'pid',
-            instanceAddress: '12345'
+            instanceAddress: '12345',
+            deploymentMode : 'local'
         })).toBe(12345);
 
         expect(await resolveResumeHarnessInstancePid({
             addressType      : 'userDataDir',
             instanceAddress  : '/Users/example/.claude-instances/neo-opus-vega',
+            deploymentMode   : 'local',
             getInstancePidFn : async ({userDataDir}) =>
                 userDataDir === '/Users/example/.claude-instances/neo-opus-vega' ? 24680 : null
         })).toBe(24680);
@@ -202,13 +204,20 @@ test.describe('ai/scripts/resumeHarness', () => {
         await expect(resolveResumeHarnessInstancePid({
             addressType      : 'userDataDir',
             instanceAddress  : '/Users/example/.claude-instances/missing',
+            deploymentMode   : 'local',
             getInstancePidFn : async () => null
         })).rejects.toThrow(/No running Claude instance found/);
 
         await expect(resolveResumeHarnessInstancePid({
             addressType    : 'pid',
-            instanceAddress: 'not-a-pid'
+            instanceAddress: 'not-a-pid',
+            deploymentMode : 'local'
         })).rejects.toThrow(/Invalid resumeHarness pid/);
+
+        await expect(resolveResumeHarnessInstancePid({
+            addressType    : 'pid',
+            instanceAddress: '12345'
+        })).rejects.toThrow(/deploymentMode='unset'/);
 
         await expect(resolveResumeHarnessInstancePid({
             addressType    : 'pid',

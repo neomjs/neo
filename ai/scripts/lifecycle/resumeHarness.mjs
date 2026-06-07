@@ -21,7 +21,10 @@ import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 import { createSpawnRequest } from './windowsBatchSpawn.mjs';
-import { getInstancePid } from '../../daemons/wake/instanceResolver.mjs';
+import {
+    resolveGuiInstanceAddress,
+    resolveGuiInstancePid
+} from '../../daemons/wake/instanceResolver.mjs';
 import {
     normalizeAgentIdentityNodeId,
     resolveHarnessTargetForIdentity
@@ -31,7 +34,6 @@ export {normalizeAgentIdentityNodeId};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const INSTANCE_ADDRESS_TYPES = Object.freeze(['userDataDir', 'pid']);
 
 /**
  * @summary Spawn a child process and (optionally) record its PID for later harness cleanup.
@@ -244,51 +246,6 @@ function assertCodexAppServerAllowed() {
 }
 
 /**
- * @summary Normalize a pid-like value into a positive integer.
- * @param {*} value Candidate process id.
- * @returns {Number|null}
- */
-function normalizeInstancePid(value) {
-    const pid = Number(String(value ?? '').trim());
-    return Number.isInteger(pid) && pid > 0 ? pid : null;
-}
-
-/**
- * @summary Normalize and validate a generic instance-address tuple.
- * @param {Object} options
- * @param {String} [options.instanceAddress] Instance address value.
- * @param {String} [options.addressType] Address type.
- * @param {String} options.source Human-readable source for diagnostics.
- * @returns {{instanceAddress:String,addressType:String}|null}
- */
-function normalizeInstanceAddressTuple({instanceAddress, addressType, source}) {
-    const address = String(instanceAddress ?? '').trim(),
-          type    = String(addressType ?? '').trim();
-
-    if (!address && !type) return null;
-
-    if (!address || !type) {
-        throw new Error(
-            `Partial resumeHarness instance address from ${source}: ` +
-            'instanceAddress and addressType must be set together. ' +
-            'Failing closed to avoid routing a targeted resume into the default Claude instance.'
-        );
-    }
-
-    if (!INSTANCE_ADDRESS_TYPES.includes(type)) {
-        throw new Error(
-            `Unsupported resumeHarness instance addressType '${type}' from ${source}. ` +
-            `Supported types: ${INSTANCE_ADDRESS_TYPES.join(', ')}.`
-        );
-    }
-
-    return {
-        instanceAddress: address,
-        addressType    : type
-    };
-}
-
-/**
  * @summary Resolve the instance-address tuple for an osascript resume.
  *
  * Caller-provided wake-subscription metadata wins over the CLI/manual environment envelope. This
@@ -302,21 +259,7 @@ function normalizeInstanceAddressTuple({instanceAddress, addressType, source}) {
  * @returns {{instanceAddress:String,addressType:String}|null}
  */
 export function resolveResumeHarnessInstanceAddress({metadata = {}, env = process.env} = {}) {
-    const metadataType = metadata.addressType || (metadata.userDataDir ? 'userDataDir' : null),
-          metadataAddr = metadata.instanceAddress || (metadataType === 'userDataDir' ? metadata.userDataDir : null),
-          fromMetadata = normalizeInstanceAddressTuple({
-              instanceAddress: metadataAddr,
-              addressType    : metadataType,
-              source         : 'harnessTargetMetadata'
-          });
-
-    if (fromMetadata) return fromMetadata;
-
-    return normalizeInstanceAddressTuple({
-        instanceAddress: env.NEO_HARNESS_INSTANCE_ADDRESS,
-        addressType    : env.NEO_HARNESS_INSTANCE_ADDRESS_TYPE,
-        source         : 'environment'
-    });
+    return resolveGuiInstanceAddress({metadata, env, target: 'resumeHarness'});
 }
 
 /**
@@ -335,39 +278,17 @@ export function resolveResumeHarnessInstanceAddress({metadata = {}, env = proces
 export async function resolveResumeHarnessInstancePid({
     instanceAddress,
     addressType,
-    deploymentMode = process.env.NEO_AI_DEPLOYMENT_MODE || 'local',
-    getInstancePidFn = getInstancePid
+    deploymentMode,
+    getInstancePidFn
 } = {}) {
-    if (deploymentMode === 'cloud') {
-        throw new Error(
-            `resumeHarness instance targeting requires local deployment (deploymentMode='cloud'). ` +
-            'Failing closed — instance-addressed GUI resumes are local-only (ADR 0014).'
-        );
-    }
-
-    if (addressType === 'pid') {
-        const pid = normalizeInstancePid(instanceAddress);
-        if (!pid) {
-            throw new Error(
-                `Invalid resumeHarness pid instanceAddress='${instanceAddress}'. ` +
-                'Failing closed to avoid generic app activation.'
-            );
-        }
-        return pid;
-    }
-
-    if (addressType === 'userDataDir') {
-        const pid = await getInstancePidFn({userDataDir: instanceAddress});
-        if (!pid) {
-            throw new Error(
-                `No running Claude instance found for userDataDir='${instanceAddress}'. ` +
-                'Failing closed to avoid routing resume into another Claude instance.'
-            );
-        }
-        return pid;
-    }
-
-    throw new Error(`Unsupported resumeHarness instance addressType '${addressType}'.`);
+    return resolveGuiInstancePid({
+        instanceAddress,
+        addressType,
+        deploymentMode,
+        getInstancePidFn,
+        target : 'resumeHarness',
+        appName: 'Claude'
+    });
 }
 
 /**
@@ -398,7 +319,7 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
  * @returns {Promise<void>}
  */
 export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0, {
-    deploymentMode        = process.env.NEO_AI_DEPLOYMENT_MODE || 'local',
+    deploymentMode,
     env                   = process.env,
     harnessTargetMetadata = {}
 } = {}) {
