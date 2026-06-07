@@ -266,6 +266,7 @@ The sections below (Release Notes, Guides/Blogs, GitHub Tickets, Pull Requests, 
 - [GitHub Workflow Server: gh-absent](https://neomjs.com/raw/learn/agentos/tooling/GitHubWorkflowServerGhAbsent.md)
 - [Troubleshooting Tool Calls](https://neomjs.com/raw/learn/agentos/tooling/TroubleshootingToolCalls.md)
 - [AI Tooling WSL Setup](https://neomjs.com/raw/learn/agentos/tooling/AiToolingWslSetup.md)
+- [Agent OS Windows Support Audit](https://neomjs.com/raw/learn/agentos/tooling/WindowsSupport.md)
 - [Introduction to MCP](https://neomjs.com/raw/learn/agentos/tooling/Introduction.md)
 - [Restoration Runbook](https://neomjs.com/raw/learn/agentos/tooling/RestorationRunbook.md)
 - [Wake Substrate Incident Protocol](https://neomjs.com/raw/learn/agentos/tooling/WakeSubstrateIncidentProtocol.md)
