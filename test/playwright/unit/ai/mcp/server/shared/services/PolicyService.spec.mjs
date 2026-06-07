@@ -55,6 +55,35 @@ test.describe('Neo.ai.mcp.server.shared.services.PolicyService (#10294)', () => 
         }
     });
 
+    test('refuses case-variant protected writes with stable diagnostics', () => {
+        const protectedPath = path.join(process.cwd(), 'AGENTS_TENETS.md');
+        const targetPath    = path.join(process.cwd(), 'agents_tenets.md');
+
+        try {
+            PolicyService.assertProtectedRepoRootWrite({
+                toolName             : 'write_file',
+                args                 : {absolutePath: targetPath},
+                protectedRelativePath: 'AGENTS_TENETS.md',
+                policyId             : 'test.policy',
+                reason               : 'tenets protected',
+                tenet                : '#10293'
+            });
+        } catch (error) {
+            expect(error).toMatchObject({
+                code    : 'POLICY_REFUSED',
+                reason  : 'tenets protected',
+                policyId: 'test.policy',
+                action  : 'write_file',
+                tenet   : '#10293'
+            });
+            expect(error.details.protectedPath).toBe(protectedPath);
+            expect(error.details.targetPath).toBe(targetPath);
+            return;
+        }
+
+        throw new Error('Expected case-variant protected path to be refused');
+    });
+
     test('allows non-write tools, missing path args, and neighboring paths', () => {
         const common = {
             protectedRelativePath: 'AGENTS_TENETS.md',

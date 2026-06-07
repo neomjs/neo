@@ -86,6 +86,38 @@ test.describe('Neo.ai.mcp.server.file-system.Server policy guard (#10294)', () =
         });
     });
 
+    test('refuses write_file for case-variant repo-root AGENTS_TENETS.md before tool dispatch', async () => {
+        const calls = [];
+        const Cls   = makeTestFileSystemServerClass(async (name, args) => {
+            calls.push({name, args});
+            return 'should-not-run';
+        });
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
+
+        server.setupRequestHandlers(mockMcp);
+
+        const result = await mockMcp.getCallToolHandler()({
+            params: {
+                name     : 'write_file',
+                arguments: {
+                    absolutePath: path.join(process.cwd(), 'agents_tenets.md'),
+                    content     : 'blocked'
+                }
+            }
+        });
+
+        expect(calls).toEqual([]);
+        expect(result.isError).toBe(true);
+        expect(result.structuredContent).toMatchObject({
+            error   : 'Policy Refused',
+            code    : 'POLICY_REFUSED',
+            policyId: 'file-system.agents-tenets.write-protect',
+            action  : 'write_file',
+            tenet   : '#10293'
+        });
+    });
+
     test('allows write_file for non-protected paths', async () => {
         const calls = [];
         const Cls   = makeTestFileSystemServerClass(async (name, args) => {

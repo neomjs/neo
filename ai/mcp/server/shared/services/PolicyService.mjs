@@ -71,10 +71,12 @@ class PolicyService extends Base {
     /**
      * @summary Refuses an exact repo-root file write through the MCP file-system server.
      *
-     * The guard compares resolved absolute paths, so both an absolute
-     * `/repo/AGENTS_TENETS.md` and a relative `AGENTS_TENETS.md` resolve to the
-     * same protected target. Missing path arguments fall through to the normal
-     * OpenAPI/Zod validation layer instead of being misclassified as policy.
+     * The guard compares resolved absolute paths through a case-normalized
+     * policy key. This keeps macOS/Windows case-insensitive filesystems from
+     * allowing case-variant writes to the same protected file while preserving
+     * the original resolved paths in refusal diagnostics. Missing path
+     * arguments fall through to the normal OpenAPI/Zod validation layer instead
+     * of being misclassified as policy.
      *
      * @param {Object} options
      * @param {String} options.toolName The incoming MCP tool name.
@@ -103,10 +105,12 @@ class PolicyService extends Base {
             return;
         }
 
-        const protectedPath = path.resolve(repoRoot, protectedRelativePath);
-        const targetPath    = path.resolve(args[pathArg]);
+        const protectedPath    = path.resolve(repoRoot, protectedRelativePath);
+        const targetPath       = path.resolve(args[pathArg]);
+        const protectedPathKey = protectedPath.toLowerCase();
+        const targetPathKey    = targetPath.toLowerCase();
 
-        if (targetPath !== protectedPath) {
+        if (targetPathKey !== protectedPathKey) {
             return;
         }
 
