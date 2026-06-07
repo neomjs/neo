@@ -1357,6 +1357,33 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(emittedEvents).toEqual([]);
         });
 
+        test('emits wake/permission_granted carrying payload.grantedAt for a CAN_* grant edge', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({
+                    trigger      : 'PERMISSION_GRANTED',
+                    harnessTarget: 'mcp-notifications'
+                });
+            });
+
+            // A CAN_REPLY_TO grant edge from @bob to the subscription owner @alice. The wake eval reads
+            // only the edge (type / source / target), so a raw link mirrors the real grant for this test.
+            GraphService.upsertNode({id: '@bob', type: 'AGENT_IDENTITY', properties: {}});
+            GraphService.linkNodes('@bob', '@alice', 'CAN_REPLY_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents.length).toBe(1);
+            expect(emittedEvents[0].params.eventType).toBe('wake/permission_granted');
+            expect(emittedEvents[0].params.payload.scope).toBe('CAN_REPLY_TO');
+            expect(emittedEvents[0].params.payload.grantedBy).toBe('@bob');
+            // payload.grantedAt is a documented wire-contract field — a delivery-time ISO stamp, distinct
+            // from the envelope's emittedAt. Regression guard for the shared-evaluator consolidation.
+            expect(typeof emittedEvents[0].params.payload.grantedAt).toBe('string');
+        });
+
         test('emits only unread recipient receipts for broadcast SENT_TO_ME wake', async () => {
             CoalescingEngineService.addMcpServer(mockMcpServer);
 
