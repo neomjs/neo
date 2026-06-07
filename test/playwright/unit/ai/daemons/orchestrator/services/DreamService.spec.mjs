@@ -899,6 +899,218 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
+    test('Sub 9 hypothesis 9 (PRIMARY): real DreamService→SemanticGraphExtractor integration — empty-response overflow keeps the session undigested + surfaces friction, not silently completed (#12075)', async () => {
+        // Integration complement to the Phase-A isolated extractor test
+        // (SemanticGraphExtractor.spec `Sub 9 hypotheses 9 and 11`). Phase-A stubs the service
+        // choreography; this drives the REAL processUndigestedSessions → SemanticGraphExtractor
+        // handoff so a genuine empty-response overflow at the provider boundary flows through
+        // DreamService's actual null-result handling. Per the Sub-9 avoided-trap, only the
+        // peripheral pipeline phases (ingestors / topology / gap inference / golden-path / GC),
+        // the storage backend, and the LLM boundary are neutralized — the DreamService↔
+        // SemanticGraphExtractor choreography under test runs real. Hypothesis 9 (PRIMARY),
+        // Discussion silent-failure enumeration §2.4.
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+        const {clearAggregatedFrictions, getAggregatedFrictions} =
+            await import('../../../../../../../ai/services/memory-core/helpers/consumerFrictionHelper.mjs');
+
+        const mockSession = {
+            id      : 'chroma-summary-empty-overflow',
+            document: 'Short episodic payload for the silent empty-response overflow integration guard.',
+            meta    : {sessionId: 'agent-session-empty-overflow', title: 'Empty-overflow session'}
+        };
+
+        let sessionUpdates = 0;
+
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            conflictCount     : TopologyInferenceEngine.getTopologyConflictCount,
+            getMemory         : StorageRouter.getMemoryCollection,
+            generate          : OpenAiCompatible.prototype.generate,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            clearAggregatedFrictions();
+
+            aiConfig.modelProvider    = 'mock-provider'; // skip the openAiCompatible legacy provider ping
+            DreamService.isProcessing = false;
+
+            // Storage backend (in-memory) — NOT the choreography under test.
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {
+                update: async () => { sessionUpdates++; }
+            };
+            StorageRouter.getMemoryCollection   = async () => null;
+
+            // Peripheral pipeline phases neutralized (not the DreamService↔SemanticGraphExtractor handoff).
+            DreamService.inferTestGapsFromSession    = async () => {};
+            DreamService.inferConceptGraphGaps       = async () => {};
+            DreamService.runGarbageCollection        = async () => {};
+            DreamService.synthesizeGoldenPath        = async () => {};
+            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesUpserted: 0, memoriesSkipped: 0});
+            ConceptIngestor.syncConceptsToGraph      = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph  = async () => {};
+            TopologyInferenceEngine.extractTopology  = async () => {};
+            TopologyInferenceEngine.getTopologyConflictCount = async () => 0;
+
+            // THE H9 TRIGGER: the provider boundary streams an empty body (LM Studio silent-overflow
+            // signature). SemanticGraphExtractor.executeTriVectorExtraction runs REAL and must
+            // classify this as context-overflow + return null (no retry amplification).
+            OpenAiCompatible.prototype.generate = async function() { return {content: ''}; };
+
+            const result = await DreamService.processUndigestedSessions();
+
+            // The REAL extractor returned null; assert DreamService's integration handling propagated it.
+            const sessionState = result.perSessionStates.find(s => s.sessionId === 'agent-session-empty-overflow');
+            expect(sessionState).toBeDefined();
+            expect(sessionState.triVector.status).toBe('failed');
+            expect(sessionState.triVector.errorKind).toBe('null-result');
+            expect(sessionState.failureReasons).toContain('tri-vector extraction returned null');
+
+            // graphDigested NOT set → session stays undigested for the next REM cycle, not silently masked.
+            expect(sessionState.graphDigestedFlag).toBe(false);
+            expect(sessionUpdates).toBe(0);
+
+            // The real SemanticGraphExtractor surfaced the overflow as friction (not a silent drop).
+            const friction = getAggregatedFrictions().find(item => item.assetRef === 'agent-session-empty-overflow');
+            expect(friction).toBeDefined();
+            expect(friction.symptom).toBe('context-overflow');
+        } finally {
+            aiConfig.modelProvider                           = orig.provider;
+            DreamService.findUndigestedSessions              = orig.findUndigested;
+            DreamService.sessionsCollection                  = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession            = orig.inferTest;
+            DreamService.inferConceptGraphGaps               = orig.inferConcept;
+            DreamService.runGarbageCollection                = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                = orig.synthesizeGolden;
+            MemorySessionIngestor.syncSessionToGraph         = orig.syncSession;
+            ConceptIngestor.syncConceptsToGraph              = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph          = orig.syncFs;
+            TopologyInferenceEngine.extractTopology          = orig.extractTopo;
+            TopologyInferenceEngine.getTopologyConflictCount = orig.conflictCount;
+            StorageRouter.getMemoryCollection                = orig.getMemory;
+            OpenAiCompatible.prototype.generate              = orig.generate;
+            DreamService.isProcessing                        = orig.isProcessing;
+            clearAggregatedFrictions();
+        }
+    });
+
+    test('Sub 9 hypothesis 11: real DreamService→SemanticGraphExtractor integration — JSON-repair exhaustion keeps the session undigested, not silently completed (#12075)', async () => {
+        // Integration complement to the isolated JSON-repair retry test (which calls the extractor
+        // directly and exercises success-after-retry). Here the provider returns malformed JSON
+        // on every attempt, so the REAL extractor exhausts its retry budget through the REAL
+        // processUndigestedSessions choreography and returns null — and DreamService must record
+        // the failure + keep the session undigested rather than mask it behind graphDigested.
+        // Only peripheral phases + storage + the LLM boundary are neutralized. Hypothesis 11,
+        // Discussion silent-failure enumeration §2.4.
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        const mockSession = {
+            id      : 'chroma-summary-json-exhaustion',
+            document: 'Short episodic payload for the JSON-repair-exhaustion integration guard.',
+            meta    : {sessionId: 'agent-session-json-exhaustion', title: 'JSON-exhaustion session'}
+        };
+
+        let sessionUpdates  = 0;
+        let invocationCount = 0;
+
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            conflictCount     : TopologyInferenceEngine.getTopologyConflictCount,
+            getMemory         : StorageRouter.getMemoryCollection,
+            generate          : OpenAiCompatible.prototype.generate,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider'; // skip the openAiCompatible legacy provider ping
+            DreamService.isProcessing = false;
+
+            // Storage backend (in-memory) — NOT the choreography under test.
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {
+                update: async () => { sessionUpdates++; }
+            };
+            StorageRouter.getMemoryCollection   = async () => null;
+
+            // Peripheral pipeline phases neutralized (not the DreamService↔SemanticGraphExtractor handoff).
+            DreamService.inferTestGapsFromSession    = async () => {};
+            DreamService.inferConceptGraphGaps       = async () => {};
+            DreamService.runGarbageCollection        = async () => {};
+            DreamService.synthesizeGoldenPath        = async () => {};
+            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesUpserted: 0, memoriesSkipped: 0});
+            ConceptIngestor.syncConceptsToGraph      = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph  = async () => {};
+            TopologyInferenceEngine.extractTopology  = async () => {};
+            TopologyInferenceEngine.getTopologyConflictCount = async () => 0;
+
+            // THE H11 TRIGGER: provider returns unparseable JSON on every attempt. The REAL extractor
+            // runs its full retry budget (no valid payload ever) and returns null.
+            OpenAiCompatible.prototype.generate = async function() {
+                invocationCount++;
+                return {content: '```json\n{ "a2a_version": "1.0", "agent_id": "Antigravity" '}; // truncated, never valid
+            };
+
+            const result = await DreamService.processUndigestedSessions();
+
+            // The real retry loop ran to exhaustion through the real choreography.
+            expect(invocationCount).toBeGreaterThan(1);
+
+            // The REAL extractor returned null; assert DreamService's integration handling propagated it.
+            const sessionState = result.perSessionStates.find(s => s.sessionId === 'agent-session-json-exhaustion');
+            expect(sessionState).toBeDefined();
+            expect(sessionState.triVector.status).toBe('failed');
+            expect(sessionState.triVector.errorKind).toBe('null-result');
+            expect(sessionState.failureReasons).toContain('tri-vector extraction returned null');
+
+            // graphDigested NOT set → session stays undigested for the next REM cycle, not silently masked.
+            expect(sessionState.graphDigestedFlag).toBe(false);
+            expect(sessionUpdates).toBe(0);
+        } finally {
+            aiConfig.modelProvider                           = orig.provider;
+            DreamService.findUndigestedSessions              = orig.findUndigested;
+            DreamService.sessionsCollection                  = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession            = orig.inferTest;
+            DreamService.inferConceptGraphGaps               = orig.inferConcept;
+            DreamService.runGarbageCollection                = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                = orig.synthesizeGolden;
+            MemorySessionIngestor.syncSessionToGraph         = orig.syncSession;
+            ConceptIngestor.syncConceptsToGraph              = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph          = orig.syncFs;
+            TopologyInferenceEngine.extractTopology          = orig.extractTopo;
+            TopologyInferenceEngine.getTopologyConflictCount = orig.conflictCount;
+            StorageRouter.getMemoryCollection                = orig.getMemory;
+            OpenAiCompatible.prototype.generate              = orig.generate;
+            DreamService.isProcessing                        = orig.isProcessing;
+        }
+    });
+
     test('processUndigestedSessions rethrows garbage-collection failures (#11698)', async () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
