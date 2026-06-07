@@ -214,6 +214,33 @@ test.describe('Neo.ai.mcp.server.BaseServer — formatToolResult shapes', () => 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toBe('Error executing toolY: Boom');
     });
+
+    test('formatToolError maps policy refusals to structuredContent', () => {
+        const Cls    = makeTestServerClass();
+        const server = Neo.create(Cls);
+        const error  = new Error('POLICY_REFUSED: blocked');
+
+        error.code     = 'POLICY_REFUSED';
+        error.reason   = 'blocked by policy';
+        error.policyId = 'test.policy';
+        error.action   = 'write_file';
+        error.tenet    = '#10293';
+        error.details  = {targetPath: '/repo/AGENTS_TENETS.md'};
+
+        const result = server.formatToolError('write_file', error);
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toBe('Policy Refused executing write_file: blocked by policy');
+        expect(result.structuredContent).toEqual({
+            error    : 'Policy Refused',
+            code     : 'POLICY_REFUSED',
+            reason   : 'blocked by policy',
+            policyId : 'test.policy',
+            action   : 'write_file',
+            tenet    : '#10293',
+            details  : {targetPath: '/repo/AGENTS_TENETS.md'}
+        });
+    });
 });
 
 test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', () => {
