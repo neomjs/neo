@@ -1,3 +1,4 @@
+import fs   from 'fs';
 import path from 'path';
 import Base from '../../../../../src/core/Base.mjs';
 
@@ -71,12 +72,12 @@ class PolicyService extends Base {
     /**
      * @summary Refuses an exact repo-root file write through the MCP file-system server.
      *
-     * The guard compares resolved absolute paths through a case-normalized
-     * policy key. This keeps macOS/Windows case-insensitive filesystems from
-     * allowing case-variant writes to the same protected file while preserving
-     * the original resolved paths in refusal diagnostics. Missing path
-     * arguments fall through to the normal OpenAPI/Zod validation layer instead
-     * of being misclassified as policy.
+     * The guard compares canonical parent directories plus a case-normalized
+     * basename. Realpathing the parent catches symlink aliases without requiring
+     * the target file to exist, so create-write calls for the future
+     * `AGENTS_TENETS.md` still refuse. Missing path arguments fall through to
+     * the normal OpenAPI/Zod validation layer instead of being misclassified as
+     * policy.
      *
      * @param {Object} options
      * @param {String} options.toolName The incoming MCP tool name.
@@ -105,12 +106,14 @@ class PolicyService extends Base {
             return;
         }
 
-        const protectedPath    = path.resolve(repoRoot, protectedRelativePath);
-        const targetPath       = path.resolve(args[pathArg]);
-        const protectedPathKey = protectedPath.toLowerCase();
-        const targetPathKey    = targetPath.toLowerCase();
+        const protectedPath      = path.resolve(repoRoot, protectedRelativePath);
+        const targetPath         = path.resolve(args[pathArg]);
+        const protectedParentKey = this.getCanonicalParentKey(protectedPath);
+        const targetParentKey    = this.getCanonicalParentKey(targetPath);
+        const protectedNameKey   = path.basename(protectedPath).toLowerCase();
+        const targetNameKey      = path.basename(targetPath).toLowerCase();
 
-        if (targetPathKey !== protectedPathKey) {
+        if (targetParentKey !== protectedParentKey || targetNameKey !== protectedNameKey) {
             return;
         }
 
@@ -122,9 +125,35 @@ class PolicyService extends Base {
             details: {
                 pathArg,
                 protectedPath,
+                protectedParentKey,
                 targetPath
             }
         });
+    }
+
+    /**
+     * @summary Returns a stable comparison key for an existing or future file's parent directory.
+     *
+     * `fs.realpathSync` requires the target path to exist, but protected writes
+     * are often file-creation calls. Canonicalizing the parent directory closes
+     * symlink aliases while preserving a deterministic fallback for missing
+     * parents that should still flow through ordinary validation.
+     *
+     * @param {String} filePath Resolved file path.
+     * @returns {String}
+     */
+    getCanonicalParentKey(filePath) {
+        const parentPath = path.dirname(filePath);
+
+        try {
+            return fs.realpathSync.native(parentPath).toLowerCase();
+        } catch (error) {
+            if (error?.code !== 'ENOENT') {
+                throw error;
+            }
+
+            return path.resolve(parentPath).toLowerCase();
+        }
     }
 }
 
