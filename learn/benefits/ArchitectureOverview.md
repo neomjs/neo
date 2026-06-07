@@ -298,9 +298,9 @@ flowchart TD
    to `sandman_handoff.md`.
 
 4. **Capability Gap Inference:** This phase is **deterministic** — it does not use an LLM.
-   It cross-references graph nodes directly against the filesystem:
+   It cross-references structural code nodes and concept-ontology nodes against explicit graph evidence:
    - Does `test/` contain files with precise evidence for this class's semantic name tokens? If not: **TEST_GAP**; if yes, add a `VALIDATES` edge from the test `FILE` node to the structural source node.
-   - Does `learn/guides/` have a matching guide? If not: **GUIDE_GAP**
+   - Does a high-weight `CONCEPT` node have an outbound `EXPLAINED_BY` edge to a guide/doc file? If not: **GUIDE_GAP**. Concepts with guide coverage but no `EXEMPLIFIED_BY` edge become **EXAMPLE_GAP**.
 
 5. **Hebbian Decay:** Universal edge weight fade and garbage collection of stale nodes,
    inspired by synaptic pruning in neuroscience.
