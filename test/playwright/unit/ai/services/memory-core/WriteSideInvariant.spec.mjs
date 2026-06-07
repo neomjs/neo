@@ -59,11 +59,8 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         }
         dbPath = path.join(tmpDir, `neo-writeside-invariant-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.storagePaths.graph = dbPath;
-        if (!aiConfig.collections) aiConfig.collections = {};
-        aiConfig.collections.memory = `test-memory-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${Date.now()}`;
+        // ADR 0019 B4: storagePaths.graph (→ ':memory:') + collections.{memory,session} (→ test-*)
+        // resolve to test values BY CONSTRUCTION under UNIT_TEST_MODE — no singleton mutation.
 
         GraphService     = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService   = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;

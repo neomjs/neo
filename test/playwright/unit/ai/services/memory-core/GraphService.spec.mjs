@@ -38,13 +38,9 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
-        // Mock the SQLite target path to a safe pure temporary location
-        if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
-        aiConfig.storagePaths.graph = testDbPath;
-        if (!aiConfig.collections) aiConfig.collections = {};
-        aiConfig.collections.memory = `test-memory-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${Date.now()}`;
-        console.log('--- TEST DB PATH MOCKED TO:', aiConfig.storagePaths.graph);
+        // ADR 0019 B4: storagePaths.graph (→ `:memory:`) + collections.{memory,session} (→ test-*)
+        // resolve to test values BY CONSTRUCTION under UNIT_TEST_MODE (config.template's
+        // `useTestDatabase` toggle). The test never mutates the shared AiConfig singleton.
 
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
