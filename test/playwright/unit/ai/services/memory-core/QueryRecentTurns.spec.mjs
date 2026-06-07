@@ -30,13 +30,29 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
  *                     mechanically prevents the fail-open default — AC7a alone passes even if this path is broken).
  */
 test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
-    let MemoryService, GraphService, LifecycleService, TextEmbeddingService;
+    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection;
 
     test.beforeAll(async () => {
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MemoryService        = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
         LifecycleService     = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+
+        // CI unit has no ChromaDB server, so addMemory's Chroma write (its first step, before the
+        // AGENT_MEMORY graph node the recency query reads) would throw. Back the content store with
+        // an in-memory fake so the spec exercises the real addMemory→queryRecentTurns flow without a
+        // live Chroma. The recency query reads the GRAPH; the fake only stands in for the content
+        // store (the write + the detail:'full' join).
+        const memStore = new Map();
+        originalGetMemoryCollection = StorageRouter.getMemoryCollection;
+        StorageRouter.getMemoryCollection = async () => ({
+            add: async ({ids = [], metadatas = []} = {}) => { ids.forEach((id, i) => memStore.set(id, metadatas[i] || {})); },
+            get: async ({ids = []} = {}) => {
+                const found = ids.filter(id => memStore.has(id));
+                return {ids: found, metadatas: found.map(id => memStore.get(id))};
+            }
+        });
 
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
@@ -53,6 +69,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
     });
 
     test.afterAll(async () => {
+        if (originalGetMemoryCollection) StorageRouter.getMemoryCollection = originalGetMemoryCollection;
         const {cleanupChromaManager} = await import('./util.mjs');
         await cleanupChromaManager();
     });
