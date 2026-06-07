@@ -1,14 +1,14 @@
 ---
 id: 9945
 title: '[Memory-Core] Validate Graph Hebbian Decay and Garbage Collection (Universal Fade)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - neo-gpt
 createdAt: '2026-04-12T21:49:10Z'
-updatedAt: '2026-06-07T16:47:07Z'
+updatedAt: '2026-06-07T18:45:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9945'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-07T18:45:56Z'
 ---
 # [Memory-Core] Validate Graph Hebbian Decay and Garbage Collection (Universal Fade)
 
@@ -62,4 +63,6 @@ We recently resolved catastrophic graph bloat (`19,500+` duplicated `CONTAINS` e
 > 
 > Pickup protocol: do not start a second implementation for this ticket. First verify live PR state. If #12691 is still open, complete the review/merge-gate path. If it has merged, verify #9945 closure and treat this issue as complete.
 
+- 2026-06-07T18:45:56Z @tobiu referenced in commit `6b589a9` - "test(memory-core): validate system anchor apoptosis guard (#9945) (#12691)"
+- 2026-06-07T18:45:56Z @tobiu closed this issue
 
