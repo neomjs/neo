@@ -232,6 +232,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /memories/recent:
+    get:
+      summary: Query Recent Turns
+      operationId: query_recent_turns
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Cross-session, reverse-chronological recall of an agent's most recent turns — the recency
+        retrieval axis, complementing query_raw_memories' relevance (semantic) axis.
+
+        **When to Use:**
+        After a context compaction, to rebuild "what just happened, in order" — the chronological
+        sequence semantic search cannot reconstruct. Returns compact per-turn summaries by default
+        (detail=summary, straight from the graph) or full prompt/response content on demand (detail=full).
+      tags: [Memories]
+      parameters:
+        - name: agentIdentity
+          in: query
+          required: false
+          description: Whose turns to recall. '@me' (default) resolves to the request-bound caller.
+          schema:
+            type: string
+            default: "@me"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of turns to return (clamped 1..100)
+          schema:
+            type: integer
+            default: 20
+        - name: before
+          in: query
+          required: false
+          description: Cursor — ISO timestamp; returns turns strictly older than it (reverse-chronological pagination)
+          schema:
+            type: string
+        - name: detail
+          in: query
+          required: false
+          description: "'summary' returns the compact per-turn miniSummary straight from the graph; 'full' joins Chroma for prompt/response content"
+          schema:
+            type: string
+            enum: [summary, full]
+            default: summary
+        - name: projection
+          in: query
+          required: false
+          description: "'public' (default) excludes the private thought field; 'private' includes it (own-agent recall only)"
+          schema:
+            type: string
+            enum: [public, private]
+            default: public
+      responses:
+        '200':
+          description: Recent turns retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /context/frontier:
     get:
       summary: Get Context Frontier
