@@ -17,11 +17,11 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
-test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
+test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     let buildChatModel;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/SessionService.mjs');
+        const mod = await import('../../../../../../ai/provider/buildChatModel.mjs');
         buildChatModel = mod.buildChatModel;
     });
 
@@ -144,6 +144,23 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
                 timeoutMs     : 4000
             }
         });
+    });
+
+    test('local provider is used even when a Gemini key is present — key does not override the configured provider (#12741)', async () => {
+        const fakeProvider = {async generate(promptText) { return {content: 'local:' + promptText}; }};
+
+        const model = buildChatModel({
+            modelProvider                  : 'openAiCompatible',
+            geminiApiKey                   : 'AIza-present-but-ignored',
+            geminiModelName                : 'gemini-3.5-flash',
+            openAiCompatibleConfig         : {host: 'http://lms.local:1234', model: 'local-chat', keep_alive: -1},
+            openAiCompatibleProviderFactory: () => fakeProvider,
+            geminiClientFactory            : () => { throw new Error('Gemini must not be constructed when modelProvider=openAiCompatible'); }
+        });
+
+        const response = await model.generateContent('hello');
+        // Resolved to the configured local provider, NOT Gemini, despite the key being present.
+        expect(response.response.text()).toBe('local:hello');
     });
 
     test('modelProvider=gemini returns null when geminiApiKey is missing', () => {
