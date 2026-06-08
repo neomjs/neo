@@ -268,7 +268,7 @@ class GridBody extends Component {
     get selectedCells() {
         let { selectionModel } = this;
 
-        if (selectionModel.ntype?.includes('cell')) {
+        if (selectionModel?.ntype?.includes('cell')) {
             return selectionModel.items
         }
 
@@ -281,7 +281,7 @@ class GridBody extends Component {
     get selectedRows() {
         let { selectionModel } = this;
 
-        if (selectionModel.ntype?.includes('row')) {
+        if (selectionModel?.ntype?.includes('row')) {
             return selectionModel.selectedRows
         }
 
@@ -541,9 +541,11 @@ class GridBody extends Component {
      */
     afterSetSelectionModel(value, oldValue) {
         // The single model is owned + registered by grid.View; bodies are render/event delegates that
-        // never register as its view. Forward a (dynamic) body.selectionModel change up so grid.View
-        // re-hoists + re-shares the one instance across all bodies.
-        this.gridContainer?.applyViewSelectionModel?.(value)
+        // never register as its view. A POST-construction (dynamic) body.selectionModel swap forwards up
+        // so grid.View re-hoists the one instance across all bodies. Gated on vnodeInitialized so it
+        // never fires during construction (where forwarding re-enters processConfigs and recurses);
+        // initial sharing is driven by grid.Container.applyViewSelectionModel().
+        this.vnodeInitialized && this.gridContainer?.applyViewSelectionModel?.(value)
     }
 
     /**

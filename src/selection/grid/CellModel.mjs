@@ -46,14 +46,14 @@ class CellModel extends BaseModel {
     destroy(...args) {
         let me            = this,
             {view}        = me,
-            {parent}      = view,
-            gridContainer = view.gridContainer || parent;
+            parent        = view?.parent,
+            gridContainer = view?.gridContainer || parent;
 
-        if (gridContainer.vdom?.tag === 'table') {
+        if (gridContainer?.vdom?.tag === 'table') {
             gridContainer = gridContainer.parent
         }
 
-        gridContainer.un('cellClick', me.onCellClick, me);
+        gridContainer?.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
     }

@@ -38,9 +38,9 @@ class RowModel extends BaseModel {
      */
     destroy(...args) {
         let me     = this,
-            target = me.view.gridContainer || me.view.parent;
+            target = me.view?.gridContainer || me.view?.parent;
 
-        target.un('rowClick', me.onRowClick, me);
+        target?.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args)
     }

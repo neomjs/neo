@@ -837,6 +837,7 @@ class GridContainer extends BaseContainer {
 
                 me.bodyStart = Neo.create(GridBody, {
                     ...me.body.initialConfig,
+                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
                     flex         : 'none',
                     gridContainer: me,
                     parentId     : me.view.id,
@@ -872,6 +873,7 @@ class GridContainer extends BaseContainer {
 
                 me.bodyEnd = Neo.create(GridBody, {
                     ...me.body.initialConfig,
+                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
                     flex         : 'none',
                     gridContainer: me,
                     parentId     : me.view.id,
@@ -906,12 +908,12 @@ class GridContainer extends BaseContainer {
         me.headerWrapper.items = headerItems;
         me.view.items = bodyItems;
 
-        me.headerWrapper.createItems();
-        me.view.createItems();
-
         // Single View-owned SelectionModel: hoist the center body's model up to grid.View and share
-        // the one instance to all bodies as render/event delegates (no per-body clones).
-        me.applyViewSelectionModel(me.view.selectionModel || me.body?.selectionModel)
+        // the one instance to all bodies BEFORE they render (no per-body clones, no transient models).
+        me.applyViewSelectionModel(me.view.selectionModel || me.body?.selectionModel);
+
+        me.headerWrapper.createItems();
+        me.view.createItems()
     }
 
     /**
@@ -925,12 +927,19 @@ class GridContainer extends BaseContainer {
     applyViewSelectionModel(model) {
         let me = this;
 
-        if (!model || !me.view) return;
+        // Re-entrancy guard: sharing the model to a body fires Body.afterSetSelectionModel, which calls
+        // back here. Without this flag the callbacks re-add the `selectionModel` config during a body's
+        // processConfigs and recurse infinitely.
+        if (!model || !me.view || me.applyingViewSelectionModel) return;
+
+        me.applyingViewSelectionModel = true;
 
         me.view.selectionModel      !== model && (me.view.selectionModel      = model);
         me.body      && me.body.selectionModel      !== model && (me.body.selectionModel      = model);
         me.bodyStart && me.bodyStart.selectionModel !== model && (me.bodyStart.selectionModel = model);
-        me.bodyEnd   && me.bodyEnd.selectionModel   !== model && (me.bodyEnd.selectionModel   = model)
+        me.bodyEnd   && me.bodyEnd.selectionModel   !== model && (me.bodyEnd.selectionModel   = model);
+
+        me.applyingViewSelectionModel = false
     }
 
     /**
