@@ -86,7 +86,10 @@ class View extends Base {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.vnodeInitialized && value?.register(this)
+        // Not gated on vnodeInitialized: Container.applyViewSelectionModel() hoists the model during
+        // construction, and the single model needs its `view` set immediately so its row/record contract
+        // (store, bodies, getRow…) resolves. register() only binds component-level events, safe pre-vnode.
+        value?.register(this)
     }
 
     /**
