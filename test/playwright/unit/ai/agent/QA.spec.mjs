@@ -53,9 +53,9 @@ test.describe('QA Sub-Agent Swarm Node', () => {
 
     test('Primary Agent delegates unit testing task to QA via Gemma4/Ollama', async () => {
         // Skip test in CI environments or if we explicitly don't have a local daemon
-        // Since this relies on a local Ollama daemon hosting gemma-4, we just let it run locally 
+        // Since this relies on a local Ollama daemon hosting gemma-4, we just let it run locally
         // to evaluate the Swarm's intelligence.
-        test.skip(!!process.env.NEO_TEST_SKIP_CI || !process.env.GEMINI_API_KEY, 'CI-skip: missing GEMINI_API_KEY - bucket G1 (#10924)');
+        test.skip(!process.env.NEO_RUN_LIVE_AI_TESTS, 'Skipping live agent-loop test (real inference); set NEO_RUN_LIVE_AI_TESTS=1 to run');
         test.setTimeout(120000); // Give Gemma4 up to 2 minutes to generate the test code
 
         // The primary orchestrator boots up
@@ -73,7 +73,7 @@ test.describe('QA Sub-Agent Swarm Node', () => {
         Return ONLY the code block and nothing else.
         `;
 
-        // We DO NOT mock the delegate method here. We want to actually hit the local Gemma-4 node 
+        // We DO NOT mock the delegate method here. We want to actually hit the local Gemma-4 node
         // through the Ollama provider to evaluate its ability to follow the System Prompt rules.
         console.log('Sending request to local Gemma4 Swarm node...');
         const generatedCode = await primaryAgent.delegate('qa', request);
