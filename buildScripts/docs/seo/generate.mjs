@@ -132,13 +132,49 @@ const PRIORITIES = new Map([
 const DEFAULT_PRIORITY = 0.5;
 
 /**
+ * Recency-tiered priority for `/news/releases/` routes, indexed by delta from the newest
+ * release-note major. The current and most-recent major stay high; older patch notes decay
+ * below the curated evergreen tier so the sitemap `<priority>` stays a useful crawl-budget
+ * hint instead of a flat wall of release notes.
+ * @type {Number[]}
+ */
+const RELEASE_PRIORITY_BY_DELTA = [0.9, 0.9, 0.7, 0.6, 0.5]; // index = newestMajor - releaseMajor; delta >= 5 -> 0.4
+
+/**
+ * Newest release-note major, set by `collectReleaseRoutes`; anchors the recency delta.
+ * Deliberately NOT the `package.json` major, which lags the in-progress release.
+ * @type {Number|null}
+ */
+let maxReleaseMajor = null;
+
+/**
+ * Resolves the recency-tiered priority for a release-note version.
+ *
+ * Anchored on the newest release-note major so the tiers self-maintain as new majors ship.
+ * Returns `DEFAULT_PRIORITY` when the version is unparseable or the anchor is unknown.
+ *
+ * @param {String} version Release-note version (e.g. `12.1.0`).
+ * @param {Number|null} [maxMajor=maxReleaseMajor] Newest release-note major.
+ * @returns {Number}
+ */
+export function getReleaseNotePriority(version, maxMajor=maxReleaseMajor) {
+    const major = semver.coerce(version)?.major;
+
+    if (major == null || maxMajor == null) {
+        return DEFAULT_PRIORITY;
+    }
+
+    return RELEASE_PRIORITY_BY_DELTA[maxMajor - major] ?? 0.4;
+}
+
+/**
  * Gets the priority for a given route ID.
  * @param {String} id The route ID
  * @returns {Number} The priority value
  */
 function getPriority(id) {
     if (id.startsWith('/news/releases/')) {
-        return 0.9;
+        return getReleaseNotePriority(id.slice('/news/releases/'.length));
     }
 
     if (id.startsWith('/news/tickets/')) {
@@ -574,7 +610,7 @@ async function collectReleaseRoutes() {
         };
     }));
 
-    return releases.sort((a, b) => {
+    const sorted = releases.sort((a, b) => {
         const vA = semver.valid(a.version) || semver.coerce(a.version)?.version;
         const vB = semver.valid(b.version) || semver.coerce(b.version)?.version;
         if (vA && vB) {
@@ -582,6 +618,13 @@ async function collectReleaseRoutes() {
         }
         return 0;
     });
+
+    // Anchor the recency tiers on the newest release-note major (see getReleaseNotePriority).
+    const majors = releases.map(release => semver.coerce(release.version)?.major).filter(major => major != null);
+
+    maxReleaseMajor = majors.length ? Math.max(...majors) : null;
+
+    return sorted;
 }
 
 /**
