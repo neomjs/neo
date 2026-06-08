@@ -201,6 +201,106 @@ test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
 });
 
 /**
+ * @summary Coverage for the Memory Core runtime freshness diagnostic.
+ *
+ * The incident was a healthy long-lived MCP process reporting stale provider/config state after
+ * `ai/config.mjs` had been migrated on disk. These tests pin the pure classification contract and
+ * the injected reader seam without restarting a live MCP server.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#resolveRuntimeFreshness
+ */
+test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
+    let HealthService;
+
+    test.beforeAll(async () => {
+        HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+    });
+
+    test.afterEach(() => {
+        HealthService.runtimeFreshnessReader = null;
+        HealthService.clearCache();
+    });
+
+    test('classifies matching boot/current identity as current', async () => {
+        HealthService.runtimeFreshnessReader = async () => ({
+            boot: {
+                gitHead      : 'abc123',
+                configDigest : 'sha256:same-config',
+                openApiDigest: 'sha256:same-openapi'
+            },
+            current: {
+                gitHead      : 'abc123',
+                configDigest : 'sha256:same-config',
+                openApiDigest: 'sha256:same-openapi'
+            }
+        });
+
+        const result = await HealthService.resolveRuntimeFreshness();
+
+        expect(result).toMatchObject({
+            status: 'current',
+            stale : {
+                gitHead      : false,
+                configDigest : false,
+                openApiDigest: false
+            },
+            hint: null
+        });
+        expect(result.details).toContain('Runtime source/config identity matches the current checkout.');
+    });
+
+    test('classifies stale config identity with restart guidance', async () => {
+        HealthService.runtimeFreshnessReader = async () => ({
+            boot: {
+                gitHead      : 'abc123',
+                configDigest : 'sha256:old-config',
+                openApiDigest: 'sha256:same-openapi'
+            },
+            current: {
+                gitHead      : 'abc123',
+                configDigest : 'sha256:new-config',
+                openApiDigest: 'sha256:same-openapi'
+            }
+        });
+
+        const result = await HealthService.resolveRuntimeFreshness();
+
+        expect(result).toMatchObject({
+            status: 'stale',
+            stale : {
+                gitHead      : false,
+                configDigest : true,
+                openApiDigest: false
+            },
+            hint: 'Restart or reconnect the Memory Core MCP server to refresh cached provider/config state.'
+        });
+        expect(result.details[0]).toContain('Memory Core MCP server');
+        expect(result.details[0]).toContain('configDigest');
+    });
+
+    test('classifies missing identity as unknown without throwing', async () => {
+        HealthService.runtimeFreshnessReader = async () => ({
+            boot   : {},
+            current: {},
+            errors : ['current config digest unavailable: fixture']
+        });
+
+        const result = await HealthService.resolveRuntimeFreshness();
+
+        expect(result).toMatchObject({
+            status: 'unknown',
+            stale : {
+                gitHead      : null,
+                configDigest : null,
+                openApiDigest: null
+            },
+            hint: null
+        });
+        expect(result.details).toContain('current config digest unavailable: fixture');
+    });
+});
+
+/**
  * @summary Coverage for the request-fresh cached healthcheck path.
  *
  * The live bug was in the healthy-cache fast path: direct healthcheck callers observed the cached
@@ -275,6 +375,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         process.env.GEMINI_API_KEY               = 'unit-test-key';
 
         HealthService.setStdioIdentityState(null);
+        HealthService.runtimeFreshnessReader = null;
         HealthService.clearCache();
     });
 
@@ -297,6 +398,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         TextEmbeddingService.embedText            = originalEmbedText;
 
         HealthService.setStdioIdentityState(null);
+        HealthService.runtimeFreshnessReader = null;
         HealthService.clearCache();
     });
 
@@ -328,6 +430,44 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         const ensureHealthyFastPath = await HealthService.healthcheck({freshObservability: false});
         expect(ensureHealthyFastPath).toBe(cached);
         expect(ensureHealthyFastPath.database.connection.collections.memories.count).toBe(10);
+    });
+
+    test('direct healthcheck refreshes runtime freshness while reusing cached dependency status', async () => {
+        let currentConfigDigest = 'sha256:boot-config';
+        HealthService.runtimeFreshnessReader = async () => ({
+            boot: {
+                gitHead      : 'abc123',
+                configDigest : 'sha256:boot-config',
+                openApiDigest: 'sha256:same-openapi'
+            },
+            current: {
+                gitHead      : 'abc123',
+                configDigest : currentConfigDigest,
+                openApiDigest: 'sha256:same-openapi'
+            }
+        });
+
+        const cached = await HealthService.healthcheck();
+
+        expect(cached.status).toBe('healthy');
+        expect(cached.runtimeFreshness.status).toBe('current');
+
+        currentConfigDigest = 'sha256:migrated-config';
+        Date.now = () => originalDateNow() + 60_000;
+
+        const fresh = await HealthService.healthcheck();
+
+        expect(fresh.status).toBe('healthy');
+        expect(fresh.runtimeFreshness).toMatchObject({
+            status: 'stale',
+            stale : {
+                gitHead      : false,
+                configDigest : true,
+                openApiDigest: false
+            }
+        });
+        expect(fresh.runtimeFreshness.hint).toContain('Memory Core MCP server');
+        expect(fresh.database.connection.collections.memories.count).toBe(10);
     });
 
     test('direct healthcheck reuses a recent healthy embedding write canary', async () => {

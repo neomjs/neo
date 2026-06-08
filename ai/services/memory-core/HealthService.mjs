@@ -1,3 +1,6 @@
+import {execFileSync}           from 'child_process';
+import {createHash}             from 'crypto';
+import {readFileSync}           from 'fs';
 import fs                       from 'fs/promises';
 import fsExtra                  from 'fs-extra';
 import path                     from 'path';
@@ -17,6 +20,156 @@ import {
 import {readRecentRemRunStates} from './helpers/remRunStateStore.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const
+    configPath  = path.resolve(__dirname, '../../config.mjs'),
+    openApiPath = path.resolve(__dirname, '../../mcp/server/memory-core/openapi.yaml'),
+    startedAt   = new Date().toISOString();
+
+/**
+ * @summary Computes a stable SHA-256 digest for runtime freshness file identity.
+ * @param {String} filePath Absolute file path.
+ * @returns {String}
+ */
+function createFileDigest(filePath) {
+    const contents = readFileSync(filePath);
+
+    return `sha256:${createHash('sha256').update(contents).digest('hex')}`;
+}
+
+/**
+ * @summary Reads the current checkout HEAD for the Memory Core runtime identity block.
+ * @returns {String}
+ */
+function readGitHead() {
+    const stdout = execFileSync('git', ['-C', aiConfig.neoRootDir, 'rev-parse', 'HEAD'], {
+        encoding: 'utf8',
+        stdio   : ['ignore', 'pipe', 'pipe']
+    });
+
+    return stdout.trim();
+}
+
+/**
+ * @summary Reads source, config, and schema identity for runtime freshness comparison.
+ * @returns {{identity: Object, errors: String[]}}
+ */
+function readRuntimeIdentity() {
+    const errors = [],
+          identity = {};
+
+    try {
+        identity.gitHead = readGitHead();
+    } catch (e) {
+        errors.push(`gitHead unavailable: ${e.message}`);
+    }
+
+    try {
+        identity.configDigest = createFileDigest(configPath);
+    } catch (e) {
+        errors.push(`config digest unavailable: ${e.message}`);
+    }
+
+    try {
+        identity.openApiDigest = createFileDigest(openApiPath);
+    } catch (e) {
+        errors.push(`OpenAPI digest unavailable: ${e.message}`);
+    }
+
+    return {identity, errors};
+}
+
+const initialRuntimeIdentity = readRuntimeIdentity();
+
+/**
+ * @summary Normalizes comparable runtime identity values.
+ * @param {*} value Candidate identity field value.
+ * @returns {String|null}
+ */
+function normalizeRuntimeIdentityValue(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+
+    return trimmed || null;
+}
+
+/**
+ * @summary Compares one boot/current runtime identity field.
+ * @param {String} field Field name to compare.
+ * @param {Object} boot Boot-time identity.
+ * @param {Object} current Current identity.
+ * @returns {Boolean|null}
+ */
+function compareRuntimeIdentityField(field, boot, current) {
+    const
+        bootValue    = normalizeRuntimeIdentityValue(boot[field]),
+        currentValue = normalizeRuntimeIdentityValue(current[field]);
+
+    if (!bootValue || !currentValue) {
+        return null;
+    }
+
+    return bootValue !== currentValue;
+}
+
+/**
+ * @summary Classifies boot-vs-current Memory Core MCP runtime identity.
+ *
+ * `status:'stale'` is a diagnostic warning, not a hard outage. The MCP process can
+ * still answer read-only calls while warning agents to restart before asserting provider,
+ * config, or schema facts.
+ *
+ * @param {Object} options
+ * @param {String} options.startedAt Runtime start timestamp.
+ * @param {Object} options.boot Boot-time source/config/schema identity.
+ * @param {Object} options.current Current checkout/config/schema identity.
+ * @param {String[]} options.errors Optional identity-read errors.
+ * @returns {Object}
+ */
+export function classifyRuntimeFreshness({startedAt, boot = {}, current = {}, errors = []} = {}) {
+    const stale = {
+        gitHead      : compareRuntimeIdentityField('gitHead', boot, current),
+        configDigest : compareRuntimeIdentityField('configDigest', boot, current),
+        openApiDigest: compareRuntimeIdentityField('openApiDigest', boot, current)
+    };
+    const comparableFields = Object.values(stale).filter(value => value !== null),
+          staleFields      = Object.entries(stale)
+                              .filter(([, value]) => value === true)
+                              .map(([key]) => key),
+          details          = [];
+
+    let status;
+
+    if (staleFields.length) {
+        status = 'stale';
+        details.push(`Runtime source/config identity differs from the current checkout (${staleFields.join(', ')}). Restart or reconnect the Memory Core MCP server before asserting provider, config, or tool-schema facts.`);
+    } else if (comparableFields.length) {
+        status = 'current';
+        details.push('Runtime source/config identity matches the current checkout.');
+    } else {
+        status = 'unknown';
+        details.push('Runtime source/config identity could not be compared; git metadata, config digest, and OpenAPI digest reads were unavailable or incomplete.');
+    }
+
+    for (const error of errors.filter(Boolean)) {
+        details.push(error);
+    }
+
+    return {
+        status,
+        startedAt,
+        boot,
+        current,
+        stale,
+        details,
+        hint: status === 'stale'
+            ? 'Restart or reconnect the Memory Core MCP server to refresh cached provider/config state.'
+            : null
+    };
+}
 
 /**
  * @summary Heartbeat-liveness file path resolution shared with `SwarmHeartbeatService`.
@@ -900,6 +1053,30 @@ class HealthService extends Base {
     #stdioIdentityState = null;
 
     /**
+     * Boot-time runtime identity captured before long-lived MCP clients can go stale.
+     * @member {Object} bootRuntimeIdentity
+     */
+    bootRuntimeIdentity = initialRuntimeIdentity.identity;
+
+    /**
+     * Boot-time runtime identity read errors.
+     * @member {String[]} bootRuntimeFreshnessErrors
+     */
+    bootRuntimeFreshnessErrors = initialRuntimeIdentity.errors;
+
+    /**
+     * Optional unit-test seam for injecting boot/current runtime identity reads.
+     * @member {Function|null} runtimeFreshnessReader
+     */
+    runtimeFreshnessReader = null;
+
+    /**
+     * ISO timestamp captured when this service module was loaded.
+     * @member {String} runtimeStartedAt
+     */
+    runtimeStartedAt = startedAt;
+
+    /**
      * Checks if the active vector and graph databases are running and accessible.
      * @returns {Promise<Object>} {running: boolean, error: string|undefined, engines: Object}
      * @private
@@ -1022,8 +1199,9 @@ class HealthService extends Base {
 
         const freshPayload = {
             ...cachedHealth,
-            timestamp: new Date(now).toISOString(),
-            database : {
+            timestamp       : new Date(now).toISOString(),
+            runtimeFreshness: await this.resolveRuntimeFreshness(),
+            database        : {
                 ...database,
                 connection: {
                     ...connection,
@@ -1192,6 +1370,66 @@ class HealthService extends Base {
         return buildChromaMigrationStats(metadatas, options);
     }
 
+    /**
+     * Reads current source/config/schema identity for the attached MCP process.
+     *
+     * Intent: the running Memory Core server can stay healthy while stale relative to the
+     * checkout/config the operator just migrated. This lightweight reader compares process
+     * boot identity to the current filesystem without re-importing or mutating AiConfig.
+     *
+     * @returns {{boot: Object, current: Object, errors: String[]}}
+     * @private
+     */
+    #readCurrentRuntimeIdentity() {
+        const {identity, errors} = readRuntimeIdentity();
+
+        return {
+            boot   : this.bootRuntimeIdentity,
+            current: identity,
+            errors
+        };
+    }
+
+    /**
+     * Resolves the live runtime freshness diagnostic for the attached Memory Core MCP process.
+     *
+     * A stale runtime is a warning, not a service outage: callers can still use healthy read
+     * paths while being told to restart before asserting provider/config/schema state.
+     *
+     * @returns {Promise<Object>} Runtime freshness diagnostic payload.
+     */
+    async resolveRuntimeFreshness() {
+        try {
+            const identity = this.runtimeFreshnessReader
+                ? await this.runtimeFreshnessReader()
+                : this.#readCurrentRuntimeIdentity();
+
+            const runtimeErrors = Array.isArray(identity.errors)
+                ? identity.errors
+                : [identity.errors].filter(Boolean);
+
+            return classifyRuntimeFreshness({
+                startedAt: this.runtimeStartedAt,
+                boot     : identity.boot || this.bootRuntimeIdentity,
+                current  : identity.current || {},
+                errors   : [
+                    ...this.bootRuntimeFreshnessErrors,
+                    ...runtimeErrors
+                ]
+            });
+        } catch (e) {
+            return classifyRuntimeFreshness({
+                startedAt: this.runtimeStartedAt,
+                boot     : this.bootRuntimeIdentity,
+                current  : {},
+                errors   : [
+                    ...this.bootRuntimeFreshnessErrors,
+                    `runtime freshness reader failed: ${e.message}`
+                ]
+            });
+        }
+    }
+
 
 
     #checkApiKeyConfigured() {
@@ -1295,9 +1533,10 @@ class HealthService extends Base {
         const { default: MailboxService } = await import('./MailboxService.mjs');
 
         const payload = {
-            status   : 'healthy',
-            timestamp: new Date().toISOString(),
-            session  : {
+            status          : 'healthy',
+            timestamp       : new Date().toISOString(),
+            runtimeFreshness: await this.resolveRuntimeFreshness(),
+            session         : {
                 currentId: Neo.ns('Neo.ai.services.memory-core.SessionService', false)?.currentSessionId
             },
             database : {
