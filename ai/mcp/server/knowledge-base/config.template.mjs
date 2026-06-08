@@ -337,6 +337,35 @@ class Config extends ConfigProvider {
              */
             nResults: leaf(100),
             /**
+             * Candidate budgets for broad `type='all'` queries.
+             *
+             * These pools run before hybrid scoring so current source/documentation chunks
+             * cannot be starved out by high-volume historical corpora such as pull-request
+             * conversations. Shares are applied to `nResults` in declaration order.
+             * @type {Array}
+             */
+            queryCandidatePools: leaf([
+                {
+                    name : 'primary',
+                    share: 0.65,
+                    types: ['src', 'ai-infrastructure', 'guide', 'concept', 'skill', 'adr']
+                },
+                {
+                    name : 'secondary',
+                    share: 0.2,
+                    types: ['app', 'example', 'test', 'raw']
+                },
+                {
+                    name : 'historical',
+                    share: 0.1,
+                    types: ['ticket', 'pull', 'discussion', 'release', 'blog']
+                },
+                {
+                    name : 'custom',
+                    share: 0.05
+                }
+            ]),
+            /**
              * Weights used in the query scoring algorithm.
              * @type {Object}
              */
@@ -351,6 +380,7 @@ class Config extends ConfigProvider {
                 namePartMatch    : 30,
                 lexicalRescueMatch: 3200,
                 ticketPenalty    : -70,
+                pullPenalty      : -250,
                 releasePenalty   : -50,
                 baseFileBonus    : 20,
                 releaseExactMatch: 1000,

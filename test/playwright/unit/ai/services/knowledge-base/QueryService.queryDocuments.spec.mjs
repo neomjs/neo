@@ -46,15 +46,19 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
         ChromaManager.getKnowledgeBaseCollection = originalGetKnowledgeBaseCollection;
     });
 
-    function installQueryStub(metadatas, capture) {
+    function installQueryStub(metadatasOrFactory, capture) {
+        capture.options = [];
         TextEmbeddingService.embedText = async () => [0.1, 0.2, 0.3];
 
         ChromaManager.getKnowledgeBaseCollection = async () => ({
             query: async options => {
-                capture.options = options;
+                capture.options.push(options);
+                const metadatas = typeof metadatasOrFactory === 'function'
+                    ? metadatasOrFactory(options)
+                    : metadatasOrFactory;
 
                 return {
-                    metadatas: [metadatas]
+                    metadatas: [metadatas || []]
                 };
             }
         });
@@ -80,29 +84,131 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
             limit: 5
         });
 
-        expect(capture.options.queryEmbeddings).toEqual([[0.1, 0.2, 0.3]]);
-        expect(capture.options.where).toEqual({type: 'guide'});
+        expect(capture.options[0].queryEmbeddings).toEqual([[0.1, 0.2, 0.3]]);
+        expect(capture.options[0].where).toEqual({type: 'guide'});
         expect(result.topResult).toBe('learn/guides/testing/UnitTesting.md');
         expect(result.results).toHaveLength(1);
     });
 
-    test('omits where when type is all', async () => {
+    test('stratifies broad searches into source-first candidate pools (#12719)', async () => {
         const capture = {};
-        installQueryStub([{
-            source          : 'src/component/Base.mjs',
-            type            : 'src',
-            name            : 'Neo.component.Base',
-            className       : 'Neo.component.Base',
-            inheritanceChain: '[]'
-        }], capture);
+        installQueryStub(options => {
+            const types = options.where?.type?.$in || [];
 
-        await QueryService.queryDocuments({
-            query: 'component base',
+            if (types.includes('ai-infrastructure')) {
+                return [{
+                    source          : 'ai/services/knowledge-base/QueryService.mjs',
+                    type            : 'ai-infrastructure',
+                    name            : 'Neo.ai.services.knowledge-base.QueryService',
+                    className       : 'Neo.ai.services.knowledge-base.QueryService',
+                    inheritanceChain: '[]'
+                }];
+            }
+
+            if (types.includes('pull')) {
+                return [{
+                    source          : 'resources/content/pulls/chunk-1/pr-12703.md',
+                    type            : 'pull',
+                    name            : 'pr-12703',
+                    inheritanceChain: '[]'
+                }];
+            }
+
+            return [];
+        }, capture);
+
+        const result = await QueryService.queryDocuments({
+            query: 'query service scorer',
             type : 'all',
             limit: 5
         });
 
-        expect(Object.hasOwn(capture.options, 'where')).toBe(false);
+        expect(capture.options).toHaveLength(4);
+        expect(capture.options[0].nResults).toBeGreaterThan(capture.options[2].nResults);
+        expect(capture.options[0].where).toEqual({type: {$in: ['src', 'ai-infrastructure', 'guide', 'concept', 'skill', 'adr']}});
+        expect(capture.options[2].where).toEqual({type: {$in: ['ticket', 'pull', 'discussion', 'release', 'blog']}});
+        expect(capture.options[3].where).toBeUndefined();
+        expect(result.topResult).toBe('ai/services/knowledge-base/QueryService.mjs');
+        expect(result.results.map(item => item.source)).toContain('resources/content/pulls/chunk-1/pr-12703.md');
+    });
+
+    test('keeps a bounded broad-search fallback for custom parser chunk kinds (#12719)', async () => {
+        const capture = {};
+        installQueryStub(options => {
+            if (!options.where) {
+                return [{
+                    source          : 'src/MainView.mjs',
+                    type            : 'module-context',
+                    name            : 'MiniNeo.MainView',
+                    className       : 'MiniNeo.MainView',
+                    tenantId        : 'tenant-alpha',
+                    repoSlug        : 'mini-neo-workspace',
+                    content         : 'alpha-exclusive-query neo workspace panel',
+                    inheritanceChain: '[]'
+                }];
+            }
+
+            return [];
+        }, capture);
+
+        const result = await QueryService.queryDocuments({
+            query: 'alpha-exclusive-query',
+            type : 'all',
+            limit: 5
+        });
+
+        expect(capture.options).toHaveLength(4);
+        expect(capture.options[3]).toMatchObject({
+            nResults: 5
+        });
+        expect(result.topResult).toBe('src/MainView.mjs');
+        expect(result.results[0].metadata).toBeUndefined();
+    });
+
+    test('deduplicates candidates returned by overlapping broad-search pools (#12719)', async () => {
+        const capture = {};
+        const duplicate = {
+            source          : 'learn/agentos/KnowledgeBase.md',
+            type            : 'guide',
+            name            : 'The Knowledge Base Server',
+            content         : 'duplicate candidate',
+            inheritanceChain: '[]'
+        };
+
+        installQueryStub(options => {
+            const types = options.where?.type?.$in || [];
+
+            return types.includes('guide') || !options.where ? [duplicate] : [];
+        }, capture);
+
+        const result = await QueryService.queryDocuments({
+            query          : 'knowledge base',
+            type           : 'all',
+            includeMetadata: true
+        });
+
+        expect(capture.options).toHaveLength(4);
+        expect(result.results.filter(item => item.source === duplicate.source)).toHaveLength(1);
+    });
+
+    test('expands source searches to include Agent OS implementation chunks (#12719)', async () => {
+        const capture = {};
+        installQueryStub([{
+            source          : 'ai/services/knowledge-base/QueryService.mjs',
+            type            : 'ai-infrastructure',
+            name            : 'Neo.ai.services.knowledge-base.QueryService',
+            className       : 'Neo.ai.services.knowledge-base.QueryService',
+            inheritanceChain: '[]'
+        }], capture);
+
+        await QueryService.queryDocuments({
+            query: 'query service',
+            type : 'src',
+            limit: 5
+        });
+
+        expect(capture.options).toHaveLength(1);
+        expect(capture.options[0].where).toEqual({type: {$in: ['src', 'ai-infrastructure']}});
     });
 
     test('returns the no-results message when Chroma returns an empty metadata payload', async () => {
