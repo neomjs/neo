@@ -16,6 +16,7 @@ const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json
 const DEFAULT_BASE_PATH = '/learn';
 const GIT_LOG_CHUNK_SIZE = 200;
 const STATUS_RENAME_CODES = new Set(['R', 'C']);
+const MUTABLE_RELEASE_NOTE_GITHUB_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/neo\/blob\/dev\/[^\s)]+/g;
 
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
@@ -164,6 +165,36 @@ function getPriority(id) {
  */
 function getGitPath(filePath) {
     return path.relative(ROOT_DIR, filePath).split(path.sep).join('/');
+}
+
+/**
+ * @summary Finds mutable GitHub branch links that should not ship in release-note SEO routes.
+ * @param {String} content Markdown content to inspect
+ * @returns {String[]} Matched `github.com/neomjs/neo/blob/dev/...` links
+ */
+export function getMutableReleaseNoteGithubLinks(content='') {
+    return Array.from(content.matchAll(MUTABLE_RELEASE_NOTE_GITHUB_LINK_PATTERN), match => match[0]);
+}
+
+/**
+ * @summary Fails release-note route generation before mutable `/blob/dev/` links become SEO-visible.
+ * @param {Object} options
+ * @param {String} options.filePath Absolute release-note markdown path
+ * @param {String} options.content Markdown content to inspect
+ */
+export function assertStableReleaseNoteGithubLinks({filePath, content}) {
+    const links = getMutableReleaseNoteGithubLinks(content);
+
+    if (links.length === 0) {
+        return;
+    }
+
+    const fileLabel = filePath ? getGitPath(filePath) : 'unknown release-note source';
+    throw new Error([
+        `Release-note SEO route source "${fileLabel}" contains mutable GitHub dev links.`,
+        'Use an immutable commit/tag URL or a canonical successor target before publishing:',
+        ...links.map(link => `- ${link}`)
+    ].join('\n'));
 }
 
 /**
@@ -527,10 +558,13 @@ async function collectReleaseRoutes() {
         ignore : ['**/node_modules/**']
     });
 
-    const releases = files.map(file => {
+    const releases = await Promise.all(files.map(async file => {
         const filePath = path.resolve(ROOT_DIR, file);
+        const content  = await fs.readFile(filePath, 'utf-8');
         const fileName = path.basename(file, '.md'); // e.g., 'v12.1.0'
         const version  = fileName.startsWith('v') ? fileName.substring(1) : fileName;
+
+        assertStableReleaseNoteGithubLinks({filePath, content});
 
         return {
             category: 'release-notes',
@@ -538,7 +572,7 @@ async function collectReleaseRoutes() {
             id      : `/news/releases/${version}`,
             version : version
         };
-    });
+    }));
 
     return releases.sort((a, b) => {
         const vA = semver.valid(a.version) || semver.coerce(a.version)?.version;
@@ -1174,6 +1208,8 @@ export default {
     getContentRoutes,
     getContentRouteObjects,
     getContentUrls,
+    getMutableReleaseNoteGithubLinks,
     getSitemapXml,
-    getLlmsTxt
+    getLlmsTxt,
+    assertStableReleaseNoteGithubLinks
 };
