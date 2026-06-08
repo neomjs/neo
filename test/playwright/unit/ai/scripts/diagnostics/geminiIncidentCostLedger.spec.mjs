@@ -16,6 +16,12 @@ const
  * @see ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs
  */
 test.describe('gemini-incident-cost-ledger diagnostic', () => {
+    test('rejects unknown flags through commander', async () => {
+        const {parseArgs} = await import('../../../../../../ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs');
+
+        expect(() => parseArgs(['--unknown-flag'])).toThrow(/unknown option '--unknown-flag'/);
+    });
+
     test('parses backfill log events and computes private-content-safe cost bands', () => {
         const
             fixtureDir  = path.join(repoRoot, 'tmp', `gemini-ledger-${process.pid}-${Date.now()}`),

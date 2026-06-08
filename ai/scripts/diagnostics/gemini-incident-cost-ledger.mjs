@@ -2,6 +2,7 @@ import fs              from 'node:fs';
 import path            from 'node:path';
 import process         from 'node:process';
 import {fileURLToPath} from 'node:url';
+import {Command}       from 'commander';
 
 /**
  * Pre-Flight (structural fast-path): authoring
@@ -28,15 +29,6 @@ const DEFAULTS = {
     inputPricePerMillion  : 0.50,
     outputPricePerMillion : 3.00,
     outputTokens          : 100
-};
-
-const INPUT_STAT_FLAGS = {
-    '--input-chars-p50' : 'p50',
-    '--input-chars-p90' : 'p90',
-    '--input-chars-p95' : 'p95',
-    '--input-chars-p99' : 'p99',
-    '--input-chars-mean': 'mean',
-    '--input-chars-max' : 'max'
 };
 
 /**
@@ -242,92 +234,136 @@ function formatNumber(value) {
  * Parses a numeric CLI flag.
  *
  * @param {String} flag
- * @param {String|undefined} value
- * @returns {Number}
+ * @returns {Function}
  */
-function parseNumberFlag(flag, value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) {
-        throw new Error(`${flag} requires a finite number`);
-    }
+function parseNumberFlag(flag) {
+    return value => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) {
+            throw new Error(`${flag} requires a finite number`);
+        }
 
-    return number;
+        return number;
+    };
 }
 
 /**
  * Parses an ISO date CLI flag.
  *
  * @param {String} flag
- * @param {String|undefined} value
- * @returns {Date}
+ * @returns {Function}
  */
-function parseDateFlag(flag, value) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        throw new Error(`${flag} requires an ISO timestamp`);
-    }
+function parseDateFlag(flag) {
+    return value => {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            throw new Error(`${flag} requires an ISO timestamp`);
+        }
 
-    return date;
+        return date;
+    };
 }
 
 /**
- * Parses CLI arguments.
+ * Collects repeatable CLI options.
+ *
+ * @param {String} value
+ * @param {String[]} previous
+ * @returns {String[]}
+ */
+function collectOption(value, previous = []) {
+    previous.push(value);
+    return previous;
+}
+
+/**
+ * Builds a fresh commander Program for the Gemini incident cost ledger CLI.
+ *
+ * @returns {Command}
+ */
+export function createProgram() {
+    const program = new Command();
+
+    program
+        .name('gemini-incident-cost-ledger')
+        .description('Private-content-safe Gemini incident cost ledger helper.')
+        .exitOverride()
+        .allowExcessArguments(false)
+        .option('--log <path>', 'Orchestrator log path. Can be provided multiple times.', collectOption, [])
+        .option('--window-start <ISO>', 'Inclusive log window start.', parseDateFlag('--window-start'), null)
+        .option('--window-end <ISO>', 'Inclusive log window end.', parseDateFlag('--window-end'), null)
+        .option('--calls <count>', 'Manual call-count override.', parseNumberFlag('--calls'), null)
+        .option('--billing-cost <amount>', 'Cloud Billing cost to compare against estimates.', parseNumberFlag('--billing-cost'), null)
+        .option('--billing-requests <count>', 'Cloud Billing request count.', parseNumberFlag('--billing-requests'), null)
+        .option('--chars-per-token <count>', 'Estimated chars/token ratio.', parseNumberFlag('--chars-per-token'), DEFAULTS.charsPerToken)
+        .option('--fixed-prompt-chars <count>', 'Fixed prompt wrapper characters per call.', parseNumberFlag('--fixed-prompt-chars'), DEFAULTS.fixedPromptChars)
+        .option('--input-price-per-million <amount>', 'Input token price per 1M tokens.', parseNumberFlag('--input-price-per-million'), DEFAULTS.inputPricePerMillion)
+        .option('--output-price-per-million <amount>', 'Output token price per 1M tokens.', parseNumberFlag('--output-price-per-million'), DEFAULTS.outputPricePerMillion)
+        .option('--output-tokens <count>', 'Estimated output tokens per call.', parseNumberFlag('--output-tokens'), DEFAULTS.outputTokens)
+        .option('--input-chars-p50 <chars>', 'Aggregate p50 input characters per call.', parseNumberFlag('--input-chars-p50'))
+        .option('--input-chars-p90 <chars>', 'Aggregate p90 input characters per call.', parseNumberFlag('--input-chars-p90'))
+        .option('--input-chars-p95 <chars>', 'Aggregate p95 input characters per call.', parseNumberFlag('--input-chars-p95'))
+        .option('--input-chars-p99 <chars>', 'Aggregate p99 input characters per call.', parseNumberFlag('--input-chars-p99'))
+        .option('--input-chars-mean <chars>', 'Aggregate mean input characters per call.', parseNumberFlag('--input-chars-mean'))
+        .option('--input-chars-max <chars>', 'Aggregate max input characters per call.', parseNumberFlag('--input-chars-max'))
+        .option('--json', 'Print JSON instead of the human-readable report.', false);
+
+    return program;
+}
+
+/**
+ * Extracts the provided aggregate input character stats from commander options.
+ *
+ * @param {Object} options
+ * @returns {Object<String, Number>}
+ */
+function getInputCharStats(options) {
+    const stats = {};
+
+    for (const [key, label] of [
+        ['inputCharsP50',  'p50'],
+        ['inputCharsP90',  'p90'],
+        ['inputCharsP95',  'p95'],
+        ['inputCharsP99',  'p99'],
+        ['inputCharsMean', 'mean'],
+        ['inputCharsMax',  'max']
+    ]) {
+        if (Number.isFinite(options[key])) {
+            stats[label] = options[key];
+        }
+    }
+
+    return stats;
+}
+
+/**
+ * Parses CLI arguments through commander.
  *
  * @param {String[]} argv
  * @returns {Object}
  */
 export function parseArgs(argv) {
-    const options = {
-        logPaths             : [],
-        inputCharStats       : {},
-        windowStart          : null,
-        windowEnd            : null,
-        callsOverride        : null,
-        billingCost          : null,
-        billingRequests      : null,
-        json                 : false,
-        charsPerToken        : DEFAULTS.charsPerToken,
-        fixedPromptChars     : DEFAULTS.fixedPromptChars,
-        inputPricePerMillion : DEFAULTS.inputPricePerMillion,
-        outputPricePerMillion: DEFAULTS.outputPricePerMillion,
-        outputTokens         : DEFAULTS.outputTokens
+    const program = createProgram();
+    program.configureOutput({writeOut: () => {}, writeErr: () => {}});
+    program.parse(argv, {from: 'user'});
+
+    const options = program.opts();
+
+    return {
+        logPaths             : options.log,
+        inputCharStats       : getInputCharStats(options),
+        windowStart          : options.windowStart,
+        windowEnd            : options.windowEnd,
+        callsOverride        : options.calls,
+        billingCost          : options.billingCost,
+        billingRequests      : options.billingRequests,
+        json                 : options.json,
+        charsPerToken        : options.charsPerToken,
+        fixedPromptChars     : options.fixedPromptChars,
+        inputPricePerMillion : options.inputPricePerMillion,
+        outputPricePerMillion: options.outputPricePerMillion,
+        outputTokens         : options.outputTokens
     };
-
-    for (let i = 0; i < argv.length; i++) {
-        const flag = argv[i];
-
-        if (flag === '--json') {
-            options.json = true;
-        } else if (flag === '--log') {
-            options.logPaths.push(argv[++i]);
-        } else if (flag === '--window-start') {
-            options.windowStart = parseDateFlag(flag, argv[++i]);
-        } else if (flag === '--window-end') {
-            options.windowEnd = parseDateFlag(flag, argv[++i]);
-        } else if (flag === '--calls') {
-            options.callsOverride = parseNumberFlag(flag, argv[++i]);
-        } else if (flag === '--billing-cost') {
-            options.billingCost = parseNumberFlag(flag, argv[++i]);
-        } else if (flag === '--billing-requests') {
-            options.billingRequests = parseNumberFlag(flag, argv[++i]);
-        } else if (flag === '--chars-per-token') {
-            options.charsPerToken = parseNumberFlag(flag, argv[++i]);
-        } else if (flag === '--fixed-prompt-chars') {
-            options.fixedPromptChars = parseNumberFlag(flag, argv[++i]);
-        } else if (flag === '--input-price-per-million') {
-            options.inputPricePerMillion = parseNumberFlag(flag, argv[++i]);
-        } else if (flag === '--output-price-per-million') {
-            options.outputPricePerMillion = parseNumberFlag(flag, argv[++i]);
-        } else if (flag === '--output-tokens') {
-            options.outputTokens = parseNumberFlag(flag, argv[++i]);
-        } else if (INPUT_STAT_FLAGS[flag]) {
-            options.inputCharStats[INPUT_STAT_FLAGS[flag]] = parseNumberFlag(flag, argv[++i]);
-        } else {
-            throw new Error(`Unknown argument: ${flag}`);
-        }
-    }
-
-    return options;
 }
 
 /**
