@@ -113,6 +113,17 @@ class View extends Base {
     }
 
     /**
+     * Resolves the logical cell id (`recordId__dataField`) for a record + field. Body-agnostic —
+     * delegates to the center body.
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {String}
+     */
+    getLogicalCellId(record, dataField) {
+        return this.gridContainer?.body?.getLogicalCellId(record, dataField)
+    }
+
+    /**
      * Resolves the data record for a logical cell id. Body-agnostic — delegates to the center body.
      * @param {String} logicalId
      * @returns {Object|null}

@@ -82,11 +82,8 @@ class CellModel extends BaseModel {
             {view}              = me,
             {dataField, record} = data;
 
-        // In a multi-body architecture, ensure we only toggle the state once per click
-        // by restricting the state mutation to the specific body that fired the event.
-        if (data.body && data.body !== view) {
-            return
-        }
+        // The single View-owned model listens once on the gridContainer, so each cell click is
+        // processed exactly once regardless of which body fired it.
 
         if (record && dataField) {
             me.toggleSelection(view.getLogicalCellId(record, dataField))

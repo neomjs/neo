@@ -540,7 +540,10 @@ class GridBody extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.vnodeInitialized && value.register(this)
+        // The single model is owned + registered by grid.View; bodies are render/event delegates that
+        // never register as its view. Forward a (dynamic) body.selectionModel change up so grid.View
+        // re-hoists + re-shares the one instance across all bodies.
+        this.gridContainer?.applyViewSelectionModel?.(value)
     }
 
     /**
@@ -643,8 +646,8 @@ class GridBody extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        oldValue?.destroy();
-
+        // grid.View owns the single model's lifecycle (including destroy on swap); a body only
+        // instantiates a config into an instance and holds the shared reference — it never destroys.
         return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
@@ -1156,8 +1159,7 @@ class GridBody extends Component {
      *
      */
     onConstructed() {
-        super.onConstructed();
-        this.selectionModel?.register(this)
+        super.onConstructed()
     }
 
     /**

@@ -908,6 +908,29 @@ class GridContainer extends BaseContainer {
 
         me.headerWrapper.createItems();
         me.view.createItems();
+
+        // Single View-owned SelectionModel: hoist the center body's model up to grid.View and share
+        // the one instance to all bodies as render/event delegates (no per-body clones).
+        me.applyViewSelectionModel(me.view.selectionModel || me.body?.selectionModel)
+    }
+
+    /**
+     * Establishes the single View-owned SelectionModel: registers it on grid.View (the body
+     * orchestrator) and shares the one instance to every body as a render/event delegate, so locked
+     * bodies never carry independent cloned models. Identity-guarded (idempotent + re-entrant-safe);
+     * invoked on sub-grid (re)creation and on any dynamic `body.selectionModel` swap.
+     * @param {Neo.selection.grid.BaseModel|null} model
+     * @protected
+     */
+    applyViewSelectionModel(model) {
+        let me = this;
+
+        if (!model || !me.view) return;
+
+        me.view.selectionModel      !== model && (me.view.selectionModel      = model);
+        me.body      && me.body.selectionModel      !== model && (me.body.selectionModel      = model);
+        me.bodyStart && me.bodyStart.selectionModel !== model && (me.bodyStart.selectionModel = model);
+        me.bodyEnd   && me.bodyEnd.selectionModel   !== model && (me.bodyEnd.selectionModel   = model)
     }
 
     /**
