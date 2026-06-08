@@ -1,5 +1,10 @@
 import {GH_Config, GH_SyncService}     from '../../services.mjs';
 import {withHeavyMaintenanceLease}     from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {pathToFileURL}                 from 'url';
+import {
+    buildSyncGithubWorkflowDevBranchGuard,
+    defaultSyncGithubWorkflowBranchDetector
+} from './syncGithubWorkflowBranchGuard.mjs';
 
 /**
  * @module ai/scripts/maintenance/syncGithubWorkflow
@@ -43,9 +48,35 @@ import {withHeavyMaintenanceLease}     from '../../daemons/orchestrator/services
  *   # Exit code 0 on success / 1 on failure.
  */
 
+/**
+ * @summary Asserts that the GitHub Workflow sync CLI is running from dev.
+ * @returns {Promise<void>}
+ */
+async function assertSyncGithubWorkflowDevBranch() {
+    const
+        projectRoot = GH_Config.projectRoot || GH_Config.data?.projectRoot || process.cwd(),
+        guard       = buildSyncGithubWorkflowDevBranchGuard(
+            async () => true,
+            () => defaultSyncGithubWorkflowBranchDetector({projectRoot})
+        );
+
+    await guard();
+}
+
+/**
+ * @summary CLI entry point for the full GitHub Workflow mirror sync.
+ * @returns {Promise<void>}
+ */
 async function syncGithubWorkflow() {
     const verbose = process.argv.includes('--verbose');
     GH_Config.data.logLevel = verbose ? 'debug' : 'info';
+
+    try {
+        await assertSyncGithubWorkflowDevBranch();
+    } catch (error) {
+        console.error(error.message);
+        process.exit(1);
+    }
 
     console.log('🔄 Starting full GitHub Workflow sync via GH_SyncService.runFullSync()...');
 
@@ -75,4 +106,8 @@ async function syncGithubWorkflow() {
     process.exit(0);
 }
 
-syncGithubWorkflow();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+    syncGithubWorkflow();
+}
+
+export {assertSyncGithubWorkflowDevBranch, syncGithubWorkflow};
