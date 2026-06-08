@@ -379,12 +379,14 @@ export class ProcessSupervisorService extends Base {
         let deferredClear    = null;
         let readinessPending = typeof task.postSpawn === 'function';
         let readinessOutcome = null;
+        let watchdog         = null;
 
         const executeClear = (code, error, phase = 'start') => {
             if (cleared) {
                 return;
             }
             cleared = true;
+            clearTimeout(watchdog);
 
             try {
                 if (fs.existsSync(pidFile)) {
@@ -453,6 +455,24 @@ export class ProcessSupervisorService extends Base {
 
         child.on('close', code => clear(code));
         child.on('error', err => clear(null, err, 'child-process'));
+
+        // Max-runtime watchdog (opt-in via task.maxRuntimeMs): a child that hangs — e.g. a
+        // downstream model/store call with no timeout — must never keep its `running` flag set
+        // indefinitely and starve every other maintenance task. On breach, kill it and finalize
+        // as failed so the scheduler can move on.
+        if (task.maxRuntimeMs > 0) {
+            watchdog = setTimeout(() => {
+                if (cleared) {
+                    return;
+                }
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} exceeded max runtime (${task.maxRuntimeMs}ms) — killing child (watchdog).`);
+                try {
+                    child.kill?.('SIGTERM');
+                } catch (e) {}
+                clear(null, new Error(`max runtime ${task.maxRuntimeMs}ms exceeded`), 'watchdog-timeout');
+            }, task.maxRuntimeMs);
+            watchdog.unref?.();
+        }
 
         return true;
     }

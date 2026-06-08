@@ -92,7 +92,10 @@ export function buildTaskDefinitions({
             command        : nodeBin,
             args           : [path.join(scriptDir, 'lifecycle', 'backfill-memory-summaries.mjs')],
             pidFileName    : 'memory-summary-backfill.pid',
-            expectedCommand: 'backfill-memory-summaries.mjs'
+            expectedCommand: 'backfill-memory-summaries.mjs',
+            // Watchdog backstop: a healthy 50-item backfill finishes in minutes. 15min bounds a
+            // hang the per-call timeouts miss so one wedged child can't starve the maintenance loop.
+            maxRuntimeMs   : 900000
         },
         kbSync: {
             label          : 'knowledge base sync',
