@@ -287,12 +287,13 @@ class GridContainer extends BaseContainer {
 
         me.view = Neo.create(View, {
             appName,
-            flex     : 1,
-            isLoading: me.isLoading,
-            parentId : me.id,
-            theme    : me.theme,
+            flex         : 1,
+            gridContainer: me,
+            isLoading    : me.isLoading,
+            parentId     : me.id,
+            theme        : me.theme,
             windowId,
-            items    : [me.body]
+            items        : [me.body]
         });
 
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
@@ -1003,6 +1004,17 @@ class GridContainer extends BaseContainer {
 
         me.createOrUpdateSubGrids();
 
+        // Split bodies created here (bodyStart/bodyEnd) aren't covered by the resize-driven
+        // measurement, so without this their containerWidth/columnPositions stay unset and
+        // Body.createViewData short-circuits to an empty body. Mirror the onResize sequence:
+        // measure the container, then (once the width is known) re-derive each body's mounted
+        // and visible columns so createViewData can render their rows.
+        me.passSizeToBody().then(() => {
+            me.bodyStart?.updateMountedAndVisibleColumns();
+            me.body.updateMountedAndVisibleColumns();
+            me.bodyEnd?.updateMountedAndVisibleColumns()
+        });
+
         me.lockedStartColumns.forEach((col, targetIndex) => {
             let btn = me.getButton(col.dataField);
 
@@ -1239,44 +1251,11 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Pushes synchronized scrolling coordinates (like startIndex) into all active bodies
+     * Delegates body scroll-synchronization to grid.View, which owns body orchestration.
      * @param {Number} scrollTop
      */
     syncBodies(scrollTop) {
-        let me               = this,
-            {body, bodyEnd, bodyStart, scrollManager} = me,
-            {bufferRowRange, rowHeight} = body,
-            newStartIndex    = Math.floor(scrollTop / rowHeight);
-
-        let updateBody = _body => {
-            let isCenter = _body === body;
-            _body.skipCreateViewData = true;
-
-            _body.set({
-                scrollLeft: isCenter ? scrollManager.scrollLeft : 0, // Horizontal sync applies from scrollManager state ONLY for center
-                scrollTop : scrollTop
-            });
-
-            if (Math.abs(_body.startIndex - newStartIndex) >= bufferRowRange) {
-                _body.startIndex = newStartIndex
-            } else {
-                _body.visibleRows[0] = newStartIndex;
-                _body.visibleRows[1] = newStartIndex + _body.availableRows
-            }
-
-            _body.skipCreateViewData = false;
-            _body.createViewData(true); // silent = true
-        };
-
-        updateBody(body);
-        bodyStart && updateBody(bodyStart);
-        bodyEnd   && updateBody(bodyEnd);
-
-        if (me.view) {
-            me.view.scrollTop   = scrollTop;
-            me.view.updateDepth = 3;
-            me.view.update()
-        }
+        this.view.syncBodies(scrollTop)
     }
 
     /**
