@@ -12,6 +12,17 @@ const {queryScoreWeights} = aiConfig;
 
 const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
+const lexicalRescueExtensions = new Set(['.js', '.json', '.md', '.mjs', '.yaml', '.yml']);
+const lexicalRescueSkipDirs   = new Set([
+    '.git',
+    '.neo-ai-data',
+    'coverage',
+    'dist',
+    'docs/output',
+    'node_modules',
+    'playwright-report',
+    'test-results'
+]);
 
 dotenv.config({
     path : insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
@@ -113,15 +124,15 @@ class QueryService extends Base {
 
         const collection           = await ChromaManager.getKnowledgeBaseCollection();
         const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.embeddingProvider);
-        const queryLower     = query.toLowerCase();
+        const queryLower           = query.toLowerCase();
 
         const whereClause = (type && type !== 'all') ? { type } : {};
 
-        // #11632 read-side tenant filter: a requester retrieves its own tenant's chunks plus
+        // Read-side tenant filter: a requester retrieves its own tenant's chunks plus
         // Neo's curated `neo-shared` corpus. The requester is derived server-side from the
         // authenticated request context — never from a client-supplied parameter (a forged
         // `tenantId` query arg is therefore ignored). No request context (stdio single-tenant
-        // / offline daemon) → no tenant filter, byte-equivalent with pre-#11632 behavior.
+        // / offline daemon) → no tenant filter, byte-equivalent with the legacy behavior.
         const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
         if (requesterTenantId) {
             whereClause.tenantId = {$in: [requesterTenantId, aiConfig.defaultTenantId]};
@@ -137,17 +148,13 @@ class QueryService extends Base {
             delete queryOptions.where;
         }
 
-        const results = await collection.query(queryOptions);
-
-        if (!results.metadatas || results.metadatas.length === 0 || results.metadatas[0].length === 0) {
-            return {message: 'No results found for your query and type.'};
-        }
-
+        const results        = await collection.query(queryOptions);
         const sourceScores   = {};
         const sourceMetadata = {};
-        const queryWords     = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
+        const metadatas      = results.metadatas?.[0] || [];
+        const queryWords     = this.getQueryWords(queryLower);
 
-        results.metadatas[0].forEach((metadata, index) => {
+        metadatas.forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
 
             let score             = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
@@ -206,8 +213,17 @@ class QueryService extends Base {
             });
         });
 
+        await this.addLexicalRescueScores({
+            query,
+            queryLower,
+            queryWords,
+            sourceMetadata,
+            sourceScores,
+            type
+        });
+
         if (Object.keys(sourceScores).length === 0) {
-            return {message: 'No relevant source files found for the specified type.'};
+            return {message: 'No results found for your query and type.'};
         }
 
         const sortedSources = Object.entries(sourceScores).sort(([, a], [, b]) => b - a);
@@ -244,6 +260,391 @@ class QueryService extends Base {
         }
 
         return {message: 'No relevant source files found after scoring.'};
+    }
+
+    /**
+     * @summary Normalizes query text into scoring words while preserving numerical anchors.
+     * @param {String} queryLower Lower-cased query string.
+     * @returns {String[]} Query words longer than two characters.
+     */
+    getQueryWords(queryLower) {
+        return queryLower.replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(w => w.length > 2);
+    }
+
+    /**
+     * @summary Adds bounded local-source rescue scores for high-specificity exact anchors.
+     *
+     * Vector retrieval remains the primary path. This rescue only contributes default Neo
+     * checkout sources when the user names concrete local anchors such as file paths,
+     * filenames, guide titles, or code-ish identifiers. It protects `ask_knowledge_base`
+     * from sounding like current repo evidence is absent when the semantic top-k omits an
+     * exact Brain / graph substrate file.
+     *
+     * @param {Object} options
+     * @param {String} options.query Full query string.
+     * @param {String} options.queryLower Lower-cased query.
+     * @param {String[]} options.queryWords Tokenized query words.
+     * @param {Object} options.sourceMetadata Mutable source metadata map.
+     * @param {Object} options.sourceScores Mutable source score map.
+     * @param {String} options.type Requested content type.
+     * @returns {Promise<void>}
+     */
+    async addLexicalRescueScores({query, queryLower, queryWords, sourceMetadata, sourceScores, type}) {
+        const candidates = await this.getLexicalRescueCandidates({query, queryLower, queryWords, type});
+        const rescueBase = queryScoreWeights.lexicalRescueMatch || queryScoreWeights.sourcePathMatch * 80;
+
+        candidates.forEach(candidate => {
+            if (type && type !== 'all' && candidate.type && candidate.type !== type) {
+                return;
+            }
+
+            sourceScores[candidate.source] = (sourceScores[candidate.source] || 0) + rescueBase + candidate.score;
+
+            if (!sourceMetadata[candidate.source]) {
+                sourceMetadata[candidate.source] = {
+                    source              : candidate.source,
+                    type                : candidate.type,
+                    name                : candidate.name || path.basename(candidate.source),
+                    repoSlug            : aiConfig.defaultRepoSlug,
+                    tenantId            : aiConfig.defaultTenantId,
+                    inheritanceChain    : '[]',
+                    lexicalRescueReasons: candidate.reasons.join(', ')
+                };
+            }
+        });
+    }
+
+    /**
+     * @summary Finds local Neo sources named directly by path, filename, guide title, or code term.
+     * @param {Object} options
+     * @param {String} options.query Full query string.
+     * @param {String} options.queryLower Lower-cased query.
+     * @param {String[]} options.queryWords Tokenized query words.
+     * @param {String} options.type Requested content type.
+     * @returns {Promise<Object[]>} Local rescue candidates.
+     */
+    async getLexicalRescueCandidates({query, queryLower, queryWords, type}) {
+        const candidateMap = new Map();
+        const addCandidate = async (source, reason, score = 0) => {
+            const normalizedSource = this.normalizeSourcePath(source);
+
+            if (!normalizedSource || !lexicalRescueExtensions.has(path.extname(normalizedSource).toLowerCase())) {
+                return;
+            }
+
+            if (type && type !== 'all' && this.inferSourceType(normalizedSource) !== type) {
+                return;
+            }
+
+            const absoluteSource = path.resolve(aiConfig.neoRootDir, normalizedSource);
+            if (!absoluteSource.startsWith(path.resolve(aiConfig.neoRootDir)) || !await fs.pathExists(absoluteSource)) {
+                return;
+            }
+
+            const existing = candidateMap.get(normalizedSource) || {
+                source : normalizedSource,
+                type   : this.inferSourceType(normalizedSource),
+                name   : path.basename(normalizedSource),
+                reasons: [],
+                score  : 0
+            };
+
+            if (!existing.reasons.includes(reason)) {
+                existing.reasons.push(reason);
+            }
+
+            existing.score += score;
+            candidateMap.set(normalizedSource, existing);
+        };
+
+        await this.addGuideTitleRescues({addCandidate, queryLower, queryWords});
+        await this.addPathHintRescues({addCandidate, query});
+        await this.addFilenameHintRescues({addCandidate, query});
+        await this.addCodeTermRescues({addCandidate, query});
+
+        return Array.from(candidateMap.values());
+    }
+
+    /**
+     * @summary Rescues guide files whose `learn/tree.json` title is explicitly named.
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async addGuideTitleRescues({addCandidate, queryLower, queryWords}) {
+        const learnTreePath = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths.LearningSource || 'learn/tree.json');
+
+        if (!await fs.pathExists(learnTreePath)) {
+            return;
+        }
+
+        const learnBaseRelative = path.dirname(aiConfig.sourcePaths.LearningSource || 'learn/tree.json');
+        const learnTree         = await fs.readJson(learnTreePath);
+        const queryWordSet      = new Set(queryWords);
+
+        for (const item of learnTree.data || []) {
+            if (!item.id || item.isLeaf === false) {
+                continue;
+            }
+
+            const titleWords = this.getQueryWords((item.name || '').toLowerCase())
+                .filter(word => !['and', 'the', 'with'].includes(word));
+            const titleHits = titleWords.filter(word => queryWordSet.has(word));
+
+            if (titleWords.length < 2 || titleHits.length < Math.min(2, titleWords.length)) {
+                continue;
+            }
+
+            const source = this.normalizeSourcePath(path.join(learnBaseRelative, `${item.id}.md`));
+            await addCandidate(source, `guide-title:${item.name}`, queryScoreWeights.guideMatch);
+        }
+    }
+
+    /**
+     * @summary Rescues explicit path and directory hints named in the query.
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async addPathHintRescues({addCandidate, query}) {
+        const pathHints = this.extractPathHints(query);
+
+        for (const hint of pathHints) {
+            const absolutePath = path.resolve(aiConfig.neoRootDir, hint);
+
+            if (!absolutePath.startsWith(path.resolve(aiConfig.neoRootDir)) || !await fs.pathExists(absolutePath)) {
+                continue;
+            }
+
+            const stat = await fs.stat(absolutePath);
+            if (stat.isFile()) {
+                await addCandidate(hint, `path:${hint}`, queryScoreWeights.sourcePathMatch);
+            } else if (stat.isDirectory()) {
+                const files = await this.collectFiles(absolutePath, {limit: 12});
+                for (const file of files) {
+                    await addCandidate(path.relative(aiConfig.neoRootDir, file), `path-dir:${hint}`, queryScoreWeights.sourcePathMatch);
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary Rescues exact file basename hints when the query names a file without its full path.
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async addFilenameHintRescues({addCandidate, query}) {
+        const fileNames = this.extractFilenameHints(query);
+
+        for (const fileName of fileNames) {
+            const files = await this.findFilesByBasename(path.resolve(aiConfig.neoRootDir), fileName, {limit: 6});
+            for (const file of files) {
+                await addCandidate(path.relative(aiConfig.neoRootDir, file), `filename:${fileName}`, queryScoreWeights.fileNameMatch * 20);
+            }
+        }
+    }
+
+    /**
+     * @summary Rescues local source files containing high-specificity code terms from the query.
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async addCodeTermRescues({addCandidate, query}) {
+        const terms = this.extractCodeTerms(query);
+
+        if (terms.length === 0) {
+            return;
+        }
+
+        const roots = ['ai/services', 'ai/mcp/server', 'ai/graph']
+            .map(root => path.resolve(aiConfig.neoRootDir, root));
+
+        for (const root of roots) {
+            if (!await fs.pathExists(root)) {
+                continue;
+            }
+
+            const files = await this.collectFiles(root, {limit: 500});
+            for (const file of files) {
+                const content = await fs.readFile(file, 'utf-8').catch(() => '');
+                const compact = this.normalizeLexicalValue(content);
+
+                if (terms.some(term => compact.includes(term))) {
+                    await addCandidate(path.relative(aiConfig.neoRootDir, file), 'code-term', queryScoreWeights.classNameMatch);
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary Extracts path-like query anchors.
+     * @param {String} query Query string.
+     * @returns {String[]} Normalized path hints.
+     */
+    extractPathHints(query) {
+        const matches = query.match(/[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)+/g) || [];
+
+        return [...new Set(matches.map(match => this.normalizeSourcePath(match)))];
+    }
+
+    /**
+     * @summary Extracts exact file-name query anchors.
+     * @param {String} query Query string.
+     * @returns {String[]} File-name hints.
+     */
+    extractFilenameHints(query) {
+        const matches = query.match(/[a-zA-Z0-9_.-]+\.(?:js|json|md|mjs|ya?ml)/g) || [];
+
+        return [...new Set(matches.map(match => path.basename(match)))];
+    }
+
+    /**
+     * @summary Extracts code-ish identifiers such as `mutate_frontier` as compact lexical terms.
+     * @param {String} query Query string.
+     * @returns {String[]} Normalized code terms.
+     */
+    extractCodeTerms(query) {
+        const matches = query.match(/[a-zA-Z][a-zA-Z0-9]*(?:[_-][a-zA-Z0-9]+)+/g) || [];
+
+        return [...new Set(matches
+            .filter(match => !query.toLowerCase().includes(`${match.toLowerCase()}.`))
+            .map(match => this.normalizeLexicalValue(match))
+            .filter(term => term.length > 5))];
+    }
+
+    /**
+     * @summary Infers the public KB type for a local source path.
+     * @param {String} source Source path relative to `neoRootDir`.
+     * @returns {String} Best-effort content type.
+     */
+    inferSourceType(source) {
+        if (source.startsWith('learn/')) return 'guide';
+        if (source.startsWith('.agents/skills/')) return 'skill';
+        if (source.startsWith('test/')) return 'test';
+        if (source.startsWith('resources/content/issues/') || source.startsWith('resources/content/archive/issues/')) return 'ticket';
+        if (source.startsWith('resources/content/discussions/') || source.startsWith('resources/content/archive/discussions/')) return 'discussion';
+        if (source.startsWith('resources/content/pulls/') || source.startsWith('resources/content/archive/pulls/')) return 'pull-request';
+        if (source.startsWith('resources/content/release-notes/') || source.startsWith('.github/RELEASE_NOTES/')) return 'release';
+
+        const apiSourceMap = aiConfig.sourcePaths.ApiSource || {};
+        const match = Object.entries(apiSourceMap).find(([sourceRoot]) =>
+            source === sourceRoot || source.startsWith(`${sourceRoot}/`)
+        );
+
+        return match ? match[1] : 'raw';
+    }
+
+    /**
+     * @summary Recursively collects local text source files below a directory.
+     * @param {String} directoryPath Absolute directory path.
+     * @param {Object} options
+     * @param {Number} options.limit Maximum files to return.
+     * @returns {Promise<String[]>} Absolute file paths.
+     */
+    async collectFiles(directoryPath, {limit}) {
+        const files = [];
+        const visit = async currentPath => {
+            if (files.length >= limit) {
+                return;
+            }
+
+            const entries = await fs.readdir(currentPath, {withFileTypes: true}).catch(() => []);
+            entries.sort((a, b) => a.name.localeCompare(b.name));
+
+            for (const entry of entries) {
+                if (files.length >= limit) {
+                    return;
+                }
+
+                const absolute = path.join(currentPath, entry.name);
+                if (entry.isDirectory()) {
+                    if (!lexicalRescueSkipDirs.has(entry.name)) {
+                        await visit(absolute);
+                    }
+                } else if (await this.isReadableSourceFile(absolute, entry)) {
+                    files.push(absolute);
+                }
+            }
+        };
+
+        await visit(directoryPath);
+        return files;
+    }
+
+    /**
+     * @summary Finds local files by basename while skipping generated and heavy directories.
+     * @param {String} directoryPath Absolute directory path.
+     * @param {String} basename File basename to match.
+     * @param {Object} options
+     * @param {Number} options.limit Maximum matches.
+     * @returns {Promise<String[]>} Absolute file paths.
+     */
+    async findFilesByBasename(directoryPath, basename, {limit}) {
+        const files = [];
+        const visit = async currentPath => {
+            if (files.length >= limit) {
+                return;
+            }
+
+            const entries = await fs.readdir(currentPath, {withFileTypes: true}).catch(() => []);
+            entries.sort((a, b) => a.name.localeCompare(b.name));
+
+            for (const entry of entries) {
+                if (files.length >= limit) {
+                    return;
+                }
+
+                const absolute = path.join(currentPath, entry.name);
+                if (entry.isDirectory()) {
+                    if (!lexicalRescueSkipDirs.has(entry.name)) {
+                        await visit(absolute);
+                    }
+                } else if (entry.name === basename && await this.isReadableSourceFile(absolute, entry)) {
+                    files.push(absolute);
+                }
+            }
+        };
+
+        await visit(directoryPath);
+        return files;
+    }
+
+    /**
+     * @summary Normalizes local source paths to repo-relative POSIX form.
+     * @param {String} source Source path.
+     * @returns {String} Normalized source path.
+     */
+    normalizeSourcePath(source) {
+        return (source || '').replaceAll('\\', '/').replace(/^\.?\//, '');
+    }
+
+    /**
+     * @summary Returns true for readable text files, including repo symlinks to files.
+     * @param {String} absolute Absolute candidate path.
+     * @param {fs.Dirent} entry Directory entry.
+     * @returns {Promise<Boolean>} True when the candidate is a supported file.
+     */
+    async isReadableSourceFile(absolute, entry) {
+        if (!lexicalRescueExtensions.has(path.extname(entry.name).toLowerCase())) {
+            return false;
+        }
+
+        if (entry.isFile()) {
+            return true;
+        }
+
+        if (!entry.isSymbolicLink()) {
+            return false;
+        }
+
+        return Boolean((await fs.stat(absolute).catch(() => null))?.isFile());
+    }
+
+    /**
+     * @summary Normalizes arbitrary content for exact code-term matching.
+     * @param {String} value Input value.
+     * @returns {String} Compact lexical value.
+     */
+    normalizeLexicalValue(value = '') {
+        return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '');
     }
 }
 
