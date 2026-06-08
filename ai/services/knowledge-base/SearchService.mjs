@@ -150,6 +150,42 @@ class SearchService extends Base {
     }
 
     /**
+     * @summary Creates the degraded response used when retrieval succeeds but synthesis is unavailable.
+     * @param {Object} params
+     * @param {Object[]} params.references Ranked references returned by QueryService.
+     * @param {Error|String} params.error The synthesis failure to expose in bounded form.
+     * @returns {{answer: String, references: Object[], degraded: Boolean, error: String, reason: String}}
+     * @private
+     */
+    #createDegradedSynthesisResponse({references, error}) {
+        const reason = this.#sanitizeSynthesisError(error);
+
+        return {
+            answer: `Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (${reason}). Use the references directly while the synthesis provider recovers.`,
+            references,
+            degraded: true,
+            error: 'synthesis_failed',
+            reason
+        };
+    }
+
+    /**
+     * @summary Bounds synthesis-provider errors before returning them through MCP callers.
+     * @param {Error|String} error The raw provider error.
+     * @returns {String} A credential-safe, bounded reason string.
+     * @private
+     */
+    #sanitizeSynthesisError(error) {
+        const raw = typeof error === 'string'
+            ? error
+            : (error?.message || 'Synthesis provider unavailable');
+
+        return raw
+            .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[redacted-api-key]')
+            .slice(0, 500);
+    }
+
+    /**
      * Performs a semantic search via QueryService and synthesizes an answer using the LLM.
      *
      * @param {Object} params
@@ -171,15 +207,19 @@ class SearchService extends Base {
             };
         }
 
-        if (!this.model) {
-            throw new Error('GEMINI_API_KEY is required for RAG features.');
-        }
-
         const references = queryResult.results.map(r => ({
             name  : r.source.split('/').pop(),
             source: r.source,
             score : Number(r.score)
         }));
+
+        if (!this.model) {
+            return this.#createDegradedSynthesisResponse({
+                references,
+                error: 'GEMINI_API_KEY is required for RAG features.'
+            });
+        }
+
         const contextReferences = queryResult.results.map((r, index) => ({
             ...references[index],
             metadata: r.metadata || {}
@@ -190,7 +230,7 @@ class SearchService extends Base {
         // All source loaders store `metadata.source` as a path relative to `neoRootDir`
         // so the Chroma collection shipped with each neo release remains portable across
         // recipients' filesystems. We resolve against the consumer's own `neoRootDir`
-        // at read time. Before #10097 this branch did a bare `fs.pathExists(ref.source)`
+        // at read time. Before the relative-source fix, this branch did a bare `fs.pathExists(ref.source)`
         // which silently succeeded for legacy absolute-path chunks but failed for the
         // relative-path chunks emitted by ApiSource / TestSource — producing phantom
         // `No Content (File missing or empty)` context. The synthesis LLM then saw
@@ -199,8 +239,8 @@ class SearchService extends Base {
         // `path.isAbsolute` short-circuit keeps legacy absolute-path chunks working
         // during the grace period when a consumer has not yet re-synced.
         //
-        // #11636 chooses Q12 Option A (metadata-embedded hydration) for tenant content.
-        // The measured chunk distribution keeps the V1 storage cost acceptable, while
+        // Tenant content uses metadata-embedded hydration. The measured chunk distribution
+        // keeps the V1 storage cost acceptable, while
         // avoiding server-mirror infrastructure. Non-local tenants may use the same
         // relative `source` strings as Neo itself, so those references hydrate from
         // metadata.content and never fall through to the host checkout.
@@ -232,8 +272,18 @@ Instructions:
 `;
 
         // 3. Generate Answer
-        const result = await this.model.generateContent(prompt);
-        const answer = result.response.text();
+        let result, answer;
+
+        try {
+            result = await this.model.generateContent(prompt);
+            answer = result.response.text();
+        } catch (error) {
+            const degraded = this.#createDegradedSynthesisResponse({references, error});
+
+            logger.warn(`[SearchService] Synthesis failed after retrieval; returning degraded references: ${degraded.reason}`);
+
+            return degraded;
+        }
 
         return {
             answer,
