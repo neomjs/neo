@@ -15,7 +15,8 @@ import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoo
  * injected factories. Returns a `{generateContent}` shim that wraps the provider's
  * `generate()` in a Gemini-shaped response envelope (`{response: {text()}}`) so
  * downstream consumers (`summarizeSession`, `invokeWithGuardrail`) stay
- * provider-agnostic.
+ * provider-agnostic. Wrapper `generateContent(promptText, options)` calls pass safe provider
+ * options such as `timeoutMs` through to local providers without leaking them into prompts.
  *
  * Extracted from `construct()` for testability: tests can pass mocked provider
  * factories to verify selector boundaries + envelope shape without hitting real
@@ -53,14 +54,14 @@ export function buildChatModel({
             ...(cfg.keep_alive !== undefined ? {keepAlive: cfg.keep_alive} : {})
         });
         return {
-            generateContent: async (promptText) => {
+            generateContent: async (promptText, generationOptions = {}) => {
                 provider.apiKey    = cfg.apiKey;
                 provider.host      = cfg.host;
                 provider.modelName = cfg.model;
                 if (cfg.keep_alive !== undefined) {
                     provider.keepAlive = cfg.keep_alive;
                 }
-                const result  = await provider.generate(promptText);
+                const result  = await provider.generate(promptText, generationOptions);
                 const content = result.content || result.raw?.message?.content || '';
                 return {response: {text: () => content}};
             }
@@ -76,13 +77,13 @@ export function buildChatModel({
             ...(cfg.keep_alive !== undefined ? {keepAlive: cfg.keep_alive} : {})
         });
         return {
-            generateContent: async (promptText) => {
+            generateContent: async (promptText, generationOptions = {}) => {
                 provider.host      = cfg.host  || provider.host;
                 provider.modelName = cfg.model || provider.modelName;
                 if (cfg.keep_alive !== undefined) {
                     provider.keepAlive = cfg.keep_alive;
                 }
-                const result  = await provider.generate(promptText);
+                const result  = await provider.generate(promptText, generationOptions);
                 const content = result.content || result.raw?.message?.content || '';
                 return {response: {text: () => content}};
             }

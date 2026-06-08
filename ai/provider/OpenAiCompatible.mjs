@@ -1,6 +1,25 @@
 import Base from './Base.mjs';
 
 /**
+ * @summary Creates a provider-timeout error that identifies the safe transport context.
+ *
+ * The message names the operation, timeout budget, host, and model while deliberately
+ * omitting prompt content and credentials.
+ *
+ * @param {Object} options
+ * @param {String} options.operationLabel Safe diagnostic label for the caller operation.
+ * @param {Number} options.timeoutMs Timeout budget in milliseconds.
+ * @param {String} options.host Provider host.
+ * @param {String} options.modelName Chat model id.
+ * @returns {Error}
+ */
+function createTimeoutError({operationLabel, timeoutMs, host, modelName}) {
+    const error = new Error(`[OpenAiCompatible] ${operationLabel} timed out after ${timeoutMs}ms (host=${host}, model=${modelName})`);
+    error.code  = 'OPENAI_COMPATIBLE_TIMEOUT';
+    return error;
+}
+
+/**
  * Concrete AI provider for a local MLX-native or any OpenAI-compatible API server.
  * Uses the native JS Fetch API. Defaults to http://127.0.0.1:8000.
  *
@@ -88,6 +107,9 @@ class OpenAiCompatibleProvider extends Base {
         };
 
         const clonedOptions = { ...options };
+        delete clonedOptions.operationLabel;
+        delete clonedOptions.signal;
+        delete clonedOptions.timeoutMs;
 
         // Handle JSON extraction
         if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json' || clonedOptions.response_format?.type === 'json_object') {
@@ -222,13 +244,47 @@ class OpenAiCompatibleProvider extends Base {
      *
      * @param {String|Array} input
      * @param {Object} [options]
+     * @param {Number} [options.timeoutMs] Abort the provider request after this many milliseconds.
+     * @param {String} [options.operationLabel] Safe diagnostic label for timeout errors.
+     * @param {AbortSignal} [options.signal] Optional upstream cancellation signal.
      * @returns {AsyncGenerator<String>} Yields text chunks.
      */
     async *stream(input, options = {}) {
         const cleanOptions = { ...options };
+        const rawTimeoutMs  = Number(cleanOptions.timeoutMs),
+              timeoutMs     = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : null,
+              operationLabel = cleanOptions.operationLabel || 'OpenAI-compatible chat completion',
+              upstreamSignal = cleanOptions.signal;
+
         delete cleanOptions.num_ctx;
+        delete cleanOptions.operationLabel;
+        delete cleanOptions.signal;
+        delete cleanOptions.timeoutMs;
 
         const payload = this.preparePayload(input, cleanOptions, true);
+        const controller = timeoutMs || upstreamSignal ? new AbortController() : null;
+        let timeoutId, upstreamAbortListener, timedOut = false;
+
+        if (controller && upstreamSignal) {
+            if (upstreamSignal.aborted) {
+                controller.abort(upstreamSignal.reason);
+            } else {
+                upstreamAbortListener = () => controller.abort(upstreamSignal.reason);
+                upstreamSignal.addEventListener('abort', upstreamAbortListener, {once: true});
+            }
+        }
+
+        if (controller && timeoutMs && !controller.signal.aborted) {
+            timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort(createTimeoutError({
+                    operationLabel,
+                    timeoutMs,
+                    host     : this.host,
+                    modelName: this.modelName
+                }));
+            }, timeoutMs);
+        }
 
         try {
             const response = await fetch(`${this.host}/v1/chat/completions`, {
@@ -237,7 +293,8 @@ class OpenAiCompatibleProvider extends Base {
                     'Content-Type': 'application/json',
                     ...(this.apiKey ? {Authorization: `Bearer ${this.apiKey}`} : {})
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                ...(controller ? {signal: controller.signal} : {})
             });
 
             if (!response.ok) {
@@ -291,7 +348,24 @@ class OpenAiCompatibleProvider extends Base {
                 }
             }
         } catch (error) {
+            if (timedOut) {
+                const timeoutError = createTimeoutError({
+                    operationLabel,
+                    timeoutMs,
+                    host     : this.host,
+                    modelName: this.modelName
+                });
+                timeoutError.cause = error;
+                throw timeoutError;
+            }
             throw error;
+        } finally {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+            if (upstreamSignal && upstreamAbortListener) {
+                upstreamSignal.removeEventListener('abort', upstreamAbortListener);
+            }
         }
     }
 }

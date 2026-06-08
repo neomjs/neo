@@ -116,8 +116,8 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
             modelName: null,
             apiKey   : null,
             keepAlive: null,
-            async generate(promptText) {
-                captured.push({promptText, host: this.host, modelName: this.modelName, apiKey: this.apiKey, keepAlive: this.keepAlive});
+            async generate(promptText, generationOptions) {
+                captured.push({promptText, generationOptions, host: this.host, modelName: this.modelName, apiKey: this.apiKey, keepAlive: this.keepAlive});
                 return {content: 'oai:' + promptText};
             }
         };
@@ -129,9 +129,21 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
         });
 
         expect(model).toBeTruthy();
-        const response = await model.generateContent('hello');
+        const response = await model.generateContent('hello', {
+            operationLabel: 'miniSummary generation',
+            timeoutMs     : 4000
+        });
         expect(response.response.text()).toBe('oai:hello');
-        expect(captured[0]).toMatchObject({host: 'http://oai.test', modelName: 'oai-model', apiKey: 'sk-test', keepAlive: -1});
+        expect(captured[0]).toMatchObject({
+            host             : 'http://oai.test',
+            modelName        : 'oai-model',
+            apiKey           : 'sk-test',
+            keepAlive        : -1,
+            generationOptions: {
+                operationLabel: 'miniSummary generation',
+                timeoutMs     : 4000
+            }
+        });
     });
 
     test('modelProvider=gemini returns null when geminiApiKey is missing', () => {
