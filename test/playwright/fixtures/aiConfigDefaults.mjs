@@ -97,7 +97,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         clientSecret      : process.env.NEO_OAUTH_CLIENT_SECRET || '',
         trustProxyIdentity: process.env.NEO_AUTH_TRUST_PROXY_IDENTITY === 'true'
     },
-    modelProvider    : process.env.NEO_MODEL_PROVIDER || 'gemini',
+    modelProvider    : process.env.NEO_MODEL_PROVIDER || 'openAiCompatible',
     graphProvider    : process.env.NEO_GRAPH_PROVIDER || 'openAiCompatible',
     embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible',
     ollama: {
