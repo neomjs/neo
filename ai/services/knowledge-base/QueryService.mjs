@@ -25,6 +25,9 @@ const lexicalRescueSkipDirs   = new Set([
 ]);
 const codeTermRescueRoots     = ['ai/services', 'ai/mcp/server', 'ai/graph'];
 const codeTermRescueFileLimit = 500;
+const sourceLikeTypeAliases = {
+    src: ['src', 'ai-infrastructure']
+};
 
 dotenv.config({
     path : insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
@@ -128,38 +131,23 @@ class QueryService extends Base {
         const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.embeddingProvider);
         const queryLower           = query.toLowerCase();
 
-        const whereClause = (type && type !== 'all') ? { type } : {};
-
         // Read-side tenant filter: a requester retrieves its own tenant's chunks plus
         // Neo's curated `neo-shared` corpus. The requester is derived server-side from the
         // authenticated request context — never from a client-supplied parameter (a forged
         // `tenantId` query arg is therefore ignored). No request context (stdio single-tenant
         // / offline daemon) → no tenant filter, byte-equivalent with the legacy behavior.
         const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
-        if (requesterTenantId) {
-            whereClause.tenantId = {$in: [requesterTenantId, aiConfig.defaultTenantId]};
-        }
-
-        const queryOptions = {
-            queryEmbeddings: [queryEmbeddingValues],
-            nResults       : aiConfig.nResults,
-            where          : whereClause
-        };
-
-        if (Object.keys(whereClause).length === 0) {
-            delete queryOptions.where;
-        }
-
-        const results        = await collection.query(queryOptions);
+        const queryOptions    = this.createQueryOptions({queryEmbeddingValues, requesterTenantId, type});
+        const queryResults    = await Promise.all(queryOptions.map(options => collection.query(options)));
         const sourceScores   = {};
         const sourceMetadata = {};
-        const metadatas      = results.metadatas?.[0] || [];
+        const metadatas      = this.dedupeCandidateMetadatas(queryResults.flatMap(result => result.metadatas?.[0] || []));
         const queryWords     = this.getQueryWords(queryLower);
 
         metadatas.forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
 
-            let score             = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
+            let score             = (metadatas.length - index) * queryScoreWeights.baseIncrement;
             const sourcePath      = metadata.source;
             const sourcePathLower = sourcePath.toLowerCase();
             const fileName        = sourcePath.split('/').pop().toLowerCase();
@@ -199,6 +187,7 @@ class QueryService extends Base {
             });
 
             if (metadata.type === 'ticket' && type === 'all') score += queryScoreWeights.ticketPenalty;
+            if (metadata.type === 'pull' && type === 'all') score += queryScoreWeights.pullPenalty;
             if (metadata.type === 'release') score += queryScoreWeights.releasePenalty;
             if (fileName.endsWith('base.mjs')) score += queryScoreWeights.baseFileBonus;
             if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower) score += queryScoreWeights.releaseExactMatch;
@@ -265,6 +254,200 @@ class QueryService extends Base {
     }
 
     /**
+     * @summary Builds Chroma query option objects for a request.
+     *
+     * Broad `type='all'` searches are stratified before Chroma retrieval so historical
+     * conversations cannot monopolize the candidate set before current source/docs reach
+     * the hybrid scorer.
+     *
+     * @param {Object} options
+     * @param {Number[][]} options.queryEmbeddingValues Query embedding payload.
+     * @param {String|null} options.requesterTenantId Authenticated requester tenant.
+     * @param {String} options.type Requested KB content type.
+     * @returns {Object[]} Chroma query option objects.
+     */
+    createQueryOptions({queryEmbeddingValues, requesterTenantId, type}) {
+        if (type === 'all') {
+            return this.createBroadQueryOptions({queryEmbeddingValues, requesterTenantId});
+        }
+
+        return [
+            this.createQueryOption({
+                queryEmbeddingValues,
+                requesterTenantId,
+                typeFilter: this.resolveTypeFilter(type),
+                nResults  : aiConfig.nResults
+            })
+        ];
+    }
+
+    /**
+     * @summary Builds source-tiered Chroma queries for broad KB searches.
+     * @param {Object} options
+     * @returns {Object[]} Chroma query option objects.
+     */
+    createBroadQueryOptions({queryEmbeddingValues, requesterTenantId}) {
+        const pools = Array.isArray(aiConfig.queryCandidatePools) ? aiConfig.queryCandidatePools : [];
+
+        const activePools = pools.filter(pool => this.isCandidatePoolActive(pool));
+
+        if (activePools.length === 0) {
+            return [
+                this.createQueryOption({
+                    queryEmbeddingValues,
+                    requesterTenantId,
+                    nResults: aiConfig.nResults
+                })
+            ];
+        }
+
+        const total = Math.max(1, Number(aiConfig.nResults) || 1);
+        let allocated = 0;
+
+        return activePools
+            .map((pool, index) => {
+                const isLast = index === activePools.length - 1;
+                const rawResults = pool.nResults ?? (
+                    isLast ? total - allocated : Math.floor(total * (pool.share ?? 0))
+                );
+                const nResults = Math.max(1, Math.min(total, rawResults));
+                allocated += nResults;
+
+                return this.createQueryOption({
+                    queryEmbeddingValues,
+                    requesterTenantId,
+                    typeFilter: pool.types,
+                    nResults
+                });
+            });
+    }
+
+    /**
+     * @summary Checks whether a configured broad-query candidate pool can run.
+     *
+     * A pool with omitted `types` is intentionally valid: it is the bounded fallback lane for
+     * tenant-ingested custom parser kinds (`module-context`, `cpp-function`, `proto-message`,
+     * etc.) that are not part of Neo's curated source taxonomy.
+     *
+     * @param {Object} pool Candidate pool config entry.
+     * @returns {Boolean} True when the pool should be queried.
+     */
+    isCandidatePoolActive(pool) {
+        if (!pool || typeof pool !== 'object') {
+            return false;
+        }
+
+        if (!Object.hasOwn(pool, 'types') || pool.types == null) {
+            return true;
+        }
+
+        return Array.isArray(pool.types) && pool.types.length > 0;
+    }
+
+    /**
+     * @summary Removes exact duplicate Chroma candidates returned by overlapping pools.
+     *
+     * The broad fallback lane intentionally queries without a type predicate, so it can return
+     * the same high-similarity chunk already seen in a typed pool. Keep distinct chunks from the
+     * same source, but avoid double-counting the same metadata row.
+     *
+     * @param {Object[]} metadatas Flattened Chroma metadata candidates.
+     * @returns {Object[]} Deduplicated metadata candidates.
+     */
+    dedupeCandidateMetadatas(metadatas) {
+        const seen = new Set();
+
+        return metadatas.filter(metadata => {
+            const key = [
+                metadata?.tenantId || '',
+                metadata?.repoSlug || '',
+                metadata?.source || '',
+                metadata?.type || '',
+                metadata?.name || '',
+                metadata?.content || metadata?.description || '',
+                metadata?.line_start || '',
+                metadata?.line_end || ''
+            ].join('\u001f');
+
+            if (seen.has(key)) {
+                return false;
+            }
+
+            seen.add(key);
+            return true;
+        });
+    }
+
+    /**
+     * @summary Builds one Chroma query option with a valid optional where clause.
+     * @param {Object} options
+     * @returns {Object} Chroma query options.
+     */
+    createQueryOption({queryEmbeddingValues, requesterTenantId, typeFilter, nResults}) {
+        const where = this.createWhereClause({requesterTenantId, typeFilter});
+        const option = {
+            queryEmbeddings: [queryEmbeddingValues],
+            nResults
+        };
+
+        if (where) {
+            option.where = where;
+        }
+
+        return option;
+    }
+
+    /**
+     * @summary Creates a Chroma metadata filter without emitting invalid empty objects.
+     * @param {Object} options
+     * @returns {Object|undefined} Chroma where clause.
+     */
+    createWhereClause({requesterTenantId, typeFilter}) {
+        const clauses = [];
+
+        if (typeFilter) {
+            clauses.push(Array.isArray(typeFilter) ? {type: {$in: typeFilter}} : {type: typeFilter});
+        }
+
+        if (requesterTenantId) {
+            clauses.push({tenantId: {$in: [requesterTenantId, aiConfig.defaultTenantId]}});
+        }
+
+        if (clauses.length === 0) {
+            return undefined;
+        }
+
+        return clauses.length === 1 ? clauses[0] : {$and: clauses};
+    }
+
+    /**
+     * @summary Resolves public query type aliases into indexed KB type filters.
+     * @param {String} type Requested content type.
+     * @returns {String|String[]|null} Chroma type filter.
+     */
+    resolveTypeFilter(type) {
+        if (!type || type === 'all') {
+            return null;
+        }
+
+        return sourceLikeTypeAliases[type] || type;
+    }
+
+    /**
+     * @summary Checks whether an indexed type belongs to a requested filter.
+     * @param {String} candidateType Indexed content type.
+     * @param {String|String[]|null} typeFilter Requested type filter.
+     * @returns {Boolean} True when the candidate type is allowed.
+     */
+    matchesTypeFilter(candidateType, typeFilter) {
+        if (!typeFilter) {
+            return true;
+        }
+
+        return Array.isArray(typeFilter) ? typeFilter.includes(candidateType) : candidateType === typeFilter;
+    }
+
+    /**
      * @summary Normalizes query text into scoring words while preserving numerical anchors.
      * @param {String} queryLower Lower-cased query string.
      * @returns {String[]} Query words longer than two characters.
@@ -294,9 +477,10 @@ class QueryService extends Base {
     async addLexicalRescueScores({query, queryLower, queryWords, sourceMetadata, sourceScores, type}) {
         const candidates = await this.getLexicalRescueCandidates({query, queryLower, queryWords, type});
         const rescueBase = queryScoreWeights.lexicalRescueMatch || queryScoreWeights.sourcePathMatch * 80;
+        const typeFilter = this.resolveTypeFilter(type);
 
         candidates.forEach(candidate => {
-            if (type && type !== 'all' && candidate.type && candidate.type !== type) {
+            if (!this.matchesTypeFilter(candidate.type, typeFilter)) {
                 return;
             }
 
@@ -327,6 +511,7 @@ class QueryService extends Base {
      */
     async getLexicalRescueCandidates({query, queryLower, queryWords, type}) {
         const candidateMap = new Map();
+        const typeFilter   = this.resolveTypeFilter(type);
         const addCandidate = async (source, reason, score = 0) => {
             const normalizedSource = this.normalizeSourcePath(source);
 
@@ -334,7 +519,7 @@ class QueryService extends Base {
                 return;
             }
 
-            if (type && type !== 'all' && this.inferSourceType(normalizedSource) !== type) {
+            if (!this.matchesTypeFilter(this.inferSourceType(normalizedSource), typeFilter)) {
                 return;
             }
 
@@ -580,7 +765,7 @@ class QueryService extends Base {
         if (source.startsWith('test/')) return 'test';
         if (source.startsWith('resources/content/issues/') || source.startsWith('resources/content/archive/issues/')) return 'ticket';
         if (source.startsWith('resources/content/discussions/') || source.startsWith('resources/content/archive/discussions/')) return 'discussion';
-        if (source.startsWith('resources/content/pulls/') || source.startsWith('resources/content/archive/pulls/')) return 'pull-request';
+        if (source.startsWith('resources/content/pulls/') || source.startsWith('resources/content/archive/pulls/')) return 'pull';
         if (source.startsWith('resources/content/release-notes/') || source.startsWith('.github/RELEASE_NOTES/')) return 'release';
 
         const apiSourceMap = aiConfig.sourcePaths.ApiSource || {};
