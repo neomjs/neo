@@ -14,6 +14,7 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
@@ -33,6 +34,16 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         expect(() => buildChatModel({
             modelProvider: 'mystery'
         })).toThrow(/unsupported modelProvider 'mystery'/);
+    });
+
+    test('buildChatModel has no static provider imports (#12763)', async () => {
+        const source = await fs.readFile(new URL('../../../../../../ai/provider/buildChatModel.mjs', import.meta.url), 'utf8');
+
+        expect(source).not.toMatch(/^import\s+.*@google\/generative-ai/m);
+        expect(source).not.toMatch(/^import\s+.*\.\/Ollama\.mjs/m);
+        expect(source).not.toMatch(/^import\s+.*\.\/OpenAiCompatible\.mjs/m);
+        expect(source).not.toContain('http://127.0.0.1:11434');
+        expect(source).not.toContain("'gemma4'");
     });
 
     test('modelProvider=ollama returns generateContent wrapping native Ollama provider', async () => {
@@ -144,6 +155,36 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
                 timeoutMs     : 4000
             }
         });
+    });
+
+    test('modelProvider=openAiCompatible delays provider construction until generateContent (#12763)', async () => {
+        const factoryCalls = [];
+        const fakeProvider = {
+            async generate(promptText) {
+                return {content: 'lazy:' + promptText};
+            }
+        };
+
+        const model = buildChatModel({
+            modelProvider                  : 'openAiCompatible',
+            openAiCompatibleConfig         : {host: 'http://oai.test', model: 'lazy-model'},
+            openAiCompatibleProviderFactory: (cfg) => {
+                factoryCalls.push(cfg);
+                return fakeProvider;
+            },
+            geminiClientFactory            : () => { throw new Error('Gemini must not be constructed for local providers'); }
+        });
+
+        expect(factoryCalls).toEqual([]);
+
+        const response = await model.generateContent('hello');
+
+        expect(response.response.text()).toBe('lazy:hello');
+        expect(factoryCalls).toEqual([{
+            host     : 'http://oai.test',
+            modelName: 'lazy-model',
+            apiKey   : undefined
+        }]);
     });
 
     test('local provider is used even when a Gemini key is present — key does not override the configured provider (#12741)', async () => {
