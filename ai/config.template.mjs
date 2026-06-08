@@ -124,7 +124,7 @@ class Config extends ConfigProvider {
              * `openAiCompatible`.
              * @type {String}
              */
-            chatProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string'),
+            chatProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string'),
             /**
              * @summary Runtime alias for the active chat provider.
              *
@@ -133,7 +133,7 @@ class Config extends ConfigProvider {
              * one canonical key.
              * @type {String}
              */
-            modelProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string'),
+            modelProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string'),
             /**
              * @summary Provider selector for Dream/Sandman graph-generation work.
              *
