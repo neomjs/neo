@@ -31,7 +31,7 @@ import * as core      from '../../../../../src/core/_export.mjs';
  *      `engines.chroma`, …) are themselves frozen. Accidental in-test writes
  *      to nested groups throw in strict mode instead of silently mutating.
  *
- * Cycle-1 of #11978 shipped a shallow `Object.freeze({...AiConfig.data})`
+ * An earlier cycle shipped a shallow `Object.freeze({...AiConfig.data})`
  * which top-level-froze but kept nested references — the failure mode this
  * spec is designed to regression-anchor.
  */
@@ -117,7 +117,7 @@ test.describe('aiConfigDefaults fixture contract (#11977 cycle-2)', () => {
 
     test('values match the tracked template defaults (sanity check)', () => {
         // Anchor that the snapshot is reading from the template, not the overlay.
-        expect(TIER1_DEFAULTS.modelProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'gemini');
+        expect(TIER1_DEFAULTS.modelProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'openAiCompatible');
         expect(TIER1_DEFAULTS.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(TIER1_DEFAULTS.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
     });

@@ -58,7 +58,7 @@ test.describe('Tier 1 Config Immutability', () => {
     });
 
     test('ships Tier-1 provider and unified Chroma defaults', async () => {
-        expect(Config.chatProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'gemini');
+        expect(Config.chatProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'openAiCompatible');
         expect(Config.modelProvider).toBe(Config.chatProvider);
         expect(Config.graphProvider).toBe(process.env.NEO_GRAPH_PROVIDER || 'openAiCompatible');
         expect(Config.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');

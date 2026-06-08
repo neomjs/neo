@@ -76,20 +76,20 @@ export NEO_VECTOR_DIMENSION=768
 
 ### Summary provider
 
-Session summarization is controlled by `NEO_MODEL_PROVIDER`; supported values are `'gemini'` (default, cloud) and `'openAiCompatible'` (local OpenAI-format chat-completions servers such as MLX-served Qwen3-8b, llama.cpp, or LM Studio).
+Session summarization is controlled by `NEO_MODEL_PROVIDER`; supported values are `'openAiCompatible'` (**default** — local OpenAI-format chat-completions servers such as MLX-served Qwen3-8b, llama.cpp, or LM Studio) and `'gemini'` (cloud, explicit opt-in). The local route is the default, so summarization never hits a billed remote API unless an operator explicitly sets `NEO_MODEL_PROVIDER=gemini`.
 
 ```bash
-# Default: Google Gemini summarization:
+# Default (unset): local OpenAI-compatible chat summarization — configure the host/model below:
 unset NEO_MODEL_PROVIDER
-# or
-export NEO_MODEL_PROVIDER=gemini
-
-# Local OpenAI-compatible chat summarization (e.g. Qwen3-8b via MLX):
+# or make it explicit:
 export NEO_MODEL_PROVIDER=openAiCompatible
 export NEO_OPENAI_COMPATIBLE_HOST=http://127.0.0.1:11434
 export NEO_OPENAI_COMPATIBLE_MODEL=qwen3-8b
 export NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=-1
 export NEO_OPENAI_COMPATIBLE_API_KEY=  # leave empty for local servers
+
+# Cloud Google Gemini summarization (explicit opt-in — billed remote API):
+export NEO_MODEL_PROVIDER=gemini
 ```
 
 This path uses the existing `Neo.ai.provider.OpenAiCompatible` chat-completions abstraction. Do not add a model-specific Qwen provider class for shared-deployment installs; local-model selection is an operator config concern.
