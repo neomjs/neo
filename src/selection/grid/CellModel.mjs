@@ -33,10 +33,6 @@ class CellModel extends BaseModel {
             gridContainer = view.gridContainer || parent, // Fallback if no specific Multi-Body structure
             listener      = {cellClick: me.onCellClick, scope: me};
 
-        if (gridContainer.vdom.tag === 'table') {
-            gridContainer = gridContainer.parent
-        }
-
         gridContainer.on(listener)
     }
 
@@ -48,10 +44,6 @@ class CellModel extends BaseModel {
             {view}        = me,
             parent        = view?.parent,
             gridContainer = view?.gridContainer || parent;
-
-        if (gridContainer?.vdom?.tag === 'table') {
-            gridContainer = gridContainer.parent
-        }
 
         gridContainer?.un('cellClick', me.onCellClick, me);
 
