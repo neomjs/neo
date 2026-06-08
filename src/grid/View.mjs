@@ -1,4 +1,6 @@
-import Base from '../container/Base.mjs';
+import Base            from '../container/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import RowModel        from '../selection/grid/RowModel.mjs';
 
 /**
  * @class Neo.grid.View
@@ -38,7 +40,94 @@ class View extends Base {
          * The current scroll top position of the grid view
          * @member {Number} scrollTop_=0
          */
-        scrollTop_: 0
+        scrollTop_: 0,
+        /**
+         * The single SelectionModel owned by grid.View (the body orchestrator) — NOT by an individual
+         * grid.Body. `bodyStart`/`body`/`bodyEnd` are pure render/event delegates; selection state is
+         * keyed by recordId and spans all bodies, replacing the per-body cloned models plus the
+         * `getActivePeers()` fan-out (the multi-body SelectionModel design-lock).
+         * @member {Neo.selection.grid.BaseModel|null} selectionModel_=null
+         */
+        selectionModel_: null
+    }
+
+    /**
+     * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
+     * the single View-owned SelectionModel spans for cross-body selection state.
+     * @returns {Neo.grid.Body[]}
+     */
+    get bodies() {
+        let container = this.gridContainer;
+        return container ? [container.bodyStart, container.body, container.bodyEnd].filter(Boolean) : []
+    }
+
+    /**
+     * The selected-record annotation field. Body-agnostic — delegates to the center body.
+     * @returns {String}
+     */
+    get selectedRecordField() {
+        return this.gridContainer?.body?.selectedRecordField
+    }
+
+    /**
+     * The Store is owned by the macro layer (gridContainer); the View-owned SelectionModel reads it
+     * here rather than through an individual body.
+     * @returns {Neo.data.Store|Neo.data.TreeStore|null}
+     */
+    get store() {
+        return this.gridContainer?.store || null
+    }
+
+    /**
+     * Triggered after the selectionModel config got changed. Registers grid.View (not a body) as the
+     * model's `view`, so a single model owns selection state across all bodies.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    afterSetSelectionModel(value, oldValue) {
+        this.vnodeInitialized && value?.register(this)
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed. Defaults to a RowModel — the same
+     * default the per-body path used, now instantiated once at the grid.View (orchestrator) level.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @returns {Neo.selection.Model}
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue?.destroy();
+        return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : value
+    }
+
+    /**
+     * Resolves the dataField for a logical cell id (`recordId__dataField`). Body-agnostic — delegates
+     * to the center body.
+     * @param {String} cellId
+     * @returns {String}
+     */
+    getDataField(cellId) {
+        return this.gridContainer?.body?.getDataField(cellId)
+    }
+
+    /**
+     * Resolves the data record for a logical cell id. Body-agnostic — delegates to the center body.
+     * @param {String} logicalId
+     * @returns {Object|null}
+     */
+    getRecordFromLogicalId(logicalId) {
+        return this.gridContainer?.body?.getRecordFromLogicalId(logicalId) ?? null
+    }
+
+    /**
+     * Resolves the stable record id for a record. Body-agnostic — delegates to the center body.
+     * @param {Object} record
+     * @returns {Number|String}
+     */
+    getRecordId(record) {
+        return this.gridContainer?.body?.getRecordId(record)
     }
 
     /**
@@ -48,6 +137,15 @@ class View extends Base {
         return {
             scrollTop: this.scrollTop
         }
+    }
+
+    /**
+     * Scrolls the grid by a number of rows. Delegates to the center body (the scroll authority).
+     * @param {Number} index
+     * @param {Number} step
+     */
+    scrollByRows(index, step) {
+        return this.gridContainer?.body?.scrollByRows(index, step)
     }
 
     /**
