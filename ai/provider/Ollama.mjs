@@ -76,6 +76,9 @@ class OllamaProvider extends Base {
         };
 
         const clonedOptions = { ...options };
+        delete clonedOptions.operationLabel;
+        delete clonedOptions.signal;
+        delete clonedOptions.timeoutMs;
 
         // Handle JSON extraction mirroring Gemini provider
         if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json') {

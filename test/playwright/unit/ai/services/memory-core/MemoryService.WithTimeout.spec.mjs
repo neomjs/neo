@@ -1,5 +1,22 @@
-import {test, expect}  from '@playwright/test';
-import {withTimeout}   from '../../../../../../ai/services/memory-core/MemoryService.mjs';
+import {setup} from '../../../../setup.mjs';
+
+const appName = 'MemoryServiceWithTimeoutTest';
+
+setup({
+    neoConfig: {
+        unitTestMode: true
+    },
+    appConfig: {
+        name             : appName,
+        isMounted        : () => true,
+        vnodeInitialising: false
+    }
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import {withTimeout}  from '../../../../../../ai/services/memory-core/MemoryService.mjs';
 
 /**
  * Unit coverage for the backfill timeout guard. The miniSummary backfill wraps its model call

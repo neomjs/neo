@@ -708,7 +708,6 @@ class MemoryService extends Base {
      */
     async buildMiniSummary({prompt, response}) {
         const TIMEOUT_MS = 4000;
-        let timer;
         try {
             const model = buildChatModel({
                 modelProvider         : aiConfig.modelProvider,
@@ -720,16 +719,20 @@ class MemoryService extends Base {
             if (!model) return null;
 
             const promptText = `Summarize this agent turn in one line, max 280 characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
-            const timeout    = new Promise(resolve => { timer = setTimeout(() => resolve(null), TIMEOUT_MS); });
-            const result     = await Promise.race([model.generateContent(promptText).catch(() => null), timeout]);
+            const result     = await withTimeout(
+                model.generateContent(promptText, {
+                    timeoutMs      : TIMEOUT_MS,
+                    operationLabel : 'miniSummary generation'
+                }),
+                TIMEOUT_MS,
+                'miniSummary generation'
+            );
 
             const text = result?.response?.text?.() ?? null;
             return text ? String(text).replace(/\s+/g, ' ').trim().slice(0, 280) : null;
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary generation failed (fail-soft): ${error.message}`);
             return null;
-        } finally {
-            clearTimeout(timer);
         }
     }
 
