@@ -24,11 +24,11 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 
 ## Latest Updates
 
+- [v13.0.0 (2026-06-07): Update](https://neomjs.com/raw/news/releases/13.0.0.md)
 - [v12.1.0 (2026-03-27): Update](https://neomjs.com/raw/news/releases/12.1.0.md)
 - [v12.0.0 (2026-02-28): Update](https://neomjs.com/raw/news/releases/12.0.0.md)
 - [v11.24.0 (2026-01-31): Update](https://neomjs.com/raw/news/releases/11.24.0.md)
 - [v11.23.1 (2026-01-22): Update](https://neomjs.com/raw/news/releases/11.23.1.md)
-- [v11.23.0 (2026-01-21): Update](https://neomjs.com/raw/news/releases/11.23.0.md)
 
 ## Main Pages
 
@@ -187,6 +187,12 @@ The sections below (Release Notes, Guides/Blogs, GitHub Tickets, Pull Requests, 
 - A right-hand `Neo.list.Base` sidebar featuring anchor links for in-page navigation (e.g. sections and ticket metadata).
 - A primary Article container where the Markdown content renders.
 - Interactive Next/Previous controls for navigating sequential documentation or tickets.
+
+## Release Notes
+
+Here you find the full history of Neo.mjs updates.
+
+- [v13.0.0](https://neomjs.com/raw/news/releases/13.0.0.md)
 
 ## Benefits
 
