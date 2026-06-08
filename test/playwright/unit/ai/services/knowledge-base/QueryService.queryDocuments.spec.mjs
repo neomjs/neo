@@ -25,6 +25,7 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     let ChromaManager;
     let QueryService;
     let TextEmbeddingService;
+    let originalBuildCodeTermRescueIndex;
     let originalEmbedText;
     let originalGetKnowledgeBaseCollection;
 
@@ -33,12 +34,15 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
         QueryService         = (await import('../../../../../../ai/services/knowledge-base/QueryService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
 
+        originalBuildCodeTermRescueIndex  = QueryService.buildCodeTermRescueIndex;
         originalEmbedText                  = TextEmbeddingService.embedText;
         originalGetKnowledgeBaseCollection = ChromaManager.getKnowledgeBaseCollection;
     });
 
     test.afterEach(() => {
-        TextEmbeddingService.embedText        = originalEmbedText;
+        QueryService.buildCodeTermRescueIndex = originalBuildCodeTermRescueIndex;
+        QueryService.clearCodeTermRescueIndex();
+        TextEmbeddingService.embedText           = originalEmbedText;
         ChromaManager.getKnowledgeBaseCollection = originalGetKnowledgeBaseCollection;
     });
 
@@ -162,6 +166,81 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
             repoSlug: 'tenant-app',
             tenantId: 'tenant-a'
         });
+    });
+
+    test('does not build the code-term rescue index for no-anchor semantic queries (#12715)', async () => {
+        const capture = {};
+        let indexBuilt = false;
+        installQueryStub([{
+            source          : 'learn/agentos/MemoryCore.md',
+            type            : 'guide',
+            name            : 'Memory Core',
+            inheritanceChain: '[]'
+        }], capture);
+
+        QueryService.buildCodeTermRescueIndex = async () => {
+            indexBuilt = true;
+            return [];
+        };
+
+        const result = await QueryService.queryDocuments({
+            query: 'memory core context recovery overview',
+            type : 'all',
+            limit: 5
+        });
+
+        expect(result.topResult).toBe('learn/agentos/MemoryCore.md');
+        expect(indexBuilt).toBe(false);
+    });
+
+    test('does not build the code-term rescue index for non-code typed searches (#12715)', async () => {
+        const capture = {};
+        let indexBuilt = false;
+        installQueryStub([{
+            source          : 'learn/agentos/DreamPipeline.md',
+            type            : 'guide',
+            name            : 'The Dream Pipeline & Golden Path',
+            inheritanceChain: '[]'
+        }], capture);
+
+        QueryService.buildCodeTermRescueIndex = async () => {
+            indexBuilt = true;
+            return [];
+        };
+
+        const result = await QueryService.queryDocuments({
+            query: 'mutate_frontier guidance',
+            type : 'guide',
+            limit: 5
+        });
+
+        expect(result.topResult).toBe('learn/agentos/DreamPipeline.md');
+        expect(indexBuilt).toBe(false);
+    });
+
+    test('reuses the code-term rescue index across code-term queries (#12715)', async () => {
+        let indexBuilds = 0;
+        const rescuedSources = [];
+
+        QueryService.buildCodeTermRescueIndex = async () => {
+            indexBuilds++;
+
+            return [{
+                source : 'ai/services/memory-core/GraphService.mjs',
+                compact: 'exportfunctionmutatefrontierqueryrecentturns'
+            }];
+        };
+
+        const addCandidate = async source => rescuedSources.push(source);
+
+        await QueryService.addCodeTermRescues({addCandidate, query: 'mutate_frontier'});
+        await QueryService.addCodeTermRescues({addCandidate, query: 'query_recent_turns'});
+
+        expect(indexBuilds).toBe(1);
+        expect(rescuedSources).toEqual([
+            'ai/services/memory-core/GraphService.mjs',
+            'ai/services/memory-core/GraphService.mjs'
+        ]);
     });
 
     test('rescues exact local Brain graph anchors when semantic top-k misses them (#12703)', async () => {
