@@ -32,4 +32,22 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(resolve(null)).toBe('centerBody');       // center toolbar (no layoutLock) → body
         expect(resolve(undefined)).toBe('centerBody')   // center toolbar (unset) → body
     })
+
+    test('getDropRegion maps the release x-coordinate to the target lock region (#9491 cross-toolbar)', () => {
+        const getDropRegion = SortZone.prototype.getDropRegion,
+              resolve        = (dropX, regionRects) => getDropRegion.call({}, dropX, regionRects),
+              // locked-start body [0,100], center gap (100,300), locked-end body [300,400]
+              regions        = {start: {left: 0, right: 100}, end: {left: 300, right: 400}};
+
+        expect(resolve(50,  regions)).toBe('start');     // inside locked-start body → start region
+        expect(resolve(200, regions)).toBe(null);        // center gap → unlocked
+        expect(resolve(350, regions)).toBe('end');       // inside locked-end body → end region
+        expect(resolve(0,   regions)).toBe('start');     // left boundary inclusive
+        expect(resolve(400, regions)).toBe('end');       // right boundary inclusive
+
+        // center-only grid (no locked start/end bodies present) → always center/unlocked
+        const centerOnly = {start: null, end: null};
+        expect(resolve(50,  centerOnly)).toBe(null);
+        expect(resolve(350, centerOnly)).toBe(null)
+    })
 });

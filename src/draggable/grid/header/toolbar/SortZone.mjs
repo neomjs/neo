@@ -67,6 +67,30 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @summary Resolves the target lock-region for a column drop by mapping the release x-coordinate
+     * against the locked-start / locked-end body x-ranges.
+     *
+     * The neighbor-based inference in {@link #onDragEnd} keys within-region resorting off the dragged
+     * column's siblings, but a cross-toolbar drag (e.g. center → locked-start) is keyed by *where* the
+     * pointer is released, not by neighbors. This maps the release x-coordinate to the region whose body
+     * it falls within; anything outside the locked bodies resolves to the center (unlocked) region.
+     *
+     * @param {Number}      dropX             Pointer x-coordinate at release (client space).
+     * @param {Object}      regionRects       Per-region client rects; either side may be null when absent.
+     * @param {Object|null} regionRects.start Locked-start body rect (`{left, right}`) or null.
+     * @param {Object|null} regionRects.end   Locked-end body rect (`{left, right}`) or null.
+     * @returns {'start'|'end'|null}          Target lock region, or null for the center (unlocked) region.
+     */
+    getDropRegion(dropX, regionRects) {
+        let {start, end} = regionRects;
+
+        if (start && dropX >= start.left && dropX <= start.right) return 'start';
+        if (end   && dropX >= end.left   && dropX <= end.right)   return 'end';
+
+        return null
+    }
+
+    /**
      * @param {Neo.util.Rectangle} rect
      * @param {Neo.util.Rectangle} parentRect
      */
