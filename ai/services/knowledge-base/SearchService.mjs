@@ -14,7 +14,7 @@ import QueryService         from './QueryService.mjs';
  * Instead of simply returning a list of files, it:
  * 1.  **Retrieves**: Uses `QueryService` to find the most relevant files based on semantic similarity and intelligent scoring (boosting guides, architectural docs).
  * 2.  **Reads**: Fetches the full content of these files from the local filesystem to ensure the LLM has complete context (avoiding truncated metadata).
- * 3.  **Synthesizes**: Sends the query and the file contents to the Google Gemini model to generate a precise, grounded answer.
+ * 3.  **Synthesizes**: Sends the query and the file contents to the configured synthesis model (Gemini / OpenAI-compatible / Ollama) to generate a precise, grounded answer.
  *
  * This "Read-Eval-Generate" loop allows agents to ask complex questions like "How do I implement a Store?" and get a
  * code-complete answer without manually searching and reading multiple files.
