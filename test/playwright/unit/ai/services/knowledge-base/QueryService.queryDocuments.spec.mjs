@@ -17,6 +17,8 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
+test.describe.configure({mode: 'serial'});
+
 test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () => {
     let ChromaManager;
     let QueryService;
@@ -158,5 +160,41 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
             repoSlug: 'tenant-app',
             tenantId: 'tenant-a'
         });
+    });
+
+    test('rescues exact local Brain graph anchors when semantic top-k misses them (#12703)', async () => {
+        const capture = {};
+        installQueryStub([{
+            source          : 'learn/agentos/tooling/MemoryCoreMcpApi.md',
+            type            : 'guide',
+            name            : 'Memory Core MCP API',
+            inheritanceChain: '[]'
+        }, {
+            source          : 'learn/agentos/KnowledgeBase.md',
+            type            : 'guide',
+            name            : 'The Knowledge Base Server',
+            inheritanceChain: '[]'
+        }], capture);
+
+        const result = await QueryService.queryDocuments({
+            query: 'Neo graph database HybridRAG mutate_frontier Dream Pipeline Gemma4 31B graph processing ai/services/graph sandman_handoff.md',
+            type : 'all',
+            limit: 15,
+            includeMetadata: true
+        });
+        const sources = result.results.map(item => item.source);
+
+        expect(sources).toContain('learn/agentos/DreamPipeline.md');
+        expect(sources).toContain('ai/services/graph/GoldenPathSynthesizer.mjs');
+        expect(sources).toContain('resources/content/sandman_handoff.md');
+        expect(sources).toContain('ai/services/memory-core/GraphService.mjs');
+
+        const dreamPipeline = result.results.find(item => item.source === 'learn/agentos/DreamPipeline.md');
+        expect(dreamPipeline.metadata).toMatchObject({
+            repoSlug: 'neo',
+            tenantId: 'neo-shared',
+            type    : 'guide'
+        });
+        expect(dreamPipeline.metadata.lexicalRescueReasons).toContain('guide-title:The Dream Pipeline & Golden Path');
     });
 });

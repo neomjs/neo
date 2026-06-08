@@ -349,6 +349,7 @@ class Config extends ConfigProvider {
                 conceptMatch     : 15,
                 blogMatch        : 5,
                 namePartMatch    : 30,
+                lexicalRescueMatch: 3200,
                 ticketPenalty    : -70,
                 releasePenalty   : -50,
                 baseFileBonus    : 20,
