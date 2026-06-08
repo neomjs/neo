@@ -16,7 +16,7 @@ const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json
 const DEFAULT_BASE_PATH = '/learn';
 const GIT_LOG_CHUNK_SIZE = 200;
 const STATUS_RENAME_CODES = new Set(['R', 'C']);
-const MUTABLE_RELEASE_NOTE_GITHUB_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/neo\/blob\/dev\/[^\s)]+/g;
+const MUTABLE_RELEASE_NOTE_GITHUB_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/[^/\s)]+\/blob\/(?:dev|main)\/[^\s)]+/g;
 
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
@@ -170,14 +170,14 @@ function getGitPath(filePath) {
 /**
  * @summary Finds mutable GitHub branch links that should not ship in release-note SEO routes.
  * @param {String} content Markdown content to inspect
- * @returns {String[]} Matched `github.com/neomjs/neo/blob/dev/...` links
+ * @returns {String[]} Matched `github.com/neomjs/<repo>/blob/(dev|main)/...` links
  */
 export function getMutableReleaseNoteGithubLinks(content='') {
     return Array.from(content.matchAll(MUTABLE_RELEASE_NOTE_GITHUB_LINK_PATTERN), match => match[0]);
 }
 
 /**
- * @summary Fails release-note route generation before mutable `/blob/dev/` links become SEO-visible.
+ * @summary Fails release-note route generation before mutable GitHub branch links become SEO-visible.
  * @param {Object} options
  * @param {String} options.filePath Absolute release-note markdown path
  * @param {String} options.content Markdown content to inspect
@@ -191,7 +191,7 @@ export function assertStableReleaseNoteGithubLinks({filePath, content}) {
 
     const fileLabel = filePath ? getGitPath(filePath) : 'unknown release-note source';
     throw new Error([
-        `Release-note SEO route source "${fileLabel}" contains mutable GitHub dev links.`,
+        `Release-note SEO route source "${fileLabel}" contains mutable GitHub branch links.`,
         'Use an immutable commit/tag URL or a canonical successor target before publishing:',
         ...links.map(link => `- ${link}`)
     ].join('\n'));
