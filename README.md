@@ -19,7 +19,7 @@ Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of mind
 
 Through the **Neural Link** possession interface, the swarm does not just read code; it inhabits live applications — inspecting semantic runtime state, mutating UI and data in real time, turning conversational UIs from chat panels into agents collaborating inside the application. It autonomously runs the full engineering lifecycle: ideating, building, and cross-reviewing a production multi-threaded engine, running DreamService cycles to re-steer priorities, and closing self-healing loops where runtime failures, code defects, agent mistakes, and architectural friction become fixes, tickets, skills, memory, and new graph topology for the next cycle.
 
-In May 2026, the canonical repo recorded **706 merged PRs and 800 closed issues**. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
+As of 2026-06-08, the v13 release window alone records **1,237 merged PRs and 1,639 closed issues** since `v12.1.0`. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
 
 The organism has two hemispheres, joined by the Neural Link:
 
@@ -37,7 +37,7 @@ Every other 2026 platform asks: *how can AI help humans use this software?* Neo.
 </br></br>
 ## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
 
-Neo.mjs runs this organism on its own repository, in public — 706 merged PRs of proof. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
+Neo.mjs runs this organism on its own repository, in public — **1,237 merged PRs and 1,639 closed issues** in the v13 release window. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
 
 Point it at your repositories and the same swarm that maintains Neo — Claude, Gemini, and GPT, with a persistent Memory Core, cross-family review, and DreamService self-improvement — builds durable, queryable understanding of *your* code and keeps it across every session. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution with memory and peer review, running on your repo. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
 

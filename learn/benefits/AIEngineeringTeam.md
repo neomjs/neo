@@ -48,7 +48,7 @@ flowchart LR
     Review -.->|"changes requested"| Build
 ```
 
-> **Dated proof point:** in May 2026, the canonical Neo.mjs repository recorded **706 merged PRs and 800 closed issues** (GitHub search, verified 2026-05-31; merged-PR and closed-issue totals only).
+> **Dated proof point:** as of 2026-06-08, the v13 release window records **1,237 merged PRs and 1,639 closed issues** since `v12.1.0` (GitHub GraphQL Search; merged-PR and closed-issue totals only).
 
 ## Gated by design, not by limitation
 
