@@ -273,6 +273,21 @@ class SortZone extends BaseSortZone {
             newLocked = 'end'
         }
 
+        // Cross-toolbar: a release over a different region's body is the direct lock-region
+        // signal and supersedes the neighbor inference for cross-region moves. Within-region drops
+        // resolve to the column's existing region, so the neighbor-based path above is preserved.
+        if (Neo.isNumber(me.lastDragClientX) && (grid.bodyStart || grid.bodyEnd)) {
+            let bodyStartRect = grid.bodyStart ? await grid.bodyStart.getDomRect() : null,
+                bodyEndRect   = grid.bodyEnd   ? await grid.bodyEnd.getDomRect()   : null,
+                positionRegion = me.getDropRegion(me.lastDragClientX, {start: bodyStartRect, end: bodyEndRect});
+
+            if (positionRegion !== column.locked) {
+                newLocked = positionRegion
+            }
+        }
+
+        me.lastDragClientX = null;
+
         if (column.locked !== newLocked) {
             // This implicitly triggers grid.Container#onColumnLockChange,
             // which handles sorting, DOM syncing, and layout calculations.
@@ -301,6 +316,9 @@ class SortZone extends BaseSortZone {
 
         // Avoid conflicts with grid.header.plugin.Resizable
         if (!me.owner.dragResortable) return;
+
+        // Track the release x-coordinate so onDragEnd can resolve the cross-toolbar drop region.
+        me.lastDragClientX = data.clientX;
 
         await super.onDragMove(data)
     }
