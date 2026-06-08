@@ -50,4 +50,18 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(resolve(50,  centerOnly)).toBe(null);
         expect(resolve(350, centerOnly)).toBe(null)
     })
+
+    test('columnIndexOffset offsets the toolbar-local index into the global columns by preceding-region counts (#9491)', () => {
+        const columnIndexOffset = SortZone.prototype.columnIndexOffset,
+              gridContainer     = {lockedStartColumns: {length: 2}, centerColumns: {length: 5}, lockedEndColumns: {length: 1}},
+              resolve           = layoutLock => columnIndexOffset.call({owner: {gridContainer, layoutLock}});
+
+        expect(resolve('start')).toBe(0);   // start region → no preceding columns
+        expect(resolve(null)).toBe(2);      // center → after the 2 locked-start columns
+        expect(resolve('end')).toBe(7);     // end → after start(2) + center(5)
+
+        // no-locked common case: a single center toolbar → offset 0 (unchanged from pre-fix behavior)
+        const noLocked = {lockedStartColumns: {length: 0}, centerColumns: {length: 4}, lockedEndColumns: {length: 0}};
+        expect(columnIndexOffset.call({owner: {gridContainer: noLocked, layoutLock: null}})).toBe(0)
+    })
 });

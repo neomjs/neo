@@ -91,6 +91,25 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @summary The owner toolbar's column-index offset into the global `gridContainer.columns` collection.
+     *
+     * The header splits into start / center / end toolbars, each indexing its own columns from 0,
+     * while `gridContainer.columns` is the single global collection that {@link #moveTo} reorders. A
+     * locked-region toolbar's local index must therefore be offset by the column counts of the regions
+     * that precede it (start → 0; center → start count; end → start + center counts). In the no-locked
+     * common case the offset is 0, so single-region grids are unaffected.
+     *
+     * @returns {Number}
+     */
+    columnIndexOffset() {
+        let {gridContainer, layoutLock} = this.owner;
+
+        if (layoutLock === 'start') return 0;
+        if (layoutLock === 'end')   return gridContainer.lockedStartColumns.length + gridContainer.centerColumns.length;
+        return gridContainer.lockedStartColumns.length // center
+    }
+
+    /**
      * @param {Neo.util.Rectangle} rect
      * @param {Neo.util.Rectangle} parentRect
      */
@@ -221,7 +240,11 @@ class SortZone extends BaseSortZone {
      */
     moveTo(fromIndex, toIndex) {
         super.moveTo(fromIndex, toIndex);
-        this.owner.gridContainer.columns.move(fromIndex, toIndex)
+
+        // super.moveTo reorders the owner toolbar's own items (local space); the global columns
+        // collection needs the locked-region offset so center / end toolbars move the right columns.
+        let offset = this.columnIndexOffset();
+        this.owner.gridContainer.columns.move(fromIndex + offset, toIndex + offset)
     }
 
     /**
