@@ -14,6 +14,8 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
@@ -186,8 +188,11 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
 
         expect(sources).toContain('learn/agentos/DreamPipeline.md');
         expect(sources).toContain('ai/services/graph/GoldenPathSynthesizer.mjs');
-        expect(sources).toContain('resources/content/sandman_handoff.md');
         expect(sources).toContain('ai/services/memory-core/GraphService.mjs');
+
+        if (await fs.pathExists(path.resolve('resources/content/sandman_handoff.md'))) {
+            expect(sources).toContain('resources/content/sandman_handoff.md');
+        }
 
         const dreamPipeline = result.results.find(item => item.source === 'learn/agentos/DreamPipeline.md');
         expect(dreamPipeline.metadata).toMatchObject({
