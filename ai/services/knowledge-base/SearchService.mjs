@@ -1,6 +1,6 @@
-import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
 import Base                 from '../../../src/core/Base.mjs';
+import {buildChatModel}     from '../../provider/buildChatModel.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
 import logger               from '../../mcp/server/knowledge-base/logger.mjs';
@@ -45,17 +45,22 @@ class SearchService extends Base {
     model = null
 
     /**
-     * Initializes the Gemini AI models.
+     * Builds the synthesis model via the configured provider (`gemini` / `openAiCompatible` / `ollama`)
+     * through the shared `buildChatModel` selector, so local deployments synthesize without a remote
+     * Gemini key. `this.model` stays `null` only for `gemini` with no API key; `ask()` then returns the
+     * degraded-reference response rather than attempting a remote call.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
 
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (apiKey) {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            this.model = genAI.getGenerativeModel({model: aiConfig.modelName});
-        }
+        this.model = buildChatModel({
+            modelProvider          : aiConfig.modelProvider,
+            openAiCompatibleConfig : aiConfig.openAiCompatible,
+            ollamaConfig           : aiConfig.ollama,
+            geminiApiKey           : process.env.GEMINI_API_KEY,
+            geminiModelName        : aiConfig.modelName
+        });
     }
 
     /**
