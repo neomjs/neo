@@ -23,6 +23,8 @@ const lexicalRescueSkipDirs   = new Set([
     'playwright-report',
     'test-results'
 ]);
+const codeTermRescueRoots     = ['ai/services', 'ai/mcp/server', 'ai/graph'];
+const codeTermRescueFileLimit = 500;
 
 dotenv.config({
     path : insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
@@ -360,7 +362,7 @@ class QueryService extends Base {
         await this.addGuideTitleRescues({addCandidate, queryLower, queryWords});
         await this.addPathHintRescues({addCandidate, query});
         await this.addFilenameHintRescues({addCandidate, query});
-        await this.addCodeTermRescues({addCandidate, query});
+        await this.addCodeTermRescues({addCandidate, query, type});
 
         return Array.from(candidateMap.values());
     }
@@ -447,31 +449,88 @@ class QueryService extends Base {
      * @param {Object} options
      * @returns {Promise<void>}
      */
-    async addCodeTermRescues({addCandidate, query}) {
+    async addCodeTermRescues({addCandidate, query, type}) {
         const terms = this.extractCodeTerms(query);
 
-        if (terms.length === 0) {
+        if (terms.length === 0 || (type && !['all', 'src', 'raw'].includes(type))) {
             return;
         }
 
-        const roots = ['ai/services', 'ai/mcp/server', 'ai/graph']
-            .map(root => path.resolve(aiConfig.neoRootDir, root));
+        const index = await this.getCodeTermRescueIndex();
+
+        for (const entry of index) {
+            if (terms.some(term => entry.compact.includes(term))) {
+                await addCandidate(entry.source, 'code-term', queryScoreWeights.classNameMatch);
+            }
+        }
+    }
+
+    /**
+     * @summary Returns the cached local source index for code-term lexical rescues.
+     *
+     * Code-term queries are common for Agent OS concepts (`mutate_frontier`,
+     * `query_recent_turns`, `golden_path`). Building the compact source index once per
+     * service lifetime keeps exact-anchor rescue behavior while avoiding a full
+     * filesystem walk + file-content read on every query.
+     *
+     * @returns {Promise<Array<{source: String, compact: String}>>} Cached source index.
+     */
+    async getCodeTermRescueIndex() {
+        if (this.codeTermRescueIndex) {
+            return this.codeTermRescueIndex;
+        }
+
+        if (!this.codeTermRescueIndexPromise) {
+            this.codeTermRescueIndexPromise = this.buildCodeTermRescueIndex()
+                .then(index => {
+                    this.codeTermRescueIndex = index;
+                    return index;
+                })
+                .finally(() => {
+                    this.codeTermRescueIndexPromise = null;
+                });
+        }
+
+        return this.codeTermRescueIndexPromise;
+    }
+
+    /**
+     * @summary Builds the compact local source index consumed by code-term lexical rescue.
+     * @returns {Promise<Array<{source: String, compact: String}>>} Source index entries.
+     */
+    async buildCodeTermRescueIndex() {
+        const entries = [];
+        const roots   = codeTermRescueRoots.map(root => path.resolve(aiConfig.neoRootDir, root));
 
         for (const root of roots) {
             if (!await fs.pathExists(root)) {
                 continue;
             }
 
-            const files = await this.collectFiles(root, {limit: 500});
+            const files = await this.collectFiles(root, {limit: codeTermRescueFileLimit});
             for (const file of files) {
                 const content = await fs.readFile(file, 'utf-8').catch(() => '');
                 const compact = this.normalizeLexicalValue(content);
 
-                if (terms.some(term => compact.includes(term))) {
-                    await addCandidate(path.relative(aiConfig.neoRootDir, file), 'code-term', queryScoreWeights.classNameMatch);
+                if (compact) {
+                    entries.push({
+                        source: this.normalizeSourcePath(path.relative(aiConfig.neoRootDir, file)),
+                        compact
+                    });
                 }
             }
         }
+
+        return entries;
+    }
+
+    /**
+     * @summary Clears the code-term rescue index so tests or future content-refresh hooks can rebuild it.
+     * @returns {void}
+     */
+    clearCodeTermRescueIndex() {
+        this.codeTermRescueIndex        = null;
+        this.codeTermRescueIndexPromise = null;
     }
 
     /**
