@@ -18,20 +18,150 @@ import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
+test.describe('Neo.ai.services.github-workflow.IssueService — listIssues projections (#12706)', () => {
+    let IssueService;
+    let GraphqlService;
+    let originalQuery;
+
+    test.beforeAll(async () => {
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        IssueService   = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalQuery = GraphqlService.query.bind(GraphqlService);
+    });
+
+    test.afterEach(() => {
+        GraphqlService.query = originalQuery;
+    });
+
+    function installIssueListStub(capture = {}) {
+        GraphqlService.query = async (query, variables) => {
+            capture.query     = query;
+            capture.variables = variables;
+
+            return {
+                repository: {
+                    issues: {
+                        nodes: [{
+                            number   : 12706,
+                            title    : 'Add lean projection to GitHub Workflow issue lists',
+                            body     : 'Long ticket body that title scans should not return.',
+                            state    : 'OPEN',
+                            createdAt: '2026-06-08T00:00:00Z',
+                            updatedAt: '2026-06-08T01:00:00Z',
+                            url      : 'https://github.com/neomjs/neo/issues/12706',
+                            author   : {login: 'neo-gpt'},
+                            labels   : {nodes: [{name: 'ai'}, {name: 'model-experience'}]},
+                            assignees: {nodes: [{login: 'neo-gpt'}]}
+                        }, {
+                            number   : 12705,
+                            title    : 'Path-scope docs-only CI',
+                            body     : 'Filtered body',
+                            state    : 'OPEN',
+                            createdAt: '2026-06-08T00:10:00Z',
+                            updatedAt: '2026-06-08T01:10:00Z',
+                            url      : 'https://github.com/neomjs/neo/issues/12705',
+                            author   : {login: 'neo-opus-vega'},
+                            labels   : {nodes: [{name: 'ci'}]},
+                            assignees: {nodes: []}
+                        }]
+                    }
+                }
+            };
+        };
+    }
+
+    test('keeps full projection as the default body-bearing response', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open'});
+
+        expect(capture.variables).toMatchObject({
+            limit : 10,
+            states: ['OPEN']
+        });
+        expect(result.count).toBe(2);
+        expect(result.issues[0]).toMatchObject({
+            body     : 'Long ticket body that title scans should not return.',
+            createdAt: '2026-06-08T00:00:00Z',
+            updatedAt: '2026-06-08T01:00:00Z',
+            labels   : [{name: 'ai'}, {name: 'model-experience'}],
+            assignees: [{login: 'neo-gpt'}]
+        });
+    });
+
+    test('summary projection omits body after label and assignee filters', async () => {
+        installIssueListStub();
+
+        const result = await IssueService.listIssues({
+            assignee  : 'neo-gpt',
+            labels    : 'ai, model-experience',
+            projection: 'summary'
+        });
+
+        expect(result.count).toBe(1);
+        expect(result.issues[0]).toEqual({
+            number   : 12706,
+            title    : 'Add lean projection to GitHub Workflow issue lists',
+            state    : 'OPEN',
+            url      : 'https://github.com/neomjs/neo/issues/12706',
+            labels   : [{name: 'ai'}, {name: 'model-experience'}],
+            assignees: [{login: 'neo-gpt'}],
+            author   : {login: 'neo-gpt'},
+            createdAt: '2026-06-08T00:00:00Z',
+            updatedAt: '2026-06-08T01:00:00Z'
+        });
+        expect(result.issues[0]).not.toHaveProperty('body');
+    });
+
+    test('title_only projection returns the compact title-scan shape', async () => {
+        installIssueListStub();
+
+        const result = await IssueService.listIssues({projection: 'title_only'});
+
+        expect(result.issues[0]).toEqual({
+            number   : 12706,
+            title    : 'Add lean projection to GitHub Workflow issue lists',
+            state    : 'OPEN',
+            url      : 'https://github.com/neomjs/neo/issues/12706',
+            labels   : [{name: 'ai'}, {name: 'model-experience'}],
+            assignees: [{login: 'neo-gpt'}]
+        });
+        expect(result.issues[0]).not.toHaveProperty('body');
+        expect(result.issues[0]).not.toHaveProperty('createdAt');
+    });
+
+    test('invalid projection is rejected before GraphQL is called', async () => {
+        let called = false;
+        GraphqlService.query = async () => {
+            called = true;
+        };
+
+        const result = await IssueService.listIssues({projection: 'fields'});
+
+        expect(called).toBe(false);
+        expect(result).toMatchObject({
+            code : 'INVALID_PROJECTION',
+            error: 'Bad Request'
+        });
+    });
+});
+
 /**
- * @summary Contract coverage for `IssueService.manageIssueComment` enriched return shape (#10272 Phase 1).
+ * @summary Contract coverage for `IssueService.manageIssueComment` enriched return shape.
  *
- * Prior to #10272, `createComment` returned only `{message}` — callers had no access to the
+ * Previously, `createComment` returned only `{message}` — callers had no access to the
  * canonical comment identifier (GitHub global node ID), URL, or creation timestamp. The missing
- * identifier blocked the A2A propagation pattern (§2.3 of #10272): review-posts couldn't be
+ * identifier blocked the A2A propagation pattern: review-posts couldn't be
  * referenced by the author for selective-fetch via `get_conversation({comment_id: ...})`.
  *
  * `updateComment` already returned `{message, commentId, url, updatedAt}` — this spec locks in the
  * symmetric create-path contract: `{message, commentId, url, createdAt}`. Backward-compatible
  * extension (existing consumers reading only `message` continue to work).
  *
- * Tests exercise the GraphQL response parsing path; the actual GitHub API call is mocked via
- * `GraphqlService.query` monkey-patch (pattern established by `LabelService.spec.mjs` #10112).
+ * Tests exercise the GraphQL response parsing path; the actual GitHub API call is mocked via the
+ * established `GraphqlService.query` monkey-patch pattern.
  *
  * @see Neo.ai.services.github-workflow.IssueService#createComment
  * @see Neo.ai.services.github-workflow.IssueService#updateComment
@@ -200,8 +330,8 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
     });
 
     test.describe('update action (existing contract — regression lock)', () => {
-        test('returns {message, commentId, url, updatedAt} — unchanged by #10272', async () => {
-            // Update path was already enriched pre-#10272; this test pins the existing contract
+        test('returns {message, commentId, url, updatedAt} — unchanged by create-path enrichment', async () => {
+            // Update path was already enriched before the create-path work; this test pins the existing contract
             // so the create-path enrichment doesn't accidentally drift it. Symmetry matters.
             const COMMENT_ID      = 'IC_kwDOABcD_existing_1234';
             const COMMENT_URL     = 'https://github.com/neomjs/neo/issues/10272#issuecomment-4309098042';
@@ -269,7 +399,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
 });
 
 /**
- * @summary Contract coverage for `IssueService.manageIssueLabels` issue-or-PR labelable lookup (#10077).
+ * @summary Contract coverage for `IssueService.manageIssueLabels` issue-or-PR labelable lookup.
  *
  * `manage_issue_labels` advertises an `issue_number` path parameter that can target either a
  * GitHub Issue or Pull Request. GitHub GraphQL models those as distinct fields, but both implement
@@ -460,7 +590,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
 });
 
 /**
- * @summary Contract coverage for `IssueService.manageIssueProjects` ProjectV2 membership surface (#11233 Phase 1).
+ * @summary Contract coverage for `IssueService.manageIssueProjects` ProjectV2 membership surface.
  *
  * `manage_issue_projects` is the substrate-correct replacement for the deprecated `release:v*`
  * label-as-project-proxy pattern. The three actions (`add`, `remove`, `update_field`) mirror the
@@ -729,13 +859,13 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
 });
 
 /**
- * @summary Contract coverage for `IssueService.assignIssue` precondition + post-verify gate (#11537).
+ * @summary Contract coverage for `IssueService.assignIssue` precondition + post-verify gate.
  *
- * Pre-#11537, `assignIssue` performed blind-add: passing `['@me']` to an issue already assigned
+ * Previously, `assignIssue` performed blind-add: passing `['@me']` to an issue already assigned
  * to another peer would silently add @me as a second assignee, producing parallel-claim collisions
- * (empirical anchor: PR #11245 in `peer-role-mode.md` §7).
+ * between agents.
  *
- * Post-#11537, the method enforces a precondition + post-verify gate:
+ * The method now enforces a precondition + post-verify gate:
  * - Fetches current assignees via `GET_ISSUE_ASSIGNEES`.
  * - If non-empty and `requireUnassigned: true` (default), rejects with `ASSIGNEE_CONFLICT` (HTTP 409)
  *   unless `acknowledgedReassign: '<reason>'` is provided.
@@ -744,7 +874,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
  *
  * This spec pins the **conflict-path** behavior — the substrate-discipline value-add of the gate.
  * Override/strict-replacement/audit-trail paths depend on `child_process.exec` (no ES-module-friendly
- * mock pattern in the current test harness); coverage gap documented in #11537 PR body for follow-up.
+ * mock pattern in the current test harness), so this file keeps coverage at the service boundary.
  *
  * @see Neo.ai.services.github-workflow.IssueService#assignIssue
  * @see https://github.com/orgs/neomjs/discussions/11536 — graduation origin (Pre-Write Coordination Substrate)
@@ -892,7 +1022,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
 });
 
 /**
- * @summary Contract coverage for `IssueService.getConversation` (#10702).
+ * @summary Contract coverage for `IssueService.getConversation`.
  *
  * Issue-side twin of `PullRequestService.getConversation` — `get_conversation` is now a
  * single dual-purpose tool routing by `pr_number` xor `issue_number`. This block pins the

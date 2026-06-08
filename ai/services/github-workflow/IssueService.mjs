@@ -1255,11 +1255,21 @@ class IssueService extends Base {
      * @param {number}          [options.limit=30]     The maximum number of issues to return
      * @param {string}          [options.state='open'] Filter issues by state (open, closed)
      * @param {string[]|string} [options.labels]       Comma separated list of labels to filter by
-     * @param {string}          [options.assignee]     Filter issues by a single assignee login
-     * @param {string}          [options.cursor]       Cursor for pagination
+     * @param {string}          [options.assignee]          Filter issues by a single assignee login
+     * @param {'full'|'summary'|'title'|'title_only'} [options.projection='full'] Response shape projection
+     * @param {string}          [options.cursor]            Cursor for pagination
      * @returns {Promise<object>}
      */
-    async listIssues({limit=30, state='open', labels=null, assignee=null, cursor=null} = {}) {
+    async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null} = {}) {
+        const normalizedProjection = this.normalizeIssueListProjection(projection);
+
+        if (!normalizedProjection) {
+            return {
+                error  : 'Bad Request',
+                message: `Invalid projection '${projection}'. Expected one of: full, summary, title, title_only.`,
+                code   : 'INVALID_PROJECTION'
+            };
+        }
 
         // normalize state to uppercase array (GraphQL expects IssueState enum values)
         const states = state ? (Array.isArray(state) ? state.map(s => s.toUpperCase()) : [state.toUpperCase()]) : undefined;
@@ -1300,6 +1310,7 @@ class IssueService extends Base {
                 issue.labels    = issue.labels?.nodes    || [];
                 issue.assignees = issue.assignees?.nodes || [];
             }
+            issues = issues.map(issue => this.projectListedIssue(issue, normalizedProjection));
 
             return {
                 count: issues.length,
@@ -1313,6 +1324,61 @@ class IssueService extends Base {
                 code   : 'GRAPHQL_API_ERROR'
             };
         }
+    }
+
+    /**
+     * @summary Normalizes the issue-list response projection.
+     *
+     * `title_only` is accepted as an alias for `title` because it is the phrase agents naturally
+     * use when asking for backlog scans, while the canonical enum value stays compact.
+     *
+     * @param {String} projection Requested projection.
+     * @returns {'full'|'summary'|'title'|null} Normalized projection or null when invalid.
+     */
+    normalizeIssueListProjection(projection = 'full') {
+        const normalized = String(projection || 'full').toLowerCase();
+
+        if (normalized === 'title_only') {
+            return 'title';
+        }
+
+        return ['full', 'summary', 'title'].includes(normalized) ? normalized : null;
+    }
+
+    /**
+     * @summary Applies the requested payload projection to a listed issue.
+     *
+     * Projection happens after GraphQL retrieval and client-side filters, preserving the existing
+     * query/filter path while letting queue scans omit heavy bodies.
+     *
+     * @param {Object} issue Flattened issue record.
+     * @param {'full'|'summary'|'title'} projection Normalized projection.
+     * @returns {Object} Projected issue record.
+     */
+    projectListedIssue(issue, projection) {
+        if (projection === 'full') {
+            return issue;
+        }
+
+        const base = {
+            number   : issue.number,
+            title    : issue.title,
+            state    : issue.state,
+            url      : issue.url,
+            labels   : issue.labels,
+            assignees: issue.assignees
+        };
+
+        if (projection === 'title') {
+            return base;
+        }
+
+        return {
+            ...base,
+            author   : issue.author,
+            createdAt: issue.createdAt,
+            updatedAt: issue.updatedAt
+        };
     }
 
     /**
