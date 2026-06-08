@@ -145,22 +145,35 @@ class HealthService extends Base {
     }
 
     /**
-     * Checks if the GEMINI_API_KEY is configured (required for summarization).
+     * Pure predicate: is the configured embedding provider ready to serve KB retrieval?
      *
-     * Intent: Session summarization requires the Gemini API. This check allows us
-     * to report a 'degraded' state when the API key is missing, so users know
-     * that memory operations work but summarization will fail.
+     * Knowledge Base `ask`/`query` must embed the query before retrieval, so a usable
+     * embedding provider is a hard health requirement (answer synthesis itself is
+     * degradeable — see `SearchService.ask()`). Local providers (`openAiCompatible`/
+     * `ollama`) and the `mock` test provider serve embeddings from their own host /
+     * in-process; only the remote `gemini` provider needs a `GEMINI_API_KEY`.
+     *
+     * @param {String}  embeddingProvider Resolved `aiConfig.embeddingProvider`.
+     * @param {Boolean} hasGeminiKey      Whether `GEMINI_API_KEY` is set.
+     * @returns {Boolean}
+     */
+    isEmbeddingProviderReady(embeddingProvider, hasGeminiKey) {
+        return embeddingProvider !== 'gemini' || hasGeminiKey;
+    }
+
+    /**
+     * Checks whether the resolved embedding provider is ready (provider-aware).
+     *
+     * Reads the resolved `aiConfig.embeddingProvider` leaf (the reactive Provider SSOT) rather
+     * than probing raw env vars, so it honors the provider the deployment actually configured —
+     * including the local-by-default `openAiCompatible` — instead of falling through to a
+     * `GEMINI_API_KEY` check whenever the host env vars happen to be unset.
      *
      * @returns {boolean}
      * @private
      */
-    #checkApiKeyConfigured() {
-        if (process.env.NEO_EMBEDDING_PROVIDER === 'mock' ||
-            process.env.NEO_OPENAI_COMPATIBLE_HOST ||
-            process.env.NEO_OLLAMA_HOST) {
-            return true;
-        }
-        return !!process.env.GEMINI_API_KEY;
+    #checkEmbeddingProviderReady() {
+        return this.isEmbeddingProviderReady(aiConfig.embeddingProvider, !!process.env.GEMINI_API_KEY);
     }
 
     /**
@@ -173,11 +186,11 @@ class HealthService extends Base {
      * The checks are performed in order of criticality:
      * 1. ChromaDB connectivity (if it's not running, nothing else matters)
      * 2. Collection accessibility (ensures data structures are ready)
-     * 3. API key presence (optional, but needed for summarization)
+     * 3. Embedding provider readiness (needed for retrieval; only `gemini` needs a key)
      *
      * Status levels:
-     * - healthy: ChromaDB running, collections accessible, API key present
-     * - degraded: ChromaDB running, collections accessible, but API key missing
+     * - healthy: ChromaDB running, collections accessible, embedding provider ready
+     * - degraded: ChromaDB running, collections accessible, but embedding provider not ready
      * - unhealthy: ChromaDB not running or collections not accessible
      *
      * @returns {Promise<object>} A comprehensive health status payload
@@ -230,13 +243,13 @@ class HealthService extends Base {
             return payload;
         }
 
-        // Step 3: Check API key for summarization feature
-        const apiKeyConfigured = this.#checkApiKeyConfigured();
-        payload.features.embedding = apiKeyConfigured;
+        // Step 3: Check embedding provider readiness (provider-aware; only 'gemini' needs a key)
+        const embeddingReady = this.#checkEmbeddingProviderReady();
+        payload.features.embedding = embeddingReady;
 
-        if (!apiKeyConfigured) {
+        if (!embeddingReady) {
             payload.status = 'degraded';
-            payload.details.push('GEMINI_API_KEY not set - embedding features unavailable');
+            payload.details.push(`Embedding provider '${aiConfig.embeddingProvider}' requires GEMINI_API_KEY - retrieval unavailable`);
         }
 
         // If we made it here with no errors, report success
@@ -260,7 +273,7 @@ class HealthService extends Base {
      *
      * IMPORTANT: Only 'healthy' results are cached. Unhealthy/degraded results are
      * always fresh, allowing immediate recovery detection when users fix issues
-     * (e.g., by starting ChromaDB or setting GEMINI_API_KEY). This ensures good UX -
+     * (e.g., by starting ChromaDB or configuring the embedding provider). This ensures good UX -
      * users don't have to wait 5 minutes to retry after fixing a problem.
      *
      * Recovery detection: If the status changes between checks (e.g., from 'unhealthy'
@@ -339,9 +352,11 @@ class HealthService extends Base {
      * This method leverages the cached health check, so calling it frequently
      * (e.g., before each tool invocation) has minimal performance impact.
      *
-     * Note: ChromaDB and the configured embedding provider are required for retrieval.
-     * Database lifecycle is managed outside the MCP tool surface; degraded state only
-     * permits health/introspection helpers that do not touch the vector store.
+     * Note: ChromaDB and the configured embedding provider are required for retrieval, since
+     * adding/querying knowledge requires text embeddings. Only the remote 'gemini' embedding
+     * provider needs a GEMINI_API_KEY; local providers (openAiCompatible/ollama) serve embeddings
+     * from their own host. Database lifecycle is managed outside the MCP tool surface; degraded
+     * state only permits health/introspection helpers that do not touch the vector store.
      *
      * @throws {Error} If the Knowledge Base is not fully healthy, with a detailed message
      * @returns {Promise<void>}
