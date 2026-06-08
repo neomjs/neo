@@ -94,11 +94,28 @@ class Server extends BaseServer {
 
     /**
      * @summary Tools allowed without the healthcheck gate. Database lifecycle tools must
-     * remain reachable while ChromaDB is unavailable so operators can recover.
+     * remain reachable while ChromaDB is unavailable so operators can recover. The A2A
+     * mailbox/permission surface is graph/SQLite-scoped and must remain reachable during
+     * summarization/vector-provider incidents so agents can coordinate the recovery.
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
-        return ['healthcheck', 'start_database', 'stop_database'];
+        return [
+            'healthcheck',
+            'start_database',
+            'stop_database',
+            'add_message',
+            'list_messages',
+            'get_message',
+            'mark_read',
+            'archive_message',
+            'delete_message',
+            'transition_task',
+            'grant_permission',
+            'revoke_permission',
+            'list_permissions',
+            'manage_wake_subscription'
+        ];
     }
 
     /**
