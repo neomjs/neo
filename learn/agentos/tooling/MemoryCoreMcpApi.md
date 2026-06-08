@@ -76,7 +76,7 @@ The server exposes the following tools, which are derived from its OpenAPI speci
 
 Database lifecycle is managed outside the MCP tool surface. Agents should use `healthcheck`
 to inspect ChromaDB connectivity and the configured topology rather than invoking database
-start/stop tools.
+lifecycle commands.
 
 ## Tool Specifications
 

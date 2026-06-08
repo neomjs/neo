@@ -339,9 +339,9 @@ class HealthService extends Base {
      * This method leverages the cached health check, so calling it frequently
      * (e.g., before each tool invocation) has minimal performance impact.
      *
-     * Note: Both ChromaDB and GEMINI_API_KEY are required for all knowledge base operations,
-     * since adding/querying knowledge requires text embeddings via the Gemini API.
-     * Only database lifecycle operations (start/stop) can work in degraded state.
+     * Note: ChromaDB and the configured embedding provider are required for retrieval.
+     * Database lifecycle is managed outside the MCP tool surface; degraded state only
+     * permits health/introspection helpers that do not touch the vector store.
      *
      * @throws {Error} If the Knowledge Base is not fully healthy, with a detailed message
      * @returns {Promise<void>}

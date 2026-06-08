@@ -11,15 +11,15 @@ Without memory, every session is a blank slate. An agent fixing a bug today has 
 
 ## Architecture
 
-The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and **Google Gemini** for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
+The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and the configured AI providers for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
 
 ### Key Services
 
 *   **`MemoryService`**: Manages raw, granular memories. It handles the ingestion of new agent interactions and performs semantic searches across the raw interaction history.
 *   **`SessionService`**: Responsible for the "Auto-Discovery" process. It uses an LLM to analyze completed sessions and generate structured summaries (Title, Category, Quality Scores) to make them easily searchable.
 *   **`SummaryService`**: Manages the high-level session summaries. It provides tools to query past work based on topics or categories (e.g., "refactoring", "bugfix").
-*   **`DatabaseLifecycleService`**: Manages the underlying ChromaDB process. It can start, stop, and monitor the database status, ensuring the persistence layer is available when needed.
-*   **`HealthService`**: A gatekeeper that ensures all dependencies (ChromaDB connectivity, Collections, API Keys) are healthy before allowing operations.
+*   **`DatabaseLifecycleService`**: Reports the underlying ChromaDB process state so health diagnostics can explain whether the persistence layer is available.
+*   **`HealthService`**: A gatekeeper that ensures dependencies (ChromaDB connectivity, collections, and provider readiness) are healthy before allowing operations.
 
 ## The "Save-Then-Respond" Protocol
 
