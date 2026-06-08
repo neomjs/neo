@@ -247,6 +247,8 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
             hint: null
         });
         expect(result.details).toContain('Runtime source/config identity matches the current checkout.');
+        expect(result.boot).toBeUndefined();
+        expect(result.current).toBeUndefined();
     });
 
     test('classifies stale config identity with restart guidance', async () => {
@@ -276,6 +278,34 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
         });
         expect(result.details[0]).toContain('Memory Core MCP server');
         expect(result.details[0]).toContain('configDigest');
+    });
+
+    test('keeps gitHead drift contextual when service-owned identity matches', async () => {
+        HealthService.runtimeFreshnessReader = async () => ({
+            boot: {
+                gitHead      : 'old-head',
+                configDigest : 'sha256:same-config',
+                openApiDigest: 'sha256:same-openapi'
+            },
+            current: {
+                gitHead      : 'new-head',
+                configDigest : 'sha256:same-config',
+                openApiDigest: 'sha256:same-openapi'
+            }
+        });
+
+        const result = await HealthService.resolveRuntimeFreshness();
+
+        expect(result).toMatchObject({
+            status: 'current',
+            stale : {
+                gitHead      : true,
+                configDigest : false,
+                openApiDigest: false
+            },
+            hint: null
+        });
+        expect(result.details[1]).toContain('informational');
     });
 
     test('classifies missing identity as unknown without throwing', async () => {

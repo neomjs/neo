@@ -1552,52 +1552,21 @@ components:
           example: "2025-10-24T10:00:00.000Z"
         runtimeFreshness:
           type: object
-          description: "Boot-vs-current Memory Core MCP runtime identity. Stale is diagnostic metadata, not a service outage."
+          description: "Compact boot-vs-current Memory Core MCP runtime freshness diagnostic. Stale is diagnostic metadata, not a service outage."
           properties:
             status:
               type: string
               enum: [current, stale, unknown]
+              description: "Whether service-owned config/OpenAPI identity marks the running process stale. Git HEAD drift is contextual only."
               example: "current"
             startedAt:
               type: string
               format: date-time
               description: "ISO timestamp captured when the Memory Core service module loaded."
               example: "2026-06-08T15:00:00.000Z"
-            boot:
-              type: object
-              description: "Source/config/schema identity captured at MCP process boot."
-              properties:
-                gitHead:
-                  type: string
-                  nullable: true
-                  example: "5c5723cdd2e2f7d2a7c4e6e63f8c3ab4c5d6e7f8"
-                configDigest:
-                  type: string
-                  nullable: true
-                  example: "sha256:5e9a2d3f..."
-                openApiDigest:
-                  type: string
-                  nullable: true
-                  example: "sha256:1f2a3b4c..."
-            current:
-              type: object
-              description: "Source/config/schema identity read from the current checkout."
-              properties:
-                gitHead:
-                  type: string
-                  nullable: true
-                  example: "5c5723cdd2e2f7d2a7c4e6e63f8c3ab4c5d6e7f8"
-                configDigest:
-                  type: string
-                  nullable: true
-                  example: "sha256:5e9a2d3f..."
-                openApiDigest:
-                  type: string
-                  nullable: true
-                  example: "sha256:1f2a3b4c..."
             stale:
               type: object
-              description: "Per-field stale comparison. Null means the field could not be compared."
+              description: "Per-field stale comparison. Null means the field could not be compared; gitHead is informational and does not by itself mark status stale."
               properties:
                 gitHead:
                   type: boolean

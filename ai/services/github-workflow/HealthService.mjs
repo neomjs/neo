@@ -1,133 +1,27 @@
-import {exec, execFile, execFileSync} from 'child_process';
-import {createHash}                   from 'crypto';
-import {readFileSync}                 from 'fs';
-import path                           from 'path';
-import {fileURLToPath}                from 'url';
-import {promisify}                    from 'util';
-import aiConfig                       from '../../mcp/server/github-workflow/config.mjs';
-import Base                           from '../../../src/core/Base.mjs';
-import logger                         from '../../mcp/server/github-workflow/logger.mjs';
-import semver                         from 'semver';
+import {exec}                  from 'child_process';
+import {promisify}             from 'util';
+import aiConfig                from '../../mcp/server/github-workflow/config.mjs';
+import RuntimeFreshnessService from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import Base                    from '../../../src/core/Base.mjs';
+import logger                  from '../../mcp/server/github-workflow/logger.mjs';
+import semver                  from 'semver';
 
 const
-    execAsync     = promisify(exec),
-    execFileAsync = promisify(execFile),
-    serviceDir    = path.dirname(fileURLToPath(import.meta.url)),
-    openApiPath   = path.resolve(serviceDir, '../../mcp/server/github-workflow/openapi.yaml'),
-    startedAt     = new Date().toISOString();
-
-function createOpenApiDigest(filePath = openApiPath) {
-    const contents = readFileSync(filePath);
-
-    return `sha256:${createHash('sha256').update(contents).digest('hex')}`;
-}
-
-function readBootGitHead() {
-    const stdout = execFileSync('git', ['-C', aiConfig.projectRoot, 'rev-parse', 'HEAD'], {
-        encoding: 'utf8',
-        stdio   : ['ignore', 'pipe', 'pipe']
+    execAsync               = promisify(exec),
+    runtimeFreshnessTracker = RuntimeFreshnessService.createTracker({
+        rootDir: aiConfig.projectRoot,
+        files  : [{
+            key       : 'openApiDigest',
+            path      : new URL('../../mcp/server/github-workflow/openapi.yaml', import.meta.url),
+            errorLabel: 'OpenAPI digest'
+        }],
+        serviceName       : 'GitHub Workflow MCP server',
+        identityLabel     : 'source/schema identity',
+        assertionFacts    : 'tool-schema/source facts',
+        restartScope      : 'cached tool definitions',
+        statusFields      : ['openApiDigest'],
+        unavailableSummary: 'git metadata and OpenAPI digest'
     });
-
-    return stdout.trim();
-}
-
-function readBootRuntimeIdentity() {
-    const errors = [],
-          boot   = {};
-
-    try {
-        boot.gitHead = readBootGitHead();
-    } catch (e) {
-        errors.push(`boot gitHead unavailable: ${e.message}`);
-    }
-
-    try {
-        boot.openApiDigest = createOpenApiDigest();
-    } catch (e) {
-        errors.push(`boot OpenAPI digest unavailable: ${e.message}`);
-    }
-
-    return {boot, errors};
-}
-
-const initialRuntimeIdentity = readBootRuntimeIdentity();
-
-function normalizeString(value) {
-    if (typeof value !== 'string') {
-        return null;
-    }
-
-    const trimmed = value.trim();
-
-    return trimmed || null;
-}
-
-function compareIdentityField(field, boot, current) {
-    const
-        bootValue    = normalizeString(boot[field]),
-        currentValue = normalizeString(current[field]);
-
-    if (!bootValue || !currentValue) {
-        return null;
-    }
-
-    return bootValue !== currentValue;
-}
-
-/**
- * @summary Classifies boot-vs-current MCP runtime source identity.
- *
- * `status:'stale'` is a diagnostic warning, not a hard outage. The attached MCP
- * process can remain usable for read-only work while still telling agents to restart
- * before asserting source/tool-schema facts.
- *
- * @param {Object} options
- * @param {String} options.startedAt Runtime start timestamp.
- * @param {Object} options.boot Boot-time source identity.
- * @param {Object} options.current Current checkout identity.
- * @param {String[]} options.errors Optional identity-read errors.
- * @returns {Object}
- */
-function classifyRuntimeFreshness({startedAt, boot = {}, current = {}, errors = []} = {}) {
-    const stale = {
-        gitHead      : compareIdentityField('gitHead', boot, current),
-        openApiDigest: compareIdentityField('openApiDigest', boot, current)
-    };
-    const comparableFields = Object.values(stale).filter(value => value !== null),
-          staleFields      = Object.entries(stale)
-                                .filter(([, value]) => value === true)
-                                .map(([key]) => key),
-          details          = [];
-
-    let status;
-
-    if (staleFields.length) {
-        status = 'stale';
-        details.push(`Runtime source identity differs from the current checkout (${staleFields.join(', ')}). Restart or reconnect the MCP client/server before asserting tool-schema/source facts.`);
-    } else if (comparableFields.length) {
-        status = 'current';
-        details.push('Runtime source identity matches the current checkout.');
-    } else {
-        status = 'unknown';
-        details.push('Runtime source identity could not be compared; git metadata and OpenAPI digest reads were unavailable or incomplete.');
-    }
-
-    for (const error of errors.filter(Boolean)) {
-        details.push(error);
-    }
-
-    return {
-        status,
-        startedAt,
-        boot,
-        current,
-        stale,
-        details,
-        hint: status === 'stale'
-            ? 'Restart or reconnect the MCP client/server to refresh cached tool definitions.'
-            : null
-    };
-}
 
 /**
  * @summary Monitors and validates the GitHub CLI dependency for the MCP server.
@@ -205,16 +99,35 @@ class HealthService extends Base {
     #previousStatus = null;
 
     /**
+     * Shared runtime freshness tracker.
+     * @member {RuntimeFreshnessTracker} #runtimeFreshnessTracker
+     * @private
+     */
+    #runtimeFreshnessTracker = runtimeFreshnessTracker;
+
+    /**
      * Boot-time runtime identity captured before long-lived MCP clients can go stale.
      * @member {Object} bootRuntimeIdentity
      */
-    bootRuntimeIdentity = initialRuntimeIdentity.boot;
+    get bootRuntimeIdentity() {
+        return this.#runtimeFreshnessTracker.bootRuntimeIdentity;
+    }
+
+    set bootRuntimeIdentity(value) {
+        this.#runtimeFreshnessTracker.bootRuntimeIdentity = value || {};
+    }
 
     /**
      * Boot-time runtime identity read errors.
      * @member {String[]} bootRuntimeFreshnessErrors
      */
-    bootRuntimeFreshnessErrors = initialRuntimeIdentity.errors;
+    get bootRuntimeFreshnessErrors() {
+        return this.#runtimeFreshnessTracker.bootRuntimeFreshnessErrors;
+    }
+
+    set bootRuntimeFreshnessErrors(value) {
+        this.#runtimeFreshnessTracker.bootRuntimeFreshnessErrors = Array.isArray(value) ? value : [];
+    }
 
     /**
      * Optional unit-test seam for injecting boot/current runtime identity reads.
@@ -226,7 +139,19 @@ class HealthService extends Base {
      * ISO timestamp captured when this server module was loaded.
      * @member {String} runtimeStartedAt
      */
-    runtimeStartedAt = startedAt;
+    get runtimeStartedAt() {
+        return this.#runtimeFreshnessTracker.startedAt;
+    }
+
+    set runtimeStartedAt(value) {
+        this.#runtimeFreshnessTracker.startedAt = value;
+    }
+
+    /**
+     * Duration (in milliseconds) for which runtime freshness remains cached.
+     * @member {Number} runtimeFreshnessCacheDuration
+     */
+    runtimeFreshnessCacheDuration = 30 * 1000;
 
     /**
      * Verifies that the user is authenticated with GitHub via the `gh` CLI.
@@ -306,6 +231,7 @@ class HealthService extends Base {
     clearCache() {
         this.#cachedHealth  = null;
         this.#lastCheckTime = null;
+        this.#runtimeFreshnessTracker.clearCache();
         logger.debug('[HealthService] Cache cleared, next health check will be fresh');
     }
 
@@ -375,8 +301,6 @@ class HealthService extends Base {
      *     },
      *     runtimeFreshness: {
      *       status: 'current' | 'stale' | 'unknown',
-     *       boot: object,
-     *       current: object,
      *       stale: object,
      *       details: string[],
      *       hint: string | null
@@ -449,35 +373,10 @@ class HealthService extends Base {
      * @returns {Promise<Object>} Runtime freshness diagnostic payload.
      */
     async resolveRuntimeFreshness() {
-        try {
-            const identity = this.runtimeFreshnessReader
-                ? await this.runtimeFreshnessReader()
-                : await this.#readCurrentRuntimeIdentity();
-
-            const runtimeErrors = Array.isArray(identity.errors)
-                ? identity.errors
-                : [identity.errors].filter(Boolean);
-
-            return classifyRuntimeFreshness({
-                startedAt: this.runtimeStartedAt,
-                boot     : identity.boot || this.bootRuntimeIdentity,
-                current  : identity.current || {},
-                errors   : [
-                    ...this.bootRuntimeFreshnessErrors,
-                    ...runtimeErrors
-                ]
-            });
-        } catch (e) {
-            return classifyRuntimeFreshness({
-                startedAt: this.runtimeStartedAt,
-                boot     : this.bootRuntimeIdentity,
-                current  : {},
-                errors   : [
-                    ...this.bootRuntimeFreshnessErrors,
-                    `runtime freshness reader failed: ${e.message}`
-                ]
-            });
-        }
+        return this.#runtimeFreshnessTracker.resolve({
+            reader       : this.runtimeFreshnessReader,
+            cacheDuration: this.runtimeFreshnessCacheDuration
+        });
     }
 
     /**
@@ -591,33 +490,6 @@ class HealthService extends Base {
         }
 
         return payload;
-    }
-
-    /**
-     * Reads the current checkout identity without touching GitHub credentials.
-     *
-     * @returns {Promise<Object>} `{current, errors}` source identity tuple.
-     * @private
-     */
-    async #readCurrentRuntimeIdentity() {
-        const current = {},
-              errors  = [];
-
-        try {
-            const {stdout} = await execFileAsync('git', ['-C', aiConfig.projectRoot, 'rev-parse', 'HEAD']);
-
-            current.gitHead = stdout.trim();
-        } catch (e) {
-            errors.push(`current gitHead unavailable: ${e.message}`);
-        }
-
-        try {
-            current.openApiDigest = createOpenApiDigest();
-        } catch (e) {
-            errors.push(`current OpenAPI digest unavailable: ${e.message}`);
-        }
-
-        return {current, errors};
     }
 
     #parseAuthOutput(out) {
