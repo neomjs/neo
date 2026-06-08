@@ -69,11 +69,11 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary Tools allowed without the healthcheck gate (database lifecycle + agent FAQs).
+     * @summary Tools allowed without the healthcheck gate.
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
-        return ['healthcheck', 'start_database', 'stop_database', 'list_agent_faqs'];
+        return ['healthcheck', 'list_agent_faqs'];
     }
 
     /**
@@ -129,7 +129,7 @@ class Server extends BaseServer {
             health.details.forEach(detail => logger.warn(`    ${detail}`));
 
             if (!health.database.process.running) {
-                logger.warn('    💡 Tip: Use the start_database tool after server starts, or run:');
+                logger.warn('    💡 Tip: Start ChromaDB externally, or run:');
                 logger.warn(`       chroma run --path ${process.env.CHROMA_DATA_PATH || './data/chroma'} --port ${process.env.CHROMA_PORT || '8000'}`);
             }
             logger.warn('    The server will periodically retry and recover automatically once dependencies are met.');
