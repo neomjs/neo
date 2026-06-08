@@ -21,7 +21,7 @@ import fs              from 'fs-extra';
 import path            from 'path';
 
 /**
- * @summary Regression coverage for the SearchService type-filter synthesis bug (#10097).
+ * @summary Regression coverage for the SearchService type-filter synthesis bug.
  *
  * Before the fix, `SearchService.ask` piped chunk source paths directly into `fs.pathExists` /
  * `fs.readFile` without resolving relatives against `neoRootDir`. LearningSource emits absolute
@@ -87,7 +87,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(result.references[0].source).toBe(tmpFileRelativeToRoot);
 
         // The prompt must contain the ACTUAL file content, not the "No Content" placeholder.
-        // This is the regression guard for #10097.
+        // This is the regression guard for relative source hydration.
         expect(capturedPrompt).toContain(tmpFileContents);
         expect(capturedPrompt).not.toContain('No Content (File missing or empty)');
     });
@@ -225,5 +225,50 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(result.answer).toBe('mocked-answer');
         // Fallback should kick in for genuinely-missing files.
         expect(capturedPrompt).toContain('No Content (File missing or empty)');
+    });
+
+    test('ask returns degraded references when synthesis rejects after retrieval', async () => {
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{source: tmpFileRelativeToRoot, score: '1234'}]
+        });
+
+        SearchService.model = {
+            generateContent: async () => {
+                throw new Error('quota 429 AIza123456789012345678901234567890');
+            }
+        };
+
+        const result = await SearchService.ask({query: 'provider quota fixture', type: 'src'});
+
+        expect(result.degraded).toBe(true);
+        expect(result.error).toBe('synthesis_failed');
+        expect(result.reason).toContain('quota 429');
+        expect(result.reason).toContain('[redacted-api-key]');
+        expect(result.answer).toContain('Knowledge-base retrieval succeeded');
+        expect(result.references).toEqual([{
+            name  : path.basename(tmpFileRelativeToRoot),
+            source: tmpFileRelativeToRoot,
+            score : 1234
+        }]);
+    });
+
+    test('ask returns degraded references when no synthesis model is configured', async () => {
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{source: tmpFileRelativeToRoot, score: '321'}]
+        });
+
+        SearchService.model = null;
+
+        const result = await SearchService.ask({query: 'missing model fixture', type: 'src'});
+
+        expect(result.degraded).toBe(true);
+        expect(result.error).toBe('synthesis_failed');
+        expect(result.reason).toBe('GEMINI_API_KEY is required for RAG features.');
+        expect(result.references[0]).toMatchObject({
+            source: tmpFileRelativeToRoot,
+            score : 321
+        });
     });
 });
