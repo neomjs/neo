@@ -23,7 +23,50 @@ function listProbeArtifacts(root) {
 }
 
 /**
- * @summary Coverage for the Codex Desktop SQLite sandbox diagnostic (#10714).
+ * @summary Reads the tracked Codex config template for static MCP policy guards.
+ * @returns {String}
+ */
+function readCodexConfigTemplate() {
+    return fs.readFileSync(
+        new URL('../../../../../../.codex/config.template.toml', import.meta.url),
+        'utf8'
+    );
+}
+
+/**
+ * @summary Extracts one MCP server TOML block from the Codex config template.
+ * @param {String} config
+ * @param {String} serverName
+ * @returns {String}
+ */
+function getMcpServerBlock(config, serverName) {
+    const header = `[mcp_servers."${serverName}"]`;
+    const start  = config.indexOf(header);
+
+    expect(start).toBeGreaterThan(-1);
+
+    const remaining = config.slice(start + header.length);
+    const nextBlock = remaining.search(/\n\[/);
+    const end       = nextBlock === -1 ? config.length : start + header.length + nextBlock;
+
+    return config.slice(start, end);
+}
+
+/**
+ * @summary Extracts the env_vars array body from a single MCP server block.
+ * @param {String} serverBlock
+ * @returns {String}
+ */
+function getEnvVarsBlock(serverBlock) {
+    const match = serverBlock.match(/env_vars\s*=\s*\[([\s\S]*?)\]/);
+
+    expect(match).not.toBeNull();
+
+    return match[1];
+}
+
+/**
+ * @summary Coverage for the Codex Desktop SQLite sandbox diagnostic.
  *
  * The tests keep all file writes in OS temp dirs and inject the failure-path
  * SQLite constructor so the diagnostic can prove cleanup and remediation output
@@ -128,5 +171,22 @@ test.describe('bootstrapCodexSandbox diagnostic (#10714)', () => {
         expect(paths.physicalDir).toBe(paths.logicalDir);
         expect(paths.symlinkTarget).toBeNull();
         expect(paths.fileName).toBe('codex-sandbox-probe-paths.sqlite');
+    });
+});
+
+test.describe('Codex MCP config template (#12744)', () => {
+    test('keeps remote Gemini credentials opt-in for local KB and Memory Core servers', () => {
+        const config = readCodexConfigTemplate();
+
+        expect(config).toContain('Remote Gemini credentials are intentionally opt-in');
+
+        for (const serverName of ['neo-mjs-knowledge-base', 'neo-mjs-memory-core']) {
+            const serverBlock = getMcpServerBlock(config, serverName);
+            const envVars     = getEnvVarsBlock(serverBlock);
+
+            expect(envVars).not.toContain('"GEMINI_API_KEY"');
+            expect(envVars).toContain('"NEO_OPENAI_COMPATIBLE_HOST"');
+            expect(envVars).toContain('"NEO_OPENAI_COMPATIBLE_MODEL"');
+        }
     });
 });

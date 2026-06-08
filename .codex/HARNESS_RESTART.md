@@ -39,6 +39,23 @@ the higher-signal proof for the active Codex session.
 End the turn with native `add_memory`. If a shell-based Memory Core client
 cannot reach localhost, that is not enough reason to skip the native MCP save.
 
+## Remote AI Key Clear
+
+When a remote provider key is deleted, rotated, or suspected unsafe, assume
+already-running MCP children still hold the old environment until the harness is
+restarted.
+
+1. Remove the key from shell profiles, launch settings, and the provider
+   console.
+2. Keep `GEMINI_API_KEY` out of ignored `.codex/config.toml` MCP `env_vars`
+   unless a specific local server is intentionally testing remote Gemini. The
+   tracked template does not forward it by default.
+3. Restart Codex Desktop or the active harness so Knowledge Base and Memory Core
+   MCP servers respawn without the old environment.
+4. Re-check native Memory Core `healthcheck.providers` before assuming the key
+   has disappeared from running services. Billing caps and key deletion remain
+   provider-console actions.
+
 ## GitHub Calls
 
 `gh auth status` can lie inside Codex sandboxing. Use:

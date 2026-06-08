@@ -35,11 +35,14 @@ startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 
+# Remote Gemini credentials are intentionally opt-in for local Codex MCP
+# servers. Add GEMINI_API_KEY only to the specific ignored .codex/config.toml
+# server env_vars that is explicitly testing remote Gemini, then restart the
+# harness so already-running MCP children drop any old environment.
 [mcp_servers."neo-mjs-knowledge-base"]
 command = "npm"
 args = ["run", "--silent", "ai:mcp-server-knowledge-base"]
 env_vars = [
-    "GEMINI_API_KEY",
     "NEO_AGENT_IDENTITY",
     "NEO_CHROMA_EMBEDDING_PROVIDER",
     "NEO_CHROMA_UNIFIED",
@@ -58,7 +61,6 @@ enabled = true
 command = "npm"
 args = ["run", "--silent", "ai:mcp-server-memory-core"]
 env_vars = [
-    "GEMINI_API_KEY",
     "NEO_AGENT_IDENTITY",
     "NEO_CHROMA_EMBEDDING_PROVIDER",
     "NEO_CHROMA_UNIFIED",
