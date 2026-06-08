@@ -324,6 +324,55 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         });
     });
 
+    test('OpenAiCompatible.stream() aborts a hung request on timeout without leaking transport options', async () => {
+        let capturedPayload, aborted = false, abortReason;
+
+        globalThis.fetch = async (url, init) => {
+            expect(url).toBe('http://openai-compatible.test/v1/chat/completions');
+            capturedPayload = JSON.parse(init.body);
+
+            return new Promise((resolve, reject) => {
+                init.signal.addEventListener('abort', () => {
+                    aborted    = init.signal.aborted;
+                    abortReason = init.signal.reason;
+                    reject(abortReason);
+                }, {once: true});
+            });
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+
+        const collect = async () => {
+            const chunks = [];
+            for await (const chunk of provider.stream('hello', {
+                operationLabel: 'miniSummary backfill',
+                temperature   : 0.2,
+                timeoutMs     : 25
+            })) {
+                chunks.push(chunk);
+            }
+            return chunks;
+        };
+
+        await expect(collect()).rejects.toThrow(
+            /\[OpenAiCompatible\] miniSummary backfill timed out after 25ms \(host=http:\/\/openai-compatible\.test, model=gemma4-test\)/
+        );
+
+        expect(aborted).toBe(true);
+        expect(abortReason?.code).toBe('OPENAI_COMPATIBLE_TIMEOUT');
+        expect(capturedPayload).toMatchObject({
+            model      : 'gemma4-test',
+            stream     : true,
+            keep_alive : -1,
+            temperature: 0.2
+        });
+        expect(capturedPayload.operationLabel).toBeUndefined();
+        expect(capturedPayload.timeoutMs).toBeUndefined();
+    });
+
     test('OpenAiCompatible.generate() defaults keep_alive through the streaming payload', async () => {
         let capturedPayload;
 
