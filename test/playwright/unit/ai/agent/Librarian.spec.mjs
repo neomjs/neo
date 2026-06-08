@@ -41,7 +41,7 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
         test.setTimeout(180_000);
 
         // Skip test in CI environments without API keys
-        test.skip(!process.env.GEMINI_API_KEY, 'Skipping: GEMINI_API_KEY not found');
+        test.skip(!process.env.NEO_RUN_LIVE_AI_TESTS, 'Skipping live agent-loop test (real inference); set NEO_RUN_LIVE_AI_TESTS=1 to run');
 
         // Note: The primary agent itself does not need any MCP servers connected.
         // It relies purely on the delegation architecture to communicate with the sub-agent.
@@ -54,12 +54,12 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
         // We wrap the delegate method to verify it was executed correctly natively
         let delegateCalled      = false;
         let delegatedAgentAlias = null;
-        
+
         const originalDelegate = primaryAgent.delegate;
         primaryAgent.delegate = async function(profileName, request) {
             delegateCalled      = true;
             delegatedAgentAlias = profileName;
-            
+
             // Execute the true delegation and sub-agent boot
             return await originalDelegate.call(this, profileName, request);
         };
