@@ -26,7 +26,7 @@ import path           from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('initServerConfigs — template drift detection (#10815)', () => {
-    let initConfigs, projectShape, detectDrift, materializeServerConfigTemplate;
+    let initConfigs, projectSourceShape, projectShape, detectDrift, materializeServerConfigTemplate;
     let workRoot;
 
     function recordingLogger() {
@@ -61,6 +61,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
     test.beforeAll(async () => {
         ({
             initConfigs,
+            projectSourceShape,
             projectShape,
             detectDrift,
             materializeServerConfigTemplate
@@ -531,6 +532,98 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // Lowercase default values + type tokens must NOT be mistaken for env vars.
         expect(shape.envVars).not.toContain('oidc');
         expect(shape.envVars).not.toContain('string');
+    });
+
+    test('leaf-default projection captures env-bound AiConfig defaults (#12767)', () => {
+        const src = [
+            `export default {`,
+            `    modelProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string'),`,
+            `    host         : leaf(path.resolve(neoRootDir, '.neo-ai-data/backups'), 'NEO_BACKUP_PATH', 'string'),`,
+            `    modelName    : leaf('gemini-3.5-flash')`,
+            `};`,
+            ``
+        ].join('\n');
+
+        const shape = projectSourceShape(src);
+
+        expect(shape.leafDefaults).toEqual([
+            {
+                key    : 'host',
+                env    : 'NEO_BACKUP_PATH',
+                type   : 'string',
+                default: `path.resolve(neoRootDir, '.neo-ai-data/backups')`
+            },
+            {
+                key    : 'modelProvider',
+                env    : 'NEO_MODEL_PROVIDER',
+                type   : 'string',
+                default: `'openAiCompatible'`
+            }
+        ]);
+    });
+
+    test('detectDrift reports same-env leaf default changes (#12767)', () => {
+        const templateShape = projectSourceShape([
+            `export default {`,
+            `    modelProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string')`,
+            `};`,
+            ``
+        ].join('\n'));
+        const configShape = projectSourceShape([
+            `export default {`,
+            `    modelProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string')`,
+            `};`,
+            ``
+        ].join('\n'));
+
+        const drift = detectDrift(templateShape, configShape);
+
+        expect(drift.hasDrift).toBe(true);
+        expect(drift.missingImports).toEqual([]);
+        expect(drift.missingExports).toEqual([]);
+        expect(drift.missingEnvVars).toEqual([]);
+        expect(drift.changedLeafDefaults).toEqual([{
+            key            : 'modelProvider',
+            env            : 'NEO_MODEL_PROVIDER',
+            type           : 'string',
+            templateDefault: `'openAiCompatible'`,
+            configDefault  : `'gemini'`
+        }]);
+    });
+
+    test('same-env leaf default drift warns without overwriting (#12767)', async () => {
+        const templateSrc = [
+            `export default {`,
+            `    modelProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string')`,
+            `};`,
+            ``
+        ].join('\n');
+        const configSrc = [
+            `export default {`,
+            `    modelProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string')`,
+            `};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'leaf-default-drift-warn',
+            templateContents: templateSrc,
+            configContents  : configSrc
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({argv: ['node', 'initServerConfigs.mjs'], logger, serversRoot: root});
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('warn');
+        expect(action.drift.changedLeafDefaults).toEqual([{
+            key            : 'modelProvider',
+            env            : 'NEO_MODEL_PROVIDER',
+            type           : 'string',
+            templateDefault: `'openAiCompatible'`,
+            configDefault  : `'gemini'`
+        }]);
+        expect(logger.entries.warn.some(l => l.includes("+ leaf-default: modelProvider (NEO_MODEL_PROVIDER, string): 'gemini' -> 'openAiCompatible'"))).toBe(true);
+        expect(fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8')).toBe(configSrc);
     });
 
     test('detectDrift reports a new env-bound leaf as missingEnvVars (data-tree drift the import projection misses)', () => {
