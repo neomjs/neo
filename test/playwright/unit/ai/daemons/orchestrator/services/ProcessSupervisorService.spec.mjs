@@ -82,6 +82,49 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(markSpawnedCalled).toBe(true);
     });
 
+    test('runTask watchdog kills a child that exceeds maxRuntimeMs and finalizes it as failed', async () => {
+        const { service, taskOutcomes } = createTestService();
+        let killed = false;
+
+        service.taskDefinitions = {
+            ...service.taskDefinitions,
+            watchdogTask: {
+                label          : 'Watchdog Task',
+                command        : 'sleep',
+                args           : ['999'],
+                pidFileName    : 'watchdog.pid',
+                expectedCommand: 'sleep',
+                maxRuntimeMs   : 40
+            }
+        };
+
+        // Fake child that never fires 'close' — simulates a hung child (e.g. a downstream call
+        // with no timeout). The watchdog must kill it rather than let its running flag stick.
+        service.spawnFn = () => ({pid: 4242, on: () => {}, kill: () => { killed = true; }, stderr: {on: () => {}}});
+
+        const result = service.runTask('watchdogTask', 'watchdog-test');
+        expect(result).toBe(true);
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        expect(killed).toBe(true);
+        const failed = taskOutcomes.find(o => o.status === 'failed' && o.details?.phase === 'watchdog-timeout');
+        expect(failed).toBeTruthy();
+    });
+
+    test('runTask does NOT arm a watchdog when maxRuntimeMs is unset (opt-in)', async () => {
+        const { service } = createTestService();
+        let killed = false;
+
+        // mockTask has no maxRuntimeMs → no watchdog → a long-lived child is left alone.
+        service.spawnFn = () => ({pid: 4243, on: () => {}, kill: () => { killed = true; }, stderr: {on: () => {}}});
+
+        service.runTask('mockTask', 'no-watchdog-test');
+        await new Promise(resolve => setTimeout(resolve, 80));
+
+        expect(killed).toBe(false);
+    });
+
     test('runTask skips if already running', () => {
         const { service, mockTaskStateService } = createTestService();
 

@@ -9,6 +9,36 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
 
 /**
+ * Maximum time to wait for a single mini-summary model call during backfill before failing soft.
+ * A hung inference endpoint must never block the supervised maintenance child indefinitely.
+ * @type {Number}
+ */
+const MINI_SUMMARY_TIMEOUT_MS = 30000;
+
+/**
+ * Maximum time to wait for the backfill's content-store (Chroma) metadata fetch before deferring
+ * the whole batch. Usually milliseconds; the bound exists only to defeat a hung connection.
+ * @type {Number}
+ */
+const CHROMA_FETCH_TIMEOUT_MS = 10000;
+
+/**
+ * Races a promise against a timeout so a hung downstream call (model inference, content-store
+ * fetch) rejects instead of blocking the maintenance loop forever.
+ * @param {Promise} promise The work to bound.
+ * @param {Number}  ms      Timeout in milliseconds.
+ * @param {String}  label   Human-readable label surfaced in the timeout error.
+ * @returns {Promise}
+ */
+export function withTimeout(promise, ms, label) {
+    let timer;
+    const timeout = new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
  * `add_memory` response — the per-turn **mailbox delta signal**.
  *
@@ -789,9 +819,15 @@ class MemoryService extends Base {
             return {processed: 0, updated: 0, deferred: 0, missingContent: 0};
         }
 
-        const collection = await StorageRouter.getMemoryCollection();
-        const fetched    = await collection.get({ids: rows.map(row => row.id), include: ['metadatas']});
-        const byId       = new Map((fetched.ids || []).map((id, index) => [id, fetched.metadatas?.[index] || {}]));
+        let byId;
+        try {
+            const collection = await withTimeout(StorageRouter.getMemoryCollection(), CHROMA_FETCH_TIMEOUT_MS, 'miniSummary backfill getMemoryCollection');
+            const fetched    = await withTimeout(collection.get({ids: rows.map(row => row.id), include: ['metadatas']}), CHROMA_FETCH_TIMEOUT_MS, 'miniSummary backfill collection.get');
+            byId             = new Map((fetched.ids || []).map((id, index) => [id, fetched.metadatas?.[index] || {}]));
+        } catch (error) {
+            logger.warn(`[MemoryService] miniSummary backfill deferred the whole batch (content store unreachable, fail-soft): ${error.message}`);
+            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0};
+        }
 
         let updated = 0, deferred = 0, missingContent = 0;
 
@@ -803,10 +839,11 @@ class MemoryService extends Base {
             }
 
             try {
-                const miniSummary = await summarize({
-                    prompt  : metadata.prompt,
-                    response: metadata.response
-                });
+                const miniSummary = await withTimeout(
+                    summarize({prompt: metadata.prompt, response: metadata.response}),
+                    MINI_SUMMARY_TIMEOUT_MS,
+                    'miniSummary backfill summarize'
+                );
 
                 if (!miniSummary) {
                     deferred++;
