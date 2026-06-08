@@ -12,9 +12,98 @@ concurrency:
 
 
 jobs:
+  changes:
+    name: Classify test scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_integration: ${{ steps.scope.outputs.run_integration }}
+      run_unit: ${{ steps.scope.outputs.run_unit }}
+      skip_reason: ${{ steps.scope.outputs.skip_reason }}
+
+    steps:
+      - name: Classify changed paths
+        id: scope
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const eventName = context.eventName;
+
+            async function getChangedFiles() {
+              if (eventName === 'pull_request') {
+                const files = await github.paginate(github.rest.pulls.listFiles, {
+                  owner      : context.repo.owner,
+                  repo       : context.repo.repo,
+                  pull_number: context.payload.pull_request.number,
+                  per_page   : 100
+                });
+
+                return files.map(file => file.filename);
+              }
+
+              if (eventName === 'push') {
+                const before = context.payload.before;
+                const after  = context.payload.after;
+
+                if (!before || !after || /^0+$/.test(before)) {
+                  return null;
+                }
+
+                const comparison = await github.rest.repos.compareCommitsWithBasehead({
+                  owner   : context.repo.owner,
+                  repo    : context.repo.repo,
+                  basehead: `${before}...${after}`,
+                  per_page: 100
+                });
+
+                return comparison.data.files?.map(file => file.filename) || null;
+              }
+
+              return null;
+            }
+
+            const files = await getChangedFiles();
+
+            if (!files || files.length === 0) {
+              core.info('Changed files are unavailable; running full test suites.');
+              core.setOutput('run_integration', 'true');
+              core.setOutput('run_unit', 'true');
+              core.setOutput('skip_reason', 'changed files unavailable');
+              return;
+            }
+
+            const normalizedFiles = files.map(file => file.replace(/\\/g, '/'));
+
+            // Keep explicit unit/integration statuses on docs-only PRs instead of
+            // workflow-level paths-ignore. Missing checks can block protected branches.
+            const isDocsOnlyPath = file =>
+              file.endsWith('.md') ||
+              file.startsWith('learn/') ||
+              file.startsWith('resources/content/');
+
+            // Unit has committed content guards, notably the release-note mutable
+            // GitHub-link scan and generated portal index fixtures.
+            const requiresUnitForContent = file =>
+              file.startsWith('resources/content/release-notes/') ||
+              file.startsWith('apps/portal/resources/data/');
+
+            const runIntegration = normalizedFiles.some(file => !isDocsOnlyPath(file));
+            const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
+
+            core.info(`Changed files: ${normalizedFiles.join(', ')}`);
+            core.info(`run_integration=${runIntegration}`);
+            core.info(`run_unit=${runUnit}`);
+
+            core.setOutput('run_integration', String(runIntegration));
+            core.setOutput('run_unit', String(runUnit));
+            core.setOutput(
+              'skip_reason',
+              'docs/content-only change without matching heavy-suite dependency'
+            );
+
   test:
     name: ${{ matrix.suite }}
     runs-on: ubuntu-latest
+    needs: changes
     strategy:
       fail-fast: false
       matrix:
@@ -26,9 +115,11 @@ jobs:
 
     steps:
       - name: Checkout repository
+        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
         uses: actions/checkout@v6
 
       - name: Setup Node.js
+        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
         uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -39,17 +130,26 @@ jobs:
       # Chroma per `ai/deploy/docker-compose.test.yml`; unit tests are mocked.
       # Neither suite needs the canonical KB artifact in CI.
       - name: Skip Knowledge Base download in prepare lifecycle
+        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
         run: mkdir -p .neo-ai-data
 
       - name: Install dependencies
+        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
         run: npm ci
 
       # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
       # Harmless for the integration suite.
       - name: Bundle parse5
+        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
         run: npm run bundle-parse5
 
+      - name: Skip ${{ matrix.suite }} tests
+        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration != 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit != 'true') }}
+        run: |
+          echo "${{ matrix.suite }} skipped: ${{ needs.changes.outputs.skip_reason }}"
+
       - name: Run ${{ matrix.suite }} tests
+        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
         run: npm run test-${{ matrix.suite }}
         env:
           NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
