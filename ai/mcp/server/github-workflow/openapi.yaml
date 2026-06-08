@@ -878,6 +878,8 @@ paths:
 
         **When to Use:**
         - To find open work items or review recent closed issues.
+        - Use `projection: 'title'` for title-first backlog scans where issue bodies would waste context.
+        - Use the default `projection: 'full'` when you need issue bodies in the list response.
         - To look up issue numbers for use in other tools.
       tags: [Issues]
       parameters:
@@ -910,6 +912,14 @@ paths:
           description: Filter issues by a single assignee login.
           schema:
             type: string
+        - name: projection
+          in: query
+          required: false
+          description: Response projection. `full` preserves the existing body-bearing shape, `summary` omits body but keeps triage metadata, and `title` / `title_only` return a compact title-scan shape. Use `get_conversation` for full context after selecting a candidate issue.
+          schema:
+            type: string
+            enum: [full, summary, title, title_only]
+            default: full
       responses:
         '200':
           description: A list of issues.
@@ -2071,6 +2081,9 @@ components:
               login:
                 type: string
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
 
