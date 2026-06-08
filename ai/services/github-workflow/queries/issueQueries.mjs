@@ -336,6 +336,7 @@ export const FETCH_ISSUES_LIST = `
           body
           state
           createdAt
+          updatedAt
           url
 
           author {
