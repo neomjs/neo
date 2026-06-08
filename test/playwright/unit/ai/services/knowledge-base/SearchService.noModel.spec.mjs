@@ -43,13 +43,22 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
         });
     });
 
-    test('ask still requires a Gemini model when retrieval finds references', async () => {
+    test('ask returns degraded references when retrieval finds references without a Gemini model', async () => {
         SearchService.model         = null;
         QueryService.queryDocuments = async () => ({
             results: [{source: 'learn/agentos/KnowledgeBase.md', score: '100', metadata: {}}]
         });
 
-        await expect(SearchService.ask({query: 'How does KB work?'}))
-            .rejects.toThrow('GEMINI_API_KEY is required for RAG features.');
+        await expect(SearchService.ask({query: 'How does KB work?'})).resolves.toEqual({
+            answer    : 'Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (GEMINI_API_KEY is required for RAG features.). Use the references directly while the synthesis provider recovers.',
+            degraded  : true,
+            error     : 'synthesis_failed',
+            reason    : 'GEMINI_API_KEY is required for RAG features.',
+            references: [{
+                name  : 'KnowledgeBase.md',
+                score : 100,
+                source: 'learn/agentos/KnowledgeBase.md'
+            }]
+        });
     });
 });
