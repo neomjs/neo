@@ -588,6 +588,39 @@ components:
           format: date-time
           description: Timestamp of when the health check was performed.
           example: "2025-10-25T12:00:00Z"
+        runtimeFreshness:
+          type: object
+          description: Compact boot-vs-current runtime freshness diagnostic for detecting stale Knowledge Base MCP process attachments.
+          properties:
+            status:
+              type: string
+              enum: [current, stale, unknown]
+              description: Whether the running MCP process matches comparable current checkout/config/OpenAPI identity.
+            startedAt:
+              type: string
+              format: date-time
+              description: When the MCP runtime module was loaded.
+            stale:
+              type: object
+              description: Per-identity stale flags. Null means the field could not be compared.
+              properties:
+                gitHead:
+                  type: boolean
+                  nullable: true
+                configDigest:
+                  type: boolean
+                  nullable: true
+                openApiDigest:
+                  type: boolean
+                  nullable: true
+            details:
+              type: array
+              items:
+                type: string
+            hint:
+              type: string
+              nullable: true
+              description: Restart or re-handshake guidance when the runtime is stale.
         database:
           type: object
           properties:

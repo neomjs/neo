@@ -1,8 +1,138 @@
+import {execFile, execFileSync} from 'child_process';
+import {createHash}             from 'crypto';
+import {readFileSync}           from 'fs';
+import path                     from 'path';
+import {fileURLToPath}          from 'url';
+import {promisify}              from 'util';
 import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
 import Base                     from '../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
+
+const
+    execFileAsync = promisify(execFile),
+    serviceDir    = path.dirname(fileURLToPath(import.meta.url)),
+    configPath    = path.resolve(serviceDir, '../../config.mjs'),
+    openApiPath   = path.resolve(serviceDir, '../../mcp/server/knowledge-base/openapi.yaml'),
+    startedAt     = new Date().toISOString();
+
+function createFileDigest(filePath) {
+    const contents = readFileSync(filePath);
+
+    return `sha256:${createHash('sha256').update(contents).digest('hex')}`;
+}
+
+function readBootGitHead() {
+    const stdout = execFileSync('git', ['-C', aiConfig.neoRootDir, 'rev-parse', 'HEAD'], {
+        encoding: 'utf8',
+        stdio   : ['ignore', 'pipe', 'pipe']
+    });
+
+    return stdout.trim();
+}
+
+function readBootRuntimeIdentity() {
+    const errors = [],
+          boot   = {};
+
+    try {
+        boot.gitHead = readBootGitHead();
+    } catch (e) {
+        errors.push(`boot gitHead unavailable: ${e.message}`);
+    }
+
+    try {
+        boot.configDigest = createFileDigest(configPath);
+    } catch (e) {
+        errors.push(`boot config digest unavailable: ${e.message}`);
+    }
+
+    try {
+        boot.openApiDigest = createFileDigest(openApiPath);
+    } catch (e) {
+        errors.push(`boot OpenAPI digest unavailable: ${e.message}`);
+    }
+
+    return {boot, errors};
+}
+
+const initialRuntimeIdentity = readBootRuntimeIdentity();
+
+function normalizeString(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+
+    return trimmed || null;
+}
+
+function compareRuntimeIdentityField(field, boot, current) {
+    const
+        bootValue    = normalizeString(boot[field]),
+        currentValue = normalizeString(current[field]);
+
+    if (!bootValue || !currentValue) {
+        return null;
+    }
+
+    return bootValue !== currentValue;
+}
+
+/**
+ * @summary Classifies boot-vs-current Knowledge Base MCP runtime identity.
+ *
+ * A stale runtime is an observability warning, not a hard outage. The process can stay usable
+ * while still telling agents to restart before asserting source, config, or tool-schema facts.
+ *
+ * @param {Object} options
+ * @param {String} options.startedAt Runtime start timestamp.
+ * @param {Object} options.boot Boot-time source identity.
+ * @param {Object} options.current Current checkout/config identity.
+ * @param {String[]} options.errors Optional identity-read errors.
+ * @returns {Object}
+ */
+function classifyRuntimeFreshness({startedAt, boot = {}, current = {}, errors = []} = {}) {
+    const stale = {
+        gitHead      : compareRuntimeIdentityField('gitHead', boot, current),
+        configDigest : compareRuntimeIdentityField('configDigest', boot, current),
+        openApiDigest: compareRuntimeIdentityField('openApiDigest', boot, current)
+    };
+    const comparableFields = Object.values(stale).filter(value => value !== null),
+          staleFields      = Object.entries(stale)
+                                .filter(([, value]) => value === true)
+                                .map(([key]) => key),
+          details          = [];
+
+    let status;
+
+    if (staleFields.length) {
+        status = 'stale';
+        details.push(`Runtime source identity differs from the current checkout (${staleFields.join(', ')}). Restart or reconnect the Knowledge Base MCP server before asserting tool-schema/source facts.`);
+    } else if (comparableFields.length) {
+        status = 'current';
+        details.push('Runtime source identity matches the current checkout.');
+    } else {
+        status = 'unknown';
+        details.push('Runtime source identity could not be compared; git metadata, config digest, and OpenAPI digest reads were unavailable or incomplete.');
+    }
+
+    for (const error of errors.filter(Boolean)) {
+        details.push(error);
+    }
+
+    return {
+        status,
+        startedAt,
+        stale,
+        details,
+        hint: status === 'stale'
+            ? 'Restart or reconnect the Knowledge Base MCP server to refresh cached source, config, and tool definitions.'
+            : null
+    };
+}
 
 /**
  * @summary Monitors and validates the ChromaDB dependency for the Knowledge Base MCP server.
@@ -80,6 +210,51 @@ class HealthService extends Base {
      * @private
      */
     #previousStatus = null;
+
+    /**
+     * Cached runtime freshness diagnostic. Separate from dependency health so the freshness
+     * warning can update quickly without spawning git/hash work on every healthcheck call.
+     * @member {Object|null} #cachedRuntimeFreshness
+     * @private
+     */
+    #cachedRuntimeFreshness = null;
+
+    /**
+     * Timestamp (in milliseconds) of when runtime freshness was last resolved.
+     * @member {Number|null} #lastRuntimeFreshnessCheckTime
+     * @private
+     */
+    #lastRuntimeFreshnessCheckTime = null;
+
+    /**
+     * Boot-time runtime identity captured before long-lived MCP clients can go stale.
+     * @member {Object} bootRuntimeIdentity
+     */
+    bootRuntimeIdentity = initialRuntimeIdentity.boot;
+
+    /**
+     * Boot-time runtime identity read errors.
+     * @member {String[]} bootRuntimeFreshnessErrors
+     */
+    bootRuntimeFreshnessErrors = initialRuntimeIdentity.errors;
+
+    /**
+     * Optional unit-test seam for injecting boot/current runtime identity reads.
+     * @member {Function|null} runtimeFreshnessReader
+     */
+    runtimeFreshnessReader = null;
+
+    /**
+     * ISO timestamp captured when this server module was loaded.
+     * @member {String} runtimeStartedAt
+     */
+    runtimeStartedAt = startedAt;
+
+    /**
+     * Duration (in milliseconds) for which runtime freshness remains cached.
+     * @member {Number} runtimeFreshnessCacheDuration
+     */
+    runtimeFreshnessCacheDuration = 30 * 1000;
 
     /**
      * Checks if ChromaDB is running and accessible.
@@ -212,7 +387,8 @@ class HealthService extends Base {
             },
             details: [],
             version: process.env.npm_package_version || '1.0.0',
-            uptime : process.uptime()
+            uptime : process.uptime(),
+            runtimeFreshness: await this.resolveRuntimeFreshness()
         };
 
         // Step 1: Check ChromaDB connectivity
@@ -294,7 +470,10 @@ class HealthService extends Base {
             // If the cache is still fresh (< 5 minutes old), return it immediately
             if (age < this.#cacheDuration) {
                 logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
-                return this.#cachedHealth;
+                return {
+                    ...this.#cachedHealth,
+                    runtimeFreshness: await this.resolveRuntimeFreshness()
+                };
             }
         }
 
@@ -380,9 +559,102 @@ class HealthService extends Base {
      * without waiting for the 5-minute cache to expire.
      */
     clearCache() {
-        this.#cachedHealth  = null;
-        this.#lastCheckTime = null;
+        this.#cachedHealth                    = null;
+        this.#lastCheckTime                   = null;
+        this.#cachedRuntimeFreshness          = null;
+        this.#lastRuntimeFreshnessCheckTime   = null;
         logger.debug('[HealthService] Cache cleared, next health check will be fresh');
+    }
+
+    /**
+     * Resolves the live runtime freshness diagnostic for the attached KB MCP process.
+     *
+     * Intent: a process can be dependency-healthy while stale relative to the checkout/config an
+     * agent is inspecting. Keeping this lightweight warning in healthcheck avoids duplicate source
+     * tickets when the right action is restart/reconnect.
+     *
+     * @returns {Promise<Object>} Runtime freshness diagnostic payload.
+     */
+    async resolveRuntimeFreshness() {
+        const now = Date.now();
+
+        if (
+            this.#cachedRuntimeFreshness &&
+            this.#lastRuntimeFreshnessCheckTime &&
+            (now - this.#lastRuntimeFreshnessCheckTime) < this.runtimeFreshnessCacheDuration
+        ) {
+            return this.#cachedRuntimeFreshness;
+        }
+
+        let freshness;
+
+        try {
+            const identity = this.runtimeFreshnessReader
+                ? await this.runtimeFreshnessReader()
+                : await this.#readCurrentRuntimeIdentity();
+
+            const runtimeErrors = Array.isArray(identity.errors)
+                ? identity.errors
+                : [identity.errors].filter(Boolean);
+
+            freshness = classifyRuntimeFreshness({
+                startedAt: this.runtimeStartedAt,
+                boot     : identity.boot || this.bootRuntimeIdentity,
+                current  : identity.current || {},
+                errors   : [
+                    ...this.bootRuntimeFreshnessErrors,
+                    ...runtimeErrors
+                ]
+            });
+        } catch (e) {
+            freshness = classifyRuntimeFreshness({
+                startedAt: this.runtimeStartedAt,
+                boot     : this.bootRuntimeIdentity,
+                current  : {},
+                errors   : [
+                    ...this.bootRuntimeFreshnessErrors,
+                    `runtime freshness reader failed: ${e.message}`
+                ]
+            });
+        }
+
+        this.#cachedRuntimeFreshness        = freshness;
+        this.#lastRuntimeFreshnessCheckTime = now;
+
+        return freshness;
+    }
+
+    /**
+     * Reads current checkout/config identity without touching ChromaDB or remote providers.
+     *
+     * @returns {Promise<Object>} `{current, errors}` source identity tuple.
+     * @private
+     */
+    async #readCurrentRuntimeIdentity() {
+        const current = {},
+              errors  = [];
+
+        try {
+            const {stdout} = await execFileAsync('git', ['-C', aiConfig.neoRootDir, 'rev-parse', 'HEAD']);
+
+            current.gitHead = stdout.trim();
+        } catch (e) {
+            errors.push(`current gitHead unavailable: ${e.message}`);
+        }
+
+        try {
+            current.configDigest = createFileDigest(configPath);
+        } catch (e) {
+            errors.push(`current config digest unavailable: ${e.message}`);
+        }
+
+        try {
+            current.openApiDigest = createFileDigest(openApiPath);
+        } catch (e) {
+            errors.push(`current OpenAPI digest unavailable: ${e.message}`);
+        }
+
+        return {current, errors};
     }
 }
 
