@@ -330,10 +330,10 @@ ln -s /Users/Shared/github/neomjs/neo/.neo-ai-data .neo-ai-data
 - **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
 - **`AGENTS.md`**: Per-turn operational mandates (automatically loaded via settings.json)
 
-### Developer Guide (Repository root)
-- **`WORKING_WITH_AGENTS.md`**: Your playbook for working effectively with AI agents
+### Developer Guide
+- **[Strategic Workflows](../learn/agentos/StrategicWorkflows.md)**: Best practices for working effectively with the agents — the advanced, integrated workflows they support.
 
-**Important:** Before starting your first session, read [WORKING_WITH_AGENTS.md]() to understand how to guide the agent effectively.
+**Important:** Before starting your first session, read [Strategic Workflows](../learn/agentos/StrategicWorkflows.md) to understand how to guide the agents effectively.
 
 ## 6. Your First Agent Session
 
