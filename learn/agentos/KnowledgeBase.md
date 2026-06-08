@@ -196,6 +196,7 @@ export default {
     // Tune the brain to be more sensitive to bug reports
     queryScoreWeights: {
         ticketPenalty: -20, // Reduce penalty from -70
+        pullPenalty  : -150, // Reduce penalty from -250
         guideMatch: 60      // Increase boost from 50
     }
 };
@@ -220,7 +221,14 @@ export default {
 *   **Scoring Weights (`queryScoreWeights`):**
     *   You can fine-tune the brain's retrieval logic here.
     *   *Example:* Decrease `ticketPenalty` if you want the agent to focus more on historical bug reports.
+    *   *Example:* Decrease `pullPenalty` only when PR conversation history should compete more directly with current source/docs in broad searches.
     *   *Example:* Increase `sourcePathMatch` to prioritize exact file location matches.
+
+*   **Candidate Pools (`queryCandidatePools`):**
+    *   Broad `type='all'` searches run source-tiered Chroma queries before hybrid scoring.
+    *   The default pool shape gives current source/docs most of the candidate budget, keeps apps/examples/tests visible, and bounds historical sources (`ticket`, `pull`, `discussion`, `release`, `blog`) to a smaller budget.
+    *   A low-budget pool with omitted `types` keeps tenant-ingested custom parser kinds visible without letting the fallback dominate current source/docs.
+    *   This prevents large synced conversation corpora from starving source-of-authority files before the reranker can score them.
 
 *   **Performance:**
     *   `nResults`: Retrieval depth (default: 100).

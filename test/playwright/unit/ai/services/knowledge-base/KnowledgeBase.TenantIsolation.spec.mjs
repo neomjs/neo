@@ -22,15 +22,15 @@ import path                  from 'path';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 /**
- * @summary Fail-closed tenant-isolation suite for the Knowledge Base read side (#11632).
+ * @summary Fail-closed tenant-isolation suite for the Knowledge Base read side.
  *
- * Covers the 8 fail-closed cases graduated from Discussion #11623 §8, parameterized over the
+ * Covers the 8 fail-closed cases graduated from the tenant-isolation design discussion, parameterized over the
  * 5 public KB MCP facades. ChromaDB is replaced with an in-memory spy collection that locally
  * simulates the `where: {tenantId: {$in: [...]}}` filter, and `RequestContextService.run`
  * controls the server-side requester identity — no real SQLite / Chroma is touched.
  *
  * Cases 3 and 4 are write-side concerns (tenant-aware chunk-id derivation and write-side spoof
- * rejection). They are exhaustively covered by `VectorService.tenantStamping.spec.mjs` (#11631);
+ * rejection). They are exhaustively covered by `VectorService.tenantStamping.spec.mjs`;
  * this suite re-anchors their security property against the `VectorService` primitives so all
  * 8 cases stay visible in one load-bearing place, without re-driving the `embed` pipeline.
  *
@@ -52,6 +52,9 @@ function createSpyCollection() {
 
     const matchesWhere = (metadata, where) => {
         if (!where) return true;
+        if (Array.isArray(where.$and)) {
+            return where.$and.every(clause => matchesWhere(metadata, clause));
+        }
         return Object.entries(where).every(([key, cond]) => {
             if (cond && typeof cond === 'object' && Array.isArray(cond.$in)) {
                 return cond.$in.includes(metadata?.[key]);
@@ -106,6 +109,20 @@ function createSpyCollection() {
             };
         }
     };
+}
+
+function hasTenantFilter(where, expected) {
+    if (!where) {
+        return false;
+    }
+
+    if (Array.isArray(where.$and)) {
+        return where.$and.some(clause => hasTenantFilter(clause, expected));
+    }
+
+    return expected
+        ? JSON.stringify(where.tenantId) === JSON.stringify({$in: expected})
+        : Object.hasOwn(where, 'tenantId');
 }
 
 /**
@@ -206,7 +223,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
         expect(sources).toEqual(expect.arrayContaining([
             OWN.metadata.source, FOREIGN.metadata.source, SHARED.metadata.source
         ]));
-        expect(spy.calls.query.at(-1).where).toBeUndefined();
+        expect(spy.calls.query.every(call => !hasTenantFilter(call.where))).toBe(true);
     });
 
     test('case 1 — tenant isolation: query_documents hides another tenant\'s private chunks', async () => {
@@ -219,7 +236,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
         expect(sources).not.toContain(FOREIGN.metadata.source);
 
         // The filter is server-derived and carries exactly the requester plus the team namespace.
-        expect(spy.calls.query.at(-1).where).toEqual({tenantId: {$in: ['tenant-a', 'neo-shared']}});
+        expect(spy.calls.query.every(call => hasTenantFilter(call.where, ['tenant-a', 'neo-shared']))).toBe(true);
     });
 
     test('case 2 — team visibility: neo-shared chunks stay visible across every tenant', async () => {
@@ -235,7 +252,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
     });
 
     test('case 3 — chunk-shadow: identical content under two tenants yields distinct chunk ids', () => {
-        // Write-side anchor — full coverage in VectorService.tenantStamping.spec.mjs (#11631).
+        // Write-side anchor — full coverage in VectorService.tenantStamping.spec.mjs.
         const content = {hash: 'identical-content-hash', type: 'guide', name: 'Doc', source: 'shared/Doc.md'};
 
         const idA = VectorService.createTenantAwareChunkId(content, {tenantId: 'tenant-a', repoSlug: 'repo'});
@@ -246,7 +263,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
     });
 
     test('case 4 — write-side spoof: a forged client tenantId is rejected in reject mode', () => {
-        // Write-side anchor — full coverage in VectorService.tenantStamping.spec.mjs (#11631).
+        // Write-side anchor — full coverage in VectorService.tenantStamping.spec.mjs.
         const originalMode = aiConfig.spoofRejectionMode;
         aiConfig.spoofRejectionMode = 'reject';
 
@@ -269,7 +286,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
             QueryService.queryDocuments({query: 'anything', type: 'all', tenantId: 'tenant-b'})
         );
 
-        expect(spy.calls.query.at(-1).where).toEqual({tenantId: {$in: ['tenant-a', 'neo-shared']}});
+        expect(spy.calls.query.every(call => hasTenantFilter(call.where, ['tenant-a', 'neo-shared']))).toBe(true);
         expect(result.results.map(r => r.source)).not.toContain(FOREIGN.metadata.source);
     });
 
