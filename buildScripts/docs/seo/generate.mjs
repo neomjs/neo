@@ -518,11 +518,11 @@ async function collectExampleRoutes() {
 }
 
 /**
- * Collects all release notes by scanning the markdown directory.
+ * Collects all release notes by recursively scanning the markdown directory, including chunk-N archives.
  * @returns {Promise<Array<{id: String, filePath: String, name: String}>>}
  */
 async function collectReleaseRoutes() {
-    const files = await fg('resources/content/release-notes/*.md', {
+    const files = await fg('resources/content/release-notes/**/*.md', {
         cwd    : ROOT_DIR,
         ignore : ['**/node_modules/**']
     });
