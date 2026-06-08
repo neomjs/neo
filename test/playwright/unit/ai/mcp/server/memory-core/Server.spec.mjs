@@ -14,6 +14,7 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
+import {CallToolRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 import path            from 'path';
 import fs              from 'fs-extra';
 import Neo             from '../../../../../../../src/Neo.mjs';
@@ -80,8 +81,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         // Regression guard: in production, `GraphService.getNode` returns a Promise (Neo
         // singleton method wrapping). If `bindAgentIdentity` drops the `await`, `node.id`
-        // on the Promise object is `undefined` — the actual root cause of #10241's merged-
-        // but-incomplete fix that #10249 corrects. `unitTestMode` may resolve the method
+        // on the Promise object is `undefined`. `unitTestMode` may resolve the method
         // synchronously, so the other test in this suite does not reproduce the failure
         // mode; this test forces the Promise path explicitly by stubbing `getNode` to
         // return a Promise regardless of the framework's runtime decision.
@@ -168,6 +168,91 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         } finally {
             SDK.Memory_SessionService.queueSummarizationJob = originalQueue;
             SDK.Memory_CoalescingEngineService.removeMcpServer = originalRemove;
+            serverInstance.destroy();
+        }
+    });
+
+    test('#12752: mailbox tools bypass summary-degraded health gate, memory writes do not', async () => {
+        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const handlers = new Map();
+        const healthCalls = [];
+        const toolCalls = [];
+        const degradedError = new Error([
+            'Memory Core is not fully operational:',
+            '  - GEMINI_API_KEY not set - summarization features unavailable'
+        ].join('\n'));
+
+        const mcpServer = {
+            server: {
+                setRequestHandler(schema, handler) {
+                    handlers.set(schema, handler);
+                }
+            }
+        };
+
+        serverInstance.getToolService = () => ({
+            listTools: () => ({tools: [], nextCursor: undefined}),
+            callTool : (name, args) => {
+                toolCalls.push({name, args});
+                return {ok: true, name};
+            }
+        });
+        serverInstance.getHealthService = () => ({
+            ensureHealthy: async () => {
+                healthCalls.push('ensureHealthy');
+                throw degradedError;
+            }
+        });
+
+        serverInstance.setupRequestHandlers(mcpServer);
+
+        try {
+            const callTool = handlers.get(CallToolRequestSchema);
+
+            const mailboxResult = await callTool({
+                params: {
+                    name     : 'list_messages',
+                    arguments: {status: 'unread'}
+                }
+            });
+
+            expect(mailboxResult.isError).toBe(false);
+            expect(mailboxResult.structuredContent).toEqual({
+                ok  : true,
+                name: 'list_messages'
+            });
+            expect(healthCalls).toEqual([]);
+            expect(toolCalls).toEqual([{
+                name: 'list_messages',
+                args: {status: 'unread'}
+            }]);
+
+            const memoryResult = await callTool({
+                params: {
+                    name     : 'add_memory',
+                    arguments: {prompt: 'p', thought: 't', response: 'r'}
+                }
+            });
+
+            expect(memoryResult.isError).toBe(true);
+            expect(memoryResult.content[0].text).toContain('Cannot execute add_memory: Memory Core is not fully operational');
+            expect(memoryResult.content[0].text).toContain('GEMINI_API_KEY not set - summarization features unavailable');
+            expect(healthCalls).toEqual(['ensureHealthy']);
+            expect(toolCalls).toHaveLength(1);
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#12752: health exemptions do not expose retired database lifecycle tools', () => {
+        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+
+        try {
+            const exemptTools = serverInstance.getHealthExemptTools();
+
+            expect(exemptTools).not.toContain('start_database');
+            expect(exemptTools).not.toContain('stop_database');
+        } finally {
             serverInstance.destroy();
         }
     });

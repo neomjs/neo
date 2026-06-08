@@ -69,7 +69,7 @@ The brain of the operation. It handles the search logic and implements the **Wei
 #### SearchService (`services/SearchService.mjs`)
 
 The RAG (Retrieval-Augmented Generation) engine.
-- **Synthesizes Answers:** Unlike `QueryService` which returns raw files, `SearchService` takes a question, retrieves relevant documents, reads their full content from disk, and uses an LLM (Gemini) to generate a concise, synthesized answer with citations.
+- **Synthesizes Answers:** Unlike `QueryService` which returns raw files, `SearchService` takes a question, retrieves relevant documents, reads their full content from disk, and uses the configured synthesis provider to generate a concise, synthesized answer with citations.
 - **Contextual Reading:** It reads the actual files from the filesystem before feeding them to the LLM, ensuring the context is complete and up-to-date.
 
 #### DatabaseService (`services/DatabaseService.mjs`)
@@ -83,13 +83,13 @@ The ETL (Extract, Transform, Load) engine.
 
 The gatekeeper.
 - **Intelligent Caching:** Caches "healthy" status for 5 minutes to reduce overhead. Unhealthy states are never cached, allowing immediate recovery detection.
-- **Gatekeeping:** Every tool call passes through `ensureHealthy()`. If dependencies (ChromaDB, API Key) are missing, it fails fast with actionable error messages.
+- **Gatekeeping:** Every non-exempt tool call passes through `ensureHealthy()`. If dependencies (ChromaDB, embedding provider) are missing, it fails fast with actionable error messages.
 
 #### DatabaseLifecycleService (`services/DatabaseLifecycleService.mjs`)
 
 Process manager.
-- Automatically manages the local `chroma` server process.
-- Can start/stop the database on demand via tools.
+- Reports local `chroma` process state for health diagnostics.
+- Database lifecycle is managed outside the MCP tool surface.
 
 #### DocumentService (`services/DocumentService.mjs`)
 

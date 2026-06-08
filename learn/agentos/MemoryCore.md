@@ -11,15 +11,15 @@ Without memory, every session is a blank slate. An agent fixing a bug today has 
 
 ## Architecture
 
-The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and **Google Gemini** for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
+The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and the configured AI providers for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
 
 ### Key Services
 
 *   **`MemoryService`**: Manages raw, granular memories. It handles the ingestion of new agent interactions and performs semantic searches across the raw interaction history.
 *   **`SessionService`**: Responsible for the "Auto-Discovery" process. It uses an LLM to analyze completed sessions and generate structured summaries (Title, Category, Quality Scores) to make them easily searchable.
 *   **`SummaryService`**: Manages the high-level session summaries. It provides tools to query past work based on topics or categories (e.g., "refactoring", "bugfix").
-*   **`DatabaseLifecycleService`**: Manages the underlying ChromaDB process. It can start, stop, and monitor the database status, ensuring the persistence layer is available when needed.
-*   **`HealthService`**: A gatekeeper that ensures all dependencies (ChromaDB connectivity, Collections, API Keys) are healthy before allowing operations.
+*   **`DatabaseLifecycleService`**: Reports the underlying ChromaDB process state so health diagnostics can explain whether the persistence layer is available.
+*   **`HealthService`**: A gatekeeper that ensures dependencies (ChromaDB connectivity, collections, and provider readiness) are healthy before allowing operations.
 
 ## The "Save-Then-Respond" Protocol
 
@@ -78,11 +78,9 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 *   **`resume_session`**: Pure validation/query — returns structural metadata about whether a candidate session ID is safe for the agent to keep using on reconnect (set the `Mcp-Session-Id` header to that ID for subsequent calls). Does NOT mutate `RequestContextService` or any server-side session state. Returns either a success payload (`status: 'resumable'` plus `memoryCount`, `lastActivityAt`, `summarizationStatus`) or one of four structured errors: `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED` (already summarized — start fresh), `SESSION_BUSY` (concurrent summarization mid-flight — retry shortly). Use after recovering a candidate session ID from a prior `query_summaries` result or local context.
 *   **`set_session_id`**: Legacy / single-tenant fallback only. Overrides the process-global `_legacySessionId`. Rejected with `REQUEST_SCOPED_SESSION_ACTIVE` when invoked under a request-bound `Mcp-Session-Id` context to prevent multi-tenant state corruption. Prefer transport-layer session binding via the `Mcp-Session-Id` header in shared deployments.
 
-### Database Management
+### Health & Data Management
 
 *   **`healthcheck`**: Diagnostics tool. Checks ChromaDB status, collection health, API key configuration, identity binding, and effective ChromaDB topology. See **Healthcheck Response Shape** below for the full payload contract.
-*   **`start_database`**: Starts the local ChromaDB process.
-*   **`stop_database`**: Stops the local ChromaDB process.
 *   **`export_database`**: Exports memories and summaries to JSONL files for backup.
 *   **`import_database`**: Imports data from JSONL backups.
 
