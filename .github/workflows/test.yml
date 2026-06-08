@@ -81,9 +81,11 @@ jobs:
               file.startsWith('resources/content/');
 
             // Unit has committed content guards, notably the release-note mutable
-            // GitHub-link scan and generated portal index fixtures.
+            // GitHub-link scan, discussion markdown fixture reads, and generated
+            // portal index fixtures.
             const requiresUnitForContent = file =>
               file.startsWith('resources/content/release-notes/') ||
+              file.startsWith('resources/content/discussions/') ||
               file.startsWith('apps/portal/resources/data/');
 
             const runIntegration = normalizedFiles.some(file => !isDocsOnlyPath(file));
