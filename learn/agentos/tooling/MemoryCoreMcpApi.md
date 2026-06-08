@@ -60,9 +60,6 @@ The server exposes the following tools, which are derived from its OpenAPI speci
 | :--- | :--- |
 | **Health** | |
 | `healthcheck` | Confirms the server is running and can connect to the ChromaDB instance. |
-| **Database Lifecycle** | |
-| `start_database` | Starts the ChromaDB database instance as a background process. |
-| `stop_database` | Stops the running ChromaDB database instance. |
 | **Memories** | |
 | `add_memory` | Stores a new agent interaction (prompt, thought, response) as a memory. |
 | `get_session_memories` | Retrieves all memories for a specific session, in chronological order. |
@@ -77,6 +74,10 @@ The server exposes the following tools, which are derived from its OpenAPI speci
 | `export_database` | Exports the entire memory database to a JSONL file. |
 | `import_database` | Imports a previously exported JSONL file back into the database. |
 
+Database lifecycle is managed outside the MCP tool surface. Agents should use `healthcheck`
+to inspect ChromaDB connectivity and the configured topology rather than invoking database
+start/stop tools.
+
 ## Tool Specifications
 
 This section details the parameters and behavior of each tool exposed by the Memory Core server.
@@ -85,14 +86,6 @@ This section details the parameters and behavior of each tool exposed by the Mem
 
 #### `healthcheck`
 Confirms server health and database connectivity. This tool takes no parameters.
-
-### Database Lifecycle Tools
-
-#### `start_database`
-Starts the ChromaDB database instance as a background process. This tool takes no parameters.
-
-#### `stop_database`
-Stops the running ChromaDB database instance. This tool takes no parameters.
 
 ### Memory Tools
 
