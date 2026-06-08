@@ -42,6 +42,195 @@ const MATERIALIZED_SERVER_IMPORTS = new Set([
 ]);
 
 /**
+ * Finds the closing parenthesis for a source-text call while ignoring quoted content.
+ *
+ * @param {String} src       Source text.
+ * @param {Number} openIndex Index of the opening `(`.
+ * @returns {Number}
+ */
+function findClosingParen(src, openIndex) {
+    let quote = null;
+    let depth = 0;
+    let escape = false;
+
+    for (let i = openIndex; i < src.length; i++) {
+        const char = src[i];
+
+        if (quote) {
+            if (escape) {
+                escape = false;
+            } else if (char === '\\') {
+                escape = true;
+            } else if (char === quote) {
+                quote = null;
+            }
+            continue
+        }
+
+        if (char === '\'' || char === '"' || char === '`') {
+            quote = char;
+            continue
+        }
+
+        if (char === '(') {
+            depth++;
+        } else if (char === ')') {
+            depth--;
+            if (depth === 0) {
+                return i
+            }
+        }
+    }
+
+    return -1
+}
+
+/**
+ * Splits a function-call argument list on top-level commas only.
+ *
+ * @param {String} src Function-call argument text without the enclosing parentheses.
+ * @returns {String[]}
+ */
+function splitTopLevelArgs(src) {
+    const args = [];
+    let quote = null;
+    let depth = 0;
+    let start = 0;
+    let escape = false;
+
+    for (let i = 0; i < src.length; i++) {
+        const char = src[i];
+
+        if (quote) {
+            if (escape) {
+                escape = false;
+            } else if (char === '\\') {
+                escape = true;
+            } else if (char === quote) {
+                quote = null;
+            }
+            continue
+        }
+
+        if (char === '\'' || char === '"' || char === '`') {
+            quote = char;
+            continue
+        }
+
+        if (char === '(' || char === '[' || char === '{') {
+            depth++;
+            continue
+        }
+
+        if (char === ')' || char === ']' || char === '}') {
+            depth--;
+            continue
+        }
+
+        if (char === ',' && depth === 0) {
+            args.push(src.slice(start, i).trim());
+            start = i + 1;
+        }
+    }
+
+    args.push(src.slice(start).trim());
+
+    return args
+}
+
+/**
+ * Extracts a plain single- or double-quoted string literal value.
+ *
+ * @param {String} src Candidate source expression.
+ * @returns {String|null}
+ */
+function stringLiteralValue(src) {
+    const value = src.trim();
+    const quote = value[0];
+
+    if ((quote === '\'' || quote === '"') && value[value.length - 1] === quote) {
+        return value.slice(1, -1)
+    }
+
+    return null
+}
+
+/**
+ * Normalizes an AiConfig `leaf()` default expression for stable source-shape comparison.
+ *
+ * @param {String} src Default-expression source.
+ * @returns {String}
+ */
+function normalizeLeafDefault(src) {
+    return src.trim().replace(/\s+/g, ' ')
+}
+
+/**
+ * Builds the same-env/type/key identity used to compare leaf defaults across files.
+ *
+ * @param {{key: String, env: String, type: String}} leaf Leaf-default descriptor.
+ * @returns {String}
+ */
+function leafDefaultIdentity(leaf) {
+    return `${leaf.key}:${leaf.env}:${leaf.type}`
+}
+
+/**
+ * Builds a stable sort key for projected leaf-default descriptors.
+ *
+ * @param {{key: String, env: String, type: String, default: String}} leaf Leaf-default descriptor.
+ * @returns {String}
+ */
+function leafDefaultSortKey(leaf) {
+    return `${leafDefaultIdentity(leaf)}:${leaf.default}`
+}
+
+/**
+ * Projects env-bound `key: leaf(default, 'ENV', 'type')` calls from config source text.
+ *
+ * @param {String} src Source text.
+ * @returns {Array<{key: String, env: String, type: String, default: String}>}
+ */
+function projectLeafDefaults(src) {
+    const leafDefaults = [];
+    const leafPattern  = /([A-Za-z_$][\w$]*)\s*:\s*leaf\s*\(/g;
+
+    for (const match of src.matchAll(leafPattern)) {
+        const openIndex  = match.index + match[0].lastIndexOf('(');
+        const closeIndex = findClosingParen(src, openIndex);
+
+        if (closeIndex === -1) continue;
+
+        const args = splitTopLevelArgs(src.slice(openIndex + 1, closeIndex));
+        if (args.length < 3) continue;
+
+        const env  = stringLiteralValue(args[1]);
+        const type = stringLiteralValue(args[2]);
+
+        if (!env || !type || !/^[A-Z][A-Z0-9_]+$/.test(env)) continue;
+
+        leafDefaults.push({
+            key    : match[1],
+            env,
+            type,
+            default: normalizeLeafDefault(args[0])
+        });
+    }
+
+    return leafDefaults.sort((a, b) => leafDefaultSortKey(a).localeCompare(leafDefaultSortKey(b)))
+}
+
+/**
+ * Formats a changed leaf default for operator-facing drift warnings.
+ *
+ * @param {{key: String, env: String, type: String, configDefault: String, templateDefault: String}} leaf Drift item.
+ * @returns {String}
+ */
+function formatChangedLeafDefault(leaf) {
+    return `${leaf.key} (${leaf.env}, ${leaf.type}): ${leaf.configDefault} -> ${leaf.templateDefault}`
+}
+
+/**
  * Projects a `.mjs` file's structural shape — the surface that `initServerConfigs`
  * watches for drift between template and gitignored config.
  *
@@ -74,9 +263,13 @@ const MATERIALIZED_SERVER_IMPORTS = new Set([
  * - **Env-var literals**: UPPER_SNAKE string literals (the `env` arg of each `leaf(...)`). New
  *   entries flag a template that added a config leaf — `data`-tree drift the import/export
  *   projection cannot see. See the inline note in {@link projectSourceShape}.
+ * - **Env-bound leaf defaults**: stable descriptors for `key: leaf(default, 'NEO_FOO', 'type')`
+ *   calls. Same-env default flips are semantic AiConfig drift; env-var projection alone treats
+ *   `leaf('gemini', 'NEO_MODEL_PROVIDER', 'string')` and
+ *   `leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string')` as equal.
  *
- * @param {String} filePath  Absolute path to a readable `.mjs` file.
- * @returns {Promise<{imports: String[], exports: String[], envVars: String[]}>}
+ * @param {String} src Source text to project.
+ * @returns {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[]}}
  */
 export function projectSourceShape(src) {
     const imports = [];
@@ -127,7 +320,9 @@ export function projectSourceShape(src) {
         [...src.matchAll(/['"]([A-Z][A-Z0-9_]+)['"]/g)].map(m => m[1])
     )].sort();
 
-    return {imports, exports, envVars}
+    const leafDefaults = projectLeafDefaults(src);
+
+    return {imports, exports, envVars, leafDefaults}
 }
 
 export async function projectShape(filePath) {
@@ -160,7 +355,7 @@ export function materializeServerConfigTemplate(src) {
  * Detects the narrow drift shape where an existing per-server `config.mjs`
  * only needs its Tier-1 import materialized, not a full template overwrite.
  *
- * @param {{missingImports: String[], missingExports: String[], hasDrift: Boolean}} drift
+ * @param {{missingImports: String[], missingExports: String[], missingEnvVars?: String[], changedLeafDefaults?: Object[], hasDrift: Boolean}} drift
  * @returns {Boolean}
  */
 export function isOnlyServerMaterializationDrift(drift) {
@@ -170,6 +365,7 @@ export function isOnlyServerMaterializationDrift(drift) {
         // A new env-bound leaf (data-tree drift) needs the full template refresh, not an
         // import-only patch — so env-var drift disqualifies the materialize-only fast path.
         (drift.missingEnvVars?.length ?? 0) === 0 &&
+        (drift.changedLeafDefaults?.length ?? 0) === 0 &&
         drift.missingImports.length > 0 &&
         drift.missingImports.every(i => MATERIALIZED_SERVER_IMPORTS.has(i))
     )
@@ -181,21 +377,40 @@ export function isOnlyServerMaterializationDrift(drift) {
  * config but not in template — operator-removed paths) is intentionally NOT
  * reported, since this is a one-way "template advanced, config stale" detector.
  *
- * @param {{imports: String[], exports: String[], envVars?: String[]}} templateShape
- * @param {{imports: String[], exports: String[], envVars?: String[]}} configShape
- * @returns {{missingImports: String[], missingExports: String[], missingEnvVars: String[], hasDrift: Boolean}}
+ * @param {{imports: String[], exports: String[], envVars?: String[], leafDefaults?: Object[]}} templateShape
+ * @param {{imports: String[], exports: String[], envVars?: String[], leafDefaults?: Object[]}} configShape
+ * @returns {{missingImports: String[], missingExports: String[], missingEnvVars: String[], changedLeafDefaults: Object[], hasDrift: Boolean}}
  */
 export function detectDrift(templateShape, configShape) {
     const missingImports = templateShape.imports.filter(i => !configShape.imports.includes(i));
     const missingExports = templateShape.exports.filter(e => !configShape.exports.includes(e));
     // `envVars` is optional on hand-built shapes (e.g. unit fixtures) → default to empty.
     const missingEnvVars = (templateShape.envVars || []).filter(e => !(configShape.envVars || []).includes(e));
+    const configLeafDefaults = new Map((configShape.leafDefaults || []).map(leaf => [leafDefaultIdentity(leaf), leaf]));
+    const changedLeafDefaults = (templateShape.leafDefaults || [])
+        .map(templateLeaf => {
+            const configLeaf = configLeafDefaults.get(leafDefaultIdentity(templateLeaf));
+
+            if (!configLeaf || configLeaf.default === templateLeaf.default) {
+                return null
+            }
+
+            return {
+                key            : templateLeaf.key,
+                env            : templateLeaf.env,
+                type           : templateLeaf.type,
+                templateDefault: templateLeaf.default,
+                configDefault  : configLeaf.default
+            }
+        })
+        .filter(Boolean);
 
     return {
         missingImports,
         missingExports,
         missingEnvVars,
-        hasDrift: missingImports.length + missingExports.length + missingEnvVars.length > 0
+        changedLeafDefaults,
+        hasDrift: missingImports.length + missingExports.length + missingEnvVars.length + changedLeafDefaults.length > 0
     }
 }
 
@@ -281,6 +496,7 @@ export async function initConfigs({argv = process.argv, logger = console, server
             drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
             drift.missingExports.forEach(e => logger.warn(`  + export: ${e}`));
             drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
+            drift.changedLeafDefaults.forEach(leaf => logger.warn(`  + leaf-default: ${formatChangedLeafDefault(leaf)}`));
             logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
             processed.push({serverName, action: 'warn', drift});
         }
@@ -346,6 +562,7 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
     drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
     drift.missingExports.forEach(e => logger.warn(`  + export: ${e}`));
     drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
+    drift.changedLeafDefaults.forEach(leaf => logger.warn(`  + leaf-default: ${formatChangedLeafDefault(leaf)}`));
     logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
 
     return {action: 'warn', drift}
