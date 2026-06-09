@@ -16,7 +16,8 @@ const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json
 const DEFAULT_BASE_PATH = '/learn';
 const GIT_LOG_CHUNK_SIZE = 200;
 const STATUS_RENAME_CODES = new Set(['R', 'C']);
-const MUTABLE_RELEASE_NOTE_GITHUB_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/[^/\s)]+\/blob\/(?:dev|main)\/[^\s)]+/g;
+const RELEASE_NOTE_NEO_GITHUB_SOURCE_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/neo\/(?:blob|tree)\/([^/\s)]+)\/[^\s)]+/g;
+const RELEASE_NOTE_DISALLOWED_SOURCE_REF_PATTERN  = /^(?:main|v\d+(?:\.\d+){0,2}(?:[-.\w]*)?)$/;
 
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
@@ -204,22 +205,24 @@ function getGitPath(filePath) {
 }
 
 /**
- * @summary Finds mutable GitHub branch links that should not ship in release-note SEO routes.
+ * @summary Finds Neo source links that point at mutable or non-existent release refs.
  * @param {String} content Markdown content to inspect
- * @returns {String[]} Matched `github.com/neomjs/<repo>/blob/(dev|main)/...` links
+ * @returns {String[]} Matched `github.com/neomjs/neo/(blob|tree)/<main|vX...>/...` links
  */
-export function getMutableReleaseNoteGithubLinks(content='') {
-    return Array.from(content.matchAll(MUTABLE_RELEASE_NOTE_GITHUB_LINK_PATTERN), match => match[0]);
+export function getDisallowedReleaseNoteGithubLinks(content='') {
+    return Array.from(content.matchAll(RELEASE_NOTE_NEO_GITHUB_SOURCE_LINK_PATTERN))
+        .filter(match => RELEASE_NOTE_DISALLOWED_SOURCE_REF_PATTERN.test(match[1]))
+        .map(match => match[0]);
 }
 
 /**
- * @summary Fails release-note route generation before mutable GitHub branch links become SEO-visible.
+ * @summary Fails release-note route generation before non-canonical Neo source links become SEO-visible.
  * @param {Object} options
  * @param {String} options.filePath Absolute release-note markdown path
  * @param {String} options.content Markdown content to inspect
  */
 export function assertStableReleaseNoteGithubLinks({filePath, content}) {
-    const links = getMutableReleaseNoteGithubLinks(content);
+    const links = getDisallowedReleaseNoteGithubLinks(content);
 
     if (links.length === 0) {
         return;
@@ -227,8 +230,8 @@ export function assertStableReleaseNoteGithubLinks({filePath, content}) {
 
     const fileLabel = filePath ? getGitPath(filePath) : 'unknown release-note source';
     throw new Error([
-        `Release-note SEO route source "${fileLabel}" contains mutable GitHub branch links.`,
-        'Use an immutable commit/tag URL or a canonical successor target before publishing:',
+        `Release-note SEO route source "${fileLabel}" contains non-canonical Neo source links.`,
+        'Use the canonical dev branch for live public Neo source links; immutable commit permalinks are allowed:',
         ...links.map(link => `- ${link}`)
     ].join('\n'));
 }
@@ -1251,7 +1254,7 @@ export default {
     getContentRoutes,
     getContentRouteObjects,
     getContentUrls,
-    getMutableReleaseNoteGithubLinks,
+    getDisallowedReleaseNoteGithubLinks,
     getSitemapXml,
     getLlmsTxt,
     assertStableReleaseNoteGithubLinks
