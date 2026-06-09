@@ -34,7 +34,7 @@ Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as product
 
 Every other 2026 platform asks: *how can AI help humans use this software?* Neo.mjs asks: *how can software become a body that AI inhabits?*
 
-<img width="3005" height="1689" alt="Screenshot 2026-06-04 at 18 37 58" src="https://github.com/user-attachments/assets/4e14e4f5-b44a-4ee0-b66e-315783ea126c" />
+<img width="851" height="478" alt="Screenshot 2026-06-04 at 18 37 58 copy 2" src="https://github.com/user-attachments/assets/96e3b4a4-bdb8-42e7-aea6-fab41547921f" />
 
 </br></br>
 ## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
