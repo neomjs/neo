@@ -613,23 +613,37 @@ ${sessionContent}
             );
 
         // A too-large RAW prompt is pre-check-skipped by the guardrail. Rather than silently
-        // emitting NO summary for an oversized session, fall back to a summary built from the
-        // per-turn miniSummaries (a far smaller, already-compact input that one-shots). The
-        // result is provenance-labeled degraded; raw turns remain the canonical drill-down
-        // substrate, and graph extraction continues to consume raw, never this degraded index.
+        // emitting NO summary for an oversized session, fall back to a compact per-turn input:
+        // the stored miniSummary when present, else a truncated raw snippet (the
+        // _hydrateRecentTurnSummaries pattern). This is robust to the fail-soft / absent-miniSummary
+        // case (buildMiniSummary + the backfill can leave turns with no miniSummary), so the fallback
+        // never falls through to a null summary. The result is provenance-labeled degraded; raw turns
+        // remain the canonical drill-down substrate, and graph extraction still consumes raw.
         if (!guardrailed.result && guardrailed.friction?.symptom === 'size-precheck-skip') {
-            const miniSummaries = this.getSessionMiniSummaries(sessionId);
-            if (miniSummaries.length > 0) {
-                const degradedContent = miniSummaries.map((entry, index) => `Turn ${index + 1}: ${entry}`).join('\n');
-                const degradedResult  = await runGuardrailed(
-                    buildSummaryPrompt(degradedContent),
-                    `summarizationBatchLimit=${aiConfig.summarizationBatchLimit}; sourceTier=miniSummary`
-                );
+            const FALLBACK_CHARS   = 280, // truncated-raw snippet cap (matches the per-turn miniSummary cap)
+                  miniByMemoryId   = this.getSessionMiniSummaries(sessionId),
+                  degradedEntries  = (memories.ids || [])
+                      .map((id, index) => ({
+                          miniSummary: miniByMemoryId.get(id),
+                          document   : memories.documents?.[index] || '',
+                          timestamp  : Number(memories.metadatas?.[index]?.timestamp) || index
+                      }))
+                      .sort((a, b) => a.timestamp - b.timestamp)
+                      .map(turn => (turn.miniSummary || turn.document.slice(0, FALLBACK_CHARS)).trim())
+                      .filter(Boolean);
+
+            if (degradedEntries.length > 0) {
+                const usedTier        = miniByMemoryId.size > 0 ? 'miniSummary' : 'truncatedRaw',
+                      degradedContent = degradedEntries.map((entry, index) => `Turn ${index + 1}: ${entry}`).join('\n'),
+                      degradedResult  = await runGuardrailed(
+                          buildSummaryPrompt(degradedContent),
+                          `summarizationBatchLimit=${aiConfig.summarizationBatchLimit}; sourceTier=${usedTier}`
+                      );
                 if (degradedResult.result) {
                     guardrailed       = degradedResult;
-                    summarySourceTier = 'miniSummary';
+                    summarySourceTier = usedTier;
                     summaryDegraded   = true;
-                    logger.info(`[SessionService] summarizeSession: raw prompt exceeded the safe band; built a provenance-labeled degraded summary from ${miniSummaries.length} per-turn miniSummaries for session ${sessionId}.`);
+                    logger.info(`[SessionService] summarizeSession: raw prompt exceeded the safe band; built a provenance-labeled degraded (${usedTier}) summary from ${degradedEntries.length} turns for session ${sessionId}.`);
                 }
             }
         }
@@ -747,30 +761,35 @@ ${sessionContent}
     }
 
     /**
-     * @summary Returns the per-turn `miniSummary` gists for a session, chronologically ordered.
+     * @summary Returns a `memory-id → miniSummary` map for a session's turns.
      *
      * Sourced from the graph (`AGENT_MEMORY` nodes carry `miniSummary` in `data.properties`;
-     * Chroma metadata does not), scoped by `sessionId`. Used by `summarizeSession`'s size-fallback
-     * to build a provenance-labeled degraded summary when the raw-turn prompt would exceed the
-     * local model's safe processing band — instead of silently emitting no summary.
+     * Chroma metadata does not), scoped by `sessionId`. Keyed by memory id (== the Chroma document
+     * id) so `summarizeSession`'s size-fallback can join per turn: stored miniSummary when present,
+     * else a truncated raw snippet — a provenance-labeled degraded summary instead of a silent skip.
      *
      * @param {String} sessionId
-     * @returns {String[]} Ordered miniSummary strings (empty when none stored / graph unavailable).
+     * @returns {Map<String,String>} memory id → miniSummary (only turns that have one; empty when none / graph unavailable).
      */
     getSessionMiniSummaries(sessionId) {
+        const map    = new Map();
         const sqlite = GraphService.db?.storage?.db;
-        if (!sqlite) return [];
+        if (!sqlite) return map;
 
         const rows = sqlite.prepare(`
-            SELECT json_extract(memory.data, '$.properties.miniSummary') AS miniSummary
+            SELECT memory.id                                             AS id,
+                   json_extract(memory.data, '$.properties.miniSummary') AS miniSummary
             FROM Nodes memory
             WHERE json_extract(memory.data, '$.label')                  = 'AGENT_MEMORY'
               AND json_extract(memory.data, '$.properties.sessionId')   = ?
               AND json_extract(memory.data, '$.properties.miniSummary') IS NOT NULL
-            ORDER BY json_extract(memory.data, '$.properties.timestamp') ASC
         `).all(sessionId);
 
-        return rows.map(row => row.miniSummary).filter(Boolean);
+        for (const row of rows) {
+            if (row.miniSummary) map.set(row.id, row.miniSummary);
+        }
+
+        return map;
     }
 
     /**

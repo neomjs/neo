@@ -89,7 +89,7 @@ test.describe('Neo.ai.services.memory-core.SessionService — degraded session-s
         SessionService.ingestAntigravityArtifacts = originalIngest;
     });
 
-    test('getSessionMiniSummaries returns stored gists chronologically, filters nulls, empty for unknown session', () => {
+    test('getSessionMiniSummaries returns a memory-id → miniSummary map, filters nulls, empty for unknown session', () => {
         seedMiniSummaries('sess-mini', [
             {ts: 300, text: 'third'},
             {ts: 100, text: 'first'},
@@ -101,19 +101,52 @@ test.describe('Neo.ai.services.memory-core.SessionService — degraded session-s
             properties: {sessionId: 'sess-mini', timestamp: 400, miniSummary: null}
         });
 
-        expect(SessionService.getSessionMiniSummaries('sess-mini')).toEqual(['first', 'second', 'third']);
-        expect(SessionService.getSessionMiniSummaries('no-such-session')).toEqual([]);
+        const map = SessionService.getSessionMiniSummaries('sess-mini');
+        expect(map.size).toBe(3);
+        expect(map.get('sess-mini-mem-1')).toBe('first');
+        expect(map.get('sess-mini-mem-2')).toBe('second');
+        expect(map.get('sess-mini-mem-0')).toBe('third');
+        expect(map.has('sess-mini-mem-null')).toBe(false);
+        expect(SessionService.getSessionMiniSummaries('no-such-session').size).toBe(0);
     });
 
-    test('over-band raw → provenance-labeled degraded summary built from miniSummaries (not null)', async () => {
+    test('over-band raw → provenance-labeled degraded summary from stored miniSummaries (not null)', async () => {
         captured = null;
         const sessionId = 'sess-oversized';
+        // The fallback joins by memory id, so the Chroma ids must match the seeded graph node ids.
         seedMiniSummaries(sessionId, [{ts: 1, text: 'turn one gist'}, {ts: 2, text: 'turn two gist'}]);
 
         // RAW prompt far exceeds the safe processing band → guardrail size-precheck-skip.
         const huge = 'x'.repeat(1_500_000);
         SessionService.memoryCollection = {get: async () => ({
-            ids      : ['m1'],
+            ids      : [`${sessionId}-mem-0`, `${sessionId}-mem-1`],
+            documents: [huge, huge],
+            metadatas: [
+                {timestamp: 1, agent: 'test-agent', model: 'gemma4'},
+                {timestamp: 2, agent: 'test-agent', model: 'gemma4'}
+            ]
+        })};
+
+        const res = await RequestContextService.run(
+            {userId: 'tenant-a', agentIdentityNodeId: '@test-agent'},
+            async () => SessionService.summarizeSession(sessionId)
+        );
+
+        expect(res).not.toBeNull();
+        expect(captured).toBeTruthy();
+        expect(captured.metadatas[0].sourceTier).toBe('miniSummary');
+        expect(captured.metadatas[0].degraded).toBe(true);
+        expect(captured.metadatas[0].rawCanonical).toBe(true);
+    });
+
+    test('over-band raw + NO stored miniSummaries → truncated-raw degraded summary, not null (fail-soft branch)', async () => {
+        captured = null;
+        const sessionId = 'sess-oversized-nomini';
+        // Deliberately seed NO miniSummary graph nodes — the fail-soft case where buildMiniSummary /
+        // the backfill has not (yet) populated this session's turns. Must still produce a summary.
+        const huge = 'x'.repeat(1_500_000);
+        SessionService.memoryCollection = {get: async () => ({
+            ids      : [`${sessionId}-mem-0`],
             documents: [huge],
             metadatas: [{timestamp: 1, agent: 'test-agent', model: 'gemma4'}]
         })};
@@ -125,7 +158,7 @@ test.describe('Neo.ai.services.memory-core.SessionService — degraded session-s
 
         expect(res).not.toBeNull();
         expect(captured).toBeTruthy();
-        expect(captured.metadatas[0].sourceTier).toBe('miniSummary');
+        expect(captured.metadatas[0].sourceTier).toBe('truncatedRaw');
         expect(captured.metadatas[0].degraded).toBe(true);
         expect(captured.metadatas[0].rawCanonical).toBe(true);
     });
