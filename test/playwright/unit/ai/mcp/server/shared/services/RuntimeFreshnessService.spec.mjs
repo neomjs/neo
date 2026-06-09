@@ -188,4 +188,34 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
         });
         expect(readCount).toBe(2);
     });
+
+    test('a tracker created without rootDir never reads git and omits gitHead entirely', async () => {
+        const tracker = RuntimeFreshnessService.createTracker({
+            files: [{
+                key       : 'openApiDigest',
+                path      : path.resolve(repoRoot, 'ai/mcp/server/github-workflow/openapi.yaml'),
+                errorLabel: 'OpenAPI digest'
+            }],
+            serviceName       : 'Cloud MCP server',
+            identityLabel     : 'source/schema identity',
+            assertionFacts    : 'tool-schema/source facts',
+            restartScope      : 'cached tool definitions',
+            statusFields      : ['openApiDigest'],
+            unavailableSummary: 'config digest and OpenAPI digest'
+        });
+
+        // Real read (no reader seam): a rootDir-less consumer must never spawn `git`, so no
+        // `gitHead` field and no `gitHead unavailable` error can appear. This is the portability
+        // guarantee for cloud-deployed Memory Core / Knowledge Base on a non-git checkout.
+        const {current, errors} = await tracker.readCurrentIdentity();
+
+        expect(current).not.toHaveProperty('gitHead');
+        expect(current).toHaveProperty('openApiDigest');
+        expect(errors.some(error => error.includes('gitHead'))).toBe(false);
+
+        const result = await tracker.resolve({now: 1000});
+
+        expect(result.status).toBe('current');
+        expect(result.stale).not.toHaveProperty('gitHead');
+    });
 });

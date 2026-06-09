@@ -1557,7 +1557,7 @@ components:
             status:
               type: string
               enum: [current, stale, unknown]
-              description: "Whether service-owned config/OpenAPI identity marks the running process stale. Git HEAD drift is contextual only."
+              description: "Whether service-owned config/OpenAPI identity marks the running process stale."
               example: "current"
             startedAt:
               type: string
@@ -1566,12 +1566,8 @@ components:
               example: "2026-06-08T15:00:00.000Z"
             stale:
               type: object
-              description: "Per-field stale comparison. Null means the field could not be compared; gitHead is informational and does not by itself mark status stale."
+              description: "Per-field stale comparison. Null means the field could not be compared."
               properties:
-                gitHead:
-                  type: boolean
-                  nullable: true
-                  example: false
                 configDigest:
                   type: boolean
                   nullable: true

@@ -149,7 +149,6 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
         expect(result).toMatchObject({
             status: 'current',
             stale : {
-                gitHead      : false,
                 configDigest : false,
                 openApiDigest: false
             },
@@ -179,7 +178,6 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
         expect(result).toMatchObject({
             status: 'stale',
             stale : {
-                gitHead      : false,
                 configDigest : true,
                 openApiDigest: true
             },
@@ -189,7 +187,10 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
         expect(result.details[0]).toContain('configDigest');
     });
 
-    test('keeps gitHead drift contextual when service-owned identity matches', async () => {
+    test('does not track gitHead — injected gitHead drift is ignored entirely', async () => {
+        // Knowledge Base supplies no rootDir to the shared tracker, so gitHead is never read or
+        // surfaced. Even a reader returning differing gitHead values must not appear in `stale`
+        // nor flip status: the freshness signal is digest-only and portable off a git checkout.
         HealthService.runtimeFreshnessReader = async () => ({
             boot: {
                 gitHead      : 'old-head',
@@ -205,16 +206,10 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
 
         const result = await HealthService.resolveRuntimeFreshness();
 
-        expect(result).toMatchObject({
-            status: 'current',
-            stale : {
-                gitHead      : true,
-                configDigest : false,
-                openApiDigest: false
-            },
-            hint: null
-        });
-        expect(result.details[1]).toContain('informational');
+        expect(result.status).toBe('current');
+        expect(result.stale).not.toHaveProperty('gitHead');
+        expect(result.stale).toEqual({configDigest: false, openApiDigest: false});
+        expect(result.details.join(' ')).not.toContain('informational');
     });
 
     test('classifies missing identity as unknown without throwing', async () => {
@@ -229,7 +224,6 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
         expect(result).toMatchObject({
             status: 'unknown',
             stale : {
-                gitHead      : null,
                 configDigest : null,
                 openApiDigest: null
             },
@@ -314,7 +308,6 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
             expect(refreshed.runtimeFreshness).toMatchObject({
                 status: 'stale',
                 stale : {
-                    gitHead      : false,
                     configDigest : true,
                     openApiDigest: false
                 }

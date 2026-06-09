@@ -595,18 +595,15 @@ components:
             status:
               type: string
               enum: [current, stale, unknown]
-              description: Whether service-owned config/OpenAPI identity marks the running process stale. Git HEAD drift is contextual only.
+              description: Whether service-owned config/OpenAPI identity marks the running process stale.
             startedAt:
               type: string
               format: date-time
               description: When the MCP runtime module was loaded.
             stale:
               type: object
-              description: Per-identity stale flags. Null means the field could not be compared; gitHead is informational and does not by itself mark status stale.
+              description: Per-identity stale flags. Null means the field could not be compared.
               properties:
-                gitHead:
-                  type: boolean
-                  nullable: true
                 configDigest:
                   type: boolean
                   nullable: true

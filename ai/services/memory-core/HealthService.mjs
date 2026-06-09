@@ -23,7 +23,6 @@ const
     configPath  = path.resolve(__dirname, '../../config.mjs'),
     openApiPath = path.resolve(__dirname, '../../mcp/server/memory-core/openapi.yaml'),
     runtimeFreshnessTracker = RuntimeFreshnessService.createTracker({
-        rootDir: aiConfig.neoRootDir,
         files  : [{
             key       : 'configDigest',
             path      : configPath,
@@ -38,7 +37,7 @@ const
         assertionFacts    : 'provider, config, or tool-schema facts',
         restartScope      : 'cached provider/config state',
         statusFields      : ['configDigest', 'openApiDigest'],
-        unavailableSummary: 'git metadata, config digest, and OpenAPI digest'
+        unavailableSummary: 'config digest and OpenAPI digest'
     });
 
 /**

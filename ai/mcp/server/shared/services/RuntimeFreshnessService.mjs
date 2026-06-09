@@ -78,7 +78,10 @@ export class RuntimeFreshnessTracker {
     /**
      * @param {Object} options
      * @param {RuntimeFreshnessService} options.runtimeService Shared runtime freshness service.
-     * @param {String} options.rootDir Git project root used for contextual `gitHead` reads.
+     * @param {String} [options.rootDir] Git project root for contextual `gitHead` reads. Omit to
+     * disable gitHead tracking entirely (e.g. cloud-deployed services with no git checkout); the
+     * tracker then never spawns `git` and never surfaces a `gitHead` field. Only services whose
+     * domain is git itself (GitHub Workflow) should supply it.
      * @param {Object[]} options.files Runtime identity files to digest.
      * @param {String} options.serviceName Service display name used in restart guidance.
      * @param {String} options.identityLabel Human-readable identity label.
@@ -100,7 +103,7 @@ export class RuntimeFreshnessTracker {
             'git metadata, config digest, and OpenAPI digest';
         this.startedAt          = options.startedAt || new Date().toISOString();
 
-        this.#fieldKeys      = ['gitHead', ...this.#files.map(file => file.key)];
+        this.#fieldKeys      = [...(this.rootDir ? ['gitHead'] : []), ...this.#files.map(file => file.key)];
         this.#statusFieldSet = new Set(options.statusFields || this.#fieldKeys.filter(key => key !== 'gitHead'));
 
         const boot = this.#runtimeService.readRuntimeIdentitySync({
@@ -230,8 +233,11 @@ export class RuntimeFreshnessTracker {
  * comparison used by MCP healthchecks and keeps the public payload compact: callers see stale
  * booleans and restart guidance, never raw boot/current identity objects.
  *
- * `gitHead` is kept as contextual diagnostic metadata only. A repo-wide commit can be unrelated
- * to a specific MCP server, so service-owned digests decide whether `status` becomes `stale`.
+ * `gitHead` is kept as contextual diagnostic metadata only, and ONLY for consumers that supply a
+ * `rootDir`. A repo-wide commit can be unrelated to a specific MCP server, so service-owned digests
+ * decide whether `status` becomes `stale`. Services with no git checkout (e.g. cloud-deployed
+ * Memory Core / Knowledge Base) omit `rootDir`, never spawn `git`, and drop `gitHead` from the
+ * payload — keeping the freshness signal digest-only and fully portable off a GitHub workflow.
  *
  * @class Neo.ai.mcp.server.shared.services.RuntimeFreshnessService
  * @extends Neo.core.Base
@@ -371,7 +377,7 @@ class RuntimeFreshnessService extends Base {
      * Reads source/config/schema identity with async git access for request-time checks.
      *
      * @param {Object} options
-     * @param {String} options.rootDir Git project root.
+     * @param {String} [options.rootDir] Git project root. When omitted, `git` is never spawned and `gitHead` is not read.
      * @param {Object[]} options.files File descriptors to digest.
      * @param {String} options.phase Error-label prefix.
      * @returns {Promise<{identity: Object, errors: String[]}>}
@@ -381,12 +387,14 @@ class RuntimeFreshnessService extends Base {
             identity = {},
             errors   = [];
 
-        try {
-            const {stdout} = await execFileAsync('git', ['-C', rootDir, 'rev-parse', 'HEAD']);
+        if (rootDir) {
+            try {
+                const {stdout} = await execFileAsync('git', ['-C', rootDir, 'rev-parse', 'HEAD']);
 
-            identity.gitHead = stdout.trim();
-        } catch (e) {
-            errors.push(`${phase} gitHead unavailable: ${e.message}`);
+                identity.gitHead = stdout.trim();
+            } catch (e) {
+                errors.push(`${phase} gitHead unavailable: ${e.message}`);
+            }
         }
 
         for (const file of normalizeIdentityFiles(files)) {
@@ -404,7 +412,7 @@ class RuntimeFreshnessService extends Base {
      * Reads source/config/schema identity with sync git access for module boot capture.
      *
      * @param {Object} options
-     * @param {String} options.rootDir Git project root.
+     * @param {String} [options.rootDir] Git project root. When omitted, `git` is never spawned and `gitHead` is not read.
      * @param {Object[]} options.files File descriptors to digest.
      * @param {String} options.phase Error-label prefix.
      * @returns {{identity: Object, errors: String[]}}
@@ -414,15 +422,17 @@ class RuntimeFreshnessService extends Base {
             identity = {},
             errors   = [];
 
-        try {
-            const stdout = execFileSync('git', ['-C', rootDir, 'rev-parse', 'HEAD'], {
-                encoding: 'utf8',
-                stdio   : ['ignore', 'pipe', 'pipe']
-            });
+        if (rootDir) {
+            try {
+                const stdout = execFileSync('git', ['-C', rootDir, 'rev-parse', 'HEAD'], {
+                    encoding: 'utf8',
+                    stdio   : ['ignore', 'pipe', 'pipe']
+                });
 
-            identity.gitHead = stdout.trim();
-        } catch (e) {
-            errors.push(`${phase} gitHead unavailable: ${e.message}`);
+                identity.gitHead = stdout.trim();
+            } catch (e) {
+                errors.push(`${phase} gitHead unavailable: ${e.message}`);
+            }
         }
 
         for (const file of normalizeIdentityFiles(files)) {
