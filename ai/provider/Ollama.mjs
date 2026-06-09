@@ -114,10 +114,19 @@ class OllamaProvider extends Base {
      *
      * @param {String|Array} input Prompt string or message history array.
      * @param {Object} [options]
+     * @param {Number} [options.timeoutMs] Abort the request after this many ms of socket inactivity.
+     *     For non-streaming Ollama chat (`stream:false`) the server emits no bytes until the full
+     *     completion is ready, so the idle timeout acts as an effective total deadline. Defaults to
+     *     1 hour when unset/invalid, preserving prior behavior. Lets interactive callers (e.g. KB
+     *     `ask` synthesis) fail fast and degrade rather than wait behind a long batch inference.
+     * @param {String} [options.operationLabel] Safe diagnostic label surfaced in the timeout error.
      * @returns {Promise<{content: String, raw: Object}>}
      */
     async generate(input, options = {}) {
-        const payload = this.preparePayload(input, options, false);
+        const payload          = this.preparePayload(input, options, false);
+        const rawTimeoutMs     = Number(options.timeoutMs);
+        const requestTimeoutMs = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : 60 * 60 * 1000;
+        const operationLabel   = options.operationLabel || 'Ollama chat completion';
 
         try {
             const parsedUrl = new URL(`${this.host}/api/chat`);
@@ -134,7 +143,7 @@ class OllamaProvider extends Base {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                timeout: 60 * 60 * 1000 // 1 hour timeout natively
+                timeout: requestTimeoutMs // configurable; defaults to 1h (see options.timeoutMs)
             }, (res) => {
                 let body = '';
                 res.on('data', chunk => body += chunk);
@@ -158,7 +167,7 @@ class OllamaProvider extends Base {
 
             req.on('timeout', () => {
                 req.destroy();
-                rejectFunc(new Error('Ollama request timed out after 1 hour'));
+                rejectFunc(new Error(`[Ollama] ${operationLabel} timed out after ${requestTimeoutMs}ms (host=${this.host}, model=${this.modelName})`));
             });
 
             req.write(JSON.stringify(payload));

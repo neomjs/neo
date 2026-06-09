@@ -271,4 +271,41 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
             score : 321
         });
     });
+
+    test('ask passes the interactive budget and returns degraded references when synthesis times out', async () => {
+        let capturedOptions = null;
+
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{source: tmpFileRelativeToRoot, score: '1234'}]
+        });
+
+        // Simulate the active chat provider aborting on the interactive contention budget — the shape
+        // OpenAiCompatible.generate / Ollama.generate throw once options.timeoutMs is exceeded.
+        SearchService.model = {
+            generateContent: async (prompt, options) => {
+                capturedOptions = options;
+                throw new Error('[Ollama] ask_knowledge_base synthesis timed out after 30000ms (host=http://127.0.0.1:11434, model=gemma4:31b)');
+            }
+        };
+
+        const result = await SearchService.ask({query: 'contention timeout fixture', type: 'src'});
+
+        // Wiring: ask must pass the interactive budget + a safe operation label to the provider.
+        expect(capturedOptions).toBeTruthy();
+        expect(capturedOptions.operationLabel).toBe('ask_knowledge_base synthesis');
+        expect(Object.prototype.hasOwnProperty.call(capturedOptions, 'timeoutMs')).toBe(true);
+
+        // Degraded envelope: references preserved, bounded timeout reason, never collapses to "no documents".
+        expect(result.degraded).toBe(true);
+        expect(result.error).toBe('synthesis_failed');
+        expect(result.reason).toContain('timed out');
+        expect(result.answer).toContain('Knowledge-base retrieval succeeded');
+        expect(result.answer).not.toContain('No relevant documents found');
+        expect(result.references).toEqual([{
+            name  : path.basename(tmpFileRelativeToRoot),
+            source: tmpFileRelativeToRoot,
+            score : 1234
+        }]);
+    });
 });

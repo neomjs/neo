@@ -135,6 +135,20 @@ class Config extends ConfigProvider {
              */
             kbFaqConceptLimit: leaf(5, 'NEO_KB_FAQ_CONCEPT_LIMIT', 'number'),
             /**
+             * @summary Interactive timeout budget (ms) for `ask_knowledge_base` answer synthesis.
+             *
+             * Bounds the single chat-model `generateContent` call in `SearchService.ask` so an
+             * interactive RAG query fails fast and returns its already-retrieved ranked references
+             * (the degraded envelope) instead of hanging behind heavy local-model contention — e.g.
+             * a Dream/REM graph extraction holding the one serialized local endpoint. The budget is
+             * passed to the active chat provider as `options.timeoutMs`; both `OpenAiCompatible` and
+             * `Ollama` honor it. Sized as a starting value above a normal local synthesis but well
+             * below the retry-amplified worst case (a token-exhausting extraction times the provider
+             * retry loop); re-tune once that retry loop is bounded.
+             * @type {number}
+             */
+            askSynthesisTimeoutMs: leaf(30000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
+            /**
              * The path to the generated knowledge base JSONL file.
              * @type {string}
              */
