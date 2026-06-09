@@ -38,9 +38,9 @@ class RowModel extends BaseModel {
      */
     destroy(...args) {
         let me     = this,
-            target = me.view.gridContainer || me.view.parent;
+            target = me.view?.gridContainer || me.view?.parent;
 
-        target.un('rowClick', me.onRowClick, me);
+        target?.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args)
     }
@@ -102,11 +102,8 @@ class RowModel extends BaseModel {
             record = event.record || me.getRecord(data.path),
             recordId;
 
-        // In a multi-body architecture, ensure we only toggle the state once per click
-        // by restricting the state mutation to the specific body that fired the event.
-        if (event.body && event.body !== view) {
-            return
-        }
+        // The single View-owned model listens once on the gridContainer, so each row click is
+        // processed exactly once regardless of which body fired it.
 
         if (record) {
             if (me.hasAnnotations(record)) {
