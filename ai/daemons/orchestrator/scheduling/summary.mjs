@@ -35,6 +35,33 @@ export function getPendingSummarizationJobs(db, {limit = 50} = {}) {
 }
 
 /**
+ * Counts ALL pending `SummarizationJobs` rows — the true session-summary backlog depth.
+ *
+ * @summary Distinct from {@link getPendingSummarizationJobs} (capped at the fetch limit). This
+ * uncapped COUNT feeds the trigger reason so the orchestrator log reports the real backlog rather
+ * than the fetch limit. Fail-soft: returns `null` when the table is unavailable.
+ * @param {Object} db SQLite database handle.
+ * @returns {Number|null}
+ */
+export function getPendingSummarizationCount(db) {
+    if (!db?.prepare) {
+        return null;
+    }
+
+    try {
+        const row = db.prepare(`
+            SELECT COUNT(*) AS n
+            FROM SummarizationJobs
+            WHERE status = 'pending'
+        `).get();
+
+        return Number.isInteger(row?.n) ? row.n : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Builds the task trigger for the summarization sweep lane.
  *
  * Three wake-up sources, in priority order:
@@ -49,10 +76,12 @@ export function getPendingSummarizationJobs(db, {limit = 50} = {}) {
  * @param {Number} options.lastRunAt Last summary task start timestamp.
  * @param {Number} options.intervalMs Periodic sweep interval; `0` disables the interval source.
  * @param {Object[]} [options.handovers=[]] Unread sunset-handover message nodes.
- * @param {String[]} [options.pendingJobs=[]] Pending SummarizationJobs session ids.
+ * @param {String[]} [options.pendingJobs=[]] Pending SummarizationJobs session ids (capped at fetch limit).
+ * @param {Number} [options.totalPending] Uncapped pending-summarization depth for the (logged) reason;
+ *     falls back to `pendingJobs.length` when not an integer.
  * @returns {Object|null} A summary task trigger or null when no work is due.
  */
-export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [], pendingJobs = []}) {
+export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [], pendingJobs = [], totalPending}) {
     if (handovers.length > 0) {
         return {
             taskName     : 'summary',
@@ -63,10 +92,12 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [],
     }
 
     if (pendingJobs.length > 0) {
+        const backlog = Number.isInteger(totalPending) ? totalPending : pendingJobs.length;
+
         return {
             taskName    : 'summary',
             source      : 'pending-summarization',
-            reason      : `pending-summarization:${pendingJobs.length}`,
+            reason      : `pending-summarization:${backlog}`,
             pendingCount: pendingJobs.length
         };
     }
@@ -104,6 +135,7 @@ export function getDueTask({
     summarySweepIntervalMs,
     getUnreadSunsetHandoversFn = getUnreadSunsetHandovers,
     getPendingSummarizationJobsFn = getPendingSummarizationJobs,
+    getPendingSummarizationCountFn = getPendingSummarizationCount,
     markNodesAsReadFn          = markNodesAsRead,
     log
 }) {
@@ -113,6 +145,7 @@ export function getDueTask({
         now,
         handovers,
         pendingJobs,
+        totalPending: pendingJobs.length > 0 ? getPendingSummarizationCountFn(db) : null,
         intervalMs: summarySweepIntervalMs,
         lastRunAt : state.summary?.lastRunAt || 0
     });

@@ -30,18 +30,50 @@ export function getPendingMemorySummaryBackfillJobs(db, {limit = 50} = {}) {
 }
 
 /**
+ * Counts ALL pending `AGENT_MEMORY` rows lacking `miniSummary` — the true backlog depth.
+ *
+ * @summary Distinct from {@link getPendingMemorySummaryBackfillJobs} (capped at the fetch limit).
+ * This uncapped COUNT feeds the trigger reason so the orchestrator log reports the real backlog
+ * rather than the fetch limit. Fail-soft: returns `null` when the graph table is unavailable.
+ * @param {Object} db SQLite database handle.
+ * @returns {Number|null}
+ */
+export function getPendingMemorySummaryBackfillCount(db) {
+    if (!db?.prepare) {
+        return null;
+    }
+
+    try {
+        const row = db.prepare(`
+            SELECT COUNT(*) AS n
+            FROM Nodes memory
+            WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
+              AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+        `).get();
+
+        return Number.isInteger(row?.n) ? row.n : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Builds the task trigger for memory miniSummary backfill.
  *
  * @param {Object} options
- * @param {String[]} [options.pendingJobs=[]] Pending AGENT_MEMORY ids.
+ * @param {String[]} [options.pendingJobs=[]] Pending AGENT_MEMORY ids (capped at the fetch limit).
+ * @param {Number} [options.totalPending] Uncapped backlog depth for the (logged) reason; falls back
+ *     to `pendingJobs.length` when not an integer.
  * @returns {Object|null}
  */
-export function buildMemorySummaryBackfillTrigger({pendingJobs = []} = {}) {
+export function buildMemorySummaryBackfillTrigger({pendingJobs = [], totalPending} = {}) {
     if (pendingJobs.length > 0) {
+        const backlog = Number.isInteger(totalPending) ? totalPending : pendingJobs.length;
+
         return {
             taskName    : 'memory-summary-backfill',
             source      : 'pending-memory-minisummary',
-            reason      : `pending-memory-minisummary:${pendingJobs.length}`,
+            reason      : `pending-memory-minisummary:${backlog}`,
             pendingCount: pendingJobs.length
         };
     }
@@ -54,14 +86,19 @@ export function buildMemorySummaryBackfillTrigger({pendingJobs = []} = {}) {
  *
  * @param {Object} options
  * @param {Object} options.db SQLite database handle.
- * @param {Function} [options.getPendingMemorySummaryBackfillJobsFn] Test seam.
+ * @param {Function} [options.getPendingMemorySummaryBackfillJobsFn] Test seam for the limited fetch.
+ * @param {Function} [options.getPendingMemorySummaryBackfillCountFn] Test seam for the uncapped count.
  * @returns {Object|null}
  */
 export function getDueTask({
     db,
-    getPendingMemorySummaryBackfillJobsFn = getPendingMemorySummaryBackfillJobs
+    getPendingMemorySummaryBackfillJobsFn  = getPendingMemorySummaryBackfillJobs,
+    getPendingMemorySummaryBackfillCountFn = getPendingMemorySummaryBackfillCount
 }) {
+    const pendingJobs = getPendingMemorySummaryBackfillJobsFn(db);
+
     return buildMemorySummaryBackfillTrigger({
-        pendingJobs: getPendingMemorySummaryBackfillJobsFn(db)
+        pendingJobs,
+        totalPending: pendingJobs.length > 0 ? getPendingMemorySummaryBackfillCountFn(db) : null
     });
 }
