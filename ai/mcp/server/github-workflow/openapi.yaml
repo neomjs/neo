@@ -1658,39 +1658,19 @@ components:
           example: "1.0.0"
         runtimeFreshness:
           type: object
-          description: Boot-vs-current runtime source identity for detecting stale MCP client/server attachments.
+          description: Compact boot-vs-current runtime freshness diagnostic for detecting stale GitHub Workflow MCP process attachments.
           properties:
             status:
               type: string
               enum: [current, stale, unknown]
-              description: Whether the running MCP process matches the current checkout identity.
+              description: Whether service-owned OpenAPI identity marks the running process stale. Git HEAD drift is contextual only.
             startedAt:
               type: string
               format: date-time
               description: When the MCP runtime module was loaded.
-            boot:
-              type: object
-              description: Source identity captured when the MCP process started.
-              properties:
-                gitHead:
-                  type: string
-                  description: Git commit SHA at process boot, when available.
-                openApiDigest:
-                  type: string
-                  description: SHA-256 digest of the OpenAPI contract at process boot.
-            current:
-              type: object
-              description: Source identity read from the current checkout during healthcheck.
-              properties:
-                gitHead:
-                  type: string
-                  description: Current checkout Git commit SHA, when available.
-                openApiDigest:
-                  type: string
-                  description: Current SHA-256 digest of the OpenAPI contract.
             stale:
               type: object
-              description: Per-identity stale flags. Null means the field could not be compared.
+              description: Per-identity stale flags. Null means the field could not be compared; gitHead is informational and does not by itself mark status stale.
               properties:
                 gitHead:
                   type: boolean
