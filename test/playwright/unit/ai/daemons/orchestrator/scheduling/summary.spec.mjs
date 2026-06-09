@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import {
     buildSummaryTrigger,
     getPendingSummarizationJobs,
+    getPendingSessionSummaryCount,
     getDueTask
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/summary.mjs';
 
@@ -175,5 +176,43 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
             reason      : 'pending-summarization:730',
             pendingCount: 2
         });
+    });
+
+    test('#12821: buildSummaryTrigger appends the unsummarized-session count to the periodic-sweep reason', () => {
+        expect(buildSummaryTrigger({now: 600000, lastRunAt: 0, intervalMs: 600000, handovers: [], unsummarizedCount: 42})).toEqual({
+            taskName: 'summary',
+            source  : 'periodic-sweep',
+            reason  : 'periodic-sweep:600000 pending-session-summary:42'
+        });
+    });
+
+    test('#12821: periodic-sweep reason omits the count when not provided (backward-compatible)', () => {
+        expect(buildSummaryTrigger({now: 600000, lastRunAt: 0, intervalMs: 600000, handovers: []})).toEqual({
+            taskName: 'summary',
+            source  : 'periodic-sweep',
+            reason  : 'periodic-sweep:600000'
+        });
+    });
+
+    test('#12821: getDueTask threads the session-summary backlog count into the periodic-sweep reason', () => {
+        const result = getDueTask({
+            db                             : 'mock-db',
+            state                          : {summary: {lastRunAt: 0}},
+            now                            : 600000,
+            summarySweepIntervalMs         : 600000,
+            getUnreadSunsetHandoversFn     : () => [],
+            getPendingSummarizationJobsFn  : () => [],
+            getPendingSessionSummaryCountFn: () => 42
+        });
+        expect(result).toMatchObject({
+            source: 'periodic-sweep',
+            reason: 'periodic-sweep:600000 pending-session-summary:42'
+        });
+    });
+
+    test('#12821: getPendingSessionSummaryCount is fail-soft when the graph table is unavailable', () => {
+        const db = {prepare() { throw new Error('no graph table'); }};
+        expect(getPendingSessionSummaryCount(db)).toBeNull();
+        expect(getPendingSessionSummaryCount(null)).toBeNull();
     });
 });
