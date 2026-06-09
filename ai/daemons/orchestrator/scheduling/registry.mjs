@@ -56,8 +56,8 @@ export const TASK_REGISTRY = Object.freeze([
         maintenanceClass: 'heavy',
         backpressure    : 'exclusive-heavy',
         dependencies    : [],
-        getDueTask({db}) {
-            return getMemorySummaryBackfillDueTask({db});
+        getDueTask({db, state, now}) {
+            return getMemorySummaryBackfillDueTask({db, state, now});
         }
     },
     {
