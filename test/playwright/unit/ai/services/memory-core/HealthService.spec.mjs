@@ -240,13 +240,14 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
         expect(result).toMatchObject({
             status: 'current',
             stale : {
-                gitHead      : false,
                 configDigest : false,
                 openApiDigest: false
             },
             hint: null
         });
         expect(result.details).toContain('Runtime source/config identity matches the current checkout.');
+        expect(result.boot).toBeUndefined();
+        expect(result.current).toBeUndefined();
     });
 
     test('classifies stale config identity with restart guidance', async () => {
@@ -268,7 +269,6 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
         expect(result).toMatchObject({
             status: 'stale',
             stale : {
-                gitHead      : false,
                 configDigest : true,
                 openApiDigest: false
             },
@@ -276,6 +276,31 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
         });
         expect(result.details[0]).toContain('Memory Core MCP server');
         expect(result.details[0]).toContain('configDigest');
+    });
+
+    test('does not track gitHead — injected gitHead drift is ignored entirely', async () => {
+        // Memory Core supplies no rootDir to the shared tracker, so gitHead is never read or
+        // surfaced. Even a reader returning differing gitHead values must not appear in `stale`
+        // nor flip status: the freshness signal is digest-only and portable off a git checkout.
+        HealthService.runtimeFreshnessReader = async () => ({
+            boot: {
+                gitHead      : 'old-head',
+                configDigest : 'sha256:same-config',
+                openApiDigest: 'sha256:same-openapi'
+            },
+            current: {
+                gitHead      : 'new-head',
+                configDigest : 'sha256:same-config',
+                openApiDigest: 'sha256:same-openapi'
+            }
+        });
+
+        const result = await HealthService.resolveRuntimeFreshness();
+
+        expect(result.status).toBe('current');
+        expect(result.stale).not.toHaveProperty('gitHead');
+        expect(result.stale).toEqual({configDigest: false, openApiDigest: false});
+        expect(result.details.join(' ')).not.toContain('informational');
     });
 
     test('classifies missing identity as unknown without throwing', async () => {
@@ -290,7 +315,6 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
         expect(result).toMatchObject({
             status: 'unknown',
             stale : {
-                gitHead      : null,
                 configDigest : null,
                 openApiDigest: null
             },
@@ -461,7 +485,6 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(fresh.runtimeFreshness).toMatchObject({
             status: 'stale',
             stale : {
-                gitHead      : false,
                 configDigest : true,
                 openApiDigest: false
             }

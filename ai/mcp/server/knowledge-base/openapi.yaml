@@ -595,7 +595,7 @@ components:
             status:
               type: string
               enum: [current, stale, unknown]
-              description: Whether the running MCP process matches comparable current checkout/config/OpenAPI identity.
+              description: Whether service-owned config/OpenAPI identity marks the running process stale.
             startedAt:
               type: string
               format: date-time
@@ -604,9 +604,6 @@ components:
               type: object
               description: Per-identity stale flags. Null means the field could not be compared.
               properties:
-                gitHead:
-                  type: boolean
-                  nullable: true
                 configDigest:
                   type: boolean
                   nullable: true

@@ -51,10 +51,12 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - runtimeFre
             },
             hint: null
         });
-        expect(result.details).toContain('Runtime source identity matches the current checkout.');
+        expect(result.details).toContain('Runtime source/schema identity matches the current checkout.');
+        expect(result.boot).toBeUndefined();
+        expect(result.current).toBeUndefined();
     });
 
-    test('classifies stale git and OpenAPI identity with restart guidance', async () => {
+    test('classifies stale OpenAPI identity with restart guidance', async () => {
         HealthService.runtimeFreshnessReader = async () => ({
             boot: {
                 gitHead      : 'old-head',
@@ -74,9 +76,36 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - runtimeFre
                 gitHead      : true,
                 openApiDigest: true
             },
-            hint: 'Restart or reconnect the MCP client/server to refresh cached tool definitions.'
+            hint: 'Restart or reconnect the GitHub Workflow MCP server to refresh cached tool definitions.'
         });
-        expect(result.details[0]).toContain('Restart or reconnect the MCP client/server');
+        expect(result.details[0]).toContain('Restart or reconnect the GitHub Workflow MCP server');
+        expect(result.details[0]).toContain('openApiDigest');
+        expect(result.details[1]).toContain('Contextual runtime identity differs (gitHead)');
+    });
+
+    test('keeps gitHead drift contextual when OpenAPI identity matches', async () => {
+        HealthService.runtimeFreshnessReader = async () => ({
+            boot: {
+                gitHead      : 'old-head',
+                openApiDigest: 'sha256:same'
+            },
+            current: {
+                gitHead      : 'new-head',
+                openApiDigest: 'sha256:same'
+            }
+        });
+
+        const result = await HealthService.resolveRuntimeFreshness();
+
+        expect(result).toMatchObject({
+            status: 'current',
+            stale : {
+                gitHead      : true,
+                openApiDigest: false
+            },
+            hint: null
+        });
+        expect(result.details[1]).toContain('informational');
     });
 
     test('classifies missing identity as unknown without throwing', async () => {
