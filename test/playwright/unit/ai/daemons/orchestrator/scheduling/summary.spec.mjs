@@ -147,4 +147,33 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
         expect(calls[0]).toContain("WHERE status = 'pending'");
         expect(calls[1]).toBe(2);
     });
+
+    test('#12809: buildSummaryTrigger reports the TRUE backlog depth, not the fetch limit', () => {
+        const fetched = Array.from({length: 50}, (_, i) => `session-${i}`);
+        expect(buildSummaryTrigger({
+            now: 600000, lastRunAt: 0, intervalMs: 600000, handovers: [],
+            pendingJobs: fetched, totalPending: 730
+        })).toEqual({
+            taskName    : 'summary',
+            source      : 'pending-summarization',
+            reason      : 'pending-summarization:730',
+            pendingCount: 50
+        });
+    });
+
+    test('#12809: getDueTask threads the uncapped pending count into the reason', () => {
+        const result = getDueTask({
+            db                            : 'mock-db',
+            state                         : {summary: {lastRunAt: 0}},
+            now                           : 100,
+            summarySweepIntervalMs        : 600000,
+            getUnreadSunsetHandoversFn    : () => [],
+            getPendingSummarizationJobsFn : () => ['session-1', 'session-2'],
+            getPendingSummarizationCountFn: () => 730
+        });
+        expect(result).toMatchObject({
+            reason      : 'pending-summarization:730',
+            pendingCount: 2
+        });
+    });
 });
