@@ -718,7 +718,12 @@ class MemoryService extends Base {
      * @returns {Promise<String|null>} A ≤280-char one-line summary, or `null`.
      */
     async buildMiniSummary({prompt, response}) {
-        const TIMEOUT_MS = 4000;
+        // Calibrated above the measured local-model summary latency so a real summary is not aborted
+        // before it completes. Benchmark (2026-06-09, MacBook M5 Max 128GB, gemma-4-31b-it via LM
+        // Studio): a ~5k-char -> tweet-size summary takes ~5.3s warm / ~13s cold. The prior 4s cap
+        // aborted most local summaries -> null -> zero backfill drain. Stays under the 30s outer
+        // backfill per-item timeout (MINI_SUMMARY_TIMEOUT_MS).
+        const TIMEOUT_MS = 20000;
         try {
             const model = buildChatModel({
                 modelProvider         : aiConfig.modelProvider,
