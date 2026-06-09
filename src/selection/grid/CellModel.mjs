@@ -33,10 +33,6 @@ class CellModel extends BaseModel {
             gridContainer = view.gridContainer || parent, // Fallback if no specific Multi-Body structure
             listener      = {cellClick: me.onCellClick, scope: me};
 
-        if (gridContainer.vdom.tag === 'table') {
-            gridContainer = gridContainer.parent
-        }
-
         gridContainer.on(listener)
     }
 
@@ -46,14 +42,10 @@ class CellModel extends BaseModel {
     destroy(...args) {
         let me            = this,
             {view}        = me,
-            {parent}      = view,
-            gridContainer = view.gridContainer || parent;
+            parent        = view?.parent,
+            gridContainer = view?.gridContainer || parent;
 
-        if (gridContainer.vdom?.tag === 'table') {
-            gridContainer = gridContainer.parent
-        }
-
-        gridContainer.un('cellClick', me.onCellClick, me);
+        gridContainer?.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
     }
@@ -82,11 +74,8 @@ class CellModel extends BaseModel {
             {view}              = me,
             {dataField, record} = data;
 
-        // In a multi-body architecture, ensure we only toggle the state once per click
-        // by restricting the state mutation to the specific body that fired the event.
-        if (data.body && data.body !== view) {
-            return
-        }
+        // The single View-owned model listens once on the gridContainer, so each cell click is
+        // processed exactly once regardless of which body fired it.
 
         if (record && dataField) {
             me.toggleSelection(view.getLogicalCellId(record, dataField))
