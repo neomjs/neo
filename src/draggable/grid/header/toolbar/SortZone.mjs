@@ -67,6 +67,49 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @summary Resolves the target lock-region for a column drop by mapping the release x-coordinate
+     * against the locked-start / locked-end body x-ranges.
+     *
+     * The neighbor-based inference in {@link #onDragEnd} keys within-region resorting off the dragged
+     * column's siblings, but a cross-toolbar drag (e.g. center → locked-start) is keyed by *where* the
+     * pointer is released, not by neighbors. This maps the release x-coordinate to the region whose body
+     * it falls within; anything outside the locked bodies resolves to the center (unlocked) region.
+     *
+     * @param {Number}      dropX             Pointer x-coordinate at release (client space).
+     * @param {Object}      regionRects       Per-region client rects; either side may be null when absent.
+     * @param {Object|null} regionRects.start Locked-start body rect (`{left, right}`) or null.
+     * @param {Object|null} regionRects.end   Locked-end body rect (`{left, right}`) or null.
+     * @returns {'start'|'end'|null}          Target lock region, or null for the center (unlocked) region.
+     */
+    getDropRegion(dropX, regionRects) {
+        let {start, end} = regionRects;
+
+        if (start && dropX >= start.left && dropX <= start.right) return 'start';
+        if (end   && dropX >= end.left   && dropX <= end.right)   return 'end';
+
+        return null
+    }
+
+    /**
+     * @summary The owner toolbar's column-index offset into the global `gridContainer.columns` collection.
+     *
+     * The header splits into start / center / end toolbars, each indexing its own columns from 0,
+     * while `gridContainer.columns` is the single global collection that {@link #moveTo} reorders. A
+     * locked-region toolbar's local index must therefore be offset by the column counts of the regions
+     * that precede it (start → 0; center → start count; end → start + center counts). In the no-locked
+     * common case the offset is 0, so single-region grids are unaffected.
+     *
+     * @returns {Number}
+     */
+    columnIndexOffset() {
+        let {gridContainer, layoutLock} = this.owner;
+
+        if (layoutLock === 'start') return 0;
+        if (layoutLock === 'end')   return gridContainer.lockedStartColumns.length + gridContainer.centerColumns.length;
+        return gridContainer.lockedStartColumns.length // center
+    }
+
+    /**
      * @param {Neo.util.Rectangle} rect
      * @param {Neo.util.Rectangle} parentRect
      */
@@ -197,7 +240,11 @@ class SortZone extends BaseSortZone {
      */
     moveTo(fromIndex, toIndex) {
         super.moveTo(fromIndex, toIndex);
-        this.owner.gridContainer.columns.move(fromIndex, toIndex)
+
+        // super.moveTo reorders the owner toolbar's own items (local space); the global columns
+        // collection needs the locked-region offset so center / end toolbars move the right columns.
+        let offset = this.columnIndexOffset();
+        this.owner.gridContainer.columns.move(fromIndex + offset, toIndex + offset)
     }
 
     /**
@@ -249,6 +296,21 @@ class SortZone extends BaseSortZone {
             newLocked = 'end'
         }
 
+        // Cross-toolbar: a release over a different region's body is the direct lock-region
+        // signal and supersedes the neighbor inference for cross-region moves. Within-region drops
+        // resolve to the column's existing region, so the neighbor-based path above is preserved.
+        if (Neo.isNumber(me.lastDragClientX) && (grid.bodyStart || grid.bodyEnd)) {
+            let bodyStartRect = grid.bodyStart ? await grid.bodyStart.getDomRect() : null,
+                bodyEndRect   = grid.bodyEnd   ? await grid.bodyEnd.getDomRect()   : null,
+                positionRegion = me.getDropRegion(me.lastDragClientX, {start: bodyStartRect, end: bodyEndRect});
+
+            if (positionRegion !== column.locked) {
+                newLocked = positionRegion
+            }
+        }
+
+        me.lastDragClientX = null;
+
         if (column.locked !== newLocked) {
             // This implicitly triggers grid.Container#onColumnLockChange,
             // which handles sorting, DOM syncing, and layout calculations.
@@ -277,6 +339,9 @@ class SortZone extends BaseSortZone {
 
         // Avoid conflicts with grid.header.plugin.Resizable
         if (!me.owner.dragResortable) return;
+
+        // Track the release x-coordinate so onDragEnd can resolve the cross-toolbar drop region.
+        me.lastDragClientX = data.clientX;
 
         await super.onDragMove(data)
     }
