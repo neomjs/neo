@@ -280,7 +280,10 @@ Instructions:
         let result, answer;
 
         try {
-            result = await this.model.generateContent(prompt);
+            result = await this.model.generateContent(prompt, {
+                timeoutMs     : aiConfig.askSynthesisTimeoutMs,
+                operationLabel: 'ask_knowledge_base synthesis'
+            });
             answer = result.response.text();
         } catch (error) {
             const degraded = this.#createDegradedSynthesisResponse({references, error});

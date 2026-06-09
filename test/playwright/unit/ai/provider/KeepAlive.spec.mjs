@@ -122,6 +122,30 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         expect(payloads[1].options.keep_alive).toBeUndefined();
     });
 
+    test('Ollama.generate() aborts a hung request at options.timeoutMs with a labeled timeout error (#12803)', async () => {
+        // A server that accepts the request but never responds — simulates a long inference
+        // holding the one serialized local endpoint, so the configurable socket timeout fires.
+        const server = http.createServer((req) => {
+            req.on('data', () => {});
+            req.on('end', () => {/* intentionally never respond */});
+        });
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        const host = `http://127.0.0.1:${server.address().port}`;
+
+        try {
+            const provider = Neo.create(OllamaProvider, {host, modelName: 'gemma4-test'});
+
+            await expect(provider.generate('hello', {
+                timeoutMs     : 50,
+                operationLabel: 'ask_knowledge_base synthesis'
+            })).rejects.toThrow(
+                /\[Ollama\] ask_knowledge_base synthesis timed out after 50ms \(host=http:\/\/127\.0\.0\.1:\d+, model=gemma4-test\)/
+            );
+        } finally {
+            await new Promise(resolve => server.close(resolve));
+        }
+    });
+
     test('Ollama.preparePayload() defaults keep_alive for direct payload consumers', () => {
         const provider = Neo.create(OllamaProvider, {
             host     : 'http://ollama.test',
