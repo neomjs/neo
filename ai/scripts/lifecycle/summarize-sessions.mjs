@@ -6,8 +6,8 @@
  * Chroma collection, bypassing the auto-summarization that was disabled on MC server
  * startup to avoid daemon collision. Operator-runnable via `npm run ai:summarize-sessions`.
  *
- * Defaults to last-30-days lookback (`includeAll: false`); for fresh-deployment
- * full-summarization, edit the call-site or extend with a `--include-all` CLI flag (future).
+ * Summarizes all unsummarized sessions (all-time). The earlier 30-day lookback window was
+ * removed as an obsolete boot/healthcheck-timeout safeguard.
  *
  * @see ai/services/memory-core/SessionService.summarizeSessions
  */
@@ -38,8 +38,8 @@ async function summarize() {
         console.log(`[summarize-sessions] Pending drain complete. Pending: ${pendingResult?.pending || 0}; processed: ${pendingResult?.processed || 0}`);
 
         console.log('[summarize-sessions] Starting drift-detection session summarization...');
-        // includeAll: false will only summarize sessions from the last 30 days
-        const result = await Memory_SessionService.summarizeSessions({ includeAll: false });
+        // All-time scope: summarizes every unsummarized session (the 30-day window was removed).
+        const result = await Memory_SessionService.summarizeSessions();
 
         if (result && result.error) {
             console.error(`[summarize-sessions] Summarization failed: ${result.message}`);

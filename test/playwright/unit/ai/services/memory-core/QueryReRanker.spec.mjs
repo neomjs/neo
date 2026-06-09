@@ -425,6 +425,23 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         }
     });
 
+    test('findSessionsToSummarize includes >30-day-old sessions (30-day window removed)', async () => {
+        // Regression guard for the deleted time window: an ancient unsummarized session must now
+        // be returned (it was previously excluded by the timestamp $gt filter).
+        const collection       = await SDK.Memory_ChromaManager.getMemoryCollection();
+        const ancientSessionId = `ancient-alltime-${crypto.randomUUID()}`;
+        const ancientTimestamp = Date.now() - (90 * 24 * 60 * 60 * 1000); // 90 days ago
+
+        await collection.add({
+            ids      : [`ancient-alltime-mem-${testTs}`],
+            documents: ['Ancient unsummarized session memory'],
+            metadatas: [{sessionId: ancientSessionId, timestamp: ancientTimestamp, type: 'agent-interaction'}]
+        });
+
+        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize();
+        expect(sessionsToSummarize).toContain(ancientSessionId);
+    });
+
     test('ChromaDB $gt filter should correctly compare epoch timestamps', async () => {
         // Direct ChromaDB timestamp filtering test
         // This validates your hypothesis about potential date/type issues
