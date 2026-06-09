@@ -141,17 +141,7 @@ class GridContainer extends BaseContainer {
             value         : null
         },
         /**
-         * @member {Neo.grid.header.Toolbar|null} headerEnd=null
-         * @protected
-         */
-        headerEnd: null,
-        /**
-         * @member {Neo.grid.header.Toolbar|null} headerStart=null
-         * @protected
-         */
-        headerStart: null,
-        /**
-         * @member {Neo.container.Base|null} headerWrapper=null
+         * @member {Neo.grid.header.Wrapper|null} headerWrapper=null
          * @protected
          */
         headerWrapper: null,
@@ -274,15 +264,13 @@ class GridContainer extends BaseContainer {
 
         me.items = me.items || [];
 
-        me.headerWrapper = Neo.create(BaseContainer, {
+        me.headerWrapper = Neo.create(header.Wrapper, {
             appName,
-            cls     : ['neo-header-wrapper'],
-            flex    : 'none',
-            layout  : {ntype: 'hbox', align: 'stretch'},
-            parentId: me.id,
-            theme   : me.theme,
+            gridContainer: me,
+            parentId     : me.id,
+            theme        : me.theme,
             windowId,
-            items   : [me.headerToolbar]
+            items        : [me.headerToolbar]
         });
 
         me.view = Neo.create(View, {
@@ -813,28 +801,12 @@ class GridContainer extends BaseContainer {
     createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons) {
         let me = this;
 
-        // --- Center (Default) ---
-        if (me.centerColumns.length > 0) {
-            if (centerButtons) {
-                me.headerToolbar.items = centerButtons;
-                me.headerToolbar.createItems();
-            }
-        }
+        // The header region (locked + centre toolbars) is owned by the dedicated header.Wrapper orchestrator.
+        me.headerWrapper.updateHeaders(lockedStartButtons, centerButtons, lockedEndButtons);
 
-        // --- Start (Left) ---
+        // --- Start body (Left) ---
         if (me.lockedStartColumns.length > 0) {
-            if (!me.headerStart) {
-                me.headerStart = Neo.create(header.Toolbar, {
-                    ...me.headerToolbar.initialConfig,
-                    flex         : 'none',
-                    gridContainer: me,
-                    items        : lockedStartButtons || [],
-                    layoutLock   : 'start',
-                    parentId     : me.headerWrapper.id,
-                    theme        : me.theme,
-                    windowId     : me.windowId
-                });
-
+            if (!me.bodyStart) {
                 me.bodyStart = Neo.create(GridBody, {
                     ...me.body.initialConfig,
                     selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
@@ -846,31 +818,16 @@ class GridContainer extends BaseContainer {
                     theme        : me.theme,
                     useInternalId: me.useInternalId,
                     windowId     : me.windowId
-                });
-            } else if (lockedStartButtons) {
-                me.headerStart.items = lockedStartButtons;
-                me.headerStart.createItems();
+                })
             }
-        } else if (me.headerStart) {
-            me.headerStart.destroy();
+        } else if (me.bodyStart) {
             me.bodyStart.destroy();
-            me.headerStart = me.bodyStart = null;
+            me.bodyStart = null
         }
 
-        // --- End (Right) ---
+        // --- End body (Right) ---
         if (me.lockedEndColumns.length > 0) {
-            if (!me.headerEnd) {
-                me.headerEnd = Neo.create(header.Toolbar, {
-                    ...me.headerToolbar.initialConfig,
-                    flex         : 'none',
-                    gridContainer: me,
-                    items        : lockedEndButtons || [],
-                    layoutLock   : 'end',
-                    parentId     : me.headerWrapper.id,
-                    theme        : me.theme,
-                    windowId     : me.windowId
-                });
-
+            if (!me.bodyEnd) {
                 me.bodyEnd = Neo.create(GridBody, {
                     ...me.body.initialConfig,
                     selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
@@ -882,37 +839,27 @@ class GridContainer extends BaseContainer {
                     theme        : me.theme,
                     useInternalId: me.useInternalId,
                     windowId     : me.windowId
-                });
-            } else if (lockedEndButtons) {
-                me.headerEnd.items = lockedEndButtons;
-                me.headerEnd.createItems();
+                })
             }
-        } else if (me.headerEnd) {
-            me.headerEnd.destroy();
+        } else if (me.bodyEnd) {
             me.bodyEnd.destroy();
-            me.headerEnd = me.bodyEnd = null;
+            me.bodyEnd = null
         }
 
-        // Synchronize SubGrids into DOM via Symmetrical Wrappers
-        let bodyItems   = [],
-            headerItems = [];
+        // Synchronize the body sub-grids into the grid.View.
+        let bodyItems = [];
 
-        if (me.headerStart) headerItems.push(me.headerStart);
-        if (me.headerToolbar) headerItems.push(me.headerToolbar);
-        if (me.headerEnd) headerItems.push(me.headerEnd);
+        me.bodyStart && bodyItems.push(me.bodyStart);
+        me.body      && bodyItems.push(me.body);
+        me.bodyEnd   && bodyItems.push(me.bodyEnd);
 
-        if (me.bodyStart) bodyItems.push(me.bodyStart);
-        if (me.body) bodyItems.push(me.body);
-        if (me.bodyEnd) bodyItems.push(me.bodyEnd);
-
-        me.headerWrapper.items = headerItems;
         me.view.items = bodyItems;
 
         // Single View-owned SelectionModel: hoist the center body's model up to grid.View and share
         // the one instance to all bodies BEFORE they render (no per-body clones, no transient models).
         me.applyViewSelectionModel(me.view.selectionModel || me.body?.selectionModel);
 
-        me.headerWrapper.createItems();
+        // Header assembly is owned by header.Wrapper.updateHeaders(); only the bodies render here.
         me.view.createItems()
     }
 
@@ -1017,11 +964,7 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     getButton(dataField) {
-        let me = this;
-        return me.headerStart?.getColumn(dataField) ||
-               me.headerToolbar?.getColumn(dataField) ||
-               me.headerEnd?.getColumn(dataField) ||
-               null
+        return this.headerWrapper.getButton(dataField)
     }
 
     /**
@@ -1047,56 +990,7 @@ class GridContainer extends BaseContainer {
             me.bodyEnd?.updateMountedAndVisibleColumns()
         });
 
-        me.lockedStartColumns.forEach((col, targetIndex) => {
-            let btn = me.getButton(col.dataField);
-
-            if (btn) {
-                if (btn.parentId !== me.headerStart.id) {
-                    Neo.getComponent(btn.parentId).remove(btn, false);
-                    me.headerStart.add(btn);
-                }
-
-                let currentIndex = me.headerStart.indexOf(btn);
-
-                if (currentIndex !== targetIndex) {
-                    me.headerStart.moveTo(currentIndex, targetIndex)
-                }
-            }
-        });
-
-        me.centerColumns.forEach((col, targetIndex) => {
-            let btn = me.getButton(col.dataField);
-
-            if (btn) {
-                if (btn.parentId !== me.headerToolbar.id) {
-                    Neo.getComponent(btn.parentId).remove(btn, false);
-                    me.headerToolbar.add(btn);
-                }
-
-                let currentIndex = me.headerToolbar.indexOf(btn);
-
-                if (currentIndex !== targetIndex) {
-                    me.headerToolbar.moveTo(currentIndex, targetIndex)
-                }
-            }
-        });
-
-        me.lockedEndColumns.forEach((col, targetIndex) => {
-            let btn = me.getButton(col.dataField);
-
-            if (btn) {
-                if (btn.parentId !== me.headerEnd.id) {
-                    Neo.getComponent(btn.parentId).remove(btn, false);
-                    me.headerEnd.add(btn);
-                }
-
-                let currentIndex = me.headerEnd.indexOf(btn);
-
-                if (currentIndex !== targetIndex) {
-                    me.headerEnd.moveTo(currentIndex, targetIndex)
-                }
-            }
-        });
+        me.headerWrapper.applyColumnButtonOrder(me.lockedStartColumns, me.centerColumns, me.lockedEndColumns);
 
         me.updateColCount()
     }
