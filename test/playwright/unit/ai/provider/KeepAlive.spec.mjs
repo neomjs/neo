@@ -135,12 +135,48 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         try {
             const provider = Neo.create(OllamaProvider, {host, modelName: 'gemma4-test'});
 
-            await expect(provider.generate('hello', {
+            const error = await provider.generate('hello', {
                 timeoutMs     : 50,
                 operationLabel: 'ask_knowledge_base synthesis'
-            })).rejects.toThrow(
+            }).then(() => null, e => e);
+
+            expect(error?.message).toMatch(
                 /\[Ollama\] ask_knowledge_base synthesis timed out after 50ms \(host=http:\/\/127\.0\.0\.1:\d+, model=gemma4-test\)/
             );
+            expect(error?.code).toBe('PROVIDER_TIMEOUT');
+            expect(error?.provider).toBe('Ollama');
+        } finally {
+            await new Promise(resolve => server.close(resolve));
+        }
+    });
+
+    test('Ollama.generate() honors options.signal and aborts the in-flight request (#12814)', async () => {
+        // A hung server (accepts but never responds) — so only an honored abort signal can end
+        // the request quickly; the prior signal-stripping behavior would hang past the test.
+        const server = http.createServer((req) => {
+            req.on('data', () => {});
+            req.on('end', () => {/* intentionally never respond */});
+        });
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        const host = `http://127.0.0.1:${server.address().port}`;
+
+        try {
+            const provider   = Neo.create(OllamaProvider, {host, modelName: 'gemma4-test'});
+            const controller = new AbortController();
+
+            const promise = provider.generate('hello', {
+                signal        : controller.signal,
+                operationLabel: 'daemon-yield cancel'
+            });
+
+            controller.abort();
+
+            const error = await promise.then(() => null, e => e);
+
+            expect(error).toBeTruthy();
+            // Honored upstream signal → an AbortError, NOT a hang and NOT the provider-timeout shape.
+            expect(error.code === 'ABORT_ERR' || error.name === 'AbortError').toBe(true);
+            expect(error.code).not.toBe('PROVIDER_TIMEOUT');
         } finally {
             await new Promise(resolve => server.close(resolve));
         }
@@ -386,7 +422,8 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         );
 
         expect(aborted).toBe(true);
-        expect(abortReason?.code).toBe('OPENAI_COMPATIBLE_TIMEOUT');
+        expect(abortReason?.code).toBe('PROVIDER_TIMEOUT');
+        expect(abortReason?.provider).toBe('OpenAiCompatible');
         expect(capturedPayload).toMatchObject({
             model      : 'gemma4-test',
             stream     : true,

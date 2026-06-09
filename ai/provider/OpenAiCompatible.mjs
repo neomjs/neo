@@ -1,23 +1,5 @@
-import Base from './Base.mjs';
-
-/**
- * @summary Creates a provider-timeout error that identifies the safe transport context.
- *
- * The message names the operation, timeout budget, host, and model while deliberately
- * omitting prompt content and credentials.
- *
- * @param {Object} options
- * @param {String} options.operationLabel Safe diagnostic label for the caller operation.
- * @param {Number} options.timeoutMs Timeout budget in milliseconds.
- * @param {String} options.host Provider host.
- * @param {String} options.modelName Chat model id.
- * @returns {Error}
- */
-function createTimeoutError({operationLabel, timeoutMs, host, modelName}) {
-    const error = new Error(`[OpenAiCompatible] ${operationLabel} timed out after ${timeoutMs}ms (host=${host}, model=${modelName})`);
-    error.code  = 'OPENAI_COMPATIBLE_TIMEOUT';
-    return error;
-}
+import Base                 from './Base.mjs';
+import {createTimeoutError} from './createTimeoutError.mjs';
 
 /**
  * Concrete AI provider for a local MLX-native or any OpenAI-compatible API server.
@@ -278,6 +260,7 @@ class OpenAiCompatibleProvider extends Base {
             timeoutId = setTimeout(() => {
                 timedOut = true;
                 controller.abort(createTimeoutError({
+                    provider : 'OpenAiCompatible',
                     operationLabel,
                     timeoutMs,
                     host     : this.host,
@@ -350,6 +333,7 @@ class OpenAiCompatibleProvider extends Base {
         } catch (error) {
             if (timedOut) {
                 const timeoutError = createTimeoutError({
+                    provider : 'OpenAiCompatible',
                     operationLabel,
                     timeoutMs,
                     host     : this.host,
