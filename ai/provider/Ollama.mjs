@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base                 from './Base.mjs';
+import {createTimeoutError} from './createTimeoutError.mjs';
 
 /**
  * Concrete AI provider for a local Ollama daemon.
@@ -120,6 +121,7 @@ class OllamaProvider extends Base {
      *     1 hour when unset/invalid, preserving prior behavior. Lets interactive callers (e.g. KB
      *     `ask` synthesis) fail fast and degrade rather than wait behind a long batch inference.
      * @param {String} [options.operationLabel] Safe diagnostic label surfaced in the timeout error.
+     * @param {AbortSignal} [options.signal] Upstream cancellation signal; when it aborts, the in-flight request is destroyed (parity with OpenAiCompatible).
      * @returns {Promise<{content: String, raw: Object}>}
      */
     async generate(input, options = {}) {
@@ -143,6 +145,7 @@ class OllamaProvider extends Base {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                signal : options.signal,  // honor upstream cancellation (parity with OpenAiCompatible)
                 timeout: requestTimeoutMs // configurable; defaults to 1h (see options.timeoutMs)
             }, (res) => {
                 let body = '';
@@ -167,7 +170,13 @@ class OllamaProvider extends Base {
 
             req.on('timeout', () => {
                 req.destroy();
-                rejectFunc(new Error(`[Ollama] ${operationLabel} timed out after ${requestTimeoutMs}ms (host=${this.host}, model=${this.modelName})`));
+                rejectFunc(createTimeoutError({
+                    provider      : 'Ollama',
+                    operationLabel,
+                    timeoutMs     : requestTimeoutMs,
+                    host          : this.host,
+                    modelName     : this.modelName
+                }));
             });
 
             req.write(JSON.stringify(payload));
