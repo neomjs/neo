@@ -225,7 +225,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             }
         });
         expect(calls).toEqual(['new prompt']);
-        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0});
+        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0, runBudgetHit: false});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-new');
         const data = JSON.parse(row.data);
@@ -254,10 +254,51 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
                 throw new Error('provider unavailable');
             }
         });
-        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0});
+        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0, runBudgetHit: false});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-failure');
         const data = JSON.parse(row.data);
         expect(data.properties.miniSummary).toBeUndefined();
+    });
+
+    test('backfillMiniSummaries bounds a run by maxRunMs and defers the remainder to the next sweep', async () => {
+        // Seed 3 pending rows with the highest timestamps so they sort first under the
+        // (timestamp DESC, id DESC) scan and are exactly the rows this limited fetch returns.
+        const ids = ['budget-row-a', 'budget-row-b', 'budget-row-c'];
+        ids.forEach((id, i) => {
+            memStore.set(id, {prompt: `p-${id}`, response: `r-${id}`});
+            GraphService.upsertNode({
+                id, type: 'AGENT_MEMORY', name: `Memory: ${id}`, description: id, semanticVectorId: id,
+                properties: {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'budget', timestamp: `2099-12-31T23:59:5${2 - i}.000Z`}
+            });
+        });
+
+        // Clock seam advanced by each summarize call: the first row runs while elapsed (0) is under the
+        // 100ms budget; that one call pushes elapsed to 1000ms, so the next iteration exits the loop.
+        let fakeNow   = 0;
+        const calls   = [];
+        const result  = await MemoryService.backfillMiniSummaries({
+            limit   : 3,
+            maxRunMs: 100,
+            now     : () => fakeNow,
+            buildMiniSummary: async ({prompt}) => {
+                calls.push(prompt);
+                fakeNow += 1000;
+                return `summary:${prompt}`;
+            }
+        });
+
+        // Exactly one row processed before the budget bounded the run; the rest deferred to a later sweep.
+        expect(result.runBudgetHit).toBe(true);
+        expect(result.processed).toBe(1);
+        expect(result.updated).toBe(1);
+        expect(calls.length).toBe(1);
+
+        // The two unprocessed rows retain no miniSummary, so a subsequent sweep drains them.
+        const summarized = ids.filter(id => {
+            const seeded = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id);
+            return JSON.parse(seeded.data).properties.miniSummary !== undefined;
+        });
+        expect(summarized.length).toBe(1);
     });
 });

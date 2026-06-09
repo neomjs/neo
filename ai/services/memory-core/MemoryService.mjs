@@ -17,6 +17,16 @@ import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoo
 const MINI_SUMMARY_TIMEOUT_MS = 30000;
 
 /**
+ * Wall-clock budget for a single `backfillMiniSummaries` run. Bounds the run safely under the
+ * ProcessSupervisor watchdog (`taskDefinitions.mjs` `memory-summary-backfill` maxRuntimeMs=900000):
+ * the loop exits cleanly at this budget and defers the unprocessed remainder to the next scheduled
+ * sweep, rather than risking a watchdog SIGKILL that makes zero forward progress. A slow or contended
+ * local model can otherwise push a full batch past the 15-minute watchdog and loop without draining.
+ * @type {Number}
+ */
+const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = 600000;
+
+/**
  * Maximum time to wait for the backfill's content-store (Chroma) metadata fetch before deferring
  * the whole batch. Usually milliseconds; the bound exists only to defeat a hung connection.
  * @type {Number}
@@ -793,21 +803,27 @@ class MemoryService extends Base {
      * can retry it. A failure for one row never aborts the batch.
      *
      * @param {Object} [options]
-     * @param {Number} [options.limit] Maximum rows to process. Defaults to
+     * @param {Number} [options.limit] Maximum rows to fetch. Defaults to
      *     `aiConfig.summarizationBatchLimit`.
      * @param {Function} [options.buildMiniSummary] Optional summarizer seam for deterministic tests.
-     * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number}>}
+     * @param {Number} [options.maxRunMs] Wall-clock budget for the run; defaults to
+     *     `MINI_SUMMARY_BACKFILL_MAX_RUN_MS`. The loop stops starting new rows once reached and defers
+     *     the remainder to the next sweep, keeping the supervised child under its watchdog.
+     * @param {Function} [options.now] Clock seam (defaults to `Date.now`) for deterministic budget tests.
+     * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number, runBudgetHit: Boolean}>}
      */
-    async backfillMiniSummaries({limit, buildMiniSummary} = {}) {
+    async backfillMiniSummaries({limit, buildMiniSummary, maxRunMs, now = () => Date.now()} = {}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, runBudgetHit: false};
         }
 
         const defaultLimit = Number(aiConfig.summarizationBatchLimit) || 50;
         const numericLimit = Number(limit) || defaultLimit;
         const boundedLimit = Math.max(1, Math.min(numericLimit, defaultLimit));
         const summarize    = buildMiniSummary || (options => this.buildMiniSummary(options));
+        const runBudgetMs  = Number(maxRunMs) > 0 ? Number(maxRunMs) : MINI_SUMMARY_BACKFILL_MAX_RUN_MS;
+        const startedAt    = now();
 
         const rows = sqlite.prepare(`
             SELECT memory.id                                          AS id,
@@ -820,7 +836,7 @@ class MemoryService extends Base {
         `).all(boundedLimit);
 
         if (rows.length === 0) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, runBudgetHit: false};
         }
 
         let byId;
@@ -830,12 +846,22 @@ class MemoryService extends Base {
             byId             = new Map((fetched.ids || []).map((id, index) => [id, fetched.metadatas?.[index] || {}]));
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary backfill deferred the whole batch (content store unreachable, fail-soft): ${error.message}`);
-            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0};
+            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0, runBudgetHit: false};
         }
 
-        let updated = 0, deferred = 0, missingContent = 0;
+        let updated = 0, deferred = 0, missingContent = 0, processed = 0, runBudgetHit = false;
 
         for (const row of rows) {
+            // Bound the run safely under the ProcessSupervisor watchdog: stop starting new rows once
+            // the wall-clock budget is reached and defer the unprocessed remainder to the next
+            // scheduled sweep, rather than risk a watchdog SIGKILL that makes zero forward progress.
+            if (now() - startedAt >= runBudgetMs) {
+                runBudgetHit = true;
+                break;
+            }
+
+            processed++;
+
             const metadata = byId.get(row.id);
             if (!metadata || (!metadata.prompt && !metadata.response)) {
                 missingContent++;
@@ -865,7 +891,11 @@ class MemoryService extends Base {
             }
         }
 
-        return {processed: rows.length, updated, deferred, missingContent};
+        if (runBudgetHit) {
+            logger.info(`[MemoryService] miniSummary backfill hit the ${runBudgetMs}ms run budget after ${processed}/${rows.length} row(s); deferring the remainder to the next sweep`);
+        }
+
+        return {processed, updated, deferred, missingContent, runBudgetHit};
     }
 
     /**
