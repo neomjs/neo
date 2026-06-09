@@ -308,8 +308,8 @@ class SessionService extends Base {
      * and the summary metadata.
      *
      * **Logic:**
-     * 1.  **Scope:** Fetches memory and summary metadata for the last 30 days. This optimization
-     *     prevents full-table scans on large databases while covering the vast majority of active work.
+     * 1.  **Scope:** Fetches memory and summary metadata across all sessions (all-time). The prior
+     *     30-day window was an obsolete safeguard from boot-coupled summarization that stranded old sessions.
      * 2.  **Grouping:** Aggregates actual memory counts per session from the raw memory data.
      * 3.  **Comparison:**
      *     -   **Missing Summary:** If a session has memories but no summary, it is flagged.
@@ -322,15 +322,11 @@ class SessionService extends Base {
      * -   **Parallel / Crash Path:** Session A crashes after adding 5 memories. Summary has 10, DB has 15.
      *     Next startup sees Mismatch. Re-summarizes to capture the lost 5 memories.
      *
-     * @param {Boolean} [includeAll=false] If true, ignores the 30-day limit and scans all sessions.
      * @returns {Promise<String[]>} List of Session IDs requiring summarization.
      */
-    async findSessionsToSummarize(includeAll = false) {
-        // 1. Get metadata for memories
-        // Default: Last 30 Days only (limits scope to recent active work).
-        // Override: All time (if includeAll is true).
-        const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-        const minTimestamp = Date.now() - ONE_MONTH_MS;
+    async findSessionsToSummarize() {
+        // 1. Get metadata for memories — all-time scope. (The prior 30-day window was an obsolete
+        // boot/healthcheck-timeout safeguard from when MC summarized on server boot.)
         const limit = aiConfig.summarizationBatchLimit;
         const maxIterations = 1000; // Safety break: max 2M records (2000 * 1000)
 
@@ -346,14 +342,6 @@ class SessionService extends Base {
         };
 
         const memoryQueryOptions = { ...baseQueryOptions };
-
-        if (!includeAll) {
-            memoryQueryOptions.where = {
-                timestamp: {
-                    '$gt': minTimestamp
-                }
-            };
-        }
 
         while (hasMore) {
             if (iterations++ > maxIterations) {
@@ -402,14 +390,6 @@ class SessionService extends Base {
         iterations = 0;
 
         const summaryQueryOptions = { ...baseQueryOptions };
-
-        if (!includeAll) {
-            summaryQueryOptions.where = {
-                timestamp: {
-                    '$gt': minTimestamp
-                }
-            };
-        }
 
         while (hasMore) {
             if (iterations++ > maxIterations) {
@@ -1250,11 +1230,10 @@ ${sessionContent}
      * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
      * Note: If the current active sessionId is explicitly passed, it WILL be summarized.
      * @param {Object}  options
-     * @param {Boolean} [options.includeAll] If true, scans all sessions regardless of time window.
      * @param {String}  [options.sessionId]  A specific session ID to summarize.
      * @returns {Promise<{processed: number, sessions: object[]}|{error: string, message: string, code: string}>}
      */
-    async summarizeSessions({ includeAll, sessionId } = {}) {
+    async summarizeSessions({ sessionId } = {}) {
         try {
             let processed = [];
             const leaseToken = crypto.randomUUID();
@@ -1277,7 +1256,7 @@ ${sessionContent}
                     logger.info(`[SessionService] Skipping session ${sessionId} - active lease held by another instance or already completed.`);
                 }
             } else {
-                const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
+                const sessionsToSummarize = await this.findSessionsToSummarize();
 
                 // Hardware concurrency scaling
                 let batchSize;
