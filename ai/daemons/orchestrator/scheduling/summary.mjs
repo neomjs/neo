@@ -62,6 +62,42 @@ export function getPendingSummarizationCount(db) {
 }
 
 /**
+ * Counts sessions that have `AGENT_MEMORY` turns but no `SESSION_SUMMARY` — the real
+ * unsummarized-session backlog the periodic sweep drains (parallel to the mini-summary backlog
+ * count, not the capped SummarizationJobs marker fetch).
+ *
+ * @summary Feeds the periodic-sweep trigger reason so the orchestrator log reports the
+ * session-summary backlog depth. Fail-soft: returns `null` when the graph table is unavailable.
+ * @param {Object} db SQLite database handle.
+ * @returns {Number|null}
+ */
+export function getPendingSessionSummaryCount(db) {
+    if (!db?.prepare) {
+        return null;
+    }
+
+    try {
+        const row = db.prepare(`
+            SELECT COUNT(*) AS n FROM (
+                SELECT DISTINCT json_extract(memory.data, '$.properties.sessionId') AS sessionId
+                FROM Nodes memory
+                WHERE json_extract(memory.data, '$.label')                = 'AGENT_MEMORY'
+                  AND json_extract(memory.data, '$.properties.sessionId') IS NOT NULL
+                  AND json_extract(memory.data, '$.properties.sessionId') NOT IN (
+                      SELECT json_extract(summary.data, '$.properties.sessionId')
+                      FROM Nodes summary
+                      WHERE json_extract(summary.data, '$.label') = 'SESSION_SUMMARY'
+                  )
+            )
+        `).get();
+
+        return Number.isInteger(row?.n) ? row.n : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Builds the task trigger for the summarization sweep lane.
  *
  * Three wake-up sources, in priority order:
@@ -79,9 +115,11 @@ export function getPendingSummarizationCount(db) {
  * @param {String[]} [options.pendingJobs=[]] Pending SummarizationJobs session ids (capped at fetch limit).
  * @param {Number} [options.totalPending] Uncapped pending-summarization depth for the (logged) reason;
  *     falls back to `pendingJobs.length` when not an integer.
+ * @param {Number} [options.unsummarizedCount] Uncapped unsummarized-session backlog depth; appended to
+ *     the periodic-sweep reason when an integer so the log reports the session-summary backlog depth.
  * @returns {Object|null} A summary task trigger or null when no work is due.
  */
-export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [], pendingJobs = [], totalPending}) {
+export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [], pendingJobs = [], totalPending, unsummarizedCount}) {
     if (handovers.length > 0) {
         return {
             taskName     : 'summary',
@@ -106,7 +144,9 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [],
         return {
             taskName: 'summary',
             source  : 'periodic-sweep',
-            reason  : `periodic-sweep:${intervalMs}`
+            reason  : Number.isInteger(unsummarizedCount)
+                ? `periodic-sweep:${intervalMs} pending-session-summary:${unsummarizedCount}`
+                : `periodic-sweep:${intervalMs}`
         };
     }
 
@@ -136,18 +176,26 @@ export function getDueTask({
     getUnreadSunsetHandoversFn = getUnreadSunsetHandovers,
     getPendingSummarizationJobsFn = getPendingSummarizationJobs,
     getPendingSummarizationCountFn = getPendingSummarizationCount,
+    getPendingSessionSummaryCountFn = getPendingSessionSummaryCount,
     markNodesAsReadFn          = markNodesAsRead,
     log
 }) {
     const handovers = getUnreadSunsetHandoversFn(db);
     const pendingJobs = handovers.length > 0 ? [] : getPendingSummarizationJobsFn(db);
+    const lastRunAt   = state.summary?.lastRunAt || 0;
+    // Only count the unsummarized-session backlog when the periodic sweep is the path that will
+    // fire (no handover, no marked jobs, interval due) — so the COUNT query runs at most once per
+    // sweep, never on every poll.
+    const periodicSweepDue = handovers.length === 0 && pendingJobs.length === 0 &&
+        summarySweepIntervalMs > 0 && now - lastRunAt >= summarySweepIntervalMs;
     const trigger   = buildSummaryTrigger({
         now,
         handovers,
         pendingJobs,
-        totalPending: pendingJobs.length > 0 ? getPendingSummarizationCountFn(db) : null,
+        totalPending     : pendingJobs.length > 0 ? getPendingSummarizationCountFn(db) : null,
+        unsummarizedCount: periodicSweepDue ? getPendingSessionSummaryCountFn(db) : null,
         intervalMs: summarySweepIntervalMs,
-        lastRunAt : state.summary?.lastRunAt || 0
+        lastRunAt
     });
 
     if (!trigger) {
