@@ -5,35 +5,37 @@ import fg             from 'fast-glob';
 
 import {
     assertStableReleaseNoteGithubLinks,
-    getMutableReleaseNoteGithubLinks,
+    getDisallowedReleaseNoteGithubLinks,
     getReleaseNotePriority
 } from '../../../../../../../buildScripts/docs/seo/generate.mjs';
 
 test.describe('docs SEO generator release-note link guard', () => {
-    test('getMutableReleaseNoteGithubLinks returns only mutable dev/main branch links', () => {
-        const links = getMutableReleaseNoteGithubLinks([
+    test('getDisallowedReleaseNoteGithubLinks returns only mutable or release-ref Neo source links', () => {
+        const links = getDisallowedReleaseNoteGithubLinks([
             'https://github.com/neomjs/neo/blob/dev/learn/agentos/DreamPipeline.md',
-            'https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.mjs',
-            'https://github.com/neomjs/neo/blob/abc123/learn/agentos/DreamPipeline.md',
+            'https://github.com/neomjs/neo/tree/dev/.agents/skills',
+            'https://github.com/neomjs/neo/blob/07b6933fd0f1afa022146c5dee3d3becac582ff7/src/component/MagicMoveText.mjs',
+            'https://github.com/neomjs/neo/blob/main/learn/agentos/DreamPipeline.md',
+            'https://github.com/neomjs/neo/tree/v13.0.0/.agents/skills',
             'https://github.com/neomjs/pages/blob/v13.0.0/buildScripts/enhanceSeo.mjs',
-            'https://github.com/neomjs/neo/blob/dev/src/Neo.mjs)'
+            'https://github.com/neomjs/neo/blob/v13.0.0/src/Neo.mjs)'
         ].join('\n'));
 
         expect(links).toEqual([
-            'https://github.com/neomjs/neo/blob/dev/learn/agentos/DreamPipeline.md',
-            'https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.mjs',
-            'https://github.com/neomjs/neo/blob/dev/src/Neo.mjs'
+            'https://github.com/neomjs/neo/blob/main/learn/agentos/DreamPipeline.md',
+            'https://github.com/neomjs/neo/tree/v13.0.0/.agents/skills',
+            'https://github.com/neomjs/neo/blob/v13.0.0/src/Neo.mjs'
         ]);
     });
 
-    test('assertStableReleaseNoteGithubLinks fails with the release-note path and mutable link', () => {
+    test('assertStableReleaseNoteGithubLinks fails with the release-note path and disallowed Neo source link', () => {
         expect(() => assertStableReleaseNoteGithubLinks({
             filePath: path.join(process.cwd(), 'resources/content/release-notes/v0.0.0.md'),
-            content : 'See https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.mjs'
+            content : 'See https://github.com/neomjs/neo/blob/main/buildScripts/enhanceSeo.mjs'
         })).toThrow(/resources\/content\/release-notes\/v0\.0\.0\.md[\s\S]*blob\/main\/buildScripts\/enhanceSeo\.mjs/);
     });
 
-    test('active release notes do not publish mutable GitHub branch links', async () => {
+    test('active release notes use dev or immutable commit refs for Neo source links', async () => {
         const files = await fg('resources/content/release-notes/**/*.md', {
             cwd   : process.cwd(),
             ignore: ['resources/content/archive/**']
@@ -43,7 +45,7 @@ test.describe('docs SEO generator release-note link guard', () => {
 
         for (const file of files) {
             const content = await fs.readFile(path.resolve(process.cwd(), file), 'utf-8');
-            const links   = getMutableReleaseNoteGithubLinks(content);
+            const links   = getDisallowedReleaseNoteGithubLinks(content);
 
             if (links.length > 0) {
                 violations.push({file, links});
