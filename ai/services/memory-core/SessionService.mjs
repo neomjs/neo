@@ -555,7 +555,7 @@ class SessionService extends Base {
         const participatingAgents = Array.from(extractedAgents);
         const models = Array.from(extractedModels);
 
-        const summaryPrompt = `
+        const buildSummaryPrompt = sessionContent => `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
 
 - "summary": (String) A detailed summary of the session. Identify the main goal, key decisions, modified code, and the final outcome. Mention the involvement of specific agents if obvious.
@@ -575,34 +575,78 @@ Unique Tools Utilized: ${Array.from(allToolsUsed).join(', ') || 'none recorded'}
 
 ---
 
-${aggregatedContent}
+${sessionContent}
 `;
 
-        // Consumer-Friction Channel: wrap the summarization LLM invocation with a
-        // bidirectional guardrail. Angle 2 (upstream pre-check) skips invocation when the
-        // estimated tokens for `summaryPrompt` exceed the consumer's safe processing band;
-        // Angle 1 (downstream try/catch) categorizes engine-level failures into friction
-        // symptoms. Friction is emitted with `serviceDomain: 'memory-core'` for handoff
-        // rendering by `GoldenPathSynthesizer.synthesizeGoldenPath`.
-        // Consumer model naming covers all three active providers for
-        // guardrail/log surfaces.
+        // Consumer-Friction Channel: wrap the summarization LLM invocation with a bidirectional
+        // guardrail. Angle 2 (upstream pre-check) skips invocation when the estimated prompt
+        // tokens exceed the consumer's safe processing band; Angle 1 (downstream try/catch)
+        // categorizes engine-level failures into friction symptoms. Friction is emitted with
+        // `serviceDomain: 'memory-core'` for handoff rendering by
+        // `GoldenPathSynthesizer.synthesizeGoldenPath`. Consumer model naming covers all three
+        // active providers for guardrail/log surfaces.
         const consumerModel =
             aiConfig.modelProvider === 'openAiCompatible' ? aiConfig.openAiCompatible.model :
             aiConfig.modelProvider === 'ollama'           ? aiConfig.ollama.model :
             aiConfig.modelName;
         const consumerContextTokens = aiConfig.localModels.chat.contextLimitTokens;
         const consumerSafeTokens    = aiConfig.localModels.chat.safeProcessingLimitTokens;
-        const guardrailed           = await invokeWithGuardrail({
-            invocationFn             : () => this.model.generateContent(summaryPrompt),
-            inputPayload             : summaryPrompt,
+
+        const runGuardrailed = (prompt, note) => invokeWithGuardrail({
+            invocationFn             : () => this.model.generateContent(prompt),
+            inputPayload             : prompt,
             model                    : consumerModel,
             assetRef                 : sessionId,
             consumer                 : 'SessionService.summarizeSession',
             contextLimitTokens       : consumerContextTokens,
             safeProcessingLimitTokens: consumerSafeTokens,
             serviceDomain            : 'memory-core',
-            note                     : `summarizationBatchLimit=${aiConfig.summarizationBatchLimit}`
+            note
         });
+
+        // Raw turns are the preferred, full-fidelity input.
+        let summarySourceTier = 'raw',
+            summaryDegraded   = false,
+            guardrailed       = await runGuardrailed(
+                buildSummaryPrompt(aggregatedContent),
+                `summarizationBatchLimit=${aiConfig.summarizationBatchLimit}`
+            );
+
+        // A too-large RAW prompt is pre-check-skipped by the guardrail. Rather than silently
+        // emitting NO summary for an oversized session, fall back to a compact per-turn input:
+        // the stored miniSummary when present, else a truncated raw snippet (the
+        // _hydrateRecentTurnSummaries pattern). This is robust to the fail-soft / absent-miniSummary
+        // case (buildMiniSummary + the backfill can leave turns with no miniSummary), so the fallback
+        // never falls through to a null summary. The result is provenance-labeled degraded; raw turns
+        // remain the canonical drill-down substrate, and graph extraction still consumes raw.
+        if (!guardrailed.result && guardrailed.friction?.symptom === 'size-precheck-skip') {
+            const FALLBACK_CHARS   = 280, // truncated-raw snippet cap (matches the per-turn miniSummary cap)
+                  miniByMemoryId   = this.getSessionMiniSummaries(sessionId),
+                  degradedEntries  = (memories.ids || [])
+                      .map((id, index) => ({
+                          miniSummary: miniByMemoryId.get(id),
+                          document   : memories.documents?.[index] || '',
+                          timestamp  : Number(memories.metadatas?.[index]?.timestamp) || index
+                      }))
+                      .sort((a, b) => a.timestamp - b.timestamp)
+                      .map(turn => (turn.miniSummary || turn.document.slice(0, FALLBACK_CHARS)).trim())
+                      .filter(Boolean);
+
+            if (degradedEntries.length > 0) {
+                const usedTier        = miniByMemoryId.size > 0 ? 'miniSummary' : 'truncatedRaw',
+                      degradedContent = degradedEntries.map((entry, index) => `Turn ${index + 1}: ${entry}`).join('\n'),
+                      degradedResult  = await runGuardrailed(
+                          buildSummaryPrompt(degradedContent),
+                          `summarizationBatchLimit=${aiConfig.summarizationBatchLimit}; sourceTier=${usedTier}`
+                      );
+                if (degradedResult.result) {
+                    guardrailed       = degradedResult;
+                    summarySourceTier = usedTier;
+                    summaryDegraded   = true;
+                    logger.info(`[SessionService] summarizeSession: raw prompt exceeded the safe band; built a provenance-labeled degraded (${usedTier}) summary from ${degradedEntries.length} turns for session ${sessionId}.`);
+                }
+            }
+        }
 
         if (!guardrailed.result) {
             logger.warn(`[SessionService] summarizeSession: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${sessionId}; skipping summary.`);
@@ -642,7 +686,10 @@ ${aggregatedContent}
             toolsUsed: Array.from(allToolsUsed).join(','),
             sourceAgentIdentities: sourceProvenance.sourceAgentIdentities.join(','),
             sourceTrustTier      : sourceProvenance.sourceTrustTier,
-            provenancePolicy     : 'most-restrictive-source'
+            provenancePolicy     : 'most-restrictive-source',
+            sourceTier           : summarySourceTier,
+            degraded             : summaryDegraded,
+            rawCanonical         : true
         };
         if (sourceProvenance.unclassifiedSourceCount > 0) {
             summaryMetadata.unclassifiedSourceCount = sourceProvenance.unclassifiedSourceCount;
@@ -667,6 +714,9 @@ ${aggregatedContent}
                 sourceAgentIdentities: sourceProvenance.sourceAgentIdentities,
                 sourceTrustTier      : sourceProvenance.sourceTrustTier,
                 provenancePolicy     : 'most-restrictive-source',
+                sourceTier           : summarySourceTier,
+                degraded             : summaryDegraded,
+                rawCanonical         : true,
                 ...(userId ? {userId} : {})
             }
         });
@@ -708,6 +758,38 @@ ${aggregatedContent}
         await this.ingestAntigravityArtifacts(sessionId, summaryId, firstActivity - (12 * 3600000), lastActivity + (12 * 3600000));
 
         return { sessionId, summaryId, title, memoryCount: memories.ids.length };
+    }
+
+    /**
+     * @summary Returns a `memory-id → miniSummary` map for a session's turns.
+     *
+     * Sourced from the graph (`AGENT_MEMORY` nodes carry `miniSummary` in `data.properties`;
+     * Chroma metadata does not), scoped by `sessionId`. Keyed by memory id (== the Chroma document
+     * id) so `summarizeSession`'s size-fallback can join per turn: stored miniSummary when present,
+     * else a truncated raw snippet — a provenance-labeled degraded summary instead of a silent skip.
+     *
+     * @param {String} sessionId
+     * @returns {Map<String,String>} memory id → miniSummary (only turns that have one; empty when none / graph unavailable).
+     */
+    getSessionMiniSummaries(sessionId) {
+        const map    = new Map();
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return map;
+
+        const rows = sqlite.prepare(`
+            SELECT memory.id                                             AS id,
+                   json_extract(memory.data, '$.properties.miniSummary') AS miniSummary
+            FROM Nodes memory
+            WHERE json_extract(memory.data, '$.label')                  = 'AGENT_MEMORY'
+              AND json_extract(memory.data, '$.properties.sessionId')   = ?
+              AND json_extract(memory.data, '$.properties.miniSummary') IS NOT NULL
+        `).all(sessionId);
+
+        for (const row of rows) {
+            if (row.miniSummary) map.set(row.id, row.miniSummary);
+        }
+
+        return map;
     }
 
     /**
