@@ -77,16 +77,20 @@ export function getPendingSessionSummaryCount(db) {
     }
 
     try {
+        // Null-safe anti-join: a correlated NOT EXISTS rather than `NOT IN (subquery)`. A single
+        // SESSION_SUMMARY row with a NULL sessionId would make `NOT IN` evaluate to NULL for every
+        // row, silently collapsing the backlog count to 0; NOT EXISTS is immune to that.
         const row = db.prepare(`
             SELECT COUNT(*) AS n FROM (
                 SELECT DISTINCT json_extract(memory.data, '$.properties.sessionId') AS sessionId
                 FROM Nodes memory
                 WHERE json_extract(memory.data, '$.label')                = 'AGENT_MEMORY'
                   AND json_extract(memory.data, '$.properties.sessionId') IS NOT NULL
-                  AND json_extract(memory.data, '$.properties.sessionId') NOT IN (
-                      SELECT json_extract(summary.data, '$.properties.sessionId')
+                  AND NOT EXISTS (
+                      SELECT 1
                       FROM Nodes summary
-                      WHERE json_extract(summary.data, '$.label') = 'SESSION_SUMMARY'
+                      WHERE json_extract(summary.data, '$.label')                = 'SESSION_SUMMARY'
+                        AND json_extract(summary.data, '$.properties.sessionId') = json_extract(memory.data, '$.properties.sessionId')
                   )
             )
         `).get();
