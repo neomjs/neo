@@ -66,7 +66,6 @@ The server exposes the following tools, which are derived from its OpenAPI speci
 | `query_raw_memories` | Performs semantic search across all raw memories using vector similarity. |
 | **Summaries** | |
 | `get_all_summaries` | Retrieves all session summaries, sorted by timestamp. |
-| `delete_all_summaries` | Deletes all session summaries from the database. |
 | `query_summaries` | Performs semantic search across session summaries. |
 | **Sessions** | |
 | `summarize_sessions` | Triggers the session summarization process. |
@@ -139,9 +138,6 @@ Searches session summaries semantically.
 - `query` (string, required): The natural language search query.
 - `nResults` (integer, optional): Number of results to return (default: 10).
 - `category` (string, optional): Filter by category.
-
-#### `delete_all_summaries`
-Deletes all session summaries (raw memories are preserved). This tool takes no parameters.
 
 ### Session Tools
 
