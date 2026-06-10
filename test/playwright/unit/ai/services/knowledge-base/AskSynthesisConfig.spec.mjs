@@ -115,8 +115,13 @@ test.describe('ai/knowledge-base — askSynthesis config contract (canonical tem
         expect(src).toMatch(/baseUrl\s*:\s*leaf\(null,\s*'NEO_KB_ASK_BASE_URL'/);
     });
 
-    test('runaway breaker (20/min) + the relocated timeout are declared with env bindings', () => {
+    test('runaway breaker (20/min) + the per-provider-class timeout pair are declared with env bindings', () => {
         expect(src).toMatch(/maxCallsPerMinute\s*:\s*leaf\(20,\s*'NEO_KB_ASK_MAX_RPM'/);
+        // LOCAL-class budget stays 300s — near-empirical: a 31B-class local model has been
+        // benchmarked needing ~287s for one ask synthesis; lowering it breaks local deployments.
         expect(src).toMatch(/timeoutMs\s*:\s*leaf\(300000,\s*'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS'/);
+        // REMOTE-class budget is 60s — a remote answering in ~5-10s that is still pending at 60s
+        // is hung, not slow; degrade to references instead of pinning the interactive caller.
+        expect(src).toMatch(/timeoutMsRemote\s*:\s*leaf\(60000,\s*'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE'/);
     });
 });

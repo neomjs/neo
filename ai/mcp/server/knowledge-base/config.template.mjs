@@ -178,17 +178,32 @@ class Config extends ConfigProvider {
                 // the provider's configured default host. Unused for 'gemini'.
                 baseUrl: leaf(null, 'NEO_KB_ASK_BASE_URL', 'string'),
                 /**
-                 * @summary Timeout budget (ms) for the ask-synthesis `generateContent` call.
+                 * @summary Timeout budget (ms) for LOCAL-class ask-synthesis `generateContent` calls
+                 * (`ollama` + `openAiCompatible`).
                  *
-                 * Relocated from the former top-level `askSynthesisTimeoutMs` (value preserved). Bounds the
-                 * single chat-model call so the query fails fast and returns its already-retrieved ranked
-                 * references (the degraded envelope, `#createDegradedSynthesisResponse`) instead of hanging.
-                 * Passed to the provider as `options.timeoutMs`; `OpenAiCompatible` + `Ollama` honor it. With
-                 * the `gemini` default (~5-10s) this is rarely approached; 300s is the generous ceiling for
-                 * the slow LOCAL-provider fallback. Env-overridable.
+                 * Bounds the single chat-model call so the query fails fast and returns its
+                 * already-retrieved ranked references (the degraded envelope,
+                 * `#createDegradedSynthesisResponse`) instead of hanging. Passed to the provider as
+                 * `options.timeoutMs`. 300s is a NEAR-EMPIRICAL ceiling, not a guess: a 31B-class
+                 * local model has been benchmarked needing ~287s for a single ask synthesis —
+                 * lowering this default breaks every local deployment's synthesis outright.
+                 * `openAiCompatible` deliberately uses this local-class budget even when pointed at
+                 * a remote endpoint (false-long merely waits; false-short breaks working setups).
+                 * The always-remote provider class uses `timeoutMsRemote` below instead.
                  * @type {number}
                  */
                 timeoutMs: leaf(300000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
+                /**
+                 * @summary Timeout budget (ms) for REMOTE-class ask-synthesis calls (`gemini`).
+                 *
+                 * The remote default answers in ~5-10s, so a call still pending at 60s is a hung
+                 * provider, not a slow one: degrade to references in about a minute instead of
+                 * pinning an interactive caller for the local-class 5-minute ceiling. Selected at
+                 * the use site by provider class; the two budgets are independent knobs because no
+                 * single value can serve both a 10-second remote and a 5-minute local synthesis.
+                 * @type {number}
+                 */
+                timeoutMsRemote: leaf(60000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE', 'number'),
                 /**
                  * @summary Runaway breaker - max ask-synthesis calls per rolling 60s window.
                  *
