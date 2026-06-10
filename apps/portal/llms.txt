@@ -24,7 +24,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 
 ## Latest Updates
 
-- [v13.0.0 (2026-06-09): Update](https://neomjs.com/raw/news/releases/13.0.0.md)
+- [v13.0.0 (2026-06-10): Update](https://neomjs.com/raw/news/releases/13.0.0.md)
 - [v12.1.0 (2026-03-27): Update](https://neomjs.com/raw/news/releases/12.1.0.md)
 - [v12.0.0 (2026-02-28): Update](https://neomjs.com/raw/news/releases/12.0.0.md)
 - [v11.24.0 (2026-01-31): Update](https://neomjs.com/raw/news/releases/11.24.0.md)
