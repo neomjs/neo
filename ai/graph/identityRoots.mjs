@@ -232,6 +232,59 @@ export const IDENTITIES = [
         }
     },
     {
+        id: '@neo-fable',
+        type: 'AgentIdentity',
+        name: 'Neo Fable',
+        description: 'Anthropic Claude Fable 5 maintainer identity with version-free handle.',
+        properties: {
+            githubLogin: '@neo-fable',
+            displayName: 'Neo Fable',
+            modelFamily: 'claude',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            identityContract: {
+                canonicalIdentityId      : '@neo-fable',
+                requiredGithubLogin      : '@neo-fable',
+                requiredA2aMailboxAddress: '@neo-fable',
+                handlePolicy             : 'version-free-github-handle',
+                modelVersionSource       : 'learn/agentos/ModelStats.md §neo_fable',
+                reviewSemantics: {
+                    modelFamily                  : 'claude',
+                    crossFamilyApprovalQualified : false,
+                    rationale                    : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs. @neo-fable is the 4th Claude maintainer.'
+                }
+            },
+            // No static subscriptionTemplate — mirrors @neo-claude-opus (self-registered runtime
+            // subscription). @tobiu runs Fable as a FULLY ISOLATED Claude Desktop instance: its own
+            // --user-data-dir, repo clone, Claude memory, and Memory Core identity, with zero overlap
+            // to other peers. Its wake route self-registers at runtime from that distinct boot env;
+            // the distinct user-data-dir IS the per-instance address that ada/vega's shared static
+            // tabShortcut lacks, so a committed static template would be both unnecessary and a
+            // cross-leak risk. (Per @tobiu, this isolated-instance setup is the fix pattern for the
+            // ada/vega shared-tabShortcut cross-leak.) Wake-route arming is verified post-first-boot.
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
+            // §neo_fable — primary source: Anthropic Claude Fable 5 announcement / models overview
+            // (verified 2026-06-10: 1M context, 128K output, $10/$50, adaptive-thinking always-on).
+            contextWindowInput: 1048576,
+            parallelToolCalls : true,
+            thoughtBudget     : 'max',
+            hosting           : 'cloud',
+            family            : 'claude',
+            tier              : 'frontier',
+            releaseDate       : '2026-06-09',
+            pricingInput      : 10.00,
+            pricingOutput     : 50.00,
+            swarmRole         : 'Active Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
+            sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
+            participationStatus : 'active',
+            statusReason        : null,
+            authority           : null,
+            since               : null,
+            reactivationTrigger : null,
+            createdAt           : new Date().toISOString()
+        }
+    },
+    {
         id: '@neo-gemini-pro',
         type: 'AgentIdentity',
         name: 'Neo Gemini Pro',
