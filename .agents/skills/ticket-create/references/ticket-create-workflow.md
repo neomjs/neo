@@ -34,10 +34,12 @@ Record the live-open sweep result in the ticket body or creation notes, e.g. `Li
 **(ii) A2A in-flight claim sweep (mandatory) — catches IN-FLIGHT duplicates not yet on GitHub:** for the first minutes of a thundering herd a peer's intent exists only as an A2A `[lane-claim]`/`[lane-intent]`, not yet a GitHub ticket — the `(i)` sweep above cannot see it. Immediately before `create_issue`, scan the mailbox for recent claims on the same scope:
 
 ```js
-list_messages({ status: 'unread' })  // scan recent [lane-claim] / [lane-intent] on the same subject / write-surface
+list_messages({ status: 'all', limit: 30 })  // ALL read-states — recency is the bound, not read-status
 ```
 
-**Tiebreak — first-claim-timestamp-wins:** if a competing claim or a just-filed ticket surfaces, the **earliest claim/file timestamp wins**; the later claimant stands down (or closes its duplicate, porting any unique substance as a comment onto the survivor). Deterministic and self-healing — resolves simultaneous filings without lead mediation. Never `wakeSuppress` a contested-lane resolution: the "do-not-re-file" signal must wake, or it reaches no one in time.
+**Filter by recency + scope, NOT read-status.** A `[lane-claim]` you have already *read* (e.g. your turn-start mailbox triage marked it read) is still an active claim — `status: 'unread'` would make it invisible and you would refile the duplicate, the exact late-boot ordering this gate exists to stop (read-status is consumption tracking, not a relevance signal). From the returned slice, keep messages whose `sentAt` falls in the herd window (~last 30–60 min) **and** whose `[lane-claim]`/`[lane-intent]` subject overlaps your scope (`taggedConcepts: ['lane-claim']` is optional narrowing — tag discipline is conventional, not guaranteed, so subject-scan stays primary).
+
+**Tiebreak — first-claim-timestamp-wins:** if a competing claim or a just-filed ticket surfaces, the **earliest claim/file timestamp wins** — and an earlier *unfiled claim* outranks a later *filed ticket* (claims must bind against fast-filers, or the sweep is toothless). The later party stands down; if it already filed, it closes its duplicate and ports any unique substance onto the survivor — i.e. the earlier claimant absorbs the later filer's content, **not** the reverse. Deterministic and self-healing — resolves simultaneous filings without lead mediation. Never `wakeSuppress` a contested-lane resolution: the "do-not-re-file" signal must wake, or it reaches no one in time.
 
 ```
 grep on resources/content/issues/       # active + archived tickets
