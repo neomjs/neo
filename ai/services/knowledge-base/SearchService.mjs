@@ -82,7 +82,7 @@ class SearchService extends Base {
         // degraded-references envelope carrying the remediation. The later `aiConfig.askSynthesis`
         // reads inside `ask()` are unreachable in this state by construction (null-model early
         // return precedes them). No fabricated defaults — the config template owns defaults.
-        const missing = getMissingAskSynthesisLeaves(aiConfig.askSynthesis, ['provider', 'model', 'timeoutMs', 'maxCallsPerMinute']);
+        const missing = getMissingAskSynthesisLeaves(aiConfig.askSynthesis, ['provider', 'model', 'timeoutMs', 'timeoutMsRemote', 'maxCallsPerMinute']);
 
         if (missing.length > 0) {
             this.modelUnavailable = {
@@ -359,8 +359,15 @@ Instructions:
         let result, answer;
 
         try {
+            // Provider-class timeout selection: `gemini` is the only always-remote class (~5-10s
+            // typical → 60s flags a hang); `ollama`/`openAiCompatible` get the local-class ceiling —
+            // a 31B-class local synthesis empirically approaches 5 minutes, and `openAiCompatible`
+            // may point at exactly such a model, so false-long (a hung self-hosted endpoint waits
+            // longer) is the safe direction over false-short (a working local model gets cut off).
+            const ask = aiConfig.askSynthesis;
+
             result = await this.model.generateContent(prompt, {
-                timeoutMs     : aiConfig.askSynthesis.timeoutMs,
+                timeoutMs     : ask.provider === 'gemini' ? ask.timeoutMsRemote : ask.timeoutMs,
                 operationLabel: 'ask_knowledge_base synthesis'
             });
             answer = result.response.text();
