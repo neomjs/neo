@@ -3,6 +3,7 @@ import Base from '../../../src/core/Base.mjs';
 import {buildChatModel} from '../../provider/buildChatModel.mjs';
 import {invokeWithGuardrail} from './helpers/consumerFrictionHelper.mjs';
 import {withTimeout} from './helpers/withTimeout.mjs';
+import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
@@ -1023,6 +1024,36 @@ ${sessionContent}
             // Fall through — treat as no memories.
         }
 
+        // The embed is deferred, so a just-written memory (e.g. the resume boot-heartbeat
+        // this validator exists to health-check) may not be in Chroma yet — and a Chroma outage
+        // lands here too. The AGENT_MEMORY graph rows are written synchronously; consult them
+        // (same tenant predicate as the Chroma where above) before declaring SESSION_NOT_FOUND.
+        if (memoryCount === 0 && sqlite) {
+            try {
+                const userId = normalizeUserId(RequestContextService.getUserId());
+                const tenantClause = userId
+                    ? `AND (json_extract(data, '$.properties.userId') = ? OR json_extract(data, '$.properties.userId') = ?)`
+                    : '';
+                const params = userId ? [sessionId, userId, SHARED_USER_ID] : [sessionId];
+
+                const row = sqlite.prepare(`
+                    SELECT COUNT(*)                                          AS count,
+                           MAX(json_extract(data, '$.properties.timestamp')) AS lastTimestamp
+                    FROM Nodes
+                    WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
+                      AND json_extract(data, '$.properties.sessionId') = ?
+                      ${tenantClause}
+                `).get(...params);
+
+                if (row?.count > 0) {
+                    memoryCount    = row.count;
+                    lastActivityAt = row.lastTimestamp || lastActivityAt;
+                }
+            } catch (e) {
+                logger.warn(`[SessionService] validateSessionForResume: graph fallback failed for ${sessionId}: ${e.message}`);
+            }
+        }
+
         if (memoryCount === 0 && summarizationStatus === 'none') {
             return {
                 error: 'No session found with the supplied ID. Either the session never existed or its data has been purged.',
@@ -1351,6 +1382,30 @@ ${sessionContent}
 
             // Construct filter: ensure tenant isolation.
             const where = userId ? { '$and': [{ sessionId }, { userId }] } : { sessionId };
+
+            // The embed runs deferred. Mark the purge FIRST (synchronous — purge must never
+            // wait on embed latency) so any in-flight embed for this session skips its Chroma add
+            // instead of resurrecting purged data, and tombstone the WAL-pending records below so
+            // a later drain (the Phase-2 embed daemon) cannot re-embed them either.
+            // Dynamic import: MemoryService statically imports SessionService — see the
+            // withTimeout.mjs extraction note on avoiding that import cycle.
+            const {default: MemoryService} = await import('./MemoryService.mjs');
+            MemoryService.markSessionPurged({sessionId, userId: userId || null});
+
+            try {
+                const walDir = aiConfig.memoryWal.dir;
+
+                for (const record of await readPendingWalRecords({dir: walDir})) {
+                    const meta = record.metadata || {};
+                    // Mirror the tenant-scoped `where` predicate: never tombstone across the
+                    // caller's tenant boundary.
+                    if (meta.sessionId !== sessionId) continue;
+                    if (userId && meta.userId !== userId) continue;
+                    await appendWalEmbedMarker({id: record.id, segmentKey: record.segmentKey}, {dir: walDir});
+                }
+            } catch (walError) {
+                logger.warn(`[SessionService] WAL tombstone pass for ${sessionId} failed: ${walError.message}`);
+            }
 
             let deletedMemories = 0;
             if (this.memoryCollection) {

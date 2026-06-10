@@ -143,6 +143,9 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
             })
         );
 
+        // The embed is deferred — flush it before asserting on the spy.
+        await MemoryService.drainPendingEmbeds();
+
         expect(spyCollection.addCalls).toHaveLength(1);
         const metadata = spyCollection.addCalls[0].metadatas[0];
         expect(metadata.userId).toBe('u-alice');
@@ -157,6 +160,9 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
             sessionId: 'session-solo'
         });
 
+        // The embed is deferred — flush it before asserting on the spy.
+        await MemoryService.drainPendingEmbeds();
+
         expect(spyCollection.addCalls).toHaveLength(1);
         const metadata = spyCollection.addCalls[0].metadatas[0];
         expect(metadata.userId).toBeUndefined();
@@ -166,13 +172,18 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
     test('listMemories under team policy returns ALL maintainers\' session records — cross-author (#12527)', async () => {
         // Seed: alice writes 2 memories to session-shared, bob writes 1 memory to session-shared.
         // All three share the same sessionId but carry distinct userId metadata.
+        // Non-empty response/thought: the validation gate rejects empty fields (the
+        // corrupted-memory class), so seed fixtures must carry real content.
         await RequestContextService.run({userId: 'u-alice'}, async () => {
-            await MemoryService.addMemory({prompt: 'a1', response: '', thought: '', sessionId: 'session-shared'});
-            await MemoryService.addMemory({prompt: 'a2', response: '', thought: '', sessionId: 'session-shared'});
+            await MemoryService.addMemory({prompt: 'a1', response: 'r-a1', thought: 't-a1', sessionId: 'session-shared'});
+            await MemoryService.addMemory({prompt: 'a2', response: 'r-a2', thought: 't-a2', sessionId: 'session-shared'});
         });
         await RequestContextService.run({userId: 'u-bob'}, () =>
-            MemoryService.addMemory({prompt: 'b1', response: '', thought: '', sessionId: 'session-shared'})
+            MemoryService.addMemory({prompt: 'b1', response: 'r-b1', thought: 't-b1', sessionId: 'session-shared'})
         );
+
+        // The embed is deferred — flush before reading the spy store back.
+        await MemoryService.drainPendingEmbeds();
 
         // Under team policy (deployment-wide read), Alice reads the shared session and sees ALL
         // three records — her own two AND Bob's (transparent swarm introspection). The team DEFAULT
@@ -192,8 +203,11 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
     });
 
     test('listMemories without a request context returns all session memories (stdio fallback)', async () => {
-        await MemoryService.addMemory({prompt: 'solo1', response: '', thought: '', sessionId: 'session-local'});
-        await MemoryService.addMemory({prompt: 'solo2', response: '', thought: '', sessionId: 'session-local'});
+        await MemoryService.addMemory({prompt: 'solo1', response: 'r-solo1', thought: 't-solo1', sessionId: 'session-local'});
+        await MemoryService.addMemory({prompt: 'solo2', response: 'r-solo2', thought: 't-solo2', sessionId: 'session-local'});
+
+        // The embed is deferred — flush before reading the spy store back.
+        await MemoryService.drainPendingEmbeds();
 
         const view = await MemoryService.listMemories({sessionId: 'session-local', limit: 10});
 
@@ -310,6 +324,9 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
                 response : 'test'
             })
         );
+
+        // The embed is deferred — flush it before asserting on the spy.
+        await MemoryService.drainPendingEmbeds();
 
         const addCall = spyCollection.addCalls.at(-1);
         const tagged  = addCall.metadatas[0]?.userId;

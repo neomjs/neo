@@ -65,9 +65,9 @@ test.describe('SessionService setSessionId', () => {
     test('setSessionId happy path: mutates currentSessionId', async () => {
         const oldId = SDK.Memory_SessionService.currentSessionId;
         const newId = crypto.randomUUID();
-        
+
         const result = await SDK.Memory_SessionService.setSessionId({ sessionId: newId });
-        
+
         expect(result.success).toBe(true);
         expect(result.sessionId).toBe(newId);
         expect(result.replacedSessionId).toBe(oldId);
@@ -76,9 +76,9 @@ test.describe('SessionService setSessionId', () => {
 
     test('setSessionId idempotency: no mutation if same ID', async () => {
         const currentId = SDK.Memory_SessionService.currentSessionId;
-        
+
         const result = await SDK.Memory_SessionService.setSessionId({ sessionId: currentId });
-        
+
         expect(result.success).toBe(true);
         expect(result.message).toBe("Session ID unchanged.");
         expect(SDK.Memory_SessionService.currentSessionId).toBe(currentId);
@@ -86,27 +86,27 @@ test.describe('SessionService setSessionId', () => {
 
     test('setSessionId invalid input: throws ZodError via SDK validation', async () => {
         const currentId = SDK.Memory_SessionService.currentSessionId;
-        
+
         await expect(SDK.Memory_SessionService.setSessionId({})).rejects.toThrow();
         await expect(SDK.Memory_SessionService.setSessionId({ sessionId: null })).rejects.toThrow();
-        
+
         // Ensure state wasn't mutated
         expect(SDK.Memory_SessionService.currentSessionId).toBe(currentId);
     });
 
     test('setSessionId AC verification: empty session is abandoned', async () => {
         const emptySessionId = crypto.randomUUID();
-        
+
         // Force the empty session as current
         SDK.Memory_SessionService.currentSessionId = emptySessionId;
-        
+
         const newId = crypto.randomUUID();
         const result = await SDK.Memory_SessionService.setSessionId({ sessionId: newId });
-        
+
         expect(result.success).toBe(true);
         expect(result.replacedSessionId).toBe(emptySessionId);
         expect(SDK.Memory_SessionService.currentSessionId).toBe(newId);
-        
+
         // Note: The AC states we abandon it, meaning we do nothing to Chroma for a zero-memory session,
         // it simply leaves no footprint because it wasn't tracked anyway.
     });
@@ -127,6 +127,9 @@ test.describe('SessionService setSessionId', () => {
                 });
                 expect(memoryResult1.sessionId).toBe(sessionId1);
 
+                // The embed is deferred — flush before reading the store back.
+                await SDK.Memory_Service.drainPendingEmbeds();
+
                 const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId1 });
                 expect(listResult.memories.length).toBe(1);
                 expect(listResult.memories[0].sessionId).toBe(sessionId1);
@@ -139,6 +142,9 @@ test.describe('SessionService setSessionId', () => {
                     thought: 'test thought 2'
                 });
                 expect(memoryResult2.sessionId).toBe(sessionId2);
+
+                // The embed is deferred — flush before reading the store back.
+                await SDK.Memory_Service.drainPendingEmbeds();
 
                 const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId2 });
                 expect(listResult.memories.length).toBe(1);
@@ -173,6 +179,10 @@ test.describe('SessionService setSessionId', () => {
             thought: 'other thought',
             sessionId: otherSessionId
         });
+
+        // The embed is deferred — flush so BOTH memories are in Chroma before the
+        // purge: this test verifies purge deletes embedded data (deletedMemories > 0).
+        await SDK.Memory_Service.drainPendingEmbeds();
 
         // Manually add summaries just to be sure we test both collections
         await SDK.Memory_SessionService.sessionsCollection.upsert({
@@ -255,6 +265,10 @@ test.describe('SessionService setSessionId', () => {
             thought: 'shared thought',
             sessionId: sharedSessionId
         });
+
+        // The embed is deferred — flush so the shared memory is IN Chroma when the
+        // tenant-scoped purge runs: the isolation claim below is only meaningful against real data.
+        await SDK.Memory_Service.drainPendingEmbeds();
 
         await RequestContextService.run({ sessionId: sharedSessionId, userId: testUserId }, async () => {
             const result = await SDK.Memory_SessionService.purgeSession({ sessionId: sharedSessionId });
