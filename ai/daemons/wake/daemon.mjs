@@ -43,6 +43,7 @@ const __dirname = path.dirname(__filename);
 import {
     initializeDatabase,
     getLastSyncId,
+    writeLastSyncId,
     getActiveShapeCSubscriptions,
     getGraphLogEntries,
     getNodesData,
@@ -334,7 +335,7 @@ async function pollLoop() {
             }
 
             lastSyncId = maxId;
-            fs.writeFileSync(STATE_FILE, lastSyncId.toString(), 'utf8');
+            writeLastSyncId(STATE_FILE, lastSyncId);
         }
 
     } catch (err) {
