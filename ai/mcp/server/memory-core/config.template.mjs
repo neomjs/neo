@@ -310,9 +310,11 @@ class Config extends ConfigProvider {
                  * containerized / single-process deployment shape (dockerized MC, npx-neo-app
                  * workspaces) where no orchestrator-supervised embed daemon exists.
                  *
-                 * **Mutual exclusion (sole-drainer invariant):** never enable on a deployment
-                 * where the embed daemon also runs — exactly ONE drain loop per WAL directory.
-                 * The local maintainer profile keeps this `false` and runs the daemon.
+                 * **Mutual exclusion (sole-drainer invariant):** exactly ONE drain loop per WAL
+                 * directory. Enabling this where the embed daemon also runs is refused at startup
+                 * by the per-directory `.drain-lock` guard (whichever host starts second fails
+                 * loud), not merely discouraged. The local maintainer profile keeps this `false`
+                 * and runs the daemon.
                  * @type {boolean}
                  */
                 inProcessDrain : leaf(false, 'NEO_MEMORY_WAL_IN_PROCESS_DRAIN', 'boolean')
