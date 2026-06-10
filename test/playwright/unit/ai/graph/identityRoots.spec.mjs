@@ -46,7 +46,7 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
     };
 
     // Identities that carry the static, machine-agnostic wake template.
-    for (const id of ['@neo-opus-ada', '@neo-opus-vega']) {
+    for (const id of ['@neo-opus-ada', '@neo-opus-vega', '@neo-fable']) {
         test(`${id} defines the machine-agnostic bridge-daemon wake route`, () => {
             const entry = findIdentity(id);
             expect(entry, `${id} must be a registered AgentIdentity root`).toBeTruthy();
