@@ -4,6 +4,7 @@ import crypto                from 'crypto';
 import GraphService          from './GraphService.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
 import SessionService        from './SessionService.mjs';
+import {withTimeout}         from './helpers/withTimeout.mjs';
 import {buildChatModel}      from '../../provider/buildChatModel.mjs';
 import aiConfig              from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -34,20 +35,11 @@ const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = 600000;
 const CHROMA_FETCH_TIMEOUT_MS = 10000;
 
 /**
- * Races a promise against a timeout so a hung downstream call (model inference, content-store
- * fetch) rejects instead of blocking the maintenance loop forever.
- * @param {Promise} promise The work to bound.
- * @param {Number}  ms      Timeout in milliseconds.
- * @param {String}  label   Human-readable label surfaced in the timeout error.
- * @returns {Promise}
+ * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
+ * a `MemoryService` ⇄ `SessionService` import cycle). Kept exported here for back-compat with
+ * existing importers.
  */
-export function withTimeout(promise, ms, label) {
-    let timer;
-    const timeout = new Promise((resolve, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
+export {withTimeout};
 
 /**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
