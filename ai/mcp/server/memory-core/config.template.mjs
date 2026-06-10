@@ -122,6 +122,22 @@ class Config extends ConfigProvider {
              */
             summarizationConcurrency: leaf(5),
             /**
+             * Wall-clock budget (ms) for a single session-summary synthesis call. Bounds
+             * `SessionService.summarizeSession`'s LLM invocation so a slow local synthesis aborts and
+             * degrades gracefully instead of grinding to the provider socket cap — the ~30-min stall that
+             * leaves `SummarizationJobs` leases stuck `in_progress` past expiry. Mirrors the
+             * `buildMiniSummary` timeout guard. Calibrated against the **300000ms `SummarizationJobs` lease
+             * TTL** (`claimSummarizationJob` default): the raw synthesis must abort well under the lease so
+             * it never expires the lease mid-run, AND the degraded (compact) fallback — a second, smaller
+             * synthesis — still completes within the lease. 180s leaves ~120s of that headroom. A synthesis
+             * approaching the lease TTL is already heading for the stuck-lease bug, so degrading it via the
+             * fast compact retry is the correct outcome. On overshoot the synthesis aborts and the
+             * provenance-labeled degraded fallback runs, so a too-slow session still gets a summary.
+             * Env-overridable; refine against a worst-case session-synthesis measurement (stay below the lease TTL).
+             * @type {number}
+             */
+            sessionSummaryTimeoutMs: leaf(180000, 'NEO_MEMORY_SESSION_SUMMARY_TIMEOUT_MS', 'number'),
+            /**
              * The target Storage Architecture to use.
              * Note: Chroma is the only supported Vector DB.
              * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Chroma vectors only).

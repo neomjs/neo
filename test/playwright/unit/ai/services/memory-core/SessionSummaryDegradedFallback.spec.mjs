@@ -16,6 +16,7 @@ setup({
 import {test, expect}        from '@playwright/test';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {PROVIDER_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
  * SessionService degraded session-summary fallback (graduated from the session-summary fidelity
@@ -180,5 +181,44 @@ test.describe('Neo.ai.services.memory-core.SessionService — degraded session-s
         expect(res).not.toBeNull();
         expect(captured.metadatas[0].sourceTier).toBe('raw');
         expect(captured.metadatas[0].degraded).toBe(false);
+    });
+
+    test('in-band raw that TIMES OUT → degraded compact summary, not null (timeout symptom triggers the fallback)', async () => {
+        captured = null;
+        const sessionId = 'sess-timeout';
+        // Stored miniSummaries so the compact fallback has content to synthesize.
+        seedMiniSummaries(sessionId, [{ts: 1, text: 'turn one gist'}, {ts: 2, text: 'turn two gist'}]);
+
+        // In-band raw content (passes the size pre-check) — the synthesis itself is what times out.
+        SessionService.memoryCollection = {get: async () => ({
+            ids      : [`${sessionId}-mem-0`, `${sessionId}-mem-1`],
+            documents: ['a short in-band raw turn', 'another short in-band raw turn'],
+            metadatas: [
+                {timestamp: 1, agent: 'test-agent', model: 'gemma4'},
+                {timestamp: 2, agent: 'test-agent', model: 'gemma4'}
+            ]
+        })};
+
+        // First (RAW) synthesis throws the uniform PROVIDER_TIMEOUT; the smaller compact retry succeeds.
+        let call = 0;
+        SessionService.model = {generateContent: async () => {
+            if (call++ === 0) {
+                const err = new Error('session summarization timed out after 180000ms');
+                err.code = PROVIDER_TIMEOUT_CODE;
+                throw err;
+            }
+            return {response: {text: () => CANNED}};
+        }};
+
+        const res = await RequestContextService.run(
+            {userId: 'tenant-a', agentIdentityNodeId: '@test-agent'},
+            async () => SessionService.summarizeSession(sessionId)
+        );
+
+        expect(res).not.toBeNull();
+        expect(captured).toBeTruthy();
+        expect(captured.metadatas[0].sourceTier).toBe('miniSummary');
+        expect(captured.metadatas[0].degraded).toBe(true);
+        expect(captured.metadatas[0].rawCanonical).toBe(true);
     });
 });
