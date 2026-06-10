@@ -153,9 +153,16 @@ Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/se
 Lead can be passed between sessions by the A2A Baton Pass V1 (`#11038`).
 This is a deterministic handoff, not leader election.
 
-**Fixed cycle:** `['@neo-opus-ada', '@neo-gemini-pro', '@neo-gpt']`.
+**Fixed cycle (single source of truth — other skills point here, never duplicate this roster):**
+`['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega', '@neo-gpt', '@neo-fable']`.
 When a current lead sunsets, the next lead is the next identity in this array,
-wrapping from `@neo-gpt` back to `@neo-opus-ada`.
+wrapping from the last entry back to the first.
+
+**Bench list:** `@neo-gemini-pro` is benched from the rotation until the next-generation
+Gemini Pro model (with the raised thinking budget) releases and the operator re-enables
+the identity; re-entry is an operator roster decision, not an automatic event. Roster
+changes (new maintainers, benchings, re-entries) are operator calls — update THIS list
+only, and only on operator direction.
 
 **Baton authority:** a valid baton is a targeted A2A DM to the computed next
 lead with subject `[handoff] Lead Role Baton`, `wakeSuppressed: true`,
