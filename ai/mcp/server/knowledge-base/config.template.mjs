@@ -135,23 +135,70 @@ class Config extends ConfigProvider {
              */
             kbFaqConceptLimit: leaf(5, 'NEO_KB_FAQ_CONCEPT_LIMIT', 'number'),
             /**
-             * @summary Interactive timeout budget (ms) for `ask_knowledge_base` answer synthesis.
+             * @summary Dedicated per-task model config for `ask_knowledge_base` answer synthesis.
              *
-             * Bounds the single chat-model `generateContent` call in `SearchService.ask` so an
-             * interactive RAG query fails fast and returns its already-retrieved ranked references
-             * (the degraded envelope) instead of hanging behind heavy local-model contention — e.g.
-             * a Dream/REM graph extraction holding the one serialized local endpoint. The budget is
-             * passed to the active chat provider as `options.timeoutMs`; both `OpenAiCompatible` and
-             * `Ollama` honor it. Sized from the measured gemma-4-31b local-model latency (~13s cold for a
-             * ~5k-char miniSummary): the ask prompt feeds up to `limit` full documents (several-fold larger
-             * input + a full answer, not a tweet), so the prior 30s aborted normal 5-doc synthesis.
-             * 60s clears a normal cold 5-doc synthesis with headroom; the degraded-references fallback
-             * (no top-level `error` key — see `SearchService.#createDegradedSynthesisResponse`) makes any
-             * overshoot graceful, never a hard failure. Env-overridable; refine the default against a
-             * worst-case 5-doc measurement, kept below the retry-amplified worst case.
-             * @type {number}
+             * `SearchService.ask` resolves THIS block — not the global `modelProvider` — so the
+             * interactive RAG path can use a fast remote model (Gemini Flash, ~5-10s) while bulk chat
+             * (miniSummary / sessionSummary / graph extraction) stays on the local provider. The prior
+             * global-provider coupling forced `ask` onto the slow local gemma (~287s measured), at or past
+             * the MCP request-timeout ceiling.
+             *
+             * Cost-safety (the scripted-runaway class — a real incident hammered a shared key at
+             * ~1,200 calls/min): (1) `maxCallsPerMinute` runaway breaker — interactive use sits far below
+             * the cap, a script trips it; (2) `apiKey` is a DEDICATED env-only key so the operator can
+             * hard-cap the cloud budget on just the ask path; (3) `gemini-2.5-flash` default — ~15-22x
+             * cheaper than 3.5-flash for no synthesis-quality loss here.
+             *
+             * Local-option preserved: `provider: 'ollama' | 'openAiCompatible'` + `baseUrl` -> a local
+             * endpoint runs `ask` fully local (slower, no code leaves the box) for privacy-mandated
+             * deployments. A `deploymentMode` preset picks this (follow-up per-task-models architecture).
+             * @type {Object}
              */
-            askSynthesisTimeoutMs: leaf(300000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
+            askSynthesis: {
+                // Provider for the ask path: 'gemini' (remote, fast) | 'openAiCompatible' | 'ollama' (local).
+                provider: leaf('gemini', 'NEO_KB_ASK_PROVIDER', 'string'),
+                // Model name. Default 'gemini-2.5-flash' (cheaper + sufficient vs 3.5-flash). For a local
+                // provider, set NEO_KB_ASK_MODEL to the local model name.
+                model: leaf('gemini-2.5-flash', 'NEO_KB_ASK_MODEL', 'string'),
+                /**
+                 * @summary SECURITY - the ask-synthesis API key. Read ONLY from `NEO_KB_ASK_API_KEY`.
+                 *
+                 * NEVER inline a key here or in the generated `config.mjs`: this `config.template.mjs` is
+                 * git-TRACKED, so a literal would ship to the repo; and a secret on disk (even the gitignored
+                 * `config.mjs`) risks accidental `git add -f`, backups, and leaks. The environment is the
+                 * only secure channel - the `leaf` default stays `null` and the env-binding resolves the key
+                 * at config-construct time (read the resolved leaf at the use site, never inline). A DEDICATED
+                 * key (separate from any shared `GEMINI_API_KEY`) lets the operator hard-cap the cloud budget
+                 * on just the ask path, containing the blast radius of a runaway.
+                 * @type {string|null}
+                 */
+                apiKey: leaf(null, 'NEO_KB_ASK_API_KEY', 'string'),
+                // Local-endpoint override for 'ollama' / 'openAiCompatible' - set when the ask model runs on
+                // its OWN endpoint (3-local-model setup: embed + summary + ask each on its own port). null ->
+                // the provider's configured default host. Unused for 'gemini'.
+                baseUrl: leaf(null, 'NEO_KB_ASK_BASE_URL', 'string'),
+                /**
+                 * @summary Timeout budget (ms) for the ask-synthesis `generateContent` call.
+                 *
+                 * Relocated from the former top-level `askSynthesisTimeoutMs` (value preserved). Bounds the
+                 * single chat-model call so the query fails fast and returns its already-retrieved ranked
+                 * references (the degraded envelope, `#createDegradedSynthesisResponse`) instead of hanging.
+                 * Passed to the provider as `options.timeoutMs`; `OpenAiCompatible` + `Ollama` honor it. With
+                 * the `gemini` default (~5-10s) this is rarely approached; 300s is the generous ceiling for
+                 * the slow LOCAL-provider fallback. Env-overridable.
+                 * @type {number}
+                 */
+                timeoutMs: leaf(300000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
+                /**
+                 * @summary Runaway breaker - max ask-synthesis calls per rolling 60s window.
+                 *
+                 * Interactive agent use sits far below this; a scripted runaway (the incident class,
+                 * ~1,200/min) trips it and `ask` returns a degraded `rate_limited` response (references kept)
+                 * instead of issuing the call. Defense-in-depth alongside the dedicated spend-capped key.
+                 * @type {number}
+                 */
+                maxCallsPerMinute: leaf(20, 'NEO_KB_ASK_MAX_RPM', 'number')
+            },
             /**
              * The path to the generated knowledge base JSONL file.
              * @type {string}
