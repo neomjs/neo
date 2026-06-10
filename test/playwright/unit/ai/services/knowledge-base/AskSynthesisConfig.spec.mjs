@@ -18,7 +18,6 @@ import fs                  from 'fs-extra';
 import path                from 'path';
 import {fileURLToPath}     from 'url';
 import {checkAskRateLimit} from '../../../../../../ai/services/knowledge-base/helpers/askRateLimit.mjs';
-import aiKbConfigTemplate  from '../../../../../../ai/mcp/server/knowledge-base/config.template.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -86,28 +85,38 @@ test.describe('ai/knowledge-base — ask-synthesis runaway breaker (checkAskRate
     });
 });
 
-test.describe('ai/knowledge-base — askSynthesis config contract (canonical template)', () => {
-    test('defaults to the fast remote gemini provider + the cheaper 2.5-flash model', () => {
-        expect(aiKbConfigTemplate.askSynthesis.provider).toBe('gemini');
-        expect(aiKbConfigTemplate.askSynthesis.model).toBe('gemini-2.5-flash');
-    });
+test.describe('ai/knowledge-base — askSynthesis config contract (canonical template source)', () => {
+    // Source-level assertions: read the canonical template TEXT, do NOT import/construct the proxy.
+    // Importing it registers `Neo.ai.Config`, which collides with config.mjs-importing specs sharing a
+    // unitTestMode worker. Source-reads verify the declared leaf contract directly, are env-independent
+    // (hold regardless of any value in the test shell), and register zero classes — so they are collision-free.
+    let src;
 
-    test('baseUrl defaults null (local-endpoint override is opt-in)', () => {
-        expect(aiKbConfigTemplate.askSynthesis.baseUrl).toBeNull();
-    });
-
-    test('runaway breaker + timeout defaults are present and numeric', () => {
-        expect(typeof aiKbConfigTemplate.askSynthesis.maxCallsPerMinute).toBe('number');
-        expect(aiKbConfigTemplate.askSynthesis.maxCallsPerMinute).toBe(20);
-        expect(typeof aiKbConfigTemplate.askSynthesis.timeoutMs).toBe('number');
-    });
-
-    test('apiKey is env-only — no inline literal in the git-tracked template (security)', async () => {
-        // Source-level assertion so it holds regardless of any env value present in the test shell:
-        // the leaf MUST be `leaf(null, 'NEO_KB_ASK_API_KEY', ...)` — a null default bound only to the env var.
-        const src = await fs.readFile(
+    test.beforeAll(async () => {
+        src = await fs.readFile(
             path.join(repoRoot, 'ai/mcp/server/knowledge-base/config.template.mjs'), 'utf8'
         );
+    });
+
+    test('the dedicated askSynthesis block exists (ask no longer rides the global modelProvider)', () => {
+        expect(src).toMatch(/askSynthesis\s*:\s*\{/);
+    });
+
+    test('defaults to the fast remote gemini provider + the cheaper 2.5-flash model', () => {
+        expect(src).toMatch(/provider\s*:\s*leaf\('gemini',\s*'NEO_KB_ASK_PROVIDER'/);
+        expect(src).toMatch(/model\s*:\s*leaf\('gemini-2\.5-flash',\s*'NEO_KB_ASK_MODEL'/);
+    });
+
+    test('apiKey is env-only — null default bound to NEO_KB_ASK_API_KEY, no inline literal (security)', () => {
         expect(src).toMatch(/apiKey\s*:\s*leaf\(null,\s*'NEO_KB_ASK_API_KEY'/);
+    });
+
+    test('baseUrl local-endpoint override defaults null', () => {
+        expect(src).toMatch(/baseUrl\s*:\s*leaf\(null,\s*'NEO_KB_ASK_BASE_URL'/);
+    });
+
+    test('runaway breaker (20/min) + the relocated timeout are declared with env bindings', () => {
+        expect(src).toMatch(/maxCallsPerMinute\s*:\s*leaf\(20,\s*'NEO_KB_ASK_MAX_RPM'/);
+        expect(src).toMatch(/timeoutMs\s*:\s*leaf\(300000,\s*'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS'/);
     });
 });
