@@ -19,6 +19,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import path            from 'path';
+import {PROVIDER_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
  * @summary Regression coverage for the SearchService type-filter synthesis bug.
@@ -307,5 +308,27 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
             source: tmpFileRelativeToRoot,
             score : 1234
         }]);
+    });
+
+    test('ask derives synthesis_timeout structurally from PROVIDER_TIMEOUT_CODE, regex-independent', async () => {
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{source: tmpFileRelativeToRoot, score: '1234'}]
+        });
+
+        // The provider-timeout error carries the uniform `error.code`; the message deliberately does
+        // NOT say "timed out", proving degradedCode comes from the structural code, not the regex fallback.
+        SearchService.model = {
+            generateContent: async () => {
+                const err = new Error('upstream request aborted by the interactive budget');
+                err.code = PROVIDER_TIMEOUT_CODE;
+                throw err;
+            }
+        };
+
+        const result = await SearchService.ask({query: 'structural timeout fixture', type: 'src'});
+
+        expect(result.degraded).toBe(true);
+        expect(result.degradedCode).toBe('synthesis_timeout');
     });
 });

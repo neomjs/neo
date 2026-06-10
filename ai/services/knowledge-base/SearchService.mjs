@@ -1,6 +1,7 @@
 import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
 import Base                 from '../../../src/core/Base.mjs';
 import {buildChatModel}     from '../../provider/buildChatModel.mjs';
+import {PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
 import logger               from '../../mcp/server/knowledge-base/logger.mjs';
@@ -165,14 +166,17 @@ class SearchService extends Base {
      * @param {Object} params
      * @param {Object[]} params.references Ranked references returned by QueryService.
      * @param {Error|String} params.error The synthesis failure to expose in bounded form.
-     * @param {String} [params.code] Explicit degraded cause code; when omitted, derived from the reason
-     *     (`synthesis_timeout` when it reports a timeout, else `synthesis_failed`).
+     * @param {String} [params.code] Explicit degraded cause code; when omitted, derived as
+     *     `synthesis_timeout` when the error carries `PROVIDER_TIMEOUT_CODE` (structural — uniform across
+     *     local providers per `createTimeoutError`) or the reason reports a timeout (regex fallback),
+     *     else `synthesis_failed`.
      * @returns {{answer: String, references: Object[], degraded: Boolean, degradedCode: String, reason: String}}
      * @private
      */
     #createDegradedSynthesisResponse({references, error, code}) {
         const reason       = this.#sanitizeSynthesisError(error);
-        const degradedCode = code || (/timed out/i.test(reason) ? 'synthesis_timeout' : 'synthesis_failed');
+        const isTimeout    = error?.code === PROVIDER_TIMEOUT_CODE || /timed out/i.test(reason);
+        const degradedCode = code || (isTimeout ? 'synthesis_timeout' : 'synthesis_failed');
 
         return {
             answer: `Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (${reason}). Use the references directly while the synthesis provider recovers.`,
