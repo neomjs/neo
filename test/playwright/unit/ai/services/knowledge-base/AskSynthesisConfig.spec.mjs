@@ -115,8 +115,11 @@ test.describe('ai/knowledge-base — askSynthesis config contract (canonical tem
         expect(src).toMatch(/baseUrl\s*:\s*leaf\(null,\s*'NEO_KB_ASK_BASE_URL'/);
     });
 
-    test('runaway breaker (20/min) + the relocated timeout are declared with env bindings', () => {
+    test('runaway breaker (20/min) + the remote-tuned timeout are declared with env bindings', () => {
         expect(src).toMatch(/maxCallsPerMinute\s*:\s*leaf\(20,\s*'NEO_KB_ASK_MAX_RPM'/);
-        expect(src).toMatch(/timeoutMs\s*:\s*leaf\(300000,\s*'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS'/);
+        // 60s: tuned for the default REMOTE provider — degrades a hung remote in ~1 min instead of
+        // pinning an interactive caller for the old 5-minute local ceiling; local deployments
+        // env-override higher via NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS.
+        expect(src).toMatch(/timeoutMs\s*:\s*leaf\(60000,\s*'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS'/);
     });
 });

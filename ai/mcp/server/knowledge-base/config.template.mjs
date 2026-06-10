@@ -180,15 +180,17 @@ class Config extends ConfigProvider {
                 /**
                  * @summary Timeout budget (ms) for the ask-synthesis `generateContent` call.
                  *
-                 * Relocated from the former top-level `askSynthesisTimeoutMs` (value preserved). Bounds the
-                 * single chat-model call so the query fails fast and returns its already-retrieved ranked
-                 * references (the degraded envelope, `#createDegradedSynthesisResponse`) instead of hanging.
-                 * Passed to the provider as `options.timeoutMs`; `OpenAiCompatible` + `Ollama` honor it. With
-                 * the `gemini` default (~5-10s) this is rarely approached; 300s is the generous ceiling for
-                 * the slow LOCAL-provider fallback. Env-overridable.
+                 * Bounds the single chat-model call so the query fails fast and returns its
+                 * already-retrieved ranked references (the degraded envelope,
+                 * `#createDegradedSynthesisResponse`) instead of hanging. Passed to the provider as
+                 * `options.timeoutMs`; `OpenAiCompatible` + `Ollama` honor it. The default is tuned
+                 * for the default REMOTE provider (`gemini`, ~5-10s typical): 60s degrades a hung
+                 * remote in about a minute instead of pinning an interactive caller for the old
+                 * 5-minute local-provider ceiling. Slow LOCAL deployments (large models, cold
+                 * prefill) env-override this HIGHER — a per-deployment tuning knob, not a hard bound.
                  * @type {number}
                  */
-                timeoutMs: leaf(300000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
+                timeoutMs: leaf(60000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
                 /**
                  * @summary Runaway breaker - max ask-synthesis calls per rolling 60s window.
                  *

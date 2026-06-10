@@ -8,6 +8,7 @@ import logger               from '../../mcp/server/knowledge-base/logger.mjs';
 import path                 from 'path';
 import QueryService         from './QueryService.mjs';
 import {checkAskRateLimit}  from './helpers/askRateLimit.mjs';
+import {getMissingAskSynthesisLeaves} from './helpers/askSynthesisGuard.mjs';
 
 /**
  * @summary Orchestrates Retrieval-Augmented Generation (RAG) by combining semantic search with LLM synthesis.
@@ -46,6 +47,16 @@ class SearchService extends Base {
      */
     model = null
     /**
+     * Why the synthesis model is unavailable, when it is — `{code, reason}` set at construct for
+     * the stale-overlay case (missing `askSynthesis` block). `ask()`'s null-model branch threads
+     * it into the degraded-references envelope so the caller sees the actionable remediation
+     * instead of the generic missing-key message. `null` when the model built normally OR for the
+     * legacy gemini-without-key case (which keeps its established `no_provider` shape).
+     * @member {Object|null} modelUnavailable=null
+     * @protected
+     */
+    modelUnavailable = null
+    /**
      * Rolling epoch-ms timestamps of recent ask-synthesis calls, consumed by the per-minute runaway
      * breaker in {@link ask}. Pruned to the active window on each call via {@link checkAskRateLimit}.
      * @member {Number[]} askCallTimestamps=[]
@@ -62,6 +73,25 @@ class SearchService extends Base {
      */
     construct(config) {
         super.construct(config);
+
+        // Stale-overlay guard: the gitignored config.mjs is a MATERIALIZED template copy, so a
+        // clone that pulled an evolved template without `--migrate-config` has no `askSynthesis`
+        // block — the naked reads below were an uncaught `undefined.provider` TypeError that broke
+        // the whole KB server boot. Retrieval (query/search) needs no chat model, so the server
+        // must still boot: remember the reason, leave the model null, and let `ask()` return its
+        // degraded-references envelope carrying the remediation. The later `aiConfig.askSynthesis`
+        // reads inside `ask()` are unreachable in this state by construction (null-model early
+        // return precedes them). No fabricated defaults — the config template owns defaults.
+        const missing = getMissingAskSynthesisLeaves(aiConfig.askSynthesis, ['provider', 'model', 'timeoutMs', 'maxCallsPerMinute']);
+
+        if (missing.length > 0) {
+            this.modelUnavailable = {
+                code  : 'stale_config',
+                reason: `askSynthesis config leaves missing: ${missing.join(', ')} — sync the askSynthesis block from config.template.mjs into the local config.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart knowledge-base.`
+            };
+            logger.error(`[SearchService] ${this.modelUnavailable.reason} Retrieval stays available; ask() degrades to references-only until migrated.`);
+            return;
+        }
 
         // Build the synthesis model from the dedicated `askSynthesis` block (NOT the global
         // `modelProvider`), so the interactive ask path can use a fast remote model while bulk chat
@@ -247,11 +277,14 @@ class SearchService extends Base {
         }));
 
         if (!this.model) {
-            return this.#createDegradedSynthesisResponse({
-                references,
-                error: 'GEMINI_API_KEY is required for RAG features.',
-                code : 'no_provider'
-            });
+            // Thread the construct-time stale-config reason when present; the legacy
+            // gemini-without-key case keeps its established `no_provider` shape.
+            const {reason, code} = this.modelUnavailable || {
+                reason: 'GEMINI_API_KEY is required for RAG features.',
+                code  : 'no_provider'
+            };
+
+            return this.#createDegradedSynthesisResponse({references, error: reason, code});
         }
 
         const contextReferences = queryResult.results.map((r, index) => ({
