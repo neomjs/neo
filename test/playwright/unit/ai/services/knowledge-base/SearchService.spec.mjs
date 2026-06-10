@@ -19,6 +19,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import path            from 'path';
+import {PROVIDER_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
  * @summary Regression coverage for the SearchService type-filter synthesis bug.
@@ -242,7 +243,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         const result = await SearchService.ask({query: 'provider quota fixture', type: 'src'});
 
         expect(result.degraded).toBe(true);
-        expect(result.error).toBe('synthesis_failed');
+        expect(result.degradedCode).toBe('synthesis_failed');
         expect(result.reason).toContain('quota 429');
         expect(result.reason).toContain('[redacted-api-key]');
         expect(result.answer).toContain('Knowledge-base retrieval succeeded');
@@ -264,7 +265,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         const result = await SearchService.ask({query: 'missing model fixture', type: 'src'});
 
         expect(result.degraded).toBe(true);
-        expect(result.error).toBe('synthesis_failed');
+        expect(result.degradedCode).toBe('no_provider');
         expect(result.reason).toBe('GEMINI_API_KEY is required for RAG features.');
         expect(result.references[0]).toMatchObject({
             source: tmpFileRelativeToRoot,
@@ -298,7 +299,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
 
         // Degraded envelope: references preserved, bounded timeout reason, never collapses to "no documents".
         expect(result.degraded).toBe(true);
-        expect(result.error).toBe('synthesis_failed');
+        expect(result.degradedCode).toBe('synthesis_timeout');
         expect(result.reason).toContain('timed out');
         expect(result.answer).toContain('Knowledge-base retrieval succeeded');
         expect(result.answer).not.toContain('No relevant documents found');
@@ -307,5 +308,27 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
             source: tmpFileRelativeToRoot,
             score : 1234
         }]);
+    });
+
+    test('ask derives synthesis_timeout structurally from PROVIDER_TIMEOUT_CODE, regex-independent', async () => {
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{source: tmpFileRelativeToRoot, score: '1234'}]
+        });
+
+        // The provider-timeout error carries the uniform `error.code`; the message deliberately does
+        // NOT say "timed out", proving degradedCode comes from the structural code, not the regex fallback.
+        SearchService.model = {
+            generateContent: async () => {
+                const err = new Error('upstream request aborted by the interactive budget');
+                err.code = PROVIDER_TIMEOUT_CODE;
+                throw err;
+            }
+        };
+
+        const result = await SearchService.ask({query: 'structural timeout fixture', type: 'src'});
+
+        expect(result.degraded).toBe(true);
+        expect(result.degradedCode).toBe('synthesis_timeout');
     });
 });
