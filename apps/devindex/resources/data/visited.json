@@ -21176,6 +21176,7 @@
   "repo:getActivity/TitleBar",
   "repo:getActivity/Toaster",
   "repo:getActivity/XXPermissions",
+  "repo:getagentseal/codeburn",
   "repo:getanteon/anteon",
   "repo:getarcaneapp/arcane",
   "repo:getaurora/download",
