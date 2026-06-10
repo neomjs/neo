@@ -87,8 +87,25 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         }
     });
 
-    test('exports the canonical BOOTSTRAP_CONFIGS list', () => {
-        expect(BOOTSTRAP_CONFIGS).toEqual(fixtureConfigs);
+    test('auto-derives BOOTSTRAP_CONFIGS from server dirs that ship a config.template.mjs', () => {
+        // Tier-1 operator overlay is always first.
+        expect(BOOTSTRAP_CONFIGS[0]).toBe('ai/config.mjs');
+
+        // Every MCP server that ships a config.template.mjs is hydrated — including
+        // gitlab-workflow, whose omission from the old hand-maintained list broke fresh
+        // worktrees with ERR_MODULE_NOT_FOUND (the regression this guards against).
+        for (const name of ['github-workflow', 'gitlab-workflow', 'knowledge-base', 'memory-core', 'neural-link']) {
+            expect(BOOTSTRAP_CONFIGS).toContain(`ai/mcp/server/${name}/config.mjs`);
+        }
+
+        // Dirs without a config.template.mjs (file-system, shared) are excluded.
+        expect(BOOTSTRAP_CONFIGS).not.toContain('ai/mcp/server/file-system/config.mjs');
+        expect(BOOTSTRAP_CONFIGS).not.toContain('ai/mcp/server/shared/config.mjs');
+
+        // Every entry is the Tier-1 overlay or a well-formed per-server overlay path.
+        for (const rel of BOOTSTRAP_CONFIGS) {
+            expect(rel === 'ai/config.mjs' || /^ai\/mcp\/server\/[^/]+\/config\.mjs$/.test(rel)).toBe(true);
+        }
     });
 
     test('resolveCliProjectRoot climbs migrations/ → scripts/ → ai/ → root (#12147)', () => {
