@@ -31,7 +31,7 @@ const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: true});
 
 test.describe('Memory Core Offline Summarization', () => {
-    // Bucket A (#10903): heavy SLM (gemma4) dependency — no local LM Studio / Ollama in CI.
+    // Bucket A (#10903): heavy SLM (gemma4) dependency — no local LM Studio / Ollama in CI. ticket-ref-ok: bucket taxonomy is defined in that ticket
     // The per-test `localModelActive` guard below stays as a defensive fallback for local-dev
     // without gemma4 running, but the CI-side skip is the early exit that prevents `beforeAll`
     // from probing a nonexistent endpoint.
@@ -189,6 +189,9 @@ test.describe('Memory Core Offline Summarization', () => {
             }
         }
 
+        // The embed is deferred — flush so the summarization read sees every turn.
+        await SDK.Memory_Service.drainPendingEmbeds();
+
         console.log(`[Playwright] Injected 5 dummy turns via SDK. Triggering Memory_SessionService.summarizeSession...`);
         const startTime = Date.now();
 
@@ -248,6 +251,9 @@ test.describe('Memory Core Offline Summarization', () => {
             model    : "gemini-3.1-pro",
             sessionId: bigDummySessionId
         });
+
+        // The embed is deferred — flush so the summarization read sees the turn.
+        await SDK.Memory_Service.drainPendingEmbeds();
 
         // Mock the model.generateContent to avoid actual LLM calls and verify the exact prompt content
         const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
@@ -351,6 +357,9 @@ test.describe('Memory Core Offline Summarization', () => {
                 sessionId: qwenSessionId
             });
 
+            // The embed is deferred — flush so the summarization read sees the turn.
+            await SDK.Memory_Service.drainPendingEmbeds();
+
             const result = await SDK.Memory_SessionService.summarizeSession(qwenSessionId);
 
             expect(capturedProviderConfig).toEqual({
@@ -409,6 +418,10 @@ test.describe('Memory Core Offline Summarization', () => {
             toolsUsed,
             sessionId: dummySessionId
         });
+
+        // The embed is deferred — flush it so summarizeSession's Chroma read below
+        // sees the just-written memory.
+        await SDK.Memory_Service.drainPendingEmbeds();
 
         const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
         let capturedPrompts = [];
@@ -469,6 +482,10 @@ test.describe('Memory Core Offline Summarization', () => {
             prompt: "Test s3", thought: "T3", response: "R3", agent: "dev", model: "gemini-3.1-pro", sessionId: s3
         });
 
+        // The embed is deferred — flush so all three sessions are visible below.
+        // (Ordering is unaffected: lastActivity derives from the write-time metadata timestamp.)
+        await SDK.Memory_Service.drainPendingEmbeds();
+
         // Use findSessionsToSummarize explicitly
         const candidates = await SDK.Memory_SessionService.findSessionsToSummarize(true);
 
@@ -510,6 +527,10 @@ test.describe('Memory Core Offline Summarization', () => {
             model    : "gemini-3.1-pro",
             sessionId: perfSessionId
         });
+
+        // The embed is deferred — flush BEFORE the measurement window so the
+        // summarization latency below stays a pure API measurement.
+        await SDK.Memory_Service.drainPendingEmbeds();
 
         const start = Date.now();
         const result = await SDK.Memory_SessionService.summarizeSession(perfSessionId);

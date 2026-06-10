@@ -144,6 +144,9 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
             response : 'hi'
         }));
 
+        // The embed is deferred — flush it before asserting on the spy.
+        await MemoryService.drainPendingEmbeds();
+
         expect(collectionAddCalls).toHaveLength(1);
         expect(collectionAddCalls[0].metadatas[0].userId).toBe('neo-gpt');
         expect(collectionAddCalls[0].metadatas[0].agentIdentity).toBe('@neo-gpt');
@@ -177,6 +180,9 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
             thought  : 'thinking',
             response : 'hi'
         }));
+
+        // The embed is deferred — flush it before asserting on the spy.
+        await MemoryService.drainPendingEmbeds();
 
         expect(collectionAddCalls).toHaveLength(1);
         expect(collectionAddCalls[0].metadatas[0].userId).toBe('external-contributor');
