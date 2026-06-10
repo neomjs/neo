@@ -203,6 +203,7 @@ export class Orchestrator extends Base {
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
+    get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
@@ -349,6 +350,7 @@ export class Orchestrator extends Base {
         const continuousTasks = [
             ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
+            ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
             'mlx',
             'lms'
         ];

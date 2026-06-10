@@ -18,13 +18,14 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import dotenv          from 'dotenv';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../../src/Neo.mjs';
+import * as core        from '../../../../../../src/core/_export.mjs';
+import InstanceManager  from '../../../../../../src/manager/Instance.mjs';
+import path             from 'path';
+import {fileURLToPath}  from 'url';
+import dotenv           from 'dotenv';
+import {drainMemoryWal} from './util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -175,6 +176,7 @@ test.describe('Memory Core Offline Summarization', () => {
         // Ensure database is ready before adding memories
         await SDK.Memory_ChromaManager.ready();
 
+        const seededIds = [];
         for (const turn of turns) {
             const addResult = await SDK.Memory_Service.addMemory({
                 prompt   : turn.prompt,
@@ -186,11 +188,14 @@ test.describe('Memory Core Offline Summarization', () => {
             });
             if (addResult.error) {
                 console.error('ADD_MEMORY ERROR:', addResult);
+            } else {
+                seededIds.push(addResult.id);
             }
         }
 
-        // The embed is deferred — flush so the summarization read sees every turn.
-        await SDK.Memory_Service.drainPendingEmbeds();
+        // Flush the WAL-pending records through the daemon drain path so the summarization
+        // read sees every turn.
+        await drainMemoryWal({SDK, ids: seededIds});
 
         console.log(`[Playwright] Injected 5 dummy turns via SDK. Triggering Memory_SessionService.summarizeSession...`);
         const startTime = Date.now();
@@ -243,7 +248,7 @@ test.describe('Memory Core Offline Summarization', () => {
         // Create a massive string > 10000 chars (approx 20,000 chars)
         const hugeString = new Array(20000).fill('A').join('');
 
-        await SDK.Memory_Service.addMemory({
+        const bigAdd = await SDK.Memory_Service.addMemory({
             prompt   : "Massive text request",
             thought  : "Thinking deeply...",
             response : hugeString,
@@ -252,8 +257,9 @@ test.describe('Memory Core Offline Summarization', () => {
             sessionId: bigDummySessionId
         });
 
-        // The embed is deferred — flush so the summarization read sees the turn.
-        await SDK.Memory_Service.drainPendingEmbeds();
+        // Flush the WAL-pending record through the daemon drain path so the summarization
+        // read sees the turn.
+        await drainMemoryWal({SDK, ids: [bigAdd.id]});
 
         // Mock the model.generateContent to avoid actual LLM calls and verify the exact prompt content
         const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
@@ -348,7 +354,7 @@ test.describe('Memory Core Offline Summarization', () => {
                 };
             };
 
-            await SDK.Memory_Service.addMemory({
+            const qwenAdd = await SDK.Memory_Service.addMemory({
                 prompt   : "Validate Qwen3 chat summarization",
                 thought  : "Exercise the local OpenAI-compatible chat summary path.",
                 response : "The summary should preserve structured metadata.",
@@ -357,8 +363,9 @@ test.describe('Memory Core Offline Summarization', () => {
                 sessionId: qwenSessionId
             });
 
-            // The embed is deferred — flush so the summarization read sees the turn.
-            await SDK.Memory_Service.drainPendingEmbeds();
+            // Flush the WAL-pending record through the daemon drain path so the summarization
+            // read sees the turn.
+            await drainMemoryWal({SDK, ids: [qwenAdd.id]});
 
             const result = await SDK.Memory_SessionService.summarizeSession(qwenSessionId);
 
@@ -409,7 +416,7 @@ test.describe('Memory Core Offline Summarization', () => {
             content: massiveToolConfig
         })];
 
-        await SDK.Memory_Service.addMemory({
+        const toolsAdd = await SDK.Memory_Service.addMemory({
             prompt   : "Massive tools",
             thought  : "Thinking...",
             response : "Done",
@@ -419,9 +426,9 @@ test.describe('Memory Core Offline Summarization', () => {
             sessionId: dummySessionId
         });
 
-        // The embed is deferred — flush it so summarizeSession's Chroma read below
-        // sees the just-written memory.
-        await SDK.Memory_Service.drainPendingEmbeds();
+        // Flush the WAL-pending record through the daemon drain path so summarizeSession's
+        // Chroma read below sees the just-written memory.
+        await drainMemoryWal({SDK, ids: [toolsAdd.id]});
 
         const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
         let capturedPrompts = [];
@@ -464,27 +471,28 @@ test.describe('Memory Core Offline Summarization', () => {
         const s3 = crypto.randomUUID();
 
         // Memory 1 is oldest
-        await SDK.Memory_Service.addMemory({
+        const add1 = await SDK.Memory_Service.addMemory({
             prompt: "Test s1", thought: "T1", response: "R1", agent: "dev", model: "gemini-3.1-pro", sessionId: s1
         });
 
         await new Promise(r => setTimeout(r, 100)); // Sleep to ensure timestamp difference
 
         // Memory 2 is middle
-        await SDK.Memory_Service.addMemory({
+        const add2 = await SDK.Memory_Service.addMemory({
             prompt: "Test s2", thought: "T2", response: "R2", agent: "dev", model: "gemini-3.1-pro", sessionId: s2
         });
 
         await new Promise(r => setTimeout(r, 100)); // Sleep
 
         // Memory 3 is newest
-        await SDK.Memory_Service.addMemory({
+        const add3 = await SDK.Memory_Service.addMemory({
             prompt: "Test s3", thought: "T3", response: "R3", agent: "dev", model: "gemini-3.1-pro", sessionId: s3
         });
 
-        // The embed is deferred — flush so all three sessions are visible below.
-        // (Ordering is unaffected: lastActivity derives from the write-time metadata timestamp.)
-        await SDK.Memory_Service.drainPendingEmbeds();
+        // Flush the WAL-pending records through the daemon drain path so all three sessions are
+        // visible below. (Ordering is unaffected: lastActivity derives from the write-time
+        // metadata timestamp.)
+        await drainMemoryWal({SDK, ids: [add1.id, add2.id, add3.id]});
 
         // Use findSessionsToSummarize explicitly
         const candidates = await SDK.Memory_SessionService.findSessionsToSummarize(true);
@@ -519,7 +527,7 @@ test.describe('Memory Core Offline Summarization', () => {
         await SDK.Memory_ChromaManager.ready();
 
         // Inject 1 typical turn
-        await SDK.Memory_Service.addMemory({
+        const perfAdd = await SDK.Memory_Service.addMemory({
             prompt   : "Quick performance test for remote API generation",
             thought  : "Measuring true API latency, avoiding map-reduce overhead.",
             response : "This is a brief response to establish baseline latency for 1 session generation.",
@@ -528,9 +536,9 @@ test.describe('Memory Core Offline Summarization', () => {
             sessionId: perfSessionId
         });
 
-        // The embed is deferred — flush BEFORE the measurement window so the
-        // summarization latency below stays a pure API measurement.
-        await SDK.Memory_Service.drainPendingEmbeds();
+        // Flush the WAL-pending record through the daemon drain path BEFORE the measurement
+        // window so the summarization latency below stays a pure API measurement.
+        await drainMemoryWal({SDK, ids: [perfAdd.id]});
 
         const start = Date.now();
         const result = await SDK.Memory_SessionService.summarizeSession(perfSessionId);

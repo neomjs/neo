@@ -19,6 +19,7 @@ import * as core             from '../../../../../../src/core/_export.mjs';
 import MemoryService         from '../../../../../../ai/services/memory-core/MemoryService.mjs';
 import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {drainMemoryWal}      from './util.mjs';
 
 /**
  * Tenant isolation across `MemoryService.addMemory` / `listMemories` / `queryMemories`.
@@ -134,7 +135,7 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
     });
 
     test('addMemory attaches userId metadata when a request context is active', async () => {
-        await RequestContextService.run({userId: 'u-alice'}, () =>
+        const result = await RequestContextService.run({userId: 'u-alice'}, () =>
             MemoryService.addMemory({
                 prompt   : 'hello',
                 response : 'hi',
@@ -143,8 +144,8 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
             })
         );
 
-        // The embed is deferred — flush it before asserting on the spy.
-        await MemoryService.drainPendingEmbeds();
+        // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
+        await drainMemoryWal({ids: [result.id]});
 
         expect(spyCollection.addCalls).toHaveLength(1);
         const metadata = spyCollection.addCalls[0].metadatas[0];
@@ -153,15 +154,15 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
     });
 
     test('addMemory omits userId when no request context is active (stdio fallback)', async () => {
-        await MemoryService.addMemory({
+        const result = await MemoryService.addMemory({
             prompt   : 'hello',
             response : 'hi',
             thought  : 'greeting',
             sessionId: 'session-solo'
         });
 
-        // The embed is deferred — flush it before asserting on the spy.
-        await MemoryService.drainPendingEmbeds();
+        // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
+        await drainMemoryWal({ids: [result.id]});
 
         expect(spyCollection.addCalls).toHaveLength(1);
         const metadata = spyCollection.addCalls[0].metadatas[0];
@@ -174,16 +175,17 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         // All three share the same sessionId but carry distinct userId metadata.
         // Non-empty response/thought: the validation gate rejects empty fields (the
         // corrupted-memory class), so seed fixtures must carry real content.
+        const seeded = [];
         await RequestContextService.run({userId: 'u-alice'}, async () => {
-            await MemoryService.addMemory({prompt: 'a1', response: 'r-a1', thought: 't-a1', sessionId: 'session-shared'});
-            await MemoryService.addMemory({prompt: 'a2', response: 'r-a2', thought: 't-a2', sessionId: 'session-shared'});
+            seeded.push(await MemoryService.addMemory({prompt: 'a1', response: 'r-a1', thought: 't-a1', sessionId: 'session-shared'}));
+            seeded.push(await MemoryService.addMemory({prompt: 'a2', response: 'r-a2', thought: 't-a2', sessionId: 'session-shared'}));
         });
-        await RequestContextService.run({userId: 'u-bob'}, () =>
+        seeded.push(await RequestContextService.run({userId: 'u-bob'}, () =>
             MemoryService.addMemory({prompt: 'b1', response: 'r-b1', thought: 't-b1', sessionId: 'session-shared'})
-        );
+        ));
 
-        // The embed is deferred — flush before reading the spy store back.
-        await MemoryService.drainPendingEmbeds();
+        // addMemory leaves the records WAL-pending — flush them through the daemon drain path.
+        await drainMemoryWal({ids: seeded.map(r => r.id)});
 
         // Under team policy (deployment-wide read), Alice reads the shared session and sees ALL
         // three records — her own two AND Bob's (transparent swarm introspection). The team DEFAULT
@@ -203,11 +205,11 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
     });
 
     test('listMemories without a request context returns all session memories (stdio fallback)', async () => {
-        await MemoryService.addMemory({prompt: 'solo1', response: 'r-solo1', thought: 't-solo1', sessionId: 'session-local'});
-        await MemoryService.addMemory({prompt: 'solo2', response: 'r-solo2', thought: 't-solo2', sessionId: 'session-local'});
+        const solo1 = await MemoryService.addMemory({prompt: 'solo1', response: 'r-solo1', thought: 't-solo1', sessionId: 'session-local'});
+        const solo2 = await MemoryService.addMemory({prompt: 'solo2', response: 'r-solo2', thought: 't-solo2', sessionId: 'session-local'});
 
-        // The embed is deferred — flush before reading the spy store back.
-        await MemoryService.drainPendingEmbeds();
+        // addMemory leaves the records WAL-pending — flush them through the daemon drain path.
+        await drainMemoryWal({ids: [solo1.id, solo2.id]});
 
         const view = await MemoryService.listMemories({sessionId: 'session-local', limit: 10});
 
@@ -316,7 +318,7 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
         // Canonical-form invariant on the write side: AgentIdentity nodeId form is `@x`,
         // ChromaDB userId form is `x`. The boundary helper strips the prefix at write time
         // so a future read filter using either form will always match.
-        await RequestContextService.run({userId: '@neo-test-agent'}, () =>
+        const result = await RequestContextService.run({userId: '@neo-test-agent'}, () =>
             MemoryService.addMemory({
                 sessionId: 'session-canonical',
                 prompt   : 'test',
@@ -325,8 +327,8 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
             })
         );
 
-        // The embed is deferred — flush it before asserting on the spy.
-        await MemoryService.drainPendingEmbeds();
+        // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
+        await drainMemoryWal({ids: [result.id]});
 
         const addCall = spyCollection.addCalls.at(-1);
         const tagged  = addCall.metadatas[0]?.userId;

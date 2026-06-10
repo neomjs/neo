@@ -9,6 +9,7 @@ import path            from 'path';
 import {
     appendWalEmbedMarker,
     appendWalMemory,
+    getMissingMemoryWalLeaves,
     getWalMarkersFileName,
     getWalRecordsFileName,
     getWalSegmentKey,
@@ -131,5 +132,20 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     test('pruning is a no-op without a positive retention bound or with a missing directory', async () => {
         expect(await pruneReconciledWalSegments({dir: tmpDir, retentionLimit: 0})).toBe(0);
         expect(await pruneReconciledWalSegments({dir: path.join(tmpDir, 'missing'), retentionLimit: 5})).toBe(0);
+    });
+
+    test('getMissingMemoryWalLeaves names exactly the absent leaves (stale-overlay guard, pure predicate)', () => {
+        // Block absent entirely (overlay predates the memoryWal block): every consumer leaf missing.
+        expect(getMissingMemoryWalLeaves(undefined, ['dir', 'minFieldLength'])).toEqual(['dir', 'minFieldLength']);
+
+        // Partially stale overlay (block exists, daemon leaves predate it): only those surface.
+        const phase1Slice = {dir: '/tmp/wal', retentionLimit: 30, minFieldLength: 1};
+        expect(getMissingMemoryWalLeaves(phase1Slice, ['dir', 'pollIntervalMs', 'batchSize'])).toEqual(['pollIntervalMs', 'batchSize']);
+
+        // Current slice: nothing missing — the consumer proceeds.
+        expect(getMissingMemoryWalLeaves({...phase1Slice, pollIntervalMs: 5000, batchSize: 20}, ['dir', 'pollIntervalMs', 'batchSize'])).toEqual([]);
+
+        // `null` is treated as absent (no hidden fallback may paper over it).
+        expect(getMissingMemoryWalLeaves({dir: null}, ['dir'])).toEqual(['dir']);
     });
 });
