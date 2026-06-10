@@ -27922,6 +27922,7 @@
   "repo:linuxmint/timeshift",
   "repo:linuxmint/warpinator",
   "repo:linuxserver/Heimdall",
+  "repo:linuxserver/docker-calibre-web",
   "repo:linuxserver/docker-code-server",
   "repo:linuxserver/docker-mods",
   "repo:linuxserver/docker-plex",
