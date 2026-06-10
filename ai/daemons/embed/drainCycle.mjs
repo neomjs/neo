@@ -251,10 +251,12 @@ export async function drainWalOnce({
  *   containerized / single-process deployment shape, where no orchestrator or daemon process
  *   exists (e.g. the dockerized MC containers, `npx neo-app`-class workspaces).
  *
- * **Sole-drainer invariant (config-declared mutual exclusion):** exactly ONE drain loop may run
- * per WAL directory. Never enable `inProcessDrain` on a deployment where the embed daemon also
- * runs — two loops would race the marker files and break the purge-compensation logic, which
- * relies on "a marker I didn't write = purge tombstone".
+ * **Sole-drainer invariant (drain-lock enforced):** exactly ONE drain loop may run per WAL
+ * directory — two loops would race the marker files and break the purge-compensation logic, which
+ * relies on "a marker I didn't write = purge tombstone". Both hosts claim a per-directory
+ * `.drain-lock` before starting (see `./drainLock.mjs`); a second live host refuses and fails loud,
+ * so enabling `inProcessDrain` where the embed daemon also runs is now caught at startup instead of
+ * silently corrupting markers.
  *
  * Cycle failures are logged and absorbed (the WAL retains the backlog; the loop must outlive any
  * single bad pass). Config is re-read via `getConfig()` every cycle and the collection handle is

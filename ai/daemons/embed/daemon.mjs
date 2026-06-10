@@ -35,6 +35,7 @@ import {execSync} from 'child_process';
 
 import StorageRouter   from '../../services/memory-core/managers/StorageRouter.mjs';
 import {startDrainLoop} from './drainCycle.mjs';
+import {acquireDrainLock} from './drainLock.mjs';
 import {getMissingMemoryWalLeaves} from '../../services/memory-core/helpers/memoryWalStore.mjs';
 
 // Stale-config boot guard: the gitignored config.mjs is a MATERIALIZED template copy — on a
@@ -247,6 +248,26 @@ async function enforceSingleton() {
 async function main() {
     await enforceSingleton();
     await StorageRouter.ready();
+
+    // Sole-drainer guard: claim the per-WAL-directory drain lock BEFORE the loop. enforceSingleton
+    // (above) already resolved daemon-vs-daemon succession, so any prior daemon's lock is now a dead
+    // pid the claim reclaims as stale; a LIVE holder here means a SECOND host (an in-process server
+    // loop) drains the same dir — a misconfiguration that silently corrupts markers. Fail loud.
+    let drainLock;
+    try {
+        drainLock = acquireDrainLock({dir: memoryCoreConfig.memoryWal.dir, owner: 'daemon', log: writeLog});
+    } catch (err) {
+        if (err.code === 'DRAIN_LOCK_HELD') {
+            writeLog('ERROR', `[Embed Daemon] ${err.message} Exiting.`);
+            process.exit(1);
+        }
+        throw err;
+    }
+
+    // Release on every clean exit path: enforceSingleton's cleanup() calls process.exit(), so the
+    // 'exit' listener fires for SIGINT/SIGTERM/uncaughtException too. A SIGKILL leaves the lock for
+    // the next daemon to reclaim as stale.
+    process.on('exit', () => drainLock.release());
 
     writeLog('INFO', `[Embed Daemon] Started. Draining WAL dir: ${memoryCoreConfig.memoryWal.dir} (poll: ${memoryCoreConfig.memoryWal.pollIntervalMs}ms, batch: ${memoryCoreConfig.memoryWal.batchSize})`);
 
