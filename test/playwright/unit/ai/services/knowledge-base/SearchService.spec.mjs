@@ -242,7 +242,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         const result = await SearchService.ask({query: 'provider quota fixture', type: 'src'});
 
         expect(result.degraded).toBe(true);
-        expect(result.error).toBe('synthesis_failed');
+        expect(result.degradedCode).toBe('synthesis_failed');
         expect(result.reason).toContain('quota 429');
         expect(result.reason).toContain('[redacted-api-key]');
         expect(result.answer).toContain('Knowledge-base retrieval succeeded');
@@ -264,7 +264,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         const result = await SearchService.ask({query: 'missing model fixture', type: 'src'});
 
         expect(result.degraded).toBe(true);
-        expect(result.error).toBe('synthesis_failed');
+        expect(result.degradedCode).toBe('no_provider');
         expect(result.reason).toBe('GEMINI_API_KEY is required for RAG features.');
         expect(result.references[0]).toMatchObject({
             source: tmpFileRelativeToRoot,
@@ -298,7 +298,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
 
         // Degraded envelope: references preserved, bounded timeout reason, never collapses to "no documents".
         expect(result.degraded).toBe(true);
-        expect(result.error).toBe('synthesis_failed');
+        expect(result.degradedCode).toBe('synthesis_timeout');
         expect(result.reason).toContain('timed out');
         expect(result.answer).toContain('Knowledge-base retrieval succeeded');
         expect(result.answer).not.toContain('No relevant documents found');

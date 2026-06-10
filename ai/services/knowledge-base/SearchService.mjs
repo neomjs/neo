@@ -156,20 +156,29 @@ class SearchService extends Base {
 
     /**
      * @summary Creates the degraded response used when retrieval succeeds but synthesis is unavailable.
+     *
+     * Returned as a SUCCESS content payload (NO top-level `error` key) so the MCP boundary delivers
+     * the references + reason to the caller. `BaseServer.formatToolResult` routes any `'error' in result`
+     * object to an error envelope (`Tool Error: … Message: …`) that discards `answer`/`references`/`reason`
+     * — so an `error` key here would defeat the whole point of degrading gracefully. Callers detect
+     * degradation via `degraded: true`; `degradedCode` disambiguates the cause for diagnostics.
      * @param {Object} params
      * @param {Object[]} params.references Ranked references returned by QueryService.
      * @param {Error|String} params.error The synthesis failure to expose in bounded form.
-     * @returns {{answer: String, references: Object[], degraded: Boolean, error: String, reason: String}}
+     * @param {String} [params.code] Explicit degraded cause code; when omitted, derived from the reason
+     *     (`synthesis_timeout` when it reports a timeout, else `synthesis_failed`).
+     * @returns {{answer: String, references: Object[], degraded: Boolean, degradedCode: String, reason: String}}
      * @private
      */
-    #createDegradedSynthesisResponse({references, error}) {
-        const reason = this.#sanitizeSynthesisError(error);
+    #createDegradedSynthesisResponse({references, error, code}) {
+        const reason       = this.#sanitizeSynthesisError(error);
+        const degradedCode = code || (/timed out/i.test(reason) ? 'synthesis_timeout' : 'synthesis_failed');
 
         return {
             answer: `Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (${reason}). Use the references directly while the synthesis provider recovers.`,
             references,
             degraded: true,
-            error: 'synthesis_failed',
+            degradedCode,
             reason
         };
     }
@@ -221,7 +230,8 @@ class SearchService extends Base {
         if (!this.model) {
             return this.#createDegradedSynthesisResponse({
                 references,
-                error: 'GEMINI_API_KEY is required for RAG features.'
+                error: 'GEMINI_API_KEY is required for RAG features.',
+                code : 'no_provider'
             });
         }
 
