@@ -50,15 +50,35 @@ Reading handover pings from the mailbox at session-boot is a **context-priming**
 Before terminating your session, you MUST execute the following 10 steps to ensure a clean handover.
 
 ### Step 1: Codebase Synchronization (The Pre-Sunset Pull)
-Use the `run_command` tool to synchronize the codebase, but you MUST respect harness-isolation logic:
-- **Shared Checkout (Antigravity/Gemini):** Execute `git checkout dev && git pull origin dev`. Because the AI harness initializes MCP servers *before* an agent's first turn, pulling the latest code at the end of the current session guarantees the next session's servers boot with fresh infrastructure.
-- **Isolated Worktree (Claude Code):** Do NOT checkout `dev` (which would conflict with the main checkout). Instead, ensure your current PR branch is fully committed and pushed (`git push origin HEAD`). The next agent session will either resume this worktree or bootstrap a new one from the main checkout's updated `dev`.
+Detect your checkout class **mechanically** — never guess from harness names. (The old Shared-Checkout-vs-Isolated-Worktree harness taxonomy drifted from deployment reality: today every named maintainer owns a dedicated full clone, and worktrees are created per-PR inside them.)
 
-#### Primary-Checkout Staleness Probe (Isolated Worktree only) — per #11013
+```bash
+[ "$(git rev-parse --git-dir)" = "$(git rev-parse --git-common-dir)" ] && echo primary-clone || echo linked-worktree
+```
+
+- **Primary clone (per-agent dedicated clone OR shared checkout) — self-refresh, best-effort:** commit + push any PR-branch work first (existing mandate above), then:
+
+  ```bash
+  if [ -z "$(git status --porcelain)" ]; then
+      git switch dev
+      git pull origin dev
+      node ai/scripts/setup/initServerConfigs.mjs --migrate-config
+  else
+      echo 'dirty tree — skip refresh, surface in handover'
+  fi
+  ```
+
+  The pull refreshes code; the `--migrate-config` run reconciles the gitignored `config.mjs` operator-overlay with the pulled `config.template.mjs` leaves — a pull alone is NOT enough, because daemons and MCP servers read the overlay, not the template. Because the AI harness initializes MCP servers *before* an agent's first turn, sunset is the only window where this refresh lands in time for the next session's boot. **Any failure (dirty tree, switch/pull/script error) is surfaced in the Step 3 handover comment and the final sunset payload — the refresh is best-effort and must NEVER block sunset completion.**
+
+  > **Division of labor + retirement condition (Substrate Accretion Defense):** the orchestrator's `primary-dev-sync` task (shipped via the daemon substrate; config-migrate cascade added 2026-06) automates freshness for the **operator's primary checkout only** — the deployment deliberately syncs ONE repo. Per-agent clones are never daemon-pulled: an FF-pull racing an *active* agent session is the hazard, and sunset is the safe window precisely because the session is terminating. This agent-side step is therefore the **durable owner** of agent-clone freshness, not an interim awaiting daemon coverage. It retires only if the clone topology itself changes (agents stop owning dedicated clones, or a session-liveness-aware sync lane ships).
+
+- **Linked worktree — push only:** do NOT switch to `dev` (the primary holds it; git refuses to share a branch across worktrees). Ensure your current PR branch is fully committed and pushed (`git push origin HEAD`). The next agent session will either resume this worktree or bootstrap a new one from the primary's refreshed `dev`.
+
+#### Primary-Checkout Staleness Probe (Linked worktree only) — per #11013
 
 The "main checkout's updated `dev`" assumption above only holds if the operator has actually pulled origin/dev into the primary checkout. In practice, primary's `dev` can fall arbitrarily behind because:
 
-- Worktree agents (correctly per the Isolated-Worktree rule above) do NOT pull dev into primary.
+- Worktree agents (correctly per the Linked-worktree rule above) do NOT pull dev into primary.
 - Operators don't always run `git pull origin dev` between sunset events.
 - Daemons running from primary — `orchestrator-daemon` (the canonical Agent OS scheduled-maintenance daemon per `learn/agentos/v13-path.md` M3; currently MVP-shape via #11008, full class extraction in flight under #11009) plus its current and future siblings (`wake-daemon` for wake delivery, `DreamService` for ingestion, KB sync pipeline) — silently read pre-merge code when primary is stale.
 
@@ -83,7 +103,7 @@ BEHIND=$(git -C "$PRIMARY_ROOT" rev-list --count dev..origin/dev 2>/dev/null || 
 
 When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh primary.
 
-**Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness is unaddressed by this probe; the daemon-driven Shape A solution under #11013's follow-up will register a `primary-dev-sync` periodic task in the `orchestrator-daemon` (post-#11009 `Orchestrator.mjs` class extraction) to close that gap with an automatic `git pull --ff-only`.
+**Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness of the PRIMARY is closed by the shipped `primary-dev-sync` orchestrator task (FF-pull + KB cascade + config-migrate on a periodic cycle). That task deliberately syncs ONLY the primary — per-agent clones are never daemon-pulled (a pull racing an active session is the hazard), so their freshness owner remains the Step-1 primary-clone self-refresh above, executed at the sunset boundary.
 
 ### Step 2: Active PR Cycle State is daemon-owned — agents must NOT trigger sandman
 
@@ -121,11 +141,12 @@ You MUST use the `add_message` MCP tool to send an A2A message to your own agent
 
 Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow. Note: Peer broadcasts can be conditionally suppressed for `scope: solo-refresh` unless cross-peer handoff coordination is actively required.
 
-**Lead-role baton branch:** If the session currently holds `/lead-role`, Step 7
+**Lead-role baton branch:** If the session currently holds `/lead-role`, this step
 also sends an A2A Baton Pass V1 DM to the next lead before the final memory
 persistence step. Compute the next lead from the fixed cycle documented in
-`.agents/skills/lead-role/references/lead-role-mode.md`:
-`['@neo-opus-ada', '@neo-gemini-pro', '@neo-gpt']`.
+`.agents/skills/lead-role/references/lead-role-mode.md` §7 — that list is the
+single source of truth (it also carries the bench list); do NOT duplicate the
+roster here, a stale copy is how this exact line once drifted.
 
 The baton message MUST be targeted to that next identity, not broadcast:
 
