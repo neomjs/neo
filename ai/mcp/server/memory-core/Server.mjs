@@ -21,7 +21,8 @@ import {
     Memory_WakeSubscriptionService as WakeSubscriptionService,
     Memory_CoalescingEngineService as CoalescingEngineService
 } from '../../../services.mjs';
-import {startDrainLoop} from '../../../daemons/embed/drainCycle.mjs';
+import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
+import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
 
 /**
  * @summary The Memory Core MCP Server application.
@@ -183,17 +184,35 @@ class Server extends BaseServer {
 
         // In-process WAL drain (containerized / single-process deployments): hosts the embed
         // daemon's exact drain loop inside this server when no orchestrator-supervised daemon
-        // exists. Config-declared mutual exclusion — never enabled where the embed daemon runs
-        // (sole-drainer invariant; see the `memoryWal.inProcessDrain` leaf + `drainCycle.mjs`).
-        // Absent-block tolerance is deliberate: a stale overlay simply leaves the loop off;
-        // `addMemory`'s own guard speaks for the missing config.
+        // exists. Mutual exclusion is now drain-lock enforced — a live embed daemon (or another
+        // server) holding the per-directory lock makes this server REFUSE its loop and keep
+        // serving, instead of silently double-draining and corrupting markers (sole-drainer
+        // invariant; see the `memoryWal.inProcessDrain` leaf + `drainLock.mjs`). Absent-block
+        // tolerance is deliberate: a stale overlay simply leaves the loop off; `addMemory`'s own
+        // guard speaks for the missing config.
         if (aiConfig.memoryWal && aiConfig.memoryWal.inProcessDrain) {
-            this.walDrainLoop = startDrainLoop({
-                getCollection: () => StorageRouter.getMemoryCollection(),
-                getConfig    : () => aiConfig.memoryWal,
-                log          : (level, message) => logger[level === 'ERROR' ? 'error' : 'info'](`[neo-memory-core MCP] ${message}`)
-            });
-            logger.info('[neo-memory-core MCP] In-process WAL drain loop active (memoryWal.inProcessDrain)');
+            const drainLog = (level, message) => logger[level === 'ERROR' ? 'error' : 'info'](`[neo-memory-core MCP] ${message}`);
+
+            try {
+                this.walDrainLock = acquireDrainLock({dir: aiConfig.memoryWal.dir, owner: 'in-process', log: drainLog});
+            } catch (err) {
+                if (err.code !== 'DRAIN_LOCK_HELD') throw err;
+                // Another host already drains this dir. The drain is secondary to this server's MCP
+                // duties — log loud and continue serving rather than crash the whole server.
+                logger.error(`[neo-memory-core MCP] In-process WAL drain NOT started: ${err.message}`);
+            }
+
+            if (this.walDrainLock) {
+                this.walDrainLoop = startDrainLoop({
+                    getCollection: () => StorageRouter.getMemoryCollection(),
+                    getConfig    : () => aiConfig.memoryWal,
+                    log          : drainLog
+                });
+                // Release on process exit (the realistic single-process clean-shutdown path); a
+                // signal-kill leaves the lock for the next host to reclaim as stale.
+                process.on('exit', () => this.walDrainLock?.release());
+                logger.info('[neo-memory-core MCP] In-process WAL drain loop active (memoryWal.inProcessDrain)');
+            }
         }
 
         // Stdio identity resolution BEFORE healthcheck snapshot.
