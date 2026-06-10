@@ -7,6 +7,7 @@ import fs                   from 'fs-extra';
 import logger               from '../../mcp/server/knowledge-base/logger.mjs';
 import path                 from 'path';
 import QueryService         from './QueryService.mjs';
+import {checkAskRateLimit}  from './helpers/askRateLimit.mjs';
 
 /**
  * @summary Orchestrates Retrieval-Augmented Generation (RAG) by combining semantic search with LLM synthesis.
@@ -44,6 +45,13 @@ class SearchService extends Base {
      * @protected
      */
     model = null
+    /**
+     * Rolling epoch-ms timestamps of recent ask-synthesis calls, consumed by the per-minute runaway
+     * breaker in {@link ask}. Pruned to the active window on each call via {@link checkAskRateLimit}.
+     * @member {Number[]} askCallTimestamps=[]
+     * @protected
+     */
+    askCallTimestamps = []
 
     /**
      * Builds the synthesis model via the configured provider (`gemini` / `openAiCompatible` / `ollama`)
@@ -55,12 +63,19 @@ class SearchService extends Base {
     construct(config) {
         super.construct(config);
 
+        // Build the synthesis model from the dedicated `askSynthesis` block (NOT the global
+        // `modelProvider`), so the interactive ask path can use a fast remote model while bulk chat
+        // stays local. `apiKey` resolves NEO_KB_ASK_API_KEY (env-only) read at the use site — never
+        // inlined. For a local provider, `baseUrl` overrides the host (own-endpoint setups); null falls
+        // through to the provider's configured host, and `model` selects the per-task model name.
+        const ask = aiConfig.askSynthesis;
+
         this.model = buildChatModel({
-            modelProvider          : aiConfig.modelProvider,
-            openAiCompatibleConfig : aiConfig.openAiCompatible,
-            ollamaConfig           : aiConfig.ollama,
-            geminiApiKey           : process.env.GEMINI_API_KEY,
-            geminiModelName        : aiConfig.modelName
+            modelProvider          : ask.provider,
+            openAiCompatibleConfig : {...aiConfig.openAiCompatible, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            ollamaConfig           : {...aiConfig.ollama, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            geminiApiKey           : ask.apiKey,
+            geminiModelName        : ask.model
         });
     }
 
@@ -290,12 +305,29 @@ Instructions:
 4. Adhere to the terminology: "Neo.mjs", "App Worker", "VDom Worker", "config system".
 `;
 
-        // 3. Generate Answer
+        // 3. Cost-safety runaway breaker: gate the synthesis call on a rolling per-minute cap.
+        // Interactive use sits far below the cap; a scripted runaway (the incident class) trips it and we
+        // return the degraded references instead of issuing the (costly) remote call. State lives on the
+        // singleton; the rate check is a pure helper (`checkAskRateLimit`) for isolated, mutation-free testing.
+        const nowMs = Date.now();
+        const {limited, kept} = checkAskRateLimit(this.askCallTimestamps, nowMs, aiConfig.askSynthesis.maxCallsPerMinute);
+        this.askCallTimestamps = kept;
+        if (limited) {
+            logger.warn(`[SearchService] ask synthesis rate cap (${aiConfig.askSynthesis.maxCallsPerMinute}/min) hit; returning degraded references without calling the provider.`);
+            return this.#createDegradedSynthesisResponse({
+                references,
+                error: `ask synthesis rate limit (${aiConfig.askSynthesis.maxCallsPerMinute}/min) exceeded`,
+                code : 'rate_limited'
+            });
+        }
+        this.askCallTimestamps.push(nowMs);
+
+        // 4. Generate Answer
         let result, answer;
 
         try {
             result = await this.model.generateContent(prompt, {
-                timeoutMs     : aiConfig.askSynthesisTimeoutMs,
+                timeoutMs     : aiConfig.askSynthesis.timeoutMs,
                 operationLabel: 'ask_knowledge_base synthesis'
             });
             answer = result.response.text();
