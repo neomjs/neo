@@ -151,7 +151,7 @@ class Config extends ConfigProvider {
              * worst-case 5-doc measurement, kept below the retry-amplified worst case.
              * @type {number}
              */
-            askSynthesisTimeoutMs: leaf(60000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
+            askSynthesisTimeoutMs: leaf(300000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
             /**
              * The path to the generated knowledge base JSONL file.
              * @type {string}
