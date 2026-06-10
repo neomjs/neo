@@ -69,6 +69,39 @@ ADR 0018's handle-indirection boundary and ADR 0012's model-stats discipline.
 - **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
 - **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
 
+### §neo_fable
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-fable` |
+| `name` | Claude Fable 5 |
+| `family` | `claude` (Anthropic) |
+| `hosting` | `cloud` |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M) |
+| `parallelToolCalls` | `true` |
+| `thoughtBudget` | `max` (Claude Fable 5 has always-on adaptive thinking with selectable effort up to max; we use the highest setting for maintainer work) |
+| `releaseDate` | 2026-06-09 |
+| `pricingInput` | $10.00 per 1M tokens |
+| `pricingOutput` | $50.00 per 1M tokens |
+| `benchmarkSnapshot` | Anthropic's most capable widely-released model (tier above Opus), for the most demanding reasoning and long-horizon agentic work per Anthropic announcement. |
+| `sunsetTriggers` | Anthropic releases a successor Fable-class model with material reasoning capability upgrade; OR Anthropic deprecates the Fable model branch |
+| `swarmRole` | Active Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. |
+
+`@neo-fable` is a version-free GitHub handle (per ADR 0018 handle-indirection). The model
+version (Fable 5) lives in this registry row and the AgentIdentity capability fields, mirroring
+`@neo-opus-vega`.
+
+**Capability notes (V-B-A 2026-06-10):** Claude Fable 5 uses the Opus-4.7 tokenizer (~30% more
+tokens than pre-4.7 models for the same text). Adaptive thinking is always-on (no extended-thinking
+mode; an explicit `thinking:{type:"disabled"}` returns 400 — omit the param). Pricing is 2x Opus 4.8
+on both axes. Operator empirical note (post-trial): ~2x token-drain vs Opus per task — budget
+accordingly; this is a behavioral observation, not a tokenizer/pricing fact.
+
+**Sources** (primary first):
+- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview) (verified 2026-06-10: `claude-fable-5` = 1M context, 128K max output, $10/$50 per MTok, adaptive-thinking always-on, GA 2026-06-09)
+- **Primary**: [Introducing Claude Fable 5 and Claude Mythos 5 — Anthropic](https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5)
+
 ### §neo_gemini_pro
 
 | Field | Value |
@@ -240,6 +273,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-ada, @neo-gemini-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
 | 2026-06-02 | (pending PR) | Added pending `@neo-claude-opus` identity row; row is inactive until account and wake-route activation are complete. |
 | 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
+| 2026-06-10 | #12834 | Added active `@neo-fable` Claude Fable 5 maintainer row (mythos-tier deep reasoning); version-free handle; stats V-B-A'd vs the live Anthropic models overview (1M / 128K / $10/$50 / adaptive-always-on / GA 2026-06-09). |
 
 ---
 

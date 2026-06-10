@@ -149,11 +149,14 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
                 '@neo-opus-ada',
                 '@neo-claude-opus',
-                '@neo-opus-vega'
+                '@neo-opus-vega',
+                '@neo-fable'
             ]);
             expect(claudeIdentities.find(identity => identity.id === '@neo-claude-opus')?.properties.participationStatus)
                 .toBe('active');
             expect(claudeIdentities.find(identity => identity.id === '@neo-opus-vega')?.properties.participationStatus)
+                .toBe('active');
+            expect(claudeIdentities.find(identity => identity.id === '@neo-fable')?.properties.participationStatus)
                 .toBe('active');
         });
 
@@ -281,7 +284,7 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 io     : fakeIo
             });
             expect(result.identityLogin).toBe('@neo-opus-ada');
-            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega']);
+            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega', '@neo-fable']);
             expect(result.results[0].notification).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
         });
 
