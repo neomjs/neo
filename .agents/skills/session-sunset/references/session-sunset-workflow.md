@@ -138,11 +138,12 @@ You MUST use the `add_message` MCP tool to send an A2A message to your own agent
 
 Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow. Note: Peer broadcasts can be conditionally suppressed for `scope: solo-refresh` unless cross-peer handoff coordination is actively required.
 
-**Lead-role baton branch:** If the session currently holds `/lead-role`, Step 7
+**Lead-role baton branch:** If the session currently holds `/lead-role`, this step
 also sends an A2A Baton Pass V1 DM to the next lead before the final memory
 persistence step. Compute the next lead from the fixed cycle documented in
-`.agents/skills/lead-role/references/lead-role-mode.md`:
-`['@neo-opus-ada', '@neo-gemini-pro', '@neo-gpt']`.
+`.agents/skills/lead-role/references/lead-role-mode.md` §7 — that list is the
+single source of truth (it also carries the bench list); do NOT duplicate the
+roster here, a stale copy is how this exact line once drifted.
 
 The baton message MUST be targeted to that next identity, not broadcast:
 
