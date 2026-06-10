@@ -59,10 +59,13 @@ Detect your checkout class **mechanically** — never guess from harness names. 
 - **Primary clone (per-agent dedicated clone OR shared checkout) — self-refresh, best-effort:** commit + push any PR-branch work first (existing mandate above), then:
 
   ```bash
-  [ -z "$(git status --porcelain)" ] || echo 'dirty tree — skip refresh, surface in handover'
-  git switch dev
-  git pull origin dev
-  node ai/scripts/setup/initServerConfigs.mjs --migrate-config
+  if [ -z "$(git status --porcelain)" ]; then
+      git switch dev
+      git pull origin dev
+      node ai/scripts/setup/initServerConfigs.mjs --migrate-config
+  else
+      echo 'dirty tree — skip refresh, surface in handover'
+  fi
   ```
 
   The pull refreshes code; the `--migrate-config` run reconciles the gitignored `config.mjs` operator-overlay with the pulled `config.template.mjs` leaves — a pull alone is NOT enough, because daemons and MCP servers read the overlay, not the template. Because the AI harness initializes MCP servers *before* an agent's first turn, sunset is the only window where this refresh lands in time for the next session's boot. **Any failure (dirty tree, switch/pull/script error) is surfaced in the Step 3 handover comment and the final sunset payload — the refresh is best-effort and must NEVER block sunset completion.**
