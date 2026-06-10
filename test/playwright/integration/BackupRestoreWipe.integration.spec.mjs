@@ -265,12 +265,13 @@ test.describe('Dockerized MC backup -> wipe detection -> restore integration (#1
             memoryId = addResult.id;
             expect(memoryId).toBeTruthy();
 
-            const seededResults = await callJsonTool(client, 'query_raw_memories', {
+            // Semantic recall is eventually consistent (server-hosted WAL drain) — poll the
+            // seeded read-back to convergence before snapshotting backup evidence.
+            await expect.poll(async () => memoryTexts(await callJsonTool(client, 'query_raw_memories', {
                 nResults: 5,
                 query   : sentinel,
                 sessionId
-            });
-            expect(memoryTexts(seededResults)).toContain(sentinel);
+            })), {timeout: 20000, message: 'WAL drain convergence (seeded memory)'}).toContain(sentinel);
 
             const seededGraph = readGraphEvidence(memoryId);
             expect(seededGraph.exists).toBe(true);

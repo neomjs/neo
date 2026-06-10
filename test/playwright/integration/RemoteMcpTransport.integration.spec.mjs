@@ -69,15 +69,15 @@ test.describe('Remote MCP Transport (v13 Release Gate)', () => {
             });
             expect(addResult).toBeDefined();
 
-            // Call 2 (same session)
-            const queryResult = await callJsonTool(client1, 'query_raw_memories', {
-                query: 'Remote transport test',
-                nResults: 5
-            });
-            expect(queryResult.results).toBeDefined();
-            expect(Array.isArray(queryResult.results)).toBe(true);
-            const found = queryResult.results.some(mem => mem.prompt === testPrompt);
-            expect(found).toBe(true);
+            // Call 2 (same session). Semantic recall is eventually consistent (server-hosted
+            // WAL drain) — poll the read-back to convergence over the same live transport.
+            await expect.poll(async () => {
+                const queryResult = await callJsonTool(client1, 'query_raw_memories', {
+                    query: 'Remote transport test',
+                    nResults: 5
+                });
+                return Array.isArray(queryResult.results) && queryResult.results.some(mem => mem.prompt === testPrompt);
+            }, {timeout: 20000, message: 'WAL drain convergence (remote-transport write)'}).toBe(true);
         } finally {
             await client1.close();
         }

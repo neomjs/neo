@@ -476,6 +476,11 @@ class Config extends ConfigProvider {
                     // reaches the compose-owned `chroma` peer container instead.
                     chromaDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
                     bridgeDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    // The embed daemon durably drains the add_memory WAL into the content store
+                    // (ai/daemons/embed/daemon.mjs). Local profile supervises it as a child
+                    // process; cloud deployments own their drain story per-container (mirror of
+                    // the chromaDaemonEnabled split).
+                    embedDaemonEnabled             : leaf(null, 'NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED', 'boolean'),
                     goldenPathRepoEnrichmentEnabled: leaf(null, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', 'boolean'),
                     // `null` = use the deployment-profile default (local enables, cloud disables);
                     // the swarm-heartbeat lane emits wake-substrate pulses through bridge delivery.

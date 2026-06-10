@@ -1383,15 +1383,12 @@ ${sessionContent}
             // Construct filter: ensure tenant isolation.
             const where = userId ? { '$and': [{ sessionId }, { userId }] } : { sessionId };
 
-            // The embed runs deferred. Mark the purge FIRST (synchronous — purge must never
-            // wait on embed latency) so any in-flight embed for this session skips its Chroma add
-            // instead of resurrecting purged data, and tombstone the WAL-pending records below so
-            // a later drain (the Phase-2 embed daemon) cannot re-embed them either.
-            // Dynamic import: MemoryService statically imports SessionService — see the
-            // withTimeout.mjs extraction note on avoiding that import cycle.
-            const {default: MemoryService} = await import('./MemoryService.mjs');
-            MemoryService.markSessionPurged({sessionId, userId: userId || null});
-
+            // Tombstone the WAL-pending records BEFORE the content-store delete below — this
+            // ordering is the load-bearing purge contract with the embed daemon: the daemon
+            // re-reads pending state after every successful embed, so a record tombstoned here
+            // mid-embed surfaces in that re-read and is compensated with a `collection.delete`.
+            // If the delete ran first, a daemon add landing in between would resurrect purged
+            // data with no tombstone left to detect it (see `ai/daemons/embed/drainCycle.mjs`).
             try {
                 const walDir = aiConfig.memoryWal.dir;
 

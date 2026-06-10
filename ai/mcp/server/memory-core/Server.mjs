@@ -17,9 +17,11 @@ import {
     Memory_HealthService           as HealthService,
     Memory_SessionService          as SessionService,
     Memory_InferenceLifecycleService as InferenceLifecycleService,
+    Memory_StorageRouter           as StorageRouter,
     Memory_WakeSubscriptionService as WakeSubscriptionService,
     Memory_CoalescingEngineService as CoalescingEngineService
 } from '../../../services.mjs';
+import {startDrainLoop} from '../../../daemons/embed/drainCycle.mjs';
 
 /**
  * @summary The Memory Core MCP Server application.
@@ -178,6 +180,21 @@ class Server extends BaseServer {
         // Wait for dependent services.
         await InferenceLifecycleService.ready();
         await SessionService.ready();
+
+        // In-process WAL drain (containerized / single-process deployments): hosts the embed
+        // daemon's exact drain loop inside this server when no orchestrator-supervised daemon
+        // exists. Config-declared mutual exclusion — never enabled where the embed daemon runs
+        // (sole-drainer invariant; see the `memoryWal.inProcessDrain` leaf + `drainCycle.mjs`).
+        // Absent-block tolerance is deliberate: a stale overlay simply leaves the loop off;
+        // `addMemory`'s own guard speaks for the missing config.
+        if (aiConfig.memoryWal && aiConfig.memoryWal.inProcessDrain) {
+            this.walDrainLoop = startDrainLoop({
+                getCollection: () => StorageRouter.getMemoryCollection(),
+                getConfig    : () => aiConfig.memoryWal,
+                log          : (level, message) => logger[level === 'ERROR' ? 'error' : 'info'](`[neo-memory-core MCP] ${message}`)
+            });
+            logger.info('[neo-memory-core MCP] In-process WAL drain loop active (memoryWal.inProcessDrain)');
+        }
 
         // Stdio identity resolution BEFORE healthcheck snapshot.
         if (aiConfig.transport !== 'sse') {

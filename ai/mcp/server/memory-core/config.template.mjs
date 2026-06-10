@@ -273,7 +273,49 @@ class Config extends ConfigProvider {
                  * routes them off this path. Raise only with a derived threshold.
                  * @type {number}
                  */
-                minFieldLength : leaf(1, 'NEO_MEMORY_MIN_FIELD_LENGTH', 'number')
+                minFieldLength : leaf(1, 'NEO_MEMORY_MIN_FIELD_LENGTH', 'number'),
+                /**
+                 * Data directory (PID file, rotating log) for the embed daemon —
+                 * `ai/daemons/embed/daemon.mjs`, the durable WAL drainer. Declarative leaf;
+                 * env override via `NEO_MEMORY_EMBED_DAEMON_DIR`.
+                 * @type {string}
+                 */
+                daemonDataDir  : leaf(path.resolve(cwd, '.neo-ai-data/embed-daemon'), 'NEO_MEMORY_EMBED_DAEMON_DIR', 'string'),
+                /**
+                 * Embed-daemon drain cadence. Per-turn saves arrive minutes apart; 5s keeps
+                 * semantic recall near-realtime without hot-looping the store. This cadence is
+                 * also what bounds the pending-backlog scan cost (see `drainCycle.mjs` AC10 note).
+                 * @type {number}
+                 */
+                pollIntervalMs : leaf(5000, 'NEO_MEMORY_WAL_POLL_INTERVAL_MS', 'number'),
+                /**
+                 * Maximum WAL records embedded per drain cycle.
+                 * @type {number}
+                 */
+                batchSize      : leaf(20, 'NEO_MEMORY_WAL_BATCH_SIZE', 'number'),
+                /**
+                 * In-cycle whole-batch retry bound for transient embed failures; beyond it the
+                 * cycle isolates failures per record (cross-cycle exponential cooldown).
+                 * @type {number}
+                 */
+                maxRetries     : leaf(5, 'NEO_MEMORY_WAL_MAX_RETRIES', 'number'),
+                /**
+                 * Exponential-backoff base for embed retries (`base * 2^attempt`, capped at the
+                 * drain module's `MAX_RECORD_COOLDOWN_MS`).
+                 * @type {number}
+                 */
+                backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number'),
+                /**
+                 * Hosts the WAL drain loop INSIDE the memory-core server process — the
+                 * containerized / single-process deployment shape (dockerized MC, npx-neo-app
+                 * workspaces) where no orchestrator-supervised embed daemon exists.
+                 *
+                 * **Mutual exclusion (sole-drainer invariant):** never enable on a deployment
+                 * where the embed daemon also runs — exactly ONE drain loop per WAL directory.
+                 * The local maintainer profile keeps this `false` and runs the daemon.
+                 * @type {boolean}
+                 */
+                inProcessDrain : leaf(false, 'NEO_MEMORY_WAL_IN_PROCESS_DRAIN', 'boolean')
             },
             /**
              * Target markdown file used for autonomous agent-to-user reporting (offline jobs).

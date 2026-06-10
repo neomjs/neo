@@ -31,6 +31,31 @@ import path from 'path';
 const SEGMENT_RE = /^wal-(\d{4}-\d{2}-\d{2})\.jsonl$/;
 
 /**
+ * @summary Names the `memoryWal` config leaves missing from a config slice.
+ *
+ * The stale-overlay guard: gitignored `config.mjs` files are MATERIALIZED copies of
+ * `config.template.mjs` (reconciled via `ai/scripts/setup/initServerConfigs.mjs
+ * --migrate-config`), so a deployment whose overlay predates the `memoryWal` block — or this
+ * block's daemon leaves — resolves them as `undefined` at runtime. Consumers
+ * (`MemoryService.addMemory`, `ai/daemons/embed/daemon.mjs`) call this BEFORE touching the
+ * leaves and fail loud with the remediation, naming exactly what is missing. Deliberately no
+ * hidden fallbacks: fabricating a default `dir` here would silently split the WAL across two
+ * directories — the config provider owns defaults, via the template.
+ *
+ * Pure function over a plain slice — unit-testable without reading or mutating the shared
+ * AiConfig singleton (the B4 shared-singleton write ban).
+ *
+ * @param {Object|undefined} memoryWal The resolved `memoryWal` config slice (may be absent entirely).
+ * @param {String[]} requiredLeaves Leaf names the calling consumer is about to read.
+ * @returns {String[]} Missing leaf names; empty array when the slice satisfies the consumer.
+ */
+export function getMissingMemoryWalLeaves(memoryWal, requiredLeaves) {
+    if (!memoryWal) return [...requiredLeaves];
+
+    return requiredLeaves.filter(leaf => memoryWal[leaf] === undefined || memoryWal[leaf] === null);
+}
+
+/**
  * @summary Derives the UTC-day segment key for a write timestamp.
  *
  * Date-keyed segments rotate naturally without any cross-process coordination, and their names

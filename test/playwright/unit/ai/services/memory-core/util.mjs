@@ -80,6 +80,42 @@ export async function cleanupChromaManager(SDK) {
     await resetMemoryCoreLifecycle(SDK);
 }
 
+/**
+ * @summary Flushes pending WAL records through the production embed-drain path.
+ *
+ * The spec-side replacement for the removed `MemoryService.drainPendingEmbeds()`: `addMemory`
+ * no longer embeds in-process (the orchestrator-managed embed daemon owns the drain), so specs
+ * flush deterministically by running one targeted `drainWalOnce` cycle — the EXACT production
+ * logic the daemon executes — against the worker's resolved WAL dir and the currently-installed
+ * memory collection (real or spy).
+ *
+ * Pass `ids` (recommended) to reconcile only the records the calling spec just wrote: sibling
+ * specs sharing the worker's WAL dir may deliberately leave foreign records pending
+ * (`MemoryService.WriteAhead.spec.mjs` does), and an unscoped drain would pull those into the
+ * caller's collection.
+ *
+ * @param {Object} [options]
+ * @param {String[]} [options.ids]      Record ids to drain; omit to drain the whole dir.
+ * @param {Object} [options.collection] Explicit collection; defaults to `StorageRouter.getMemoryCollection()`.
+ * @param {Object} [options.SDK]        Optional `ai/services.mjs` aggregate for callers that already hold it.
+ * @returns {Promise<Object>} The `drainWalOnce` cycle summary.
+ */
+export async function drainMemoryWal({ids, collection, SDK} = {}) {
+    const aiConfig       = SDK?.Memory_Config ?? (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+    const StorageRouter  = SDK?.Memory_StorageRouter ?? (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+    const {drainWalOnce} = await import('../../../../../../ai/daemons/embed/drainCycle.mjs');
+
+    return drainWalOnce({
+        dir           : aiConfig.memoryWal.dir,
+        collection    : collection ?? await StorageRouter.getMemoryCollection(),
+        ids,
+        batchSize     : 1000,
+        maxRetries    : 0,  // single attempt — a failing spy must leave records pending, not retry-loop
+        backoffBaseMs : 1,
+        retentionLimit: 0   // non-positive disables pruning: no side-effects on the shared worker dir
+    });
+}
+
 export class TestLifecycleHelper {
     static async cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, strategy = 'destroy') {
         if (strategy === 'clear') {
