@@ -70,7 +70,6 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 
 *   **`query_summaries`**: Performs a semantic vector search across session summaries. Use this to find relevant *past sessions* (e.g., "Have I worked on the Grid component before?").
 *   **`get_all_summaries`**: Lists all session summaries, sorted by date.
-*   **`delete_all_summaries`**: A destructive tool to clear the summary index (useful if you want to re-summarize everything with a new model).
 *   **`summarize_sessions`**: Manually triggers the summarization process for specific or all pending sessions.
 
 ### Session Operations
