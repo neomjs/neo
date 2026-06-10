@@ -108,12 +108,11 @@
  */
 import {execFile}       from 'child_process';
 import fs               from 'fs/promises';
-import {existsSync, readdirSync} from 'fs';
 import path             from 'path';
 import {fileURLToPath}  from 'url';
 import {promisify}      from 'util';
 
-import {materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
+import {listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -121,24 +120,17 @@ const execFileAsync = promisify(execFile);
  * The set of gitignored config overlays a fresh worktree must hydrate from the main
  * checkout: the Tier-1 `ai/config.mjs` plus each per-server `ai/mcp/server/<name>/config.mjs`.
  *
- * **Auto-derived, not hand-maintained.** The per-server list is globbed at load time from the
- * `ai/mcp/server/*` dirs that ship a `config.template.mjs` — the same predicate
- * `initServerConfigs` uses. The previous hand-maintained allow-list silently drifted whenever a
- * new MCP server was added: the new server's gitignored `config.mjs` went un-hydrated, so a
- * worktree importing that server's chain crashed with `ERR_MODULE_NOT_FOUND`. Deriving from the
- * filesystem eliminates that drift class — any server shipping a template is hydrated
- * automatically; dirs without one (e.g. `file-system`, `shared`) are excluded.
+ * **Auto-derived from one shared predicate.** The per-server list comes from
+ * {@link listServersWithTemplates} — the single enumeration owned by `initServerConfigs`, the
+ * same predicate `initConfigs` applies. A hand-maintained allow-list silently drifted whenever a
+ * new MCP server was added (its gitignored `config.mjs` went un-hydrated → a worktree importing
+ * that server's chain crashed with `ERR_MODULE_NOT_FOUND`). Deriving from one shared predicate
+ * means a new template-shipping server is hydrated automatically AND the two call-sites cannot
+ * disagree; dirs without a template (e.g. `file-system`, `shared`) are excluded.
  */
-const serverConfigsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../mcp/server');
-
 export const BOOTSTRAP_CONFIGS = [
     'ai/config.mjs',
-    ...readdirSync(serverConfigsDir, {withFileTypes: true})
-        .filter(entry => entry.isDirectory())
-        .map(entry => entry.name)
-        .filter(name => existsSync(path.join(serverConfigsDir, name, 'config.template.mjs')))
-        .sort()
-        .map(name => `ai/mcp/server/${name}/config.mjs`)
+    ...listServersWithTemplates().map(name => `ai/mcp/server/${name}/config.mjs`)
 ];
 
 /**

@@ -42,6 +42,41 @@ const MATERIALIZED_SERVER_IMPORTS = new Set([
 ]);
 
 /**
+ * @summary True when an `ai/mcp/server/<name>/` directory ships a `config.template.mjs`.
+ *
+ * The single definition of "this server has a bootstrappable config" — shared by
+ * {@link initConfigs} (which reports templateless dirs as `skip-no-template`) and
+ * {@link listServersWithTemplates}, so the predicate cannot drift across the config-bootstrap
+ * call-sites that consume it.
+ *
+ * @param {String} serverPath Absolute path to a single `ai/mcp/server/<name>/` directory.
+ * @returns {Boolean}
+ */
+export function hasConfigTemplate(serverPath) {
+    return fs.existsSync(path.join(serverPath, 'config.template.mjs'));
+}
+
+/**
+ * @summary Lists the `ai/mcp/server/*` directory names that ship a `config.template.mjs`, sorted.
+ *
+ * Synchronous so it can seed a module-load-time const — `bootstrapWorktree`'s `BOOTSTRAP_CONFIGS`
+ * consumes it to hydrate fresh-worktree overlays. Built on the same {@link hasConfigTemplate}
+ * predicate `initConfigs` applies, so "which servers are bootstrappable" has one answer across
+ * both paths.
+ *
+ * @param {String} [serversRoot=serversDir] Override for tests.
+ * @returns {String[]} Sorted server directory names containing a `config.template.mjs`.
+ */
+export function listServersWithTemplates(serversRoot = serversDir) {
+    if (!fs.existsSync(serversRoot)) return [];
+
+    return fs.readdirSync(serversRoot)
+        .filter(name => fs.statSync(path.join(serversRoot, name)).isDirectory())
+        .filter(name => hasConfigTemplate(path.join(serversRoot, name)))
+        .sort();
+}
+
+/**
  * Finds the closing parenthesis for a source-text call while ignoring quoted content.
  *
  * @param {String} src       Source text.
@@ -453,7 +488,7 @@ export async function initConfigs({argv = process.argv, logger = console, server
         const templatePath = path.join(serverPath, 'config.template.mjs');
         const activePath   = path.join(serverPath, 'config.mjs');
 
-        if (!fs.existsSync(templatePath)) {
+        if (!hasConfigTemplate(serverPath)) {
             processed.push({serverName, action: 'skip-no-template'});
             continue;
         }
