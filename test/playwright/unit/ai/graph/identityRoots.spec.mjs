@@ -46,7 +46,7 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
     };
 
     // Identities that carry the static, machine-agnostic wake template.
-    for (const id of ['@neo-opus-ada', '@neo-opus-vega', '@neo-fable']) {
+    for (const id of ['@neo-opus-ada', '@neo-opus-vega']) {
         test(`${id} defines the machine-agnostic bridge-daemon wake route`, () => {
             const entry = findIdentity(id);
             expect(entry, `${id} must be a registered AgentIdentity root`).toBeTruthy();
@@ -71,12 +71,17 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
         });
     }
 
-    test('@neo-claude-opus carries no static template (active via self-registered runtime subscription)', () => {
-        // claude-opus's wakes work via a self-registered runtime WAKE_SUBSCRIPTION, so it carries no
-        // static template — the fresh-session loop was vega-only (the 3rd same-app harness). Keeping
-        // this asserted prevents re-introducing a static route claude-opus does not need.
-        const entry = findIdentity('@neo-claude-opus');
-        expect(entry).toBeTruthy();
-        expect(entry.properties).not.toHaveProperty('subscriptionTemplate');
-    });
+    // Self-registered-runtime identities carry NO static template: their wake route registers at
+    // runtime from a distinct boot env. @neo-claude-opus uses a self-registered WAKE_SUBSCRIPTION;
+    // @neo-fable runs as a fully isolated Claude instance (its own --user-data-dir per @tobiu), whose
+    // distinct user-data-dir IS the per-instance address ada/vega's shared static tabShortcut lacks.
+    // Asserting absence prevents re-introducing a static route these identities do not need (and
+    // which would cross-leak).
+    for (const id of ['@neo-claude-opus', '@neo-fable']) {
+        test(`${id} carries no static template (active via self-registered runtime subscription)`, () => {
+            const entry = findIdentity(id);
+            expect(entry).toBeTruthy();
+            expect(entry.properties).not.toHaveProperty('subscriptionTemplate');
+        });
+    }
 });

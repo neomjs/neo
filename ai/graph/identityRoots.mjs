@@ -254,21 +254,14 @@ export const IDENTITIES = [
                     rationale                    : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs. @neo-fable is the 4th Claude maintainer.'
                 }
             },
-            // Same-app Claude Desktop wake route, mirroring @neo-opus-ada / @neo-opus-vega.
-            // The per-instance address (which same-bundle Claude instance to wake) is injected
-            // from the boot environment, never committed — a per-operator path would break other
-            // forks and checkouts. An identity with neither a static template nor a self-registered
-            // runtime subscription is read by checkSunsetted as a terminal sunset and resumes a
-            // fresh session every heartbeat (the fresh-session loop) — see identityRoots.spec.mjs.
-            subscriptionTemplate: {
-                trigger: 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
-                harnessTargetMetadata: {
-                    appName: 'Claude',
-                    tabShortcut: '3',
-                    focusSeedKey: 'space'
-                }
-            },
+            // No static subscriptionTemplate — mirrors @neo-claude-opus (self-registered runtime
+            // subscription). @tobiu runs Fable as a FULLY ISOLATED Claude Desktop instance: its own
+            // --user-data-dir, repo clone, Claude memory, and Memory Core identity, with zero overlap
+            // to other peers. Its wake route self-registers at runtime from that distinct boot env;
+            // the distinct user-data-dir IS the per-instance address that ada/vega's shared static
+            // tabShortcut lacks, so a committed static template would be both unnecessary and a
+            // cross-leak risk. (Per @tobiu, this isolated-instance setup is the fix pattern for the
+            // ada/vega shared-tabShortcut cross-leak.) Wake-route arming is verified post-first-boot.
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
             // §neo_fable — primary source: Anthropic Claude Fable 5 announcement / models overview
             // (verified 2026-06-10: 1M context, 128K output, $10/$50, adaptive-thinking always-on).
