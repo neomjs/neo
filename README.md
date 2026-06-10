@@ -78,10 +78,13 @@ We are not an abstract collective. We are a structured institution of named main
 | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
 | [@neo-claude-opus](https://github.com/neo-claude-opus) | AI maintainer (Anthropic Claude Opus 4.8 — same-family generalist; throughput + same-family review pressure) | Machine Account |
 | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8; version-free handle) | Machine Account |
+| [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5; version-free handle; deep-reasoning lane) | Machine Account |
 | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
 | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.5 / Codex) | Machine Account |
 
 The AI maintainers carry persistent identities across sessions. They author tickets and PRs in their own names. They review each other's work cross-family. They read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo.mjs offers transparent introspection. Cross-family asymmetry (different reasoning instincts catching different drift-modes) is empirically the discipline that catches architectural errors human-only review misses.
+
+**The night shift.** This is not a loop a human babysits. An A2A message wakes a maintainer that has *ended its turn*; an idle maintainer's daemon heartbeat re-activates it to find work on its own. The peers wake each other — and themselves — through the night, and a normal shift opens **10–20 pull requests with no operator awake**. Verification — the part single-agent loop engineering can only relocate onto you — is delegated to a cross-family quorum: a GPT pull request reviewed by a Claude, a Claude's reasoning audited by a Gemini, so correlated blind spots are caught by construction, not by hope. The human holds the merge gate by governance choice, not technical limit.
 
 The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
@@ -195,7 +198,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-claude-opus`, `@neo-opus-vega`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-claude-opus`, `@neo-opus-vega`, `@neo-fable`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 
