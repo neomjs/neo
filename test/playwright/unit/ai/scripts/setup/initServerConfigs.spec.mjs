@@ -26,7 +26,7 @@ import path           from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('initServerConfigs — template drift detection (#10815)', () => {
-    let initConfigs, projectSourceShape, projectShape, detectDrift, materializeServerConfigTemplate;
+    let initConfigs, projectSourceShape, projectShape, detectDrift, materializeServerConfigTemplate, listServersWithTemplates, hasConfigTemplate;
     let workRoot;
 
     function recordingLogger() {
@@ -64,7 +64,9 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
             projectSourceShape,
             projectShape,
             detectDrift,
-            materializeServerConfigTemplate
+            materializeServerConfigTemplate,
+            listServersWithTemplates,
+            hasConfigTemplate
         } = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
 
         workRoot = path.resolve(process.cwd(), 'tmp', `init-server-configs-${process.pid}-${Date.now()}`);
@@ -697,5 +699,45 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
         expect(onDisk).toBe(materializeServerConfigTemplate(templateSrc));
         expect(onDisk).toContain('NEO_AUTH_MODE');
+    });
+
+    test.describe('listServersWithTemplates / hasConfigTemplate (shared enumeration)', () => {
+        function buildMultiServerRoot(sandboxName, serverSpec) {
+            const root = path.join(workRoot, sandboxName);
+            fs.mkdirSync(root, {recursive: true});
+            for (const [name, kind] of Object.entries(serverSpec)) {
+                fs.mkdirSync(path.join(root, name), {recursive: true});
+                if (kind === 'template') {
+                    fs.writeFileSync(path.join(root, name, 'config.template.mjs'), 'export default {};\n');
+                }
+            }
+            return root;
+        }
+
+        test('lists only directories shipping a config.template.mjs, sorted', () => {
+            const root = buildMultiServerRoot('lswt-basic', {
+                'memory-core'    : 'template',
+                'github-workflow': 'template',
+                'file-system'    : 'no-template'
+            });
+            // A stray non-directory file in the servers root must be ignored.
+            fs.writeFileSync(path.join(root, 'README.md'), '# not a server\n');
+
+            expect(listServersWithTemplates(root)).toEqual(['github-workflow', 'memory-core']);
+        });
+
+        test('returns [] for a non-existent serversRoot (no throw)', () => {
+            expect(listServersWithTemplates(path.join(workRoot, 'lswt-missing'))).toEqual([]);
+        });
+
+        test('hasConfigTemplate is true only when config.template.mjs is present', () => {
+            const root = buildMultiServerRoot('hct', {
+                'with-template': 'template',
+                'no-template'  : 'no-template'
+            });
+
+            expect(hasConfigTemplate(path.join(root, 'with-template'))).toBe(true);
+            expect(hasConfigTemplate(path.join(root, 'no-template'))).toBe(false);
+        });
     });
 });
