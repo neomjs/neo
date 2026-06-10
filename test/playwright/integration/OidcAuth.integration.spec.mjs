@@ -100,6 +100,17 @@ test.describe('OIDC Authentication Fixture', () => {
                 agent: 'neo-agent'
             });
 
+            // Semantic recall is eventually consistent (server-hosted WAL drain) — await
+            // alice's write converging before asserting either side of the isolation contract.
+            await expect.poll(async () => {
+                const r = await callJsonTool(aliceClient, 'query_raw_memories', {
+                    query: 'secret code',
+                    nResults: 5,
+                    memorySharing: 'private'
+                });
+                return r.results?.some(mem => mem.response.includes('OMEGA-99')) ?? false;
+            }, {timeout: 20000, message: 'WAL drain convergence (alice secret write)'}).toBe(true);
+
             // Bob searches under explicit `private` policy — the multi-tenant isolation contract.
             // The team default is deployment-wide by design, so OIDC-tenant isolation is asserted
             // under the policy that enforces it (multi-tenant forks set defaultPolicy='private').

@@ -16,18 +16,22 @@ setup({
 import {test, expect}        from '@playwright/test';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
-import {readPendingWalRecords} from '../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
+import {appendWalEmbedMarker, readPendingWalRecords} from '../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
+import {drainMemoryWal}      from './util.mjs';
 
 /**
- * add_memory never-fail write path (write-ahead decouple, Phase 1) — falsifier coverage:
+ * add_memory never-fail write path (write-ahead decouple) — falsifier coverage:
  *
  *   AC1 validation gate — empty/whitespace fields are rejected BEFORE any write.
- *   AC2 never-fail      — a throwing or HANGING embed no longer fails or stalls the tool;
- *                         the payload is durable in the WAL (pending) either way.
+ *   AC2 never-fail      — the write path never touches the content store at all (the embed
+ *                         daemon owns the drain), so a down OR hung store can neither fail nor
+ *                         stall the tool; the payload is durable in the WAL (pending) either way.
  *   AC3 recency         — the AGENT_MEMORY graph row stays synchronous: a just-written turn is
  *                         immediately visible to query_recent_turns even with the embed down,
  *                         and the WAL pending-overlay serves its content for BOTH detail levels.
- *   Marker reconcile    — a successful deferred embed marks the WAL record (no longer pending).
+ *   Drain reconcile     — the daemon drain path (`drainWalOnce` via the `drainMemoryWal` spec
+ *                         helper) embeds pending records and marks them reconciled, and never
+ *                         re-embeds a purge-tombstoned record.
  *
  * Test isolation by construction: UNIT_TEST_MODE resolves memoryWal.dir → a per-worker-unique
  * temp directory and the graph → ':memory:'; the shared AiConfig singleton is never mutated
@@ -39,7 +43,7 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
     test.describe.configure({mode: 'serial'});
 
     let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter,
-        originalGetMemoryCollection, originalEmbedText, memStore, collectionMode, testWalDir;
+        originalGetMemoryCollection, originalEmbedText, memStore, collectionMode, collectionTouches, testWalDir;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -53,10 +57,14 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
 
         // Controllable content-store fake: 'ok' embeds into an in-memory map, 'throw' fails the
         // embed, 'hang' never resolves — the two failure shapes AC2 pins (error AND stall).
+        // `collectionTouches` counts resolution attempts: AC2's strongest form is that the write
+        // path performs ZERO of them (the embed daemon is the only collection consumer).
         memStore                    = new Map();
         collectionMode              = 'ok';
+        collectionTouches           = 0;
         originalGetMemoryCollection = StorageRouter.getMemoryCollection;
         StorageRouter.getMemoryCollection = async () => {
+            collectionTouches++;
             if (collectionMode === 'throw') throw new Error('chroma down (spec)');
             if (collectionMode === 'hang')  return new Promise(() => {}); // never settles
             return {
@@ -107,8 +115,9 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect((await readPendingWalRecords({dir: testWalDir})).length).toBe(before);
     });
 
-    test('AC2: a THROWING embed no longer fails the save; the payload is durable + pending', async () => {
+    test('AC2: a DOWN content store cannot fail the save — the write path never touches it', async () => {
         collectionMode = 'throw';
+        const touchesBefore = collectionTouches;
 
         const result = await asTenant(() => MemoryService.addMemory({
             prompt: 'embed-down prompt', thought: 'embed-down thought', response: 'embed-down response'
@@ -119,6 +128,10 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect(result.id).toBeTruthy();
         expect(result.message).toBe('Memory successfully added');
 
+        // Strongest form of never-fail: addMemory performed ZERO collection resolutions —
+        // the embed daemon is the only consumer of the content store on the memory write side.
+        expect(collectionTouches).toBe(touchesBefore);
+
         const pending = await readPendingWalRecords({dir: testWalDir, ids: [result.id]});
         expect(pending).toHaveLength(1);
         expect(pending[0].metadata.prompt).toBe('embed-down prompt');
@@ -126,16 +139,18 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         collectionMode = 'ok';
     });
 
-    test('AC2: a HANGING embed no longer stalls the save', async () => {
+    test('AC2: a HUNG content store cannot stall the save — nothing on the write path awaits it', async () => {
         collectionMode = 'hang';
+        const touchesBefore = collectionTouches;
 
         const result = await asTenant(() => MemoryService.addMemory({
             prompt: 'hang prompt', thought: 'hang thought', response: 'hang response'
         }));
-        // Reaching these assertions at all proves the embed is off the await path — previously
-        // this call suspended on the hung collection promise until an outer timeout killed it.
+        // Reaching these assertions at all proves nothing on the write path awaited the hung
+        // collection promise — and the touch counter proves it was never even resolved.
         expect(result.id).toBeTruthy();
         expect(result.error).toBeUndefined();
+        expect(collectionTouches).toBe(touchesBefore);
 
         collectionMode = 'ok';
     });
@@ -168,51 +183,42 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         collectionMode = 'ok';
     });
 
-    test('purge guard: an embed deferred past a session purge is suppressed, never resurrected', async () => {
-        collectionMode = 'throw'; // hold the embed back so the purge wins the race deterministically
-
+    test('purge tombstone: a record tombstoned before the drain is never re-embedded', async () => {
         const result = await asTenant(() => MemoryService.addMemory({
             prompt: 'purge-race prompt', thought: 'purge-race thought', response: 'purge-race response'
         }));
         expect(result.id).toBeTruthy();
 
-        // Purge marker lands BEFORE the embed can run (mirrors SessionService.purgeSession).
-        MemoryService.markSessionPurged({sessionId: result.sessionId, userId: 'tenant-wal'});
-
-        collectionMode = 'ok';
-
-        // Retry the pending record through the deferred-embed path (what the Phase-2 daemon —
-        // or any later inline attempt — would do): the purge guard must skip the Chroma add and
-        // reconcile the WAL record instead.
         const pending = await readPendingWalRecords({dir: testWalDir, ids: [result.id]});
         expect(pending).toHaveLength(1);
 
-        const embedded = await MemoryService.embedPendingMemory({
-            id        : pending[0].id,
-            metadata  : pending[0].metadata,
-            document  : pending[0].document,
-            segmentKey: pending[0].segmentKey,
-            dir       : testWalDir
-        });
+        // Purge tombstone lands BEFORE any drain runs (mirrors SessionService.purgeSession's
+        // tombstone-before-delete ordering): the marker reconciles the record, so the daemon's
+        // pending read never surfaces it again.
+        await appendWalEmbedMarker({id: result.id, segmentKey: pending[0].segmentKey}, {dir: testWalDir});
 
-        expect(embedded).toBe(false);                 // suppressed, not embedded
+        const summary = await drainMemoryWal({ids: [result.id]});
+
+        expect(summary.pending).toBe(0);              // the tombstoned record is not pending work
         expect(memStore.has(result.id)).toBe(false);  // nothing resurrected into the content store
         expect((await readPendingWalRecords({dir: testWalDir, ids: [result.id]})).length).toBe(0); // reconciled
     });
 
-    test('a successful deferred embed reconciles the WAL record (marker written, no longer pending)', async () => {
+    test('the daemon drain reconciles a pending record (embedded + marker written)', async () => {
         const result = await asTenant(() => MemoryService.addMemory({
             prompt: 'happy prompt', thought: 'happy thought', response: 'happy response'
         }));
 
         expect(result.id).toBeTruthy();
 
-        // The embed is fire-and-forget — poll until it lands in the fake store + the marker
-        // reconciles the WAL record.
-        await expect.poll(async () => memStore.has(result.id), {timeout: 5000}).toBe(true);
-        await expect.poll(
-            async () => (await readPendingWalRecords({dir: testWalDir, ids: [result.id]})).length,
-            {timeout: 5000}
-        ).toBe(0);
+        // New write-path contract: addMemory leaves the record PENDING — only the daemon drains.
+        expect((await readPendingWalRecords({dir: testWalDir, ids: [result.id]})).length).toBe(1);
+
+        // One targeted production drain cycle (the exact daemon logic) — deterministic, no polling.
+        const summary = await drainMemoryWal({ids: [result.id]});
+
+        expect(summary.embedded).toBe(1);
+        expect(memStore.has(result.id)).toBe(true);
+        expect((await readPendingWalRecords({dir: testWalDir, ids: [result.id]})).length).toBe(0);
     });
 });

@@ -19,12 +19,13 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import dotenv          from 'dotenv';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../../src/Neo.mjs';
+import * as core        from '../../../../../../src/core/_export.mjs';
+import path             from 'path';
+import {fileURLToPath}  from 'url';
+import dotenv           from 'dotenv';
+import {drainMemoryWal} from './util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -127,8 +128,8 @@ test.describe('SessionService setSessionId', () => {
                 });
                 expect(memoryResult1.sessionId).toBe(sessionId1);
 
-                // The embed is deferred — flush before reading the store back.
-                await SDK.Memory_Service.drainPendingEmbeds();
+                // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
+                await drainMemoryWal({SDK, ids: [memoryResult1.id]});
 
                 const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId1 });
                 expect(listResult.memories.length).toBe(1);
@@ -143,8 +144,8 @@ test.describe('SessionService setSessionId', () => {
                 });
                 expect(memoryResult2.sessionId).toBe(sessionId2);
 
-                // The embed is deferred — flush before reading the store back.
-                await SDK.Memory_Service.drainPendingEmbeds();
+                // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
+                await drainMemoryWal({SDK, ids: [memoryResult2.id]});
 
                 const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId2 });
                 expect(listResult.memories.length).toBe(1);
@@ -165,7 +166,7 @@ test.describe('SessionService setSessionId', () => {
         const otherSessionId = crypto.randomUUID();
 
         // Add memory to target session
-        await SDK.Memory_Service.addMemory({
+        const targetAdd = await SDK.Memory_Service.addMemory({
             prompt: 'target prompt',
             response: 'target response',
             thought: 'target thought',
@@ -173,16 +174,16 @@ test.describe('SessionService setSessionId', () => {
         });
 
         // Add memory to other session
-        await SDK.Memory_Service.addMemory({
+        const otherAdd = await SDK.Memory_Service.addMemory({
             prompt: 'other prompt',
             response: 'other response',
             thought: 'other thought',
             sessionId: otherSessionId
         });
 
-        // The embed is deferred — flush so BOTH memories are in Chroma before the
-        // purge: this test verifies purge deletes embedded data (deletedMemories > 0).
-        await SDK.Memory_Service.drainPendingEmbeds();
+        // Flush the WAL-pending records through the daemon drain path so BOTH memories are in
+        // Chroma before the purge: this test verifies purge deletes embedded data (deletedMemories > 0).
+        await drainMemoryWal({SDK, ids: [targetAdd.id, otherAdd.id]});
 
         // Manually add summaries just to be sure we test both collections
         await SDK.Memory_SessionService.sessionsCollection.upsert({
@@ -259,16 +260,17 @@ test.describe('SessionService setSessionId', () => {
         // Verify tenant isolation: try to purge a session that belongs to a different user, or without the proper tenant.
         // We'll create another memory under SHARED_USER_ID, then try to delete it from testUserId context.
         const sharedSessionId = crypto.randomUUID();
-        await SDK.Memory_Service.addMemory({
+        const sharedAdd = await SDK.Memory_Service.addMemory({
             prompt: 'shared prompt',
             response: 'shared response',
             thought: 'shared thought',
             sessionId: sharedSessionId
         });
 
-        // The embed is deferred — flush so the shared memory is IN Chroma when the
-        // tenant-scoped purge runs: the isolation claim below is only meaningful against real data.
-        await SDK.Memory_Service.drainPendingEmbeds();
+        // Flush the WAL-pending record through the daemon drain path so the shared memory is IN
+        // Chroma when the tenant-scoped purge runs: the isolation claim below is only meaningful
+        // against real data.
+        await drainMemoryWal({SDK, ids: [sharedAdd.id]});
 
         await RequestContextService.run({ sessionId: sharedSessionId, userId: testUserId }, async () => {
             const result = await SDK.Memory_SessionService.purgeSession({ sessionId: sharedSessionId });

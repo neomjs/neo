@@ -80,6 +80,13 @@ export function buildTaskDefinitions({
             pidFileName    : 'wake-daemon.pid',
             expectedCommand: 'daemons/wake/daemon.mjs'
         },
+        embedDaemon: {
+            label          : 'embed daemon (add_memory WAL drain)',
+            command        : nodeBin,
+            args           : [path.resolve(scriptDir, '../daemons/embed/daemon.mjs')],
+            pidFileName    : 'embed-daemon.pid',
+            expectedCommand: 'daemons/embed/daemon.mjs'
+        },
         summary: {
             label          : 'session summarization',
             command        : nodeBin,

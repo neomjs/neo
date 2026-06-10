@@ -423,6 +423,17 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
 
             seedChromaRecords(directSeedPayload);
 
+            // Semantic recall is eventually consistent (server-hosted WAL drain) — await both
+            // add_memory writes converging before the boundary assertions below. The direct
+            // Chroma seeds above are synchronous and need no convergence.
+            await expect.poll(async () => {
+                const [o, p] = await Promise.all([
+                    callJsonTool(owner, 'query_raw_memories', {nResults: 10, query: ownerMemorySentinel, sessionId, memorySharing: 'private'}),
+                    callJsonTool(peer,  'query_raw_memories', {nResults: 10, query: peerMemorySentinel,  sessionId, memorySharing: 'private'})
+                ]);
+                return memoryTexts(o).includes(ownerMemorySentinel) && memoryTexts(p).includes(peerMemorySentinel);
+            }, {timeout: 20000, message: 'WAL drain convergence (owner + peer writes)'}).toBe(true);
+
             // Private-boundary queries pin `memorySharing: 'private'`: the team default is
             // deployment-wide, so per-tenant raw-memory boundaries are asserted under the policy
             // that enforces them. The shared-commons queries below intentionally use the default

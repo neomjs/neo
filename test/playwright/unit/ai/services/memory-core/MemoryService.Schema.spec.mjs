@@ -20,6 +20,7 @@ import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../../../../../ai/gr
 import MemoryService         from '../../../../../../ai/services/memory-core/MemoryService.mjs';
 import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {drainMemoryWal}      from './util.mjs';
 
 /**
  * Validates the AGENT_MEMORY graph node payload structure to prevent hollow-success regressions
@@ -144,8 +145,8 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
             response : 'hi'
         }));
 
-        // The embed is deferred — flush it before asserting on the spy.
-        await MemoryService.drainPendingEmbeds();
+        // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
+        await drainMemoryWal({ids: [result.id]});
 
         expect(collectionAddCalls).toHaveLength(1);
         expect(collectionAddCalls[0].metadatas[0].userId).toBe('neo-gpt');
@@ -169,7 +170,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
     });
 
     test('addMemory preserves unresolved-identity fallthrough without hallucinating AUTHORED_BY edges', async () => {
-        await RequestContextService.run({
+        const result = await RequestContextService.run({
             userId             : 'external-contributor',
             username           : 'External Contributor',
             agentIdentityNodeId: null,
@@ -181,8 +182,8 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
             response : 'hi'
         }));
 
-        // The embed is deferred — flush it before asserting on the spy.
-        await MemoryService.drainPendingEmbeds();
+        // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
+        await drainMemoryWal({ids: [result.id]});
 
         expect(collectionAddCalls).toHaveLength(1);
         expect(collectionAddCalls[0].metadatas[0].userId).toBe('external-contributor');
