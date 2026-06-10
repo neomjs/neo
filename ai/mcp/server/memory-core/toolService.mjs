@@ -16,7 +16,11 @@ const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
 const serviceMapping = {
     add_memory              : MemoryService          .addMemory               .bind(MemoryService),
-    delete_all_summaries    : SummaryService         .deleteAllSummaries      .bind(SummaryService),
+    // `SummaryService.deleteAllSummaries` stays as the tenant-safe internal primitive (the
+    // multi-tenant scoped-delete guard + future gated cleanups reuse it) but is deliberately
+    // NOT agent-callable: a mass-destructive op does not belong on the MCP surface, and any
+    // confirmation an agent can supply is not a guard. An operator path, if ever needed,
+    // routes through DestructiveOperationGuard — never through tool re-exposure.
     get_all_summaries       : SummaryService         .listSummaries           .bind(SummaryService),
     get_context_frontier    : MemoryService          .getContextFrontier      .bind(MemoryService),
     get_neighbors           : GraphService           .getNeighbors            .bind(GraphService),
