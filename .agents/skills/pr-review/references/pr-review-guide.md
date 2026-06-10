@@ -393,6 +393,7 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    - Cycle N+1 churn risks high-cost-low-marginal-value iteration
    - The PR ships measurable substrate value even with documented gaps
    - Required Actions surface concerns that are better-tracked-separately
+   **The follow-up defaults OFF the release board** — `ticket-create` §4 (`Release classification: post-release`) carries the invariant; a release-blocking gap means the verdict was wrong → **Request Changes**.
    Tell the author to run `pull-request-workflow.md §6.3.1` before merge.
 3. **Request Changes** — must-fix before merge; defects block substrate correctness.
 4. **Drop+Supersede** — the entire PR premise is stale/wrong with current

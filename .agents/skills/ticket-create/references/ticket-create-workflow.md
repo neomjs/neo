@@ -71,7 +71,7 @@ For source anchors (`#11078` / `#11082` / `#11083` / `#11084`), Discussion `#110
 
 ### 1d. Project Attachment Pre-Flight (during release cycle)
 
-Before draft, confirm the target project number is current (cite the project number in your Pre-Flight reasoning statement, e.g., *"Will attach to Project 12 per §4."*). Prevents stale-project-number drift across release cycles. Pairs mechanically with the §4 mandate below.
+Before draft, make the §4 scope judgment — does this ticket **block or belong to** the release? If yes, confirm the target project number is current and cite it in your Pre-Flight statement (e.g., *"Release-blocking → Project 12 per §4."*); if no, it is **boardless** — state the `Release classification:` in the body instead. Prevents both stale-project-number drift and board over-attachment.
 
 ## 2. Six-Stage Challenge Chain
 
@@ -109,10 +109,12 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 - **Primary — exactly one:** `epic`, `enhancement`, or `bug`.
 - **Secondary — as applicable:** `architecture`, `performance`, `regression`, `refactoring`, `documentation`, `testing`, plus domain labels (`core`, `grid`, `build`, etc.).
 - Before filing: call `list_labels` to confirm the labels exist. Do not invent label names.
-- **Project attachment is MANDATORY on every ticket during the v13 release cycle.** Visibility primitive: every new ticket goes onto Project 12 ([Neo v13 Release board](https://github.com/orgs/neomjs/projects/12)) so the swarm + operator have a single overview. ProjectV2 memberships supersede the deprecated `release:v*` label family per [ProjectV2 migration ticket](https://github.com/neomjs/neo/issues/11233).
-  - **`create_issue` MCP tool path:** pass `projects: [{projectNumber: 12}]` atomically with the create.
-  - **`gh issue create` CLI bypass path:** ALWAYS follow with `gh project item-add 12 --owner neomjs --url <new-issue-url>` immediately. Treat the two-step as inseparable.
-  - **Project anchor** is currently `12` (v13). When v14 release work begins, update the project number in this section AND any hard-coded `create_issue` examples or call-sites that name the release project (the MCP tool's `projects` parameter is caller-supplied with `[]` default — not a configurable tool-side default to update). Sunset condition: once v13 release ships, this rule needs disposition review (`keep` with updated project number, OR `compress-to-trigger` if mid-release ambiguity arises).
+- **Project attachment is a SCOPE JUDGMENT, not an unconditional mandate.** Attach a new ticket to Project 12 ([Neo v13 Release board](https://github.com/orgs/neomjs/projects/12)) **IFF it blocks or belongs to the release** — bugs in release-scoped subsystems, ship-hardening, release-process work. Everything else defaults **boardless**. ProjectV2 memberships supersede the deprecated `release:v*` label family per [ProjectV2 migration ticket](https://github.com/neomjs/neo/issues/11233).
+  - **Why a judgment, not attach-everything:** "created during the v13 cycle" ≠ "required for v13". Unconditional attachment composes with `pr-review` §9 `Approve+Follow-Up` into a **release asymptote** — every merge that spawns a board-attached follow-up grows the release, so the faster the swarm merges the further the release recedes. Resolving invariant: **a follow-up that must land before release contradicts the `Approve+Follow-Up` verdict that spawned it** (the verdict certifies "shippable without it"), so its follow-ups are post-release by construction; a release-blocking gap means the verdict should have been `Request Changes`.
+  - **Default boardless + classify:** `Approve+Follow-Up`-born tickets, hypothesis validations, and post-release hardening skip the board and state a one-line **`Release classification:`** in the body (greppable, reviewable, operator-reversible) — e.g. `Release classification: post-release (Approve+Follow-Up follow-up — non-blocking)` or `Release classification: ON the board — <why it blocks the release>`.
+  - **`create_issue` MCP tool path:** release-blocking → pass `projects: [{projectNumber: 12}]` atomically with the create; boardless → `projects: []` (the default).
+  - **`gh issue create` CLI bypass path:** release-blocking only → follow with `gh project item-add 12 --owner neomjs --url <new-issue-url>` (inseparable two-step); skip it for boardless tickets.
+  - **Project anchor** is currently `12` (v13). When v14 release work begins, update the project number here AND any hard-coded `create_issue` call-sites naming the release project. Sunset condition: once v13 ships, this rule needs disposition review (`keep` with updated project number, OR `compress-to-trigger`).
 
 ## 5. Fat Ticket Body Structure
 
@@ -157,7 +159,7 @@ When drafting ticket bodies, read [`learn/agentos/process/reference-hygiene.md`]
 | Inventing label names | Breaks label taxonomy; causes silent GitHub API rejections |
 | Precedent-following without skill check | Propagates anti-patterns from prior sessions (e.g., `[enhancement]` prefix spread this way) |
 | Cross-scope bundling | `epic` label on a single-commit ticket; hurts granularity |
-| Using `gh issue create` without follow-up `gh project item-add` (during release cycle) | Bypasses §4 v13 release-board attachment; ticket invisible in swarm/operator overview; two-step CLI path MUST be treated as inseparable per §4 |
+| Boarding a non-release-blocking ticket, OR the `gh issue create` → `gh project item-add` bypass on a release-blocking one | §4 is a scope judgment (board IFF release-blocking, else boardless + `Release classification:`); over-attaching inflates the release surface (the asymptote `#12865` fixes), and the CLI two-step stays inseparable for release-blocking tickets |
 
 ## 9. When to Escalate to Discussion Instead
 
