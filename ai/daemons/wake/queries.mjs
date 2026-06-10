@@ -14,17 +14,70 @@ export function initializeDatabase(dbPath) {
     }
 }
 
+/**
+ * @summary Resolves the wake-daemon resume cursor — the GraphLog id to tail-sync from.
+ *
+ * **Fail-to-the-tip semantics.** A missing OR corrupt/empty cursor file resolves to
+ * `MAX(log_id)` (resume at the log tip, skip the backlog), never `0`. The previous
+ * `parseInt(...) || 0` collapsed a corrupt/empty cursor (`parseInt` → `NaN`) to `0`, which
+ * makes the daemon tail-sync the ENTIRE GraphLog from id 0 and re-fire the whole unread
+ * backlog as one volume-escalated HIGH wake (the full-backlog wake-flood this guards against).
+ * Only a genuinely-parseable non-negative integer is trusted as a cursor: a legitimately
+ * persisted `0` is preserved, while `NaN` (truncated/empty file) or a negative value falls
+ * through to the safe tip.
+ *
+ * @param {Database} db        SQLite database handle.
+ * @param {String}   stateFile Path to the persisted cursor file.
+ * @returns {Number} The log id to resume tail-sync from.
+ */
 export function getLastSyncId(db, stateFile) {
     if (fs.existsSync(stateFile)) {
-        return parseInt(fs.readFileSync(stateFile, 'utf8'), 10) || 0;
-    } else {
-        try {
-            const row = db.prepare('SELECT MAX(log_id) as max_id FROM GraphLog').get();
-            return row?.max_id || 0;
-        } catch (e) {
-            return 0;
-        }
+        const parsed = parseInt(fs.readFileSync(stateFile, 'utf8'), 10);
+        // A valid cursor is a non-negative integer; anything else (NaN from a truncated/empty
+        // file, or a negative value) is corruption → fail to the tip, never replay from 0.
+        return Number.isInteger(parsed) && parsed >= 0 ? parsed : getMaxLogId(db);
     }
+
+    // Missing cursor (first boot / fresh data dir) → resume at the tip, skip the backlog.
+    return getMaxLogId(db);
+}
+
+/**
+ * @summary Returns the highest GraphLog id, or `0` when the log is empty / unreadable.
+ *
+ * Shared by {@link getLastSyncId} across both the missing-cursor and corrupt-cursor branches
+ * so the two cannot drift apart. An empty log legitimately yields `0` (nothing to replay).
+ *
+ * @param {Database} db SQLite database handle.
+ * @returns {Number}
+ */
+function getMaxLogId(db) {
+    try {
+        const row = db.prepare('SELECT MAX(log_id) as max_id FROM GraphLog').get();
+        return row?.max_id || 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
+/**
+ * @summary Atomically persists the wake-daemon resume cursor.
+ *
+ * Writes to a sibling temp file then `renameSync`s it over the live cursor. `rename(2)` is
+ * atomic within a filesystem, so a process kill mid-write can only ever truncate the
+ * disposable temp file — the live cursor is always either the old value or the new one, never
+ * an empty string. That empty-string truncation is precisely the corruption that drove a
+ * subsequent boot into the replay-from-0 backlog flood; pairing this atomic write with the
+ * fail-to-the-tip read in {@link getLastSyncId} is the write-side half of that defense.
+ *
+ * @param {String} stateFile  Path to the persisted cursor file.
+ * @param {Number} lastSyncId The cursor value to persist.
+ * @returns {void}
+ */
+export function writeLastSyncId(stateFile, lastSyncId) {
+    const tmpFile = `${stateFile}.tmp`;
+    fs.writeFileSync(tmpFile, lastSyncId.toString(), 'utf8');
+    fs.renameSync(tmpFile, stateFile);
 }
 
 export function getActiveShapeCSubscriptions(db) {
