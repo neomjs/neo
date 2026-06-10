@@ -3,6 +3,7 @@ import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_ENV_VAR,
+    isConfigTemplateChangePath,
     isKbRelevantChangePath,
     parseDevSyncRoots
 } from '../../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
@@ -108,6 +109,22 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(isKbRelevantChangePath('package.json')).toBe(false);
     });
 
+    test('classifies config-template change paths for the migrate cascade (#12854)', () => {
+        // Tier-1 + per-server templates trigger the overlay reconcile; their gitignored
+        // overlays and non-template siblings do not.
+        expect(isConfigTemplateChangePath('ai/config.template.mjs')).toBe(true);
+        expect(isConfigTemplateChangePath('ai/mcp/server/memory-core/config.template.mjs')).toBe(true);
+        expect(isConfigTemplateChangePath('ai/mcp/server/github-workflow/config.template.mjs')).toBe(true);
+        // The gitignored overlay itself never appears in a dev diff, but assert it is NOT a trigger.
+        expect(isConfigTemplateChangePath('ai/config.mjs')).toBe(false);
+        expect(isConfigTemplateChangePath('ai/mcp/server/memory-core/config.mjs')).toBe(false);
+        // Deeper than one server segment, or a different template family, must not match.
+        expect(isConfigTemplateChangePath('ai/mcp/server/memory-core/sub/config.template.mjs')).toBe(false);
+        expect(isConfigTemplateChangePath('.codex/config.template.toml')).toBe(false);
+        expect(isConfigTemplateChangePath('ai/services/knowledge-base/source/ApiSource.mjs')).toBe(false);
+        expect(isConfigTemplateChangePath('')).toBe(false);
+    });
+
     test('falls back to KB cascade when changed-path detection fails', () => {
         const execStub = createExecStub([{
             cmd  : 'git',
@@ -121,11 +138,13 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             newHead       : 'new-head',
             execFileSyncFn: execStub
         })).toEqual({
-            kbSyncRequired  : true,
-            kbSyncReasonCode: 'kb-relevance-check-failed',
-            oldHead         : 'old-head',
-            newHead         : 'new-head',
-            error           : 'bad revision'
+            kbSyncRequired         : true,
+            kbSyncReasonCode       : 'kb-relevance-check-failed',
+            configMigrateRequired  : true,
+            configMigrateReasonCode: 'config-migrate-relevance-check-failed',
+            oldHead                : 'old-head',
+            newHead                : 'new-head',
+            error                  : 'bad revision'
         });
     });
 
@@ -243,6 +262,137 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             changedPathCount   : 1,
             kbChangedPathCount : 1,
             kbChangedPathSample: ['src/button/Base.mjs']
+        });
+    });
+
+    test('runs config-overlay migrate then KB cascade when a config template advanced (#12854)', () => {
+        const execStub = createExecStub([{
+            cmd   : 'git',
+            args  : ['worktree', 'list', '--porcelain'],
+            output: 'worktree /primary/neo\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--abbrev-ref', 'HEAD'],
+            output: 'dev\n'
+        }, {
+            cmd : 'git',
+            args: ['fetch', 'origin', 'dev', '--quiet']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-list', '--count', 'dev..origin/dev'],
+            output: '1\n'
+        }, {
+            cmd   : 'git',
+            args  : ['status', '--porcelain'],
+            output: ''
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'old-head\n'
+        }, {
+            cmd : 'git',
+            args: ['pull', '--ff-only', 'origin', 'dev']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'new-head\n'
+        }, {
+            cmd   : 'git',
+            args  : ['diff', '--name-only', 'old-head..new-head'],
+            output: 'ai/config.template.mjs\n'
+        }, {
+            // config-migrate runs FIRST (per-clone overlay freshness), before the KB cascade.
+            cmd : process.execPath,
+            args: ['/primary/neo/ai/scripts/setup/initServerConfigs.mjs', '--migrate-config']
+        }, {
+            // `ai/` paths are also KB-relevant, so the KB cascade still fires from the same diff.
+            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args: ['run', 'ai:sync-kb']
+        }]);
+
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
+            cwd           : '/primary/neo',
+            execFileSyncFn: execStub,
+            writeLog      : () => {}
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details).toMatchObject({
+            primaryRoot            : '/primary/neo',
+            behind                 : 1,
+            layer                  : 'ff-pull',
+            kbSync                 : true,
+            configMigrate          : true,
+            configMigrateRequired  : true,
+            configMigrateReasonCode: 'config-template-changes',
+            configChangedPathCount : 1,
+            configChangedPathSample: ['ai/config.template.mjs']
+        });
+
+        // Ordering contract: the node migrate precedes the npm KB cascade.
+        const migrateIdx = execStub.calls.findIndex(call => call.cmd === process.execPath);
+        const kbSyncIdx  = execStub.calls.findIndex(call => call.cmd === (process.platform === 'win32' ? 'npm.cmd' : 'npm'));
+        expect(migrateIdx).toBeGreaterThan(-1);
+        expect(kbSyncIdx).toBeGreaterThan(migrateIdx);
+    });
+
+    test('a per-server config template advance triggers the migrate cascade (#12854)', () => {
+        // A per-server template lives under ai/ too, so the KB cascade co-fires. The point of this
+        // case is to pin that a *server* template (not just Tier-1) triggers the migrate.
+        const execStub = createExecStub([{
+            cmd   : 'git',
+            args  : ['worktree', 'list', '--porcelain'],
+            output: 'worktree /primary/neo\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--abbrev-ref', 'HEAD'],
+            output: 'dev\n'
+        }, {
+            cmd : 'git',
+            args: ['fetch', 'origin', 'dev', '--quiet']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-list', '--count', 'dev..origin/dev'],
+            output: '1\n'
+        }, {
+            cmd   : 'git',
+            args  : ['status', '--porcelain'],
+            output: ''
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'old-head\n'
+        }, {
+            cmd : 'git',
+            args: ['pull', '--ff-only', 'origin', 'dev']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'new-head\n'
+        }, {
+            cmd   : 'git',
+            args  : ['diff', '--name-only', 'old-head..new-head'],
+            output: 'ai/mcp/server/memory-core/config.template.mjs\n'
+        }, {
+            cmd : process.execPath,
+            args: ['/primary/neo/ai/scripts/setup/initServerConfigs.mjs', '--migrate-config']
+        }, {
+            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args: ['run', 'ai:sync-kb']
+        }]);
+
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
+            cwd           : '/primary/neo',
+            execFileSyncFn: execStub,
+            writeLog      : () => {}
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details).toMatchObject({
+            configMigrate          : true,
+            configMigrateRequired  : true,
+            configChangedPathCount : 1,
+            configChangedPathSample: ['ai/mcp/server/memory-core/config.template.mjs']
         });
     });
 
@@ -389,18 +539,23 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
                 skipped    : 1,
                 failed     : 0,
                 roots      : [{
-                    status             : 'completed',
-                    root               : '/primary/neo',
-                    behind             : 2,
-                    layer              : 'ff-pull',
-                    kbSync             : false,
-                    kbSyncRequired     : true,
-                    kbSyncReasonCode   : 'kb-relevant-changes',
-                    oldHead            : 'old-head',
-                    newHead            : 'new-head',
-                    changedPathCount   : 1,
-                    kbChangedPathCount : 1,
-                    kbChangedPathSample: ['learn/guides/testing/UnitTesting.md']
+                    status                 : 'completed',
+                    root                   : '/primary/neo',
+                    behind                 : 2,
+                    layer                  : 'ff-pull',
+                    kbSync                 : false,
+                    configMigrate          : false,
+                    kbSyncRequired         : true,
+                    kbSyncReasonCode       : 'kb-relevant-changes',
+                    configMigrateRequired  : false,
+                    configMigrateReasonCode: 'no-config-template-changes',
+                    oldHead                : 'old-head',
+                    newHead                : 'new-head',
+                    changedPathCount       : 1,
+                    kbChangedPathCount     : 1,
+                    kbChangedPathSample    : ['learn/guides/testing/UnitTesting.md'],
+                    configChangedPathCount : 0,
+                    configChangedPathSample: []
                 }, {
                     status    : 'skipped',
                     reasonCode: 'up-to-date',
@@ -685,7 +840,7 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // Lane D narrow observability of #11503 (#11520):
+    // Cascade observability (Lane D):
     //   runKbSync cascade is annotated as a first-class `kbSync` task lifecycle
     //   event via TaskStateService + HealthService so monitoring agents +
     //   post-incident forensics can see cascade kbSync separately from the parent
@@ -697,7 +852,7 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
     // ─────────────────────────────────────────────────────────────────────────────
 
     test('runKbSync annotates cascade as kbSync lifecycle via TaskStateService + HealthService on success — STRICT TEMPORAL ORDERING (#11520 AC1+AC2+AC6+AC8)', () => {
-        // Per @neo-gpt PR #11521 cycle 1 review (PRR_kwDODSospM8AAAABAJRHVA): the end-state
+        // Per @neo-gpt's cross-family review: the end-state
         // assertions on `events` and `outcomes` arrays prove WHAT happened but NOT WHEN.
         // AC6 mandates temporal ordering: markStarted + running outcome MUST occur BEFORE
         // execFileSyncFn begins; markCompleted + completed outcome MUST occur AFTER it
@@ -846,7 +1001,7 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         // WITHOUT acquire/release (returns 'inherited').
         //
         // Without this forwarding the cascade would attempt to acquire its own lease,
-        // see the parent's, and self-defer with 'held' — the #11519 self-defer bug.
+        // see the parent's, and self-defer with 'held' — the self-defer bug this env-forwarding prevents.
         const taskStateService = createTaskStateService();
         const healthService    = {recordTaskOutcome() {}};
         const captured         = [];
@@ -934,5 +1089,107 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(taskStateService.events[0]).toEqual(['started', 'kbSync', 'cascaded-from-custom-parent-task']);
         expect(outcomes[0].details.parent).toBe('custom-parent-task');
         expect(outcomes[0].details.reason).toBe('cascaded-from-custom-parent-task');
+    });
+
+    test('runConfigMigrate annotates a first-class configMigrate task with strict temporal ordering (#12854)', () => {
+        // Mirrors the runKbSync lifecycle contract: markStarted + running BEFORE exec,
+        // markCompleted + completed AFTER. exec is `node <root>/ai/scripts/setup/initServerConfigs.mjs --migrate-config`.
+        const sequence = [];
+
+        const taskStateService = {
+            events: [],
+            getTaskState() { return {running: false}; },
+            markStarted(taskName, reason) {
+                this.events.push(['started', taskName, reason]);
+                sequence.push(`state-started:${taskName}:${reason}`);
+            },
+            markCompleted(taskName) {
+                this.events.push(['completed', taskName]);
+                sequence.push(`state-completed:${taskName}`);
+            },
+            markFailed(taskName, code) {
+                this.events.push(['failed', taskName, code]);
+                sequence.push(`state-failed:${taskName}:${code}`);
+            }
+        };
+        const outcomes      = [];
+        const healthService = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+                sequence.push(`health-${status}:${taskName}`);
+            }
+        };
+        const execFileSyncFn = (cmd, args) => {
+            sequence.push(`exec:${cmd}:${args.join(' ')}`);
+            return '';
+        };
+
+        PrimaryRepoSyncService.runConfigMigrate('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+        expect(sequence).toEqual([
+            'state-started:configMigrate:cascaded-from-primary-dev-sync',
+            'health-running:configMigrate',
+            `exec:${process.execPath}:/primary/neo/ai/scripts/setup/initServerConfigs.mjs --migrate-config`,
+            'state-completed:configMigrate',
+            'health-completed:configMigrate'
+        ]);
+        expect(outcomes[0]).toMatchObject({
+            taskName: 'configMigrate',
+            status  : 'running',
+            details : expect.objectContaining({reason: 'cascaded-from-primary-dev-sync', parent: 'primary-dev-sync'})
+        });
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'configMigrate',
+            status  : 'completed',
+            details : expect.objectContaining({reason: 'cascaded-from-primary-dev-sync', parent: 'primary-dev-sync'})
+        });
+    });
+
+    test('runConfigMigrate isolates failure — records failed but does NOT rethrow (#12854 AC6, contrast runKbSync)', () => {
+        // A stale-overlay migrate failure must never abort the already-successful pull, the sibling
+        // KB cascade, or the parent task. Unlike runKbSync, runConfigMigrate swallows + records.
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        const execFileSyncFn = () => {
+            const e  = new Error('initServerConfigs failed: drift overwrite error');
+            e.status = 1;
+            throw e;
+        };
+
+        expect(() => {
+            PrimaryRepoSyncService.runConfigMigrate('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+        }).not.toThrow();
+
+        expect(taskStateService.events).toEqual([
+            ['started', 'configMigrate', 'cascaded-from-primary-dev-sync'],
+            ['failed', 'configMigrate', 1]
+        ]);
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'configMigrate',
+            status  : 'failed',
+            details : expect.objectContaining({
+                parent: 'primary-dev-sync',
+                error : 'initServerConfigs failed: drift overwrite error'
+            })
+        });
+    });
+
+    test('runConfigMigrate is a pure shell-out when no services injected (#12854 backward-compat)', () => {
+        const execFileSyncFn = createExecStub([{
+            cmd : process.execPath,
+            args: ['/primary/neo/ai/scripts/setup/initServerConfigs.mjs', '--migrate-config']
+        }]);
+
+        expect(() => {
+            PrimaryRepoSyncService.runConfigMigrate('/primary/neo', execFileSyncFn);
+        }).not.toThrow();
+
+        expect(execFileSyncFn.calls.length).toBe(1);
+        expect(execFileSyncFn.calls[0].cmd).toBe(process.execPath);
     });
 });
