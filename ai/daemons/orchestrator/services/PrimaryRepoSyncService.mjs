@@ -50,6 +50,36 @@ export function isKbRelevantChangePath(filePath) {
         KB_RELEVANT_PATH_PREFIXES.some(prefix => normalized.startsWith(prefix));
 }
 
+const CONFIG_TEMPLATE_PATHS = Object.freeze(new Set([
+    'ai/config.template.mjs'
+]));
+
+const SERVER_CONFIG_TEMPLATE_PATTERN = /^ai\/mcp\/server\/[^/]+\/config\.template\.mjs$/;
+
+/**
+ * @summary Checks whether a changed repository path is a config TEMPLATE whose drift
+ * requires reconciling the gitignored operator-overlay (`config.mjs`) via
+ * `initServerConfigs.mjs --migrate-config`.
+ *
+ * A plain `git pull` updates the tracked `config.template.mjs` (Tier-1 or per-server) but
+ * never the gitignored `config.mjs` the daemons actually read — so a template change in the
+ * pulled range is the signal that the overlay needs a migrate. Mirrors
+ * {@link isKbRelevantChangePath}'s normalization so both predicates classify the same
+ * `git diff --name-only` output from one diff.
+ *
+ * @param {String} filePath Repository-relative path.
+ * @returns {Boolean}
+ */
+export function isConfigTemplateChangePath(filePath) {
+    const normalized = String(filePath || '').replace(/\\/g, '/').replace(/^\.\//, '');
+
+    if (!normalized) {
+        return false;
+    }
+
+    return CONFIG_TEMPLATE_PATHS.has(normalized) || SERVER_CONFIG_TEMPLATE_PATTERN.test(normalized);
+}
+
 /**
  * @summary Parses the optional multi-checkout dev-sync root list.
  *
@@ -256,7 +286,7 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} [options.writeLog] Optional logger.
      * @returns {Object}
      */
-    syncConfiguredDevRoot({root, execFileSyncFn, writeLog}) {
+    syncConfiguredDevRoot({root, execFileSyncFn, writeLog, taskStateService, healthService}) {
         try {
             const topLevel = path.resolve(this.git(['rev-parse', '--show-toplevel'], root, execFileSyncFn).trim());
 
@@ -274,7 +304,9 @@ class PrimaryRepoSyncService extends Base {
                 execFileSyncFn,
                 writeLog,
                 fetchBeforeBranch: true,
-                runKbSync: false
+                runKbSync: false,
+                taskStateService,
+                healthService
             });
         } catch (e) {
             return this.fail('root-sync-failed', {root, error: e.message}, writeLog);
@@ -294,7 +326,7 @@ class PrimaryRepoSyncService extends Base {
      */
     syncConfiguredDevRoots({primaryRoot, roots, execFileSyncFn, writeLog, taskStateService, healthService}) {
         const rootResults = roots.map(root => {
-            const result = this.syncConfiguredDevRoot({root, execFileSyncFn, writeLog});
+            const result = this.syncConfiguredDevRoot({root, execFileSyncFn, writeLog, taskStateService, healthService});
             return {status: result.status, ...result.details};
         });
 
@@ -395,6 +427,9 @@ class PrimaryRepoSyncService extends Base {
             this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
             const newHead = this.resolveOptionalHead(root, execFileSyncFn);
             const kbSyncDecision = this.resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn});
+            if (kbSyncDecision.configMigrateRequired) {
+                this.runConfigMigrate(root, execFileSyncFn, {taskStateService, healthService});
+            }
             if (runKbSync && kbSyncDecision.kbSyncRequired) {
                 this.runKbSync(root, execFileSyncFn, {taskStateService, healthService});
             }
@@ -403,8 +438,9 @@ class PrimaryRepoSyncService extends Base {
                 details: {
                     ...rootDetails,
                     behind,
-                    layer : 'ff-pull',
-                    kbSync: runKbSync && kbSyncDecision.kbSyncRequired,
+                    layer        : 'ff-pull',
+                    kbSync       : runKbSync && kbSyncDecision.kbSyncRequired,
+                    configMigrate: kbSyncDecision.configMigrateRequired,
                     ...kbSyncDecision
                 }
             };
@@ -469,6 +505,9 @@ class PrimaryRepoSyncService extends Base {
         this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
         const newHead = this.resolveOptionalHead(root, execFileSyncFn);
         const kbSyncDecision = this.resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn});
+        if (kbSyncDecision.configMigrateRequired) {
+            this.runConfigMigrate(root, execFileSyncFn, {taskStateService, healthService});
+        }
         if (runKbSync && kbSyncDecision.kbSyncRequired) {
             this.runKbSync(root, execFileSyncFn, {taskStateService, healthService});
         }
@@ -478,9 +517,10 @@ class PrimaryRepoSyncService extends Base {
             details: {
                 ...rootDetails,
                 behind,
-                layer   : 'meta-sync-reset',
-                resolved: 'meta-sync',
-                kbSync  : runKbSync && kbSyncDecision.kbSyncRequired,
+                layer        : 'meta-sync-reset',
+                resolved     : 'meta-sync',
+                kbSync       : runKbSync && kbSyncDecision.kbSyncRequired,
+                configMigrate: kbSyncDecision.configMigrateRequired,
                 ...kbSyncDecision
             }
         };
@@ -562,6 +602,77 @@ class PrimaryRepoSyncService extends Base {
     }
 
     /**
+     * Runs `node <root>/ai/scripts/setup/initServerConfigs.mjs --migrate-config` from the
+     * pulled checkout to reconcile the gitignored `config.mjs` operator-overlay with the
+     * `config.template.mjs` leaves that just advanced on `dev`.
+     *
+     * A `git pull` updates the tracked template but never the gitignored overlay the daemons
+     * actually read — so a config-template change in the pulled range leaves every daemon
+     * (orchestrator, wake-daemon, DreamService, KB pipeline) running current code against
+     * stale config until this migrate runs. The bare script is warn-only; the
+     * `--migrate-config` flag is what actually rewrites the overlay (gitignored; safe — never
+     * touches tracked files). The script resolves its repo from its own `__dirname`, so the
+     * script PATH under `root` selects the checkout to reconcile.
+     *
+     * Annotated as a first-class `configMigrate` task lifecycle event (same pattern as
+     * {@link runKbSync}) so the cascade is observable in `TaskStateService` +
+     * `HealthService` rather than hidden inside `primary-dev-sync`. Both injections are
+     * optional-chained for backward compatibility.
+     *
+     * Unlike {@link runKbSync}, a migrate failure is **isolated, not rethrown**: a stale
+     * overlay must never abort the (already-successful) pull, the sibling KB cascade, or the
+     * parent task. The failure is recorded + surfaced; the daemon keeps running.
+     *
+     * Config migration is **per-clone** (each checkout owns its own gitignored `config.mjs`),
+     * so this runs once per synced root — unlike the KB cascade, which runs once from the
+     * owning checkout.
+     *
+     * @param {String} root Checkout path whose overlay is being reconciled.
+     * @param {Function} execFileSyncFn Command execution seam.
+     * @param {Object} [options]
+     * @param {Object} [options.taskStateService] Injected `TaskStateService` for state-lifecycle annotation; if absent the call is a pure shell-out with no state mutation.
+     * @param {Object} [options.healthService] Injected `HealthService` for outcome-telemetry annotation; if absent no outcomes are recorded.
+     * @param {String} [options.parentTaskName='primary-dev-sync'] Parent task name for cascade provenance.
+     * @returns {void}
+     */
+    runConfigMigrate(root, execFileSyncFn, {taskStateService, healthService, parentTaskName = 'primary-dev-sync'} = {}) {
+        const reason     = `cascaded-from-${parentTaskName}`;
+        const scriptPath = path.join(root, 'ai', 'scripts', 'setup', 'initServerConfigs.mjs');
+
+        taskStateService?.markStarted?.('configMigrate', reason);
+        healthService?.recordTaskOutcome?.('configMigrate', 'running', {
+            reason,
+            parent   : parentTaskName,
+            startedAt: new Date().toISOString()
+        });
+
+        try {
+            execFileSyncFn(process.execPath, [scriptPath, '--migrate-config'], {
+                cwd     : root,
+                encoding: 'utf8',
+                stdio   : ['ignore', 'pipe', 'pipe']
+            });
+
+            taskStateService?.markCompleted?.('configMigrate');
+            healthService?.recordTaskOutcome?.('configMigrate', 'completed', {
+                reason,
+                parent     : parentTaskName,
+                completedAt: new Date().toISOString()
+            });
+        } catch (e) {
+            // Isolation: a stale overlay must not abort the successful pull, the KB cascade,
+            // or the parent task. Record + surface; never rethrow (contrast runKbSync).
+            taskStateService?.markFailed?.('configMigrate', e.status || 1);
+            healthService?.recordTaskOutcome?.('configMigrate', 'failed', {
+                reason,
+                parent  : parentTaskName,
+                error   : e.message,
+                failedAt: new Date().toISOString()
+            });
+        }
+    }
+
+    /**
      * Runs a git command in a specific working directory.
      * @param {String[]} args Git arguments.
      * @param {String} cwd Working directory.
@@ -629,7 +740,13 @@ class PrimaryRepoSyncService extends Base {
     }
 
     /**
-     * Decides whether a successful dev pull needs the expensive KB cascade.
+     * Decides whether a successful dev pull needs the expensive KB cascade and/or a
+     * config-overlay migrate, from a single `git diff` of the pulled range. The KB decision
+     * gates {@link runKbSync}; the config-migrate decision (`configMigrateRequired`) gates
+     * {@link runConfigMigrate} when a `config.template.mjs` (Tier-1 or per-server) advanced in
+     * the pulled commits. Both classifiers share the one changed-path projection, so
+     * no second diff is spawned. Unknown-head / diff-failure short-circuits fail safe (both
+     * cascades required) because the cheaper outcome is a redundant reconcile, not stale state.
      * @param {Object} options
      * @param {String} options.root Repository root.
      * @param {String} options.oldHead Previous HEAD.
@@ -640,8 +757,10 @@ class PrimaryRepoSyncService extends Base {
     resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn}) {
         if (!oldHead || !newHead) {
             return {
-                kbSyncRequired  : true,
-                kbSyncReasonCode: 'kb-relevance-unknown-head',
+                kbSyncRequired         : true,
+                kbSyncReasonCode       : 'kb-relevance-unknown-head',
+                configMigrateRequired  : true,
+                configMigrateReasonCode: 'config-migrate-unknown-head',
                 oldHead,
                 newHead
             };
@@ -649,14 +768,18 @@ class PrimaryRepoSyncService extends Base {
 
         if (oldHead === newHead) {
             return {
-                kbSyncRequired     : false,
-                kbSyncReasonCode   : 'no-kb-relevant-changes',
-                reasonCode         : 'no-kb-relevant-changes',
+                kbSyncRequired         : false,
+                kbSyncReasonCode       : 'no-kb-relevant-changes',
+                configMigrateRequired  : false,
+                configMigrateReasonCode: 'no-config-template-changes',
+                reasonCode             : 'no-kb-relevant-changes',
                 oldHead,
                 newHead,
-                changedPathCount   : 0,
-                kbChangedPathCount : 0,
-                kbChangedPathSample: []
+                changedPathCount       : 0,
+                kbChangedPathCount     : 0,
+                kbChangedPathSample    : [],
+                configChangedPathCount : 0,
+                configChangedPathSample: []
             };
         }
 
@@ -665,25 +788,32 @@ class PrimaryRepoSyncService extends Base {
             changedPaths = this.resolveChangedPaths({root, oldHead, newHead, execFileSyncFn});
         } catch (e) {
             return {
-                kbSyncRequired  : true,
-                kbSyncReasonCode: 'kb-relevance-check-failed',
+                kbSyncRequired         : true,
+                kbSyncReasonCode       : 'kb-relevance-check-failed',
+                configMigrateRequired  : true,
+                configMigrateReasonCode: 'config-migrate-relevance-check-failed',
                 oldHead,
                 newHead,
-                error         : e.message
+                error                  : e.message
             };
         }
 
-        const kbChangedPaths = changedPaths.filter(isKbRelevantChangePath);
+        const kbChangedPaths     = changedPaths.filter(isKbRelevantChangePath);
+        const configChangedPaths = changedPaths.filter(isConfigTemplateChangePath);
 
         return {
-            kbSyncRequired     : kbChangedPaths.length > 0,
-            kbSyncReasonCode   : kbChangedPaths.length > 0 ? 'kb-relevant-changes' : 'no-kb-relevant-changes',
+            kbSyncRequired         : kbChangedPaths.length > 0,
+            kbSyncReasonCode       : kbChangedPaths.length > 0 ? 'kb-relevant-changes' : 'no-kb-relevant-changes',
+            configMigrateRequired  : configChangedPaths.length > 0,
+            configMigrateReasonCode: configChangedPaths.length > 0 ? 'config-template-changes' : 'no-config-template-changes',
             ...(kbChangedPaths.length > 0 ? {} : {reasonCode: 'no-kb-relevant-changes'}),
             oldHead,
             newHead,
-            changedPathCount   : changedPaths.length,
-            kbChangedPathCount : kbChangedPaths.length,
-            kbChangedPathSample: kbChangedPaths.slice(0, 10)
+            changedPathCount       : changedPaths.length,
+            kbChangedPathCount     : kbChangedPaths.length,
+            kbChangedPathSample    : kbChangedPaths.slice(0, 10),
+            configChangedPathCount : configChangedPaths.length,
+            configChangedPathSample: configChangedPaths.slice(0, 10)
         };
     }
 
