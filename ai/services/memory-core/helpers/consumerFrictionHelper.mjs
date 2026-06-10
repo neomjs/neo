@@ -32,13 +32,15 @@
  * Token estimation: V1 uses a 4-chars/token heuristic (`Math.ceil(Buffer.byteLength(payload) / 4)`)
  * because the codebase has no canonical provider-specific tokenizer. Bytes are retained on
  * the record as evidence; tokens are the durable LLM-relevant contract.
- * Future V2 may integrate with Model-Stats registry (ADR 0012) for per-provider tokenization.
+ * Future V2 may integrate with Model-Stats registry (ADR 0012) for per-provider tokenization. ticket-ref-ok: load-bearing ADR design-pointer (mirrors the @see below).
  *
  * @see learn/agentos/decisions/0012-model-stats-framework.md
  * @see ai/services/graph/GoldenPathSynthesizer.mjs (handoff section consumer)
  * @see ai/services/graph/SemanticGraphExtractor.mjs (canonical emitter — Dream Pipeline)
  * @see ai/services/memory-core/SessionService.mjs#summarizeSession (canonical emitter — Memory Core)
  */
+
+import {PROVIDER_TIMEOUT_CODE} from '../../../provider/createTimeoutError.mjs';
 
 /**
  * @typedef {Object} ConsumerFriction
@@ -141,7 +143,10 @@ export function bytesToTokens(bytes) {
 
 /**
  * @summary Categorizes a thrown invocation error into a ConsumerFriction symptom.
- * Pure helper, exported for testability.
+ * Pure helper, exported for testability. A provider timeout is detected structurally first
+ * (`error.code === PROVIDER_TIMEOUT_CODE`, the uniform cross-provider contract) so the
+ * classification does not depend on the provider's message wording; the message regex remains a
+ * fallback for non-coded error paths.
  *
  * @param {*} err The caught error (or thrown value).
  * @returns {'context-overflow' | 'parse-failure' | 'timeout'} The categorized symptom.
@@ -149,6 +154,7 @@ export function bytesToTokens(bytes) {
 export function categorizeInvocationError(err) {
     const msg = String(err?.message || err || '');
 
+    if (err?.code === PROVIDER_TIMEOUT_CODE)                    return 'timeout';
     if (/context|overflow|too large|maximum|exceed/i.test(msg)) return 'context-overflow';
     if (/timeout|aborted|timed[ -]out/i.test(msg))              return 'timeout';
     return 'parse-failure';
