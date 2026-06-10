@@ -105,6 +105,14 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3001
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      # Single-process container = no orchestrator-supervised embed daemon: the server hosts the
+      # WAL drain loop itself (sole-drainer invariant — exactly one loop per WAL dir; never enable
+      # alongside the embed daemon). Without it, the decoupled add_memory writes the WAL but nothing
+      # embeds it, so semantic recall reads empty. WAL dir is overridden onto the persistent
+      # shared-sqlite-data volume so pending segments survive container recreates.
+      - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
+      - NEO_MEMORY_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
       - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}

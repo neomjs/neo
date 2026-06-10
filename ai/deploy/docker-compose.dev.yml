@@ -68,6 +68,12 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3001
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      # Single-process container hosts the WAL drain loop itself: without it the decoupled
+      # add_memory writes the WAL but nothing embeds it, so semantic recall reads empty.
+      # Sole-drainer invariant: exactly one loop per WAL dir; never enable alongside the embed
+      # daemon. Dev bind-mounts the source at /app, so the default WAL dir persists on the host.
+      - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
 
     volumes:
       - ../..:/app
