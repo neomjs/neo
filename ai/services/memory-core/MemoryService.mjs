@@ -5,6 +5,7 @@ import GraphService          from './GraphService.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
 import SessionService        from './SessionService.mjs';
 import {withTimeout}         from './helpers/withTimeout.mjs';
+import {appendWalEmbedMarker, appendWalMemory, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import {buildChatModel}      from '../../provider/buildChatModel.mjs';
 import aiConfig              from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -199,6 +200,34 @@ function buildMailboxDelta() {
  * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class MemoryService extends Base {
+    /**
+     * In-flight deferred embed promises. Tracked so shutdown paths and tests can flush
+     * the fire-and-forget tail deterministically via {@link drainPendingEmbeds} — a floating
+     * promise that nothing can await is not an acceptable lifecycle primitive.
+     * @member {Set<Promise>} inFlightEmbeds
+     * @protected
+     */
+    inFlightEmbeds = new Set();
+
+    /**
+     * Recently purged sessions: sessionId → `{userId, purgedAt}`. {@link embedPendingMemory}
+     * consults this BEFORE its `collection.add`, so an embed deferred past a `purgeSession` cannot
+     * resurrect deleted data — and purge never has to WAIT on embed latency to be safe (a purge
+     * blocked on a stalled embedder would be the exact failure mode this ticket removes). Entries
+     * are pruned on insert after {@link MemoryService#purgedSessionTtlMs}; in-flight embeds live
+     * for seconds, so the bound only guards pathological cases.
+     * @member {Map<String, {userId: String|null, purgedAt: Number}>} purgedSessions
+     * @protected
+     */
+    purgedSessions = new Map();
+
+    /**
+     * Retention window for {@link MemoryService#purgedSessions} entries.
+     * @member {Number} purgedSessionTtlMs=600000
+     * @protected
+     */
+    purgedSessionTtlMs = 600000;
+
     static config = {
         /**
          * @member {String} className='Neo.ai.services.memory-core.MemoryService'
@@ -281,7 +310,20 @@ class MemoryService extends Base {
     }
 
     /**
-     * Adds a new memory to the collection.
+     * Adds a new memory to the collection — the protocol-mandated per-turn save, engineered to
+     * **never fail or stall on the embed**.
+     *
+     * Write order is the contract:
+     * 1. **Validation gate** — rejects the unambiguous corruption class (empty / whitespace-only /
+     *    below-`memoryWal.minFieldLength` fields — the corrupted-memory class) before any write.
+     * 2. **Durable JSONL write-ahead append** — the full payload lands on local disk first, so a
+     *    crash or embed failure never loses the turn.
+     * 3. **Synchronous graph writes** — the `AGENT_MEMORY` node + edges keep the read-after-write
+     *    recency contract (`queryRecentTurns` reads these rows "fresh the instant the write returns").
+     * 4. **Deferred embed** — the model-dependent Chroma `collection.add` runs fire-and-forget via
+     *    {@link embedPendingMemory}; on success the WAL record is marked, on failure it stays
+     *    pending for a later drain (Phase 2: the `ai/daemons/embed/` daemon). Embed/Chroma
+     *    contention therefore can no longer fail or block this tool.
      *
      * When the MCP transport has resolved a real `AgentIdentity`, the write stamps both the
      * Chroma metadata (`agentIdentity`) and a graph `AUTHORED_BY` edge. Fallback-only identities
@@ -305,8 +347,18 @@ class MemoryService extends Base {
      *     see {@link buildMailboxDelta}.
      */
     async addMemory({prompt, response, thought, sessionId, agent, model, amountToolCalls, toolsUsed}) {
+        // The validation gate is a deliberate rejection — the ONE path that
+        // intentionally returns an MCP error envelope. Everything after it is never-fail.
+        const invalidFields = this.getInvalidMemoryFields({prompt, thought, response});
+        if (invalidFields.length > 0) {
+            return {
+                error  : 'Invalid memory payload',
+                message: `Rejected empty/below-minimum field(s): ${invalidFields.join(', ')}. The per-turn save must carry the turn's real content — empty fields are the corrupted-memory class.`,
+                code   : 'MEMORY_VALIDATION_ERROR'
+            };
+        }
+
         try {
-            const collection   = await StorageRouter.getMemoryCollection();
             const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
             const now          = Date.now();
             const timestamp    = new Date(now).toISOString();
@@ -342,13 +394,17 @@ class MemoryService extends Base {
                 metadata.toolsUsed = typeof toolsUsed === 'string' ? toolsUsed : JSON.stringify(toolsUsed);
             }
 
-            await collection.add({
-                ids: [memoryId],
-                metadatas: [metadata],
-                documents: [combinedText]
-            });
+            // 1. Durable write-ahead append: full payload to local disk BEFORE any
+            //    model-dependent work. This is the never-fail anchor — once this returns, the turn
+            //    survives a crash, an embed failure, or a Chroma outage. The embed used to be
+            //    awaited here, which also lost the graph node below whenever it threw.
+            const walDir       = aiConfig.memoryWal.dir;
+            const {segmentKey} = await appendWalMemory(
+                {id: memoryId, timestamp: now, metadata, document: combinedText},
+                {dir: walDir}
+            );
 
-            // 1. Topologically inject the new memory into the Native Edge Graph
+            // 2. Topologically inject the new memory into the Native Edge Graph
             const memoryProperties = {
                 ...(canonicalIdentity ? { agentIdentity: canonicalIdentity } : {}),
                 ...(userId ? { userId } : {}),
@@ -365,7 +421,7 @@ class MemoryService extends Base {
                 properties: memoryProperties
             });
 
-            // 2. Stamp write-time provenance when the transport resolved a real AgentIdentity.
+            // 3. Stamp write-time provenance when the transport resolved a real AgentIdentity.
             // Fallback-only identities remain scalar metadata so single-tenant/unseeded callers
             // keep working without hallucinated graph edges to nodes that do not exist.
             if (requestIdentity) {
@@ -376,10 +432,25 @@ class MemoryService extends Base {
                 });
             }
 
-            // 3. Link this memory dynamically to the active context frontier
+            // 4. Link this memory dynamically to the active context frontier
             GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
 
-            // 4. Best-effort inline tweet-summary via the configured chat model (the modelProvider
+            // 5. Deferred embed: the model-dependent Chroma write runs OFF the
+            //    critical path, fire-and-forget. Success marks the WAL record; failure leaves it
+            //    pending — recency recall overlays the WAL meanwhile, so nothing is hidden.
+            //    Transitional Phase-1 shape: the Phase-2 `ai/daemons/embed/` daemon replaces this
+            //    in-process drain with a durable, retrying one.
+            this.embedPendingMemory({id: memoryId, metadata, document: combinedText, segmentKey, dir: walDir});
+
+            // 6. WAL retention (write-side, best-effort): bound the reconciled-segment count on
+            //    each append. Never prunes a segment holding a pending record, never fails the save.
+            pruneReconciledWalSegments({
+                dir             : walDir,
+                retentionLimit  : aiConfig.memoryWal.retentionLimit,
+                activeSegmentKey: segmentKey
+            }).catch(() => {});
+
+            // 7. Best-effort inline tweet-summary via the configured chat model (the modelProvider
             //    SSOT — reads the resolved leaf at the use site, never aliases it). Fire-and-forget
             //    so the per-turn write stays fast: the memory node above is already written (fresh
             //    for recency recall); this only enriches it asynchronously. Fully self-contained —
@@ -399,13 +470,15 @@ class MemoryService extends Base {
                 }
             }).catch(() => {});
 
-            // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
+            // 8. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
             //    so a degraded mailbox query never blocks a successful memory write.
             const mailbox = buildMailboxDelta();
 
             return {id: memoryId, sessionId, timestamp, message: "Memory successfully added", mailbox};
         } catch (error) {
+            // Reaches here only for LOCAL write failures (WAL filesystem / SQLite graph) — the
+            // embed and every other model-dependent step are off this path by construction.
             logger.error('[MemoryService] Error adding memory:', error);
             return {
                 error  : 'Failed to add memory',
@@ -413,6 +486,153 @@ class MemoryService extends Base {
                 code   : 'MEMORY_ADD_ERROR'
             };
         }
+    }
+
+    /**
+     * @summary Returns the names of memory payload fields failing the validation gate.
+     *
+     * The gate targets the unambiguous corrupted-memory class: empty / whitespace-only
+     * content (every corrupted row had empty `prompt`/`thought`/`response` *metadata* — the Chroma
+     * document always embeds non-empty labels, which is why the predicate reads the fields, not the
+     * document). The floor is the `memoryWal.minFieldLength` config leaf, defaulting to 1
+     * (= non-empty after trim): deliberately conservative so thin-but-real boot heartbeats
+     * (`resumeHarness.mjs` resume health-check) keep passing until the planned boot-heartbeat
+     * liveness-marker carve-out routes them off this path entirely.
+     *
+     * @param {Object} fields
+     * @param {String} fields.prompt
+     * @param {String} fields.thought
+     * @param {String} fields.response
+     * @returns {String[]} Invalid field names; empty array when the payload passes.
+     */
+    getInvalidMemoryFields(fields) {
+        const minLength = aiConfig.memoryWal.minFieldLength;
+
+        return Object.entries(fields)
+            .filter(([, value]) => typeof value !== 'string' || value.trim().length < minLength)
+            .map(([name]) => name);
+    }
+
+    /**
+     * @summary Embeds one WAL-pending memory into Chroma, fire-and-forget.
+     *
+     * The transitional in-process drain: resolves the collection, runs the embed, and appends the
+     * WAL embed-marker on success. Every failure path is swallowed into a warn-log — the record
+     * simply stays pending in the WAL for a later pass (Phase 2: the orchestrator-managed
+     * `ai/daemons/embed/` daemon, which replaces this method's call site and adds retry/backoff).
+     * Never throws into the write path; sibling discipline to {@link buildMiniSummary}.
+     *
+     * @param {Object} options
+     * @param {String} options.id         Memory UUID (= Chroma document id = graph node id).
+     * @param {Object} options.metadata   Full Chroma metadata payload.
+     * @param {String} options.document   Combined text to index.
+     * @param {String} options.segmentKey WAL segment the record was appended to.
+     * @param {String} options.dir        WAL directory (resolved `memoryWal.dir` leaf).
+     * @returns {Promise<Boolean>} `true` when embedded + marked; `false` when left pending.
+     */
+    embedPendingMemory({id, metadata, document, segmentKey, dir}) {
+        const embedPromise = Promise.resolve()
+            .then(() => {
+                // Purge guard: a session purged AFTER this memory's write but BEFORE this
+                // deferred embed must not be resurrected into Chroma. Tenant-aware — a tenant-scoped
+                // purge only suppresses records inside that tenant boundary. The WAL record is
+                // marked reconciled either way (purgeSession tombstones it too; double markers are
+                // harmless appends).
+                const purge = metadata?.sessionId && this.purgedSessions.get(metadata.sessionId);
+                if (purge && purge.purgedAt >= (metadata.timestamp ?? 0) && (!purge.userId || purge.userId === metadata.userId)) {
+                    return appendWalEmbedMarker({id, segmentKey}, {dir}).then(() => false);
+                }
+
+                return StorageRouter.getMemoryCollection()
+                    .then(collection => collection.add({ids: [id], metadatas: [metadata], documents: [document]}))
+                    .then(() => appendWalEmbedMarker({id, segmentKey}, {dir}))
+                    .then(() => true);
+            })
+            .catch(error => {
+                logger.warn(`[MemoryService] Deferred embed for ${id} failed — record stays pending in the WAL: ${error.message}`);
+                return false;
+            });
+
+        // Track for drainPendingEmbeds(); embedPromise never rejects (catch above), so the
+        // cleanup chain cannot leak an unhandled rejection.
+        const tracked = embedPromise.finally(() => this.inFlightEmbeds.delete(tracked));
+        this.inFlightEmbeds.add(tracked);
+
+        return tracked;
+    }
+
+    /**
+     * @summary Awaits every deferred embed currently in flight.
+     *
+     * The deterministic flush point for the fire-and-forget embed tail: graceful shutdown calls
+     * it so a process exit cannot strand an embed mid-write (the WAL would recover it, but a
+     * clean drain avoids the redundant re-embed), and specs call it instead of polling. Snapshot
+     * semantics — embeds started while draining are not awaited.
+     *
+     * @returns {Promise<void>}
+     */
+    async drainPendingEmbeds() {
+        await Promise.allSettled([...this.inFlightEmbeds]);
+    }
+
+    /**
+     * @summary Records a session purge so deferred embeds cannot resurrect purged data.
+     *
+     * Called by `SessionService.purgeSession` BEFORE it reads the collection: any embed still in
+     * flight for that session (within the caller's tenant boundary, for records written before the
+     * purge) sees the entry and skips its `collection.add`. Synchronous on purpose — purge must
+     * never wait on embed latency; waiting on a stalled embedder is the exact failure mode the
+     * write-ahead decouple removes. Insertion prunes entries older than {@link MemoryService#purgedSessionTtlMs}.
+     *
+     * @param {Object} options
+     * @param {String} options.sessionId Purged session id.
+     * @param {String|null} [options.userId=null] Tenant scope of the purge; `null` = all tenants.
+     */
+    markSessionPurged({sessionId, userId = null}) {
+        if (!sessionId) return;
+
+        const now = Date.now();
+
+        for (const [key, entry] of this.purgedSessions) {
+            if (now - entry.purgedAt > this.purgedSessionTtlMs) {
+                this.purgedSessions.delete(key);
+            }
+        }
+
+        this.purgedSessions.set(sessionId, {userId: userId || null, purgedAt: now});
+    }
+
+    /**
+     * @summary Reads WAL-pending payload metadata for specific memory ids (the pending-overlay).
+     *
+     * Backs the recency-hydration fallback: a just-written turn whose embed is still deferred (or
+     * failing) has no Chroma document yet, but its full payload sits in the WAL. Best-effort —
+     * any store error degrades to an empty map, never into the read path.
+     *
+     * @param {String[]} ids Memory UUIDs to look up.
+     * @returns {Promise<Map<String, Object>>} id → WAL `metadata` payload for pending records.
+     */
+    async _readWalMetadataByIds(ids) {
+        try {
+            const records = await readPendingWalRecords({dir: aiConfig.memoryWal.dir, ids});
+            return new Map(records.map(record => [record.id, record.metadata || {}]));
+        } catch {
+            return new Map();
+        }
+    }
+
+    /**
+     * @summary Builds the truncated raw-content summary used when no `miniSummary` exists yet.
+     * Shared by the Chroma and WAL fallback paths of {@link _hydrateRecentTurnSummaries}.
+     * @param {Object} meta Payload metadata (`prompt` / `response`).
+     * @returns {String|null} ≤200-char one-liner, or `null` when the metadata carries no content.
+     */
+    _rawSummaryFromMeta(meta) {
+        const raw = [meta?.prompt, meta?.response].filter(Boolean).join(' — ').replace(/\s+/g, ' ').trim();
+
+        if (!raw) return null;
+
+        return raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
     }
 
     /**
@@ -620,6 +840,12 @@ class MemoryService extends Base {
      * @summary Joins `AGENT_MEMORY` rows to their Chroma content for the `detail:'full'` projection.
      * The graph node id equals the Chroma document id (both are the memory's UUID), so the join key
      * is `row.id`. The private `thought` field is included only for the explicit `'private'` projection.
+     *
+     * **Pending-overlay:** turns whose embed is still deferred (or failing) have no Chroma
+     * document yet — their payload is filled from the WAL instead, and a Chroma outage degrades to
+     * the overlay rather than failing the whole recency read. Read-after-write stays content-complete
+     * even under the exact contention the decoupled write path exists for.
+     *
      * @param {Object[]} rows       Graph rows from {@link queryRecentTurns}.
      * @param {String}   projection `'public'` (default, strips `thought`) | `'private'`.
      * @returns {Promise<Object[]>}
@@ -627,9 +853,29 @@ class MemoryService extends Base {
     async _hydrateRecentTurnContent(rows, projection) {
         if (rows.length === 0) return [];
 
-        const collection = await StorageRouter.getMemoryCollection();
-        const fetched    = await collection.get({ids: rows.map(r => r.id), include: ['metadatas']});
-        const byId       = new Map(fetched.ids.map((id, i) => [id, fetched.metadatas[i] || {}]));
+        let byId = new Map();
+
+        try {
+            const collection = await StorageRouter.getMemoryCollection();
+            const fetched    = await collection.get({ids: rows.map(r => r.id), include: ['metadatas']});
+
+            byId = new Map(fetched.ids.map((id, i) => [id, fetched.metadatas[i] || {}]));
+        } catch {
+            // Content store unreachable: fall through to the WAL overlay below instead of failing
+            // the read — before the write-ahead decouple, a Chroma outage made every detail:'full' recency read error out.
+        }
+
+        const missingIds = rows
+            .map(row => row.id)
+            .filter(id => {
+                const meta = byId.get(id);
+                return !meta || (meta.prompt == null && meta.response == null);
+            });
+
+        if (missingIds.length > 0) {
+            const walById = await this._readWalMetadataByIds(missingIds);
+            walById.forEach((meta, id) => byId.set(id, meta));
+        }
 
         return rows.map(row => {
             const meta = byId.get(row.id) || {};
@@ -680,15 +926,30 @@ class MemoryService extends Base {
 
                 for (const turn of turns) {
                     if (turn.summary) continue;
-                    const meta = byId.get(turn.id) || {};
-                    const raw  = [meta.prompt, meta.response].filter(Boolean).join(' — ').replace(/\s+/g, ' ').trim();
-                    if (raw) {
-                        turn.summary         = raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
+                    const summary = this._rawSummaryFromMeta(byId.get(turn.id));
+                    if (summary) {
+                        turn.summary         = summary;
                         turn.summaryFallback = true;
                     }
                 }
             } catch {
-                // Best-effort: if the content store is unreachable, un-summarized turns keep summary:null.
+                // Best-effort: if the content store is unreachable, the WAL overlay below still runs.
+            }
+
+            // Pending-overlay: turns whose embed is still deferred/failing are not in
+            // Chroma yet — derive their fallback summary from the WAL payload so the recency feed
+            // is never content-empty for just-written turns.
+            const stillEmpty = turns.filter(turn => !turn.summary);
+            if (stillEmpty.length > 0) {
+                const walById = await this._readWalMetadataByIds(stillEmpty.map(turn => turn.id));
+
+                for (const turn of stillEmpty) {
+                    const summary = this._rawSummaryFromMeta(walById.get(turn.id));
+                    if (summary) {
+                        turn.summary         = summary;
+                        turn.summaryFallback = true;
+                    }
+                }
             }
         }
 

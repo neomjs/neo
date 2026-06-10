@@ -41,11 +41,12 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
 
-        // CI unit has no ChromaDB server, so addMemory's Chroma write (its first step, before the
-        // AGENT_MEMORY graph node the recency query reads) would throw. Back the content store with
-        // an in-memory fake so the spec exercises the real addMemory→queryRecentTurns flow without a
-        // live Chroma. The recency query reads the GRAPH; the fake only stands in for the content
-        // store (the write + the detail:'full' join).
+        // CI unit has no ChromaDB server. The Chroma embed is DEFERRED (fire-and-
+        // forget after the durable WAL append + synchronous graph writes), so a missing Chroma no
+        // longer fails addMemory — but the deferred embed and the detail:'full' join still hit the
+        // content store. Back it with an in-memory fake so the spec exercises the real
+        // addMemory→queryRecentTurns flow without a live Chroma. The recency query reads the GRAPH;
+        // content comes from the fake store or, for not-yet-embedded turns, the WAL pending-overlay.
         memStore = new Map();
         originalGetMemoryCollection = StorageRouter.getMemoryCollection;
         StorageRouter.getMemoryCollection = async () => ({

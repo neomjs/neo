@@ -1,6 +1,7 @@
 // Loads the Tier-1 realm root (Neo.ai.Config) so getParent() inheritance resolves in this process;
 // MC reads no AiConfig values directly — they resolve via the chain, not a binding.
 import '../../../config.template.mjs';
+import os                                        from 'os';
 import path                                      from 'path';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
 import {fileURLToPath}                           from 'url';
@@ -28,6 +29,11 @@ const DAY_MS            = 24 * 60 * 60 * 1000;
 // the leaves stay declarative; selection is the `collections.useTestDatabase` toggle + formulas below.
 const testMemoryCollection  = `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 const testSessionCollection = `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+// Per-worker-unique WAL test directory under the OS temp root (same isolation rationale as the
+// test collection names above): fullyParallel workers never share a write-ahead directory, and
+// unit tests never touch the repo-local `.neo-ai-data/memory-wal` production path.
+const testMemoryWalDir = path.join(os.tmpdir(), `neo-memory-wal-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
 
 /**
  * @summary Configuration manager for the Memory Core MCP server.
@@ -226,6 +232,50 @@ class Config extends ConfigProvider {
              */
             remRunRetentionLimit: leaf(200, 'NEO_REM_RUN_RETENTION_LIMIT', 'number'),
             /**
+             * Durable JSONL write-ahead store for `add_memory` payloads.
+             *
+             * The mandated per-turn save appends its full payload here BEFORE any model-dependent
+             * work, so an embed/Chroma failure or stall never fails or loses the save. `dir` (the
+             * active path consumers read) is a reactive formula (see `formulas` below) resolving
+             * `dirProd` / `dirTest` by construction from `useTestDatabase` — unit tests can never
+             * write into the production WAL.
+             */
+            memoryWal: {
+                /**
+                 * Production WAL segment directory. Declarative leaf; env override via `NEO_MEMORY_WAL_DIR`.
+                 * @type {string}
+                 */
+                dirProd        : leaf(path.resolve(cwd, '.neo-ai-data/memory-wal'), 'NEO_MEMORY_WAL_DIR', 'string'),
+                /**
+                 * Unit-test WAL directory: per-worker-unique under the OS temp root (module const above).
+                 * @type {string}
+                 */
+                dirTest        : leaf(testMemoryWalDir, 'NEO_MEMORY_WAL_DIR_TEST', 'string'),
+                /**
+                 * Test-mode toggle (env-driven via `UNIT_TEST_MODE`). The `memoryWal.dir` formula
+                 * reads this to select `dirTest` (true) or `dirProd` (false) — safe-by-construction.
+                 * @type {boolean}
+                 */
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                /**
+                 * Maximum fully-reconciled (every record embed-marked) WAL day-segments retained on
+                 * disk. Pruned on append; segments holding ANY pending record are never pruned —
+                 * the WAL is a durability buffer first, a log second.
+                 * @type {number}
+                 */
+                retentionLimit : leaf(30, 'NEO_MEMORY_WAL_RETENTION_LIMIT', 'number'),
+                /**
+                 * Minimum per-field length (after trim) for `prompt`/`thought`/`response` accepted
+                 * by `add_memory`. Default 1 = reject only empty/whitespace-only fields — the
+                 * unambiguous corrupted-memory class. Deliberately conservative: boot
+                 * heartbeats (`resumeHarness.mjs` health-check) carry thin-but-real content and
+                 * must keep passing until the planned boot-heartbeat liveness-marker carve-out
+                 * routes them off this path. Raise only with a derived threshold.
+                 * @type {number}
+                 */
+                minFieldLength : leaf(1, 'NEO_MEMORY_MIN_FIELD_LENGTH', 'number')
+            },
+            /**
              * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
              * @type {string}
              */
@@ -421,7 +471,8 @@ class Config extends ConfigProvider {
             // Replaces the prior inline-`process.env` leaf ternaries.
             'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
             'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
-            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd
+            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd,
+            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd
         }
     }
 }
