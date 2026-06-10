@@ -238,3 +238,68 @@ export async function drainWalOnce({
 
     return summary;
 }
+
+/**
+ * @summary Hosts the drain loop: `setTimeout`-chained {@link drainWalOnce} cycles until stopped.
+ *
+ * The loop is host-agnostic on purpose — the same single implementation runs in BOTH drain
+ * deployment modes:
+ *
+ * - **Supervised daemon process** (`ai/daemons/embed/daemon.mjs`): the local-profile shape,
+ *   orchestrator-managed with PID lock + rotating log.
+ * - **In-process inside the memory-core server** (`memoryWal.inProcessDrain` leaf): the
+ *   containerized / single-process deployment shape, where no orchestrator or daemon process
+ *   exists (e.g. the dockerized MC containers, `npx neo-app`-class workspaces).
+ *
+ * **Sole-drainer invariant (config-declared mutual exclusion):** exactly ONE drain loop may run
+ * per WAL directory. Never enable `inProcessDrain` on a deployment where the embed daemon also
+ * runs — two loops would race the marker files and break the purge-compensation logic, which
+ * relies on "a marker I didn't write = purge tombstone".
+ *
+ * Cycle failures are logged and absorbed (the WAL retains the backlog; the loop must outlive any
+ * single bad pass). Config is re-read via `getConfig()` every cycle and the collection handle is
+ * re-resolved via `getCollection()` every cycle, so a recycled content-store daemon never strands
+ * the loop on a stale connection.
+ *
+ * @param {Object}   options
+ * @param {Function} options.getCollection Async resolver for the content-store collection.
+ * @param {Function} options.getConfig     Returns the `memoryWal` config slice (read per cycle).
+ * @param {Function} [options.log]         `(level, message)` sink. Defaults to a no-op.
+ * @param {Map}      [options.retryState]  Cross-cycle per-record cooldown state.
+ * @returns {{stop: Function}} Handle whose `stop()` ends the loop (idempotent).
+ */
+export function startDrainLoop({getCollection, getConfig, log = () => {}, retryState = new Map()}) {
+    let stopped = false;
+    let timer   = null;
+
+    const tick = async () => {
+        const {dir, batchSize, maxRetries, backoffBaseMs, retentionLimit, pollIntervalMs} = getConfig();
+
+        try {
+            const collection = await getCollection();
+            const summary    = await drainWalOnce({dir, collection, batchSize, maxRetries, backoffBaseMs, retentionLimit, retryState, log});
+
+            // Idle cycles stay silent — at a multi-second poll interval, per-cycle no-op lines
+            // would dominate the log without adding signal.
+            if (summary.pending > 0 || summary.prunedSegments > 0) {
+                log('INFO', `WAL drain cycle: ${JSON.stringify(summary)}`);
+            }
+        } catch (error) {
+            log('ERROR', `WAL drain cycle failed: ${error.message || error}`);
+        }
+
+        if (!stopped) {
+            timer = setTimeout(tick, pollIntervalMs);
+        }
+    };
+
+    // First cycle on the next macrotask: starting the loop must never block the host's boot.
+    timer = setTimeout(tick, 0);
+
+    return {
+        stop() {
+            stopped = true;
+            clearTimeout(timer);
+        }
+    };
+}

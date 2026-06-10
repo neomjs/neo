@@ -304,7 +304,18 @@ class Config extends ConfigProvider {
                  * drain module's `MAX_RECORD_COOLDOWN_MS`).
                  * @type {number}
                  */
-                backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number')
+                backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number'),
+                /**
+                 * Hosts the WAL drain loop INSIDE the memory-core server process — the
+                 * containerized / single-process deployment shape (dockerized MC, npx-neo-app
+                 * workspaces) where no orchestrator-supervised embed daemon exists.
+                 *
+                 * **Mutual exclusion (sole-drainer invariant):** never enable on a deployment
+                 * where the embed daemon also runs — exactly ONE drain loop per WAL directory.
+                 * The local maintainer profile keeps this `false` and runs the daemon.
+                 * @type {boolean}
+                 */
+                inProcessDrain : leaf(false, 'NEO_MEMORY_WAL_IN_PROCESS_DRAIN', 'boolean')
             },
             /**
              * Target markdown file used for autonomous agent-to-user reporting (offline jobs).

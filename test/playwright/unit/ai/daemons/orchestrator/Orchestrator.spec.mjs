@@ -80,6 +80,9 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
     AiConfig.orchestrator.localOnly.primaryDevSyncEnabled          = config.primaryDevSyncEnabled          ?? false;
     AiConfig.orchestrator.localOnly.bridgeDaemonEnabled            = config.bridgeDaemonEnabled            ?? true;
+    // Default-disabled like primaryDevSyncEnabled: the embed-daemon lane has its own dedicated
+    // test; every other test's supervision expectations stay scoped to the lanes under test.
+    AiConfig.orchestrator.localOnly.embedDaemonEnabled             = config.embedDaemonEnabled             ?? false;
     AiConfig.orchestrator.localOnly.swarmHeartbeatEnabled          = config.swarmHeartbeatEnabled          ?? true;
     AiConfig.orchestrator.localOnly.goldenPathRepoEnrichmentEnabled = config.goldenPathRepoEnrichmentEnabled ?? true;
 
@@ -167,7 +170,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -459,6 +462,28 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: 'chroma',
             reason  : 'supervisor-restart'
         }]);
+    });
+
+    test('supervises the embed daemon as a continuous task when the lane is enabled', () => {
+        const started = [];
+
+        const orchestrator = createTestOrchestrator({embedDaemonEnabled: true});
+
+        TaskStateService.taskState.embedDaemon.running   = false;
+        TaskStateService.taskState.embedDaemon.lastRunAt = 0;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toContainEqual({
+            taskName: 'embedDaemon',
+            reason  : 'supervisor-restart'
+        });
     });
 
     test('supervises lms via the supervisor HTTP liveness probe — (re)start only when the endpoint is down (#12262 / #12090)', async () => {

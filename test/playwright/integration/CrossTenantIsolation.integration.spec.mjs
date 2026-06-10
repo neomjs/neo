@@ -61,6 +61,16 @@ test.describe('Dockerized MC cross-tenant isolation integration (#10895)', () =>
                 toolsUsed      : []
             });
 
+            // Semantic recall is eventually consistent (server-hosted WAL drain) — await
+            // convergence of BOTH writes before asserting the isolation contract below.
+            await expect.poll(async () => {
+                const [a, b] = await Promise.all([
+                    callJsonTool(alice, 'query_raw_memories', {nResults: 10, query: aliceSentinel, sessionId, memorySharing: 'private'}),
+                    callJsonTool(bob,   'query_raw_memories', {nResults: 10, query: bobSentinel,   sessionId, memorySharing: 'private'})
+                ]);
+                return memoryTexts(a).includes(aliceSentinel) && memoryTexts(b).includes(bobSentinel);
+            }, {timeout: 20000, message: 'WAL drain convergence (alice + bob writes)'}).toBe(true);
+
             // Under explicit `private` policy the cross-tenant leak guard holds: each identity
             // retrieves only its own tenant-tagged memories — the isolation contract multi-tenant
             // SaaS forks rely on (see PR security posture).

@@ -14,6 +14,7 @@ import {
     drainWalOnce,
     embedBatch,
     getBackoffDelayMs,
+    startDrainLoop,
     MAX_RECORD_COOLDOWN_MS
 } from '../../../../../../ai/daemons/embed/drainCycle.mjs';
 
@@ -277,5 +278,47 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         expect(getBackoffDelayMs(1000, 0)).toBe(1000);
         expect(getBackoffDelayMs(1000, 3)).toBe(8000);
         expect(getBackoffDelayMs(1000, 60)).toBe(MAX_RECORD_COOLDOWN_MS);
+    });
+
+    test.describe('startDrainLoop (shared loop host — daemon AND in-process server modes)', () => {
+        const loopConfig = (dir) => () => ({dir, batchSize: 10, maxRetries: 0, backoffBaseMs: 1, retentionLimit: 0, pollIntervalMs: 10});
+
+        test('drains seeded records on its cadence; stop() ends the loop', async () => {
+            await seed('loop-1');
+            const collection = createFakeCollection();
+
+            const loop = startDrainLoop({
+                getCollection: async () => collection,
+                getConfig    : loopConfig(tmpDir)
+            });
+
+            await expect.poll(() => collection.store.has('loop-1'), {timeout: 5000}).toBe(true);
+            expect(await readPendingWalRecords({dir: tmpDir})).toHaveLength(0);
+
+            loop.stop();
+
+            // A record seeded after stop() is never drained — the loop is genuinely ended.
+            await seed('after-stop');
+            await new Promise(resolve => setTimeout(resolve, 60));
+            expect(collection.store.has('after-stop')).toBe(false);
+        });
+
+        test('absorbs a failing cycle and keeps looping (collection resolution failure)', async () => {
+            await seed('resilient');
+            const collection = createFakeCollection();
+            let resolutions  = 0;
+
+            const loop = startDrainLoop({
+                getCollection: async () => {
+                    if (++resolutions === 1) throw new Error('store down (spec)');
+                    return collection;
+                },
+                getConfig: loopConfig(tmpDir)
+            });
+
+            // First cycle fails on collection resolution; a later cycle drains the record anyway.
+            await expect.poll(() => collection.store.has('resilient'), {timeout: 5000}).toBe(true);
+            loop.stop();
+        });
     });
 });

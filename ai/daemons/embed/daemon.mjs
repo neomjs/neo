@@ -33,8 +33,8 @@ import fs   from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';
 
-import StorageRouter  from '../../services/memory-core/managers/StorageRouter.mjs';
-import {drainWalOnce} from './drainCycle.mjs';
+import StorageRouter   from '../../services/memory-core/managers/StorageRouter.mjs';
+import {startDrainLoop} from './drainCycle.mjs';
 import {getMissingMemoryWalLeaves} from '../../services/memory-core/helpers/memoryWalStore.mjs';
 
 // Stale-config boot guard: the gitignored config.mjs is a MATERIALIZED template copy — on a
@@ -243,50 +243,6 @@ async function enforceSingleton() {
     });
 }
 
-/**
- * Cross-cycle per-record retry/cooldown state (`id → {failures, nextAttemptAt}`).
- * In-memory by design: the WAL is the durable source of truth; a restart merely retries sooner.
- * @type {Map<String, {failures: Number, nextAttemptAt: Number}>}
- */
-const retryState = new Map();
-
-/**
- * Runs one drain cycle and schedules the next via `setTimeout` chaining (no overlap by
- * construction — the next cycle is armed only after the current one settles). Config leaves
- * are read at the use site each cycle (the provider is the SSOT). The collection handle is resolved per cycle
- * so an orchestrator-recycled Chroma daemon never strands this loop on a stale connection.
- * Cycle failures are logged and absorbed: the WAL retains the backlog, the loop must outlive
- * any single bad pass.
- * @protected
- */
-async function pollLoop() {
-    const {memoryWal} = memoryCoreConfig;
-
-    try {
-        const collection = await StorageRouter.getMemoryCollection();
-        const summary    = await drainWalOnce({
-            dir           : memoryWal.dir,
-            collection,
-            batchSize     : memoryWal.batchSize,
-            maxRetries    : memoryWal.maxRetries,
-            backoffBaseMs : memoryWal.backoffBaseMs,
-            retentionLimit: memoryWal.retentionLimit,
-            retryState,
-            log           : writeLog
-        });
-
-        // Idle cycles stay silent — at a multi-second poll interval, per-cycle no-op lines
-        // would dominate the log without adding signal.
-        if (summary.pending > 0 || summary.prunedSegments > 0) {
-            writeLog('INFO', `[Embed Daemon] Cycle: ${JSON.stringify(summary)}`);
-        }
-    } catch (error) {
-        writeLog('ERROR', `[Embed Daemon] Drain cycle failed: ${error.message || error}`);
-    }
-
-    setTimeout(pollLoop, memoryCoreConfig.memoryWal.pollIntervalMs);
-}
-
 // Start loop
 async function main() {
     await enforceSingleton();
@@ -294,7 +250,13 @@ async function main() {
 
     writeLog('INFO', `[Embed Daemon] Started. Draining WAL dir: ${memoryCoreConfig.memoryWal.dir} (poll: ${memoryCoreConfig.memoryWal.pollIntervalMs}ms, batch: ${memoryCoreConfig.memoryWal.batchSize})`);
 
-    pollLoop();
+    // The shared loop host (`drainCycle.mjs`) owns cycle scheduling, per-cycle config/collection
+    // resolution, and failure absorption; this process wrapper owns PID/lifecycle/logging only.
+    startDrainLoop({
+        getCollection: () => StorageRouter.getMemoryCollection(),
+        getConfig    : () => memoryCoreConfig.memoryWal,
+        log          : writeLog
+    });
 }
 
 main();
