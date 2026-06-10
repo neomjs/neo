@@ -52,7 +52,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
         await expect(SearchService.ask({query: 'How does KB work?'})).resolves.toEqual({
             answer    : 'Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (GEMINI_API_KEY is required for RAG features.). Use the references directly while the synthesis provider recovers.',
             degraded  : true,
-            error     : 'synthesis_failed',
+            degradedCode: 'no_provider',
             reason    : 'GEMINI_API_KEY is required for RAG features.',
             references: [{
                 name  : 'KnowledgeBase.md',

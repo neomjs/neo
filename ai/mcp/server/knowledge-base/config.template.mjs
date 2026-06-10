@@ -142,12 +142,16 @@ class Config extends ConfigProvider {
              * (the degraded envelope) instead of hanging behind heavy local-model contention — e.g.
              * a Dream/REM graph extraction holding the one serialized local endpoint. The budget is
              * passed to the active chat provider as `options.timeoutMs`; both `OpenAiCompatible` and
-             * `Ollama` honor it. Sized as a starting value above a normal local synthesis but well
-             * below the retry-amplified worst case (a token-exhausting extraction times the provider
-             * retry loop); re-tune once that retry loop is bounded.
+             * `Ollama` honor it. Sized from the measured gemma-4-31b local-model latency (~13s cold for a
+             * ~5k-char miniSummary): the ask prompt feeds up to `limit` full documents (several-fold larger
+             * input + a full answer, not a tweet), so the prior 30s aborted normal 5-doc synthesis.
+             * 60s clears a normal cold 5-doc synthesis with headroom; the degraded-references fallback
+             * (no top-level `error` key — see `SearchService.#createDegradedSynthesisResponse`) makes any
+             * overshoot graceful, never a hard failure. Env-overridable; refine the default against a
+             * worst-case 5-doc measurement, kept below the retry-amplified worst case.
              * @type {number}
              */
-            askSynthesisTimeoutMs: leaf(30000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
+            askSynthesisTimeoutMs: leaf(300000, 'NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS', 'number'),
             /**
              * The path to the generated knowledge base JSONL file.
              * @type {string}
