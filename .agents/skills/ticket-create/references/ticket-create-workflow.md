@@ -15,7 +15,11 @@ Before the duplicate sweep or the Fat-Ticket body: is this the right work — do
 ### 1a. The Content Sweep (Duplicate Detection)
 Verify no equivalent ticket already exists. Redundant tickets pollute the Knowledge Base.
 
-**Live freshness sweep (mandatory):** before any `create_issue` call, read at least the latest 20 open GitHub issues from the live tracker, including issue number, title, author, labels, and URL.
+Duplicates hide in **two substrates**, and you MUST sweep **both as the LAST step immediately before `create_issue`** — not at turn-start, not when you begin drafting. A sweep run before authoring goes stale while you write the Fat Ticket: in a thundering herd (multiple agents booting on the same prompt), a peer's ticket can land in the minutes between your sweep and your create call. The turn-start mailbox check (`§mailbox_check_protocol`) is for general coordination — it is **not** the dup gate.
+
+> **Empirical anchor (`#12856`, 2026-06-10):** four agents raced an operator's "one (not all!)" prompt → three duplicate tickets, despite every agent running the GitHub sweep honestly. The one agent who used a two-phase *claim → re-check → execute* filed zero. Check-at-start freshness decays across a multi-minute protocol; check-at-last collapses the stale window to the create-call gap.
+
+**(i) GitHub live freshness sweep (mandatory) — catches already-FILED duplicates:** read at least the latest 20 open GitHub issues from the live tracker, including issue number, title, author, labels, and URL.
 
 ```bash
 gh issue list --state open --limit 20 --json number,title,author,labels,url
@@ -26,6 +30,14 @@ An equivalent GitHub Workflow MCP or GitHub API call is acceptable when it retur
 If the live latest-open sweep fails because of sandbox, network, or auth state, retry through the appropriate approved/escalated path. If live GitHub state still cannot be fetched, stop before `create_issue` and report the blocker; do not file from stale-only evidence.
 
 Record the live-open sweep result in the ticket body or creation notes, e.g. `Live latest-open sweep: checked latest 20 open issues at <timestamp>; no equivalent found` or link the existing ticket you found instead of filing a duplicate.
+
+**(ii) A2A in-flight claim sweep (mandatory) — catches IN-FLIGHT duplicates not yet on GitHub:** for the first minutes of a thundering herd a peer's intent exists only as an A2A `[lane-claim]`/`[lane-intent]`, not yet a GitHub ticket — the `(i)` sweep above cannot see it. Immediately before `create_issue`, scan the mailbox for recent claims on the same scope:
+
+```js
+list_messages({ status: 'unread' })  // scan recent [lane-claim] / [lane-intent] on the same subject / write-surface
+```
+
+**Tiebreak — first-claim-timestamp-wins:** if a competing claim or a just-filed ticket surfaces, the **earliest claim/file timestamp wins**; the later claimant stands down (or closes its duplicate, porting any unique substance as a comment onto the survivor). Deterministic and self-healing — resolves simultaneous filings without lead mediation. Never `wakeSuppress` a contested-lane resolution: the "do-not-re-file" signal must wake, or it reaches no one in time.
 
 ```
 grep on resources/content/issues/       # active + archived tickets
