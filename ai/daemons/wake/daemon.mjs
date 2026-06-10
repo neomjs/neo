@@ -63,11 +63,13 @@ import {
     isHeavyDeltaPoll,
     shouldDeferFlush
 } from './flushDeferPolicy.mjs';
+import {filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
 const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
 const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'wake-daemon.log');
+const WOKEN_WATERMARK_FILE     = path.join(DAEMON_DATA_DIR, 'woken-watermark.json');
 const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
@@ -79,6 +81,46 @@ const WAKE_PRIORITY_RANKS      = {
 
 // Ensure daemon data dir exists
 fs.ensureDirSync(DAEMON_DATA_DIR);
+
+/**
+ * @summary Loads the persisted per-subscription woken-watermark map, tolerant of a missing or
+ * corrupt file (a fresh daemon starts with an empty map → first wakes fire normally).
+ * @returns {Object<String, Number>}
+ */
+function loadWokenWatermark() {
+    try {
+        if (fs.existsSync(WOKEN_WATERMARK_FILE)) {
+            const parsed = JSON.parse(fs.readFileSync(WOKEN_WATERMARK_FILE, 'utf8'));
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        }
+    } catch (e) {
+        // Corrupt watermark is non-fatal: worst case is one cycle of already-woken backlog being
+        // re-counted, self-healing as the map re-persists. Daemon liveness never gates on it.
+    }
+    return {};
+}
+
+/**
+ * @summary Best-effort persist of the woken-watermark map (mirrors the daemon's other internal
+ * state writes); a write failure never gates daemon liveness.
+ */
+function persistWokenWatermark() {
+    try {
+        fs.writeFileSync(WOKEN_WATERMARK_FILE, JSON.stringify(wokenWatermark), 'utf8');
+    } catch (e) {
+        // best-effort; the in-memory map still dedups for the running process
+    }
+}
+
+/**
+ * Per-subscription already-woken high-water-mark: `subId → highest GraphLog logId the recipient
+ * has already been woken for`. A digest counts/prioritizes only events ABOVE this mark, so a
+ * re-queued already-woken backlog (heavy-delta re-include / cursor reset) contributes zero to the
+ * count and cannot spoof a HIGH digest from a stale message. Durable across restart; composes
+ * with — does not replace — the `readAt` reconcile + the heavy-delta defer.
+ * @type {Object<String, Number>}
+ */
+let wokenWatermark = loadWokenWatermark();
 
 /**
  * Rotates `wake-daemon.log` if its mtime falls on a calendar day different from today's.
@@ -558,7 +600,17 @@ async function flushSubscription(subId) {
     // dropping real wakes (unread messages, tasks, permissions, and heartbeats all still fire).
     messages = messages.filter(ev => !isMessageReadFor(db, ev.messageId, identity));
 
-    // Nothing genuinely-new survived (the delta was entirely already-read messages) → suppress the stale wake.
+    // Already-woken dedup: drop events the recipient was already woken for
+    // (logId <= the per-subscription watermark) so a re-queued backlog can't inflate the "N new" count
+    // or spoof a HIGH digest from a stale message. Composes with the readAt reconcile above + the
+    // heavy-delta defer at the top — reconciling on the right axis (already-woken, not merely unread).
+    const watermark = wokenWatermark[subId] ?? 0;
+    messages    = filterEventsByWatermark(messages,    watermark);
+    tasks       = filterEventsByWatermark(tasks,       watermark);
+    permissions = filterEventsByWatermark(permissions, watermark);
+    heartbeats  = filterEventsByWatermark(heartbeats,  watermark);
+
+    // Nothing genuinely-new survived (the delta was entirely already-read or already-woken) → suppress.
     if (messages.length === 0 && tasks.length === 0 && permissions.length === 0 && heartbeats.length === 0) {
         return;
     }
@@ -591,6 +643,15 @@ async function flushSubscription(subId) {
 
     // Delivery to per-harness adapter
     await deliverDigest(subscription, digest);
+
+    // Advance the per-subscription watermark to the highest delivered logId so these events are not
+    // re-counted if the backlog is re-queued; persist for restart durability. logId is monotonic
+    // (append-only GraphLog), so genuinely-new events always land strictly above this mark.
+    const deliveredMax = maxLogId([...messages, ...tasks, ...permissions, ...heartbeats]);
+    if (deliveredMax !== null && deliveredMax > (wokenWatermark[subId] ?? 0)) {
+        wokenWatermark[subId] = deliveredMax;
+        persistWokenWatermark();
+    }
 }
 
 /**
