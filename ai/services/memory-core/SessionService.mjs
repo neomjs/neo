@@ -2,6 +2,7 @@ import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
 import {buildChatModel} from '../../provider/buildChatModel.mjs';
 import {invokeWithGuardrail} from './helpers/consumerFrictionHelper.mjs';
+import {withTimeout} from './helpers/withTimeout.mjs';
 import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
@@ -571,9 +572,20 @@ ${sessionContent}
             aiConfig.modelName;
         const consumerContextTokens = aiConfig.localModels.chat.contextLimitTokens;
         const consumerSafeTokens    = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        const summaryTimeoutMs      = aiConfig.sessionSummaryTimeoutMs;
 
+        // Bound the synthesis call: pass the interactive budget to the provider (both honor
+        // `options.timeoutMs` and throw a uniform PROVIDER_TIMEOUT on overshoot) AND race a
+        // `withTimeout` as a provider-agnostic backstop, mirroring `buildMiniSummary`. Without this an
+        // in-size-band but slow local synthesis grinds to the provider socket cap — the ~30-min stall
+        // that strands SummarizationJobs leases past expiry. On timeout the guardrail emits a `timeout`
+        // friction symptom, which the degraded fallback below treats like an oversize skip.
         const runGuardrailed = (prompt, note) => invokeWithGuardrail({
-            invocationFn             : () => this.model.generateContent(prompt),
+            invocationFn             : () => withTimeout(
+                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization'}),
+                summaryTimeoutMs,
+                'session summarization'
+            ),
             inputPayload             : prompt,
             model                    : consumerModel,
             assetRef                 : sessionId,
@@ -592,14 +604,18 @@ ${sessionContent}
                 `summarizationBatchLimit=${aiConfig.summarizationBatchLimit}`
             );
 
-        // A too-large RAW prompt is pre-check-skipped by the guardrail. Rather than silently
-        // emitting NO summary for an oversized session, fall back to a compact per-turn input:
+        // The RAW synthesis can fail two recoverable ways: an oversized prompt is pre-check-skipped
+        // (`size-precheck-skip`), or a slow in-band synthesis exceeds `sessionSummaryTimeoutMs` and aborts
+        // (`timeout`). Rather than silently emitting NO summary, fall back to a compact per-turn input:
         // the stored miniSummary when present, else a truncated raw snippet (the
-        // _hydrateRecentTurnSummaries pattern). This is robust to the fail-soft / absent-miniSummary
-        // case (buildMiniSummary + the backfill can leave turns with no miniSummary), so the fallback
-        // never falls through to a null summary. The result is provenance-labeled degraded; raw turns
-        // remain the canonical drill-down substrate, and graph extraction still consumes raw.
-        if (!guardrailed.result && guardrailed.friction?.symptom === 'size-precheck-skip') {
+        // _hydrateRecentTurnSummaries pattern). The compact prompt is far smaller, so it also clears the
+        // timeout the raw prompt could not. Robust to the fail-soft / absent-miniSummary case
+        // (buildMiniSummary + the backfill can leave turns with no miniSummary), so the fallback never
+        // falls through to a null summary. The result is provenance-labeled degraded; raw turns remain
+        // the canonical drill-down substrate, and graph extraction still consumes raw.
+        const skipSymptom     = guardrailed.friction?.symptom,
+              recoverableSkip = skipSymptom === 'size-precheck-skip' || skipSymptom === 'timeout';
+        if (!guardrailed.result && recoverableSkip) {
             const FALLBACK_CHARS   = 280, // truncated-raw snippet cap (matches the per-turn miniSummary cap)
                   miniByMemoryId   = this.getSessionMiniSummaries(sessionId),
                   degradedEntries  = (memories.ids || [])
@@ -623,7 +639,7 @@ ${sessionContent}
                     guardrailed       = degradedResult;
                     summarySourceTier = usedTier;
                     summaryDegraded   = true;
-                    logger.info(`[SessionService] summarizeSession: raw prompt exceeded the safe band; built a provenance-labeled degraded (${usedTier}) summary from ${degradedEntries.length} turns for session ${sessionId}.`);
+                    logger.info(`[SessionService] summarizeSession: raw synthesis ${skipSymptom === 'timeout' ? 'timed out' : 'exceeded the safe band'}; built a provenance-labeled degraded (${usedTier}) summary from ${degradedEntries.length} turns for session ${sessionId}.`);
                 }
             }
         }
