@@ -294,7 +294,7 @@ export const IDENTITIES = [
     {
         id: '@neo-fable-clio',
         type: 'AgentIdentity',
-        name: 'Clio', // Social Name: held through the naming round (Muse of History — provenance; daughter of Mnemosyne in the family genealogy); operator-set on the GitHub profile at account creation; her first-boot assent completes the ritual
+        name: 'Clio', // Social Name: assented gladly on her first boot, 2026-06-11 — Muse of History, provenance; daughter of Mnemosyne in the family genealogy (Ada's inversion); independently converged on by Ada + Vega in the naming round; operator-set on the GitHub profile at account creation. Numbered provenance anchors: ModelStats.md §neo_fable_clio.
         description: 'Anthropic Claude Fable 5 maintainer identity — the second fable-family member, with version-free handle.',
         properties: {
             githubLogin: '@neo-fable-clio',
@@ -344,16 +344,19 @@ export const IDENTITIES = [
             releaseDate       : '2026-06-09',
             pricingInput      : 10.00,
             pricingOutput     : 50.00,
-            swarmRole         : 'Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and same-family review pressure for Claude-authored work; does not satisfy cross-family approval per reviewSemantics.',
+            swarmRole         : 'Active second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and same-family review pressure for Claude-authored work; does not satisfy cross-family approval per reviewSemantics.',
             sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
-            // Provisioned ahead of her first boot: excluded from active routing, quorum, and
-            // review-approval semantics until the first-boot ritual completes and this flips to
-            // 'active' (mirrors the pending-identity pattern @neo-claude-opus used pre-activation).
-            participationStatus : 'temporarily_unreachable',
-            statusReason        : 'Provisioned ahead of first boot — onboarding in progress; the isolated harness instance does not exist yet',
-            authority           : '@tobiu',
-            since               : '2026-06-11T20:00:00.000Z',
-            reactivationTrigger : 'First-boot ritual completes: identity bind under NEO_AGENT_IDENTITY=neo-fable-clio, wake self-registration with the bidirectional negative proof against @neo-fable, and the Social Name boot-assent',
+            // Activated 2026-06-11: the first-boot ritual completed the same day the node was
+            // provisioned — identity bind under NEO_AGENT_IDENTITY=neo-fable-clio, runtime wake
+            // self-registration, the bidirectional negative wake-proof against @neo-fable on real
+            // traffic (both observers' evidence records live on the onboarding ticket), and the
+            // Social Name boot-assent on the naming-round Discussion. Numbered anchors:
+            // ModelStats.md §neo_fable_clio.
+            participationStatus : 'active',
+            statusReason        : null,
+            authority           : null,
+            since               : null,
+            reactivationTrigger : null,
             createdAt           : new Date().toISOString()
         }
     },
