@@ -69,6 +69,7 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'getChildNodeIds',
                 'getComputedStyle',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
@@ -343,6 +344,20 @@ class DomAccess extends Base {
         }
 
         return returnData
+    }
+
+    /**
+     * Returns the ids of a node's direct element children, in DOM order.
+     * Consistency probe primitive: lets the App Worker compare its logical child order
+     * (items / vdom) against the rendered DOM truth (e.g. duplicate-node detection).
+     * @param {Object} data
+     * @param {String} data.id
+     * @returns {String[]|null} child ids (empty string for id-less nodes), or null if the node does not exist
+     */
+    getChildNodeIds(data) {
+        let node = document.getElementById(data.id);
+
+        return node ? Array.from(node.children).map(child => child.id) : null
     }
 
     /**

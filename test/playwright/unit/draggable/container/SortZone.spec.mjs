@@ -216,4 +216,45 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(sortZone.reversedLayoutDirection).toBe(true);
         expect(sortZone.currentIndex).toBe(0)
     });
+
+    test('Drag-trace ring buffer records events, caps per-drag size and trims old drags (#12886)', () => {
+        const zone = Object.create(SortZone.prototype);
+
+        SortZone.traces.length = 0;
+        SortZone.activeTrace   = null;
+
+        // No active trace -> events are dropped silently
+        zone.traceEvent({t: 'move', x: 1});
+        expect(SortZone.traces.length).toBe(0);
+
+        // Active trace -> events accumulate with timestamps
+        SortZone.activeTrace = {events: [], startedAt: Date.now(), zoneId: 'zone-1'};
+        SortZone.traces.push(SortZone.activeTrace);
+
+        zone.traceEvent({t: 'move', x: 100, i: 0});
+        zone.traceEvent({t: 'switch', i1: 0, i2: 1});
+
+        expect(SortZone.activeTrace.events.length).toBe(2);
+        expect(SortZone.activeTrace.events[0].t).toBe('move');
+        expect(typeof SortZone.activeTrace.events[0].ts).toBe('number');
+
+        // Per-drag event cap (400) guards unbounded growth
+        SortZone.activeTrace.events.length = 400;
+        zone.traceEvent({t: 'move', x: 999});
+        expect(SortZone.activeTrace.events.length).toBe(400);
+
+        // Ring trims to traceLimit
+        for (let i = 0; i < SortZone.traceLimit + 3; i++) {
+            SortZone.traces.push({events: [], zoneId: `zone-${i}`});
+
+            if (SortZone.traces.length > SortZone.traceLimit) {
+                SortZone.traces.shift()
+            }
+        }
+
+        expect(SortZone.traces.length).toBe(SortZone.traceLimit);
+
+        SortZone.traces.length = 0;
+        SortZone.activeTrace   = null
+    });
 });

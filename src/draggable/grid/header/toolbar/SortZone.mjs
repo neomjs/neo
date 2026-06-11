@@ -331,6 +331,8 @@ class SortZone extends BaseSortZone {
         me.lastDragClientX = null;
         me.regionRects     = null;
 
+        me.traceEvent({t: 'lockVerdict', field: column?.dataField || null, prev: column?.locked || null, next: newLocked});
+
         if (column && column.locked !== newLocked) {
             // This implicitly triggers grid.Container#onColumnLockChange,
             // which handles sorting, DOM syncing, and layout calculations.

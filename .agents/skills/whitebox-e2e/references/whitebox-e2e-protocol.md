@@ -13,7 +13,7 @@ When tasked with creating new end-to-end tests for the Neo.mjs framework, you mu
 
 ## 2. Test Suite Scaffolding
 
-Whitebox E2E tests belong in `test/playwright/e2e/`. 
+Whitebox E2E tests belong in `test/playwright/e2e/`.
 Always use the custom `neuralLink` Playwright fixture provided by the Neo.mjs team.
 
 ```javascript
@@ -24,7 +24,7 @@ test.describe('Button Base Feature (Neural Link)', () => {
         await page.goto('/examples/button/base/index.html');
         // Explicitly bind the bridge to the application namespace
         const nlApp = await neuralLink.connectToApp('Neo.examples.button.base');
-        
+
         // ... assertions
     });
 });
@@ -64,8 +64,21 @@ Before authoring a new test, closely examine the following reference implementat
 
 ## 5. Telemetry & RLAIF Integration
 
-Tests utilizing the `neuralLink` fixture inherently generate rich user interaction trajectories. These paths are extracted as structured datasets to continuously train the Swarm's autonomous agents. 
+Tests utilizing the `neuralLink` fixture inherently generate rich user interaction trajectories. These paths are extracted as structured datasets to continuously train the Swarm's autonomous agents.
 The backend daemon `ai/scripts/analyzeNlTelemetry.mjs` curates these logs from the local `memory-core.sqlite` to generate the "Golden Path" SFT/DPO datasets used in Local SLM fine-tuning pipelines.
+
+## 5.1 Mid-Interaction Assertions (Motion & Consistency)
+
+Final-order assertions are insufficient for drag-and-drop and animation surfaces — a drag can
+land correctly while the motion layer misbehaves, or duplicate DOM nodes silently. For these
+surfaces, pair the Playwright interaction with the Neural Link perception tools:
+
+- **`observe_motion`** (start before `page.mouse.down()`): rect time-series of the affected
+  components during the drag window — assert the mid-drag slot geometry, not just the end state.
+- **`get_drag_trace`** (read after `mouse.up()`): the SortZone decision trace (targets, switches,
+  scroll activations) — assert the logic layer matches the intended cadence.
+- **`verify_component_consistency`** (after the drop): items/vdom/DOM three-surface diff —
+  assert zero duplicates and aligned order across all three.
 
 ## 6. Deep Dive Documentation
 For the complete API of the `neuralLink` test SDK (`nlApp`) including simulating native VNode events, VDOM querying, and complex store inspection, you MUST reference the foundational guide:

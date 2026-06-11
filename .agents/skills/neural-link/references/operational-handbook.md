@@ -1,6 +1,6 @@
 # Neural Link Operational Handbook for Agents
 
-Your task is to effectively query and mutate a running Neo.mjs application using the Neural Link MCP toolset. Neo.mjs runs applications in a separate worker thread, utilizing a custom Virtual DOM that maps to the physical DOM. 
+Your task is to effectively query and mutate a running Neo.mjs application using the Neural Link MCP toolset. Neo.mjs runs applications in a separate worker thread, utilizing a custom Virtual DOM that maps to the physical DOM.
 
 **DO NOT GUESS.** Without specific chains of verification, you will inject corrupted instructions or patch incorrect classes. You MUST follow these sequences.
 
@@ -32,8 +32,24 @@ When verifying a fix or reproducing a bug interactively:
 1. **Fire the Event:** Use `simulate_event` on the validated Component ID.
 2. **Close the Loop:** Immediately trigger `get_console_logs` to capture downstream exceptions, warnings, or debug printouts triggered by your simulation.
 
+## 4.1 Drag-Motion Perception (Interaction Forensics)
+
+When debugging drag-and-drop, animations, or any "elements move wrong" symptom, final-state
+assertions are blind to the motion layer. Three tools cover it:
+
+1. **`observe_motion`** — start it (componentIds + window ≤8s) BEFORE driving the interaction;
+   it samples client rects per tick and returns the rendered-geometry trace. Pair with any
+   dispatch path (simulate_event, in-page MouseEvent, playwright `page.mouse`).
+2. **`get_drag_trace`** — AFTER a drag, returns the SortZone lifecycle ring (start geometry,
+   per-move target decisions, item switches, scroll activations, end resolution, grid lock
+   verdicts). The logic side; diff it against the `observe_motion` trace to localize whether
+   a defect is decision-layer or render-layer.
+3. **`verify_component_consistency`** — after any drop/update, diffs a container's logical
+   `items`, `vdom` children and the real DOM children (count/order/membership/duplicates).
+   Run it whenever duplication or ghost children are suspected.
+
 ## 5. Recovering from Page Reloads (Session Invalidation)
-Every time the connected Neo.mjs application page reloads, the main App Worker thread is destroyed and completely recreated. 
+Every time the connected Neo.mjs application page reloads, the main App Worker thread is destroyed and completely recreated.
 
 **This completely invalidates your current `sessionId`.**
 

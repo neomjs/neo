@@ -27,6 +27,7 @@ const serviceMapping = {
     get_dom_event_summary        : RuntimeService    .getDomEventSummary        .bind(RuntimeService),
     get_dom_rect                 : ComponentService  .getDomRect                .bind(ComponentService),
     get_drag_state               : InteractionService.getDragState              .bind(InteractionService),
+    get_drag_trace               : InteractionService.getDragTrace              .bind(InteractionService),
     get_instance_properties      : InstanceService   .getInstanceProperties     .bind(InstanceService),
     get_method_source            : RuntimeService    .getMethodSource           .bind(RuntimeService),
     get_namespace_tree           : RuntimeService    .getNamespaceTree          .bind(RuntimeService),
@@ -44,13 +45,15 @@ const serviceMapping = {
     manage_connection            : ConnectionService .manageConnection          .bind(ConnectionService),
     manage_neo_config            : RuntimeService    .manageNeoConfig           .bind(RuntimeService),
     modify_state_provider        : DataService       .modifyStateProvider       .bind(DataService),
+    observe_motion               : InteractionService.observeMotion             .bind(InteractionService),
     patch_code                   : RuntimeService    .patchCode                 .bind(RuntimeService),
     query_component              : ComponentService  .queryComponent            .bind(ComponentService),
     query_vdom                   : ComponentService  .queryVdom                 .bind(ComponentService),
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
     set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
-    simulate_event               : InteractionService.simulateEvent             .bind(InteractionService)
+    simulate_event               : InteractionService.simulateEvent             .bind(InteractionService),
+    verify_component_consistency : InteractionService.verifyComponentConsistency.bind(InteractionService)
 };
 
 const toolService = Neo.create(ToolService, {
