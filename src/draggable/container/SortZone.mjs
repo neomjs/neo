@@ -139,6 +139,28 @@ class SortZone extends DragZone {
     }
 
     /**
+     * Ring buffer of recent drag traces (drag lifecycle observability for the Neural Link
+     * `get_drag_trace` tool). Bounded by traceLimit; zero cost beyond plain-object pushes.
+     * @member {Object[]} traces=[]
+     * @protected
+     * @static
+     */
+    static traces = []
+    /**
+     * @member {Number} traceLimit=5
+     * @protected
+     * @static
+     */
+    static traceLimit = 5
+    /**
+     * The trace record of the drag currently in flight, or null.
+     * @member {Object|null} activeTrace=null
+     * @protected
+     * @static
+     */
+    static activeTrace = null
+
+    /**
      * @member {Boolean} isOverDragging=false
      * @protected
      */
@@ -148,6 +170,20 @@ class SortZone extends DragZone {
      * @protected
      */
     isWindowDragging = false
+
+    /**
+     * Appends one event to the active drag trace. Events carry where the drag logic
+     * decided to be, not where the DOM is — pair with the `observe_motion` tool for
+     * the rendered-geometry side of the same window.
+     * @param {Object} data
+     */
+    traceEvent(data) {
+        const trace = SortZone.activeTrace;
+
+        if (trace && trace.events.length < 400) {
+            trace.events.push({...data, ts: Date.now()})
+        }
+    }
 
     /**
      * Toggles the neo-draggable cls on items inside our owner.
@@ -363,8 +399,13 @@ class SortZone extends DragZone {
                     toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
                 }
 
+                me.traceEvent({t: 'end', from: fromIndex, to: toIndex});
                 me.moveTo(fromIndex, toIndex);
+            } else {
+                me.traceEvent({t: 'end', from: me.startIndex, to: me.currentIndex, noop: true});
             }
+
+            SortZone.activeTrace = null;
 
             Object.assign(me, {
                 currentIndex    : -1,
@@ -468,6 +509,8 @@ class SortZone extends DragZone {
                 me.switchItems(index, me.currentIndex)
             }
         }
+
+        me.traceEvent({t: 'move', x: clientX, y: clientY, i: me.currentIndex, over: isOverDragging});
 
         me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
 
@@ -620,6 +663,22 @@ class SortZone extends DragZone {
 
             me.itemRects = itemRects;
 
+            SortZone.activeTrace = {
+                events    : [],
+                items     : sortableItems.map(item => item.id),
+                ownerId   : owner.id,
+                rects     : itemRects.map(rect => ({left: rect.left, width: rect.width})),
+                startIndex: index,
+                startedAt : Date.now(),
+                zoneId    : me.id
+            };
+
+            SortZone.traces.push(SortZone.activeTrace);
+
+            if (SortZone.traces.length > SortZone.traceLimit) {
+                SortZone.traces.shift()
+            }
+
             await me.dragStart(data);
 
             if (me.dragPlaceholder) {
@@ -668,6 +727,8 @@ class SortZone extends DragZone {
     async scrollToIndex() {
         let me = this;
 
+        me.traceEvent({t: 'scroll', i: me.currentIndex});
+
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
         me.isScrolling = false
@@ -691,6 +752,8 @@ class SortZone extends DragZone {
         let me       = this,
             reversed = me.reversedLayoutDirection,
             tmp;
+
+        me.traceEvent({t: 'switch', i1: index1, i2: index2});
 
         if ((!reversed && index2 < index1) || (reversed && index1 < index2)) {
             tmp    = index1;

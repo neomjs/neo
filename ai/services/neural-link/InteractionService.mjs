@@ -44,6 +44,41 @@ class InteractionService extends Base {
     }
 
     /**
+     * Retrieves the recent drag-lifecycle traces (SortZone ring buffer).
+     * @param {Object}  opts
+     * @param {Boolean} [opts.clear]
+     * @param {String}  [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async getDragTrace({clear, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_drag_trace', {clear})
+    }
+
+    /**
+     * Samples component client rects over a time window (motion trace).
+     * @param {Object}   opts
+     * @param {String[]} opts.componentIds
+     * @param {Number}   [opts.durationMs]
+     * @param {Number}   [opts.intervalMs]
+     * @param {String}   [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async observeMotion({componentIds, durationMs, intervalMs, sessionId}) {
+        return await ConnectionService.call(sessionId, 'observe_motion', {componentIds, durationMs, intervalMs})
+    }
+
+    /**
+     * Diffs a container's items / vdom / DOM child surfaces (duplication detector).
+     * @param {Object} opts
+     * @param {String} opts.componentId
+     * @param {String} [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async verifyComponentConsistency({componentId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'verify_component_consistency', {componentId})
+    }
+
+    /**
      * Highlights a component visually for debugging purposes.
      * @param {Object} opts
      * @param {String} opts.sessionId
