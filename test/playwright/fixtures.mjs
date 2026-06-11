@@ -100,11 +100,21 @@ export const test = base.extend({
                     // Give the page a moment to initialize Neo
                     await page.waitForFunction(() => window.Neo && window.Neo.config, { timeout: 2000 }).catch(() => {});
 
-                    // Identity-bind: ask the page's own App Worker for its id (remote method,
-                    // resolves once the worker is constructed; null on older builds).
-                    workerId = await page.evaluate(() =>
-                        window.Neo?.worker?.App?.getWorkerId?.().catch?.(() => null) ?? null
-                    ).catch(() => null);
+                    // Identity-bind: ask the page's own App Worker for its id. The remote namespace
+                    // (Neo.worker.App.getWorkerId on the main thread) materializes asynchronously
+                    // after worker construction, so a single immediate evaluate RACES it on freshly
+                    // navigated pages — and a null silently degrades to the appName fallback, which
+                    // binds the OLDEST same-named session. Poll with a bounded wait instead; only
+                    // genuinely old builds (no getWorkerId remote) fall through to appName.
+                    workerId = await page.waitForFunction(async () => {
+                        const appWorker = window.Neo?.worker?.App;
+                        if (!appWorker?.getWorkerId) return null; // remote not registered yet -> keep polling
+                        try {
+                            return await appWorker.getWorkerId()
+                        } catch {
+                            return null
+                        }
+                    }, null, { timeout: 5000 }).then(handle => handle.jsonValue()).catch(() => null);
 
                     inferredAppName = await page.evaluate(() => {
                         const path = window.Neo?.config?.appPath;
