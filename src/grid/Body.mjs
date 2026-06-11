@@ -901,17 +901,22 @@ class GridBody extends Component {
     }
 
     /**
+     * Resolves the physical cell id for a rowIndex / dataField pair, mirroring the slot assignment
+     * of {@link Neo.grid.Row#createVdom}: pooled cells (`hideMode === 'removeDom'` and not locked)
+     * are keyed by the REGION-LOCAL `columnPositions` index, permanent cells by their dataField.
+     * In a multi-region (locked columns) grid the global `gridContainer.columns` index differs from
+     * the region-local index by the preceding regions' column counts, so it must not be used here.
      * @param {Number} rowIndex
      * @param {String} dataField
      * @returns {String}
      */
     getCellId(rowIndex, dataField) {
-        let me = this,
-            column = me.getColumn(dataField),
-            columnIndex = me.getColumn(dataField, true),
-            rowId = me.getRowId(rowIndex);
+        let me          = this,
+            column      = me.getColumn(dataField),
+            columnIndex = me.columnPositions.indexOf(dataField),
+            rowId       = me.getRowId(rowIndex);
 
-        if (column.hideMode === 'removeDom') {
+        if (column?.hideMode === 'removeDom' && !column.locked && columnIndex > -1) {
             return `${rowId}__cell-${columnIndex % me.cellPoolSize}`
         }
 
@@ -977,24 +982,30 @@ class GridBody extends Component {
     }
 
     /**
+     * Resolves the dataField for a physical cell id — the inverse of {@link #getCellId}.
+     * Pooled cell ids map back through the REGION-LOCAL `columnPositions` index (mirroring the
+     * slot assignment of {@link Neo.grid.Row#createVdom}), not the global `gridContainer.columns`
+     * index, which differs in multi-region (locked columns) grids.
      * @param {String} cellId
      * @returns {String}
      */
     getDataField(cellId) {
         if (cellId.includes('__cell-')) {
-            let me = this,
+            let me        = this,
                 poolIndex = parseInt(cellId.split('__cell-')[1]),
-                columns = me.gridContainer.columns,
-                { cellPoolSize, mountedColumns } = me,
-                i = mountedColumns[0],
-                len = mountedColumns[1],
-                column;
+                columns   = me.gridContainer.columns,
+                { cellPoolSize, columnPositions, mountedColumns } = me,
+                i         = mountedColumns[0],
+                len       = mountedColumns[1],
+                column, dataField;
 
             for (; i <= len; i++) {
                 if (i % cellPoolSize === poolIndex) {
-                    column = columns.getAt(i);
+                    dataField = columnPositions.getAt(i)?.dataField;
+                    column    = dataField && columns.get(dataField);
+
                     // Sanity check: ensure this column is actually pooled
-                    if (column && column.hideMode === 'removeDom') {
+                    if (column && column.hideMode === 'removeDom' && !column.locked) {
                         return column.dataField
                     }
                 }

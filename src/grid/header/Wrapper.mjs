@@ -71,61 +71,58 @@ class Wrapper extends BaseContainer {
      * Re-homes and re-orders the column header buttons across the locked-start, centre and locked-end
      * toolbars to match the current column-collection order. Invoked by
      * {@link Neo.grid.Container#onColumnsMutate} after a column mutation.
+     *
+     * Cross-toolbar moves delegate to {@link Neo.container.Base#insert}, whose cross-parent handling
+     * silently detaches the button from its old toolbar (keepMounted) and flushes a single update at
+     * the lowest common ancestor (this Wrapper). The vdom diff then sees the move as a move and keeps
+     * the DOM node alive — an uncoordinated remove + add pair diffs the two toolbars independently,
+     * which destroys the node on the source side before the target side can adopt it.
      * @param {Object[]} lockedStartColumns
      * @param {Object[]} centerColumns
      * @param {Object[]} lockedEndColumns
      */
     applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns) {
-        let me              = this,
-            {headerToolbar} = me.gridContainer;
+        let me       = this,
+            toolbars = [me.headerStart, me.gridContainer.headerToolbar, me.headerEnd];
 
-        lockedStartColumns.forEach((col, targetIndex) => {
-            let btn = me.getButton(col.dataField);
+        const applyRegion = (columns, toolbar) => {
+            columns.forEach((col, targetIndex) => {
+                let btn = me.getButton(col.dataField);
 
-            if (btn) {
-                if (btn.parentId !== me.headerStart.id) {
-                    Neo.getComponent(btn.parentId).remove(btn, false);
-                    me.headerStart.add(btn)
+                if (btn) {
+                    if (btn.parentId !== toolbar.id) {
+                        toolbar.insert(targetIndex, btn)
+                    } else {
+                        let currentIndex = toolbar.indexOf(btn);
+
+                        if (currentIndex !== targetIndex) {
+                            toolbar.moveTo(currentIndex, targetIndex)
+                        }
+                    }
                 }
+            })
+        };
 
-                let currentIndex = me.headerStart.indexOf(btn);
+        applyRegion(lockedStartColumns, me.headerStart);
+        applyRegion(centerColumns,      me.gridContainer.headerToolbar);
+        applyRegion(lockedEndColumns,   me.headerEnd);
 
-                if (currentIndex !== targetIndex) {
-                    me.headerStart.moveTo(currentIndex, targetIndex)
-                }
-            }
-        });
+        // Buttons carry a toolbar-local aria-colindex, which the header SortZone resolves column
+        // positions through at drag start — re-homed and shifted buttons must re-sync it.
+        toolbars.forEach(toolbar => {
+            if (toolbar) {
+                let dirty = false;
 
-        centerColumns.forEach((col, targetIndex) => {
-            let btn = me.getButton(col.dataField);
+                toolbar.items.forEach((item, index) => {
+                    if (item.vdom['aria-colindex'] !== index + 1) {
+                        item.vdom['aria-colindex'] = index + 1; // 1 based
+                        dirty = true
+                    }
+                });
 
-            if (btn) {
-                if (btn.parentId !== headerToolbar.id) {
-                    Neo.getComponent(btn.parentId).remove(btn, false);
-                    headerToolbar.add(btn)
-                }
-
-                let currentIndex = headerToolbar.indexOf(btn);
-
-                if (currentIndex !== targetIndex) {
-                    headerToolbar.moveTo(currentIndex, targetIndex)
-                }
-            }
-        });
-
-        lockedEndColumns.forEach((col, targetIndex) => {
-            let btn = me.getButton(col.dataField);
-
-            if (btn) {
-                if (btn.parentId !== me.headerEnd.id) {
-                    Neo.getComponent(btn.parentId).remove(btn, false);
-                    me.headerEnd.add(btn)
-                }
-
-                let currentIndex = me.headerEnd.indexOf(btn);
-
-                if (currentIndex !== targetIndex) {
-                    me.headerEnd.moveTo(currentIndex, targetIndex)
+                if (dirty) {
+                    toolbar.updateDepth = 2;
+                    toolbar.update()
                 }
             }
         })

@@ -47,7 +47,16 @@ class SortZone extends BaseSortZone {
         /**
          * @member {Boolean} moveVertical=false
          */
-        moveVertical: false
+        moveVertical: false,
+        /**
+         * The item rects get converted into owner(toolbar)-relative space via {@link #adjustProxyRectToParent},
+         * so the owner toolbar must become the containing block for the drag. In a multi-region (locked
+         * columns) grid the toolbars sit at different x-origins inside the positioned grid container —
+         * without this, the owner-relative left values resolve against the grid container and every
+         * header item renders shifted by its toolbar's own origin.
+         * @member {Boolean} positionOwnerRelative=true
+         */
+        positionOwnerRelative: true
     }
 
     /**
@@ -110,12 +119,15 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * Converts a viewport-space item rect into owner(toolbar)-relative space. The owner toolbar is
+     * the containing block during the drag (see {@link #positionOwnerRelative}), so the conversion
+     * is a pure origin subtraction — no border compensation, the toolbar has none.
      * @param {Neo.util.Rectangle} rect
      * @param {Neo.util.Rectangle} parentRect
      */
     adjustProxyRectToParent(rect, parentRect) {
-        rect.x = rect.x - parentRect.x - 1;
-        rect.y = rect.y - parentRect.y - 1
+        rect.x = rect.x - parentRect.x;
+        rect.y = rect.y - parentRect.y
     }
 
     /**
@@ -248,9 +260,10 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * Runs exactly once per drag via the {@link Neo.draggable.container.SortZone#onDragEnd} re-entry latch.
      * @param {Object} data
      */
-    async onDragEnd(data) {
+    async processDragEnd(data) {
         let me = this;
 
         // Avoid conflicts with grid.header.plugin.Resizable
@@ -269,7 +282,7 @@ class SortZone extends BaseSortZone {
             me.movedComponents = null
         }
 
-        await super.onDragEnd(data);
+        await super.processDragEnd(data);
 
         if (!me.dragElement) {
             return
@@ -434,12 +447,12 @@ class SortZone extends BaseSortZone {
 
             Object.assign(column1Position, {
                 width: itemRects[index2].width,
-                x: itemRects[index2].x + 1
+                x: itemRects[index2].x
             });
 
             Object.assign(column2Position, {
                 width: itemRects[index1].width,
-                x: itemRects[index1].x + 1
+                x: itemRects[index1].x
             });
 
             columnPositions.move(index1, index2);
