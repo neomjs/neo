@@ -180,7 +180,7 @@ Before pushing your new skill, check:
 - [ ] Does the `SKILL.md` body provide the explicit project-relative path to the reference file?
 - [ ] Is `.agents/skills/skills.manifest.json` updated to mirror the frontmatter and governance fields?
 - [ ] Is there a corresponding symlink for the new skill in `.claude/skills/`?
-- [ ] Does `node ai/scripts/lint-skill-manifest.mjs --base origin/dev` pass locally?
+- [ ] Does `node ai/scripts/lint/lint-skill-manifest.mjs --base origin/dev` pass locally?
 
 ## PR-Open Gates for Skill Changes (create OR modify)
 

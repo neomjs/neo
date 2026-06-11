@@ -19,7 +19,7 @@ import {
     validateManifestSchema
 } from '../../../../../../ai/scripts/lint/lint-skill-manifest.mjs';
 
-test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
+test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lint/lint-skill-manifest.mjs');
 
     test('CLI passes against the repository manifest', () => {
