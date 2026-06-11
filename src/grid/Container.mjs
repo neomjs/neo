@@ -978,14 +978,28 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Recomputes the region-grouped column arrays from the global `columns` collection. These
+     * arrays are the engine's region+index oracle — they must refresh on EVERY column-order
+     * mutation, including within-region drag reorders, which mutate the collection via
+     * `columns.move()` (event-silent: no `mutate` fires, so `onColumnsMutate` alone cannot
+     * keep them fresh).
+     * @protected
+     */
+    refreshRegionColumns() {
+        let me = this;
+
+        me.lockedStartColumns = me._columns.items.filter(c => c.locked === 'start');
+        me.centerColumns      = me._columns.items.filter(c => !c.locked);
+        me.lockedEndColumns   = me._columns.items.filter(c => c.locked === 'end')
+    }
+
+    /**
      * @param {Object} data
      */
     onColumnsMutate(data) {
         let me = this;
 
-        me.lockedStartColumns = me._columns.items.filter(c => c.locked === 'start');
-        me.centerColumns      = me._columns.items.filter(c => !c.locked);
-        me.lockedEndColumns   = me._columns.items.filter(c => c.locked === 'end');
+        me.refreshRegionColumns();
 
         me.createOrUpdateSubGrids();
 
