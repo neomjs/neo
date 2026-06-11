@@ -36,6 +36,17 @@ class SortZone extends BaseSortZone {
          */
         ntype: 'grid-header-toolbar-sortzone',
         /**
+         * The owner toolbar is a real horizontal scroll container (clipped by the header wrapper,
+         * scrolled in lockstep with the grid via `Neo.main.addon.GridHorizontalScrollSync`).
+         * Expanding it to content size mid-drag would destroy its scrollable overflow, so the
+         * overdrag scroll would fall through to the grid container — dragging the locked regions
+         * off-screen and detaching the body from the scroll pipeline. The absolutely positioned
+         * drag items keep the toolbar's scrollable overflow alive instead (their containing block
+         * is the toolbar via {@link #positionOwnerRelative}).
+         * @member {Boolean} expandOwnerOnDrag=false
+         */
+        expandOwnerOnDrag: false,
+        /**
          * @member {String|null} itemMargin='1px'
          * @protected
          */
@@ -58,6 +69,16 @@ class SortZone extends BaseSortZone {
          */
         positionOwnerRelative: true
     }
+
+    /**
+     * The owner toolbar's absolute scrollLeft at drag start. {@link #adjustProxyRectToParent}
+     * re-bases the drag-start snapshot rects (items and proxy alike) from owner-relative into
+     * owner-CONTENT space with it, so they align with `columnPositions.x` and the zone's absolute
+     * `scrollLeft` term at any mid-drag scroll position.
+     * @member {Number} dragStartScrollLeft=0
+     * @protected
+     */
+    dragStartScrollLeft = 0
 
     /**
      * Resolves the `grid.Body` paired with this SortZone's owner header toolbar, keyed by the
@@ -119,14 +140,17 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     * Converts a viewport-space item rect into owner(toolbar)-relative space. The owner toolbar is
+     * Converts a viewport-space item rect into owner(toolbar)-CONTENT space. The owner toolbar is
      * the containing block during the drag (see {@link #positionOwnerRelative}), so the conversion
-     * is a pure origin subtraction — no border compensation, the toolbar has none.
+     * is the origin subtraction (no border compensation, the toolbar has none) plus the toolbar's
+     * drag-start scroll: absolutely positioned children resolve against the padding box and move
+     * with the scrolled content, so content-space left values render correctly at any scroll state
+     * — and match `columnPositions.x`, which lives in the same space.
      * @param {Neo.util.Rectangle} rect
      * @param {Neo.util.Rectangle} parentRect
      */
     adjustProxyRectToParent(rect, parentRect) {
-        rect.x = rect.x - parentRect.x;
+        rect.x = rect.x - parentRect.x + this.dragStartScrollLeft;
         rect.y = rect.y - parentRect.y
     }
 
@@ -395,6 +419,10 @@ class SortZone extends BaseSortZone {
 
         // Avoid conflicts with grid.header.plugin.Resizable
         if (!me.owner.dragResortable) return;
+
+        // Freeze the drag-start scroll BEFORE the base class snapshots and adjusts the item and
+        // proxy rects: adjustProxyRectToParent re-bases them all into owner-content space with it.
+        me.dragStartScrollLeft = me.owner.scrollLeft || 0;
 
         await super.onDragStart(data);
 

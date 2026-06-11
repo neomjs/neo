@@ -305,6 +305,39 @@ export const test = base.extend({
                         return NeuralLink_InteractionService.simulateEvent({ sessionId, events: Array.isArray(events) ? events : [events] });
                     },
 
+                    /**
+                     * Retrieves the recent SortZone drag-lifecycle traces (start geometry, per-move
+                     * decisions, switches, scroll activations + term syncs, end resolution, grid lock
+                     * verdicts). The logic-layer oracle for drag-and-drop specs (whitebox-e2e §5.1).
+                     * @param {Boolean} [clear=false] Empty the trace ring buffer after reading
+                     * @returns {Promise<Object>}
+                     */
+                    async getDragTrace(clear = false) {
+                        return NeuralLink_InteractionService.getDragTrace({ sessionId, clear });
+                    },
+
+                    /**
+                     * Samples component client rects over a time window (motion trace) — start it
+                     * BEFORE page.mouse.down() to assert mid-drag geometry (whitebox-e2e §5.1).
+                     * @param {String[]} componentIds
+                     * @param {Number} [durationMs]
+                     * @param {Number} [intervalMs]
+                     * @returns {Promise<Object>}
+                     */
+                    async observeMotion(componentIds, durationMs, intervalMs) {
+                        return NeuralLink_InteractionService.observeMotion({ sessionId, componentIds, durationMs, intervalMs });
+                    },
+
+                    /**
+                     * Diffs a container's logical items / vdom / rendered DOM child surfaces —
+                     * the post-drop duplication & order-drift detector (whitebox-e2e §5.1).
+                     * @param {String} componentId
+                     * @returns {Promise<Object>}
+                     */
+                    async verifyComponentConsistency(componentId) {
+                        return NeuralLink_InteractionService.verifyComponentConsistency({ sessionId, componentId });
+                    },
+
                     // --- Data & State Methods ---
 
                     /**
