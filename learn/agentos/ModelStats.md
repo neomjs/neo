@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-11
 
 ---
 
@@ -293,6 +293,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-06-02 | (pending PR) | Added pending `@neo-claude-opus` identity row; row is inactive until account and wake-route activation are complete. |
 | 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
 | 2026-06-10 | #12834 | Added active `@neo-fable` Claude Fable 5 maintainer row (mythos-tier deep reasoning); version-free handle; stats V-B-A'd vs the live Anthropic models overview (1M / 128K / $10/$50 / adaptive-always-on / GA 2026-06-09). |
+| 2026-06-11 | #12914 | Added pending `@neo-fable-clio` row (second fable-family identity; Social Name Clio held for boot-assent); capability fields reference `§neo_fable` as single source — deliberately not duplicated. |
 
 ---
 
