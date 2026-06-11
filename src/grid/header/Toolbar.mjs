@@ -50,6 +50,11 @@ class Toolbar extends BaseToolbar {
          */
         role: 'row',
         /**
+         * Worker-side mirror of the grid's horizontal scroll position (absolute, in center-content
+         * pixels). Fed by `grid.ScrollManager#onContainerScroll` on every horizontal scroll, and
+         * optimistically by {@link #scrollToIndex} during drag overdrag. {@link #afterSetScrollLeft}
+         * forwards it into the column-drag SortZone's scroll-correction term. The DOM-side header
+         * scroll itself is synced main-thread by `Neo.main.addon.GridHorizontalScrollSync`.
          * @member {Number} scrollLeft_=0
          * @reactive
          */
@@ -113,14 +118,20 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the scrollLeft config got changed
+     * Triggered after the scrollLeft config got changed.
+     * Forwards the absolute scroll position into the column-drag SortZone's correction term.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
     afterSetScrollLeft(value, oldValue) {
-        if (oldValue !== undefined && this.sortZone) {
-            this.sortZone.scrollLeft = value
+        let {sortZone} = this;
+
+        if (oldValue !== undefined && sortZone) {
+            sortZone.scrollLeft = value;
+
+            // Term observability while a drag is in flight (itemRects = the mid-drag marker)
+            sortZone.itemRects && sortZone.traceEvent({t: 'scrollSync', sl: value})
         }
     }
 
@@ -327,15 +338,60 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * @param {Number}  index
+     * @summary Scrolls the grid horizontally so the column slot at `index` becomes fully visible,
+     * by driving the dedicated horizontal scrollbar element — the grid's single scroll SSOT.
+     *
+     * Consumer: the column-drag overdrag loop (`draggable.container.SortZone#scrollToIndex`).
+     * Routing through the scrollbar (instead of a scrollIntoView on a header button, which scrolls
+     * whatever ancestor can move — in a locked grid that is the grid container, dragging the locked
+     * regions off-screen and never re-rendering the body) means the production pipeline performs
+     * the sync: `Neo.main.addon.GridHorizontalScrollSync` mirrors the value onto this toolbar's
+     * element and the body's `--grid-scroll-left` var in-frame, while `grid.ScrollManager` ingests
+     * it for buffered column mounting. Locked regions stay frozen; both scroll directions work.
+     *
+     * Only the center (unlocked) toolbar scrolls — locked-region toolbars no-op, since their
+     * content never overflows their region.
+     *
+     * @param {Number} index The slot index inside this toolbar
+     * @param {Object} [itemRect] The slot's rect in center-content space (the drag snapshot)
+     * @param {Number} itemRect.left
+     * @param {Number} itemRect.width
      * @returns {Promise<void>}
      */
-    async scrollToIndex(index) {
-        await Neo.main.DomAccess.scrollIntoView({
-            delay: 125,
-            id: this.items[index].id,
-            windowId: this.windowId
-        })
+    async scrollToIndex(index, itemRect) {
+        let me = this;
+
+        if (me.layoutLock || !itemRect) {
+            return
+        }
+
+        let {gridContainer} = me,
+            scrollbar       = gridContainer.horizontalScrollbar,
+            current         = me.scrollLeft,
+            // The center clip width: the grid minus the locked regions (= the scrollbar's scrollport)
+            clipWidth       = gridContainer.body.containerWidth
+                - (gridContainer.bodyStart?.availableWidth || 0)
+                - (gridContainer.bodyEnd?.availableWidth   || 0),
+            target          = null;
+
+        if (itemRect.left < current) {
+            target = itemRect.left
+        } else if (itemRect.left + itemRect.width > current + clipWidth) {
+            target = itemRect.left + itemRect.width - clipWidth
+        }
+
+        if (scrollbar && target !== null) {
+            // Optimistic worker-side mirror: afterSetScrollLeft feeds the SortZone term BEFORE the
+            // DOM scroll-event echo arrives via grid.ScrollManager (which re-sets the same value).
+            me.scrollLeft = target;
+
+            await Neo.main.DomAccess.scrollTo({
+                direction: 'left',
+                id       : scrollbar.id,
+                value    : target,
+                windowId : me.windowId
+            })
+        }
     }
 
     /**

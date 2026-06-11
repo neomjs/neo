@@ -402,14 +402,21 @@ class GridBody extends Component {
      */
     afterSetAvailableWidth(value, oldValue) {
         if (value > 0) {
-            let me = this;
+            let me              = this,
+                {gridContainer} = me,
+                scrollbar       = gridContainer?.horizontalScrollbar;
 
             me.vdom.width = value + 'px';
             me.update();
 
-            // Only sync the center body's width to the Scroller addon
-            if (me === me.gridContainer?.body && me.gridContainer.horizontalScrollbar) {
-                me.gridContainer.horizontalScrollbar.centerWidth = value;
+            // Per-region sync into the horizontal scrollbar: the center feeds the spacer (the
+            // scrollable content), the locked bodies feed the flanking margins which scope the
+            // scrollbar's scrollport to the center clip width — keeping its scrollLeft range
+            // identical to the center toolbar's, so the addon's verbatim copy stays exact.
+            if (scrollbar) {
+                if      (me === gridContainer.body)      {scrollbar.centerWidth = value}
+                else if (me === gridContainer.bodyStart) {scrollbar.startWidth  = value}
+                else if (me === gridContainer.bodyEnd)   {scrollbar.endWidth    = value}
             }
         }
     }

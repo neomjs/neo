@@ -154,10 +154,10 @@ class ScrollManager extends Base {
         let me        = this,
             container = me.gridContainer,
             isView    = target.id === container.view?.id;
-        
+
         if (isView) {
             me.scrollTop = target.scrollTop ?? scrollTop;
-            
+
             let startedScrolling = !container.body.isScrolling;
 
             if (container.bodyStart) container.bodyStart.isScrolling = true;
@@ -172,7 +172,14 @@ class ScrollManager extends Base {
             me.syncGridBody()
         } else if (target.id === container.horizontalScrollbar?.id || target.id.includes('grid-container')) {
             me.scrollLeft = target.scrollLeft ?? scrollLeft;
-            
+
+            // Mirror into the center header toolbar's reactive config. Its afterSetScrollLeft
+            // feeds the drag SortZone's scroll-correction term — without this write the config
+            // (and the term) never move, corrupting post-scroll drag math. The DOM-side header
+            // sync happens main-thread in Neo.main.addon.GridHorizontalScrollSync; this is the
+            // worker-side state mirror.
+            container.headerToolbar && (container.headerToolbar.scrollLeft = me.scrollLeft);
+
             let startedScrolling = !container.body.isScrolling;
 
             if (container.bodyStart) container.bodyStart.isScrolling = true;

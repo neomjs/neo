@@ -72,6 +72,19 @@ class SortZone extends DragZone {
          */
         enableProxyToPopup: false,
         /**
+         * While a drag is active, force the owner's width to the full content size of its items
+         * (they leave the layout flow via `position: absolute`, so an auto-sized owner would
+         * collapse and reflow its surroundings).
+         *
+         * Subclasses whose owner is a real scroll container (e.g. the grid header toolbar) opt OUT:
+         * expanding such an owner destroys its scrollable overflow, turning the next programmatic
+         * scroll into a scroll of whatever ancestor can still move — in a locked-columns grid that
+         * is the grid container, which drags the frozen regions off-screen. The owner's height is
+         * always pinned, independent of this config.
+         * @member {Boolean} expandOwnerOnDrag=true
+         */
+        expandOwnerOnDrag: true,
+        /**
          * A CSS selector to ignore drag starts on (e.g. '.neo-resizable').
          * @member {String|null} ignoreDragSelector=null
          */
@@ -127,6 +140,16 @@ class SortZone extends DragZone {
          */
         reversedLayoutDirection: false,
         /**
+         * The owner's absolute horizontal scroll position, in owner-content pixels.
+         *
+         * Seeded at drag start from `owner.scrollLeft` (0 for owners without the config) and kept
+         * live during the drag by the owner — for grids: `grid.ScrollManager` mirrors every
+         * horizontal scroll into `grid.header.Toolbar#scrollLeft`, whose afterSet writes it here;
+         * the overdrag path additionally sets it optimistically (`Toolbar#scrollToIndex`).
+         *
+         * The move-delta math pairs it with `itemRects`, which subclasses snapshot in owner-CONTENT
+         * space (see `adjustProxyRectToParent`): `clientX - ownerX + scrollLeft` is the pointer's
+         * content-space position, comparable against `itemRects[i].left` at any scroll state.
          * @member {Number} scrollLeft=0
          */
         scrollLeft: 0,
@@ -475,6 +498,7 @@ class SortZone extends DragZone {
                 lastInBoundX    : null,
                 lastInBoundY    : null,
                 ownerRect       : null,
+                scrollLeft      : 0,
                 startIndex      : -1,
                 sortableItems   : null
             });
@@ -566,6 +590,12 @@ class SortZone extends DragZone {
             if (index > 0) {
                 me.currentIndex--;
                 await me.scrollToIndex();
+
+                // The drag can end while the scroll is awaited; the end-reset nulls itemRects
+                if (!me.itemRects) {
+                    return
+                }
+
                 me.switchItems(index, me.currentIndex)
             }
         }
@@ -574,6 +604,12 @@ class SortZone extends DragZone {
             if (index < maxItems) {
                 me.currentIndex++;
                 await me.scrollToIndex();
+
+                // See the isOverDraggingStart branch: bail when the drag ended mid-await
+                if (!me.itemRects) {
+                    return
+                }
+
                 me.switchItems(index, me.currentIndex)
             }
         }
@@ -695,6 +731,7 @@ class SortZone extends DragZone {
                 lastIntersectionRatio  : 1,
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
+                scrollLeft             : owner.scrollLeft || 0, // absolute owner scroll; subclasses snapshot itemRects in owner-content space
                 sortableItems,
                 sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
                 startIndex             : index
@@ -743,10 +780,9 @@ class SortZone extends DragZone {
 
             owner.style = {
                 ...ownerStyle,
-                height  : `${me.ownerRect.height}px`,
-                minWidth: `${me.ownerRect.width}px`,
-                width   : `${me.ownerRect.width}px`,
-                ...(me.positionOwnerRelative && {position: 'relative'})
+                height: `${me.ownerRect.height}px`,
+                ...(me.expandOwnerOnDrag      && {minWidth: `${me.ownerRect.width}px`, width: `${me.ownerRect.width}px`}),
+                ...(me.positionOwnerRelative  && {position: 'relative'})
             };
 
             adjustItemRectsToParent && itemRects.forEach(rect => {
@@ -815,12 +851,18 @@ class SortZone extends DragZone {
     onWindowDragContinue(intersectionRatio, data) {}
 
     /**
+     * Scrolls the owner so the current index becomes reachable. The owner performs the actual
+     * scroll through its production scroll pipeline (for grids: driving the dedicated horizontal
+     * scrollbar element — `grid.header.Toolbar#scrollToIndex`), which also keeps `me.scrollLeft`
+     * current: optimistically via the owner's reactive `scrollLeft` config, and authoritatively
+     * via the scroll-event echo (`grid.ScrollManager` → `Toolbar#afterSetScrollLeft` → this zone).
+     * Move processing is latched off (`isScrolling`) for the duration of the owner call.
      * @returns {Promise<void>}
      */
     async scrollToIndex() {
         let me = this;
 
-        me.traceEvent({t: 'scroll', i: me.currentIndex});
+        me.traceEvent({t: 'scroll', i: me.currentIndex, sl: me.scrollLeft});
 
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);

@@ -823,7 +823,11 @@ class GridContainer extends BaseContainer {
             }
         } else if (me.bodyStart) {
             me.bodyStart.destroy();
-            me.bodyStart = null
+            me.bodyStart = null;
+
+            // The margin feed lives in Body#afterSetAvailableWidth; a destroyed region must
+            // release its scrollbar-scrollport margin explicitly.
+            me.horizontalScrollbar && (me.horizontalScrollbar.startWidth = 0)
         }
 
         // --- End body (Right) ---
@@ -844,7 +848,10 @@ class GridContainer extends BaseContainer {
             }
         } else if (me.bodyEnd) {
             me.bodyEnd.destroy();
-            me.bodyEnd = null
+            me.bodyEnd = null;
+
+            // See the bodyStart branch: release the scrollport margin of a removed region.
+            me.horizontalScrollbar && (me.horizontalScrollbar.endWidth = 0)
         }
 
         // Synchronize the body sub-grids into the grid.View.
