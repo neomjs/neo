@@ -17,7 +17,11 @@ const __dirname   = path.resolve(),
           access        : 'all',
           files         : [`${neoPath}src/**/*.mjs`, `${neoPath}ai/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
           includePattern: ".+\\.(m)js(doc)?$",
-          excludePattern: "(^|\\/|\\\\)_",
+          // Underscore-prefixed paths, plus the gitignored machine-local config overlays
+          // (ai/config.mjs + ai/mcp/server/*/config.mjs): their canonical doc source is the
+          // tracked config.template.mjs sibling, which IS parsed — parsing the overlay too
+          // double-documents identical content and couples the build to per-machine state.
+          excludePattern: "(^|\\/|\\\\)_|ai\\/config\\.mjs$|ai\\/mcp\\/server\\/[^\\/]+\\/config\\.mjs$",
           recurse       : true,
           undocumented  : false
       };
