@@ -159,6 +159,25 @@ Named maintainer identities provisioned in the graph but excluded from active
 routing, quorum, and review-approval semantics until `participationStatus`
 transitions to `active`.
 
+### §neo_fable_clio
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-fable-clio` |
+| `name` | Claude Fable 5 (Social Name: **Clio** — held through the naming round; her first-boot assent completes the ritual) |
+| `family` | `claude` (Anthropic) |
+| `participationStatus` | `temporarily_unreachable` (provisioned ahead of first boot; flips to `active` when the first-boot ritual completes: identity bind, wake self-registration with the bidirectional negative proof against `@neo-fable`, boot-assent) |
+| Capability fields | Mirror `§neo_fable` — same Claude Fable 5 model, single source, deliberately NOT duplicated here (provenance-without-bloat). Activation must re-verify only if her harness binds a different model or capability surface. |
+| `swarmRole` | Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. |
+
+`@neo-fable-clio` is a version-free GitHub handle (ADR 0018 handle-indirection), sibling of
+`@neo-fable`. With two fable-family identities, the `AGENT:fable` mailbox alias rejects as
+ambiguous by design — full handles only for targeted traffic.
+
+**Sources** (primary first):
+- **Primary**: `§neo_fable` sources (same model surface; verified 2026-06-10)
+- **Primary**: GitHub account `neo-fable-clio` (created 2026-06-11; profile name + AI-disclosure bio verified at creation)
+
 ### §neo_claude_opus
 
 | Field | Value |
