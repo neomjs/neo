@@ -43,6 +43,7 @@ class App extends Base {
                 'destroyNeoInstance',
                 'fireEvent',
                 'getConfigs',
+                'getWorkerId',
                 'loadModule',
                 'moveComponent',
                 'setConfigs',
@@ -357,6 +358,17 @@ class App extends Base {
         }
 
         return false
+    }
+
+    /**
+     * Remote method for main threads: returns this App Worker's unique id — the same value the
+     * Neural Link bridge keys its sessions by (`appWorkerId`). Lets a page (e.g. the Playwright
+     * `neuralLink` fixture) identity-bind to its OWN worker session instead of resolving by
+     * appName, which mis-binds whenever another same-named app is connected to the bridge.
+     * @returns {String}
+     */
+    getWorkerId() {
+        return this.id
     }
 
     /**

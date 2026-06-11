@@ -49,12 +49,17 @@ test.describe('Grid BigData App (Neural Link)', () => {
         await page.goto('examples/grid/bigData/index.html');
 
         // 2. Connect the fixture to the running App Worker
-        // The intent here is to explicitly pass the application name
-        // to `connectToApp()`. While the fixture has fallback logic to infer the name
-        // from the window path, explicit declarations prevent initialization races
-        // and ensure the test strictly targets the intended App Worker environment.
         //
-        // Examples use their fully qualified namespace:
+        // Session resolution: `connectToApp()` IDENTITY-BINDS to this page's own App Worker —
+        // it polls the page's `Neo.worker.App.getWorkerId()` remote (bounded wait) and passes
+        // that id to the bridge's exact-id session match. The appName argument is a FALLBACK
+        // only (older builds without the remote, or non-Neo pages). This matters whenever a
+        // second same-named app is connected to the bridge (e.g. a developer's open dev tab):
+        // appName resolution binds the OLDEST matching session, so without the identity bind
+        // the test's worker queries would silently read the other app while `page.mouse`
+        // drives this page.
+        //
+        // Examples use their fully qualified namespace as the fallback name:
         const nlApp = await neuralLink.connectToApp('Neo.examples.grid.bigData');
 
         // Full Applications use their named string identifier:
