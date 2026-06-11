@@ -11,10 +11,10 @@ import {
 
 export const test = base.extend({
     /**
-     * @warning The `neo` fixture uses legacy Remote Method Access (RMA). 
-     * It is retained for environments where the Neural Link is unavailable 
-     * (e.g., Neo.mjs wrapped inside a React application). 
-     * For native Neo.mjs E2E testing, you should exclusively use the `neuralLink` 
+     * @warning The `neo` fixture uses legacy Remote Method Access (RMA).
+     * It is retained for environments where the Neural Link is unavailable
+     * (e.g., Neo.mjs wrapped inside a React application).
+     * For native Neo.mjs E2E testing, you should exclusively use the `neuralLink`
      * fixture instead. See: learn/guides/testing/WhiteboxE2E.md
      */
     neo: async ({ page }, use) => {
@@ -23,7 +23,7 @@ export const test = base.extend({
 
         const neo = {
             page,
-            
+
             async createComponent(config) {
                 return RmaHelpers.createComponent(page, config);
             },
@@ -43,7 +43,7 @@ export const test = base.extend({
             async moveComponent(opts) {
                 return RmaHelpers.moveComponent(page, opts);
             },
-            
+
             async getConfig(id, keyOrKeys) {
                 return RmaHelpers.getComponentConfig(page, id, keyOrKeys);
             },
@@ -84,14 +84,28 @@ export const test = base.extend({
         const nl = {
             /**
              * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.
-             * @param {String} [appName] Optional explicitly named app to wait for. Mostly we wait for this specific page's workerId.
+             *
+             * Resolution order: the page's OWN App Worker id (identity-bind via the `getWorkerId`
+             * remote — exact-match in `waitForSession`), falling back to the explicit / inferred
+             * appName. The identity path is what makes same-name topologies safe: appName resolution
+             * binds to the OLDEST matching session, so a persistent dev tab of the same app would
+             * silently receive the test's worker queries while `page.mouse` drives the test page.
+             * @param {String} [appName] Optional explicitly named app to wait for (fallback only).
              */
             async connectToApp(appName) {
-                let inferredAppName = null;
+                let inferredAppName = null,
+                    workerId        = null;
 
                 try {
                     // Give the page a moment to initialize Neo
                     await page.waitForFunction(() => window.Neo && window.Neo.config, { timeout: 2000 }).catch(() => {});
+
+                    // Identity-bind: ask the page's own App Worker for its id (remote method,
+                    // resolves once the worker is constructed; null on older builds).
+                    workerId = await page.evaluate(() =>
+                        window.Neo?.worker?.App?.getWorkerId?.().catch?.(() => null) ?? null
+                    ).catch(() => null);
+
                     inferredAppName = await page.evaluate(() => {
                         const path = window.Neo?.config?.appPath;
                         return path ? path.split('/').slice(-2, -1)[0] : null;
@@ -100,8 +114,8 @@ export const test = base.extend({
                     // Ignore, page might not exist or be blank
                 }
 
-                // If user passed 'Portal', prefer that, otherwise use the inferred appName like 'portal'
-                const targetId = appName || inferredAppName;
+                // Prefer the page's own worker id (exact-id match); fall back to explicit / inferred appName
+                const targetId = workerId || appName || inferredAppName;
                 if (!targetId) {
                     throw new Error('neuralLink.connectToApp requires either an initialized Neo environment or an explicit appName to wait for.');
                 }
@@ -423,7 +437,7 @@ export const test = base.extend({
                     },
 
                     /**
-                     * Manages the global Neo.config object. 
+                     * Manages the global Neo.config object.
                      * @param {String} action 'get' or 'set'
                      * @param {Object} [config]
                      * @param {String} [windowId]
