@@ -238,10 +238,21 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(SortZone.activeTrace.events[0].t).toBe('move');
         expect(typeof SortZone.activeTrace.events[0].ts).toBe('number');
 
-        // Per-drag event cap (400) guards unbounded growth
-        SortZone.activeTrace.events.length = 400;
-        zone.traceEvent({t: 'move', x: 999});
+        // Duplicate deliveries count-compress onto the previous event instead of appending
+        zone.traceEvent({t: 'dup', x: 100});
+        zone.traceEvent({t: 'dup', x: 100});
+        expect(SortZone.activeTrace.events.length).toBe(2);
+        expect(SortZone.activeTrace.events[1].dup).toBe(2);
+
+        // Per-drag event cap (400) guards unbounded growth — dropping the OLDEST event,
+        // keeping the tail (a drag's drop resolution is its most diagnostic part)
+        SortZone.activeTrace.events.length = 0;
+        for (let i = 0; i < 401; i++) {
+            zone.traceEvent({t: 'move', x: i});
+        }
         expect(SortZone.activeTrace.events.length).toBe(400);
+        expect(SortZone.activeTrace.events[399].x).toBe(400);
+        expect(SortZone.activeTrace.events[0].x).toBe(1);
 
         // Ring trims to traceLimit
         for (let i = 0; i < SortZone.traceLimit + 3; i++) {
