@@ -563,7 +563,27 @@ class DeltaUpdates extends Base {
                 }
 
                 if (this.nativeMoveBefore) {
-                    parentNode.moveBefore(node, siblingRef || null)
+                    parentNode.moveBefore(node, siblingRef || null);
+
+                    // Chromium (observed in 146 & 149) can leave the parent's box-tree sibling chain
+                    // stale after moveBefore(): the DOM order updates, but one neighbor keeps
+                    // rendering at its pre-move slot — and structural child-list changes do NOT
+                    // re-dirty it. Rebuilding the parent's boxes synchronously (no paint happens
+                    // in between) restores the layout while keeping what moveBefore preserves:
+                    // iframes and canvas survive display toggles (unlike the insertBefore fallback,
+                    // which reloads iframes); only CSS-animation continuity inside the parent resets.
+                    const
+                        activeElement = document.activeElement,
+                        containsFocus = activeElement && parentNode.contains(activeElement),
+                        displayValue  = parentNode.style.display;
+
+                    parentNode.style.display = 'none';
+                    void parentNode.offsetHeight;
+                    parentNode.style.display = displayValue;
+
+                    if (containsFocus && document.activeElement !== activeElement) {
+                        activeElement.focus()
+                    }
                 } else {
                     const
                         activeElement = document.activeElement,
