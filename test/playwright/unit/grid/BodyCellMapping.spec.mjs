@@ -42,6 +42,8 @@ test.describe('Neo.grid.Body cell mapping', () => {
         // A plain object borrowing the prototype methods under test: instances created via
         // Object.create(Body.prototype) trip the #configs private-brand check of the reactive
         // config system, while a plain `this` only needs the members the methods read.
+        // items[0].vdom.cn mirrors the rendered pool slots incl. the data.field binding stamps
+        // Row#createVdom writes — the materialized binding the mapping functions resolve through.
         return {
             cellPoolSize   : 5,
             columnPositions: {
@@ -53,6 +55,17 @@ test.describe('Neo.grid.Body cell mapping', () => {
                     get: dataField => globalColumns.find(col => col.dataField === dataField) || null
                 }
             },
+            items: [{
+                vdom: {
+                    cn: [
+                        {id: 'body-center__row-0__cell-0', data: {field: 'total'}},
+                        {id: 'body-center__row-0__cell-1', data: {field: 'commitRatio'}},
+                        {id: 'body-center__row-0__cell-2', data: {field: 'private'}},
+                        {id: 'body-center__row-0__cell-3', style: {display: 'none'}},
+                        {id: 'body-center__row-0__cell-4', style: {display: 'none'}}
+                    ]
+                }
+            }],
             mountedColumns: [0, 2],
 
             getCellId   : Body.prototype.getCellId,
@@ -105,5 +118,38 @@ test.describe('Neo.grid.Body cell mapping', () => {
         ['total', 'commitRatio', 'private'].forEach(dataField => {
             expect(body.getDataField(body.getCellId(0, dataField))).toBe(dataField)
         })
+    });
+
+    test('mapping survives a mid-drag columnPositions move (slot binding wins over index math)', () => {
+        const body = createCenterBodyFake();
+
+        // Simulate the first switchItems of a drag: columnPositions re-ordered to
+        // [total, private, commitRatio] while the rendered pool slots keep their render-time
+        // binding (cell-1 = commitRatio, cell-2 = private). Index math over the moved collection
+        // resolves one-off; the materialized data.field binding must win.
+        const movedPositions = [
+            {dataField: 'total',       width: 100, x: 0},
+            {dataField: 'private',     width: 90,  x: 100},
+            {dataField: 'commitRatio', width: 90,  x: 190}
+        ];
+
+        body.columnPositions = {
+            getAt  : i => movedPositions[i],
+            indexOf: dataField => movedPositions.findIndex(pos => pos.dataField === dataField)
+        };
+
+        expect(body.getCellId(0, 'commitRatio')).toBe('body-center__row-0__cell-1');
+        expect(body.getCellId(0, 'private')).toBe('body-center__row-0__cell-2');
+        expect(body.getDataField('body-center__row-0__cell-1')).toBe('commitRatio');
+        expect(body.getDataField('body-center__row-0__cell-2')).toBe('private')
+    });
+
+    test('pool-suffix matching is exact, not prefix-based (cell-1 vs cell-11)', () => {
+        const body = createCenterBodyFake();
+
+        body.items[0].vdom.cn.push({id: 'body-center__row-0__cell-11', data: {field: 'eleven'}});
+
+        expect(body.getDataField('body-center__row-0__cell-11')).toBe('eleven');
+        expect(body.getDataField('body-center__row-0__cell-1')).toBe('commitRatio')
     });
 });

@@ -901,23 +901,41 @@ class GridBody extends Component {
     }
 
     /**
-     * Resolves the physical cell id for a rowIndex / dataField pair, mirroring the slot assignment
-     * of {@link Neo.grid.Row#createVdom}: pooled cells (`hideMode === 'removeDom'` and not locked)
-     * are keyed by the REGION-LOCAL `columnPositions` index, permanent cells by their dataField.
-     * In a multi-region (locked columns) grid the global `gridContainer.columns` index differs from
-     * the region-local index by the preceding regions' column counts, so it must not be used here.
+     * Resolves the physical cell id for a rowIndex / dataField pair. Pooled cells (`hideMode ===
+     * 'removeDom'` and not locked — mirroring {@link Neo.grid.Row#createVdom}) resolve through the
+     * MATERIALIZED slot binding: Row stamps `data.field` into every rendered cell, and pool slots
+     * keep that render-time binding even while `columnPositions` gets re-ordered mid-drag
+     * (`switchItems` moves the collection per switch). Index math over a live collection goes stale
+     * one switch in; reading the rendered binding cannot. Falls back to the region-local
+     * `columnPositions` index only before the first render pass.
      * @param {Number} rowIndex
      * @param {String} dataField
      * @returns {String}
      */
     getCellId(rowIndex, dataField) {
-        let me          = this,
-            column      = me.getColumn(dataField),
-            columnIndex = me.columnPositions.indexOf(dataField),
-            rowId       = me.getRowId(rowIndex);
+        let me            = this,
+            column        = me.getColumn(dataField),
+            rowId         = me.getRowId(rowIndex),
+            firstRowCells = me.items?.[0]?.vdom?.cn,
+            columnIndex, i, len, node, poolIndex;
 
-        if (column?.hideMode === 'removeDom' && !column.locked && columnIndex > -1) {
-            return `${rowId}__cell-${columnIndex % me.cellPoolSize}`
+        if (column?.hideMode === 'removeDom' && !column.locked) {
+            if (firstRowCells) {
+                for (i = 0, len = firstRowCells.length; i < len; i++) {
+                    node = firstRowCells[i];
+
+                    if (node.data?.field === dataField && node.id?.includes('__cell-')) {
+                        poolIndex = node.id.split('__cell-')[1];
+                        return `${rowId}__cell-${poolIndex}`
+                    }
+                }
+            }
+
+            columnIndex = me.columnPositions.indexOf(dataField);
+
+            if (columnIndex > -1) {
+                return `${rowId}__cell-${columnIndex % me.cellPoolSize}`
+            }
         }
 
         return `${rowId}__${dataField}`
@@ -983,23 +1001,36 @@ class GridBody extends Component {
 
     /**
      * Resolves the dataField for a physical cell id — the inverse of {@link #getCellId}.
-     * Pooled cell ids map back through the REGION-LOCAL `columnPositions` index (mirroring the
-     * slot assignment of {@link Neo.grid.Row#createVdom}), not the global `gridContainer.columns`
-     * index, which differs in multi-region (locked columns) grids.
+     * Pooled cell ids resolve through the MATERIALIZED slot binding ({@link Neo.grid.Row#createVdom}
+     * stamps `data.field` into every rendered cell): pool slots keep their render-time column
+     * binding even while `columnPositions` gets re-ordered mid-drag, so index math over the live
+     * collection goes stale one switch in. Falls back to the region-local index math only before
+     * the first render pass.
      * @param {String} cellId
      * @returns {String}
      */
     getDataField(cellId) {
         if (cellId.includes('__cell-')) {
-            let me        = this,
-                poolIndex = parseInt(cellId.split('__cell-')[1]),
-                columns   = me.gridContainer.columns,
+            let me            = this,
+                poolIndex     = cellId.split('__cell-')[1],
+                firstRowCells = me.items?.[0]?.vdom?.cn,
+                columns       = me.gridContainer.columns,
                 { cellPoolSize, columnPositions, mountedColumns } = me,
-                i         = mountedColumns[0],
-                len       = mountedColumns[1],
-                column, dataField;
+                column, dataField, i, len, node;
 
-            for (; i <= len; i++) {
+            if (firstRowCells) {
+                for (i = 0, len = firstRowCells.length; i < len; i++) {
+                    node = firstRowCells[i];
+
+                    if (node.id?.split('__cell-')[1] === poolIndex && node.data?.field) {
+                        return node.data.field
+                    }
+                }
+            }
+
+            poolIndex = parseInt(poolIndex);
+
+            for (i = mountedColumns[0], len = mountedColumns[1]; i <= len; i++) {
                 if (i % cellPoolSize === poolIndex) {
                     dataField = columnPositions.getAt(i)?.dataField;
                     column    = dataField && columns.get(dataField);
