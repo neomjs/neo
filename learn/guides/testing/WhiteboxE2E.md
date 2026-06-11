@@ -49,14 +49,14 @@ test.describe('Grid BigData App (Neural Link)', () => {
         await page.goto('examples/grid/bigData/index.html');
 
         // 2. Connect the fixture to the running App Worker
-        // The intent here is to explicitly pass the application name 
-        // to `connectToApp()`. While the fixture has fallback logic to infer the name 
-        // from the window path, explicit declarations prevent initialization races 
+        // The intent here is to explicitly pass the application name
+        // to `connectToApp()`. While the fixture has fallback logic to infer the name
+        // from the window path, explicit declarations prevent initialization races
         // and ensure the test strictly targets the intended App Worker environment.
-        // 
+        //
         // Examples use their fully qualified namespace:
         const nlApp = await neuralLink.connectToApp('Neo.examples.grid.bigData');
-        
+
         // Full Applications use their named string identifier:
         // const nlApp = await neuralLink.connectToApp('DevIndex');
 
@@ -78,7 +78,7 @@ const queryResult = await nlApp.queryComponent(
 
 // Important: Return properties are nested under `.properties`
 // Store records and complex objects are serialized.
-expect(queryResult.properties.value.id).toBe("20000"); 
+expect(queryResult.properties.value.id).toBe("20000");
 ```
 
 ### Advanced Discovery
@@ -94,9 +94,9 @@ test('Verify foundational grid structure', async ({ page, neuralLink }) => {
 
     // 1. Fetch MainView (It will always return the root wrapper)
     const viewResult = await nlApp.queryComponent({ className: 'Neo.examples.grid.bigData.MainContainer' });
-    
+
     // 2. Discover children inside the root scope
-    // Note: The fixture currently masks rootId natively if we query globally, 
+    // Note: The fixture currently masks rootId natively if we query globally,
     // but the underlying API fully supports ID-scoped boundaries.
     const gridResult = await nlApp.queryComponent({ ntype: 'grid-container' });
 
@@ -123,17 +123,29 @@ const styles = await nlApp.getComputedStyles('component-id-1', ['--neo-grid-row-
 ```
 
 ### Interaction Simulation
-If Playwright's synthetic DOM clicks fail or suffer from z-index races on complex components (like Grid locked columns), you can manually dispatch native browser events straight onto the VNode target via the component ID.
+If Playwright's synthetic DOM clicks fail or suffer from z-index races on complex components, you can manually dispatch native browser events straight onto the VNode target via the component ID.
 
 ```javascript
 // Bypass Playwright DOM clicking, and dispatch to the VNode listener natively
 await nlApp.simulateEvent([
     {
-        action: 'click', 
+        action: 'click',
         targetId: 'my-grid-row-1'
     }
 ]);
 ```
+
+**`simulateEvent` drives discrete events (click / key / input) — it does NOT drive a pointer drag-and-drop.** Neo's drag pipeline (grid column reordering, including locked-column / multi-region grids) is armed by a mouse-based drag sensor that requires a *real, time-spread* pointer gesture: it only fires `drag:start` once the pointer crosses its distance + delay thresholds, so a synthetic single event never arms it. To drive a column drag in an e2e, use Playwright's native mouse with a **stepped** move — the `{steps}` cadence generates the intermediate `mousemove` events the sensor needs:
+
+```javascript
+// Real pointer-drag that arms the Mouse sensor (a synthetic single event does NOT):
+await page.mouse.move(startX, startY);
+await page.mouse.down();
+await page.mouse.move(targetX, targetY, { steps: 60 });
+await page.mouse.up();
+```
+
+See `test/playwright/e2e/GridColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
 
 ### Topology, Nodes, & Namespaces
 Get a bird's eye view of the entire runtime environment, discovering connected workers or resolving the class hierarchy.
@@ -142,7 +154,7 @@ Get a bird's eye view of the entire runtime environment, discovering connected w
 // Map component hierarchy dynamically
 const compTree = await nlApp.getComponentTree(undefined, 2); // Depth limit 2
 
-// View all connected Apps / Windows 
+// View all connected Apps / Windows
 const workers = await nlApp.getWorkerTopology();
 const windows = await nlApp.getWindowTopology();
 
@@ -160,7 +172,7 @@ const listeners = await nlApp.getDomEventListeners('my-grid-container');
 // Dump the full raw store records (paginated) without querying the component
 const storeData = await nlApp.inspectStore('my-data-store', 50, 0);
 
-// Review global configurations 
+// Review global configurations
 const globalConfig = await nlApp.manageNeoConfig('get');
 ```
 
@@ -179,8 +191,8 @@ const methodSource = await nlApp.getMethodSource('Neo.button.Base', 'onClick');
 
 // Dynamically replace the method implementation during E2E testing
 await nlApp.patchCode(
-    'Neo.button.Base', 
-    'onClick', 
+    'Neo.button.Base',
+    'onClick',
     'function(data) { console.log("Patched!"); }'
 );
 ```
