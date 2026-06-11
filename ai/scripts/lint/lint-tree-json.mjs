@@ -192,7 +192,7 @@ function compareSeoSurface(surfaceName, expectedIds, actualIds) {
  * checked-in SEO/LLM outputs and deliberately ignores sitemap `lastmod` values. Tests can
  * omit explicit expectations to fall back to tree-derived sets.
  * @param {{data: Array<object>}} treeData Parsed `tree.json`.
- * @param {{llmsTxt: string, sitemapXml: string, baseUrl?: string, expectedLlmsIds?: Set<String>, expectedSitemapIds?: Set<String>}} options
+ * @param {{llmsTxt: string, sitemapXml: string, baseUrl: string, expectedLlmsIds: Set, expectedSitemapIds: Set}} options Only `llmsTxt` + `sitemapXml` required; the rest fall back to defaults / tree-derived sets.
  * @returns {Array<{code: string, message: string}>}
  */
 function lintSeoOutputs(treeData, {
@@ -214,7 +214,7 @@ function lintSeoOutputs(treeData, {
 
 /**
  * Regenerates the SEO outputs in memory and extracts their learn/ URL sets.
- * @param {{baseUrl?: string, sitemapPath?: string}} [options]
+ * @param {{baseUrl: string, sitemapPath: string}} [options] Both keys optional (defaults applied).
  * @returns {Promise<{expectedLlmsIds: Set<String>, expectedSitemapIds: Set<String>}>}
  */
 async function getGeneratedSeoLearnUrls({
@@ -238,7 +238,7 @@ async function getGeneratedSeoLearnUrls({
  * unless the caller's probe touches it — exported for unit testing.
  *
  * @param {{data: Array<object>}} treeData Parsed `tree.json`.
- * @param {{fileExists?: (relPathFromLearn: string) => boolean, readDir?: (relPathFromLearn: string) => String[]}} [probes]
+ * @param {{fileExists: Function, readDir: Function}} [probes] Optional probes: `fileExists(relPathFromLearn) → Boolean`, `readDir(relPathFromLearn) → String[]`.
  * @returns {Array<{code: string, message: string}>}
  */
 function lintTree(treeData, {fileExists, readDir} = {}) {
@@ -354,7 +354,7 @@ function lintTree(treeData, {fileExists, readDir} = {}) {
  * CLI entry. Reads + parses `tree.json`, runs `lintTree` with a real fs-backed probe,
  * verifies generated SEO outputs by URL set, prints a report, and returns a numeric exit
  * code (so tests can drive it without triggering `process.exit`).
- * @param {{treePath?: string, learnDir?: string, llmsPath?: string, sitemapPath?: string, baseUrl?: string, checkSeo?: boolean}} [options]
+ * @param {{treePath: string, learnDir: string, llmsPath: string, sitemapPath: string, baseUrl: string, checkSeo: boolean}} [options] All keys optional (defaults applied).
  * @returns {Promise<{exitCode: number, violations: Array<{code: string, message: string}>}>}
  */
 async function runLint({

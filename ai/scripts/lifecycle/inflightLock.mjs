@@ -29,7 +29,7 @@ export function getLockPath(mode, identity) {
  * @param {string} identity Agent identity.
  * @param {string} mode Recovery mode, usually `sunset_restart` or `idle_out_nudge`.
  * @param {number} latestMemoryTimestampMs Timestamp of the latest AGENT_MEMORY for this identity.
- * @returns {Promise<{inFlight: boolean, abandoned: boolean, abandonedCount?: number}>}
+ * @returns {Promise<{inFlight: boolean, abandoned: boolean, abandonedCount: number}>} `abandonedCount` only present when abandoned.
  */
 export async function checkInflightLock(identity, mode, latestMemoryTimestampMs) {
     const lockPath = getLockPath(mode, identity);

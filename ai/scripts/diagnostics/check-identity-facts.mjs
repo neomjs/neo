@@ -180,7 +180,7 @@ function sortServerIds(ids) {
 
 /**
  * @param {Object} packageJson Parsed package.json.
- * @returns {Array<{id: String, script: String, command: String, label: String, frontier: Boolean, rationale?: String}>}
+ * @returns {Array<{id: String, script: String, command: String, label: String, frontier: Boolean, rationale: String}>} `rationale` only present on frontier servers.
  */
 function deriveMcpServers(packageJson) {
     const scripts = packageJson.scripts || {};
@@ -384,7 +384,7 @@ function checkMcpMirrorFacts(failures, context) {
 
 /**
  * Checks identity facts and returns a report without exiting.
- * @param {{root?: String}} [options]
+ * @param {{root: String}} [options] `root` optional (defaults to the repo root).
  * @returns {{failures: Array<Object>, context: Object}}
  */
 export function runCheck({root = ROOT_DIR} = {}) {

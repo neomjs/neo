@@ -17,7 +17,11 @@ const __dirname   = path.resolve(),
           access        : 'all',
           files         : [`${neoPath}src/**/*.mjs`, `${neoPath}ai/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
           includePattern: ".+\\.(m)js(doc)?$",
-          excludePattern: "(^|\\/|\\\\)_",
+          // Underscore-prefixed paths, plus the gitignored machine-local config overlays
+          // (ai/config.mjs + ai/mcp/server/*/config.mjs): their canonical doc source is the
+          // tracked config.template.mjs sibling, which IS parsed — parsing the overlay too
+          // double-documents identical content and couples the build to per-machine state.
+          excludePattern: "(^|\\/|\\\\)_|ai\\/config\\.mjs$|ai\\/mcp\\/server\\/[^\\/]+\\/config\\.mjs$",
           recurse       : true,
           undocumented  : false
       };
@@ -456,7 +460,7 @@ parse(options)
 
         // Sort and write class hierarchy
         const sortedKeys = Object.keys(classHierarchy).sort();
-        
+
         // Convert to JSON object for structured access
         const hierarchyJson = {};
         sortedKeys.forEach(key => {
@@ -526,5 +530,9 @@ parse(options)
         console.log(`\nTotal documentation generation time: ${totalTime}s`);
     })
     .catch(function (err) {
-        console.log(err.stack);
+        // A failed parse batch means the docs JSON silently loses every file in that batch —
+        // the build must fail loudly instead of shipping incomplete docs (build-all runs this
+        // by default and docs/app consumes the output).
+        console.error(err.stack);
+        process.exitCode = 1;
     });

@@ -74,7 +74,7 @@ function roundMetric(value, decimals = 3) {
  * @param {string} ntype Unique ntype
  * @param {number} reactiveConfigs Number of trailing-underscore configs
  * @param {number} prototypeConfigs Number of prototype configs
- * @returns {typeof Neo.core.Base}
+ * @returns {Function} The synthetic class (a `Neo.core.Base` subclass constructor).
  */
 function createSyntheticClass(className, ntype, reactiveConfigs, prototypeConfigs) {
     class SyntheticSetupClassBenchmark extends Neo.core.Base {}

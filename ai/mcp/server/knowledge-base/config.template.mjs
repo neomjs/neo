@@ -278,13 +278,13 @@ class Config extends ConfigProvider {
             /**
              * Declarative tenant-supplied Source registration.
              * Each entry: `{SourceClass, sourceName?}`.
-             * @type {Array<{SourceClass: Object, sourceName?: string}>}
+             * @type {Array<{SourceClass: Object, sourceName: string}>}
              */
             customSources: leaf([]),
             /**
              * Declarative tenant-supplied Parser registration.
              * Each entry: `{ParserClass, parserId?}`.
-             * @type {Array<{ParserClass: Object, parserId?: string}>}
+             * @type {Array<{ParserClass: Object, parserId: string}>}
              */
             customParsers: leaf([]),
             /**
