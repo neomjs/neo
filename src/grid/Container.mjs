@@ -6,6 +6,7 @@ import ScrollManager       from './ScrollManager.mjs';
 import Store               from '../data/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
+import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
 import View                from './View.mjs';
 import * as column         from './column/_export.mjs';
