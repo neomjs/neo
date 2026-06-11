@@ -21,6 +21,12 @@ import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 
 import { Memory_SessionService } from '../../services.mjs';
+import Memory_Config             from '../../mcp/server/memory-core/config.mjs';
+
+// Enable debug logging so intra-run progress reaches stderr — the channel the orchestrator's
+// ProcessSupervisor captures into orchestrator.log (child stdout is ignored). Mirrors
+// runSandman.mjs / syncKnowledgeBase.mjs.
+Memory_Config.data.debug = true;
 
 async function summarize() {
     console.log('[summarize-sessions] Initializing SessionService...');

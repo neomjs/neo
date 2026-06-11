@@ -18,6 +18,12 @@ import * as core        from '../../../src/core/_export.mjs';
 import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import MemoryService    from '../../services/memory-core/MemoryService.mjs';
+import Memory_Config    from '../../mcp/server/memory-core/config.mjs';
+
+// Enable debug logging so intra-run progress reaches stderr — the channel the orchestrator's
+// ProcessSupervisor captures into orchestrator.log (child stdout is ignored). Mirrors
+// runSandman.mjs / syncKnowledgeBase.mjs.
+Memory_Config.data.debug = true;
 
 async function main() {
     const outcome = await withHeavyMaintenanceLease(

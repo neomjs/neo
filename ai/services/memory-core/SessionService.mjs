@@ -1319,6 +1319,8 @@ ${sessionContent}
 
                 logger.info(`[SessionService] Found ${total} sessions to summarize. Processing in batches of ${batchSize}...`);
 
+                let completed = 0;
+
                 for (let i = 0; i < total; i += batchSize) {
                     const chunk = sessionsToSummarize.slice(i, i + batchSize);
                     logger.info(`[SessionService] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(total / batchSize)} (${chunk.length} sessions)...`);
@@ -1331,6 +1333,8 @@ ${sessionContent}
 
                         try {
                             const result = await this.summarizeSession(id);
+                            // Per-session completion progress so a 15-30 min run emits output, not silence.
+                            logger.info(`[SessionService] session summarization: ${++completed}/${total} done (${id})`);
                             if (result) {
                                 this.completeSummarizationJob(id);
                                 return result;

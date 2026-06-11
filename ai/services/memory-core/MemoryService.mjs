@@ -1021,6 +1021,13 @@ class MemoryService extends Base {
 
             processed++;
 
+            // Intra-run progress so a long backfill is observable rather than silent. Reaches the
+            // operator's orchestrator.log via the lifecycle child's debug logging (stderr is the
+            // captured channel; child stdout is ignored by the supervisor).
+            if (processed % 5 === 0) {
+                logger.info(`[MemoryService] miniSummary backfill: ${processed}/${rows.length} (${updated} updated, ${deferred} deferred)`);
+            }
+
             const metadata = byId.get(row.id);
             if (!metadata || (!metadata.prompt && !metadata.response)) {
                 missingContent++;
@@ -1053,6 +1060,9 @@ class MemoryService extends Base {
         if (runBudgetHit) {
             logger.info(`[MemoryService] miniSummary backfill hit the ${runBudgetMs}ms run budget after ${processed}/${rows.length} row(s); deferring the remainder to the next sweep`);
         }
+
+        // Completion line so the run ends with a visible tally, not silence.
+        logger.info(`[MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content)`);
 
         return {processed, updated, deferred, missingContent, runBudgetHit};
     }
