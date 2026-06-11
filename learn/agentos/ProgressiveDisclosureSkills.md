@@ -141,6 +141,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
 | `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks (Mailbox Check Protocol supported) |
 | `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |
+| `peer-naming` | Coordination | Social Name ritual (#11240 Layer 4): peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; name ≠ handle |
 | `lane-intent` | Coordination | Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes; distinct from authoritative `[lane-claim]` |
 | `post-review-pickup` | Coordination | Mandatory next-phase pickup at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution); requires explicit `lane-state:` declaration per §15.6 |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
