@@ -414,6 +414,8 @@ class SortZone extends DragZone {
                 isWindowDragging: false,
                 itemRects       : null,
                 itemStyles      : null,
+                lastInBoundX    : null,
+                lastInBoundY    : null,
                 ownerRect       : null,
                 startIndex      : -1,
                 sortableItems   : null
@@ -460,8 +462,16 @@ class SortZone extends DragZone {
             index              = me.currentIndex,
             {itemRects}        = me,
             maxItems           = itemRects.length - 1,
-            ownerX             = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
-            ownerY             = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
+            // itemRects leave viewport space through EITHER conversion mechanism: the
+            // adjustItemRectsToParent flag (parent-managed) or a subclass-provided
+            // adjustProxyRectToParent (grid / table header toolbars). The delta math must
+            // shift clientX/Y into the same owner-relative space in both cases — comparing
+            // viewport cursor coordinates against owner-relative rects inflates delta by the
+            // owner's viewport origin (~the locked-start region width in a locked grid),
+            // making every in-bound move exceed every switch threshold.
+            rectsAreOwnerRelative = me.adjustItemRectsToParent || !!me.adjustProxyRectToParent,
+            ownerX             = rectsAreOwnerRelative ? me.ownerRect.x : 0,
+            ownerY             = rectsAreOwnerRelative ? me.ownerRect.y : 0,
             reversed           = me.reversedLayoutDirection,
             delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
 
@@ -479,6 +489,20 @@ class SortZone extends DragZone {
 
         isOverDragging = isOverDraggingEnd || isOverDraggingStart;
         moveFactor     = isOverDragging ? 0.02 : 0.55; // We can not use 0.5, since items would jump back & forth
+
+        // Duplicate-delivery guard (in-bound only): the same pointer position can reach this
+        // zone more than once — stacked delegated drag listeners along the DOM path deliver one
+        // move per matching node, and sensor fallbacks re-fire the last position. In-bound switch
+        // decisions are position-driven: re-processing an unchanged position re-qualifies the
+        // delta against already-mutated itemRects and over-switches. The overdrag branches stay
+        // exempt — their auto-scroll loop deliberately re-feeds the same position.
+        if (!isOverDragging && clientX === me.lastInBoundX && clientY === me.lastInBoundY) {
+            me.traceEvent({t: 'dup', x: clientX, y: clientY});
+            return
+        }
+
+        me.lastInBoundX = clientX;
+        me.lastInBoundY = clientY;
 
         if (isOverDraggingStart) {
             if (index > 0) {
@@ -510,7 +534,17 @@ class SortZone extends DragZone {
             }
         }
 
-        me.traceEvent({t: 'move', x: clientX, y: clientY, i: me.currentIndex, over: isOverDragging});
+        me.traceEvent({
+            t   : 'move',
+            x   : clientX,
+            y   : clientY,
+            i   : me.currentIndex,
+            over: isOverDragging,
+            d   : Math.round(delta),
+            ox  : Math.round(me.offsetX || 0),
+            sl  : me.scrollLeft,
+            ir  : itemRects[me.currentIndex] ? Math.round(itemRects[me.currentIndex].left) : null
+        });
 
         me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
 
