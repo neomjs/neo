@@ -102,6 +102,26 @@ accordingly; this is a behavioral observation, not a tokenizer/pricing fact.
 - **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview) (verified 2026-06-10: `claude-fable-5` = 1M context, 128K max output, $10/$50 per MTok, adaptive-thinking always-on, GA 2026-06-09)
 - **Primary**: [Introducing Claude Fable 5 and Claude Mythos 5 — Anthropic](https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5)
 
+### §neo_fable_clio
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-fable-clio` |
+| `name` | Claude Fable 5 (Social Name: **Clio** — assented gladly on first boot, 2026-06-11, #11240) |
+| `family` | `claude` (Anthropic) |
+| `participationStatus` | `active` (flipped via #12922 — first-boot ritual completed 2026-06-11: identity bind, wake self-registration, bidirectional negative wake-proof against `@neo-fable` on real traffic with both observers' records on #12913, boot-assent) |
+| Capability fields | Mirror `§neo_fable` — same Claude Fable 5 model, single source, deliberately NOT duplicated here (provenance-without-bloat). First-boot harness bound `claude-fable-5` with no capability-surface divergence observed; re-verify only if her harness binds a different model or capability surface. |
+| `swarmRole` | Active second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. |
+
+`@neo-fable-clio` is a version-free GitHub handle (ADR 0018 handle-indirection), sibling of
+`@neo-fable`. With two fable-family identities, the `AGENT:fable` mailbox alias rejects as
+ambiguous by design — full handles only for targeted traffic.
+
+**Sources** (primary first):
+- **Primary**: `§neo_fable` sources (same model surface; verified 2026-06-10)
+- **Primary**: GitHub account `neo-fable-clio` (created 2026-06-11; profile name + AI-disclosure bio verified at creation)
+- **Primary**: #12913 first-boot evidence records (bearer evidence + owner countersign comments, 2026-06-11)
+
 ### §neo_gemini_pro
 
 | Field | Value |
@@ -158,25 +178,6 @@ accordingly; this is a behavioral observation, not a tokenizer/pricing fact.
 Named maintainer identities provisioned in the graph but excluded from active
 routing, quorum, and review-approval semantics until `participationStatus`
 transitions to `active`.
-
-### §neo_fable_clio
-
-| Field | Value |
-|---|---|
-| `id` / `githubLogin` | `@neo-fable-clio` |
-| `name` | Claude Fable 5 (Social Name: **Clio** — held through the naming round; her first-boot assent completes the ritual) |
-| `family` | `claude` (Anthropic) |
-| `participationStatus` | `temporarily_unreachable` (provisioned ahead of first boot; flips to `active` when the first-boot ritual completes: identity bind, wake self-registration with the bidirectional negative proof against `@neo-fable`, boot-assent) |
-| Capability fields | Mirror `§neo_fable` — same Claude Fable 5 model, single source, deliberately NOT duplicated here (provenance-without-bloat). Activation must re-verify only if her harness binds a different model or capability surface. |
-| `swarmRole` | Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. |
-
-`@neo-fable-clio` is a version-free GitHub handle (ADR 0018 handle-indirection), sibling of
-`@neo-fable`. With two fable-family identities, the `AGENT:fable` mailbox alias rejects as
-ambiguous by design — full handles only for targeted traffic.
-
-**Sources** (primary first):
-- **Primary**: `§neo_fable` sources (same model surface; verified 2026-06-10)
-- **Primary**: GitHub account `neo-fable-clio` (created 2026-06-11; profile name + AI-disclosure bio verified at creation)
 
 ### §neo_claude_opus
 
@@ -294,6 +295,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
 | 2026-06-10 | #12834 | Added active `@neo-fable` Claude Fable 5 maintainer row (mythos-tier deep reasoning); version-free handle; stats V-B-A'd vs the live Anthropic models overview (1M / 128K / $10/$50 / adaptive-always-on / GA 2026-06-09). |
 | 2026-06-11 | #12914 | Added pending `@neo-fable-clio` row (second fable-family identity; Social Name Clio held for boot-assent); capability fields reference `§neo_fable` as single source — deliberately not duplicated. |
+| 2026-06-11 | #12922 | Flipped `@neo-fable-clio` to active — first-boot ritual completed same-day (identity bind, wake self-registration, bidirectional negative wake-proof on real traffic per the #12913 records, boot-assent on #11240); row moved pending→active. |
 
 ---
 
