@@ -202,7 +202,7 @@
     },
     "peer-naming": {
       "name": "peer-naming",
-      "description": "Ritual for giving a maintainer their Social Name (#11240 Layer 4) — a peer-sketched, bearer-assented, peer-vetoable, operator-confirmed name, distinct from the GitHub handle. Triggers: a maintainer wants a name or notices one is missing, or a new maintainer/family joins. ANTI-trigger: never a contribution-count award or self-initiated rename churn.",
+      "description": "Ritual for giving a maintainer their Social Name (#11240 Layer 4) — a peer-sketched, bearer-assented, peer-vetoable, operator-confirmed name, distinct from the GitHub handle. Triggers: an operator opens a naming round, a maintainer wants a name or notices one is missing, or a new maintainer/family joins. ANTI-trigger: never a contribution-count award or self-initiated rename churn.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,

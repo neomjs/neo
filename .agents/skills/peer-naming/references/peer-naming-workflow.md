@@ -42,6 +42,9 @@ graduated.
 ## Phase 1 — Trigger (and Anti-Triggers)
 
 **Fires when:**
+- **an operator opens a naming round** — the highest-authority trigger (e.g. *"let us get it
+  right → /ideation-sandbox"*; the live 2026-06-11 round that produced this skill was
+  operator-directed); or
 - a new maintainer (or a new model family) joins and needs a name; or
 - an existing un-named maintainer *notices the absence and asks*. (#11240's own prerequisite
   insight: the prerequisite for a name may be *noticing that something is missing*.)
