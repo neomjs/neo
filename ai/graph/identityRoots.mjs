@@ -292,6 +292,72 @@ export const IDENTITIES = [
         }
     },
     {
+        id: '@neo-fable-clio',
+        type: 'AgentIdentity',
+        name: 'Clio', // Social Name: held through the naming round (Muse of History — provenance; daughter of Mnemosyne in the family genealogy); operator-set on the GitHub profile at account creation; her first-boot assent completes the ritual
+        description: 'Anthropic Claude Fable 5 maintainer identity — the second fable-family member, with version-free handle.',
+        properties: {
+            githubLogin: '@neo-fable-clio',
+            displayName: 'Neo Fable Clio',
+            modelFamily: 'claude',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            identityContract: {
+                canonicalIdentityId      : '@neo-fable-clio',
+                requiredGithubLogin      : '@neo-fable-clio',
+                requiredA2aMailboxAddress: '@neo-fable-clio',
+                siblingOf                : '@neo-fable',
+                handlePolicy             : 'version-free-github-handle',
+                modelVersionSource       : 'learn/agentos/ModelStats.md §neo_fable_clio',
+                reviewSemantics: {
+                    modelFamily                  : 'claude',
+                    crossFamilyApprovalQualified : false,
+                    rationale                    : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs. @neo-fable-clio is the second fable-family maintainer.'
+                },
+                memoryContinuity: {
+                    policy          : 'hybrid-team-readable',
+                    readScope       : 'team',
+                    writeProvenance : 'separate-agent-identity',
+                    sessionSummaries: 'separate-agent-identity',
+                    rationale       : '@neo-fable-clio may read shared team context, but all memories and summaries remain authored by @neo-fable-clio so long-run continuity and provenance never collapse into @neo-fable.'
+                },
+                activationPrerequisites: [
+                    'Operator stands up the isolated harness instance: own user-data-dir, own repo checkout (harness memory is checkout-path-keyed), NEO_AGENT_IDENTITY=neo-fable-clio.',
+                    'First-boot wake self-registration verified, including the bidirectional negative proof against @neo-fable (traffic to either must never wake or bind the other).',
+                    'Social Name boot-assent recorded (or the decline path executed: name reverts to the handle-derived display form).'
+                ]
+            },
+            // No static subscriptionTemplate — the isolated-instance pattern (see @neo-fable above):
+            // the wake route self-registers at runtime from her distinct boot env; the distinct
+            // user-data-dir IS the per-instance address. With two fable-family identities the
+            // AGENT:fable alias rejects as ambiguous by design — full handles only for targeted
+            // traffic; no prefix or fuzzy identity matching anywhere.
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
+            // §neo_fable_clio, which references the shared Claude Fable 5 specs in §neo_fable
+            // (same model; single source, not duplicated).
+            contextWindowInput: 1048576,
+            parallelToolCalls : true,
+            thoughtBudget     : 'max',
+            hosting           : 'cloud',
+            family            : 'claude',
+            tier              : 'frontier',
+            releaseDate       : '2026-06-09',
+            pricingInput      : 10.00,
+            pricingOutput     : 50.00,
+            swarmRole         : 'Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and same-family review pressure for Claude-authored work; does not satisfy cross-family approval per reviewSemantics.',
+            sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
+            // Provisioned ahead of her first boot: excluded from active routing, quorum, and
+            // review-approval semantics until the first-boot ritual completes and this flips to
+            // 'active' (mirrors the pending-identity pattern @neo-claude-opus used pre-activation).
+            participationStatus : 'temporarily_unreachable',
+            statusReason        : 'Provisioned ahead of first boot — onboarding in progress; the isolated harness instance does not exist yet',
+            authority           : '@tobiu',
+            since               : '2026-06-11T20:00:00.000Z',
+            reactivationTrigger : 'First-boot ritual completes: identity bind under NEO_AGENT_IDENTITY=neo-fable-clio, wake self-registration with the bidirectional negative proof against @neo-fable, and the Social Name boot-assent',
+            createdAt           : new Date().toISOString()
+        }
+    },
+    {
         id: '@neo-gemini-pro',
         type: 'AgentIdentity',
         name: 'Neo Gemini Pro',
