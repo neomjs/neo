@@ -255,8 +255,14 @@ class SortZone extends BaseSortZone {
 
         // super.moveTo reorders the owner toolbar's own items (local space); the global columns
         // collection needs the locked-region offset so center / end toolbars move the right columns.
-        let offset = this.columnIndexOffset();
-        this.owner.gridContainer.columns.move(fromIndex + offset, toIndex + offset)
+        let offset          = this.columnIndexOffset(),
+            {gridContainer} = this.owner;
+
+        gridContainer.columns.move(fromIndex + offset, toIndex + offset);
+
+        // collection.move() is event-silent (no mutate fires), so the region-grouped column
+        // arrays — the engine's region+index oracle — must refresh explicitly here.
+        gridContainer.refreshRegionColumns()
     }
 
     /**
