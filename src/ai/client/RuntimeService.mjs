@@ -100,6 +100,28 @@ class RuntimeService extends Service {
     }
 
     /**
+     * Returns the recent drag-lifecycle traces recorded by Neo.draggable.container.SortZone
+     * (start geometry, per-move decisions, switches, scroll activations, end resolution).
+     * Resolved via the class namespace so apps without loaded SortZones pay nothing.
+     * @param {Object}  params
+     * @param {Boolean} [params.clear=false] Empty the ring buffer after reading
+     * @returns {Object}
+     */
+    getDragTrace({clear = false} = {}) {
+        const
+            SortZone = Neo.draggable?.container?.SortZone,
+            traces   = SortZone?.traces || [];
+
+        const result = {count: traces.length, traces: [...traces]};
+
+        if (clear && SortZone) {
+            SortZone.traces.length = 0
+        }
+
+        return result
+    }
+
+    /**
      * Retrieves the source code of a method on a class prototype.
      * @param {Object} params
      * @param {String} params.className  The fully qualified class name.

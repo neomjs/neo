@@ -622,6 +622,111 @@ paths:
               schema:
                 type: object
 
+  /drag/trace:
+    post:
+      summary: Get Drag Trace
+      operationId: get_drag_trace
+      x-pass-as-object: true
+      description: |
+        Retrieves the recent drag-lifecycle traces recorded by SortZone (start geometry, per-move decisions, item switches, scroll activations, end resolution, grid lock verdicts).
+
+        **When to Use:**
+        To verify or debug drag-and-drop LOGIC decisions after driving a drag. Pair with observe_motion for the rendered-geometry side.
+      tags: [Inspection]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                clear:
+                  type: boolean
+                  description: Empty the trace ring buffer after reading
+      responses:
+        '200':
+          description: Recent drag traces
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /component/observeMotion:
+    post:
+      summary: Observe Motion
+      operationId: observe_motion
+      x-pass-as-object: true
+      description: |
+        Samples the client rects of the given components over a time window and returns the motion trace.
+
+        **When to Use:**
+        To SEE live motion (drag choreography, animations) while you or a user drive an interaction. Duration is clamped to 8000ms per call; chain calls for longer windows.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentIds]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Component ids to sample
+                durationMs:
+                  type: number
+                  description: Sampling window, clamped to [100, 8000] (default 2000)
+                intervalMs:
+                  type: number
+                  description: Sampling interval, clamped to [16, 1000] (default 100)
+      responses:
+        '200':
+          description: Motion trace samples
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /component/verifyConsistency:
+    post:
+      summary: Verify Component Consistency
+      operationId: verify_component_consistency
+      x-pass-as-object: true
+      description: |
+        Diffs a container's three child-order surfaces — logical items, vdom child nodes, and the rendered DOM — reporting count, order, membership and duplicate mismatches.
+
+        **When to Use:**
+        To detect engine-vs-DOM divergence, e.g. duplicated or ghost children after drag-and-drop or vdom updates.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentId]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentId:
+                  type: string
+                  description: The container component id
+      responses:
+        '200':
+          description: Consistency report
+          content:
+            application/json:
+              schema:
+                type: object
+
   /component/query:
     post:
       summary: Query Components

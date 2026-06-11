@@ -94,8 +94,10 @@ class Client extends Base {
             get_vdom_vnode        : component,
             get_vnode             : component,
             highlight_component   : component,
+            observe_motion        : component,
             query_component       : component,
             query_vdom            : component,
+            verify_component      : component,
 
             call_method            : instance,
             find_instances         : instance,
