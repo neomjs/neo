@@ -475,6 +475,7 @@ class SortZone extends DragZone {
                 lastInBoundX    : null,
                 lastInBoundY    : null,
                 ownerRect       : null,
+                scrollLeft      : 0,
                 startIndex      : -1,
                 sortableItems   : null
             });
@@ -695,6 +696,7 @@ class SortZone extends DragZone {
                 lastIntersectionRatio  : 1,
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
+                scrollLeft             : 0, // scroll-since-drag-start; the itemRects snapshot below bakes in any pre-existing scroll
                 sortableItems,
                 sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
                 startIndex             : index
@@ -815,6 +817,13 @@ class SortZone extends DragZone {
     onWindowDragContinue(intersectionRatio, data) {}
 
     /**
+     * Scrolls the owner so the current index is reachable, then re-derives the zone's
+     * scroll-correction term. The overdrag path scrolls programmatically (scrollIntoView on the
+     * grid container), which bypasses the normal scroll-sync pipeline — nothing else writes
+     * `me.scrollLeft`, and with a stale term every post-scroll move delta is off by the scrolled
+     * amount (switch avalanches, body cells written in the wrong space). The term's semantics
+     * are scroll-SINCE-DRAG-START (the itemRects snapshot bakes in any pre-existing scroll), so
+     * the correct source is the owner's viewport-x shift relative to the drag-start ownerRect.
      * @returns {Promise<void>}
      */
     async scrollToIndex() {
@@ -824,6 +833,13 @@ class SortZone extends DragZone {
 
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
+
+        if (me.ownerRect) {
+            const [liveOwnerRect] = await me.owner.getDomRect([me.owner.id]);
+            me.scrollLeft = me.ownerRect.x - liveOwnerRect.x;
+            me.traceEvent({t: 'scrollSync', sl: me.scrollLeft})
+        }
+
         me.isScrolling = false
     }
 
