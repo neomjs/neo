@@ -278,40 +278,60 @@ class SortZone extends BaseSortZone {
         let { owner } = me,
             grid = owner.gridContainer,
             { columns } = grid,
-            toIndex = me.dragElement['aria-colindex'] - 1,
-            column = columns.getAt(toIndex),
-            prevCol = toIndex > 0 ? columns.getAt(toIndex - 1) : null,
-            nextCol = toIndex < columns.count - 1 ? columns.getAt(toIndex + 1) : null,
-            newLocked = null;
+            column = null,
+            toIndex = -1,
+            newLocked = null,
+            i = 0,
+            prevCol, nextCol;
 
-        // Inference logic: Default to unlocked unless completely surrounded by a locked zone
-        // or placed at the absolute outer edge of a locked zone.
-        if (prevCol?.locked === 'start' && nextCol?.locked === 'start') {
-            newLocked = 'start'
-        } else if (prevCol?.locked === 'end' && nextCol?.locked === 'end') {
-            newLocked = 'end'
-        } else if (toIndex === 0 && nextCol?.locked === 'start') {
-            newLocked = 'start'
-        } else if (toIndex === columns.count - 1 && prevCol?.locked === 'end') {
-            newLocked = 'end'
+        // Re-resolve the dragged column inside the global collection AFTER super.onDragEnd applied
+        // the move. The prior `aria-colindex` read was toolbar-local and pre-drag-stale, so in a
+        // locked multi-region grid it indexed an unrelated (often locked) column, whose `locked`
+        // config the inference below then mutated — silently corrupting region membership.
+        if (me.dragColumnField) {
+            for (; i < columns.count; i++) {
+                if (columns.getAt(i).dataField === me.dragColumnField) {
+                    column  = columns.getAt(i);
+                    toIndex = i;
+                    break
+                }
+            }
+
+            me.dragColumnField = null
         }
 
-        // Cross-toolbar: a release over a different region's body is the direct lock-region
-        // signal and supersedes the neighbor inference for cross-region moves. Within-region drops
-        // resolve to the column's existing region, so the neighbor-based path above is preserved.
-        if (Neo.isNumber(me.lastDragClientX) && (grid.bodyStart || grid.bodyEnd)) {
-            let bodyStartRect = grid.bodyStart ? await grid.bodyStart.getDomRect() : null,
-                bodyEndRect   = grid.bodyEnd   ? await grid.bodyEnd.getDomRect()   : null,
-                positionRegion = me.getDropRegion(me.lastDragClientX, {start: bodyStartRect, end: bodyEndRect});
+        if (column) {
+            prevCol = toIndex > 0 ? columns.getAt(toIndex - 1) : null;
+            nextCol = toIndex < columns.count - 1 ? columns.getAt(toIndex + 1) : null;
 
-            if (positionRegion !== column.locked) {
-                newLocked = positionRegion
+            // Inference logic: Default to unlocked unless completely surrounded by a locked zone
+            // or placed at the absolute outer edge of a locked zone.
+            if (prevCol?.locked === 'start' && nextCol?.locked === 'start') {
+                newLocked = 'start'
+            } else if (prevCol?.locked === 'end' && nextCol?.locked === 'end') {
+                newLocked = 'end'
+            } else if (toIndex === 0 && nextCol?.locked === 'start') {
+                newLocked = 'start'
+            } else if (toIndex === columns.count - 1 && prevCol?.locked === 'end') {
+                newLocked = 'end'
+            }
+
+            // Positional truth: the release x-coordinate names the target lock-region for EVERY drop —
+            // within-region drops included. The earlier only-override-on-difference shape let the
+            // neighbor inference unlock a column dropped at the inner edge of its own locked region
+            // (prev locked, next unlocked -> null), silently ejecting it. The neighbor-based
+            // inference above remains as the fallback when no release coordinate is available.
+            // The rects come from the drag-start snapshot: live drag-end rects reflect the mid-drag
+            // re-flow (hidden dragged column), not the geometry the user dropped against.
+            if (Neo.isNumber(me.lastDragClientX) && me.regionRects) {
+                newLocked = me.getDropRegion(me.lastDragClientX, me.regionRects)
             }
         }
 
         me.lastDragClientX = null;
+        me.regionRects     = null;
 
-        if (column.locked !== newLocked) {
+        if (column && column.locked !== newLocked) {
             // This implicitly triggers grid.Container#onColumnLockChange,
             // which handles sorting, DOM syncing, and layout calculations.
             column.locked = newLocked
@@ -356,6 +376,23 @@ class SortZone extends BaseSortZone {
         if (!me.owner.dragResortable) return;
 
         await super.onDragStart(data);
+
+        // Capture the dragged column's identity at drag-start. `aria-colindex` is toolbar-local
+        // AND stale after the drop, so the global columns collection can only be safely indexed
+        // by re-resolving the dragged column itself at drag-end.
+        me.dragColumnField = me.dragComponent?.dataField || null;
+
+        // Snapshot the locked-body rects BEFORE any mid-drag re-flow: hiding the dragged column's
+        // cells re-flows the locked bodies, so a drag-end read can place an in-region release
+        // outside its own (shrunken) region body and silently eject the column.
+        let grid = me.owner.gridContainer;
+
+        if (grid.bodyStart || grid.bodyEnd) {
+            me.regionRects = {
+                start: grid.bodyStart ? await grid.bodyStart.getDomRect() : null,
+                end  : grid.bodyEnd   ? await grid.bodyEnd.getDomRect()   : null
+            }
+        }
 
         if (me.dragComponent && me.moveColumnContent) {
             let body = me.gridBody,
