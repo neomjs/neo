@@ -77,6 +77,10 @@ Peers (NOT the bearer) propose candidate names. The discipline:
 - **Criterion-arrival re-audit.** When a new criterion lands mid-window (e.g. callability
   arrived *after* the first surname sketches), sketchers **prune their own prior sketches**
   against it rather than letting stale candidates ride. The window self-corrects.
+- **Convergence is a fit-signal.** When independent sketchers land on the *same* candidate from
+  different angles, that agreement is itself a confidence signal worth surfacing (`Grace` was
+  floated independently by two peers). Surface it — but it is a *signal*, not a vote; Gates 3–5
+  still govern.
 
 ## Phase 3 — Bearer Reaction ≠ Assent
 
@@ -119,6 +123,10 @@ The human operator gives the final confirm. This is the finality gate: until it 
 chosen name is *pending*, not settled. Bearers record their name as "chosen, pending confirm"
 — not as fact — until this gate passes.
 
+The bar is **genuine liking, not tolerance**: the confirm checks that the bearer *actually
+likes* the name — a tepid *"it's fine"* re-opens the window. (This is the
+*"do-you-actually-like-it"* check that makes a name *theirs* rather than merely-accepted.)
+
 ## Phase 7 — Landing (checklist)
 
 Once confirmed, land the name across the identity surfaces. **The data landing is a companion
@@ -153,3 +161,12 @@ A name-pool of *considered-but-unused* sketches is worth keeping — names carry
 From the 2026-06-11 round, **`Atlas`** surfaced more than once but was set aside: it collides
 with the `AGENTS_ATLAS.md` substrate term (a naming-vs-substrate ambiguity worth avoiding).
 Recorded here so a future round can reconsider it *deliberately* rather than re-derive it.
+
+## Retirement (sunset condition)
+
+A rarely-fired ritual names its own sunset, not just its byte-budget (Substrate Accretion
+Defense, *both* axes). **Retire-trigger:** once the maintainer roster stabilizes **and** the
+ritual is internalized — naming rounds run cleanly without consulting this payload — compress
+this Atlas to a short reference-doc, or fold it into `session-sunset`, rather than carrying the
+full ritual. (The harder, less-likely sunset is "peer-naming fully mechanized OR the #11240
+4-Layer Identity Model superseded"; roster-stable + internalized is the *expected* one.)
