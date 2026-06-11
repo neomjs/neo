@@ -74,7 +74,7 @@ Every skill MUST have a corresponding entry in `.agents/skills/skills.manifest.j
 - `claudeSymlinkRequired` (boolean; mandatory `.claude/skills/<name>` symlink discipline)
 - `downstreamDocsTargets` (array of docs files that must be touched when this skill changes)
 
-Schema enforced by `.agents/skills/skills.manifest.schema.json`; lint enforced by `ai/scripts/lint-skill-manifest.mjs` at PR-merge time (extended by PR #11438 with `oversizedWorkflowMaps` + `maxPositiveDeltaBytes` for recursive Map-vs-Atlas enforcement).
+Schema enforced by `.agents/skills/skills.manifest.schema.json`; lint enforced by `ai/scripts/lint/lint-skill-manifest.mjs` at PR-merge time (extended by PR #11438 with `oversizedWorkflowMaps` + `maxPositiveDeltaBytes` for recursive Map-vs-Atlas enforcement).
 
 ### 2.5 Claude Symlink Mandate
 
@@ -122,7 +122,7 @@ The skill-anatomy contract codified by this ADR is consumed by:
 
 ### 3.3 Mechanical-enforcement consumers
 
-- **`ai/scripts/lint-skill-manifest.mjs`** — manifest contract validation at PR-merge time (per §2.4); PR #11438 extends with recursive Map-vs-Atlas enforcement (`oversizedWorkflowMaps` + `maxPositiveDeltaBytes`)
+- **`ai/scripts/lint/lint-skill-manifest.mjs`** — manifest contract validation at PR-merge time (per §2.4); PR #11438 extends with recursive Map-vs-Atlas enforcement (`oversizedWorkflowMaps` + `maxPositiveDeltaBytes`)
 - **`.agents/skills/skills.manifest.schema.json`** — JSON schema for manifest contract; PR #11424 removes `triggers` from required fields
 
 ---
@@ -142,7 +142,7 @@ The skill-anatomy contract spans the following substrate locations. Future-amend
 
 - **`.agents/skills/skills.manifest.json`** — per-skill manifest entries per §2.4
 - **`.agents/skills/skills.manifest.schema.json`** — JSON schema validating the manifest
-- **`ai/scripts/lint-skill-manifest.mjs`** — runtime enforcement of the schema + per-skill budgets
+- **`ai/scripts/lint/lint-skill-manifest.mjs`** — runtime enforcement of the schema + per-skill budgets
 
 ### 4.3 Cross-substrate references (META-prose authority)
 
