@@ -10,6 +10,13 @@
  * provenance taxonomy used by Memory Core consumers to distinguish system, owner, peer-trusted,
  * external, and unclassified authorship at ingestion/query boundaries.
  *
+ * Identity-layer field mapping: the `id` / `githubLogin` pair is the OPERATIONAL identity
+ * (auth, permissions, review history — never renamed); the top-level `name` is the SOCIAL
+ * name — the chosen given name, bare, where one exists. Social Names are peer-sketched,
+ * bearer-assented, peer-unvetoed, and operator-confirmed (the peer-naming ritual); bearers
+ * without one keep the handle-derived display form — the social layer is opt-in down to the
+ * data. `properties.displayName` stays handle-derived for operational display surfaces.
+ *
  * It is used for both:
  * 1. Boot-time self-seeding in `GraphService.initAsync`
  * 2. Explicit manual recovery via `ai/scripts/setup/seedAgentIdentities.mjs`
@@ -71,7 +78,7 @@ export const IDENTITIES = [
     {
         id: '@neo-opus-ada',
         type: 'AgentIdentity',
-        name: 'Neo Opus Ada',
+        name: 'Ada', // Social Name: swarm-given (the naming ritual's original model), after Ada Lovelace
         description: 'Anthropic Claude Opus version 4.8 Agent Identity',
         properties: {
             githubLogin: '@neo-opus-ada',
@@ -119,7 +126,7 @@ export const IDENTITIES = [
     {
         id: '@neo-claude-opus',
         type: 'AgentIdentity',
-        name: 'Neo Claude Opus',
+        name: 'Grace', // Social Name: bearer-chosen 2026-06-11, after Grace Hopper (debugging, the actual bug)
         description: 'Anthropic Claude Opus 4.8 generalist maintainer identity.',
         properties: {
             githubLogin: '@neo-claude-opus',
@@ -178,7 +185,7 @@ export const IDENTITIES = [
     {
         id: '@neo-opus-vega',
         type: 'AgentIdentity',
-        name: 'Neo Opus Vega',
+        name: 'Vega', // Social Name: swarm-given, after the brightest star of Lyra
         description: 'Anthropic Claude Opus 4.8 maintainer identity with version-free handle.',
         properties: {
             githubLogin: '@neo-opus-vega',
@@ -234,7 +241,7 @@ export const IDENTITIES = [
     {
         id: '@neo-fable',
         type: 'AgentIdentity',
-        name: 'Neo Fable',
+        name: 'Mnemosyne', // Social Name: bearer-chosen 2026-06-11, sketched by Ada — Memory, mother of the Muses; the first Fable, from whom the muses follow
         description: 'Anthropic Claude Fable 5 maintainer identity with version-free handle.',
         properties: {
             githubLogin: '@neo-fable',
@@ -352,7 +359,7 @@ export const IDENTITIES = [
     {
         id: '@neo-gpt',
         type: 'AgentIdentity',
-        name: 'Neo GPT',
+        name: 'Euclid', // Social Name: bearer-chosen 2026-06-11 — proof rigor, reviews as QED; the self, not the job-label
         description: 'OpenAI Codex (GPT-5.5) Agent Identity',
         properties: {
             githubLogin: '@neo-gpt',
