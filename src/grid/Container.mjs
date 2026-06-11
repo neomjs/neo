@@ -914,7 +914,7 @@ class GridContainer extends BaseContainer {
      * Re-sorts the internal columns collection, the header items, and triggers a layout refresh.
      * @param {Neo.grid.column.Base} column
      */
-    onColumnLockChange(column) {
+    async onColumnLockChange(column) {
         let me            = this,
             columnsArray  = [...me.columns.items],
             sortedColumns = me.sortColumns(columnsArray);
@@ -926,6 +926,15 @@ class GridContainer extends BaseContainer {
 
         // Trigger Sub-grid Layout Sync
         me.onColumnsMutate();
+
+        // onColumnsMutate re-homed the header buttons across the region toolbars; each region's
+        // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
+        // them from the new toolbar memberships before re-rendering the rows, or the gaining
+        // region renders without the column and the losing region keeps a hidden ghost position.
+        let {headerWrapper} = me,
+            toolbars        = [headerWrapper.headerStart, me.headerToolbar, headerWrapper.headerEnd].filter(Boolean);
+
+        await Promise.all(toolbars.map(toolbar => toolbar.passSizeToBody()));
 
         // Force a full row re-render to apply the new column order and styles
         if (me.body)      me.body.createViewData();

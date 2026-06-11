@@ -107,6 +107,15 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * Applies an inline `position: relative` to the owner for the duration of a drag, making the
+         * owner the containing block for the absolutely positioned items. Required whenever the item
+         * rects get converted into owner-relative space (adjustItemRectsToParent / adjustProxyRectToParent)
+         * but the owner is not otherwise a positioned element — without it, the written left/top values
+         * resolve against an arbitrary positioned ancestor and render offset by the owner's own origin.
+         * @member {Boolean} positionOwnerRelative=false
+         */
+        positionOwnerRelative: false,
+        /**
          * The intersection ratio (0-1) required to re-attach a window-dragged item back into the container.
          * Higher values mean the item must be dragged further in.
          * @member {Number} reattachThreshold=0.6
@@ -298,7 +307,31 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Handles the completion of the drag operation.
+     * Drag:end entry point. The drag listeners fan out across the owner and its child items, so one
+     * native release can deliver multiple drag:end events. This entry latches synchronously and routes
+     * exactly one delivery into {@link #processDragEnd} — without it, the async drop pipeline runs
+     * twice (double traces, double layout refreshes, double lock verdicts in grids).
+     * @param {Object} data - The drag end event data.
+     */
+    async onDragEnd(data) {
+        let me = this;
+
+        if (me.dragEndActive) {
+            return
+        }
+
+        me.dragEndActive = true;
+
+        try {
+            await me.processDragEnd(data)
+        } finally {
+            me.dragEndActive = false
+        }
+    }
+
+    /**
+     * Handles the completion of the drag operation. Invoked exactly once per drag via the
+     * {@link #onDragEnd} re-entry latch; subclasses extend this method, not `onDragEnd`.
      *
      * This method is responsible for:
      * 1.  **Finalizing the Drop:** If valid, it moves the DOM nodes to their final positions (via `Neo.applyDeltas`).
@@ -309,7 +342,7 @@ class SortZone extends DragZone {
      *
      * @param {Object} data - The drag end event data.
      */
-    async onDragEnd(data) {
+    async processDragEnd(data) {
         let me                  = this,
             {itemStyles, owner} = me,
             ownerStyle          = owner.style || {},
@@ -353,6 +386,7 @@ class SortZone extends DragZone {
 
             ownerStyle.height   = me.ownerStyle.height    || null;
             ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
+            ownerStyle.position = me.ownerStyle.position  || null;
             ownerStyle.width    = me.ownerStyle.width     || null;
 
             owner.style = ownerStyle;
@@ -405,7 +439,8 @@ class SortZone extends DragZone {
                 me.traceEvent({t: 'end', from: me.startIndex, to: me.currentIndex, noop: true});
             }
 
-            SortZone.activeTrace = null;
+            // activeTrace stays set until the next onDragStart replaces it: subclasses record
+            // post-drop resolution events (e.g. the grid lock verdict) after this method returns.
 
             Object.assign(me, {
                 currentIndex    : -1,
@@ -635,7 +670,7 @@ class SortZone extends DragZone {
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
                 lastIntersectionRatio  : 1,
-                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
+                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 sortableItems,
                 sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
@@ -687,7 +722,8 @@ class SortZone extends DragZone {
                 ...ownerStyle,
                 height  : `${me.ownerRect.height}px`,
                 minWidth: `${me.ownerRect.width}px`,
-                width   : `${me.ownerRect.width}px`
+                width   : `${me.ownerRect.width}px`,
+                ...(me.positionOwnerRelative && {position: 'relative'})
             };
 
             adjustItemRectsToParent && itemRects.forEach(rect => {
