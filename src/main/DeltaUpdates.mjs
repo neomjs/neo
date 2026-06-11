@@ -572,14 +572,24 @@ class DeltaUpdates extends Base {
                     // in between) restores the layout while keeping what moveBefore preserves:
                     // iframes and canvas survive display toggles (unlike the insertBefore fallback,
                     // which reloads iframes); only CSS-animation continuity inside the parent resets.
+                    // The toggle also zeroes the parent's own scroll state, so it gets captured and
+                    // restored alongside focus. Boundary: scrolled DESCENDANTS inside the parent
+                    // reset too and are not walked here (subtree-scan cost on every move) — tracked
+                    // with the heal-gating follow-up.
                     const
                         activeElement = document.activeElement,
                         containsFocus = activeElement && parentNode.contains(activeElement),
-                        displayValue  = parentNode.style.display;
+                        displayValue  = parentNode.style.display,
+                        {scrollLeft, scrollTop} = parentNode;
 
                     parentNode.style.display = 'none';
                     void parentNode.offsetHeight;
                     parentNode.style.display = displayValue;
+
+                    if (scrollLeft || scrollTop) {
+                        parentNode.scrollLeft = scrollLeft;
+                        parentNode.scrollTop  = scrollTop
+                    }
 
                     if (containsFocus && document.activeElement !== activeElement) {
                         activeElement.focus()
