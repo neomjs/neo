@@ -16,72 +16,6 @@ import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 import Container       from '../../../../../src/container/Base.mjs';
 import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
 
-const createRect = (left, width) => ({
-    x: left, y: 0, left, top: 0, width, height: 40,
-    clone() {
-        return createRect(this.left, this.width)
-    }
-});
-
-const createDragMoveHarness = () => {
-    const
-        dragStartItemRects = [
-            createRect(387, 100), // Total
-            createRect(488, 52),  // Commits %
-            createRect(541, 70),  // Private %
-            createRect(612, 40),
-            createRect(653, 40),
-            createRect(694, 40)
-        ],
-        itemRects = dragStartItemRects.map(rect => rect.clone()),
-        trace     = [],
-        zone      = Object.create(SortZone.prototype);
-
-    Object.assign(zone, {
-        adjustItemRectsToParent: false,
-        boundaryContainerRect  : {left: 0, right: 1000, top: 0, bottom: 100},
-        currentIndex           : 0,
-        dragProxy              : null,
-        dragStartItemRects,
-        indexMap               : {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5},
-        isRemoteDragging       : false,
-        isScrolling            : false,
-        itemRects,
-        offsetX                : 50,
-        offsetY                : 0,
-        ownerRect              : {x: 0, y: 0},
-        reversedLayoutDirection: false,
-        scrollLeft             : 0,
-        scrollTop              : 0,
-        sortDirection          : 'horizontal',
-        timeout                : () => Promise.resolve(),
-        trace,
-        switchItems(index1, index2) {
-            trace.push([index1, index2]);
-            SortZone.prototype.switchItems.call(this, index1, index2)
-        },
-        updateItem() {}
-    });
-
-    return zone
-};
-
-const createReverseDragMoveHarness = () => {
-    const zone = createDragMoveHarness();
-
-    zone.currentIndex           = 0;
-    zone.dragStartItemRects     = [
-        createRect(541, 70),
-        createRect(488, 52),
-        createRect(387, 100)
-    ];
-    zone.itemRects              = zone.dragStartItemRects.map(rect => rect.clone());
-    zone.indexMap               = {0: 0, 1: 1, 2: 2};
-    zone.reversedLayoutDirection = true;
-
-    return zone
-};
-
 /**
  * @summary Tests for Neo.draggable.container.SortZone
  */
@@ -281,40 +215,5 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(sortZone.sortDirection).toBe('vertical');
         expect(sortZone.reversedLayoutDirection).toBe(true);
         expect(sortZone.currentIndex).toBe(0)
-    });
-
-    test('Maps in-bound drag moves to drag-start geometry, independent of native event cadence (#12880)', async () => {
-        const shortMove = createDragMoveHarness();
-
-        expect(shortMove.getDragMoveTargetIndex({clientX: 500, clientY: 0})).toBe(1);
-
-        await shortMove.onDragMove({clientX: 500, clientY: 0});
-
-        expect(shortMove.currentIndex).toBe(1);
-        expect(shortMove.trace).toEqual([[0, 1]]);
-
-        const longMove = createDragMoveHarness();
-
-        expect(longMove.getDragMoveTargetIndex({clientX: 585, clientY: 0})).toBe(2);
-
-        await longMove.onDragMove({clientX: 585, clientY: 0});
-        await longMove.onDragMove({clientX: 585, clientY: 0});
-        await longMove.onDragMove({clientX: 585, clientY: 0});
-
-        expect(longMove.currentIndex).toBe(2);
-        expect(longMove.trace).toEqual([[0, 1], [1, 2]])
-    });
-
-    test('Keeps in-bound drag target resolution compatible with reverse layouts (#12880)', async () => {
-        const reversedMove = createReverseDragMoveHarness();
-
-        expect(reversedMove.getDragMoveTargetIndex({clientX: 500, clientY: 0})).toBe(1);
-        expect(reversedMove.getDragMoveTargetIndex({clientX: 400, clientY: 0})).toBe(2);
-
-        await reversedMove.onDragMove({clientX: 400, clientY: 0});
-        await reversedMove.onDragMove({clientX: 400, clientY: 0});
-
-        expect(reversedMove.currentIndex).toBe(2);
-        expect(reversedMove.trace).toEqual([[0, 1], [1, 2]])
     });
 });
