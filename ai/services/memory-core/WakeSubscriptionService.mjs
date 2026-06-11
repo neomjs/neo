@@ -1521,7 +1521,7 @@ class WakeSubscriptionService extends Base {
     /**
      * @summary Resolves generic and legacy route metadata into a presence address tuple.
      * @param {Object} metadata Merged harnessTargetMetadata.
-     * @returns {{instanceAddress:String|null,addressType:String|null}}
+     * @returns {{instanceAddress: (String|null), addressType: (String|null)}}
      * @protected
      */
     _resolvePresenceAddress(metadata = {}) {

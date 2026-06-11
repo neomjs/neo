@@ -584,7 +584,7 @@ export async function runBuildAll({projectRoot, log = console.log, exec = execFi
  * @summary Parses `git worktree list --porcelain` into stable worktree records.
  *
  * @param {string} output Raw porcelain output from git.
- * @returns {{path: string, head: string|null, branchRef: string|null, branch: string|null, detached: boolean}[]}
+ * @returns {Array<{path: string, head: (string|null), branchRef: (string|null), branch: (string|null), detached: boolean}>}
  */
 export function parseWorktreePorcelain(output) {
     const records = [];

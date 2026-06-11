@@ -50,7 +50,7 @@ const FIXED_PROMPT = 'The agent reviewed the implementation, traced the call pat
  * @param {{stream: Function}} provider
  * @param {string} prompt
  * @param {Object} [options]
- * @returns {Promise<{ttftMs: number, ttltMs: number, outputChars: number, error?: string}>}
+ * @returns {Promise<{ttftMs: number, ttltMs: number, outputChars: number, error: string}>} `error` only set on failure.
  */
 async function measureTtft(provider, prompt, options = {}) {
     const messages = [

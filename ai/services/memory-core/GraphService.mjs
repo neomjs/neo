@@ -1069,9 +1069,7 @@ class GraphService extends Base {
      * @param {Object} [options]
      * @param {Boolean} [options.includeIncidentEdges=false] Also count edges incident to MEMORY/SESSION
      *     nodes — an `O(edges)` scan, off by default so the census stays cheap at scale.
-     * @returns {Promise<{available: Boolean, memoryNodes: Number, sessionNodes: Number, sqliteBytes: Number,
-     *     sqliteWalBytes: Number, sqliteShmBytes: Number, measuredAt: String,
-     *     memoryIncidentEdges?: Number, sessionIncidentEdges?: Number, error?: String}>}
+     * @returns {Promise<{available: Boolean, memoryNodes: Number, sessionNodes: Number, sqliteBytes: Number, sqliteWalBytes: Number, sqliteShmBytes: Number, measuredAt: String, memoryIncidentEdges: Number, sessionIncidentEdges: Number, error: String}>} Incident-edge counts only present with `includeIncidentEdges`; `error` only on failure.
      */
     async getLifecycleCensus({includeIncidentEdges = false} = {}) {
         const measuredAt = new Date().toISOString(),

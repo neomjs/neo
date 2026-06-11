@@ -456,7 +456,7 @@ parse(options)
 
         // Sort and write class hierarchy
         const sortedKeys = Object.keys(classHierarchy).sort();
-        
+
         // Convert to JSON object for structured access
         const hierarchyJson = {};
         sortedKeys.forEach(key => {
@@ -526,5 +526,9 @@ parse(options)
         console.log(`\nTotal documentation generation time: ${totalTime}s`);
     })
     .catch(function (err) {
-        console.log(err.stack);
+        // A failed parse batch means the docs JSON silently loses every file in that batch —
+        // the build must fail loudly instead of shipping incomplete docs (build-all runs this
+        // by default and docs/app consumes the output).
+        console.error(err.stack);
+        process.exitCode = 1;
     });

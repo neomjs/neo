@@ -1040,7 +1040,7 @@ async function deliverDigest(subscription, digest) {
 /**
  * @summary Resolves generic instance-address metadata with legacy field compatibility.
  * @param {Object} meta Subscription harnessTargetMetadata.
- * @returns {{instanceAddress:String|null,addressType:String|null}}
+ * @returns {{instanceAddress: (String|null), addressType: (String|null)}}
  */
 function resolveInstanceAddress(meta = {}) {
     const addressType = meta.addressType

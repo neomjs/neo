@@ -254,7 +254,7 @@ export async function runBackup({
  *
  * @param {Object} layout     The bundle's per-subsystem destination directory map.
  * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
- * @returns {Promise<Array<{subsystem: String, status: 'pass'|'fail'|'skipped', sourceCount?: Number, bundleCount?: Number, reason?: String}>>}
+ * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` / `fail` / `skipped`; count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
     const verifiable = ['kb', 'mc', 'graph'];
@@ -456,7 +456,7 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
  * @param {String} source         Absolute path to a JSONL file or a directory containing JSONL files.
  * @param {String} destDir        Absolute path to the target subfolder inside the bundle.
  * @param {Object} [logger=console] Log sink; receives `.warn(message)` calls for empty sources.
- * @returns {Promise<{copied: Number, note?: String}>}
+ * @returns {Promise<{copied: Number, note: String}>} `note` only present when the source is absent or empty.
  */
 async function copyJsonlSource(source, destDir, logger=console) {
     if (!await fs.pathExists(source)) {

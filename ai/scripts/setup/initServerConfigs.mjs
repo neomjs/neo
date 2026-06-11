@@ -390,7 +390,7 @@ export function materializeServerConfigTemplate(src) {
  * Detects the narrow drift shape where an existing per-server `config.mjs`
  * only needs its Tier-1 import materialized, not a full template overwrite.
  *
- * @param {{missingImports: String[], missingExports: String[], missingEnvVars?: String[], changedLeafDefaults?: Object[], hasDrift: Boolean}} drift
+ * @param {{missingImports: String[], missingExports: String[], missingEnvVars: String[], changedLeafDefaults: Object[], hasDrift: Boolean}} drift Drift shape (`missingEnvVars` / `changedLeafDefaults` optional on hand-built fixtures).
  * @returns {Boolean}
  */
 export function isOnlyServerMaterializationDrift(drift) {
@@ -412,8 +412,8 @@ export function isOnlyServerMaterializationDrift(drift) {
  * config but not in template — operator-removed paths) is intentionally NOT
  * reported, since this is a one-way "template advanced, config stale" detector.
  *
- * @param {{imports: String[], exports: String[], envVars?: String[], leafDefaults?: Object[]}} templateShape
- * @param {{imports: String[], exports: String[], envVars?: String[], leafDefaults?: Object[]}} configShape
+ * @param {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[]}} templateShape Projected template shape (`envVars` / `leafDefaults` optional on hand-built fixtures).
+ * @param {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[]}} configShape Projected config shape (same optionality).
  * @returns {{missingImports: String[], missingExports: String[], missingEnvVars: String[], changedLeafDefaults: Object[], hasDrift: Boolean}}
  */
 export function detectDrift(templateShape, configShape) {
@@ -464,9 +464,7 @@ export function detectDrift(templateShape, configShape) {
  * @param {String[]} [options.argv=process.argv]   Argv source; injectable for tests.
  * @param {Object}   [options.logger=console]      Log sink; injectable for tests.
  * @param {String}   [options.serversRoot=serversDir]  Override for tests.
- * @returns {Promise<{
- *     processed: Array<{serverName: String, action: 'clone'|'silent'|'warn'|'migrate'|'skip-no-template', drift?: Object, migration?: String}>
- * }>}
+ * @returns {Promise<{processed: Array<{serverName: String, action: String, drift: Object, migration: String}>}>} Per-server results; `action` is one of `clone` / `silent` / `warn` / `migrate` / `skip-no-template`; `drift` / `migration` present per action.
  */
 export async function initConfigs({argv = process.argv, logger = console, serversRoot = serversDir} = {}) {
     logger.log('[Neo AI] Checking MCP Server configurations...');
@@ -557,7 +555,7 @@ export async function initConfigs({argv = process.argv, logger = console, server
  * @param {String[]} [options.argv=process.argv]   Argv source; injectable for tests.
  * @param {Object}   [options.logger=console]      Log sink; injectable for tests.
  * @param {String}   [options.aiRoot=aiDir]        Override for tests.
- * @returns {Promise<{action: 'clone'|'silent'|'warn'|'migrate'|'skip-no-template', drift?: Object}>}
+ * @returns {Promise<{action: String, drift: Object}>} `action` is one of `clone` / `silent` / `warn` / `migrate` / `skip-no-template`; `drift` present when drift was detected.
  */
 export async function initTier1Config({argv = process.argv, logger = console, aiRoot = aiDir} = {}) {
     logger.log('[Neo AI] Checking top-level Tier-1 config...');
