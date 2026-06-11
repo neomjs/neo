@@ -100,8 +100,8 @@ export function readToolJson(result) {
  * @param {String|null} [options.bearerToken]
  * @param {String} [options.expectedStatus='healthy']
  * @param {String} [options.clientName='neo-container-healthcheck']
- * @param {typeof Client} [options.ClientClass=Client] Injectable SDK client for tests.
- * @param {typeof StreamableHTTPClientTransport} [options.TransportClass=StreamableHTTPClientTransport] Injectable transport for tests.
+ * @param {Function} [options.ClientClass=Client] Injectable SDK client constructor for tests.
+ * @param {Function} [options.TransportClass=StreamableHTTPClientTransport] Injectable transport constructor for tests.
  * @returns {Promise<Object>}
  */
 export async function runHealthcheck({

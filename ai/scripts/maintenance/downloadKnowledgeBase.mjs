@@ -116,7 +116,7 @@ async function unzipArtifact(zipPath, targetDir) {
  * @param {Function}[options.fetchImpl=fetch]    Fetch seam (tests).
  * @param {String}  [options.workRoot]           Override the download/extract parent dir (tests). Defaults to OS tempdir.
  * @param {Object}  [options.logger=console]     Log sink.
- * @returns {Promise<{status: String, imported?: Number, reason?: String}>}
+ * @returns {Promise<{status: String, imported: Number, reason: String}>} `imported` / `reason` present per status.
  */
 export async function downloadKnowledgeBase({
     tagName,

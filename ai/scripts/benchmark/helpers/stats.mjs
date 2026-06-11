@@ -60,8 +60,8 @@ export function percentile(xs, p) {
  *
  * Filters runs with `error` set so a failed call doesn't poison the summary.
  *
- * @param {Array<{ttftMs: number, ttltMs: number, tps: number, outputChars: number, error?: string}>} runs
- * @returns {{n: number, ttftMs_median: number, ttltMs_median: number, tps_median: number, outputChars_median: number, ttftMs_p95?: number, ttltMs_p95?: number}}
+ * @param {Array<{ttftMs: number, ttltMs: number, tps: number, outputChars: number, error: string}>} runs Per-run samples (`error` only set on failed runs).
+ * @returns {{n: number, ttftMs_median: number, ttltMs_median: number, tps_median: number, outputChars_median: number, ttftMs_p95: number, ttltMs_p95: number}} `_p95` keys present only when `n >= 5`.
  */
 export function summarize(runs) {
     const okRuns = (runs || []).filter(r => !r.error);

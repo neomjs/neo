@@ -668,7 +668,7 @@ function validateSectionRef({sourceRelPath, lineNo, target, sectionRef, index, e
  *
  * @param {String[]} changedRelPaths
  * @param {Array<{relPath: String, text: String}>} allMarkdownFiles
- * @param {{changedLinesByRelPath?: Map<String, Set<Number>>}} options
+ * @param {{changedLinesByRelPath: Map}} options `changedLinesByRelPath` optional (Map of relPath → Set of line numbers).
  * @returns {String[]}
  */
 function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {changedLinesByRelPath = null} = {}) {

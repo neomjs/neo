@@ -83,7 +83,7 @@ const EXEMPTION_MARKERS = ['historical', 'archaeology', 'errata', 'rendered-cons
  * Parses simple `--base <branch>` / `--base=<branch>` CLI args. Default base is
  * `origin/dev` to match `lint-skill-manifest.mjs` and CI workflow conventions.
  * @param {string[]} argv
- * @returns {{base: string, help?: boolean}}
+ * @returns {{base: string, help: boolean}} `help` only set when requested.
  */
 function parseArgs(argv = process.argv.slice(2)) {
     const options = {base: 'origin/dev'};
@@ -273,7 +273,7 @@ function lintDiff(diffText) {
 /**
  * CLI entry. Returns numeric exit code so unit tests can drive it without
  * triggering `process.exit`.
- * @param {{base?: string}} options
+ * @param {{base: string}} options `base` optional (defaults to `origin/dev`).
  * @returns {{exitCode: number, violations: Array}}
  */
 function runLint(options = {}) {

@@ -23,7 +23,7 @@
  * event can never silently suppress a real wake — preserving the `flushDeferPolicy` "never withhold
  * a genuine wake" invariant.
  *
- * @param {Array<{logId?: Number}>} events Coalesced wake events (daemon `{type, ..., logId}` shape).
+ * @param {Array<{logId: Number}>} events Coalesced wake events (daemon `{type, ..., logId}` shape; logId optional per event).
  * @param {Number} watermark Highest `logId` the recipient has already been woken for (0 = none).
  * @returns {Array} The genuinely-new subset, original order preserved.
  */
@@ -47,7 +47,7 @@ export function filterEventsByWatermark(events, watermark) {
  * genuinely-new event must have a strictly greater `logId`. Returns `null` (not `0`) for an empty
  * or logId-less set so the caller leaves the watermark unchanged rather than resetting it to `0`.
  *
- * @param {Array<{logId?: Number}>} events
+ * @param {Array<{logId: Number}>} events Events whose `logId` may be absent per entry.
  * @returns {Number|null}
  */
 export function maxLogId(events) {

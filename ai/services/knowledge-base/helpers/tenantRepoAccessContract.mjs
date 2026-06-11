@@ -3,10 +3,10 @@ import path from 'path';
 /**
  * @summary Normalizes and guards tenant repo-access config entries for server-side KB ingestion.
  *
- * The tenant repo-sync lane (#11731) intentionally separates clean repository identity from
+ * The tenant repo-sync lane intentionally separates clean repository identity from
  * credential material. A tenant config entry may name a `credentialRef`, but `cloneUrl` and
  * `repoSlug` must stay safe for graph persistence, logs, and telemetry. Git credentials are
- * injected later by the Git mirror worker (#11788), not stored in the Knowledge Base config node.
+ * injected later by the Git mirror worker, not stored in the Knowledge Base config node.
  *
  * @see https://github.com/neomjs/neo/issues/11787
  */
@@ -196,7 +196,7 @@ export function normalizeRepoSlug(repoSlug) {
  *     Useful for tenants whose canonical product-source-of-truth branch differs from the
  *     repo's default branch (e.g., trunk-based teams using `dev` as integration line and
  *     `main` as release-tag-only).
- * @returns {{cloneUrl: String, credentialRef: String|Object, repoSlug: String, branchRef?: String}}
+ * @returns {{cloneUrl: String, credentialRef: (String|Object), repoSlug: String, branchRef: String}} `branchRef` only present when configured.
  */
 export function normalizeTenantRepoEntry(entry = {}) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
@@ -257,7 +257,7 @@ export function normalizeTenantRepoConfig(config = {}) {
  * @summary Derives the credential-free local mirror path for a tenant repo.
  *
  * This helper intentionally only maps already-normalized identity values to a filesystem path.
- * Git clone/fetch lifecycle and credential injection remain owned by the Git mirror primitive (#11788).
+ * Git clone/fetch lifecycle and credential injection remain owned by the Git mirror primitive.
  *
  * @param {Object} data
  * @param {String} data.mirrorRoot Root directory for tenant repo mirrors.

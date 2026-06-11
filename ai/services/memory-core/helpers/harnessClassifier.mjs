@@ -65,7 +65,7 @@ export function classifyHarness(pid, {execSync = defaultExecSync, maxDepth = 8} 
 /**
  * @summary Groups process records by owning harness while preserving PID and chain detail.
  *
- * @param {Array<{pid: Number, command?: String}>} processes Process records to classify.
+ * @param {Array<{pid: Number, command: String}>} processes Process records to classify (`command` optional per record).
  * @param {Object} [options]
  * @param {Function} [options.classifier=classifyHarness] Injectable classifier for tests.
  * @returns {Array<{harness: String, label: String, processes: Array<Object>}>}
