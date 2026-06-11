@@ -184,14 +184,37 @@ class SortZone extends DragZone {
      * Appends one event to the active drag trace. Events carry where the drag logic
      * decided to be, not where the DOM is — pair with the `observe_motion` tool for
      * the rendered-geometry side of the same window.
+     *
+     * Duplicate-delivery events get COUNT-COMPRESSED onto the previous event (`dup: n`)
+     * instead of logged individually — per-occurrence dup entries used to consume most
+     * of the buffer. At the cap the buffer drops the OLDEST event, not the newest: a
+     * drag's tail (overdrag, scroll, drop resolution) is its most diagnostic part.
      * @param {Object} data
      */
     traceEvent(data) {
         const trace = SortZone.activeTrace;
 
-        if (trace && trace.events.length < 400) {
-            trace.events.push({...data, ts: Date.now()})
+        if (!trace) {
+            return
         }
+
+        const {events} = trace;
+
+        if (data.t === 'dup') {
+            const last = events[events.length - 1];
+
+            if (last) {
+                last.dup = (last.dup || 0) + 1
+            }
+
+            return
+        }
+
+        if (events.length >= 400) {
+            events.shift()
+        }
+
+        events.push({...data, ts: Date.now()})
     }
 
     /**
