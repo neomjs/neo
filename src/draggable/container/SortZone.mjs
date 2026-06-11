@@ -77,6 +77,13 @@ class SortZone extends DragZone {
          */
         ignoreDragSelector: null,
         /**
+         * Immutable drag-start geometry used to resolve in-bound landing indices without
+         * depending on native mousemove cadence.
+         * @member {Array|null} dragStartItemRects=null
+         * @protected
+         */
+        dragStartItemRects: null,
+        /**
          * @member {Object} indexMap=null
          * @protected
          */
@@ -367,21 +374,64 @@ class SortZone extends DragZone {
             }
 
             Object.assign(me, {
-                currentIndex    : -1,
-                indexMap        : null,
-                isRemoteDragging: false,
-                isWindowDragging: false,
-                itemRects       : null,
-                itemStyles      : null,
-                ownerRect       : null,
-                startIndex      : -1,
-                sortableItems   : null
+                currentIndex      : -1,
+                dragStartItemRects: null,
+                indexMap          : null,
+                isRemoteDragging  : false,
+                isWindowDragging  : false,
+                itemRects         : null,
+                itemStyles        : null,
+                ownerRect         : null,
+                startIndex        : -1,
+                sortableItems     : null
             });
 
             await me.timeout(30);
 
             me.dragEnd(data) // we do not want to trigger the super class call here
         }
+    }
+
+    /**
+     * @summary Resolves the target sort index from the cursor position and drag-start geometry.
+     *
+     * Native mousemove cadence can deliver several far-pointer events after each adjacent swap. If
+     * landing is calculated against mutated live rects, repeated events keep advancing the item and
+     * the final index scales with path length. The drag-start snapshot makes the landing index a pure
+     * function of the current cursor position, so repeated events at the same coordinate stay idempotent.
+     *
+     * @param {Object} data The drag move event data.
+     * @returns {Number|null} The target sort index, or null when no start geometry is available.
+     */
+    getDragMoveTargetIndex(data) {
+        let me    = this,
+            rects = me.dragStartItemRects;
+
+        if (!rects?.length) return null;
+
+        let horizontal  = me.sortDirection === 'horizontal',
+            ownerX      = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
+            ownerY      = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
+            coordinate  = horizontal ? data.clientX - ownerX + me.scrollLeft : data.clientY - ownerY + me.scrollTop,
+            position    = horizontal ? 'left' : 'top',
+            size        = horizontal ? 'width' : 'height',
+            visualRects = rects.map((rect, index) => ({index, rect})).sort((a, b) => a.rect[position] - b.rect[position]),
+            lastIndex   = visualRects.length - 1;
+
+        if (coordinate <= visualRects[0].rect[position]) {
+            return visualRects[0].index
+        }
+
+        for (let i = 0; i < visualRects.length; i++) {
+            let {index, rect} = visualRects[i],
+                end  = rect[position] + rect[size];
+
+            if (coordinate <= end) {
+                return index
+            }
+        }
+
+        return visualRects[lastIndex].index
     }
 
     /**
@@ -422,7 +472,7 @@ class SortZone extends DragZone {
             ownerX             = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
             ownerY             = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
             reversed           = me.reversedLayoutDirection,
-            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
+            delta, direction, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor, targetIndex;
 
         if (me.sortDirection === 'horizontal') {
             delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
@@ -438,6 +488,23 @@ class SortZone extends DragZone {
 
         isOverDragging = isOverDraggingEnd || isOverDraggingStart;
         moveFactor     = isOverDragging ? 0.02 : 0.55; // We can not use 0.5, since items would jump back & forth
+
+        if (!isOverDragging) {
+            targetIndex = me.getDragMoveTargetIndex(data);
+
+            if (Neo.isNumber(targetIndex)) {
+                while (me.currentIndex !== targetIndex) {
+                    index     = me.currentIndex;
+                    direction = targetIndex > index ? 1 : -1;
+
+                    me.currentIndex += direction;
+                    me.switchItems(index, me.currentIndex)
+                }
+
+                me.isOverDragging = false;
+                return
+            }
+        }
 
         if (isOverDraggingStart) {
             if (index > 0) {
@@ -619,6 +686,7 @@ class SortZone extends DragZone {
             });
 
             me.itemRects = itemRects;
+            me.dragStartItemRects = itemRects.map(rect => rect.clone());
 
             await me.dragStart(data);
 
