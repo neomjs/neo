@@ -1334,7 +1334,9 @@ ${sessionContent}
                         try {
                             const result = await this.summarizeSession(id);
                             // Per-session completion progress so a 15-30 min run emits output, not silence.
-                            logger.info(`[SessionService] session summarization: ${++completed}/${total} done (${id})`);
+                            // Direct stderr write (the channel ProcessSupervisor captures into orchestrator.log);
+                            // not the Provider-gated logger, which would need a B4-unsafe config mutation to surface.
+                            console.error(`[INFO] [SessionService] session summarization: ${++completed}/${total} done (${id})`);
                             if (result) {
                                 this.completeSummarizationJob(id);
                                 return result;

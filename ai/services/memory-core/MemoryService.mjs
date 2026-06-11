@@ -1021,11 +1021,13 @@ class MemoryService extends Base {
 
             processed++;
 
-            // Intra-run progress so a long backfill is observable rather than silent. Reaches the
-            // operator's orchestrator.log via the lifecycle child's debug logging (stderr is the
-            // captured channel; child stdout is ignored by the supervisor).
+            // Intra-run progress so a long backfill is observable rather than silent. Written
+            // directly to stderr — the channel ProcessSupervisor captures into orchestrator.log
+            // (child stdout is ignored). Deliberately NOT the Provider-gated logger, whose stderr
+            // routing would require mutating the read-only config Provider. The `[INFO]` prefix maps
+            // to the supervisor's child-stderr level parser.
             if (processed % 5 === 0) {
-                logger.info(`[MemoryService] miniSummary backfill: ${processed}/${rows.length} (${updated} updated, ${deferred} deferred)`);
+                console.error(`[INFO] [MemoryService] miniSummary backfill: ${processed}/${rows.length} (${updated} updated, ${deferred} deferred)`);
             }
 
             const metadata = byId.get(row.id);
@@ -1061,8 +1063,8 @@ class MemoryService extends Base {
             logger.info(`[MemoryService] miniSummary backfill hit the ${runBudgetMs}ms run budget after ${processed}/${rows.length} row(s); deferring the remainder to the next sweep`);
         }
 
-        // Completion line so the run ends with a visible tally, not silence.
-        logger.info(`[MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content)`);
+        // Completion line so the run ends with a visible tally, not silence (stderr → captured by the supervisor).
+        console.error(`[INFO] [MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content)`);
 
         return {processed, updated, deferred, missingContent, runBudgetHit};
     }
