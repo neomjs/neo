@@ -1021,6 +1021,15 @@ class MemoryService extends Base {
 
             processed++;
 
+            // Intra-run progress so a long backfill is observable rather than silent. Written
+            // directly to stderr — the channel ProcessSupervisor captures into orchestrator.log
+            // (child stdout is ignored). Deliberately NOT the Provider-gated logger, whose stderr
+            // routing would require mutating the read-only config Provider. The `[INFO]` prefix maps
+            // to the supervisor's child-stderr level parser.
+            if (processed % 5 === 0) {
+                console.error(`[INFO] [MemoryService] miniSummary backfill: ${processed}/${rows.length} (${updated} updated, ${deferred} deferred)`);
+            }
+
             const metadata = byId.get(row.id);
             if (!metadata || (!metadata.prompt && !metadata.response)) {
                 missingContent++;
@@ -1053,6 +1062,9 @@ class MemoryService extends Base {
         if (runBudgetHit) {
             logger.info(`[MemoryService] miniSummary backfill hit the ${runBudgetMs}ms run budget after ${processed}/${rows.length} row(s); deferring the remainder to the next sweep`);
         }
+
+        // Completion line so the run ends with a visible tally, not silence (stderr → captured by the supervisor).
+        console.error(`[INFO] [MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content)`);
 
         return {processed, updated, deferred, missingContent, runBudgetHit};
     }
