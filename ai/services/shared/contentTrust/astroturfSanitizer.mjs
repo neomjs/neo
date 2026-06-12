@@ -1,4 +1,4 @@
-import {isExternalTier} from './authorTrustClassifier.mjs';
+import {isTrustedTier} from './authorTrustClassifier.mjs';
 
 /**
  * @summary Pure, trust-gated astroturf sanitizer for externally-authored GitHub content (organism self-defense).
@@ -12,8 +12,9 @@ import {isExternalTier} from './authorTrustClassifier.mjs';
  *
  * This function is the pure transform both boundaries will call (the `get_conversation` read path
  * and the KB ingestion path, in later wiring slices): it defangs URLs, redacts denylisted product
- * names, and FLAGS stealth-intent signals — all gated on the author being external/unclassified
- * (per {@link isExternalTier}). It is intentionally **non-mutating + side-effect-free**: it returns
+ * names, and FLAGS stealth-intent signals — all gated on the author NOT being a positively-recognized
+ * trusted tier (per {@link isTrustedTier}); missing/unrecognized provenance fails closed (sanitized). It is
+ * intentionally **non-mutating + side-effect-free**: it returns
  * a new string and never touches GitHub, local sync files, or the Memory Core (the read path must
  * never become a mutating moderation path).
  *
@@ -104,8 +105,10 @@ export function sanitizeContent(content, {tier, productNameDenylist = []} = {}) 
         return {sanitized: typeof content === 'string' ? content : '', redactions: [], signals: [], wasModified: false}
     }
 
-    // Trusted-origin authors are never rewritten — only their tier gates this path.
-    if (!isExternalTier(tier)) {
+    // FAIL CLOSED: pass through ONLY for a positively-recognized trusted tier. A missing,
+    // malformed, or unrecognized tier is treated as untrusted and sanitized — absent provenance
+    // must never mean "trusted" at this boundary.
+    if (isTrustedTier(tier)) {
         return {sanitized: content, redactions: [], signals: [], wasModified: false}
     }
 

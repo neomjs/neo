@@ -1,4 +1,4 @@
-import {IDENTITIES, TRUST_TIERS} from '../../../graph/identityRoots.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../../graph/identityRoots.mjs';
 
 /**
  * @summary Fail-closed GitHub-author → content-trust-tier classifier (organism self-defense substrate).
@@ -66,9 +66,12 @@ export function classifyAuthorTrust(login, {collaborators} = {}) {
         return KNOWN_TIER_BY_LOGIN.get(normalized)
     }
 
-    const collaboratorSet = collaborators instanceof Set
-        ? collaborators
-        : new Set((Array.isArray(collaborators) ? collaborators : []).map(normalizeLogin));
+    // Normalize every entry the same way regardless of container (array OR Set), so a Set
+    // carrying `@Mixed-Case` logins still matches the normalized comparison key.
+    const collaboratorList = collaborators instanceof Set
+        ? [...collaborators]
+        : (Array.isArray(collaborators) ? collaborators : []);
+    const collaboratorSet = new Set(collaboratorList.map(normalizeLogin));
 
     if (collaboratorSet.has(normalized)) {
         return TRUST_TIERS.REPO_TRUSTED
@@ -88,4 +91,18 @@ export function classifyAuthorTrust(login, {collaborators} = {}) {
  */
 export function isExternalTier(tier) {
     return tier === TRUST_TIERS.EXTERNAL || tier === TRUST_TIERS.UNCLASSIFIED
+}
+
+/**
+ * @summary Whether a tier is POSITIVELY a recognized trusted origin — the fail-closed passthrough gate.
+ *
+ * Returns true ONLY for a recognized, non-external/unclassified tier. A missing, malformed, or
+ * unrecognized tier returns false: at this self-defense boundary, absent provenance must not mean
+ * "trusted" — callers (the sanitizer) fail closed and treat it as untrusted.
+ *
+ * @param {String} tier a `TRUST_TIERS` value
+ * @returns {Boolean}
+ */
+export function isTrustedTier(tier) {
+    return TRUST_TIER_ORDER.includes(tier) && !isExternalTier(tier)
 }

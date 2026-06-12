@@ -1,6 +1,6 @@
 import {test, expect}                       from '@playwright/test';
 import {TRUST_TIERS}                        from '../../../../../../../ai/graph/identityRoots.mjs';
-import {classifyAuthorTrust, isExternalTier, normalizeLogin} from '../../../../../../../ai/services/shared/contentTrust/authorTrustClassifier.mjs';
+import {classifyAuthorTrust, isExternalTier, isTrustedTier, normalizeLogin} from '../../../../../../../ai/services/shared/contentTrust/authorTrustClassifier.mjs';
 import {sanitizeContent}                    from '../../../../../../../ai/services/shared/contentTrust/astroturfSanitizer.mjs';
 
 /**
@@ -51,6 +51,22 @@ test.describe('Neo.ai.services.shared.contentTrust.authorTrustClassifier', () =>
         expect(isExternalTier(TRUST_TIERS.PEER_TRUSTED)).toBe(false);
         expect(isExternalTier(TRUST_TIERS.OWNER)).toBe(false);
         expect(isExternalTier(TRUST_TIERS.REPO_TRUSTED)).toBe(false)
+    });
+
+    test('collaborator Set entries are normalized (@-prefix + case) like the array path', () => {
+        // Boundary: a Set carrying an un-normalized login must still match (the array path already did).
+        expect(classifyAuthorTrust('outside-maintainer', {collaborators: new Set(['@Outside-Maintainer'])})).toBe(TRUST_TIERS.REPO_TRUSTED);
+        expect(classifyAuthorTrust('@Outside-Maintainer', {collaborators: new Set(['  Outside-Maintainer '])})).toBe(TRUST_TIERS.REPO_TRUSTED)
+    });
+
+    test('isTrustedTier: recognized non-external tiers only; missing/unknown → false (fail-closed)', () => {
+        expect(isTrustedTier(TRUST_TIERS.PEER_TRUSTED)).toBe(true);
+        expect(isTrustedTier(TRUST_TIERS.OWNER)).toBe(true);
+        expect(isTrustedTier(TRUST_TIERS.REPO_TRUSTED)).toBe(true);
+        expect(isTrustedTier(TRUST_TIERS.EXTERNAL)).toBe(false);
+        expect(isTrustedTier(TRUST_TIERS.UNCLASSIFIED)).toBe(false);
+        expect(isTrustedTier(undefined)).toBe(false);
+        expect(isTrustedTier('made-up-tier')).toBe(false)
     });
 });
 
@@ -105,6 +121,20 @@ test.describe('Neo.ai.services.shared.contentTrust.astroturfSanitizer', () => {
         expect(result.sanitized).toBe(content);
         expect(result.redactions).toEqual([]);
         expect(result.signals).toEqual([])
+    });
+
+    test('FAIL CLOSED: missing or unrecognized tier sanitizes (absent provenance is not trusted)', () => {
+        const content = 'see https://payload.example/offer';
+
+        // Omitted tier — the `{}` case (no positive trusted provenance supplied).
+        const missing = sanitizeContent(content, {});
+        expect(missing.wasModified, 'omitted tier must not pass URL-bearing content through').toBe(true);
+        expect(missing.sanitized).toContain('[QUARANTINED_URL: payload.example]');
+
+        // Unrecognized / malformed tier string.
+        const unknown = sanitizeContent(content, {tier: 'totally-made-up-tier'});
+        expect(unknown.wasModified, 'unrecognized tier must fail closed').toBe(true);
+        expect(unknown.sanitized).toContain('[QUARANTINED_URL: payload.example]')
     });
 
     test('NO FALSE POSITIVE: clean external content is not modified or flagged', () => {
