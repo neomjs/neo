@@ -37,6 +37,7 @@ import { test, expect } from '../fixtures.mjs';
  *
  * Run: npx playwright test GridColumnOverdragScroll -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
+// ticket-ref-ok: known-failing since #12933 removed devindex's locked-column config; #12936 re-homes this spec onto the dedicated locked fixture.
 test.describe('Desktop (1920x1080): DevIndex Column Overdrag Scrolling (#12906/#12907)', () => {
     test.setTimeout(120000); // DevIndex is heavy; two overdrag legs poll-settle sequentially.
     test.use({ viewport: { width: 1920, height: 1080 } });
