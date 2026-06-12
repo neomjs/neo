@@ -60,6 +60,11 @@ class MarkdownComponent extends BaseComponent {
      * Triggered after the value config got changed: swaps the rendered block set to the
      * parser's output. Settled blocks come back reference-identical, so the vdom engine
      * no-ops them; only genuine tail changes produce deltas.
+     *
+     * A nullish value is a RESET boundary, not just an empty render: the parser ledger resets
+     * with it, so replaying even the identical source afterwards births fresh block ids — the
+     * cleared ids never resurrect across the wipe (the no-id-reuse-across-reset contract; the
+     * block sequence keeps counting by design).
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -67,7 +72,13 @@ class MarkdownComponent extends BaseComponent {
     afterSetValue(value, oldValue) {
         let me = this;
 
-        me.vdom.cn = value ? me.parser.update(value) : [];
+        if (value) {
+            me.vdom.cn = me.parser.update(value)
+        } else {
+            me.parser.reset();
+            me.vdom.cn = []
+        }
+
         me.update()
     }
 }

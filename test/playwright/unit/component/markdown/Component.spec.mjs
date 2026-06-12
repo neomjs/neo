@@ -135,4 +135,33 @@ test.describe('Neo.component.markdown.Component — streaming deltas', () => {
 
         expect(component.vdom.cn).toEqual([])
     });
+
+    test('clear-then-replay of the IDENTICAL source births fresh ids — null is a reset boundary', async () => {
+        const beforeIds = new Set();
+
+        const collect = (nodes, bucket) => nodes.forEach(node => {
+            node.id && bucket.add(node.id);
+            node.cn && collect(node.cn, bucket)
+        });
+        collect(component.vdom.cn, beforeIds);
+
+        expect(beforeIds.size).toBeGreaterThan(0);
+
+        // The wipe: a nullish value resets the parser ledger along with the rendered blocks.
+        component.setSilent({value: null});
+        await component.promiseUpdate();
+
+        // Replaying the EXACT same source must not resurrect the cleared ids — the stale-memo
+        // path would re-emit the memoized blocks reference-identically.
+        component.setSilent({value: '# Title\n\nStreaming wor'});
+        await component.promiseUpdate();
+
+        const afterIds = new Set();
+
+        collect(component.vdom.cn, afterIds);
+
+        expect(afterIds.size).toBeGreaterThan(0);
+        expect([...afterIds].filter(id => beforeIds.has(id))).toEqual([]);
+        expect(component.vdom.cn).toHaveLength(2)
+    });
 });
