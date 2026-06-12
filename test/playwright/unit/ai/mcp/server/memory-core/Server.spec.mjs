@@ -172,7 +172,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
-    test('#12752: mailbox tools bypass summary-degraded health gate, memory writes do not', async () => {
+    test('#12838: mailbox + add_memory bypass the summary-degraded health gate (never-fail WAL); embed-dependent reads do not', async () => {
         const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
         const handlers = new Map();
         const healthCalls = [];
@@ -227,6 +227,9 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 args: {status: 'unread'}
             }]);
 
+            // add_memory — exempt since the WAL decouple: its never-fail local-disk write must run
+            // during a vector/summary outage (the embed is deferred to the drain), so it bypasses
+            // the gate exactly like the mailbox surface.
             const memoryResult = await callTool({
                 params: {
                     name     : 'add_memory',
@@ -234,11 +237,30 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 }
             });
 
-            expect(memoryResult.isError).toBe(true);
-            expect(memoryResult.content[0].text).toContain('Cannot execute add_memory: Memory Core is not fully operational');
-            expect(memoryResult.content[0].text).toContain('GEMINI_API_KEY not set - summarization features unavailable');
+            expect(memoryResult.isError).toBe(false);
+            expect(memoryResult.structuredContent).toEqual({ok: true, name: 'add_memory'});
+
+            // Both exempt → neither consulted the health service; both reached the tool service.
+            expect(healthCalls).toEqual([]);
+            expect(toolCalls).toEqual([
+                {name: 'list_messages', args: {status: 'unread'}},
+                {name: 'add_memory',    args: {prompt: 'p', thought: 't', response: 'r'}}
+            ]);
+
+            // query_raw_memories — NOT exempt: it embeds the query, so it genuinely cannot serve a
+            // result while the embedder is down. The gate must still fire for it.
+            const queryResult = await callTool({
+                params: {
+                    name     : 'query_raw_memories',
+                    arguments: {query: 'q'}
+                }
+            });
+
+            expect(queryResult.isError).toBe(true);
+            expect(queryResult.content[0].text).toContain('Cannot execute query_raw_memories: Memory Core is not fully operational');
+            expect(queryResult.content[0].text).toContain('GEMINI_API_KEY not set - summarization features unavailable');
             expect(healthCalls).toEqual(['ensureHealthy']);
-            expect(toolCalls).toHaveLength(1);
+            expect(toolCalls).toHaveLength(2);
         } finally {
             serverInstance.destroy();
         }
