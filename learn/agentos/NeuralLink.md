@@ -384,7 +384,7 @@ Imagine:
 - **"Why is the chart not updating?"** → The agent checks the data binding, traces the state flow, identifies the issue, and hot-patches the fix—without a reload.
 - **"Move this panel to a new window."** → The agent detaches the component, creates a popup, and rehydrates the state. Seamless.
 
-This is not science fiction. This is Neo.mjs v12.1.0.
+This is not science fiction. This is Neo.mjs v13.0.0.
 
 ### Beyond Interactive Debugging: Autonomous Agents
 
