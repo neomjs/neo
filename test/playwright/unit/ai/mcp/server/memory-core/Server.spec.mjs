@@ -266,6 +266,92 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
+    test('#12978: non-embedding reads (get_session_memories, query_recent_turns) bypass the embedder-degraded health gate; embed-dependent reads do not', async () => {
+        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const handlers = new Map();
+        const healthCalls = [];
+        const toolCalls = [];
+        const degradedError = new Error([
+            'Memory Core is not fully operational:',
+            '  - GEMINI_API_KEY not set - summarization features unavailable'
+        ].join('\n'));
+
+        const mcpServer = {
+            server: {
+                setRequestHandler(schema, handler) {
+                    handlers.set(schema, handler);
+                }
+            }
+        };
+
+        serverInstance.getToolService = () => ({
+            listTools: () => ({tools: [], nextCursor: undefined}),
+            callTool : (name, args) => {
+                toolCalls.push({name, args});
+                return {ok: true, name};
+            }
+        });
+        serverInstance.getHealthService = () => ({
+            ensureHealthy: async () => {
+                healthCalls.push('ensureHealthy');
+                throw degradedError;
+            }
+        });
+
+        serverInstance.setupRequestHandlers(mcpServer);
+
+        try {
+            const callTool = handlers.get(CallToolRequestSchema);
+
+            // get_session_memories — exempt: a Chroma metadata .get() by sessionId, no embedder call,
+            // so it serves while the embedder canary is down.
+            const sessionResult = await callTool({
+                params: {
+                    name     : 'get_session_memories',
+                    arguments: {sessionId: 's'}
+                }
+            });
+
+            expect(sessionResult.isError).toBe(false);
+            expect(sessionResult.structuredContent).toEqual({ok: true, name: 'get_session_memories'});
+
+            // query_recent_turns — exempt: a SQLite recency read over the AGENT_MEMORY graph, no
+            // embedder call (its optional Chroma content join degrades to the WAL overlay).
+            const recentResult = await callTool({
+                params: {
+                    name     : 'query_recent_turns',
+                    arguments: {limit: 5}
+                }
+            });
+
+            expect(recentResult.isError).toBe(false);
+            expect(recentResult.structuredContent).toEqual({ok: true, name: 'query_recent_turns'});
+
+            // Both exempt → neither consulted the health service; both reached the tool service.
+            expect(healthCalls).toEqual([]);
+            expect(toolCalls).toEqual([
+                {name: 'get_session_memories', args: {sessionId: 's'}},
+                {name: 'query_recent_turns',   args: {limit: 5}}
+            ]);
+
+            // query_summaries — NOT exempt: it embeds the query, so the gate must still fire (the
+            // embedder outage genuinely prevents it serving a semantic result).
+            const summariesResult = await callTool({
+                params: {
+                    name     : 'query_summaries',
+                    arguments: {query: 'q'}
+                }
+            });
+
+            expect(summariesResult.isError).toBe(true);
+            expect(summariesResult.content[0].text).toContain('Cannot execute query_summaries: Memory Core is not fully operational');
+            expect(healthCalls).toEqual(['ensureHealthy']);
+            expect(toolCalls).toHaveLength(2);
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
     test('#12752: health exemptions do not expose retired database lifecycle tools', () => {
         const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
 
