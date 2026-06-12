@@ -101,6 +101,14 @@ class Server extends BaseServer {
      * summarization/vector-provider incidents so agents can coordinate the recovery — as is
      * add_memory, whose never-fail WAL write is local-disk-scoped with the embed deferred to the
      * drain, so memory capture never blocks on an embedder/vector-provider outage.
+     *
+     * The non-embedding reads are exempt for the same reason. The gate trips on the embedder canary
+     * (a live `embedText` probe), but `get_session_memories` (a Chroma metadata `.get()` by
+     * sessionId) and `query_recent_turns` (a SQLite recency read over the `AGENT_MEMORY` graph, with
+     * a WAL-overlay fallback for its optional Chroma content join) call no embedder — they serve
+     * fine while it is down, so gating them only denied a read the outage never touched. NOT exempt:
+     * `query_raw_memories` / `query_summaries`, which embed the query and genuinely cannot serve
+     * during an embedder outage — exempting them would trade a clean gate-reject for an embed-timeout.
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
@@ -117,7 +125,9 @@ class Server extends BaseServer {
             'grant_permission',
             'revoke_permission',
             'list_permissions',
-            'manage_wake_subscription'
+            'manage_wake_subscription',
+            'get_session_memories',
+            'query_recent_turns'
         ];
     }
 
@@ -411,6 +421,11 @@ class Server extends BaseServer {
      * @param {Object} health
      */
     logStartupStatus(health) {
+        // `BaseServer.runHealthcheckAndLogStatus` passes null when the health service exposes no
+        // healthcheck method — there is no health status to report in that case. Without this guard
+        // the override dereferences null on a degraded/health-serviceless boot and crashes initAsync.
+        if (!health) return;
+
         if (health.status === 'unhealthy') {
             logger.warn('⚠️  [Startup] Memory Core is unhealthy. Server will start but tools will fail until resolved.');
             health.details.forEach(detail => logger.warn(`    ${detail}`));
