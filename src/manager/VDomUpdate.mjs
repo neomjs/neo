@@ -118,6 +118,24 @@ class VDomUpdate extends Collection {
      */
     preUpdateMap = new Map()
     /**
+     * The wedge-watchdog threshold in milliseconds: an in-flight update older than this is
+     * reported as wedged via `console.error`. Updates settle in milliseconds; the
+     * generous default avoids false positives on heavily loaded sessions. Mutable for tests.
+     * @member {Number} watchdogThreshold=5000
+     * @protected
+     */
+    watchdogThreshold = 5000
+    /**
+     * Maps an in-flight component id to its armed watchdog timer id; see
+     * {@link #registerInFlightUpdate} / {@link #unregisterInFlightUpdate}.
+     *
+     * Key: componentId, Value: setTimeout timer id
+     *
+     * @member {Map<String, Number>} watchdogTimerMap=new Map()
+     * @protected
+     */
+    watchdogTimerMap = new Map()
+    /**
      * A Map that stores Promise `resolve` functions associated with a component's update.
      * When a component's VDOM update is finalized, the callbacks for its ID are executed,
      * resolving the Promise returned by the component's `update()` method.
@@ -341,6 +359,13 @@ class VDomUpdate extends Collection {
     registerInFlightUpdate(ownerId, updateDepth) {
         this.inFlightUpdateMap.set(ownerId, updateDepth);
 
+        // Watchdog: an in-flight update resolves in milliseconds. One that does not is a wedged
+        // component — its flag blocks every own update and its registry entry yields every ancestor
+        // update, while nothing ever errors (a lost reply once froze a component for 25 minutes,
+        // silently). A permanently wedged component must scream; the timer is cleared on unregister,
+        // so a healthy update never pays more than one (cancelled) setTimeout.
+        this.#armWatchdog(ownerId);
+
         // Register this component as an in-flight descendant for all its parents
         const parentIds = Neo.manager.Component.getParentIds(Neo.getComponent(ownerId));
 
@@ -355,6 +380,27 @@ class VDomUpdate extends Collection {
 
             map.set(ownerId, true)
         }
+    }
+
+    /**
+     * Arms the wedge watchdog for one in-flight update; see {@link #registerInFlightUpdate}.
+     * Extracted for testability — specs can shrink {@link #watchdogThreshold}.
+     * @param {String} ownerId The `id` of the component owning the update.
+     * @private
+     */
+    #armWatchdog(ownerId) {
+        let me = this;
+
+        clearTimeout(me.watchdogTimerMap.get(ownerId));
+
+        me.watchdogTimerMap.set(ownerId, setTimeout(() => {
+            me.watchdogTimerMap.delete(ownerId);
+            console.error(
+                `vdom update wedged: "${ownerId}" has been in-flight for over ${me.watchdogThreshold}ms. ` +
+                'Its reply was likely lost — the component will not update again, and ancestor updates will yield to it. ' +
+                'See https://github.com/neomjs/neo/issues/12946'
+            )
+        }, me.watchdogThreshold))
     }
 
     /**
@@ -444,6 +490,10 @@ class VDomUpdate extends Collection {
      */
     unregisterInFlightUpdate(ownerId) {
         this.inFlightUpdateMap.delete(ownerId);
+
+        // Disarm the wedge watchdog — the update settled (resolve OR reject), so it is not wedged.
+        clearTimeout(this.watchdogTimerMap.get(ownerId));
+        this.watchdogTimerMap.delete(ownerId);
 
         // Remove this component from the in-flight descendant maps of all its parents
         // We need to iterate all registered ancestors to ensure we catch cases where
