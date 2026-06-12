@@ -1,0 +1,7 @@
+{
+    "appPath"    : "examples/component/markdown/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "useAiClient": true
+}
