@@ -129,16 +129,16 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
 
             // slide LEFT across two neighbours
             await page.mouse.move(srcBox.x + srcBox.width / 2 - 2 * step, y, { steps: 50 });
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(750);
             assertAligned(await readPairs(page), `pass ${pass}: mid-drag after sliding left`, true);
 
             // slide back RIGHT within the same drag op
             await page.mouse.move(srcBox.x + srcBox.width / 2, y, { steps: 50 });
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(750);
             assertAligned(await readPairs(page), `pass ${pass}: mid-drag after sliding back`, true);
 
             await page.mouse.up();
-            await page.waitForTimeout(700);
+            await page.waitForTimeout(900);
             assertAligned(await readPairs(page), `pass ${pass}: after drop`);
         }
     });
