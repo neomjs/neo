@@ -421,6 +421,11 @@ class Server extends BaseServer {
      * @param {Object} health
      */
     logStartupStatus(health) {
+        // `BaseServer.runHealthcheckAndLogStatus` passes null when the health service exposes no
+        // healthcheck method — there is no health status to report in that case. Without this guard
+        // the override dereferences null on a degraded/health-serviceless boot and crashes initAsync.
+        if (!health) return;
+
         if (health.status === 'unhealthy') {
             logger.warn('⚠️  [Startup] Memory Core is unhealthy. Server will start but tools will fail until resolved.');
             health.details.forEach(detail => logger.warn(`    ${detail}`));

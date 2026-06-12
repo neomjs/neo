@@ -352,6 +352,19 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
+    test('#12978: logStartupStatus tolerates a null health result (BaseServer passes null when the health service has no healthcheck)', () => {
+        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+
+        try {
+            // Regression pin: BaseServer.runHealthcheckAndLogStatus calls logStartupStatus(null)
+            // when the health service exposes no healthcheck method (e.g. a degraded/serviceless
+            // boot). The MC override must not dereference null — otherwise initAsync crashes.
+            expect(() => serverInstance.logStartupStatus(null)).not.toThrow();
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
     test('#12752: health exemptions do not expose retired database lifecycle tools', () => {
         const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
 
