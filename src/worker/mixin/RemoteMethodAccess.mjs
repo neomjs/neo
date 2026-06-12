@@ -53,7 +53,7 @@ import Base from '../../core/Base.mjs';
  *    For non-singleton instances, `core.Base.initRemote` automatically generates proxy functions and attaches
  *    them to a `this.remote` object on the instance itself (e.g., `this.remote.data.read()`), rather than
  *    broadcasting globally.
- *    
+ *
  *    To establish an instance-to-instance connection, instances must perform a **Handshake**:
  *    - Thread A creates an instance in Thread B (via `worker.createInstance()`), passing its own local ID in the config.
  *    - Thread B instantiates the object, registers it locally, and returns its new local ID to Thread A.
@@ -214,8 +214,8 @@ class RemoteMethodAccess extends Base {
             out, method;
 
         if (!pkg) {
-            throw new Error(msg.remoteId ? 
-                `Invalid remote instance id "${msg.remoteId}"` : 
+            throw new Error(msg.remoteId ?
+                `Invalid remote instance id "${msg.remoteId}"` :
                 `Invalid remote namespace "${msg.remoteClassName}"`
             )
         }
@@ -263,6 +263,8 @@ class RemoteMethodAccess extends Base {
      * Sends a rejection reply back to the caller of a remote method.
      * Used when the execution of the remote method fails or throws an error.
      * It ensures the reply is routed back to the correct origin (windowId or worker).
+     * Delivery is containment-guarded via sendReply() — a failed send cannot throw back
+     * into the execution path.
      *
      * @param {Object} msg The original message object.
      * @param {Object} data The error data to send back.
@@ -285,13 +287,15 @@ class RemoteMethodAccess extends Base {
             }
         }
 
-        me.sendMessage(msg.origin, opts)
+        me.sendReply(msg, opts)
     }
 
     /**
      * Sends a success reply back to the caller of a remote method.
      * Used when the remote method executes successfully.
      * It handles the transfer of transferable objects (like ArrayBuffers) and ensures correct routing.
+     * Delivery is containment-guarded via sendReply() — a failed send cannot throw back
+     * into the execution path.
      *
      * @param {Object} msg The original message object.
      * @param {Object} data The result data to send back.
@@ -320,7 +324,45 @@ class RemoteMethodAccess extends Base {
             }
         }
 
-        me.sendMessage(msg.origin, opts, transfer)
+        me.sendReply(msg, opts, transfer)
+    }
+
+    /**
+     * Posts a reply message with loss containment: a reply which cannot be routed or sent
+     * (disconnected port, clone error) must never throw back into the remote-method execution
+     * path — an escaped exception here makes replies vanish and wedges the caller-side promise
+     * forever (`isVdomUpdating` stuck `true`, `vnode: null`, blank app, zero errors).
+     * The failure is logged with its full routing context instead, so the update watchdog and
+     * the console make the loss diagnosable.
+     * @param {Object} msg The original message object
+     * @param {Object} opts The reply options (action, data, replyId, routing keys)
+     * @param {Array|null} [transfer=null] An optional array of Transferable objects
+     * @protected
+     */
+    sendReply(msg, opts, transfer=null) {
+        let message;
+
+        try {
+            message = this.sendMessage(msg.origin, opts, transfer)
+        } catch (err) {
+            console.error('[RemoteMethodAccess] Reply send failed — the caller-side promise will not settle', {
+                destination: msg.origin,
+                error      : err,
+                port       : opts.port,
+                replyId    : opts.replyId,
+                windowId   : opts.windowId
+            });
+            return
+        }
+
+        if (!message) {
+            console.error('[RemoteMethodAccess] Reply not routable (no live port) — the caller-side promise will not settle', {
+                destination: msg.origin,
+                port       : opts.port,
+                replyId    : opts.replyId,
+                windowId   : opts.windowId
+            })
+        }
     }
 }
 
