@@ -800,7 +800,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-06-12T00:01:21Z</lastmod>
+    <lastmod>2026-06-12T05:01:18Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -820,7 +820,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-06-12T00:01:22Z</lastmod>
+    <lastmod>2026-06-12T05:01:19Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -1137,6 +1137,9 @@
   <url>
     <loc>https://neomjs.com/examples/grid/covid/index.html</loc>
     <lastmod>2025-07-11T21:54:21+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/examples/grid/lockedColumns/index.html</loc>
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/nestedRecordFields/index.html</loc>
