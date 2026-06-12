@@ -126,7 +126,15 @@ test.describe('Portal content index generators (#12210)', () => {
         const manifest = await fs.readJson(manifestFile);
 
         expect(manifest.indexUrl).toBe('pulls/index.json');
-        expect(manifest.chunks.some(chunk => chunk.childrenUrl === 'pulls/latest/active-chunk-1.json')).toBe(true)
+        expect(manifest.chunks.some(chunk => chunk.childrenUrl === 'pulls/latest/active-chunk-1.json')).toBe(true);
+
+        // 3. The deep-link id map names each leaf's chunk folder — active and archived alike.
+        await expect(fs.readJson(path.join(outputDir, 'idMap.json'))).resolves.toEqual({
+            '1': 'v12.1.0/archive-v12-1-0-chunk-1',
+            '2': 'Latest/active-chunk-1',
+            '3': 'Latest/active-chunk-1',
+            '4': 'Latest/active-chunk-1'
+        })
     });
 
     test('createPullRequestIndex orders chunk folders by chunk-number (desc), not by sortDate, matching the positional labels (#12309)', async () => {
@@ -233,6 +241,13 @@ test.describe('Portal content index generators (#12210)', () => {
             parentId: 'Q&A/archive-v8-30-0-chunk-1',
             state   : 'closed',
             title   : 'Archived answer'
-        }])
+        }]);
+
+        // The deep-link id map spans categories and archive buckets alike.
+        await expect(fs.readJson(path.join(outputDir, 'idMap.json'))).resolves.toEqual({
+            '10': 'Ideas/active-chunk-1',
+            '11': 'Q&A/archive-v8-30-0-chunk-1',
+            '12': 'General/active-chunk-1'
+        })
     })
 });
