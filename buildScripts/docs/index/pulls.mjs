@@ -14,15 +14,10 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
  * Sibling to `tickets.mjs`: the PR content tree mirrors the issue content tree because the on-disk
  * markdown structure is identical — `resources/content/pulls/chunk-*` for unreleased PRs and
  * `resources/content/archive/pulls/<version>/chunk-*` for released ones. The script parses that
- * structure into two lightweight JSON surfaces:
- *
- * - **Legacy full tree** (`pulls.json`): release group roots (`Latest` for unreleased, then one per
- *   release version) with PR leaves directly beneath, each carrying its markdown `path`. Kept stable
- *   for the current portal route until the lazy consumer lands.
- * - **Chunked surface** (`pulls/index.json` + per-chunk leaf files + `manifest.json`): a lightweight
- *   root index whose chunk nodes carry reconstruction metadata (`contentDir`, `filePrefix`) and point
- *   at lazy-loadable leaf files, so the portal tree can load PRs folder-by-folder instead of the whole
- *   corpus.
+ * structure into the chunked surface (`pulls/index.json` + per-chunk leaf files + `manifest.json`):
+ * a lightweight root index whose chunk nodes carry reconstruction metadata (`contentDir`,
+ * `filePrefix`) and point at lazy-loadable leaf files, so the portal tree loads PRs
+ * folder-by-folder instead of the whole corpus.
  *
  * Grouping is by **release**, not PR state: ~99% of PRs are merged, so a Merged/Open/Closed split is
  * noise. The release a PR belongs to is its archive folder (`Latest` while unreleased).
@@ -35,7 +30,7 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
 const ROOT_DIR    = process.cwd();
 const PULLS_DIR   = path.resolve(ROOT_DIR, 'resources/content/pulls');
 const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/archive/pulls');
-const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls.json');
+const DATA_DIR            = path.resolve(ROOT_DIR, 'apps/portal/resources/data');
 const CHUNKED_OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls/index.json');
 const OUTPUT_DIR          = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls');
 const MANIFEST_FILE       = path.resolve(ROOT_DIR, 'apps/portal/resources/data/pulls/manifest.json');
@@ -104,30 +99,6 @@ function sortPulls(a, b) {
     }
 
     return parseInt(b.id) - parseInt(a.id)
-}
-
-/**
- * @param {String[]} sortedGroups
- * @param {Map<String,Object[]>} pullsByGroup
- * @returns {Object[]}
- */
-function buildLegacyFlatTree(sortedGroups, pullsByGroup) {
-    const flatTree = [];
-
-    sortedGroups.forEach((groupName, index) => {
-        flatTree.push(createGroupNode(groupName, index));
-
-        pullsByGroup.get(groupName).sort(sortPulls).forEach(pull => {
-            flatTree.push({
-                id      : pull.id,
-                parentId: pull.parentId,
-                title   : pull.title,
-                path    : pull.path
-            })
-        })
-    });
-
-    return flatTree
 }
 
 /**
@@ -245,13 +216,13 @@ function sortGroups(keys) {
 }
 
 /**
- * Core logic to scan and index pull-request markdown files into the legacy flat tree + chunked surface.
+ * Core logic to scan and index pull-request markdown files into the chunked surface.
  *
  * @param {Object} options Configuration options
  * @param {String} [options.inputDir] Directory containing active (unreleased) PR markdown files.
  * @param {String} [options.archiveDir] Directory containing archived (released) PR markdown files.
  * @param {String} [options.outputDir] Directory for chunked PR leaf JSON files.
- * @param {String} [options.outputFile] Path to the legacy full-tree JSON file.
+ * @param {String} [options.dataDir] Portal data root the chunk `childrenUrl` values resolve against.
  * @param {String} [options.chunkedOutputFile] Path to the chunked root-index JSON file.
  * @param {String} [options.manifestFile] Path to the crawler manifest JSON file.
  * @returns {Promise<void>} Resolves when the JSON files are written.
@@ -261,7 +232,7 @@ async function createPullRequestIndex(options = {}) {
         inputDir          = options.inputDir          || PULLS_DIR,
         archiveDir        = options.archiveDir        || ARCHIVE_DIR,
         outputDir         = options.outputDir         || OUTPUT_DIR,
-        outputFile        = options.outputFile        || OUTPUT_FILE,
+        dataDir           = options.dataDir           || DATA_DIR,
         chunkedOutputFile = options.chunkedOutputFile || CHUNKED_OUTPUT_FILE,
         manifestFile      = options.manifestFile      || MANIFEST_FILE;
 
@@ -318,7 +289,6 @@ async function createPullRequestIndex(options = {}) {
             id      : String(frontmatter.number),
             parentId: groupName,
             title   : frontmatter.title,
-            path    : path.relative(ROOT_DIR, filePath),
             // Internal sort/bucket keys (stripped before write).
             _mergedAt : frontmatter.mergedAt,
             _closedAt : frontmatter.closedAt,
@@ -329,20 +299,15 @@ async function createPullRequestIndex(options = {}) {
 
     const
         sortedGroups        = sortGroups(Array.from(pullsByGroup.keys())),
-        flatTree            = buildLegacyFlatTree(sortedGroups, pullsByGroup),
+        pullCount           = Array.from(pullsByGroup.values()).reduce((sum, group) => sum + group.length, 0),
         {rootIndex, chunks} = buildChunkedIndex(sortedGroups, pullsByGroup);
 
-    console.log(`Indexed ${flatTree.length - sortedGroups.length} pull requests in ${sortedGroups.length} groups.`);
-
-    await fs.ensureDir(path.dirname(outputFile));
-    await fs.writeJSON(outputFile, flatTree);
-
-    console.log(`Pull Requests index written to ${outputFile}`);
+    console.log(`Indexed ${pullCount} pull requests in ${sortedGroups.length} groups.`);
 
     await fs.emptyDir(outputDir);
 
     for (const chunk of chunks.values()) {
-        const target = path.join(path.dirname(outputFile), chunk.childrenUrl);
+        const target = path.join(dataDir, chunk.childrenUrl);
 
         chunk.records.sort((a, b) => parseInt(b.id) - parseInt(a.id));
 
@@ -351,7 +316,7 @@ async function createPullRequestIndex(options = {}) {
     }
 
     const manifest = {
-        indexUrl: path.relative(path.dirname(outputFile), chunkedOutputFile).split(path.sep).join('/'),
+        indexUrl: path.relative(dataDir, chunkedOutputFile).split(path.sep).join('/'),
         chunks  : Array.from(chunks.values())
             .map(({childCount, childrenUrl, contentDir, filePrefix, id, parentId, title}) => ({
                 id,
@@ -387,7 +352,6 @@ async function runCli() {
         .option('-i, --input <path>',   'Active pull requests directory path', sanitizeInput)
         .option('-a, --archive <path>', 'Archive pull requests directory path', sanitizeInput)
         .option('-d, --output-dir <path>', 'Output chunk directory path', sanitizeInput)
-        .option('-o, --output <path>',  'Legacy full-tree output file path', sanitizeInput)
         .option('-c, --chunked-output <path>', 'Chunked root-index output file path', sanitizeInput)
         .option('-m, --manifest <path>', 'Crawler manifest output file path', sanitizeInput);
 
@@ -399,7 +363,6 @@ async function runCli() {
         inputDir         : opts.input         ? path.resolve(ROOT_DIR, opts.input)         : undefined,
         archiveDir       : opts.archive       ? path.resolve(ROOT_DIR, opts.archive)       : undefined,
         outputDir        : opts.outputDir     ? path.resolve(ROOT_DIR, opts.outputDir)     : undefined,
-        outputFile       : opts.output        ? path.resolve(ROOT_DIR, opts.output)        : undefined,
         chunkedOutputFile: opts.chunkedOutput ? path.resolve(ROOT_DIR, opts.chunkedOutput) : undefined,
         manifestFile     : opts.manifest      ? path.resolve(ROOT_DIR, opts.manifest)      : undefined
     })
