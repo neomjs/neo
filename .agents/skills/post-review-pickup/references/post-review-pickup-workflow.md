@@ -125,6 +125,14 @@ lane-state: next-lane (picking up ticket #NNNN)
 lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
 ```
 
+**PR-State Freshness Gate:** any `lane-state:`, A2A broadcast, or report that names a PR's
+review/merge status MUST be preceded by a live `gh pr view <N> --json state,mergedAt` read —
+the triggering signal (A2A, wake, comment) is a recovery hint, NOT the work gate. Under
+merge-on-approval, signals go stale in seconds: declaring `human-gate` for an already-MERGED
+PR broadcasts a false board to the whole swarm (empirical: PR `#12950`'s `[merge-eligible]`
+landed 15s post-merge; PR `#12956`'s approval relay missed the merge by seconds — both
+operator-flagged 2026-06-12). Rule detail + verdict-not-enum companion: `pr-review-guide.md §10.1`.
+
 ## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
 
 Per #11455 AC: at EACH broadened lifecycle boundary (reviewer post, author
