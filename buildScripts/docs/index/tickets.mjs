@@ -133,11 +133,12 @@ function sortChunkFolders(a, b) {
 /**
  * @param {String[]} sortedGroups
  * @param {Map<String,Object[]>} ticketsByGroup
- * @returns {{rootIndex: Object[], chunks: Map<String,Object>}}
+ * @returns {{rootIndex: Object[], chunks: Map<String,Object>, idMap: Object}}
  */
 function buildChunkedIndex(sortedGroups, ticketsByGroup) {
     const
         chunks    = new Map(),
+        idMap     = {},
         rootIndex = [];
 
     for (const groupName of sortedGroups) {
@@ -176,7 +177,9 @@ function buildChunkedIndex(sortedGroups, ticketsByGroup) {
                 id      : ticket.id,
                 parentId: chunkId,
                 title   : ticket.title
-            })
+            });
+
+            idMap[ticket.id] = chunkId
         }
     }
 
@@ -193,7 +196,7 @@ function buildChunkedIndex(sortedGroups, ticketsByGroup) {
         }))
     });
 
-    return {rootIndex, chunks}
+    return {rootIndex, chunks, idMap}
 }
 
 /**
@@ -330,8 +333,8 @@ async function createTicketIndex(options = {}) {
     });
 
     const
-        ticketCount         = Array.from(ticketsByGroup.values()).reduce((sum, group) => sum + group.length, 0),
-        {rootIndex, chunks} = buildChunkedIndex(sortedGroups, ticketsByGroup);
+        ticketCount                = Array.from(ticketsByGroup.values()).reduce((sum, group) => sum + group.length, 0),
+        {rootIndex, chunks, idMap} = buildChunkedIndex(sortedGroups, ticketsByGroup);
 
     console.log(`Filtered down to ${ticketCount} tickets in ${sortedGroups.length} groups.`);
 
@@ -366,9 +369,14 @@ async function createTicketIndex(options = {}) {
     await fs.writeJSON(chunkedOutputFile, rootIndex);
     await fs.writeJSON(manifestFile, manifest);
 
+    // Deep-link resolver: maps every leaf id to its chunk folder id, so consumers can load
+    // exactly the one chunk containing a deep-linked item instead of scanning folders.
+    await fs.writeJSON(path.join(outputDir, 'idMap.json'), idMap);
+
     console.log(`Chunked ticket root index written to ${chunkedOutputFile}`);
     console.log(`Chunked ticket leaf files written to ${outputDir}`);
     console.log(`Ticket crawler manifest written to ${manifestFile}`);
+    console.log(`Ticket id map written to ${path.join(outputDir, 'idMap.json')}`);
 }
 
 /**

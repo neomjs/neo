@@ -21,6 +21,13 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Memoized promise for the build-emitted id→chunk map (see getIdMap()).
+     * @member {Promise<Object|null>|undefined} idMapPromise
+     * @protected
+     */
+    idMapPromise = undefined
+
+    /**
      * @param {String} item
      */
     navigateTo(item) {
@@ -98,9 +105,31 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Lazily fetches and memoizes the build-emitted id→chunk map for this content type.
+     * The map lets a deep link resolve its containing chunk folder directly instead of
+     * scanning folders sequentially; a missing or unreachable map degrades to null and
+     * callers fall back to the legacy folder scan.
+     * @returns {Promise<Object|null>}
+     */
+    getIdMap() {
+        let me = this;
+
+        if (me.idMapPromise === undefined) {
+            const tree = me.getReference('tree');
+
+            me.idMapPromise = fetch(`${tree.lazyChildUrlPrefix}pulls/idMap.json`)
+                .then(response => response.ok ? response.json() : null)
+                .catch(() => null)
+        }
+
+        return me.idMapPromise
+    }
+
+    /**
      * @summary Lazy-aware record resolution for deep-links.
      *
-     * Probes the store for `itemId`; if absent (its chunk is not loaded yet), expands unloaded chunk
+     * Probes the store for `itemId`; if absent (its chunk is not loaded yet), resolves the containing
+     * chunk via the build-emitted id map (one targeted load), falling back to expanding unloaded chunk
      * folders (`childrenUrl` + `!isChildrenLoaded`) one at a time until the record's chunk loads. This
      * is what makes a bare-id deep-link (`#/news/pulls/<number>`) resolve under the chunked store.
      * @param {String} itemId
@@ -115,6 +144,23 @@ class MainContainerController extends Controller {
 
         if (record) {
             return record
+        }
+
+        // Deterministic single-chunk resolution: the build-emitted id map names the chunk
+        // folder containing the item, so one targeted load replaces the sequential scan.
+        const
+            idMap  = await me.getIdMap(),
+            folder = idMap?.[itemId] && store.get(idMap[itemId]);
+
+        if (folder) {
+            await tree.onFolderItemClick(folder);
+
+            record = store.get(itemId);
+
+            if (record) {
+                me.getStateProvider().data.countPages = store.getCount();
+                return record
+            }
         }
 
         folders = store.items.filter(record => !record.isLeaf && record.childrenUrl && !record.isChildrenLoaded);
