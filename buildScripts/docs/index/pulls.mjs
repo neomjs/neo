@@ -130,11 +130,12 @@ function sortChunkFolders(a, b) {
 /**
  * @param {String[]} sortedGroups
  * @param {Map<String,Object[]>} pullsByGroup
- * @returns {{rootIndex: Object[], chunks: Map<String,Object>}}
+ * @returns {{rootIndex: Object[], chunks: Map<String,Object>, idMap: Object}}
  */
 function buildChunkedIndex(sortedGroups, pullsByGroup) {
     const
         chunks    = new Map(),
+        idMap     = {},
         rootIndex = [];
 
     for (const groupName of sortedGroups) {
@@ -173,7 +174,9 @@ function buildChunkedIndex(sortedGroups, pullsByGroup) {
                 id      : pull.id,
                 parentId: chunkId,
                 title   : pull.title
-            })
+            });
+
+            idMap[pull.id] = chunkId
         }
     }
 
@@ -190,7 +193,7 @@ function buildChunkedIndex(sortedGroups, pullsByGroup) {
         }))
     });
 
-    return {rootIndex, chunks}
+    return {rootIndex, chunks, idMap}
 }
 
 /**
@@ -298,9 +301,9 @@ async function createPullRequestIndex(options = {}) {
     }));
 
     const
-        sortedGroups        = sortGroups(Array.from(pullsByGroup.keys())),
-        pullCount           = Array.from(pullsByGroup.values()).reduce((sum, group) => sum + group.length, 0),
-        {rootIndex, chunks} = buildChunkedIndex(sortedGroups, pullsByGroup);
+        sortedGroups               = sortGroups(Array.from(pullsByGroup.keys())),
+        pullCount                  = Array.from(pullsByGroup.values()).reduce((sum, group) => sum + group.length, 0),
+        {rootIndex, chunks, idMap} = buildChunkedIndex(sortedGroups, pullsByGroup);
 
     console.log(`Indexed ${pullCount} pull requests in ${sortedGroups.length} groups.`);
 
@@ -335,9 +338,14 @@ async function createPullRequestIndex(options = {}) {
     await fs.writeJSON(chunkedOutputFile, rootIndex);
     await fs.writeJSON(manifestFile, manifest);
 
+    // Deep-link resolver: maps every leaf id to its chunk folder id, so consumers can load
+    // exactly the one chunk containing a deep-linked item instead of scanning folders.
+    await fs.writeJSON(path.join(outputDir, 'idMap.json'), idMap);
+
     console.log(`Chunked pull-request root index written to ${chunkedOutputFile}`);
     console.log(`Chunked pull-request leaf files written to ${outputDir}`);
-    console.log(`Pull-request crawler manifest written to ${manifestFile}`)
+    console.log(`Pull-request crawler manifest written to ${manifestFile}`);
+    console.log(`Pull-request id map written to ${path.join(outputDir, 'idMap.json')}`)
 }
 
 /**

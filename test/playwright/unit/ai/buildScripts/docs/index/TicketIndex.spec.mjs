@@ -134,6 +134,14 @@ test.describe('Portal ticket index generator (#12217)', () => {
                 childrenUrl: 'tickets/backlog/active-chunk-2.json',
                 childCount : 1
             })])
+        });
+
+        // The deep-link id map names each leaf's chunk folder — and only included leaves:
+        // the excluded chore (id 10) must not appear.
+        await expect(fs.readJson(path.join(outputDir, 'idMap.json'))).resolves.toEqual({
+            '5' : 'v11.0.0/archive-v11-0-0-chunk-1',
+            '20': 'v12.1.0/archive-v12-1-0-chunk-1',
+            '30': 'Backlog/active-chunk-2'
         })
     });
 
