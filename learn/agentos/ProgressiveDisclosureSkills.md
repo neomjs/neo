@@ -132,6 +132,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path (sibling-file-lift pattern match) or full Pre-Flight) |
 | `identity-firewall` | Security | The L2 Channel Separation and Prompt Firewall defense mechanisms |
+| `hostile-content-quarantine` | Security | Incident playbook for externally-authored hostile content (astroturfing, spam, injection-bearing artifacts): detect markers, never engage, quarantined read, ingestion clock, moderation matrix + verification triangle |
 | `neo-identity-update` | Tactical | Cross-surface Neo-identity coherence (facts, framing, actions; ADR 0018) |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
