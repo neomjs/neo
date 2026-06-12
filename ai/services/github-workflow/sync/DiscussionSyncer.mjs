@@ -188,6 +188,20 @@ class DiscussionSyncer extends Base {
     }
 
     /**
+     * Containment gate: is this discussion on the sync denylist (by number or author)? A denylisted
+     * discussion is excluded from emission/indexing and any previously-synced copy is quarantined,
+     * so a known-contaminated artifact never reaches `resources/content/**` or downstream KB chunks.
+     * The empty default denylist makes this a no-op.
+     * @param {Object} discussion
+     * @returns {Boolean}
+     */
+    #isDenylisted(discussion) {
+        const denylist = issueSyncConfig.discussionDenylist || {};
+        return (denylist.numbers || []).includes(discussion.number) ||
+               (denylist.authors || []).includes(discussion.author?.login);
+    }
+
+    /**
      * Fetches discussions from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.
@@ -244,6 +258,27 @@ class DiscussionSyncer extends Base {
         };
 
         const cachedDiscussions = metadata.discussions || {};
+
+        // Containment: partition denylisted discussions out before bucket-planning + processing.
+        // A denylisted artifact (by number or author) must never enter resources/content/** or
+        // downstream KB chunks; any previously-synced copy is quarantined (removed). The empty
+        // default denylist makes this loop a no-op.
+        const deniedNumbers = new Set();
+        for (const discussion of allDiscussions) {
+            if (this.#isDenylisted(discussion)) {
+                deniedNumbers.add(discussion.number);
+                logger.warn(`🛡️ Discussion #${discussion.number} is denylisted (containment); excluding from sync.`);
+                const cachedPath = cachedDiscussions[discussion.number]?.path;
+                if (cachedPath) {
+                    await fs.unlink(this.#resolvePath(cachedPath)).catch(() => {});
+                    logger.warn(`🛡️ Quarantined previously-synced copy of denylisted discussion #${discussion.number}.`);
+                }
+            }
+        }
+        if (deniedNumbers.size > 0) {
+            allDiscussions = allDiscussions.filter(discussion => !deniedNumbers.has(discussion.number));
+        }
+
         const planBuckets = this.#planBuckets(metadata, allDiscussions);
 
         for (const discussion of allDiscussions) {

@@ -146,6 +146,14 @@ class Config extends ConfigProvider {
                  */
                 droppedLabels: leaf(['dropped', 'wontfix', 'duplicate']),
                 /**
+                 * Containment denylist: discussions whose `number` or `author.login` match are excluded
+                 * from sync — never written to `resources/content/**` or downstream KB chunks, and any
+                 * previously-synced copy is quarantined (removed). Policy-free mechanism; the empty
+                 * default is a no-op that preserves normal sync.
+                 * @type {{numbers: Number[], authors: String[]}}
+                 */
+                discussionDenylist: leaf({numbers: [], authors: []}),
+                /**
                  * The date from which to start synchronizing issues and releases.
                  * @type {string}
                  */
