@@ -466,7 +466,19 @@ class GridBody extends Component {
      * @protected
      */
     afterSetContainerWidth(value, oldValue) {
-        value > 0 && this.updateMountedAndVisibleColumns()
+        if (value > 0) {
+            let me = this;
+
+            // updateMountedAndVisibleColumns only re-renders rows as a side effect of mountedColumns
+            // *changing*. A width-invariant region — e.g. a single-column locked-end body whose
+            // mounted range is always [0, 0] regardless of width — would otherwise never render its
+            // rows once measured. Recompute with the row render suppressed, then fire exactly one
+            // explicit createViewData (mirroring the afterSetBufferColumnRange pattern above).
+            me.skipCreateViewData = true;
+            me.updateMountedAndVisibleColumns();
+            me.skipCreateViewData = false;
+            me.createViewData()
+        }
     }
 
     /**
