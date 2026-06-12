@@ -60,7 +60,18 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
             }))
             .sort((a, b2) => a.x - b2.x);
 
-        return {headers, cells};
+        // per-layer scroll context — pins WHICH layer drifted when the pairing fails
+        const scrollCtx = {
+            toolbarScrollLeft: toolbar.scrollLeft,
+            toolbarLeft      : Math.round(toolbar.getBoundingClientRect().left),
+            bodyScrollLeft   : body.scrollLeft,
+            bodyLeft         : Math.round(clip.left),
+            rowTransform     : getComputedStyle(row).transform,
+            scrollVar        : getComputedStyle(body).getPropertyValue('--grid-scroll-left') ||
+                               getComputedStyle(body.parentElement).getPropertyValue('--grid-scroll-left')
+        };
+
+        return {headers, cells, scrollCtx};
     });
 
     /**
@@ -70,8 +81,8 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
      * `midDrag`. After a drop, counts must match exactly. A layer offset of ANY size fails every
      * header's lookup and prints both rect sets for diagnosis.
      */
-    const assertAligned = ({headers, cells}, label, midDrag = false) => {
-        const dump = `headers=${JSON.stringify(headers)} cells=${JSON.stringify(cells)}`;
+    const assertAligned = ({headers, cells, scrollCtx}, label, midDrag = false) => {
+        const dump = `scroll=${JSON.stringify(scrollCtx)} headers=${JSON.stringify(headers)} cells=${JSON.stringify(cells)}`;
 
         if (!midDrag) {
             expect(headers.length, `${label}: visible header/cell count parity — ${dump}`).toBe(cells.length);

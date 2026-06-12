@@ -299,6 +299,16 @@ class SortZone extends BaseSortZone {
         // Avoid conflicts with grid.header.plugin.Resizable
         if (!me.owner.dragResortable) return;
 
+        // Remove the drag-start scroll-extent sentinel before the layout restore: the items
+        // re-enter the flow and own the scrollable overflow again from here on.
+        let ownerCn       = me.owner.vdom.cn,
+            sentinelIndex = ownerCn.findIndex(node => node.cls?.includes('neo-sortzone-extent-sentinel'));
+
+        if (sentinelIndex > -1) {
+            ownerCn.splice(sentinelIndex, 1);
+            me.owner.update()
+        }
+
         // Restore moved nodes BEFORE destroying the proxy to ensure they return to the Grid.
         if (me.movedComponents?.length > 0) {
             let restoreDeltas = me.movedComponents.map(item => ({
@@ -480,6 +490,31 @@ class SortZone extends BaseSortZone {
             body.updateDepth = -1;
             body.update()
         }
+
+        // Scroll-extent sentinel: with the items absolutised, the toolbar's scrollable overflow
+        // is defined purely by their boxes — every switch reflow can shrink it, and the browser
+        // then clamps the element's native scrollLeft below the true scroll position. The owner
+        // must NOT be expanded to content size (it has to stay a real scroll container — see
+        // `expandOwnerOnDrag` in the base class), so instead a 1px absolute node pins the
+        // pre-drag content extent for the duration of the drag. The clamp becomes impossible:
+        // max scroll never shrinks, headers and cells stay on the same scroll truth through
+        // every switch and switch-back. processDragEnd removes it before the layout restore.
+        if (me.dragStartScrollLeft > 0 && me.itemRects?.length) {
+            let extent = Math.max(...me.itemRects.map(rect => rect.x + rect.width));
+
+            me.owner.vdom.cn.push({
+                cls  : ['neo-sortzone-extent-sentinel'],
+                style: {
+                    height  : '1px',
+                    left    : `${extent - 1}px`,
+                    position: 'absolute',
+                    top     : 0,
+                    width   : '1px'
+                }
+            });
+
+            me.owner.update()
+        }
     }
 
     /**
@@ -489,9 +524,10 @@ class SortZone extends BaseSortZone {
     switchItems(index1, index2) {
         super.switchItems(index1, index2);
 
-        if (this.moveColumnContent) {
-            let me = this,
-                { itemRects } = me,
+        let me = this;
+
+        if (me.moveColumnContent) {
+            let { itemRects } = me,
                 body = me.gridBody,
                 { columnPositions } = body,
                 column1Position = columnPositions.getAt(index1),
