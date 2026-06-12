@@ -327,13 +327,23 @@ class Main extends core.Base {
                 queue.unshift(operation);
                 return requestAnimationFrame(me.renderFrame.bind(me))
             } else {
-                if (mode === 'read') {
-                    DomAccess.read(operation)
-                } else {
-                    DeltaUpdates.update(operation)
-                }
+                // Per-operation containment: a throwing delta must neither swallow this operation's
+                // reply nor escape the loop and drop the replies of everything still queued behind it.
+                // A dropped reply permanently wedges every component awaiting that update batch
+                // (isVdomUpdating never clears) — the failure must settle the promise (reject)
+                // and stay loud instead.
+                try {
+                    if (mode === 'read') {
+                        DomAccess.read(operation)
+                    } else {
+                        DeltaUpdates.update(operation)
+                    }
 
-                WorkerManager.resolveDomOperationPromise(operation.replyId)
+                    WorkerManager.resolveDomOperationPromise(operation.replyId)
+                } catch (err) {
+                    console.error('processQueue: DOM operation failed', mode, err, operation);
+                    WorkerManager.rejectDomOperationPromise(operation.replyId, err)
+                }
             }
         }
     }
