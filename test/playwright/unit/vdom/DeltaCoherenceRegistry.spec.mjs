@@ -72,6 +72,14 @@ test.describe('DeltaCoherenceRegistry — ledger model', () => {
         expect(extractInsertRootId(null)).toBeNull()
     });
 
+    test('extractInsertRootId reads the data-neo-id spelling (useDomIds: false string renderer)', () => {
+        // StringFromVnode emits data-neo-id instead of id when Neo.config.useDomIds is false.
+        expect(extractInsertRootId({outerHTML: '<div class="x" data-neo-id="n-1"><span data-neo-id="inner"></span></div>'})).toBe('n-1');
+        // Lookalike attributes must not false-match: the identity attribute needs leading whitespace.
+        expect(extractInsertRootId({outerHTML: '<div grid-id="g-1" class="x"></div>'})).toBeNull();
+        expect(extractInsertRootId({outerHTML: '<div data-id="d-1"></div>'})).toBeNull()
+    });
+
     test('witnessInsertSort classifies payload roots: text → vtext, fragment → fragment, else element', () => {
         expect(witnessInsertSort({vnode: {vtype: 'text', id: 't'}})).toBe(ID_SORTS.vtext);
         expect(witnessInsertSort({vnode: {nodeName: 'fragment', id: 'f'}})).toBe(ID_SORTS.fragment);
@@ -108,6 +116,16 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
 
         expect(rulesOf(apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 1, outerHTML: '<div id="neo-s-1"></div>'}
+        ]))).toEqual([COHERENCE_RULES.insert])
+    });
+
+    test('catches a data-neo-id string-rendered re-birth (useDomIds: false renderer output)', () => {
+        const registry = new DeltaCoherenceRegistry();
+
+        apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, outerHTML: '<div data-neo-id="neo-dn-1"></div>'}]);
+
+        expect(rulesOf(apply(registry, [
+            {action: 'insertNode', parentId: 'root', index: 1, outerHTML: '<div data-neo-id="neo-dn-1"></div>'}
         ]))).toEqual([COHERENCE_RULES.insert])
     });
 

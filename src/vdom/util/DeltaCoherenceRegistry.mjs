@@ -96,8 +96,11 @@ const REMOVAL_SENTINELS = new Set([null, '']);
  * Extracts the identity an `insertNode` actually births: the payload root id.
  * Deliberately diverges from the U5 extraction (`delta.id ?? vnode.id`) — a top-level
  * `insertNode.id` is emitted by some manual producers and ignored by the consumer, so trusting
- * it would model fiction. The truth lives in `vnode.id`, or in the root tag's `id` attribute
- * for string-rendered payloads.
+ * it would model fiction. The truth lives in `vnode.id`, or in the root tag's identity
+ * attribute for string-rendered payloads — which has two spellings: `id` under
+ * `Neo.config.useDomIds: true`, `data-neo-id` otherwise (`StringFromVnode` emits exactly one).
+ * The leading whitespace requirement keeps lookalike attributes (`grid-id`, `data-id`) from
+ * false-matching.
  * @param {Object} delta An insertNode delta
  * @returns {String|null} The payload root id, or null when none is recoverable
  */
@@ -109,7 +112,7 @@ export function extractInsertRootId(delta) {
     }
 
     if (typeof delta?.outerHTML === 'string') {
-        const match = delta.outerHTML.match(/^\s*<[a-zA-Z][^>]*?\sid="([^"]+)"/);
+        const match = delta.outerHTML.match(/^\s*<[a-zA-Z][^>]*?\s(?:data-neo-)?id="([^"]+)"/);
 
         if (match) {
             return match[1]
