@@ -331,4 +331,55 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(result.degraded).toBe(true);
         expect(result.degradedCode).toBe('synthesis_timeout');
     });
+
+    test('ask names the download/sync one-liners when the collection is EMPTY (post npm-prepare decouple cold-start)', async () => {
+        const ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
+
+        QueryService.queryDocuments = async () => ({results: []});
+        ChromaManager.getKnowledgeBaseCollection = async () => ({count: async () => 0});
+
+        try {
+            const result = await SearchService.ask({query: 'anything'});
+
+            expect(result.answer).toContain('npm run ai:download-kb');
+            expect(result.answer).toContain('npm run ai:sync-kb');
+            expect(result.references).toEqual([]);
+        } finally {
+            ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
+        }
+    });
+
+    test('ask falls back to the generic no-documents answer when the count probe errors', async () => {
+        const ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
+
+        QueryService.queryDocuments = async () => ({results: []});
+        ChromaManager.getKnowledgeBaseCollection = async () => { throw new Error('chroma down'); };
+
+        try {
+            const result = await SearchService.ask({query: 'anything'});
+
+            expect(result.answer).toBe('No relevant documents found in the knowledge base.');
+            expect(result.references).toEqual([]);
+        } finally {
+            ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
+        }
+    });
+
+    test('ask keeps the generic no-documents answer when the collection has documents but none match', async () => {
+        const ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
+
+        QueryService.queryDocuments = async () => ({results: []});
+        ChromaManager.getKnowledgeBaseCollection = async () => ({count: async () => 28398});
+
+        try {
+            const result = await SearchService.ask({query: 'anything'});
+
+            expect(result.answer).toBe('No relevant documents found in the knowledge base.');
+        } finally {
+            ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
+        }
+    });
 });
