@@ -11,7 +11,7 @@ const ACTIVE_TAPS = new Map(),
               method: 'applyDeltas',
               wrap(capture, original) {
                   return function(windowId, deltas, ...args) {
-                      capture.record(deltas);
+                      capture.record(deltas, {windowId});
                       return original.call(this, windowId, deltas, ...args)
                   }
               }
@@ -67,9 +67,10 @@ function normalizeDeltas(deltas) {
  * - Component method return checks can wrap the update that produces the return and inspect the same epoch.
  * - Console-log delta harvesting should move to an explicit tap; log output is format-coupled and lossy.
  *
- * The captured record names its tap and layer because the VDom pre-send stream is attribution/intent,
- * while the Main pre-apply stream is final batch truth. Batch boundaries are preserved by default:
- * the batch is the unit validated by `DeltaGrammar.validateBatch()`.
+ * The captured record names its tap, layer, and windowId because the VDom pre-send stream is
+ * attribution/intent, while the Main pre-apply stream is final batch truth. Batch boundaries are
+ * preserved by default: the batch is the unit validated by `DeltaGrammar.validateBatch()`.
+ * Taps without a window seam store `windowId: null` explicitly, keeping the record shape stable.
  *
  * Use `try/finally` or `test.afterEach()` to call `restore()` whenever a test installs a capture.
  *
@@ -127,16 +128,17 @@ export function createDeltaCapture({tap} = {}) {
                   }
               },
 
-              record(deltas) {
+              record(deltas, meta = {}) {
                   if (restored) {
                       return
                   }
 
                   records.push({
-                      deltas: normalizeDeltas(deltas),
-                      epoch : activeEpoch,
-                      layer : config.layer,
-                      tap
+                      deltas  : normalizeDeltas(deltas),
+                      epoch   : activeEpoch,
+                      layer   : config.layer,
+                      tap,
+                      windowId: meta.windowId ?? null
                   })
               },
 
