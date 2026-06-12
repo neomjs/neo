@@ -206,6 +206,47 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await expect(fs.pathExists(cutArchivePath)).resolves.toBe(true);
     });
 
+    test('syncPullRequests prunes emptied active chunk directories after archive moves (#13002)', async () => {
+        const prNumber = 3291;
+        const pr       = buildPullRequest(prNumber);
+        const oldPath  = path.join(aiConfig.issueSync.pullsDir, 'chunk-77', `pr-${prNumber}.md`);
+        const oldRel   = path.relative(aiConfig.projectRoot, oldPath);
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
+
+        await fs.ensureDir(path.dirname(oldPath));
+        await fs.writeFile(oldPath, 'OLD PR CONTENT', 'utf8');
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [pr],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const metadata = {
+            pulls: {
+                [prNumber]: {
+                    state    : 'OPEN',
+                    updatedAt: '2026-05-01T00:00:00Z',
+                    path     : oldRel
+                }
+            }
+        };
+
+        const stats      = await PullRequestSyncer.syncPullRequests(metadata);
+        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.synced).toEqual([prNumber]);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+        await expect(fs.pathExists(oldPath)).resolves.toBe(false);
+        await expect(fs.pathExists(path.dirname(oldPath))).resolves.toBe(false);
+        await expect(fs.pathExists(aiConfig.issueSync.pullsDir)).resolves.toBe(true);
+        expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+    });
+
     test('delta cutoff stops PR pagination once a batch predates the cached high-water mark (#12190)', async () => {
         // The `pullRequests` connection has no server-side `since`, so the syncer orders UPDATED_AT
         // DESC and stops paginating at the cached high-water mark. Pre-fix it scanned the full corpus.

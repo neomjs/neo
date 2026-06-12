@@ -12,6 +12,7 @@ import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
 import contentPath                from '../shared/contentPath.mjs';
 import {createContentIndexEntry, updateContentIndex} from '../shared/contentIndex.mjs';
+import pruneEmptyDirs             from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -282,6 +283,7 @@ class PullRequestSyncer extends Base {
 
         const cachedPulls = metadata.pulls || {};
         const planBuckets = this.#planBuckets(metadata, allPullRequests);
+        let shouldPruneEmptyDirs = false;
 
         for (const pr of allPullRequests) {
             try {
@@ -354,6 +356,7 @@ class PullRequestSyncer extends Base {
                 if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     try {
                         await fs.unlink(oldAbsolutePath);
+                        shouldPruneEmptyDirs = true;
                         logger.debug(`📦 Moved PR #${pr.number}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         // File might not exist
@@ -370,6 +373,11 @@ class PullRequestSyncer extends Base {
             } catch (e) {
                 logger.warn(`⚠️ Could not sync pull request #${pr.number}: ${e.message}`);
             }
+        }
+
+        await pruneEmptyDirs(issueSyncConfig.pullsDir);
+        if (shouldPruneEmptyDirs) {
+            await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'pulls'));
         }
 
         // Cache for the main orchestrator to merge

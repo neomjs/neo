@@ -401,6 +401,47 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         }
     });
 
+    test('reconcileClosedIssueLocations prunes emptied active chunk directories after archiving (#13002)', async () => {
+        const originalSorted = ReleaseNotesSyncer.sortedReleases;
+        const issueNumber    = 6003;
+        const oldAbs         = path.join(issueSyncConfig.issuesDir, 'chunk-77', `issue-${issueNumber}.md`);
+        const oldRel         = path.relative(aiConfig.projectRoot, oldAbs);
+
+        await fs.ensureDir(path.dirname(oldAbs));
+        await fs.writeFile(oldAbs, 'CLOSED ISSUE CONTENT', 'utf8');
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
+
+        const metadata = {
+            issues: {
+                [issueNumber]: {
+                    state        : 'CLOSED',
+                    path         : oldRel,
+                    updatedAt    : '2026-05-02T00:00:00Z',
+                    closedAt     : '2026-05-01T00:00:00Z',
+                    milestone    : null,
+                    title        : 'Closed issue ready for archival',
+                    contentHash  : 'hash',
+                    commentsTotal: 0
+                }
+            }
+        };
+
+        try {
+            const stats     = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+            const targetAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v13.0.0', 'chunk-1', `issue-${issueNumber}.md`);
+
+            expect(stats.count).toBe(1);
+            expect(metadata.issues[issueNumber].path).toBe(path.relative(aiConfig.projectRoot, targetAbs));
+            await expect(fs.pathExists(targetAbs)).resolves.toBe(true);
+            await expect(fs.pathExists(oldAbs)).resolves.toBe(false);
+            await expect(fs.pathExists(path.dirname(oldAbs))).resolves.toBe(false);
+            await expect(fs.pathExists(issueSyncConfig.issuesDir)).resolves.toBe(true);
+        } finally {
+            ReleaseNotesSyncer.sortedReleases = originalSorted;
+        }
+    });
+
     test('pullFromGitHub enforces sealed-chunk archive semantics', async () => {
         const mockIssue = buildMockIssue({
             number       : 42044,
