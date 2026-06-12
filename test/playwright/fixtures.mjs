@@ -319,13 +319,17 @@ export const test = base.extend({
                     /**
                      * Samples component client rects over a time window (motion trace) — start it
                      * BEFORE page.mouse.down() to assert mid-drag geometry (whitebox-e2e §5.1).
-                     * @param {String[]} componentIds
+                     * @param {String[]|Object} componentIds Component ids, or an options object for nodeIds/windowId/cellsOf
                      * @param {Number} [durationMs]
                      * @param {Number} [intervalMs]
                      * @returns {Promise<Object>}
                      */
                     async observeMotion(componentIds, durationMs, intervalMs) {
-                        return NeuralLink_InteractionService.observeMotion({ sessionId, componentIds, durationMs, intervalMs });
+                        const opts = Array.isArray(componentIds) ?
+                            { componentIds, durationMs, intervalMs } :
+                            { ...(componentIds || {}) };
+
+                        return NeuralLink_InteractionService.observeMotion({ sessionId, ...opts });
                     },
 
                     /**

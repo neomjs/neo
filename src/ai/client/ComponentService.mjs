@@ -62,49 +62,74 @@ class ComponentService extends Service {
     }
 
     /**
-     * Samples the client rects of the given components over a time window, returning a motion
-     * trace. The perception side of drag verification: an agent drives the interaction through
-     * any dispatch path while this recorder observes where elements ACTUALLY render per tick.
-     * Duration is clamped below the bridge rpc timeout; chain calls for longer windows.
-     * @param {Object}   params
-     * @param {String[]} params.componentIds
-     * @param {Number}   [params.durationMs=2000] clamped to [100, 8000]
-     * @param {Number}   [params.intervalMs=100]  clamped to [16, 1000]
-     * @returns {Object} {componentIds, samples: [{t, rects}]}
+     * Samples component and raw DOM-node client rects over a time window, returning a rendered
+     * geometry motion trace. The perception side of drag verification: an agent drives the
+     * interaction through any dispatch path while this recorder observes where elements actually
+     * render per tick. Duration is clamped below the bridge rpc timeout; chain calls for longer
+     * windows.
+     * @param {Object}         params
+     * @param {String[]}       [params.componentIds]
+     * @param {{rowId:String}} [params.cellsOf] Expands a row's current child node ids
+     * @param {Number}         [params.durationMs=2000] clamped to [100, 8000]
+     * @param {Number}         [params.intervalMs=100]  clamped to [16, 1000]
+     * @param {String[]}       [params.nodeIds] Raw DOM element ids to sample
+     * @param {String}         [params.windowId] Required for deterministic node-only multi-window sampling
+     * @returns {Object} {componentIds, nodeIds, targetIds, samples: [{t, rects}]}
      */
-    async observeMotion({componentIds, durationMs = 2000, intervalMs = 100}) {
-        if (!Array.isArray(componentIds) || componentIds.length === 0) {
-            throw new Error('componentIds must be a non-empty array')
+    async observeMotion({cellsOf, componentIds, durationMs = 2000, intervalMs = 100, nodeIds, windowId}) {
+        componentIds = ComponentService.normalizeIdArray(componentIds, 'componentIds');
+        nodeIds      = ComponentService.normalizeIdArray(nodeIds,      'nodeIds');
+
+        const components = componentIds.map(id => {
+            const component = Neo.getComponent(id);
+
+            if (!component) {
+                throw new Error(`Component not found: ${id}`)
+            }
+
+            return component
+        });
+
+        windowId ??= components[0]?.windowId;
+
+        if (cellsOf?.rowId) {
+            const rowNodeIds = await Neo.main.DomAccess.getChildNodeIds({id: cellsOf.rowId, windowId});
+
+            if (rowNodeIds === null) {
+                throw new Error(`Row node not found: ${cellsOf.rowId}`)
+            }
+
+            nodeIds.push(...rowNodeIds)
         }
 
-        const component = Neo.getComponent(componentIds[0]);
-
-        if (!component) {
-            throw new Error(`Component not found: ${componentIds[0]}`)
+        if (componentIds.length === 0 && nodeIds.length === 0) {
+            throw new Error('componentIds, nodeIds, or cellsOf must provide at least one target')
         }
 
         durationMs = Math.max(100, Math.min(durationMs, 8000));
         intervalMs = Math.max(16,  Math.min(intervalMs, 1000));
 
         const
-            samples = [],
-            start   = Date.now();
+            samples   = [],
+            start     = Date.now(),
+            targetIds = componentIds.concat(nodeIds);
 
         while (Date.now() - start < durationMs) {
             const
                 t     = Date.now() - start,
-                rects = await component.getDomRect(componentIds);
+                rects = componentIds.length > 0 && nodeIds.length === 0 && !cellsOf ?
+                    await components[0].getDomRect(componentIds) :
+                    await Neo.main.DomAccess.getBoundingClientRect({id: targetIds, windowId});
 
             samples.push({
                 t,
-                rects: (Array.isArray(rects) ? rects : [rects]).map(rect =>
-                    rect ? {left: rect.left, top: rect.top, width: rect.width, height: rect.height} : null)
+                rects: (Array.isArray(rects) ? rects : [rects]).map(ComponentService.serializeMotionRect)
             });
 
             await this.timeout(intervalMs)
         }
 
-        return {componentIds, samples}
+        return {componentIds, nodeIds, targetIds, samples}
     }
 
     /**
@@ -176,6 +201,41 @@ class ComponentService extends Service {
             mismatches,
             vdomIds
         }
+    }
+
+    /**
+     * @param {*} ids
+     * @param {String} name
+     * @returns {String[]}
+     * @protected
+     */
+    static normalizeIdArray(ids, name) {
+        if (ids === undefined || ids === null) {
+            return []
+        }
+
+        if (!Array.isArray(ids)) {
+            throw new Error(`${name} must be an array`)
+        }
+
+        ids.forEach(id => {
+            if (typeof id !== 'string' || id.length === 0) {
+                throw new Error(`${name} must contain non-empty strings`)
+            }
+        });
+
+        return [...ids]
+    }
+
+    /**
+     * @param {Object|null|undefined} rect
+     * @returns {Object|null}
+     * @protected
+     */
+    static serializeMotionRect(rect) {
+        return typeof rect?.left === 'number' ?
+            {left: rect.left, top: rect.top, width: rect.width, height: rect.height} :
+            null
     }
 
     /**

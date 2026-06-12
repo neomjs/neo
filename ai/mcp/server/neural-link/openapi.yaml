@@ -658,11 +658,7 @@ paths:
       summary: Observe Motion
       operationId: observe_motion
       x-pass-as-object: true
-      description: |
-        Samples the client rects of the given components over a time window and returns the motion trace.
-
-        **When to Use:**
-        To SEE live motion (drag choreography, animations) while you or a user drive an interaction. Duration is clamped to 8000ms per call; chain calls for longer windows.
+      description: Samples component and raw DOM-node client rects over a time window for rendered-geometry motion traces. Use during drag choreography or animation debugging; duration is clamped to 8000ms per call.
       tags: [Component]
       requestBody:
         required: true
@@ -670,16 +666,29 @@ paths:
           application/json:
             schema:
               type: object
-              required: [componentIds]
               properties:
                 sessionId:
                   type: string
                   description: Target App Worker Session ID
+                windowId:
+                  type: string
+                  description: Main-thread window id for node-only sampling when no component target can provide routing context
                 componentIds:
                   type: array
                   items:
                     type: string
-                  description: Component ids to sample
+                  description: Component ids to sample; at least one of componentIds, nodeIds, or cellsOf is required
+                nodeIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Raw DOM element ids to sample
+                cellsOf:
+                  type: object
+                  properties:
+                    rowId:
+                      type: string
+                      description: Raw row DOM id whose current child node ids should be sampled
                 durationMs:
                   type: number
                   description: Sampling window, clamped to [100, 8000] (default 2000)
