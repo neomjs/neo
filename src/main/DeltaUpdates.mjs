@@ -1,7 +1,8 @@
-import Base             from '../core/Base.mjs';
-import DomAccess        from './DomAccess.mjs';
-import Observable       from '../core/Observable.mjs';
-import {voidAttributes} from '../vdom/domConstants.mjs';
+import Base                    from '../core/Base.mjs';
+import DeltaCoherenceRegistry  from '../vdom/util/DeltaCoherenceRegistry.mjs';
+import DomAccess               from './DomAccess.mjs';
+import Observable              from '../core/Observable.mjs';
+import {voidAttributes}        from '../vdom/domConstants.mjs';
 import {checkStructuralUniqueness, validateBatch} from '../vdom/util/DeltaGrammar.mjs';
 
 const NeoConfig = Neo.config;
@@ -861,6 +862,43 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * @summary Lazily creates and returns this window's delta coherence registry.
+     *
+     * One instance per browser window — `DeltaUpdates` is a per-window singleton, which IS the
+     * `{windowId, idSort, id}` ledger model's partition; the explicit label rides along for
+     * diagnostics. Teleportation and multi-window apps legitimately reuse ids across windows,
+     * so the instance must never be shared.
+     * @returns {DeltaCoherenceRegistry}
+     * @protected
+     */
+    getCoherenceRegistry() {
+        return this.coherenceRegistry ??= new DeltaCoherenceRegistry({windowId: NeoConfig.windowId ?? null})
+    }
+
+    /**
+     * @summary Evaluates a final pre-apply delta batch against the coherence registry, observe-mode.
+     *
+     * Cross-batch coherence findings (insert-on-live-id, retired-id targets, rename collisions)
+     * are logged for measurement only — the registry ships observe-first like the U5 candidate;
+     * promotion to a throwing guard is gated on a documented zero-false-positive falsification
+     * run. Returns the ledger commit handle: the caller invokes it strictly AFTER the
+     * batch applied to the DOM, so a guard-rejected or mid-application-aborted batch never
+     * mutates the ledger.
+     * @param {Object[]} deltas The normalized batch after `update` listeners had their mutation window.
+     * @returns {Function} The ledger commit handle
+     * @protected
+     */
+    observeDeltaCoherence(deltas) {
+        const evaluation = this.getCoherenceRegistry().evaluateBatch(deltas);
+
+        if (evaluation.findings.length > 0) {
+            console.warn('Delta coherence findings', {deltas, findings: evaluation.findings})
+        }
+
+        return evaluation.commit
+    }
+
+    /**
      * @summary Validates a final pre-apply delta batch before dispatch.
      *
      * Runs the guard-grade delta grammar predicates over the post-event batch. Guard findings
@@ -916,9 +954,10 @@ class DeltaUpdates extends Base {
     update(data) {
         this.checkRendererAvailability();
 
-        let me       = this,
-            {deltas} = data,
-            i        = 0,
+        let me              = this,
+            {deltas}        = data,
+            coherenceCommit = null,
+            i               = 0,
             len;
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
@@ -937,6 +976,15 @@ class DeltaUpdates extends Base {
 
             if (len > 0) {
                 me.validateDeltaGrammarBatch(deltas)
+            }
+        }
+
+        if (NeoConfig.useDeltaCoherenceRegistry) {
+            // Keep the enabled registry path aligned with post-event array mutations.
+            len = deltas.length;
+
+            if (len > 0) {
+                coherenceCommit = me.observeDeltaCoherence(deltas)
             }
         }
 
@@ -986,6 +1034,9 @@ class DeltaUpdates extends Base {
             me[delta.action || 'updateNode'](delta);
             i++
         }
+
+        // The ledger mirrors what reached the DOM: commit only after the batch applied.
+        coherenceCommit?.()
     }
 }
 
