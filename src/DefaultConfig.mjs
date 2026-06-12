@@ -137,6 +137,17 @@ const DefaultConfig = {
      */
     logDeltaUpdates: false,
     /**
+     * true will track VDom delta batches in a per-window cross-batch live-id ledger
+     * (the coherence registry) in the main thread, logging cross-batch coherence findings
+     * (insert-on-live-id, retired-id targets, rename collisions) for measurement.
+     * Observe-mode only: findings never reject a batch.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useDeltaCoherenceRegistry
+     * @type Boolean
+     */
+    useDeltaCoherenceRegistry: false,
+    /**
      * true will validate VDom delta batches in the main thread before applying them.
      * Guard-grade findings reject the whole batch before the first DOM mutation; candidate
      * structural findings are logged for measurement only.
