@@ -188,10 +188,12 @@ class DiscussionSyncer extends Base {
     }
 
     /**
-     * Containment gate: is this discussion on the sync denylist (by number or author)? A denylisted
-     * discussion is excluded from emission/indexing and any previously-synced copy is quarantined,
-     * so a known-contaminated artifact never reaches `resources/content/**` or downstream KB chunks.
-     * The empty default denylist makes this a no-op.
+     * Containment gate: is this fetched discussion on the sync denylist (by number or author)?
+     * Denylisted fetched discussions are excluded from emission/indexing. Quarantine of an
+     * already-synced copy is driven separately in `syncDiscussions`: by `number` it removes cached
+     * copies (file + content-index entry) even when GitHub no longer lists them (the hidden /
+     * spam-hammered case); `author` matching is fetch-time only, since `metadata.discussions`
+     * persists `number` but not author login. The empty default denylist makes this a no-op.
      * @param {Object} discussion
      * @returns {Boolean}
      */
@@ -258,25 +260,32 @@ class DiscussionSyncer extends Base {
         };
 
         const cachedDiscussions = metadata.discussions || {};
+        const denylistNumbers   = new Set((issueSyncConfig.discussionDenylist?.numbers) || []);
 
-        // Containment: partition denylisted discussions out before bucket-planning + processing.
-        // A denylisted artifact (by number or author) must never enter resources/content/** or
-        // downstream KB chunks; any previously-synced copy is quarantined (removed). The empty
-        // default denylist makes this loop a no-op.
-        const deniedNumbers = new Set();
-        for (const discussion of allDiscussions) {
-            if (this.#isDenylisted(discussion)) {
-                deniedNumbers.add(discussion.number);
-                logger.warn(`🛡️ Discussion #${discussion.number} is denylisted (containment); excluding from sync.`);
-                const cachedPath = cachedDiscussions[discussion.number]?.path;
-                if (cachedPath) {
-                    await fs.unlink(this.#resolvePath(cachedPath)).catch(() => {});
-                    logger.warn(`🛡️ Quarantined previously-synced copy of denylisted discussion #${discussion.number}.`);
-                }
+        // Containment: quarantine denylisted discussions — removing both the file AND the
+        // content-index entry — for the current fetch AND for cached copies GitHub no longer lists
+        // (a hidden / spam-hammered artifact drops out of the list query while a prior local copy
+        // persists). Number-denylist is the guaranteed cached-quarantine lever: `metadata.discussions`
+        // persists `number` but not author, so author-denylist is fetch-time exclusion only. The
+        // empty default denylist makes this a no-op. `quarantineRemovals` is consumed by the
+        // post-loop `updateContentIndex` call so stale `discussions/<id>` lookups cannot survive.
+        const deniedFetchedNumbers = new Set(
+            allDiscussions.filter(discussion => this.#isDenylisted(discussion)).map(discussion => discussion.number)
+        );
+        const cachedDeniedNumbers = Object.keys(cachedDiscussions)
+            .map(Number).filter(number => denylistNumbers.has(number));
+        const quarantineRemovals = [];
+        for (const number of new Set([...cachedDeniedNumbers, ...deniedFetchedNumbers])) {
+            const cachedPath = cachedDiscussions[number]?.path;
+            if (cachedPath) {
+                await fs.unlink(this.#resolvePath(cachedPath)).catch(() => {});
             }
+            quarantineRemovals.push({type: 'discussions', id: number});
+            logger.warn(`🛡️ Discussion #${number} is denylisted (containment); quarantined + excluded from sync.`);
         }
-        if (deniedNumbers.size > 0) {
-            allDiscussions = allDiscussions.filter(discussion => !deniedNumbers.has(discussion.number));
+
+        if (deniedFetchedNumbers.size > 0) {
+            allDiscussions = allDiscussions.filter(discussion => !deniedFetchedNumbers.has(discussion.number));
         }
 
         const planBuckets = this.#planBuckets(metadata, allDiscussions);
@@ -405,7 +414,7 @@ class DiscussionSyncer extends Base {
         });
 
         try {
-            await updateContentIndex(issueSyncConfig, {upsert: indexEntries});
+            await updateContentIndex(issueSyncConfig, {upsert: indexEntries, remove: quarantineRemovals});
         } catch (e) {
             logger.warn(`⚠️ Could not update _index.json for discussions: ${e.message}`);
         }

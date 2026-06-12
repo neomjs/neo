@@ -327,6 +327,9 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await expect(fs.pathExists(allowedPath)).resolves.toBe(true);
         await expect(fs.pathExists(deniedPath)).resolves.toBe(false);
         expect(metadata.discussions[25002]).toBeUndefined();        // never enters cache/index
+        const index = await fs.readJson(path.join(tmpRoot, '_index.json'));
+        expect(index.some(e => e.type === 'discussions' && e.id === 25001)).toBe(true);
+        expect(index.some(e => e.type === 'discussions' && e.id === 25002)).toBe(false);
     });
 
     test('containment: skips a denylisted discussion (by author)', async () => {
@@ -351,7 +354,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await expect(fs.pathExists(deniedPath)).resolves.toBe(false);
     });
 
-    test('containment: quarantines a previously-synced copy when a discussion becomes denylisted', async () => {
+    test('containment: quarantines a fetched denylisted previously-synced copy (file + metadata + index)', async () => {
         const discussion = buildDiscussion(25004, {closed: false});
 
         GraphqlService.query = async () => ({
@@ -363,19 +366,52 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
             }
         });
 
-        // First run: normal sync writes the file and records it in metadata.
+        // First run: normal sync writes the file, metadata, and index entry.
         const metadata = {discussions: {}};
         await DiscussionSyncer.syncDiscussions(metadata);
         const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25004.md');
+        const indexPath  = path.join(tmpRoot, '_index.json');
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25004)).toBe(true);
 
-        // Second run: now denylisted → the already-synced copy is quarantined (removed).
+        // Second run: now denylisted → file, metadata, AND index entry are quarantined/removed.
         aiConfig.issueSync.discussionDenylist = {numbers: [25004], authors: []};
         const stats = await DiscussionSyncer.syncDiscussions(metadata);
 
         expect(stats.synced).toEqual([]);
-        await expect(fs.pathExists(targetPath)).resolves.toBe(false); // quarantined
+        await expect(fs.pathExists(targetPath)).resolves.toBe(false);
         expect(metadata.discussions[25004]).toBeUndefined();
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25004)).toBe(false);
+    });
+
+    test('containment: quarantines a cached denylisted number absent from the current GitHub list (hidden/spam-hammered)', async () => {
+        // Run 1: 25006 syncs normally (file + metadata + index entry).
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [buildDiscussion(25006, {closed: false})],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+        const metadata = {discussions: {}};
+        await DiscussionSyncer.syncDiscussions(metadata);
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25006.md');
+        const indexPath  = path.join(tmpRoot, '_index.json');
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25006)).toBe(true);
+
+        // Run 2: 25006 is now denylisted AND GitHub no longer returns it in the list query.
+        // The cached copy must still be quarantined by number — file + metadata + index entry.
+        aiConfig.issueSync.discussionDenylist = {numbers: [25006], authors: []};
+        GraphqlService.query = async () => ({
+            repository: {discussions: {nodes: [], pageInfo: {hasNextPage: false, endCursor: null}}}
+        });
+        await DiscussionSyncer.syncDiscussions(metadata);
+
+        await expect(fs.pathExists(targetPath)).resolves.toBe(false);
+        expect(metadata.discussions[25006]).toBeUndefined();
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25006)).toBe(false);
     });
 
     test('containment: empty denylist preserves normal sync (no-op)', async () => {
