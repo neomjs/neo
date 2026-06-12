@@ -3,16 +3,17 @@ id: 9421
 title: 'Refactor: Move grid column components into `src/grid/column/component/`'
 state: OPEN
 labels:
+  - stale
   - refactoring
   - architecture
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-09T16:23:08Z'
-updatedAt: '2026-03-09T16:23:08Z'
+updatedAt: '2026-06-08T06:11:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9421'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -48,4 +49,9 @@ Migrate the following components and their corresponding SCSS files (both in `sr
 - 2026-03-09T16:23:09Z @tobiu added the `refactoring` label
 - 2026-03-09T16:23:10Z @tobiu added the `architecture` label
 - 2026-03-09T16:23:10Z @tobiu added the `grid` label
+### @github-actions - 2026-06-08T06:11:46Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-06-08T06:11:47Z @github-actions added the `stale` label
 
