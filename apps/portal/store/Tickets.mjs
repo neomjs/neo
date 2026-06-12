@@ -4,7 +4,7 @@ import TicketModel from '../model/Ticket.mjs';
 /**
  * Tree store for the portal Tickets view. Loads the chunked root index so
  * `TreeList.lazyChildLoad` can fetch ticket leaves on folder expansion instead
- * of eagerly loading the legacy all-leaves `tickets.json` payload.
+ * of eagerly loading an all-leaves payload.
  * @class Portal.store.Tickets
  * @extends Neo.data.Store
  */
