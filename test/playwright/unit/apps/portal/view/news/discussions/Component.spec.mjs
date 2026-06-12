@@ -32,6 +32,8 @@ const {
     renderReplies
 } = Component.prototype;
 
+const timelineFixture = new URL('./fixtures/discussion-timeline.md', import.meta.url);
+
 test.describe('Portal.view.news.discussions.Component - Discussion markdown parser', () => {
     test('parses folded and literal frontmatter block scalars used by discussion titles', () => {
         const component = Object.create(Component.prototype);
@@ -192,7 +194,7 @@ test.describe('Portal.view.news.discussions.Component - Discussion markdown pars
 
     test('keeps generated timeline HTML out of escaped markdown code blocks', () => {
         const
-            content       = readFileSync('resources/content/discussions/chunk-2/discussion-11891.md', 'utf8'),
+            content       = readFileSync(timelineFixture, 'utf8'),
             sectionsStore = {data: []};
 
         const component = Object.create(Component.prototype);
