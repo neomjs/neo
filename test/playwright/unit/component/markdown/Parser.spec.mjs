@@ -165,7 +165,7 @@ test.describe('MarkdownParser — segmentation and inline pass', () => {
 });
 
 test.describe('MarkdownParser — transcript-grade security defaults', () => {
-    test('javascript: and data: destinations render as plain text, never as anchors', () => {
+    test('non-allowlisted schemes render as plain text, never as anchors (allowlist, not denylist)', () => {
         const parser = new MarkdownParser({idPrefix: 'sec1'});
 
         const [block] = parser.update('[click](javascript:alert(1)) and [img](data:text/html;base64,x)');
@@ -173,8 +173,13 @@ test.describe('MarkdownParser — transcript-grade security defaults', () => {
         expect(block.cn.filter(node => node.tag === 'a')).toEqual([]);
         expect(textOf(block.cn)).toContain('[click](javascript:alert(1))');
 
-        expect(SAFE_DESTINATION.test('javascript:alert(1)')).toBe(false);
+        // The contract is accept-known, so EVERY unknown scheme fails by construction —
+        // including the ones incomplete denylists historically miss.
+        ['javascript:alert(1)', 'data:text/html;base64,x', 'vbscript:msgbox(1)', 'file:///etc/passwd', 'intent://x']
+            .forEach(destination => expect(SAFE_DESTINATION.test(destination)).toBe(false));
+
         expect(SAFE_DESTINATION.test('https://neomjs.com')).toBe(true);
+        expect(SAFE_DESTINATION.test('mailto:team@neomjs.com')).toBe(true);
         expect(SAFE_DESTINATION.test('#fragment')).toBe(true);
         expect(SAFE_DESTINATION.test('./relative/path')).toBe(true)
     });

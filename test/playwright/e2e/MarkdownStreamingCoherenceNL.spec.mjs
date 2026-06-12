@@ -93,8 +93,11 @@ test.describe('Markdown streaming coherence observe-run (real pipeline)', () => 
         expect(domFacts.scripts).toBe(0);
         expect(domFacts.hostileTxt).toBe(true);
         domFacts.anchors.forEach(href => {
-            expect(href.startsWith('javascript:')).toBe(false);
-            expect(href.startsWith('data:')).toBe(false)
+            // Allowlist mirror of the parser's SAFE_DESTINATION contract: a scheme may only be
+            // https/http/mailto; everything else must be scheme-less or a fragment. Asserting
+            // the allowlist (not a scheme denylist) keeps the check complete by construction —
+            // javascript:, data:, vbscript:, file: and any future scheme all fail it.
+            expect(href).toMatch(/^(?:https?:|mailto:)[^\s]*$|^[^:]*$|^#/)
         });
 
         console.log(`[MarkdownStreamingCoherenceNL] batches: ${state.batches - baseline}, live: ${state.live}, retired: ${state.retired}, findings: ${coherenceWarnings.length}`)
