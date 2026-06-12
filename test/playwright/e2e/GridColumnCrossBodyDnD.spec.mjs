@@ -31,29 +31,21 @@ import { test, expect } from '../fixtures.mjs';
  *
  * Run: npx playwright test GridColumnCrossBodyDnD -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-// ticket-ref-ok: known-failing since #12933 removed devindex's locked-column config; #12936 re-homes this spec onto the dedicated locked fixture.
-test.describe('Desktop (1920x1080): DevIndex Locked-Column DnD (#12807)', () => {
-    test.setTimeout(90000); // DevIndex is heavy; allow time for render + Neural Link mapping.
+test.describe('Desktop (1920x1080): lockedColumns Fixture Locked-Column DnD (#12807)', () => {
+    test.setTimeout(90000); // allow time for render + Neural Link mapping.
     test.use({ viewport: { width: 1920, height: 1080 } });
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('/apps/devindex/');
+        await page.goto('/examples/grid/lockedColumns/');
         page.on('console',   msg => console.log('BROWSER:', msg.text()));
         page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
         await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
-        const stopButton = page.locator('.devindex-stop-stream-button');
-        try {
-            await expect(stopButton).toBeVisible({ timeout: 5000 });
-            await stopButton.click({ timeout: 2000, force: true }); // stop the stream so we don't wait for all rows
-        } catch {
-            // stream settled instantly — button never appeared / already hid
-        }
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(500); // settle render before measuring
     });
 
     test('center-region "Total" drag lands at index 2 — engine keeps it in centerColumns + DOM idx 2 (no overshoot)', async ({ page, neuralLink }) => {
-        const app    = await neuralLink.connectToApp('DevIndex');
+        const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
         const gridId = await resolveGridId(app);
 
         await assertPristineGrid(app, gridId);                     // worker precondition (also catches a foreign/stale bound app)
@@ -82,7 +74,7 @@ test.describe('Desktop (1920x1080): DevIndex Locked-Column DnD (#12807)', () => 
     });
 
     test('cross-region: center "Total" drag into locked-start re-homes — engine moves it to lockedStartColumns + DOM applies it', async ({ page, neuralLink }) => {
-        const app    = await neuralLink.connectToApp('DevIndex');
+        const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
         const gridId = await resolveGridId(app);
 
         await assertPristineGrid(app, gridId);
