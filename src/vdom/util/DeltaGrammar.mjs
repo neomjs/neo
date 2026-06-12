@@ -84,8 +84,10 @@ export const ID_SORTS = Object.freeze({
 /**
  * Per-action field contracts.
  * - `required`: fields every well-formed delta of this action carries.
- * - `payloadOneOf`: exactly one of these fields must be present (renderer-dependent for
- *   insertNode: the DomApi renderer consumes `vnode`, the string-based renderer `outerHTML`).
+ * - `payloadAnyOf`: at least one of these fields must be present. Carrying BOTH is legal —
+ *   manual producers do, and the consumer picks by renderer config (the DomApi renderer
+ *   consumes `vnode`, the string-based renderer `outerHTML`). When the renderer is pinned,
+ *   the active renderer's key must be present.
  * - `optional`: fields with documented conditional meaning. `removeNode.parentId` is REQUIRED
  *   when the id is fragment- or vtext-sorted (the comment-anchor removal paths need the parent)
  *   — a condition which needs live context and is therefore documented here, not enforced by U2.
@@ -104,7 +106,7 @@ export const FIELD_CONTRACTS = Object.freeze({
         // `id` is emitted by some manual producers and ignored by the consumer —
         // the inserted node's identity lives inside `vnode.id` / the HTML string.
         optional        : ['hasLeadingTextChildren', 'id', 'postMountUpdates'],
-        payloadOneOf    : ['vnode', 'outerHTML'],
+        payloadAnyOf    : ['vnode', 'outerHTML'],
         required        : ['index', 'parentId']
     }),
     moveNode: Object.freeze({
@@ -171,16 +173,16 @@ export function resolveAction(delta) {
 
 /**
  * Normalizes the consumer's accepted input shapes (a single delta object or an array)
- * into an array, mirroring the dispatch boundary's own normalization.
+ * into an array, mirroring the dispatch boundary's own normalization EXACTLY: any
+ * non-array input is wrapped, including `null` / `undefined` / primitives — because that
+ * is what the runtime does before dereferencing `delta.action` on each entry. A wrapped
+ * garbage entry then surfaces as a U1 finding (the runtime equivalent is a throw), instead
+ * of vanishing into a false-valid empty batch.
  * @param {Object|Object[]} deltas
  * @returns {Object[]}
  */
 export function normalizeBatch(deltas) {
-    if (Array.isArray(deltas)) {
-        return deltas
-    }
-
-    return deltas && typeof deltas === 'object' ? [deltas] : []
+    return Array.isArray(deltas) ? deltas : [deltas]
 }
 
 /**
@@ -210,7 +212,8 @@ export function checkActionValidity(deltas) {
  * U2 — per-action required fields.
  * For `insertNode`, the payload contract is renderer-dependent: pass
  * `opts.useDomApiRenderer` to pin the expected payload key (`vnode` for `true`,
- * `outerHTML` for `false`); without the flag, exactly one of the two must be present.
+ * `outerHTML` for `false`); without the flag, at least one of the two must be
+ * present (carrying both is legal — the consumer disambiguates by config).
  * @param {Object|Object[]} deltas
  * @param {Object} [opts]
  * @param {Boolean} [opts.useDomApiRenderer] Pins the insertNode payload key when given
@@ -234,8 +237,8 @@ export function checkRequiredFields(deltas, opts = {}) {
             }
         });
 
-        if (contract.payloadOneOf) {
-            const present = contract.payloadOneOf.filter(field => delta[field] !== undefined && delta[field] !== null);
+        if (contract.payloadAnyOf) {
+            const present = contract.payloadAnyOf.filter(field => delta[field] !== undefined && delta[field] !== null);
 
             // Carrying BOTH payload keys is legal (manual producers do; the consumer picks by
             // renderer config) — the defect classes are "none at all" and "missing the key the
@@ -248,7 +251,7 @@ export function checkRequiredFields(deltas, opts = {}) {
                 findings.push({
                     rule      : 'U2',
                     deltaIndex,
-                    detail    : `${action} requires at least one of ${contract.payloadOneOf.join(', ')}`
+                    detail    : `${action} requires at least one of ${contract.payloadAnyOf.join(', ')}`
                 })
             }
         }

@@ -69,11 +69,13 @@ test.describe('DeltaGrammar vocabulary', () => {
         expect(STRUCTURAL_ACTIONS.has('moveNode')).toBe(true)
     });
 
-    test('normalizeBatch mirrors the dispatch boundary input shapes', () => {
+    test('normalizeBatch mirrors the dispatch boundary EXACTLY — non-arrays wrap, including garbage', () => {
         expect(normalizeBatch([{id: 'a'}])).toEqual([{id: 'a'}]);
         expect(normalizeBatch({id: 'a'})).toEqual([{id: 'a'}]);
-        expect(normalizeBatch(null)).toEqual([]);
-        expect(normalizeBatch(undefined)).toEqual([])
+        // The runtime wraps null/undefined too (and would then throw dereferencing
+        // delta.action) — the validator must see the same entry, not an empty batch.
+        expect(normalizeBatch(null)).toEqual([null]);
+        expect(normalizeBatch(undefined)).toEqual([undefined])
     });
 });
 
@@ -209,8 +211,17 @@ test.describe('Universal predicates — illegal shapes produce findings', () => 
     });
 
     test('validateBatch aggregates U1-U4, never throws, and accepts single-object input', () => {
+        // A null/undefined "batch" is NOT valid: the runtime would wrap it and throw on
+        // delta.action — the validator reports the U1 finding instead of blessing it.
         expect(() => validateBatch(null)).not.toThrow();
-        expect(validateBatch(null).valid).toBe(true);
+        expect(validateBatch(null).valid).toBe(false);
+        expect(rulesOf(validateBatch(null).findings)).toEqual(['U1']);
+        expect(validateBatch(undefined).valid).toBe(false);
+
+        // The empty ARRAY is the one legitimately valid empty input: the runtime loop
+        // simply does not execute.
+        expect(validateBatch([]).valid).toBe(true);
+        expect(validateBatch([]).findings).toEqual([]);
 
         const single = validateBatch({style: {color: 'red'}});
 
