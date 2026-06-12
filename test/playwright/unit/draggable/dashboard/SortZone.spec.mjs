@@ -38,6 +38,7 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         const DragCoordinator = Neo.manager?.DragCoordinator;
         if (DragCoordinator) {
             DragCoordinator.onDragMove = () => {};
+            DragCoordinator.onDragEnd = () => {};
             DragCoordinator.register = () => {};
             DragCoordinator.unregister = () => {};
         }
@@ -185,5 +186,55 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(appliedDeltas.some(delta => delta.action === 'moveNode' && delta.id === remoteItem.id)).toBe(false);
         expect(sortZone.isRemoteDragging).toBe(false);
         expect(sortZone.isWindowDragging).toBe(false)
+    });
+
+    test('latches dashboard drag-end coordinator notification (#12895)', async () => {
+        const
+            dragEndCalls    = [],
+            DragCoordinator = Neo.manager.DragCoordinator,
+            item            = {
+                id          : 'item1',
+                vdom        : {cls: ['neo-draggable']},
+                wrapperStyle: {}
+            },
+            mockOwner       = {
+                id              : 'mockOwner',
+                cls             : [],
+                dragResortable  : true,
+                items           : [item],
+                style           : {},
+                vdom            : {},
+                addDomListeners : () => {},
+                getDomRect      : () => Promise.resolve([{x:0, y:0, width:100, height:100}]),
+                getVdomItemsRoot: () => ({id: 'mockOwner-items'}),
+                on              : () => {}
+            };
+
+        DragCoordinator.onDragEnd = data => dragEndCalls.push(data);
+
+        sortZone = Neo.create(DashboardSortZone, {
+            owner  : mockOwner,
+            timeout: () => Promise.resolve()
+        });
+
+        Object.assign(sortZone, {
+            currentIndex   : 0,
+            dragComponent  : item,
+            dragPlaceholder: null,
+            itemRects      : [{height: 100, left: 0, top: 0, width: 100}],
+            itemStyles     : [{height: '100px', width: '100px'}],
+            ownerStyle     : {},
+            sortableItems  : [item],
+            startIndex     : 0,
+            windowId       : 1
+        });
+
+        await Promise.all([
+            sortZone.onDragEnd({source: 'first'}),
+            sortZone.onDragEnd({source: 'second'})
+        ]);
+
+        expect(dragEndCalls).toHaveLength(1);
+        expect(sortZone.dragEndActive).toBe(false)
     });
 });
