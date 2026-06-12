@@ -257,9 +257,10 @@ class DashboardSortZone extends SortZone {
     }
 
     /**
+     * Completes dashboard drag cleanup under the base drag-end latch.
      * @param {Object} data The drag end event data.
      */
-    async onDragEnd(data) {
+    async processDragEnd(data) {
         let me = this;
 
         if (!me.isRemoteDragging) {
@@ -270,7 +271,7 @@ class DashboardSortZone extends SortZone {
             })
         }
 
-        super.onDragEnd(data)
+        await super.processDragEnd(data)
     }
 
     /**
