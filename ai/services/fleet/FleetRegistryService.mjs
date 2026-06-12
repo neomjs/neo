@@ -166,7 +166,10 @@ class FleetRegistryService extends Base {
      * @returns {String|null} The decrypted PAT, or `null` if absent / unreadable.
      */
     resolveCredential(id) {
-        return this.readCredentials()[id] ?? null;
+        const credentials = this.readCredentials();
+        // own-property lookup only: an id like `toString` / `constructor` must fail closed to null,
+        // never resolve to an inherited Object.prototype member.
+        return Object.hasOwn(credentials, id) ? credentials[id] : null;
     }
 
     // ---- internals ----------------------------------------------------------
@@ -219,17 +222,20 @@ class FleetRegistryService extends Base {
     }
 
     /**
-     * @returns {Object} The decrypted `{agentId: pat}` map (empty + warned on absent/corrupt — fail-closed).
+     * @returns {Object} The decrypted `{agentId: pat}` map as a **null-prototype** object (empty +
+     * warned on absent/corrupt — fail-closed). Null-prototype is the security invariant: credential
+     * ids are untrusted keys, so an absent id can never alias an inherited `Object.prototype` member
+     * (`toString` / `constructor` / `__proto__` …) on lookup, store, or remove.
      * @private
      */
     readCredentials() {
         const file = this.credentialsPath();
-        if (!fs.existsSync(file)) return {};
+        if (!fs.existsSync(file)) return Object.create(null);
         try {
-            return JSON.parse(this.decrypt(fs.readFileSync(file, 'utf8')));
+            return Object.assign(Object.create(null), JSON.parse(this.decrypt(fs.readFileSync(file, 'utf8'))));
         } catch (error) {
             console.warn('[FleetRegistryService] Credential store unreadable; failing closed.', error.message);
-            return {};
+            return Object.create(null);
         }
     }
 

@@ -149,4 +149,18 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService', () => {
     test('resolveCredential fails closed for an unknown agent', () => {
         expect(FleetRegistryService.resolveCredential('nobody')).toBeNull();
     });
+
+    test('FAIL-CLOSED: prototype-chain ids never resolve to inherited members (gpt review RA)', () => {
+        // empty store — none of these are real credentials; each must return null, not a function
+        for (const key of ['toString', 'constructor', 'hasOwnProperty', 'valueOf', '__proto__']) {
+            expect(FleetRegistryService.resolveCredential(key)).toBeNull();
+        }
+    });
+
+    test('an agent id that collides with an Object.prototype name still round-trips', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'toString', harnessType: 'codex', credential: 'ghp_proto'});
+        // the legitimately-named credential resolves; a different proto-name remains absent
+        expect(FleetRegistryService.resolveCredential('toString')).toBe('ghp_proto');
+        expect(FleetRegistryService.resolveCredential('constructor')).toBeNull();
+    });
 });
