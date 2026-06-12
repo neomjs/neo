@@ -24,7 +24,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 
 ## Latest Updates
 
-- [v13.0.0 (2026-06-11): Update](https://neomjs.com/raw/news/releases/13.0.0.md)
+- [v13.0.0 (2026-06-12): Update](https://neomjs.com/raw/news/releases/13.0.0.md)
 - [v12.1.0 (2026-03-27): Update](https://neomjs.com/raw/news/releases/12.1.0.md)
 - [v12.0.0 (2026-02-28): Update](https://neomjs.com/raw/news/releases/12.0.0.md)
 - [v11.24.0 (2026-01-31): Update](https://neomjs.com/raw/news/releases/11.24.0.md)
@@ -130,6 +130,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo Grid CellEditing](https://neomjs.com/examples/grid/cellEditing/index.html)
 - [Neo GridContainer](https://neomjs.com/examples/grid/container/index.html)
 - [Neo CovidGrid](https://neomjs.com/examples/grid/covid/index.html)
+- [Neo Locked-Column Grid Fixture](https://neomjs.com/examples/grid/lockedColumns/index.html)
 - [Neo Grid: Nested Record Fields](https://neomjs.com/examples/grid/nestedRecordFields/index.html)
 - [Neo.mjs - Tree Grid Example](https://neomjs.com/examples/grid/tree/index.html)
 - [Neo TreeGrid - Big Data](https://neomjs.com/examples/grid/treeBigData/index.html)
