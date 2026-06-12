@@ -88,7 +88,23 @@ jobs:
               file.startsWith('resources/content/discussions/') ||
               file.startsWith('apps/portal/resources/data/');
 
-            const runIntegration = normalizedFiles.some(file => !isDocsOnlyPath(file));
+            // Whitelist: integration runs only on changes that can affect the integration
+            // stack — engine (src/), Agent OS (ai/, incl. ai/deploy compose), the integration
+            // specs/fixtures + shared test infra, dep manifests, or this workflow. Keep this
+            // COMPLETE — a missed path silently skips integration (false-negative).
+            const isIntegrationRelevantPath = file =>
+              file.startsWith('src/') ||
+              file.startsWith('ai/') ||
+              file.startsWith('test/playwright/integration/') ||
+              file.startsWith('test/playwright/util/') ||
+              file === 'test/playwright/fixtures.mjs' ||
+              file === 'test/playwright/setup.mjs' ||
+              file === 'test/playwright/playwright.config.integration.mjs' ||
+              file === 'package.json' ||
+              file === 'package-lock.json' ||
+              file === '.github/workflows/test.yml';
+
+            const runIntegration = normalizedFiles.some(isIntegrationRelevantPath);
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
 
             core.info(`Changed files: ${normalizedFiles.join(', ')}`);
@@ -99,7 +115,7 @@ jobs:
             core.setOutput('run_unit', String(runUnit));
             core.setOutput(
               'skip_reason',
-              'docs/content-only change without matching heavy-suite dependency'
+              'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
             );
 
   test:
