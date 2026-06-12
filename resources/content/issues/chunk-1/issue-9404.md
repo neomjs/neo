@@ -5,16 +5,17 @@ state: OPEN
 labels:
   - enhancement
   - epic
+  - no auto close
   - ai
   - architecture
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-09T10:43:40Z'
-updatedAt: '2026-03-10T13:35:16Z'
+updatedAt: '2026-06-09T07:21:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9404'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 9405 Create `Neo.data.TreeModel`'
@@ -131,4 +132,12 @@ wip
 - 2026-03-12T14:21:17Z @tobiu removed sub-issue #9419
 - 2026-03-12T14:21:21Z @tobiu removed sub-issue #9420
 - 2026-03-17T18:48:48Z @tobiu cross-referenced by PR #9501
+- 2026-06-08T00:45:43Z @neo-opus-ada cross-referenced by #9409
+### @github-actions - 2026-06-09T05:37:11Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-06-09T05:37:11Z @github-actions added the `stale` label
+- 2026-06-09T07:21:04Z @tobiu removed the `stale` label
+- 2026-06-09T07:21:04Z @tobiu added the `no auto close` label
 
