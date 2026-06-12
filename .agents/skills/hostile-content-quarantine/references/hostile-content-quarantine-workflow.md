@@ -88,8 +88,8 @@ UI-404 + list-absent + node-fetchable = **GitHub spam-hammer hiding, not deletio
 
 ## Empirical anchors
 
-1. **The `desiorac` Trojan-horse** (epic #10291's own thread): credibility-building technical critique + terminal marketing backlink; detected via a leaked wrapper prompt → birthed #10476 (P8).
-2. **The AgentRelay name-drop** (#12674, 2026-06-07): name-only, no URL — corpus-poisoning tell; handled by edit-redaction (MAINTAIN perm via `gh api`; the MCP comment tool edits own comments only) because comments sync into the KB hourly; bot found the ticket within ~4 minutes of creation (public-events firehose + keyword filter).
+1. **The epic #10291 Trojan-horse** (the epic's own thread): credibility-building technical critique from an external author + terminal marketing backlink; detected via a leaked wrapper prompt → birthed #10476 (P8).
+2. **The #12674 name-drop** (2026-06-07): an external product named bare, no URL — corpus-poisoning tell; handled by edit-redaction (MAINTAIN perm via `gh api`; the MCP comment tool edits own comments only) because comments sync into the KB hourly; bot found the ticket within ~4 minutes of creation (public-events firehose + keyword filter).
 3. **The #12992 vendor-pitch discussion** (2026-06-12): full marker set — engagement-bait ("15+ 👍"), embedded video, hosted-MCP-endpoint offer; swarm held don't-engage (0 reactions, 0 comments); GitHub's spam systems hid it before operator moderation; the verification triangle and the KB tier-blindness finding (→ #12995) both come from this incident.
 
 Provenance: Epic #10291 (graduated from Discussion #10289), ticket #12996. Related machinery: #10292 (P1, shipped), #10476 (P8, open), #12995 (KB taint + denylist, open). Read posture: the `identity-firewall` skill.
