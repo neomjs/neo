@@ -208,6 +208,109 @@ test.describe('MarkdownParser — transcript-grade security defaults', () => {
     });
 });
 
+test.describe('MarkdownParser — extended block grammar', () => {
+    test('segments unordered and ordered lists with soft-wrapped item continuations', () => {
+        const parser = new MarkdownParser({idPrefix: 'list'});
+
+        const blocks = parser.update('- alpha\n- beta\n  continues here\n\n1. one\n2. two\n\n');
+
+        expect(blocks).toHaveLength(2);
+        expect(blocks[0].tag).toBe('ul');
+        expect(blocks[0].cn).toHaveLength(2);
+        expect(textOf([blocks[0].cn[1]])).toBe('beta continues here');
+        expect(blocks[1].tag).toBe('ol');
+        expect(blocks[1].cn.map(item => item.tag)).toEqual(['li', 'li'])
+    });
+
+    test('a marker-type switch splits into two list blocks', () => {
+        const parser = new MarkdownParser({idPrefix: 'split'});
+
+        const blocks = parser.update('- bullet\n1. numbered\n\n');
+
+        expect(blocks.map(block => block.tag)).toEqual(['ul', 'ol'])
+    });
+
+    test('an open list grows item-wise across appends under its original id', () => {
+        const parser = new MarkdownParser({idPrefix: 'grow'});
+
+        const first  = parser.update('- alpha\n- be');
+        const listId = first[0].id;
+
+        expect(first[0].cn).toHaveLength(2);
+
+        const second = parser.update('- alpha\n- beta\n- gamma');
+
+        expect(second).toHaveLength(1);
+        expect(second[0].id).toBe(listId);
+        expect(second[0].cn).toHaveLength(3);
+        expect(textOf([second[0].cn[2]])).toBe('gamma')
+    });
+
+    test('segments blockquotes and thematic breaks; break wins over list for `- - -`', () => {
+        const parser = new MarkdownParser({idPrefix: 'misc'});
+
+        const blocks = parser.update('> quoted *wisdom*\n> second line\n\n- - -\n\ntail\n\n');
+
+        expect(blocks).toHaveLength(3);
+        expect(blocks[0].tag).toBe('blockquote');
+        expect(textOf(blocks[0].cn)).toBe('quoted wisdom second line');
+        expect(blocks[1].tag).toBe('hr');
+        expect(blocks[2].tag).toBe('p')
+    });
+
+    test('segments GFM tables: header, delimiter, padded body rows', () => {
+        const parser = new MarkdownParser({idPrefix: 'table'});
+
+        const blocks = parser.update('| Name | Score |\n|---|---|\n| ada | 100 |\n| short |\n\n');
+
+        expect(blocks).toHaveLength(1);
+
+        const [table] = blocks;
+
+        expect(table.tag).toBe('table');
+
+        const
+            thead = table.cn[0],
+            tbody = table.cn[1];
+
+        expect(thead.cn[0].cn.map(cell => cell.tag)).toEqual(['th', 'th']);
+        expect(textOf([thead.cn[0].cn[0]])).toBe('Name');
+        expect(tbody.cn).toHaveLength(2);
+        // The short row pads to the header's column count.
+        expect(tbody.cn[1].cn).toHaveLength(2);
+        expect(textOf([tbody.cn[1].cn[1]])).toBe('')
+    });
+
+    test('a streamed table promotes from the open tail paragraph when its delimiter arrives', () => {
+        const parser = new MarkdownParser({idPrefix: 'promote'});
+
+        // Chunk 1: the header line alone is just an open paragraph.
+        const first = parser.update('Intro\n\n| a | b |');
+
+        expect(first).toHaveLength(2);
+        expect(first[1].tag).toBe('p');
+
+        const tailId = first[1].id;
+
+        // Chunk 2: the delimiter + a body row arrive — same block id, now a table.
+        const second = parser.update('Intro\n\n| a | b |\n|---|---|\n| 1 | 2 |');
+
+        expect(second).toHaveLength(2);
+        expect(second[1].id).toBe(tailId);
+        expect(second[1].tag).toBe('table');
+        expect(textOf([second[1].cn[1].cn[0].cn[0]])).toBe('1')
+    });
+
+    test('a list interrupts an open paragraph (paragraph terminator discipline)', () => {
+        const parser = new MarkdownParser({idPrefix: 'interrupt'});
+
+        const blocks = parser.update('prose line\n- item one\n- item two\n\n');
+
+        expect(blocks.map(block => block.tag)).toEqual(['p', 'ul']);
+        expect(blocks[1].cn).toHaveLength(2)
+    });
+});
+
 test.describe('MarkdownParser — vdom shape discipline', () => {
     test('every emitted node carries an explicit deterministic id', () => {
         const parser = new MarkdownParser({idPrefix: 'ids'});

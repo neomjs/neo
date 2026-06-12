@@ -37,9 +37,13 @@
  * @type {Object}
  */
 export const BLOCK_TYPES = Object.freeze({
+    break    : 'break',
     code     : 'code',
     heading  : 'heading',
-    paragraph: 'paragraph'
+    list     : 'list',
+    paragraph: 'paragraph',
+    quote    : 'quote',
+    table    : 'table'
 });
 
 /**
@@ -52,9 +56,39 @@ export const BLOCK_TYPES = Object.freeze({
 export const SAFE_DESTINATION = /^(?:https?:|mailto:)[^\s]*$|^[^\s:]*$|^#/;
 
 const
+    REGEX_BLANK      = /^[ \t]*$/,
+    // Checked BEFORE list items: `- - -` is a thematic break, not a list.
+    REGEX_BREAK      = /^[ \t]*([-_*])[ \t]*(?:\1[ \t]*){2,}$/,
     REGEX_FENCE_OPEN = /^(`{3,}|~{3,})[ \t]*([\w-]*)[ \t]*$/,
     REGEX_HEADING    = /^(#{1,6})[ \t]+(.*)$/,
-    REGEX_BLANK      = /^[ \t]*$/;
+    REGEX_OL_ITEM    = /^[ \t]{0,3}\d{1,9}[.)][ \t]+(.*)$/,
+    REGEX_QUOTE      = /^[ \t]{0,3}>[ \t]?(.*)$/,
+    REGEX_UL_ITEM    = /^[ \t]{0,3}[-*+][ \t]+(.*)$/;
+
+/**
+ * A GFM table delimiter row: at least two `:?---:?` cells separated by pipes.
+ * The two-column floor keeps prose containing a stray `|` unambiguous.
+ * @param {String} line
+ * @returns {Boolean}
+ */
+function isTableDelimiter(line) {
+    if (!line?.includes('|')) {
+        return false
+    }
+
+    const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+
+    return cells.length >= 2 && cells.every(cell => /^:?-+:?$/.test(cell.trim()))
+}
+
+/**
+ * Splits a table row into trimmed cell strings (outer pipes optional).
+ * @param {String} line
+ * @returns {String[]}
+ */
+function splitTableRow(line) {
+    return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim())
+}
 
 /**
  * Inline tokenizer order matters: code spans are atomic (their interior is protected from
@@ -199,6 +233,9 @@ export default class MarkdownParser {
         let vdom;
 
         switch (raw.type) {
+            case BLOCK_TYPES.break:
+                vdom = {tag: 'hr', id};
+                break
             case BLOCK_TYPES.code:
                 vdom = {
                     tag: 'pre',
@@ -218,6 +255,44 @@ export default class MarkdownParser {
                     id,
                     cls: [`neo-h${raw.level}`],
                     cn : me.#parseInline(raw.lines[0], childId)
+                };
+                break
+            case BLOCK_TYPES.list:
+                vdom = {
+                    tag: raw.ordered ? 'ol' : 'ul',
+                    id,
+                    cn : raw.items.map(item => ({
+                        tag: 'li',
+                        id : childId(),
+                        cn : me.#parseInline(item, childId)
+                    }))
+                };
+                break
+            case BLOCK_TYPES.quote:
+                vdom = {
+                    tag: 'blockquote',
+                    id,
+                    cls: ['neo-md-quote'],
+                    cn : me.#parseInline(raw.lines.join(' '), childId)
+                };
+                break
+            case BLOCK_TYPES.table:
+                vdom = {
+                    tag: 'table',
+                    id,
+                    cls: ['neo-md-table'],
+                    cn : [
+                        {tag: 'thead', id: childId(), cn: [{
+                            tag: 'tr',
+                            id : childId(),
+                            cn : raw.header.map(cell => ({tag: 'th', id: childId(), cn: me.#parseInline(cell, childId)}))
+                        }]},
+                        {tag: 'tbody', id: childId(), cn: raw.rows.map(row => ({
+                            tag: 'tr',
+                            id : childId(),
+                            cn : row.map(cell => ({tag: 'td', id: childId(), cn: me.#parseInline(cell, childId)}))
+                        }))}
+                    ]
                 };
                 break
             default:
@@ -355,11 +430,101 @@ export default class MarkdownParser {
                 continue
             }
 
+            if (REGEX_BREAK.test(line)) {
+                blocks.push({type: BLOCK_TYPES.break, open: false, source: line});
+                index++;
+                continue
+            }
+
+            const listMatch = line.match(REGEX_UL_ITEM) ? 'ul' : line.match(REGEX_OL_ITEM) ? 'ol' : null;
+
+            if (listMatch) {
+                const
+                    ordered = listMatch === 'ol',
+                    itemRe  = ordered ? REGEX_OL_ITEM : REGEX_UL_ITEM,
+                    start   = index,
+                    items   = [];
+
+                while (index < lines.length) {
+                    const current = lines[index],
+                          item    = current.match(itemRe);
+
+                    if (item) {
+                        items.push(item[1].trim())
+                    } else if (items.length > 0 && !this.#opensBlock(current)) {
+                        // Soft-wrapped continuation of the previous item.
+                        items[items.length - 1] += ' ' + current.trim()
+                    } else {
+                        break
+                    }
+
+                    index++
+                }
+
+                blocks.push({
+                    type  : BLOCK_TYPES.list,
+                    items,
+                    ordered,
+                    open  : index >= lines.length,
+                    source: lines.slice(start, index).join('\n')
+                });
+                continue
+            }
+
+            if (REGEX_QUOTE.test(line)) {
+                const
+                    start   = index,
+                    content = [];
+
+                while (index < lines.length && REGEX_QUOTE.test(lines[index])) {
+                    content.push(lines[index].match(REGEX_QUOTE)[1]);
+                    index++
+                }
+
+                blocks.push({
+                    type  : BLOCK_TYPES.quote,
+                    lines : content,
+                    open  : index >= lines.length,
+                    source: lines.slice(start, index).join('\n')
+                });
+                continue
+            }
+
+            if (line.includes('|') && index + 1 < lines.length && isTableDelimiter(lines[index + 1])) {
+                const
+                    start  = index,
+                    header = splitTableRow(line),
+                    rows   = [];
+
+                index += 2; // header + delimiter row
+
+                while (index < lines.length && lines[index].includes('|') && !REGEX_BLANK.test(lines[index])) {
+                    // Pad / truncate body rows to the header's column count.
+                    const cells = splitTableRow(lines[index]);
+
+                    while (cells.length < header.length) {
+                        cells.push('')
+                    }
+
+                    rows.push(cells.slice(0, header.length));
+                    index++
+                }
+
+                blocks.push({
+                    type  : BLOCK_TYPES.table,
+                    header,
+                    rows,
+                    open  : index >= lines.length,
+                    source: lines.slice(start, index).join('\n')
+                });
+                continue
+            }
+
             const
                 start   = index,
                 content = [];
 
-            while (index < lines.length && !REGEX_BLANK.test(lines[index]) && !REGEX_FENCE_OPEN.test(lines[index]) && !REGEX_HEADING.test(lines[index])) {
+            while (index < lines.length && !this.#opensBlock(lines[index])) {
                 content.push(lines[index]);
                 index++
             }
@@ -375,5 +540,25 @@ export default class MarkdownParser {
         }
 
         return blocks
+    }
+
+    /**
+     * True when a line opens a non-paragraph block — the paragraph terminator and the
+     * list-continuation boundary share this single definition. Table headers are deliberately
+     * absent: a `|`-containing line is paragraph text until its delimiter row exists, which is
+     * what lets a streamed table promote from the open tail paragraph when the delimiter
+     * arrives in a later chunk.
+     * @param {String} line
+     * @returns {Boolean}
+     * @private
+     */
+    #opensBlock(line) {
+        return REGEX_BLANK.test(line)      ||
+            REGEX_FENCE_OPEN.test(line)    ||
+            REGEX_HEADING.test(line)       ||
+            REGEX_BREAK.test(line)         ||
+            REGEX_UL_ITEM.test(line)       ||
+            REGEX_OL_ITEM.test(line)       ||
+            REGEX_QUOTE.test(line)
     }
 }
