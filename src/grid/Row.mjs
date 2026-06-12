@@ -501,10 +501,20 @@ class Row extends Component {
                     let oldNode = oldCellMap.get(column.dataField);
 
                     if (oldNode && oldNode.data?.recordId === recordId) {
+                        // Identity-migration symmetry with the Pass 1 recycle: this node may have
+                        // been rendered POOLED (id `…__cell-N`) before the column flipped into
+                        // permanent territory (e.g. `locked` changed on a mounted row via a
+                        // cross-region drag re-home). Pass 1's placeholder loop has already
+                        // re-issued that pool id — keeping it here puts two nodes with one id
+                        // into a single row, and id-based diffing collapses (id-less insert
+                        // storms, the DOM accumulating both generations).
+                        oldNode.id = `${me.id}__${column.dataField}`;
+                        oldNode['aria-colindex'] = i + 1;
+
                         if (columnPosition) {
                             oldNode.style.left  = columnPosition.x + 'px';
                             oldNode.style.width = columnPosition.width + 'px';
-                            
+
                             if (isMounted || column.locked) {
                                 if (columnPosition.hidden) {
                                     oldNode.style.visibility = 'hidden'

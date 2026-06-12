@@ -86,6 +86,16 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * The latest scroll value commanded by {@link #scrollToIndex} and not yet confirmed by its
+     * pipeline echo. While set (and a drag is active), {@link #beforeSetScrollLeft} rejects any
+     * non-matching incoming write as a stale out-of-order echo. Null when no command is in
+     * flight; self-clears on the first write outside an active drag.
+     * @member {Number|null} pendingScrollTarget=null
+     * @protected
+     */
+    pendingScrollTarget = null
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -133,6 +143,44 @@ class Toolbar extends BaseToolbar {
             // Term observability while a drag is in flight (itemRects = the mid-drag marker)
             sortZone.itemRects && sortZone.traceEvent({t: 'scrollSync', sl: value})
         }
+    }
+
+    /**
+     * Command/echo reconciliation for the drag overdrag loop. While a drag is active and a
+     * commanded scroll is in flight ({@link #scrollToIndex} records it), incoming config writes
+     * are echoes from the scroll pipeline — and echoes can arrive out of order under burst
+     * scrolling (one command per walk beat). A stale echo regressing the term re-arms the
+     * loop's nearest-math and force-switches the dragged column: a feedback runaway. The gate
+     * accepts only the echo matching the latest command; anything else mid-drag is stale and
+     * rejected. Outside an active drag the gate is off (and self-clears), so user scrolling is
+     * never filtered.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetScrollLeft(value, oldValue) {
+        let me        = this,
+            {pendingScrollTarget, sortZone} = me;
+
+        if (sortZone?.itemRects) {
+            // Mid-drag this config is COMMAND-DRIVEN: scrollToIndex() writes the backing field
+            // directly and registers its command here; pipeline echoes may only CONFIRM the
+            // latest command. Sub-pixel tolerance: browsers may quantize a fractional
+            // commanded scrollLeft, so the echo can differ by less than a pixel and be ours.
+            if (Neo.isNumber(pendingScrollTarget) && Math.abs(value - pendingScrollTarget) < 1) {
+                me.pendingScrollTarget = null;
+                return value
+            }
+
+            // Everything else mid-drag is stale or foreign — INCLUDING a late echo from an
+            // OLDER command arriving after the latest echo already cleared the pending state;
+            // accepting it would regress the term and re-arm the overdrag loop.
+            return oldValue
+        }
+
+        me.pendingScrollTarget = null;
+        return value
     }
 
     /**
@@ -381,9 +429,21 @@ class Toolbar extends BaseToolbar {
         }
 
         if (scrollbar && target !== null) {
-            // Optimistic worker-side mirror: afterSetScrollLeft feeds the SortZone term BEFORE the
-            // DOM scroll-event echo arrives via grid.ScrollManager (which re-sets the same value).
-            me.scrollLeft = target;
+            // Record the command FIRST: beforeSetScrollLeft gates every subsequent config write
+            // against it — only the echo matching this latest command passes; out-of-order echoes
+            // from earlier commands are rejected (they would regress the term and re-arm the
+            // overdrag loop: the runaway switch storm).
+            me.pendingScrollTarget = target;
+
+            // Optimistic worker-side mirror, deliberately BYPASSING the config gate (a config
+            // write would consume the pending command as if the echo had already arrived): the
+            // SortZone term and the backing field update directly; the trace marks the command.
+            me._scrollLeft = target;
+
+            if (me.sortZone) {
+                me.sortZone.scrollLeft = target;
+                me.sortZone.itemRects && me.sortZone.traceEvent({t: 'scrollSync', sl: target})
+            }
 
             await Neo.main.DomAccess.scrollTo({
                 direction: 'left',

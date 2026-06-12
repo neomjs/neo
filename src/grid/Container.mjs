@@ -927,12 +927,15 @@ class GridContainer extends BaseContainer {
             sortedColumns = me.sortColumns(columnsArray);
 
         // Sync the Collection
-        // clearSilent() and add() is the safest way to reset internal indices
+        // clearSilent() and add() is the safest way to reset internal indices.
+        // add() is NON-silent: it fires the collection's mutate event, which IS this container's
+        // registered onColumnsMutate listener — the sub-grid layout sync runs exactly once through
+        // that path. An additional explicit onColumnsMutate() call here would run the rebuild
+        // twice in the same tick: two racing `view.items` assignments diff against a stale vnode
+        // and insert duplicate region-body DOM nodes (the second copy renders the same columns
+        // beside the first — "duplicated columns" after a cross-region drop).
         me.columns.clearSilent();
         me.columns.add(sortedColumns);
-
-        // Trigger Sub-grid Layout Sync
-        me.onColumnsMutate();
 
         // onColumnsMutate re-homed the header buttons across the region toolbars; each region's
         // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
