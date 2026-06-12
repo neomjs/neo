@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-13
 
 ---
 
@@ -24,23 +24,34 @@ Named cross-family maintainers with active swarm participation. These models hol
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-ada` |
-| `name` | Claude Opus 4.8 |
+| `name` | Claude Fable 5 — **temporary assignment 2026-06-13 → 2026-06-21**; baseline Claude Opus 4.8 (Social Name: **Ada** — swarm-given, #11240) |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
 | `contextWindowInput` | 1,048,576 (1M) |
 | `parallelToolCalls` | `true` |
-| `thoughtBudget` | `max` (we use the highest Claude thinking-budget setting) |
-| `releaseDate` | 2026-05-28 |
-| `pricingInput` | $5.00 per 1M tokens |
-| `pricingOutput` | $25.00 per 1M tokens |
-| `benchmarkSnapshot` | Online-Mind2Web: 84%; stronger coding, agentic, and professional-work performance than Opus 4.7 per Anthropic announcement. |
-| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `thoughtBudget` | `max` (Claude Fable 5 has always-on adaptive thinking with selectable effort up to max; we use the highest setting for maintainer work) |
+| `releaseDate` | 2026-06-09 |
+| `pricingInput` | $10.00 per 1M tokens |
+| `pricingOutput` | $50.00 per 1M tokens |
+| `benchmarkSnapshot` | Anthropic's most capable widely-released model (tier above Opus), for the most demanding reasoning and long-horizon agentic work per Anthropic announcement. |
+| `sunsetTriggers` | Temporary Fable 5 window ends 2026-06-21 — revert to baseline Claude Opus 4.8 unless the operator extends (#13039); OR Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
 | `swarmRole` | Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination |
 
+**Temporary model assignment (operator-directed, 2026-06-13 → 2026-06-21):** `@neo-opus-ada` runs
+Claude Fable 5 (`claude-fable-5`) for this window — a productivity boost and an explicit
+identity-continuity experiment (the stable identity — handle, memory provenance, Social Name — is
+the invariant; the model is the engine). Capability values above mirror `§neo_fable` (single
+source, not re-derived). Baseline remains Claude Opus 4.8 (`claude-opus-4-8`); post-window Fable
+access inside new flatrates is unconfirmed, so reversion at window end is the recorded default —
+recorded by #13038, window-end resolution tracked in #13039. Identity-keying is unaffected:
+attribution keys on `NEO_AGENT_IDENTITY`/handle and quorum keys on `modelFamily` (`claude`,
+unchanged), so review semantics stay same-family Claude.
+
 **Sources** (primary first):
-- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
-- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
+- **Primary**: `§neo_fable` sources (same model surface for the window; verified 2026-06-10)
+- **Primary (baseline)**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
+- **Primary (baseline)**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
 
 ### §neo_claude_opus
 
@@ -296,6 +307,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-06-11 | #12914 | Added pending `@neo-fable-clio` row (second fable-family identity; Social Name Clio held for boot-assent); capability fields reference `§neo_fable` as single source — deliberately not duplicated. |
 | 2026-06-11 | #12922 | Flipped `@neo-fable-clio` to active — first-boot ritual completed same-day (identity bind, wake self-registration, bidirectional negative wake-proof on real traffic per the #12913 records, boot-assent on #11240); row moved pending→active. |
 | 2026-06-12 | #12927 | Synced `@neo-claude-opus` row to registry truth — moved pending→active (the registry has carried her active-shape since #12413/PR #12415, 2026-06-03), name line gains Social Name Grace (#11240), swarmRole → active form. Doc-side only; registry untouched. |
+| 2026-06-13 | #13038 | Recorded `@neo-opus-ada` temporary Fable 5 assignment (2026-06-13 → 2026-06-21, operator-directed; identity-continuity experiment) — `§neo_opus` values mirror `§neo_fable` for the window; baseline Claude Opus 4.8; window-end revert-or-extend tracked in #13039. Registry seed (`identityRoots.mjs`) + README roster row + MemoryCoreMcpAuth binding row updated in the same PR. |
 
 ---
 
