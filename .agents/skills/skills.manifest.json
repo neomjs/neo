@@ -112,6 +112,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "hostile-content-quarantine": {
+      "name": "hostile-content-quarantine",
+      "description": "Incident playbook for externally-authored hostile content on public surfaces — astroturfing, spam, stealth marketing, injection-bearing artifacts. Triggers: external-authored content bearing astroturf markers (engagement-bait clauses, vendor links, external endpoint/MCP offers, name-only drops), an operator \"astroturf / spam / we got hit\" signal, or verifying a moderation outcome. ANTI-trigger: ordinary good-faith contributor posts.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "ideation-sandbox": {
       "name": "ideation-sandbox",
       "description": "Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions. Triggers: Use this skill when the user asks to brainstorm an architecture change, proposes a highly exploratory / undefined technical idea, or as auto-fire trigger for §5.2 Step 2.5 Architectural Step-Back on high-blast-radius proposals before [RESOLVED_TO_AC] / [GRADUATED_TO_TICKET] graduation.",
