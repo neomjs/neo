@@ -173,39 +173,53 @@ test.describe('Grid Locked Columns', () => {
         expect(actualOrderAfterEnd).toEqual(expectedOrderAfterEnd);
     });
 
-    test('Header Toolbar items are synchronized with column collection order', async () => {
-        const headerToolbar = grid.headerToolbar;
+    test('Header toolbars are synchronized with column collection order across regions', async () => {
+        const {headerWrapper} = grid;
 
-        const expectedOrder = ['col3', 'col4', 'col1', 'col5', 'col2'];
-        const headerOrder = headerToolbar.items.map(item => item.dataField);
-        expect(headerOrder).toEqual(expectedOrder);
+        // Region membership: locked-start columns live in headerWrapper.headerStart,
+        // unlocked columns in the center grid.headerToolbar, locked-end in headerWrapper.headerEnd
+        expect(headerWrapper.headerStart.items.map(item => item.dataField)).toEqual(['col3', 'col4']);
+        expect(grid.headerToolbar.items.map(item => item.dataField)).toEqual(['col1', 'col5']);
+        expect(headerWrapper.headerEnd.items.map(item => item.dataField)).toEqual(['col2']);
 
+        // The synchronization invariant: regions concatenated equal the collection order
+        const concatOrder = [
+            ...headerWrapper.headerStart.items,
+            ...grid.headerToolbar.items,
+            ...headerWrapper.headerEnd.items
+        ].map(item => item.dataField);
+
+        expect(concatOrder).toEqual(grid.columns.items.map(col => col.dataField));
+
+        // Cross-region re-home: locking col1 moves its button out of the center toolbar
+        // into headerStart, preserving collection order within each region
         const col1 = grid.columns.get('col1');
         col1.locked = 'start';
         await grid.timeout(50);
 
-        const expectedOrderAfterLock = ['col3', 'col4', 'col1', 'col5', 'col2'];
-        const headerOrderAfterLock = headerToolbar.items.map(item => item.dataField);
-        expect(headerOrderAfterLock).toEqual(expectedOrderAfterLock);
+        expect(headerWrapper.headerStart.items.map(item => item.dataField)).toEqual(['col3', 'col4', 'col1']);
+        expect(grid.headerToolbar.items.map(item => item.dataField)).toEqual(['col5']);
+        expect(grid.getButton('col1')).toBeDefined();
     });
 
-    test('ScrollManager scroll pinning addon is updated on lock state change', async () => {
-        const scrollManager = grid.scrollManager;
-        let updateCalled = false;
+    test('ScrollManager row addons are re-synced on lock state change', async () => {
+        const {scrollManager} = grid;
 
-        // Mock the method to intercept the call
-        const originalUpdate = scrollManager.updateColumnScrollPinningAddon.bind(scrollManager);
-        scrollManager.updateColumnScrollPinningAddon = (active, windowId) => {
-            updateCalled = true;
-            return originalUpdate(active, windowId);
-        };
+        let hoverSyncActive = null,
+            pinningCalled   = false;
+
+        // Stub the addon-sync methods (main-thread addon round-trips are out of unit scope)
+        scrollManager.updateRowScrollPinningAddon = ()     => {pinningCalled = true};
+        scrollManager.updateGridRowHoverSyncAddon = active => {hoverSyncActive = active};
 
         const col1 = grid.columns.get('col1');
-        col1.locked = 'start'; // This triggers afterSetLocked -> grid.onColumnLockChange -> scrollManager.update...
+        col1.locked = 'start'; // afterSetLocked -> grid.onColumnLockChange -> sub-grid sync -> scrollManager addon re-sync
 
         await grid.timeout(50);
 
-        expect(updateCalled).toBe(true);
+        expect(pinningCalled).toBe(true);
+        expect(hoverSyncActive).toBe(grid.hasLockedColumns);
+        expect(hoverSyncActive).toBe(true);
     });
 
     test('Setting a new columns array at runtime correctly sorts them', async () => {
