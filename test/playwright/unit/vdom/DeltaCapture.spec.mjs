@@ -66,9 +66,10 @@ test.describe('DeltaCapture', () => {
                 {id: 'delta-capture-root', style: {color: 'red'}},
                 {action: 'removeNode', id: 'delta-capture-old'}
             ],
-            epoch: 'default',
-            layer: 'main-pre-apply',
-            tap  : 'applyDeltas'
+            epoch   : 'default',
+            layer   : 'main-pre-apply',
+            tap     : 'applyDeltas',
+            windowId: 'window-1'
         }]);
         expect(capture.deltasIn('default')).toEqual([[
             {id: 'delta-capture-root', style: {color: 'red'}},
@@ -100,6 +101,7 @@ test.describe('DeltaCapture', () => {
         expect(result.deltas.length).toBe(1);
         expect(capture.recordsIn('default')[0].tap).toBe('helperReturn');
         expect(capture.recordsIn('default')[0].layer).toBe('vdom-pre-send');
+        expect(capture.recordsIn('default')[0].windowId).toBeNull();
         expect(capture.deltasIn('default')).toEqual([result.deltas])
     });
 
@@ -176,6 +178,27 @@ test.describe('DeltaCapture', () => {
         expect(capture.deltasIn('drop')).toEqual([[
             {action: 'moveNode', id: 'delta-capture-row', parentId: 'delta-capture-root', index: 0}
         ]])
+    });
+
+    test('attributes applyDeltas records to their source windowId', async () => {
+        Neo.applyDeltas = async () => {};
+
+        const capture = install({tap: 'applyDeltas'});
+
+        await Neo.applyDeltas('window-1', {id: 'delta-capture-shared', text: 'first'});
+        await Neo.applyDeltas('window-2', {id: 'delta-capture-shared', text: 'second'});
+        await Neo.applyDeltas('window-1', {id: 'delta-capture-shared', text: 'third'});
+
+        const records = capture.recordsIn('default');
+
+        expect(records.map(record => record.windowId)).toEqual(['window-1', 'window-2', 'window-1']);
+        expect(records.filter(record => record.windowId === 'window-1').map(record => record.deltas)).toEqual([
+            [{id: 'delta-capture-shared', text: 'first'}],
+            [{id: 'delta-capture-shared', text: 'third'}]
+        ]);
+        expect(records.filter(record => record.windowId === 'window-2').map(record => record.deltas)).toEqual([
+            [{id: 'delta-capture-shared', text: 'second'}]
+        ])
     });
 
     test('classifies effective ops and validates findings per preserved batch', async () => {
