@@ -324,12 +324,17 @@ class Worker extends Base {
     }
 
     /**
+     * Port resolution for SharedWorkers is a fall-through cascade over the available routing keys:
+     * direct dest target (windowId or port id) → opts.port → opts.windowId → opts.appName →
+     * last-resort first port (only when no routing key was given at all). A stale key never
+     * short-circuits the cascade. When no live port resolves, the message is NOT sent
+     * and the return value is `undefined` — callers which require delivery must check it.
      * @param {String} dest app, canvas, data, main or vdom (excluding the current worker)
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
      * and becomes available only to the worker it was sent to.
-     * @returns {Neo.worker.Message}
+     * @returns {Neo.worker.Message|undefined} The sent message, or `undefined` when no live port could be resolved
      * @protected
      */
     sendMessage(dest, opts, transfer) {
@@ -350,23 +355,22 @@ class Worker extends Base {
             // Check if dest is a direct target (Window ID or Port ID)
             portObject = me.getPort({windowId: dest}) || me.getPort({id: dest});
 
+            // Fall through the remaining routing keys on a lookup miss: a stale opts.port
+            // (a port which disconnected between message receipt and reply) must not
+            // short-circuit the cascade — opts.windowId / opts.appName describe the same
+            // logical target and can still resolve its re-registered port.
+            if (!portObject && opts.port)     {portObject = me.getPort({id: opts.port})}
+            if (!portObject && opts.windowId) {portObject = me.getPort({windowId: opts.windowId})}
+            if (!portObject && opts.appName)  {portObject = me.getPort({appName: opts.appName})}
+
             if (portObject) {
                 port      = portObject.port;
                 opts.port = portObject.id
-            } else if (opts.port) {
-                port = me.getPort({id: opts.port}).port
-            } else if (opts.windowId) {
-                portObject = me.getPort({windowId: opts.windowId});
-                port       = portObject?.port;
-
-                opts.port = portObject?.id
-            }  else if (opts.appName) {
-                portObject = me.getPort({appName: opts.appName});
-                port       = portObject?.port;
-
-                opts.port = portObject?.id
-            } else {
-                port = me.ports[0].port
+            } else if (!opts.port && !opts.windowId && !opts.appName) {
+                // Last-resort only when no routing key was given at all: delivering a keyed
+                // message to an arbitrary port would misroute it into a foreign window, which
+                // loses it just as silently as dropping it.
+                port = me.ports[0]?.port
             }
         }
 
