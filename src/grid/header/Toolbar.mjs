@@ -163,15 +163,20 @@ class Toolbar extends BaseToolbar {
         let me        = this,
             {pendingScrollTarget, sortZone} = me;
 
-        if (Neo.isNumber(pendingScrollTarget) && sortZone?.itemRects) {
-            // Sub-pixel tolerance: browsers may quantize a fractional commanded scrollLeft, so
-            // the echo can differ from the command by less than a pixel and still be ours.
-            if (Math.abs(value - pendingScrollTarget) < 1) {
+        if (sortZone?.itemRects) {
+            // Mid-drag this config is COMMAND-DRIVEN: scrollToIndex() writes the backing field
+            // directly and registers its command here; pipeline echoes may only CONFIRM the
+            // latest command. Sub-pixel tolerance: browsers may quantize a fractional
+            // commanded scrollLeft, so the echo can differ by less than a pixel and be ours.
+            if (Neo.isNumber(pendingScrollTarget) && Math.abs(value - pendingScrollTarget) < 1) {
                 me.pendingScrollTarget = null;
                 return value
             }
 
-            return oldValue // stale echo mid-drag
+            // Everything else mid-drag is stale or foreign — INCLUDING a late echo from an
+            // OLDER command arriving after the latest echo already cleared the pending state;
+            // accepting it would regress the term and re-arm the overdrag loop.
+            return oldValue
         }
 
         me.pendingScrollTarget = null;
