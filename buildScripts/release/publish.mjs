@@ -103,10 +103,14 @@ async function main() {
     runCommand('npm run build-all', 'Failed to run npm run build-all');
 
     // Stage and Commit on Dev
+    // Release-pipeline commits bypass the husky pre-commit battery (--no-verify): these are
+    // machine-generated artifact commits over a broadly-staged tree, and developer-workflow
+    // hooks gate human-authored changes (which already passed them at PR time). A latent
+    // whitespace hit in a prepare-touched doc killed the v13 cut at this exact line.
     console.log('💾 Committing changes to dev...');
     runCommand('git add .', 'Failed to stage changes');
     try {
-        runCommand(`git commit -m "Release v${newVersion}"`, 'Failed to commit to dev');
+        runCommand(`git commit --no-verify -m "Release v${newVersion}"`, 'Failed to commit to dev');
     } catch (e) {
         // Ignore if nothing to commit (unlikely)
         console.log('No changes to commit (maybe only untracked files were added?). Continuing...');
@@ -162,7 +166,7 @@ async function main() {
         console.log('Added atomic changelog link to release notes.');
 
         runCommand(`git add ${releaseNotePath}`, 'Failed to stage release note');
-        runCommand(`git commit -m "docs: Add atomic changelog hash to release notes"`, 'Failed to commit release note update');
+        runCommand(`git commit --no-verify -m "docs: Add atomic changelog hash to release notes"`, 'Failed to commit release note update');
         runCommand('git push origin dev', 'Failed to push dev');
     } else {
         console.log('Atomic changelog link already present.');
@@ -216,7 +220,7 @@ async function main() {
     // --- 5.5 Upload Knowledge Base ---
 
     console.log('\n🧠 Step 5.5: Uploading Knowledge Base...');
-    runCommand('node buildScripts/ai/uploadKnowledgeBase.mjs', 'Failed to upload knowledge base');
+    runCommand('node ai/scripts/maintenance/uploadKnowledgeBase.mjs', 'Failed to upload knowledge base');
 
 
     // --- 6. Post-Release Cleanup ---
@@ -240,12 +244,17 @@ async function main() {
     }
 
     // Commit Archived Tickets
+    //
+    // `GH_SyncService.runFullSync()` above writes archived items to the universal
+    // ordinal-100 chunked shape (`resources/content/archive/{type}/v*/chunk-N/`).
+    // The `git add .` below is intentionally broad to capture the archive/ moves plus
+    // the `_index.json` / `.sync-metadata.json` updates produced by the sync.
     console.log('💾 Committing archived tickets...');
     const status = runCommandWithOutput('git status --porcelain');
 
     if (status) {
         runCommand('git add .', 'Failed to stage archive changes');
-        runCommand(`git commit -m "chore: Archive tickets for v${newVersion}"`, 'Failed to commit archive changes');
+        runCommand(`git commit --no-verify -m "chore: Archive tickets for v${newVersion}"`, 'Failed to commit archive changes');
         runCommand('git push origin dev', 'Failed to push archive changes');
     } else {
         console.log('No changes to archive.');

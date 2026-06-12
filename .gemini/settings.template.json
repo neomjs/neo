@@ -1,0 +1,24 @@
+{
+    "_comment": "WARNING: Do not copy this file to .gemini/settings.json if you are using Antigravity. Place mcpServers only in the global ~/.gemini/antigravity/mcp_config.json. A workspace-level config causes 2x MCP process duplication (Twin Language Server Bug). See debugging-guide.md §1.",
+    "context": {
+        "fileName": ["AGENTS.md", "GEMINI.md"]
+    },
+    "mcpServers": {
+        "neo-mjs-github-workflow": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-github-workflow"]
+        },
+        "neo-mjs-knowledge-base": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-knowledge-base"]
+        },
+        "neo-mjs-memory-core": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-memory-core"]
+        },
+        "neo-mjs-neural-link": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-neural-link"]
+        }
+    }
+}

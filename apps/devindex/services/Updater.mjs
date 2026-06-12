@@ -118,13 +118,12 @@ class Updater extends Base {
                          if (newLogin && newLogin.toLowerCase() !== lowerLogin) {
                              console.log(`[${login}] 🔄 RENAME DETECTED -> ${newLogin}`);
 
-                             // 1. Mark old login for removal
-                             indexUpdates.push({ login, delete: true }); // Tracker
-                             prunedLogins.push(login); // Rich Data
-
-                             // 2. Fetch data for new login immediately
+                             // Fetch the replacement before staging old-login deletion. If the
+                             // replacement fetch fails, the rich historical record must stay protected.
                              const newData = await this.fetchUserData(newLogin);
                              if (newData) {
+                                 indexUpdates.push({ login, delete: true }); // Tracker
+                                 prunedLogins.push(login); // Rich Data
                                  results.push(newData);
                                  indexUpdates.push({ login: newLogin, lastUpdate: newData.lu });
                                  // Success for new user implies we handled the 'slot' for the old user effectively

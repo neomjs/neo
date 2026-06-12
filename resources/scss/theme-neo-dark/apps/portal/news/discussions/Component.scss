@@ -1,0 +1,6 @@
+// Discussion-specific theme vars. The shared GitHub timeline palette (`--gh-bg-*`, `--gh-timeline-border`,
+// `--gh-text-*`, …) lives on the base `Portal.view.content.Component` theme and loads via the proto-chain.
+:root .neo-theme-neo-dark {
+    --gh-discussion-category-bg   : var(--sem-color-bg-neutral-highlighted);
+    --gh-discussion-category-color: var(--sem-color-text-primary-default);
+}

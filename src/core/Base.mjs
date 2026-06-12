@@ -13,6 +13,15 @@ const configSymbol       = Symbol.for('configSymbol'),
 /**
  * The base class for (almost) all classes inside the Neo namespace
  * Exceptions are e.g. core.IdGenerator, vdom.VNode
+ *
+ * `className` and `ntype` intentionally live on instances as well as on static class config.
+ * This costs a few prototype slots, but it keeps Chrome DevTools and Neural Link inspection
+ * direct: expanding an instance immediately reveals its framework identity and creation
+ * shortcut without walking the constructor or prototype chain. That ergonomics choice is part
+ * of the core debugging contract; do not demote these values to static-only metadata without
+ * measuring the runtime/debugging trade-off and updating every consumer that serializes,
+ * routes, or instantiates by class identity.
+ *
  * @class Neo.core.Base
  */
 class Base {
@@ -589,6 +598,11 @@ class Base {
      * Make sure to use the parent call `await super.initAsync()` at the beginning of their implementations,
      * or the registration of remote methods will get delayed.
      *
+     * **[WARNING] DO NOT AWAIT THIS METHOD EXTERNALLY**
+     * The `initAsync()` method is automatically triggered by the framework during `Neo.create()`.
+     * Calling it externally (e.g. `await myInstance.initAsync()`) will execute it twice, leading to fatal duplication bugs.
+     * If you need to wait for a class to finish initializing, **always** use `await myInstance.ready()` instead.
+     *
      * A common use case is requiring conditional or optional dynamic imports or fetching initial data.
      *
      * Once the promise returned by this method is fulfilled, the `isReady` config will be set to `true`.
@@ -938,7 +952,12 @@ class Base {
     /**
      * Returns a promise that resolves when the instance is fully initialized (after initAsync).
      * Use case: alternative way to subscribe to the ready state, especially for classes which are not observable.
-     * @example: await ChromaManager.ready();
+     *
+     * **[CRITICAL]** This is the correct, architecture-compliant way to wait for an instance to spin up externally.
+     * Never call `initAsync()` externally!
+     *
+     * @example await ChromaManager.ready();
+     * @example await orchestrator.ready();
      * @returns {Promise<void>}
      */
     ready() {

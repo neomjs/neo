@@ -41,7 +41,7 @@ test.describe('Neo.data.Store valueBanding Calls', () => {
         const model = Neo.setupClass(TestModel);
 
         callCount = 0; // reset
-        
+
         let data = [];
         for(let i=0; i<100; i++) {
             data.push({id: i, country: 'A'});
@@ -49,7 +49,7 @@ test.describe('Neo.data.Store valueBanding Calls', () => {
 
         let store = Neo.create(Store, {
             className: 'Test.Unit.Data.ValueBanding.CountStore',
-            model    : model,
+            model,
             valueBandingFields: ['country'],
             data     : data
         });

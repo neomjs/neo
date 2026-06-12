@@ -1,0 +1,7 @@
+tenantId: tenant-alpha
+repoSlug: mini-custom-source
+rootKind: external-source
+useDefaultSources: false
+customSources:
+  - sourceName: ProtoSource
+    parserId: proto-fixture-parser

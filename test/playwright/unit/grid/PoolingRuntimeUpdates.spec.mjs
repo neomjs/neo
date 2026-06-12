@@ -63,7 +63,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
             appName  : 'GridPoolingRuntimeUpdatesTest',
             height   : 400,
             width    : 300,
-            store    : store,
+            store,
             rowHeight: 40,
             bufferRowRange: 2,
             bufferColumnRange: 0,

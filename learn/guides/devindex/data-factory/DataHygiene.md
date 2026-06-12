@@ -23,7 +23,10 @@ Conversely, the `allowlist.json` provides an absolute protective barrier. It ser
 *   **Protection:** If a user is on the allowlist, they are completely exempt from Threshold Pruning. They will remain in the index even if they have 0 contributions.
 *   **Resurrection:** Before pruning begins, the service cross-references the allowlist against the tracker queue. If an allowlisted VIP is somehow missing from the tracker, the Cleanup service will instantly "resurrect" them, injecting a new pending entry (`lastUpdate: null`) into the queue to ensure they are scheduled for the next Updater run.
 
-### 4. The 30-Day "Penalty Box" TTL
+### 4. Rich-User Tracker Reconciliation
+Cleanup also audits rich `users.jsonl` profiles that are missing from `tracker.json`. It resolves each stored immutable GitHub database ID before taking action: same-login records are restored to the tracker, renamed accounts are migrated to their current login, unresolved IDs are pruned, and transient resolver failures abort the run rather than blindly requeueing a stale login.
+
+### 5. The 30-Day "Penalty Box" TTL
 When the Updater encounters an error analyzing a user (e.g., a GraphQL timeout or a 404), that user is placed in `failed.json`—the "Penalty Box."
 
 Users in the Penalty Box are temporarily protected from being completely pruned from the tracker, giving them a chance to be successfully processed in a future run. However, the Cleanup service enforces a strict **30-Day Time-To-Live (TTL)**. 
@@ -45,7 +48,7 @@ If a user remains in a failed state for more than 30 days, their protection is r
 
 **Rationale & The "Right to be Forgotten":** With a 50,000 user cap and an hourly update limit of 800, the pipeline completes a full cycle of the entire index approximately every 3 days. A 30-day retention period means a user has persistently failed roughly 10 consecutive update attempts (each of which internally utilizes multiple API retries). After a month of continuous failures, it is safe to assume the profile has either been permanently banned by GitHub or the user has explicitly deleted their own account. Automatically purging these records aligns with data minimization principles and proactively respects a user's right to be forgotten if they have chosen to remove their presence from the platform.
 
-### 5. Canonical Sorting
+### 6. Canonical Sorting
 The final step of the Cleanup routine is purely for Developer Experience (DX) and Git repository health. 
 
 When JSON files are modified by asynchronous services, the order of keys or array elements is often unpredictable. If committed as-is, this creates massive, noisy Git diffs, making code review impossible.

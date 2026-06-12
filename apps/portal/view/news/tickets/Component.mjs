@@ -1,4 +1,4 @@
-import ContentComponent from '../../../../../src/app/content/Component.mjs';
+import ContentComponent from '../../content/Component.mjs';
 import {marked}         from '../../../../../node_modules/marked/lib/marked.esm.js';
 
 const
@@ -42,29 +42,15 @@ class Component extends ContentComponent {
          */
         commitsUrl: 'https://github.com/neomjs/neo/commit/',
         /**
-         * @member {Object} domListeners
+         * @member {String} issuesUrl='#/news/tickets/'
          */
-        domListeners: {
-            resize: 'onResize'
-        },
+        issuesUrl: '#/news/tickets/',
         /**
          * @member {String} repoUserUrl='https://github.com/'
          */
-        repoUserUrl: 'https://github.com/',
-        /**
-         * @member {Boolean} updateSectionsStore=false
-         */
-        updateSectionsStore: false
+        repoUserUrl: 'https://github.com/'
     }
 
-    /**
-     * @member {Intl.DateTimeFormat|null} #dateTimeFormatHistory=null
-     */
-    #dateTimeFormatHistory = null
-    /**
-     * @member {Intl.DateTimeFormat|null} #dateTimeFormatToday=null
-     */
-    #dateTimeFormatToday = null
     /**
      * Temporary storage for the structured timeline data extracted during the parsing phase.
      * This array is populated by `renderTimeline` and `modifyMarkdown` and then assigned
@@ -73,50 +59,6 @@ class Component extends ContentComponent {
      * @private
      */
     timelineData = null
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-        this.getStateProvider().setData('contentComponentId', this.id)
-    }
-
-    /**
-     * @param {String} isoString
-     * @returns {String}
-     */
-    formatTimestamp(isoString) {
-        if (!isoString) return '';
-
-        let me      = this,
-            date    = new Date(isoString),
-            now     = new Date(),
-            isToday = date.toDateString() === now.toDateString();
-
-        if (isToday) {
-            if (!me.#dateTimeFormatToday) {
-                me.#dateTimeFormatToday = new Intl.DateTimeFormat('default', {
-                    hour  : 'numeric',
-                    minute: 'numeric'
-                })
-            }
-
-            return me.#dateTimeFormatToday.format(date)
-        }
-
-        if (!me.#dateTimeFormatHistory) {
-            me.#dateTimeFormatHistory = new Intl.DateTimeFormat('default', {
-                day   : 'numeric',
-                hour  : 'numeric',
-                minute: 'numeric',
-                month : 'short',
-                year  : 'numeric'
-            })
-        }
-
-        return me.#dateTimeFormatHistory.format(date)
-    }
 
     /**
      * @param {Object} data
@@ -177,43 +119,6 @@ class Component extends ContentComponent {
         badgesHtml += '</div>';
 
         return badgesHtml
-    }
-
-    /**
-     * @param {Object} record
-     * @returns {Promise<void>}
-     */
-    async doFetchContent(record) {
-        let me         = this,
-            {windowId} = me,
-            content, data, path;
-
-        path = me.getContentPath(record);
-
-        if (record.isLeaf && path) {
-            data    = await fetch(path);
-            content = await data.text();
-
-            me.value = content;
-
-            me.toggleCls('lab', record.name?.startsWith('Lab:'));
-
-            Neo.main.addon.IntersectionObserver.observe({
-                disconnect: true,
-                id        : me.id,
-                observe   : ['.neo-timeline-item[data-record-id]'],
-                windowId
-            })
-        }
-    }
-
-    /**
-     * @param {Object} record
-     * @param {String} record.path
-     * @returns {String|null}
-     */
-    getContentPath({path}) {
-        return path ? Neo.config.basePath + path : null
     }
 
     /**
@@ -286,7 +191,10 @@ class Component extends ContentComponent {
 
             if (data.author)    {author    = data.author}
             if (data.createdAt) {createdAt = me.formatTimestamp(data.createdAt)}
-            if (data.labels)    {labels    = data.labels}
+            if (data.labels)    {
+                // Ensure labels is always an array, even if a single string was parsed
+                labels = Array.isArray(data.labels) ? data.labels : (typeof data.labels === 'string' ? [data.labels] : []);
+            }
             if (data.state)     {state     = data.state}
         }
 
@@ -356,7 +264,7 @@ class Component extends ContentComponent {
 
         me.timelineData.unshift({
             id   : bodyId,
-            image: me.repoUserUrl + author + '.png',
+            ...me.getAvatarRecordProps(author),
             name : 'Description',
             tag  : 'body'
         });
@@ -364,14 +272,18 @@ class Component extends ContentComponent {
         let bodyItemHtml = `
             <div id="${bodyId}" class="neo-timeline-item comment body-item" data-record-id="${bodyId}">
                 <div id="${bodyId}-target" class="neo-timeline-avatar">
-                    <img src="${me.repoUserUrl}${author}.png" alt="${author}">
+                    ${me.getAvatarHtml(author)}
                 </div>
                 <div class="neo-timeline-content">
                     <div class="neo-timeline-header">
                         <a class="neo-timeline-user" href="${me.repoUserUrl}${author}" target="_blank">${author}</a>
                         <span class="neo-timeline-date">commented on ${createdAt}</span>
                     </div>
-                    <div class="neo-timeline-body">${fullHtml}</div>
+                    <div class="neo-timeline-body">
+
+${fullHtml}
+
+</div>
                 </div>
             </div>`;
 
@@ -392,13 +304,6 @@ class Component extends ContentComponent {
 
         // Return: Frontmatter + Title + Timeline
         return frontMatterHtml + titleHtml + timelineHtml
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onResize(data) {
-        this.fire('toggleSummary')
     }
 
     /**
@@ -432,17 +337,17 @@ class Component extends ContentComponent {
                 id = `timeline-${me.record.id}-${me.timelineData.length + 1}`;
 
                 me.timelineData.push({
-                    id   : id,
-                    image: repoUserUrl + currentUser + '.png',
+                    id,
+                    ...me.getAvatarRecordProps(currentUser),
                     name : `Comment (${currentUser})`,
                     tag  : 'comment'
                 });
 
-                let body = marked.parse(commentBuf.join('\n'));
+                let body = me.wrapMarkdownTables(marked.parse(commentBuf.join('\n')));
                 html += `
                     <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
                         <div id="${id}-target" class="neo-timeline-avatar">
-                            <img src="${repoUserUrl}${currentUser}.png" alt="${currentUser}">
+                            ${me.getAvatarHtml(currentUser)}
                         </div>
                         <div class="neo-timeline-content">
                             <div class="neo-timeline-header">
@@ -532,9 +437,9 @@ class Component extends ContentComponent {
                 }
 
                 me.timelineData.push({
-                    color: color, // Pass resolved hex color
-                    icon : icon,
-                    id   : id,
+                    color, // Pass resolved hex color
+                    icon,
+                    id,
                     name : entryName,
                     tag  : 'event'
                 });

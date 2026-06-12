@@ -12,6 +12,8 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import Collection      from '../../../../src/collection/Base.mjs';
+import Model           from '../../../../src/data/Model.mjs';
+import RecordFactory   from '../../../../src/data/RecordFactory.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 
 /**
@@ -76,6 +78,26 @@ test.describe.serial('Neo.collection.Base', () => {
         ]);
 
         expect(collection.indexOf('elmasse')).toBe(4);
+    });
+
+    test('Classify null as non-item while preserving object-like items', () => {
+        const nullCollection = Neo.create(Collection, {
+            items: [{id: 'keep'}]
+        });
+        const model = Neo.create(Model, {
+            fields: [{name: 'id'}]
+        });
+        const record      = RecordFactory.createRecord(model, {id: 'record'});
+        const neoInstance = Neo.create(Collection, {items: []});
+
+        expect(nullCollection.isItem(null)).toBe(false);
+        expect(nullCollection.isItem({id: 'plain'})).toBe(true);
+        expect(nullCollection.isItem(record)).toBe(true);
+        expect(nullCollection.isItem(neoInstance)).toBe(true);
+
+        expect(() => nullCollection.remove(null)).not.toThrow();
+        expect(nullCollection.count).toBe(1);
+        expect(nullCollection.getRange()).toEqual([{id: 'keep'}]);
     });
 
     test('Sort collection items', () => {

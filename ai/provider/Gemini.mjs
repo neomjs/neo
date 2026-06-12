@@ -16,9 +16,9 @@ class GeminiProvider extends Base {
          */
         className: 'Neo.ai.provider.Gemini',
         /**
-         * @member {String} modelName='gemini-2.5-flash'
+         * @member {String} modelName='gemini-3.5-flash'
          */
-        modelName: 'gemini-2.5-flash',
+        modelName: 'gemini-3.5-flash',
         /**
          * @member {String[]} requiredEnv=['GEMINI_API_KEY']
          */
@@ -38,6 +38,38 @@ class GeminiProvider extends Base {
     construct(config) {
         super.construct(config);
         this.client = new GoogleGenerativeAI(process.env[this.requiredEnv[0]]);
+    }
+
+    /**
+     * Helper to map MCP JSON Schema into Gemini's expected FunctionDeclaration syntax.
+     * @param {Object} tool The generic tool object.
+     * @protected
+     */
+    mapToolSchema(tool) {
+        // Deep clone to avoid mutating original schema
+        const parameters = JSON.parse(JSON.stringify(tool.inputSchema || { type: 'object', properties: {} }));
+
+        const uppercaseTypes = (obj) => {
+            if (obj && typeof obj === 'object') {
+                if (typeof obj.type === 'string') {
+                    obj.type = obj.type.toUpperCase();
+                }
+                // Gemini does not support additionalProperties in the tool schema
+                if (obj.hasOwnProperty('additionalProperties')) {
+                    delete obj.additionalProperties;
+                }
+                for (const key in obj) {
+                    uppercaseTypes(obj[key]);
+                }
+            }
+        };
+        uppercaseTypes(parameters);
+
+        return {
+            name: tool.name,
+            description: tool.description || '',
+            parameters
+        };
     }
 
     /**
@@ -73,21 +105,47 @@ class GeminiProvider extends Base {
             });
         }
 
-        const model = this.client.getGenerativeModel({
+        const modelConfig = {
             model: this.modelName,
-            generationConfig: options,
             systemInstruction: systemInstruction
-        });
+        };
+
+        if (options.tools && options.tools.length > 0) {
+            modelConfig.tools = [{
+                functionDeclarations: options.tools.map(t => this.mapToolSchema(t))
+            }];
+            delete options.tools; // ensure it doesn't leak into generationConfig
+        }
+
+        modelConfig.generationConfig = options;
+
+        const model = this.client.getGenerativeModel(modelConfig);
 
         try {
             const result   = await model.generateContent({contents});
-            const response = await result.response;
-            const text     = response.text();
+            const response = result.response;
 
-            return {
+            // Extract text (might be empty if model just chose a tool)
+            let text = '';
+            try { text = response.text(); } catch(e) {}
+
+            const functionCalls = response.functionCalls();
+
+            const payload = {
                 content: text,
                 raw    : response
             };
+
+            if (functionCalls && functionCalls.length > 0) {
+                payload.toolCalls = functionCalls.map(c => ({
+                    function: {
+                        name     : c.name,
+                        arguments: c.args
+                    }
+                }));
+            }
+
+            return payload;
         } catch (error) {
             console.error('[Neo.ai.provider.Gemini] Generation failed:', error);
             throw error;

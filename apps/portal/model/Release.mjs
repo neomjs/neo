@@ -22,7 +22,7 @@ class Release extends Model {
             name: 'date', // "2026-01-05T21:00:29Z"
             type: 'String' // Keeping as string for now, could be Date
         }, {
-            name: 'path', // "/.github/RELEASE_NOTES/v11.18.0.md"
+            name: 'path', // "resources/content/release-notes/chunk-N/v11.18.0.md"
             type: 'String'
         }, {
             name        : 'isLeaf',

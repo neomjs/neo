@@ -1,6 +1,6 @@
 import Neo from '../../../../src/Neo.mjs';
 import * as core from '../../../../src/core/_export.mjs';
-import ConnectionService from './services/ConnectionService.mjs';
+import ConnectionService from '../../../services/neural-link/ConnectionService.mjs';
 
 console.log('ConnectionService imported');
 console.log('Is instance?', ConnectionService instanceof Neo.core.Base);

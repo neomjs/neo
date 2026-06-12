@@ -1,0 +1,27 @@
+// Light-theme palette for Portal.view.news.pulls.Component (PR view). Scoped to the component so
+// the PR MERGED/CLOSED semantics (purple/red) do not redefine the tickets view's state vars.
+// The shared `--gh-*` palette comes from the base `Portal.view.content.Component` theme via the
+// proto-chain, so no cross-module `@use` is needed here.
+.neo-theme-neo-light .portal-news-pulls-component {
+    .neo-badge {
+        background-color: #eff1f3;
+        border          : 1px solid rgba(0, 0, 0, 0.1);
+        color           : #24292f;
+
+        &.neo-state-badge {
+            color: #ffffff;
+
+            &.neo-state-open   { background-color: #2da44e; } // green
+            &.neo-state-merged { background-color: #8250df; } // purple
+            &.neo-state-closed { background-color: #cf222e; } // red
+        }
+
+        &.neo-review-state {
+            color: #ffffff;
+
+            &.neo-review-approved { background-color: #2da44e; } // green
+            &.neo-review-changes  { background-color: #cf222e; } // red
+            &.neo-review-neutral  { background-color: #eff1f3; color: #24292f; }
+        }
+    }
+}

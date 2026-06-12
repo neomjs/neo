@@ -143,7 +143,8 @@
     }
 
     .neo-frontmatter-table,
-    > table {
+    > table,
+    .neo-markdown-table-wrapper > table {
         border         : 1px solid var(--markdown-table-border);
         border-collapse: separate;
         border-radius  : 4px;
@@ -155,8 +156,11 @@
         th, td {
             border-bottom: 1px solid var(--markdown-table-border);
             border-right : 1px solid var(--markdown-table-border);
+            max-width    : 48ch;
+            overflow-wrap: anywhere;
             padding      : 8px 12px;
             text-align   : left;
+            vertical-align: top;
         }
 
         th:last-child,
@@ -171,6 +175,17 @@
         th {
             background-color: var(--markdown-table-header-bg);
             font-weight     : bold;
+        }
+    }
+
+    .neo-markdown-table-wrapper {
+        max-width : 100%;
+        overflow-x: auto;
+
+        > table {
+            margin   : 1em 0;
+            min-width: 100%;
+            width    : max-content;
         }
     }
 

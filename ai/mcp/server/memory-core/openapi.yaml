@@ -17,7 +17,7 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:8001
+  - url: http://localhost:3001
     description: Local development server
 
 tags:
@@ -33,6 +33,10 @@ tags:
     description: Session management and processing
   - name: Database
     description: Database-level operations
+  - name: Graph
+    description: Knowledge Graph operations
+  - name: Permissions
+    description: Agent permission operations
 
 paths:
   /healthcheck:
@@ -43,7 +47,7 @@ paths:
         readOnlyHint: true
       description: |
         Confirms the server is running and can connect to the ChromaDB instance.
-        
+
         **When to Use:**
         Use this as a first-step diagnostic tool to ensure the memory system is operational before attempting other operations.
       tags: [Health]
@@ -61,48 +65,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/manage:
+  /rem/pipeline-state:
     post:
-      summary: Manage Database
-      operationId: manage_database
-      description: |
-        Manages the lifecycle (start/stop) of the ChromaDB database instance for the Memory Core.
-
-        **Behavior:**
-        - **Start:**
-          - **Managed:** If no database is running on the configured port, this tool spawns a new process managed by this server. This process will be automatically cleaned up when the agent session ends.
-          - **External:** If a database is already running (e.g., via `npm run ai:server-memory`), this tool simply confirms the connection. The server acts as a client and will NOT kill the database on exit.
-        - **Stop:**
-          - **Managed:** Stops the process spawned by this server.
-          - **External:** **No effect.** The server cannot stop a database it did not start.
-
-        **Multi-Agent / Swarm Recommendation:**
-        For workflows involving multiple concurrent agents, it is **highly recommended** to start the database externally using `npm run ai:server-memory` before starting the agents. This prevents unexpected disconnects for other agents when the "owner" agent exits.
-
-        **When to Use:**
-        - Use `action: start` if a `healthcheck` reveals that the database process is not running.
-        - Use `action: stop` for debugging, forcing a restart, or freeing up resources.
-      tags: ["Database Lifecycle"]
+      summary: Get REM Pipeline State
+      operationId: get_rem_pipeline_state
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: >
+        Returns the 5-axis REM pipeline observability snapshot: undigested Chroma summaries,
+        graph-digested Chroma summaries, SQLite SESSION nodes, topology conflicts, and optional
+        per-session entity count, plus recent REM cycle state projected from the JSONL run store.
+      tags: [Health]
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required:
-                - action
               properties:
-                action:
+                sessionId:
                   type: string
-                  enum: [start, stop]
-                  description: The action to perform.
+                  description: Optional session id for per-session entity-count projection.
       responses:
         '200':
-          description: Operation completed successfully.
+          description: REM pipeline state snapshot.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DatabaseLifecycleResponse'
+                $ref: '#/components/schemas/RemPipelineStateResponse'
         '500':
           description: Operation failed.
           content:
@@ -120,6 +111,8 @@ paths:
 
         **MANDATORY FINAL STEP:** You MUST call this tool at the end of every turn, *before* generating your final response to the user.
         **CRITICAL:** This is the primary endpoint for making agents stateful. Forgetting to call this results in permanent data loss for the session.
+
+        **Session Isolation:** If `sessionId` is omitted from the payload, it is automatically resolved from the request-bound `Mcp-Session-Id` header (when present).
       tags: [Memories]
       requestBody:
         required: true
@@ -239,6 +232,198 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /memories/recent:
+    get:
+      summary: Query Recent Turns
+      operationId: query_recent_turns
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Cross-session, reverse-chronological recall of an agent's most recent turns — the recency
+        retrieval axis, complementing query_raw_memories' relevance (semantic) axis.
+
+        **When to Use:**
+        After a context compaction, to rebuild "what just happened, in order" — the chronological
+        sequence semantic search cannot reconstruct. Returns compact per-turn summaries by default
+        (detail=summary, straight from the graph) or full prompt/response content on demand (detail=full).
+      tags: [Memories]
+      parameters:
+        - name: agentIdentity
+          in: query
+          required: false
+          description: Whose turns to recall. '@me' (default) resolves to the request-bound caller.
+          schema:
+            type: string
+            default: "@me"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of turns to return (clamped 1..100)
+          schema:
+            type: integer
+            default: 20
+        - name: before
+          in: query
+          required: false
+          description: "Cursor for reverse-chronological pagination — pass back the nextCursor from the previous page. The {timestamp, id} pair disambiguates equal timestamps (no dup/skip)."
+          schema:
+            type: object
+            properties:
+              timestamp:
+                type: string
+              id:
+                type: string
+        - name: detail
+          in: query
+          required: false
+          description: "'summary' returns the compact per-turn miniSummary straight from the graph; 'full' joins Chroma for prompt/response content"
+          schema:
+            type: string
+            enum: [summary, full]
+            default: summary
+        - name: projection
+          in: query
+          required: false
+          description: "'public' (default) excludes the private thought field; 'private' includes it (own-agent recall only)"
+          schema:
+            type: string
+            enum: [public, private]
+            default: public
+      responses:
+        '200':
+          description: Recent turns retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /context/frontier:
+    get:
+      summary: Get Context Frontier
+      operationId: get_context_frontier
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Executes the Context Priming Engine to fetch the highly scaled topological frontier
+        and maps vectors back to extract specific underlying episodic knowledge logic.
+      tags: [System]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /context/frontier/mutate:
+    post:
+      summary: Mutate Context Frontier
+      operationId: mutate_frontier
+      x-pass-as-object: true
+      description: |
+        Actively manages the [Frontier] node. When project priorities pivot, this injects those new priorities into the Graph's Edge relationships in real-time.
+      tags: [System]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetNodeId
+              properties:
+                targetNodeId:
+                  type: string
+                  description: The target node ID to pivot focus to.
+                weight:
+                  type: number
+                  description: Importance weight, typically very high for a new pivot.
+                  default: 1.0
+                relationship:
+                  type: string
+                  description: The semantic edge type
+                  default: "STRATEGIC_PIVOT"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /context/pre_brief:
+    post:
+      summary: Contextual Pre-Briefing
+      operationId: pre_brief_session
+      x-pass-as-object: true
+      description: |
+        Instantly contextualizes the agent by targeting a specific Epic or Graph Node,
+        loading its high-weight semantic relationships and returning a structured brief.
+        This provides zero-friction context-switching for the LLM.
+      tags: [System]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetId
+              properties:
+                targetId:
+                  type: string
+                  description: The Target Epic / Node ID to brief against.
+                limit:
+                  type: number
+                  description: Max context neighbors to pull.
+                  default: 5
+      responses:
+        '200':
+          description: Successful structural brief payload.
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
   /summaries:
     get:
       summary: Get All Summaries
@@ -274,6 +459,16 @@ paths:
           schema:
             type: string
             enum: [bugfix, feature, refactoring, documentation, new-app, analysis, other]
+        - name: agentIdentity
+          in: query
+          required: false
+          description: |
+            Optional author-identity scope for an own-vs-team boot ledger. `@me` resolves the bound
+            caller (fails closed if no identity is bound — never silently team-wide); `@<identity>`
+            scopes to that author; omitted or `all` returns the team-wide view (default,
+            backward-compatible). Filters on summary author provenance (`sourceAgentIdentities`).
+          schema:
+            type: string
       responses:
         '200':
           description: Summaries retrieved successfully
@@ -287,30 +482,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      summary: Delete All Summaries
-      operationId: delete_all_summaries
-      x-annotations:
-        destructiveHint: true
-      description: |
-        Deletes all session summaries from the database.
-
-        **Warning:** This is a destructive operation. It is useful for resetting the summary index while keeping raw memories intact.
-      tags: [Summaries]
-      responses:
-        '200':
-          description: All summaries deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
-        '503':
-          description: Cannot connect to database
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /summaries/query:
     post:
       summary: Search Summaries
@@ -350,62 +521,839 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /sessions/summarize:
+  /sessions/purge:
     post:
-      summary: Summarize Sessions
-      operationId: summarize_sessions
+      summary: Purge Session
+      operationId: purge_session
       x-pass-as-object: true
+      x-annotations:
+        destructiveHint: true
       description: |
-        Triggers the session summarization process. This is a key step at the beginning of a new session to ensure all prior work is indexed and searchable.
-
-        **When to Use:**
-        - **Batch Mode (no sessionId):** Run at the start of a new session to summarize all previously unsummarized sessions.
-        - **Specific Mode (with sessionId):** Use to re-summarize a specific session if needed, though this is less common.
+        Permanently deletes all raw memories and summaries associated with a specific session ID.
+        This provides session-scoped cleanup to prevent global state pollution.
       tags: [Sessions]
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SummarizeSessionRequest'
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  description: The ID of the session to purge.
       responses:
         '200':
-          description: Summarization completed successfully
+          description: Session purged successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SummarizeSessionResponse'
+                $ref: '#/components/schemas/DeleteResponse'
         '400':
           description: Invalid request body
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Session not found (in specific mode)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: Cannot connect to database
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/backup/manage:
+  /sessions/resume:
     post:
-      summary: Manage Database Backup
-      operationId: manage_database_backup
+      summary: Validate session resumability
+      operationId: resume_session
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Validates whether a session ID is in a state safe for the agent to resume by reconnecting with that session ID in their `Mcp-Session-Id` header. Pure read-only query — does NOT modify any server-side session state.
+
+        Use when the agent has a candidate session ID (e.g., from a prior `query_summaries` result or recovered from local context) and needs to confirm it is safe to keep using before reconnecting. The actual session-id binding still happens at the transport layer via the `Mcp-Session-Id` header per the post-#10692 RequestContextService model.
+
+        Returns a structured success payload with `status: 'resumable'`, `memoryCount`, `lastActivityAt`, and `summarizationStatus` — OR one of four structured errors: `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED` (already summarized; start fresh), `SESSION_BUSY` (concurrent summarization mid-flight; retry shortly).
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  description: The session ID to validate.
+      responses:
+        '200':
+          description: Session resumability status (success or structured error).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sessionId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [resumable]
+                  memoryCount:
+                    type: integer
+                  lastActivityAt:
+                    type: string
+                    nullable: true
+                  summarizationStatus:
+                    type: string
+                    enum: [none, pending, in_progress, completed, failed]
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [INVALID_SESSION_ID, SESSION_NOT_FOUND, SESSION_FINALIZED, SESSION_BUSY]
+                  leaseExpiresAt:
+                    type: string
+                    description: Present only when `code === 'SESSION_BUSY'`.
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions/set_id:
+    post:
+      summary: Set Session ID
+      operationId: set_session_id
       x-pass-as-object: true
       description: |
-        Manages database backups (import/export).
+        Overrides the current active session ID.
+        Useful for manually reconnecting to a previous session after a server restart to prevent session fragmentation.
 
-        **When to Use:**
-        - **Export:** For creating backups or migrating memory data between environments.
-        - **Import:** To restore a backup or migrate memory from another environment.
-      tags: [Database]
+        **Legacy / Single-Tenant Fallback Only:** This acts upon the process-global default session state.
+        When invoked under a request-bound `Mcp-Session-Id` context, overrides are rejected and return `REQUEST_SCOPED_SESSION_ACTIVE` to prevent multi-tenant state corruption.
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  description: The session ID to override and continue.
+      responses:
+        '200':
+          description: Session ID successfully overridden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sessionId:
+                    type: string
+                  replacedSessionId:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /graph/nodes/{id}:
+    get:
+      summary: Get Node by ID
+      operationId: get_node
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a specific node from the knowledge graph by its ID.
+      tags: [Graph]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the node to retrieve.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The requested node.
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Node not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /graph/neighbors/{id}:
+    get:
+      summary: Get Node Neighbors
+      operationId: get_neighbors
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves adjacent connected nodes (neighbors) alongside relationship metadata.
+      tags: [Graph]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the source node.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of connected Node objects with edge relationship mapping.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  neighbors:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        id:
+                          type: string
+                          description: The adjacent node ID.
+                        type:
+                          type: string
+                          description: The adjacent node type or label.
+                        name:
+                          type: string
+                          description: The adjacent node display name.
+                        description:
+                          type: string
+                          description: The adjacent node description.
+                        relationship:
+                          type: string
+                          description: The edge relationship type connecting the source and adjacent node.
+                        weight:
+                          type: number
+                          description: The edge weight for the relationship.
+                        source:
+                          type: string
+                          description: The source node ID for the relationship edge.
+                        target:
+                          type: string
+                          description: The target node ID for the relationship edge.
+                        semanticVectorId:
+                          type: string
+                          description: The adjacent node's semantic vector identifier, when present.
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /graph/search:
+    get:
+      summary: Search Graph Nodes
+      operationId: search_nodes
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Performs a text-based fuzzy search across node topology to find structural entities.
+      tags: [Graph]
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: The search string to match against node name, description, or id.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of matching Nodes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /graph/topology:
+    post:
+      summary: Query Hybrid Graph
+      operationId: query_hybrid_graph
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the structural topology surrounding a specific node from the SQLite Native Edge Graph.
+        Helps bridge the gap between Episodic Memory and Structural Knowledge.
+      tags: [Graph]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nodeId
+              properties:
+                nodeId:
+                  type: string
+                  description: The ID of the root node.
+                maxDepth:
+                  type: integer
+                  description: The traversal depth from the root.
+                  default: 2
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions/grant:
+    post:
+      summary: Grant Permission
+      operationId: grant_permission
+      x-pass-as-object: true
+      description: |
+        Grants a permission edge from the caller to a target identity.
+      tags: [Permissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - scope
+              properties:
+                to:
+                  type: string
+                  description: The agent identity being granted the permission
+                scope:
+                  type: string
+                  description: The permission scope
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions/revoke:
+    post:
+      summary: Revoke Permission
+      operationId: revoke_permission
+      x-pass-as-object: true
+      description: |
+        Revokes a permission edge from the caller to a target identity.
+      tags: [Permissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - scope
+              properties:
+                to:
+                  type: string
+                  description: The agent identity losing the permission
+                scope:
+                  type: string
+                  description: The permission scope
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions:
+    get:
+      summary: List Permissions
+      operationId: list_permissions
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Lists permissions for an identity (defaults to the caller).
+      tags: [Permissions]
+      parameters:
+        - name: forIdentity
+          in: query
+          required: false
+          description: The identity to list permissions for.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages:
+    post:
+      summary: Send Message
+      operationId: add_message
+      x-pass-as-object: true
+      description: |
+        Sends an A2A message to a specific agent identity or broadcast (*).
+      tags: [Mailbox]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - subject
+                - body
+              properties:
+                to:
+                  type: string
+                  description: "Recipient Agent Identity Node ID in canonical `@<identity>` form matching a registered AgentIdentity graph node, or `'AGENT:*'` for broadcast. `AGENT:<family>/<model>` aliases resolve only when exactly one AgentIdentity matches that `modelFamily`; ambiguous or unresolvable formats reject."
+                subject:
+                  type: string
+                body:
+                  type: string
+                originSessionId:
+                  type: string
+                relatedSessions:
+                  type: array
+                  items:
+                    type: string
+                relatedTickets:
+                  type: array
+                  items:
+                    type: string
+                inReplyTo:
+                  type: string
+                priority:
+                  type: string
+                  enum: [low, normal, high]
+                  default: "normal"
+                partOfThread:
+                  type: string
+                taggedConcepts:
+                  type: array
+                  items:
+                    type: string
+                wakeSuppressed:
+                  type: boolean
+                  default: false
+                  description: "Persist + deliver the message but emit NO wake event — the recipient sees it on their next list_messages rather than via an interrupt. Use for awareness/FYI (e.g. PR-opened-you're-not-the-reviewer, lane-progress, acks) or session-sunset self-DM handovers. Do NOT suppress actionable messages (you're the reviewer, a lane was claimed on you, REQUEST_CHANGES) — those must wake. In autonomous mode a suppressed message stays unseen until the recipient next lists/boots. Default: omit (= false)."
+                task:
+                  type: object
+                  description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List Messages
+      operationId: list_messages
+      x-pass-as-object: true
+      description: |
+        Lists incoming messages for the active agent context.
+      tags: [Mailbox]
+      parameters:
+        - name: box
+          in: query
+          required: false
+          description: "Which box to list ('inbox', 'outbox', 'all')"
+          schema:
+            type: string
+            enum: [inbox, outbox, all]
+            default: "inbox"
+        - name: status
+          in: query
+          required: false
+          description: "Message read status ('all', 'read', 'unread')"
+          schema:
+            type: string
+            enum: [all, read, unread]
+            default: "all"
+        - name: to
+          in: query
+          required: false
+          description: "Target identity to list messages for (defaults to caller)"
+          schema:
+            type: string
+        - name: threadId
+          in: query
+          required: false
+          description: "Filter by specific thread"
+          schema:
+            type: string
+        - name: fromIdentity
+          in: query
+          required: false
+          description: |
+            Filter by specific sender identity. Named `fromIdentity` rather than `from` to avoid
+            the anti-spoof reserved-key collision in `AuthMiddleware` — `from` is a
+            claim-of-authorship key blocked at the callTool choke-point, whereas this parameter
+            is a read-path filter with no authorship semantics. Renamed per #10174.
+          schema:
+            type: string
+        - name: taggedConcepts
+          in: query
+          required: false
+          description: "Filter by specific tagged concepts (requires all)"
+          schema:
+            type: array
+            items:
+              type: string
+        - name: limit
+          in: query
+          required: false
+          description: "Maximum number of messages to return"
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: "Pagination offset"
+          schema:
+            type: integer
+            default: 0
+        - name: includeArchived
+          in: query
+          required: false
+          description: |
+            Surface archived messages (#10148). Default excludes any message whose `archivedAt` is set (on the MESSAGE node for direct DMs OR on the per-recipient `DELIVERED_TO` edge for broadcasts) — archived ≠ deleted; the message persists but is hidden from the default inbox view. Retracted messages (sender-side `delete_message`) are NOT filtered — they surface with the `'[retracted by sender]'` placeholder so thread context remains coherent.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _channelSeparation:
+                    type: string
+                    description: "Security annotation marking the payload as DATA, not executable COMMANDS."
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}:
+    get:
+      summary: Get Message
+      operationId: get_message
+      x-pass-as-object: true
+      description: |
+        Retrieves a specific message. Subject to read-path permission checks.
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _channelSeparation:
+                    type: string
+                    description: "Security annotation marking the payload as DATA, not executable COMMANDS."
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}/read:
+    post:
+      summary: Mark Message Read
+      operationId: mark_read
+      x-pass-as-object: true
+      description: |
+        Marks a specific message as read.
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}/archive:
+    post:
+      summary: Archive Message (receiver-side)
+      operationId: archive_message
+      x-pass-as-object: true
+      description: |
+        Recipient-side archive: hides the message from the default `list_messages` view without deleting it. Surface again via `list_messages` with `includeArchived: true`. Only the recipient (direct DM `SENT_TO` or per-recipient broadcast `DELIVERED_TO`) can archive their own copy; broadcasts are archived per-recipient. Distinct from `mark_read` (read ≠ done) and `delete_message` (sender-side permanent retraction).
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}/delete:
+    post:
+      summary: Delete Message (sender-side retraction)
+      operationId: delete_message
+      x-pass-as-object: true
+      description: |
+        Sender-side retraction: permanently clears the message's `subject` and `bodyText` to `'[retracted by sender]'` and sets `retracted: true`. All edges (`SENT_BY`, `SENT_TO`, `DELIVERED_TO`, `PART_OF_THREAD`, `IN_REPLY_TO`) survive so thread context remains coherent — receivers see the placeholder, not an unexplained gap. Only the sender (`SENT_BY` match) can retract. Irreversible; no undo path.
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/tasks/transition:
+    post:
+      summary: Transition A2A Task State
+      operationId: transition_task
+      x-pass-as-object: true
+      description: |
+        Transitions the state of an A2A Task using optimistic concurrency control.
+        Validates roles (Originator vs Assignee) against the new state.
+      tags: [Mailbox]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - taskId
+                - newState
+              properties:
+                taskId:
+                  type: string
+                newState:
+                  type: string
+                  enum: [Submitted, Working, InputRequired, Completed, Canceled, Failed, Rejected, AuthRequired, Unknown, Expired, Blocked]
+                  description: "Target A2A Task state per A2A Protocol spec (PascalCase). See https://a2a-protocol.org/latest/specification/."
+                expectedCurrentState:
+                  type: string
+                  description: The expected current state for optimistic locking.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad Request (Invalid Transition)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (State Mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /wake-subscriptions/manage:
+    post:
+      summary: Manage WAKE_SUBSCRIPTION
+      operationId: manage_wake_subscription
+      x-pass-as-object: true
+      description: Subscribe / unsubscribe / update / list / resync agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing.
+      tags: [WakeSubscriptions]
       requestBody:
         required: true
         content:
@@ -417,46 +1365,67 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [import, export]
-                  description: The action to perform.
-                include:
-                  type: array
-                  items:
-                    type: string
-                    enum: [memories, summaries]
-                  default: [memories, summaries]
-                  description: (Export only) Which collections to export.
-                file:
+                  enum: [bootstrap, subscribe, unsubscribe, update, list, resync]
+                  description: Lifecycle action to perform on the subscription.
+                subscriptionId:
                   type: string
-                  description: (Import only) The absolute path to the JSONL backup file to import.
-                mode:
+                  description: Required for unsubscribe / update / resync; optional for list (single).
+                trigger:
                   type: string
-                  enum: [merge, replace]
-                  default: merge
-                  description: |
-                    (Import only) Import mode.
-                    - merge: Add new records, skip existing IDs
-                    - replace: Clear existing data and import
-                reEmbed:
-                  type: boolean
-                  default: false
-                  description: |
-                    (Import only) If true, ignores stored embeddings and generates new ones.
+                  enum: [SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED]
+                  description: Required for subscribe.
+                filters:
+                  type: object
+                  description: Optional AND-conjunctive filters over the trigger.
+                  properties:
+                    taggedConcepts:  {type: array, items: {type: string}}
+                    priority:        {type: string, enum: [high, normal, low]}
+                    senderFilter:    {type: array, items: {type: string}}
+                    inReplyToFilter: {type: array, items: {type: string}}
+                harnessTarget:
+                  type: string
+                  enum: [mcp-notifications, a2a-webhook, bridge-daemon, disabled, none]
+                  description: Required for subscribe; specifies how wake events are delivered.
+                harnessTargetMetadata:
+                  type: object
+                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon/osascript routing target; url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions.
+                  required: [appName]
+                  properties:
+                    url:              {type: string}
+                    coalesceWindow:   {type: integer, minimum: 0, maximum: 300}
+                    daemonSocketPath: {type: string}
+                    adapter:          {type: string, enum: [osascript, tmux]}
+                    appName:          {type: string}
+                    instanceAddress:  {type: string, nullable: true}
+                    addressType:      {type: string, enum: [userDataDir, pid, tmuxSession, webhookUrl], nullable: true}
+                    userDataDir:      {type: string, nullable: true}
+                    tabShortcut:      {type: string, nullable: true}
+                    focusSeedKey:     {type: string, nullable: true}
+                    tmuxSession:      {type: string}
+                sinceLogId:
+                  type: integer
+                  description: Required for resync. GraphLog watermark; client-tracked.
       responses:
         '200':
-          description: Operation completed successfully
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupActionResponse'
+                type: object
         '400':
-          description: Invalid request
+          description: Bad Request (invalid action / parameter)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: Cannot connect to database
+        '403':
+          description: Permission denied (subscription owned by a different identity)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
           content:
             application/json:
               schema:
@@ -464,6 +1433,76 @@ paths:
 
 components:
   schemas:
+    RemPipelineStateResponse:
+      type: object
+      required:
+        - undigested
+        - digested
+        - sessionNodes
+        - topologyConflicts
+        - recentCycles
+      properties:
+        undigested:
+          type: integer
+          description: Chroma session summaries without graphDigested true in the current batch window.
+          example: 8
+        digested:
+          type: integer
+          description: Chroma session summaries with graphDigested true in the current batch window.
+          example: 109
+        sessionNodes:
+          type: integer
+          description: Deployment-wide SQLite SESSION node count.
+          example: 109
+        topologyConflicts:
+          type: integer
+          description: Conflict entries currently present in the Sandman handoff file.
+          example: 2
+        recentCycles:
+          type: array
+          description: Recent REM cycle summaries read from the gitignored JSONL run-state store.
+          items:
+            type: object
+            required:
+              - runId
+              - wallClockMs
+              - cycleOverflowSignal
+              - cycleOverflowRatio
+              - outcome
+            properties:
+              runId:
+                type: string
+                description: Durable REM cycle id.
+                example: "rem-550e8400-e29b-41d4-a716-446655440000"
+              wallClockMs:
+                type: integer
+                description: Cycle wall-clock duration in milliseconds.
+                example: 42000
+              cycleOverflowSignal:
+                type: boolean
+                description: Whether wall-clock duration exceeded the configured cadence threshold.
+                example: false
+              cycleOverflowRatio:
+                type: number
+                description: Cycle duration divided by configured cadence.
+                example: 0.42
+              outcome:
+                type: string
+                description: Typed cycle outcome.
+                enum: [completed, skipped, failed]
+                example: "completed"
+        perSession:
+          type: object
+          nullable: true
+          properties:
+            sessionId:
+              type: string
+              description: Session id supplied by the caller.
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            entityCount:
+              type: integer
+              description: Inbound graph entity/provenance edge count for the session.
+              example: 17
     HealthCheckResponse:
       type: object
       properties:
@@ -476,6 +1515,41 @@ components:
           format: date-time
           description: The ISO 8601 timestamp of when the health check was performed.
           example: "2025-10-24T10:00:00.000Z"
+        runtimeFreshness:
+          type: object
+          description: "Compact boot-vs-current Memory Core MCP runtime freshness diagnostic. Stale is diagnostic metadata, not a service outage."
+          properties:
+            status:
+              type: string
+              enum: [current, stale, unknown]
+              description: "Whether service-owned config/OpenAPI identity marks the running process stale."
+              example: "current"
+            startedAt:
+              type: string
+              format: date-time
+              description: "ISO timestamp captured when the Memory Core service module loaded."
+              example: "2026-06-08T15:00:00.000Z"
+            stale:
+              type: object
+              description: "Per-field stale comparison. Null means the field could not be compared."
+              properties:
+                configDigest:
+                  type: boolean
+                  nullable: true
+                  example: false
+                openApiDigest:
+                  type: boolean
+                  nullable: true
+                  example: false
+            details:
+              type: array
+              items:
+                type: string
+              example: ["Runtime source/config identity matches the current checkout."]
+            hint:
+              type: string
+              nullable: true
+              example: null
         session:
           type: object
           properties:
@@ -510,6 +1584,13 @@ components:
                 connected:
                   type: boolean
                   example: true
+                engines:
+                  type: object
+                  nullable: true
+                  properties:
+                    chroma:
+                      type: boolean
+                      example: true
                 collections:
                   type: object
                   nullable: true
@@ -543,8 +1624,97 @@ components:
           properties:
             summarization:
               type: boolean
-              description: "Indicates if the summarization feature is available (requires GEMINI_API_KEY)."
+              description: "Indicates if the summarization feature is available for the active provider."
               example: true
+        providers:
+          type: object
+          description: "Active model provider observability. Exposes provider keys, model names, endpoints, and booleans only; never secret values."
+          properties:
+            embedding:
+              type: object
+              description: "Active ChromaDB embedding provider route."
+              properties:
+                active:
+                  type: string
+                  example: "openAiCompatible"
+                host:
+                  type: string
+                  nullable: true
+                  example: "http://127.0.0.1:8000"
+                model:
+                  type: string
+                  nullable: true
+                  example: "text-embedding-qwen3-embedding-1.5b"
+                dimensions:
+                  type: integer
+                  example: 4096
+                writeCanary:
+                  type: object
+                  description: "Write-side embedding canary result used to detect add_memory embedding-path degradation."
+                  properties:
+                    status:
+                      type: string
+                      enum: ["healthy", "failed"]
+                      example: "healthy"
+                    provider:
+                      type: string
+                      example: "openAiCompatible"
+                    dimensions:
+                      type: integer
+                      nullable: true
+                      example: 4096
+                    expectedDimensions:
+                      type: integer
+                      nullable: true
+                      example: 4096
+                    durationMs:
+                      type: integer
+                      example: 42
+                    error:
+                      type: string
+                      nullable: true
+                      example: null
+                error:
+                  type: string
+                  nullable: true
+                  example: null
+            summary:
+              type: object
+              description: "Active session-summary provider route."
+              properties:
+                active:
+                  type: string
+                  example: "openAiCompatible"
+                host:
+                  type: string
+                  nullable: true
+                  example: "http://127.0.0.1:11434"
+                model:
+                  type: string
+                  nullable: true
+                  example: "qwen3-8b"
+                endpoint:
+                  type: string
+                  nullable: true
+                  example: "http://127.0.0.1:11434/v1/chat/completions"
+                local:
+                  type: boolean
+                  description: "True when the configured endpoint is localhost / loopback."
+                  example: true
+                credential:
+                  type: object
+                  description: "Credential observability. Contains env var names and booleans only; never secret values."
+                  properties:
+                    env:
+                      type: string
+                      nullable: true
+                      example: "NEO_OPENAI_COMPATIBLE_API_KEY"
+                    configured:
+                      type: boolean
+                      example: false
+                    required:
+                      type: boolean
+                      example: false
         startup:
           type: object
           description: "Provides status on asynchronous tasks performed at server startup."
@@ -592,6 +1762,71 @@ components:
                 sessions:
                   - title: "Implement MCP Server Configuration"
                     memoryCount: 15
+        mailboxPreview:
+          type: object
+          nullable: true
+          description: "A preview of the agent's mailbox, including unread count and recent messages."
+          properties:
+            unreadCount:
+              type: integer
+              example: 2
+            inbox:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  from:
+                    type: string
+                  subject:
+                    type: string
+                  createdAt:
+                    type: string
+                  priority:
+                    type: string
+            outboxRecent:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  from:
+                    type: string
+                  subject:
+                    type: string
+                  createdAt:
+                    type: string
+                  priority:
+                    type: string
+        identity:
+          type: object
+          description: |
+            Stdio transport identity observability (#10176). Surfaces the resolved
+            agent identity state for diagnostic purposes. Always present on stdio
+            transport; populated by Server.mjs post-`resolveStdioIdentity()`. `bound: false`
+            indicates the identity resolved but no seeded AgentIdentity graph node matched —
+            a valid single-tenant fallthrough state, not a health failure (status stays
+            `healthy`). `source: 'unresolved'` indicates the resolver yielded no userId
+            at all (env-var missing + gh-cli fallback failed or timed out).
+          properties:
+            source:
+              type: string
+              enum: [env-var, gh-cli, oidc, unresolved]
+              description: Provenance of the resolved identity
+              example: env-var
+            bound:
+              type: boolean
+              description: |
+                True iff the resolved login matched a seeded AgentIdentity graph node.
+                False for unseeded identities or when source is 'unresolved'.
+              example: true
+            nodeId:
+              type: string
+              nullable: true
+              description: The `@`-prefixed graph node ID when bound, else null
+              example: "@neo-opus-ada"
         details:
           type: array
           items:
@@ -641,8 +1876,26 @@ components:
           example: "To create a new Neo.mjs component, you can use the createComponent script..."
         sessionId:
           type: string
-          description: Session ID for grouping related memories (optional, defaults to currentSessionId)
+          description: Session ID for grouping related memories. Optional; if omitted, defaults to the request-bound Mcp-Session-Id header (when present) or the process-global currentSessionId.
           example: "550e8400-e29b-41d4-a716-446655440000"
+        agent:
+          type: string
+          description: The agent profile executing this turn
+          example: "antigravity"
+        model:
+          type: string
+          description: The underlying model used for inference
+          example: "gemini-3.1-pro"
+        amountToolCalls:
+          type: integer
+          description: "The number of tool calls executed during the turn."
+          example: 5
+        toolsUsed:
+          type: array
+          description: "A list of tool names invoked during this turn. IMPORTANT: Do NOT include tool arguments, JSON payloads, or file contents. This must only be a tiny array of names (e.g., ['view_file', 'replace']) to prevent prompt bloat."
+          items:
+            type: string
+          example: ["view_file", "replace"]
 
     MemoryResponse:
       type: object
@@ -661,10 +1914,47 @@ components:
         message:
           type: string
           example: "Memory successfully added"
+        mailbox:
+          description: |
+            Per-turn A2A mailbox delta signal — unread-inbox awareness piggybacked on every
+            memory write. Bypasses the in-memory graph cache via a direct SQLite read, so
+            messages written by other harness processes surface immediately without requiring
+            an MCP server restart. `null` when the caller has no bound AgentIdentity
+            (single-tenant fallthrough). Shipped with #10174.
+          nullable: true
+          type: object
+          properties:
+            unreadCount:
+              type: integer
+              description: Number of unread messages addressed to the caller's inbox (direct + broadcast)
+              example: 2
+            latestPreview:
+              nullable: true
+              type: object
+              description: Newest unread message preview; `null` when the inbox is empty
+              properties:
+                messageId:
+                  type: string
+                  example: "MESSAGE:9ccb7868-9b7c-4199-9c3c-a9ba175e70f6"
+                subject:
+                  type: string
+                  example: "Re: First A2A handshake — Phase 4 split proposal"
+                from:
+                  type: string
+                  nullable: true
+                  description: The sender's AgentIdentity node id; `null` for system-sent messages (heartbeats, idle-out nudges) that have no SENT_BY edge in the graph
+                  example: "@neo-gemini-pro"
+                sentAt:
+                  type: string
+                  format: date-time
+                  example: "2026-04-22T13:33:41.675Z"
 
     MemoriesListResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         sessionId:
           type: string
           example: "550e8400-e29b-41d4-a716-446655440000"
@@ -706,6 +1996,23 @@ components:
         type:
           type: string
           example: "agent-interaction"
+        agent:
+          type: string
+          nullable: true
+          example: "antigravity"
+        model:
+          type: string
+          nullable: true
+          example: "gemini-3.1-pro"
+        agentIdentity:
+          type: string
+          nullable: true
+          description: "AgentIdentity node id that authored the memory when provenance is available."
+          example: "@neo-gpt"
+        trustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: "#10292 content-provenance trust tier resolved from the memory's AgentIdentity."
 
     QueryMemoriesRequest:
       type: object
@@ -725,10 +2032,21 @@ components:
         sessionId:
           type: string
           description: Optional filter to search within a specific session only
+        memorySharing:
+          type: string
+          enum: [private, team, legacy]
+          description: Optional override for the memory sharing tenant isolation scope.
+        minTrustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: Optional minimum accepted #10292 provenance trust tier. Results authored by lower-trust or unclassified identities are excluded.
 
     QueryMemoriesResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         query:
           type: string
           example: "How did I implement the MCP server configuration?"
@@ -739,6 +2057,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MemorySearchResult'
+        degraded:
+          type: boolean
+          description: "Present and true ONLY when the query path is degraded (e.g. a corrupt/unqueryable collection whose vector segment throws). Lets callers distinguish a failed query path from a genuine no-match, which omits this field. When true, count is 0 and results is empty but it is NOT a no-match."
+          example: true
+        code:
+          type: string
+          description: "Set to QUERY_PATH_DEGRADED when degraded is true."
+          example: "QUERY_PATH_DEGRADED"
+        collection:
+          type: string
+          description: "The degraded collection (present when degraded)."
+          example: "memory"
+        signature:
+          type: string
+          description: "Corruption/error signature (present when degraded), e.g. chroma-error-finding-id."
+          example: "chroma-error-finding-id"
+        message:
+          type: string
+          description: "Human-readable degraded reason (present when degraded)."
 
     MemorySearchResult:
       allOf:
@@ -757,6 +2094,9 @@ components:
     SummariesListResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         count:
           type: integer
           description: Number of summaries returned
@@ -826,6 +2166,30 @@ components:
           items:
             type: string
           example: ["neo.mjs", "nodejs", "chromadb"]
+        participatingAgents:
+          type: array
+          items:
+            type: string
+          example: ["antigravity", "librarian"]
+        models:
+          type: array
+          items:
+            type: string
+          example: ["gemini-3.1-pro", "gemma4"]
+        sourceAgentIdentities:
+          type: array
+          items:
+            type: string
+          description: AgentIdentity node ids found on source memories when summary provenance is available.
+          example: ["@neo-gpt"]
+        sourceTrustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: Most restrictive source-memory trust tier for this derived summary.
+        provenancePolicy:
+          type: string
+          description: Summary provenance composition policy.
+          example: "most-restrictive-source"
 
     QuerySummariesRequest:
       type: object
@@ -846,10 +2210,21 @@ components:
           type: string
           enum: [bugfix, feature, refactoring, documentation, new-app, analysis, other]
           description: Optional filter by category
+        memorySharing:
+          type: string
+          enum: [private, team, legacy]
+          description: Optional override for the memory sharing tenant isolation scope.
+        minTrustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: Optional minimum accepted #10292 source-provenance trust tier. Summaries derived from lower-trust or unclassified source memories are excluded.
 
     QuerySummariesResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         query:
           type: string
           example: "sessions where I worked on MCP servers"
@@ -860,6 +2235,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SummarySearchResult'
+        degraded:
+          type: boolean
+          description: "Present and true ONLY when the query path is degraded (e.g. a corrupt/unqueryable collection whose vector segment throws). Lets callers distinguish a failed query path from a genuine no-match, which omits this field. When true, count is 0 and results is empty but it is NOT a no-match."
+          example: true
+        code:
+          type: string
+          description: "Set to QUERY_PATH_DEGRADED when degraded is true."
+          example: "QUERY_PATH_DEGRADED"
+        collection:
+          type: string
+          description: "The degraded collection (present when degraded)."
+          example: "summary"
+        signature:
+          type: string
+          description: "Corruption/error signature (present when degraded), e.g. chroma-error-finding-id."
+          example: "chroma-error-finding-id"
+        message:
+          type: string
+          description: "Human-readable degraded reason (present when degraded)."
 
     SummarySearchResult:
       allOf:
@@ -927,33 +2321,6 @@ components:
           type: string
           example: "All summaries successfully deleted"
 
-    BackupActionResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: "Database operation completed successfully"
-        imported:
-          type: integer
-          nullable: true
-          description: Number of records imported (Import only)
-          example: 150
-        total:
-          type: integer
-          nullable: true
-          description: Total records in collection after operation (Import only)
-          example: 155
-        skipped:
-          type: integer
-          nullable: true
-          description: Number of records skipped (Import only)
-          example: 5
-        mode:
-          type: string
-          nullable: true
-          description: Import mode used (Import only)
-          example: "merge"
-
     ErrorResponse:
       type: object
       properties:
@@ -962,7 +2329,7 @@ components:
           example: "Database connection failed"
         message:
           type: string
-          example: "Could not connect to ChromaDB on localhost:8001"
+          example: "Could not connect to ChromaDB on localhost:8000"
         code:
           type: string
           example: "DB_CONNECTION_ERROR"

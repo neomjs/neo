@@ -6,7 +6,7 @@ const MIN = 0, MAX = 10
 
 test.beforeEach(async ({page}) => {
     await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
-    await page.waitForSelector('#component-test-viewport');
+    await page.waitForSelector('#component-test-viewport', { state: 'attached' });
 
     componentId = await page.evaluate(async ({MIN, MAX}) => {
         const result = await Neo.worker.App.createNeoInstance({

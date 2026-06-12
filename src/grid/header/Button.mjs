@@ -59,6 +59,10 @@ class Button extends BaseButton {
          */
         filterField: null,
         /**
+         * @member {Number|String|null} flex='none'
+         */
+        flex: 'none',
+        /**
          * @member {String} iconCls='fa fa-arrow-circle-up'
          * @reactive
          */

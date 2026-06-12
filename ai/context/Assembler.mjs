@@ -1,10 +1,16 @@
-import Base from '../../src/core/Base.mjs';
+import fs               from 'fs';
+import path             from 'path';
+import {fileURLToPath}  from 'url';
+import Base             from '../../src/core/Base.mjs';
 import {
     Memory_Service,
     Memory_SessionService,
     Memory_SummaryService,
     KB_QueryService
 } from '../services.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 /**
  * Manages the assembly of the LLM context window.
@@ -49,6 +55,9 @@ class ContextAssembler extends Base {
      */
     async initAsync() {
         await super.initAsync();
+
+        this.skillsContext = this.loadSkillsSync();
+
         // SessionService readiness implies ChromaManager readiness
         try {
             await Memory_SessionService.ready();
@@ -167,8 +176,9 @@ class ContextAssembler extends Base {
     formatMessages(memories) {
         const messages = [];
         memories.forEach(m => {
+            const agentMeta = m.agent ? `[Agent: ${m.agent} | Model: ${m.model || 'unknown'}]\n` : '';
             messages.push({ role: 'user', content: m.prompt });
-            messages.push({ role: 'model', content: `Thought: ${m.thought}\n\n${m.response}` });
+            messages.push({ role: 'model', content: `${agentMeta}Thought: ${m.thought}\n\n${m.response}` });
         });
         return messages;
     }
@@ -212,7 +222,48 @@ class ContextAssembler extends Base {
      * @returns {String}
      */
     augmentSystemPrompt(basePrompt, ragContext) {
-        return `${basePrompt}${ragContext}`;
+        let prompt = basePrompt || '';
+        if (this.skillsContext) {
+            prompt += this.skillsContext;
+        }
+        return `${prompt}${ragContext || ''}`;
+    }
+
+    /**
+     * Loads SKILL.md files from the .agents/skills directory to be injected into the system prompt.
+     * Uses Progressive Disclosure: Only injects YAML frontmatter.
+     * @returns {String}
+     */
+    loadSkillsSync() {
+        try {
+            const skillsDir = path.resolve(__dirname, '../../.agents/skills');
+            if (!fs.existsSync(skillsDir)) return '';
+
+            const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+            let skillsText = '';
+
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    const skillPath = path.join(skillsDir, entry.name, 'SKILL.md');
+                    if (fs.existsSync(skillPath)) {
+                        const content = fs.readFileSync(skillPath, 'utf8');
+                        
+                        // Extract YAML frontmatter for progressive disclosure
+                        const yamlMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+                        if (yamlMatch) {
+                            skillsText += `\n<skill>\n<path>${skillPath}</path>\n<metadata>\n${yamlMatch[1].trim()}\n</metadata>\n</skill>\n`;
+                        }
+                    }
+                }
+            }
+
+            if (skillsText) {
+                return `\n\n<agent_skills>\nYou have access to the following specialized agent skills. IF a user requests a task that matches the triggers of a skill below, you MUST use the \`read_file\` tool (passing the \`absolutePath\` parameter) to read the corresponding <path> BEFORE taking any action to execute the request.\n${skillsText}</agent_skills>\n`;
+            }
+        } catch (e) {
+            console.warn('[ContextAssembler] Failed to load skills:', e);
+        }
+        return '';
     }
 }
 

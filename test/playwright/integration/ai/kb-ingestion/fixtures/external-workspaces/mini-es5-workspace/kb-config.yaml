@@ -1,0 +1,7 @@
+tenantId: tenant-alpha
+repoSlug: mini-es5-workspace
+rootKind: bare-repo
+useDefaultSources: false
+customParsers:
+  - parserId: es5-fixture-parser
+    parserVersion: 1.0.0

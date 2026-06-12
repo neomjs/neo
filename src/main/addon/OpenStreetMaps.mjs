@@ -115,7 +115,7 @@ class OpenStreetMaps extends Base {
 
             // Create the view configuration - no projection needed due to useGeographic()
             let viewConfig = {
-                center: center,
+                center,
                 zoom: data.zoom || 10,
                 minZoom: data.minZoom != undefined ? data.minZoom : 0,
                 maxZoom: data.maxZoom != undefined ? data.maxZoom : 28
@@ -148,7 +148,7 @@ class OpenStreetMaps extends Base {
 
             // Create the map using CDN global object
             let map = new ol.Map({
-                controls: controls,
+                controls,
                 target: mapElement,
                 layers: [tileLayer],
                 view: view
@@ -161,7 +161,7 @@ class OpenStreetMaps extends Base {
 
             // Store the map instance
             me.maps[mapId] = map;
-            
+
             // // Initialize markers object for this map
             // Neo.ns(`${mapId}`, true, me.markers);
 
@@ -241,16 +241,16 @@ class OpenStreetMaps extends Base {
                 DomAccess.loadStylesheet(cssUrl),
                 DomAccess.loadScript(jsUrl)
             ]);
-            
+
             // Verify OpenLayers loaded successfully
             if (typeof ol === 'undefined' || !ol.Map || !ol.source || !ol.source.OSM) {
                 throw new Error('OpenLayers failed to load completely');
             }
-            
+
             // Configure OpenLayers to use geographic coordinates (WGS84) in all API methods
             // This allows us to work with lat/lng directly without manual transformations
             ol.proj.useGeographic();
-            
+
         } catch (error) {
             console.error('Failed to load OpenLayers:', error);
             throw error;
@@ -266,7 +266,7 @@ class OpenStreetMaps extends Base {
             view = map.getView(),
             currentZoom = view.getZoom(),
             center = view.getCenter();
-        
+
         // Center coordinates are already in WGS84 format due to useGeographic()
         let centerLatLng = {
             lng: center[0],
@@ -275,7 +275,7 @@ class OpenStreetMaps extends Base {
 
         // Fire zoom change event that apps can listen to
         me.fire('zoomChanged', {
-            mapId: mapId,
+            mapId,
             zoom: currentZoom,
             center: centerLatLng
         });
@@ -334,14 +334,14 @@ class OpenStreetMaps extends Base {
 
             // Animate the pan
             view.animate({
-                center: center,
-                duration: duration,
+                center,
+                duration,
                 easing: ol.easing.easeOut
             });
 
             return {
                 success: true,
-                mapId: mapId,
+                mapId,
                 position: position
             };
 
@@ -426,13 +426,13 @@ class OpenStreetMaps extends Base {
             // Animate the zoom change
             view.animate({
                 zoom: zoomLevel,
-                duration: duration,
+                duration,
                 easing: ol.easing.easeOut
             });
 
             return {
                 success: true,
-                mapId: mapId,
+                mapId,
                 zoom: zoomLevel
             };
 
@@ -468,7 +468,7 @@ class OpenStreetMaps extends Base {
                 anchorYUnits: 'fraction',
                 src: 'data:image/svg+xml;base64,' + btoa(`
                     <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path fill="#FF0000" stroke="#FFFFFF" stroke-width="2" 
+                        <path fill="#FF0000" stroke="#FFFFFF" stroke-width="2"
                               d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
                         <circle fill="#FFFFFF" cx="12" cy="9" r="3"/>
                     </svg>

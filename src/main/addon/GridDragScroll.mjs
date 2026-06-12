@@ -242,6 +242,14 @@ class GridDragScroll extends Base {
             return
         }
 
+        // Ignore mousedown / touchstart on the proxy scrollbar overlays. The dedicated
+        // grid.VerticalScrollbar / grid.HorizontalScrollbar components are discrete overlay
+        // nodes, so a thumb-drag is detected directly via the event path instead of
+        // bounding-box math against the body element.
+        if (path.some(el => el.classList?.contains('neo-grid-vertical-scrollbar') || el.classList?.contains('neo-grid-horizontal-scrollbar'))) {
+            return
+        }
+
         if (event.type === 'mousedown') {
             event.preventDefault() // Prevent text selection
         }
@@ -308,18 +316,18 @@ class GridDragScroll extends Base {
     /**
      * Registers a grid for drag scrolling.
      * @param {Object} data
-     * @param {String} data.bodyId      The ID of the grid body (vertical scroll target)
+     * @param {String} data.viewId      The ID of the grid view (vertical scroll target)
      * @param {String} data.containerId The ID of the grid container (horizontal scroll target)
      * @param {String} data.id          Unique identifier for the registration (e.g. ScrollManager id)
      */
-    register({bodyId, containerId, id}) {
+    register({viewId, containerId, id}) {
         let me = this;
 
         if (me.registrations.has(id)) {
             me.unregister({id})
         }
 
-        let bodyElement      = document.getElementById(bodyId),
+        let bodyElement      = document.getElementById(viewId),
             containerElement = document.getElementById(containerId);
 
         if (bodyElement) {

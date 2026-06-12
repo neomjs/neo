@@ -2,6 +2,7 @@ import Base             from '../src/core/Base.mjs';
 import Client           from './mcp/client/Client.mjs';
 import ContextAssembler from './context/Assembler.mjs';
 import GeminiProvider   from './provider/Gemini.mjs';
+import OllamaProvider   from './provider/Ollama.mjs';
 import Loop             from './agent/Loop.mjs';
 import Scheduler        from './agent/Scheduler.mjs';
 
@@ -25,22 +26,68 @@ class Agent extends Base {
          */
         loop: null,
         /**
-         * The AI Provider class or instance.
-         * @member {Neo.ai.provider.Base} modelProvider=GeminiProvider
+         * The AI Provider class or string alias ('gemini', 'ollama').
+         * @member {Neo.ai.provider.Base|String} modelProvider=GeminiProvider
          */
         modelProvider: GeminiProvider,
+        /**
+         * Configuration options for the provider instantiation.
+         * @member {Object|null} providerConfig=null
+         */
+        providerConfig: null,
+        /**
+         * The maximum number of interaction turns a sub-agent can execute
+         * before being deliberately recycled to flush its context window.
+         * @member {Number} maxSubAgentLifespan=50
+         */
+        maxSubAgentLifespan: 50,
         /**
          * A list of server names (keys in ClientConfig) to connect to.
          * @member {String[]} servers=[]
          */
-        servers: []
+        servers: [],
+        /**
+         * Registered sub-agent profiles available for delegation.
+         * @member {Object} subAgents
+         */
+        subAgents: {
+            browser  : async () => (await import('./agent/profile/Browser.mjs')).default,
+            librarian: async () => (await import('./agent/profile/Librarian.mjs')).default,
+            qa       : async () => (await import('./agent/profile/QA.mjs')).default
+        }
     }
+
+    /**
+     * Enhances the base system prompt with mandatory overarching policies (e.g., Anti-Hallucination).
+     * @returns {String} The fully resolved system prompt.
+     */
+    getEnhancedSystemPrompt() {
+        const antiHallucinationPolicy = `
+ANTI-HALLUCINATION POLICY (CRITICAL):
+Your training data regarding the Neo.mjs framework is outdated.
+You MUST NEVER hallucinate, guess, or assume Neo.mjs API methods, patterns, or architecture.
+ALWAYS use your file system or knowledge base tools to read the relevant source code (e.g., 'src/Neo.mjs', 'src/core/Base.mjs') to verify the exact method signatures and class structures BEFORE you act.`;
+
+        return `${this.systemPrompt}\n\n${antiHallucinationPolicy}`;
+    }
+
+    /**
+     * Map of currently running sub-agent instances.
+     * @member {Object} activeSubAgents={}
+     */
+    activeSubAgents = {}
 
     /**
      * Map of connected Client instances, keyed by server name.
      * @member {Object} clients={}
      */
     clients = {}
+
+    /**
+     * Track turn numbers to prevent hallucination cascades.
+     * @member {Object} subAgentTurns={}
+     */
+    subAgentTurns = {}
 
     /**
      * Async initialization sequence.
@@ -70,21 +117,29 @@ class Agent extends Base {
         // 2. Initialize Cognitive Runtime
         console.log('[Agent] Initializing Cognitive Runtime...');
 
-        const provider = Neo.create(this.modelProvider);
+        let providerClass = this.modelProvider;
+
+        if (typeof providerClass === 'string') {
+            providerClass = providerClass.toLowerCase() === 'ollama' ? OllamaProvider : GeminiProvider;
+        }
+
+        const provider = Neo.create(providerClass, this.providerConfig || {});
 
         const assembler = Neo.create(ContextAssembler);
-        await assembler.initAsync(); // Connects to Memory Core via Services SDK
+        await assembler.ready(); // Connects to Memory Core via Services SDK
 
         const scheduler = Neo.create(Scheduler);
 
         // Create the Loop
         this.loop = Neo.create(Loop, {
-            provider,
+            agent: this,
             assembler,
-            scheduler,
-            // Inject clients into the loop for Tool Execution (Future Phase)
-            // tools: this.clients
+            clients: this.clients,
+            provider,
+            scheduler
         });
+
+        await this.loop.ready();
 
         console.log('[Agent] Runtime Ready.');
     }
@@ -128,6 +183,61 @@ class Agent extends Base {
             return;
         }
         this.loop.scheduler.add(event);
+    }
+
+    /**
+     * Spawns a sub-agent ephemerally to execute a task and return the synthesis.
+     * @param {String} profileName The alias inside subAgents config.
+     * @param {String} request The query/task to delegate.
+     * @param {Boolean} [forceFresh=false] Whether to force a topic switch / new instance.
+     * @returns {Promise<String>} The generated result content.
+     */
+    async delegate(profileName, request, forceFresh = false) {
+        const getProfileClass = this.subAgents[profileName];
+
+        if (!getProfileClass) {
+            throw new Error(`Sub-Agent profile '${profileName}' not found.`);
+        }
+
+        // Context Flush (Max Tasks Gate) or explicit Reset
+        if (this.activeSubAgents[profileName]) {
+            if (forceFresh || this.subAgentTurns[profileName] >= this.maxSubAgentLifespan) {
+                console.log(`[Agent] Recycling sub-agent '${profileName}' (Max Turns Reached / Forced Switch)`);
+                await this.activeSubAgents[profileName].disconnect();
+                delete this.activeSubAgents[profileName];
+                this.subAgentTurns[profileName] = 0;
+            }
+        }
+
+        let subAgent = this.activeSubAgents[profileName];
+
+        if (!subAgent) {
+            const ProfileClass = await getProfileClass();
+            console.log(`[Agent] Booting fresh Sub-Agent: ${profileName} (${ProfileClass.config.className})`);
+
+            subAgent = Neo.create(ProfileClass);
+            await subAgent.ready();
+            
+            this.activeSubAgents[profileName] = subAgent;
+            this.subAgentTurns[profileName]   = 0;
+        } else {
+            console.log(`[Agent] Re-using active Sub-Agent: ${profileName} (Turn ${this.subAgentTurns[profileName] + 1})`);
+        }
+
+        try {
+            this.subAgentTurns[profileName]++;
+            
+            const result = await subAgent.loop.processEvent({
+                type: 'delegate',
+                data: request,
+                systemPrompt: subAgent.getEnhancedSystemPrompt()
+            });
+
+            return result;
+        } catch (err) {
+            console.error(`[Agent] Delegate execution failed for ${profileName}:`, err);
+            throw err;
+        }
     }
 }
 

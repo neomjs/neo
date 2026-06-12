@@ -97,12 +97,47 @@
 Thumbs.db
 resources/data/deck/EditorConfig.json
 
-# Local AI Knowledge Base
+# Agent OS Local Data
 .env
-chroma-neo-knowledge-base/
-chroma-neo-memory-core/
+.neo-ai-data
+!.neo-ai-data/concepts/
+ai/mcp/server/*/config.mjs
+ai/config.mjs
+# Runtime artifact — `MailboxService.mjs:259` persistence-error fallback writes
+# `sent-to-cull.jsonl` next to the graph storage path during SENT_TO edge cull
+# events (#10347 Phase 1 diagnostic). Lands at repo root if `aiConfig.storagePaths.graph`
+# resolves there in test runs. Pure runtime telemetry; never tracked.
+sent-to-cull.jsonl
+
+# Claude Code worktrees (agent-spawned checkouts)
+.claude/worktrees/
+
+# Per-user Claude Code permissions allowlist (not shared)
+.claude/settings.json
+
+# Per-user Codex MCP server configs
+.codex/config.toml
+
+# Local workspace-level Antigravity config (causes dual-parse bug if committed)
 
 # Playwright test results
 test/playwright/test-results/
 # Single-file Playwright runs via npx
 test-results/
+
+# Autonomous AI Output files
+resources/content/sandman_handoff.md
+
+# Agent Harness Scratch Artifacts (Issue #11563)
+.gemini/*
+!.gemini/concepts/
+!.gemini/settings.template.json
+/pr_*.md
+/scratch*.mjs
+/patch_*.js
+/patch_*.py
+/patch_*.mjs
+/ticket-*.md
+
+*.orig
+*.patch

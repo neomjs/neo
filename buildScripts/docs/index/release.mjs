@@ -5,7 +5,7 @@ import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
 import semver          from 'semver';
-import {sanitizeInput} from '../../util/Sanitizer.mjs';
+import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 /**
  * @module buildScripts.createReleaseIndex
@@ -41,7 +41,7 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.
 /**
  * Core logic to scan and index release note markdown files.
  *
- * 1.  Glob-scans `resources/content/release-notes/*.md`.
+ * 1.  Recursively scans `resources/content/release-notes` incl. chunk-N folders (per ADR 0004 §2.1).
  * 2.  Extracts version numbers and dates (handling both frontmatter and filesystem fallbacks).
  * 3.  Groups releases into Major Version buckets (e.g., "v1", "v2").
  * 4.  Sorts majors and minors descending.
@@ -58,8 +58,8 @@ async function createReleaseIndex(options = {}) {
 
     console.log(`Scanning release notes in: ${inputDir}`);
 
-    // Find all markdown files
-    const files = await fg('*.md', { cwd: inputDir, absolute: true });
+    // Find all markdown files recursively (release notes now live under chunk-N/ per ADR 0004 §2.1)
+    const files = await fg('**/*.md', { cwd: inputDir, absolute: true });
 
     if (files.length === 0) {
         console.warn('No release note files found.');
@@ -97,8 +97,9 @@ async function createReleaseIndex(options = {}) {
 
         return {
             version: cleanVersion,
-            date   : date,
-            path   : `resources/content/release-notes/${path.basename(filePath)}`
+            date,
+            // Preserve the real on-disk path incl. the chunk-N segment (mirrors tickets.mjs); read verbatim by the portal view's fetch()
+            path: path.relative(ROOT_DIR, filePath)
         };
     }));
 

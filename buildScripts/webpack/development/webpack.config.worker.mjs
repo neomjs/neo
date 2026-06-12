@@ -38,7 +38,7 @@ export default env => {
                 let con = context.context;
 
                 if (!insideNeo && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
-                    if (!context.request.startsWith('../../') && !context.request.startsWith('..\\..\\')) {
+                    if (!context.request.startsWith('../../') && !context.request.startsWith('..\\..\\') && !context.request.startsWith('../data/') && !context.request.startsWith('..\\data\\')) {
                         context.request = path.join('../../', context.request);
                     }
                 }

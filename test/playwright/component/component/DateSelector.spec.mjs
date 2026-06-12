@@ -5,7 +5,7 @@ let componentId;
 test.describe('Neo.component.DateSelector', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
 
         const result = await page.evaluate(async () => {
             return Neo.worker.App.createNeoInstance({

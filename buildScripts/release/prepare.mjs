@@ -12,6 +12,8 @@ import os                          from 'os';
 import path                        from 'path';
 import createLabelIndex            from '../docs/index/labels.mjs';
 import createReleaseIndex          from '../docs/index/release.mjs';
+import createDiscussionIndex       from '../docs/index/discussions.mjs';
+import createPullRequestIndex      from '../docs/index/pulls.mjs';
 import createTicketIndex           from '../docs/index/tickets.mjs';
 import {getLlmsTxt, getSitemapXml} from '../docs/seo/generate.mjs';
 
@@ -95,6 +97,16 @@ if (insideNeo) {
         console.log('Updated apps/portal/index.html datePublished');
     }
 
+    // Keep the Neural Link guide's version proof line in sync with package.json.
+    const neuralLinkPath = path.join(root, 'learn/agentos/NeuralLink.md');
+    if (fs.existsSync(neuralLinkPath)) {
+        const neuralLinkContent = fs.readFileSync(neuralLinkPath, 'utf-8')
+            .replace(/Neo\.mjs v\d+\.\d+\.\d+\./, `Neo.mjs v${packageJson.version}.`);
+
+        fs.writeFileSync(neuralLinkPath, neuralLinkContent);
+        console.log('Updated learn/agentos/NeuralLink.md version');
+    }
+
     // Sync .npmignore with .gitignore
     // This ensures that we don't accidentally publish files that should be ignored,
     // while maintaining the specific npm-only rules.
@@ -125,14 +137,17 @@ if (insideNeo) {
 // Generate the release content JSON before SEO files
 await createLabelIndex();
 await createReleaseIndex();
+await createPullRequestIndex();
+await createDiscussionIndex();
 await createTicketIndex();
 
 // Generate sitemap.xml and llms.txt to ensure SEO files are up-to-date with the latest content and routes.
 // This is crucial for search engine discoverability and AI model consumption.
 const baseUrl = 'https://neomjs.com'; // Hardcode canonical base URL
+const sitemapPath = path.join(root, 'apps/portal/sitemap.xml');
 
-const sitemapXml = await getSitemapXml({baseUrl});
-fs.writeFileSync(path.join(root, 'apps/portal/sitemap.xml'), sitemapXml);
+const sitemapXml = await getSitemapXml({baseUrl, existingSitemapPath: sitemapPath});
+fs.writeFileSync(sitemapPath, sitemapXml);
 console.log('Generated apps/portal/sitemap.xml');
 
 const llmsTxt = await getLlmsTxt({baseUrl});

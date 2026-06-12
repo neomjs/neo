@@ -11,8 +11,8 @@ class ScrollManager extends Base {
      * @static
      */
     static delayable = {
-        onBodyScrollEnd: {type: 'buffer',   timer: 150},
-        syncGridBody   : {type: 'throttle', timer:  16}
+        onScrollEnd: { type: 'buffer', timer: 150 },
+        syncGridBody: { type: 'throttle', timer: 16 }
     }
 
     static config = {
@@ -32,6 +32,12 @@ class ScrollManager extends Base {
          * @reactive
          */
         mounted_: false,
+        /**
+         * Uses Neo.main.addon.GridRowHoverSync
+         * @member {Boolean} rowHoverSync_=true
+         * @reactive
+         */
+        rowHoverSync_: true,
         /**
          * Uses Neo.main.addon.GridRowScrollPinning
          * @member {Boolean} rowScrollPinning_=true
@@ -93,13 +99,9 @@ class ScrollManager extends Base {
      */
     afterSetMounted(value, oldValue) {
         if (value) {
-            this.dragScroll       && this.updateDragScrollAddon(true);
+            this.dragScroll && this.updateDragScrollAddon(true);
             this.rowScrollPinning && this.updateRowScrollPinningAddon(true);
-            this.updateColumnScrollPinningAddon()
-        } else if (oldValue) {
-            this.updateDragScrollAddon(false);
-            this.updateRowScrollPinningAddon(false);
-            this.updateColumnScrollPinningAddon(false)
+            this.updateGridHorizontalScrollSyncAddon(true);
         }
     }
 
@@ -121,13 +123,13 @@ class ScrollManager extends Base {
         let me = this;
 
         if (oldValue && me.mounted) {
-            me.dragScroll       && me.updateDragScrollAddon(false, oldValue);
+            me.dragScroll && me.updateDragScrollAddon(false, oldValue);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
-            me.updateColumnScrollPinningAddon(false, oldValue);
+            me.updateGridHorizontalScrollSyncAddon(false, oldValue);
 
-            me.dragScroll       && me.updateDragScrollAddon(true, value);
+            me.dragScroll && me.updateDragScrollAddon(true, value);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
-            me.updateColumnScrollPinningAddon(value)
+            me.updateGridHorizontalScrollSyncAddon(true, value);
         }
     }
 
@@ -136,49 +138,59 @@ class ScrollManager extends Base {
      */
     destroy(...args) {
         this.updateRowScrollPinningAddon(false);
-        this.updateColumnScrollPinningAddon(false);
+        this.updateGridHorizontalScrollSyncAddon(false);
         super.destroy(...args)
     }
 
-    /**
-     * Only triggers for vertical scrolling
-     * @param {Object} data
-     * @protected
-     */
-    onBodyScroll({scrollTop}) {
-        let me = this;
 
-        me.scrollTop            = scrollTop;
-        me.gridBody.isScrolling = true;
-
-        me.onBodyScrollEnd();
-        me.syncGridBody()
-    }
-
-    /**
-     * @protected
-     */
-    onBodyScrollEnd() {
-        let me = this;
-
-        me.gridBody.isScrolling = false;
-        me.syncGridBody()
-    }
 
     /**
      * @param {Object} data
      * @param {Number} data.scrollLeft
+     * @param {Number} data.scrollTop
      * @param {Object} data.target
      */
-    onContainerScroll({scrollLeft, target}) {
-        let me = this;
+    onContainerScroll({ scrollLeft, scrollTop, target }) {
+        let me        = this,
+            container = me.gridContainer,
+            isView    = target.id === container.view?.id;
 
-        // We must ignore events for grid-scrollbar
-        if (target.id.includes('grid-container')) {
-            me.scrollLeft          = scrollLeft;
-            me.gridBody.isScrolling = true;
+        if (isView) {
+            me.scrollTop = target.scrollTop ?? scrollTop;
 
-            me.onBodyScrollEnd();
+            let startedScrolling = !container.body.isScrolling;
+
+            if (container.bodyStart) container.bodyStart.isScrolling = true;
+            if (container.bodyEnd)   container.bodyEnd.isScrolling   = true;
+            container.body.isScrolling = true;
+
+            if (startedScrolling && me.rowHoverSync) {
+                me.suspendGridRowHoverSyncAddon();
+            }
+
+            me.onScrollEnd();
+            me.syncGridBody()
+        } else if (target.id === container.horizontalScrollbar?.id || target.id.includes('grid-container')) {
+            me.scrollLeft = target.scrollLeft ?? scrollLeft;
+
+            // Mirror into the center header toolbar's reactive config. Its afterSetScrollLeft
+            // feeds the drag SortZone's scroll-correction term — without this write the config
+            // (and the term) never move, corrupting post-scroll drag math. The DOM-side header
+            // sync happens main-thread in Neo.main.addon.GridHorizontalScrollSync; this is the
+            // worker-side state mirror.
+            container.headerToolbar && (container.headerToolbar.scrollLeft = me.scrollLeft);
+
+            let startedScrolling = !container.body.isScrolling;
+
+            if (container.bodyStart) container.bodyStart.isScrolling = true;
+            if (container.bodyEnd)   container.bodyEnd.isScrolling   = true;
+            container.body.isScrolling = true;
+
+            if (startedScrolling && me.rowHoverSync) {
+                me.suspendGridRowHoverSyncAddon();
+            }
+
+            me.onScrollEnd();
             me.syncGridBody()
         }
     }
@@ -186,44 +198,52 @@ class ScrollManager extends Base {
     /**
      * @protected
      */
-    syncGridBody() {
-        let me   = this,
-            body = me.gridBody;
+    onScrollEnd() {
+        let me        = this,
+            container = me.gridContainer;
 
-        body.skipCreateViewData = true;
+        if (container.bodyStart) container.bodyStart.isScrolling = false;
+        if (container.bodyEnd)   container.bodyEnd.isScrolling   = false;
+        container.body.isScrolling = false;
 
-        body.set({
-            scrollLeft: me.scrollLeft,
-            scrollTop : me.scrollTop
-        });
+        me.syncGridBody();
 
-        body.skipCreateViewData = false;
-        body.createViewData();
-
-        me.gridContainer.headerToolbar.scrollLeft = me.scrollLeft
+        if (me.rowHoverSync) {
+            me.resumeGridRowHoverSyncAddon();
+        }
     }
 
     /**
-     * @param {Boolean} [active]
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateColumnScrollPinningAddon(active, windowId=this.windowId) {
-        let me = this;
+    async resumeGridRowHoverSyncAddon(windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
 
-        active = active ?? (me.mounted && me.gridContainer?.hasLockedColumns);
+        addon.resumeHover({
+            id: me.id
+        });
+    }
 
-        let addon = await Neo.currentWorker.getAddon('GridColumnScrollPinning', windowId);
+    /**
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async suspendGridRowHoverSyncAddon(windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
 
-        if (active) {
-            addon.register({
-                containerId: me.gridContainer.id,
-                id         : me.id,
-                windowId
-            })
-        } else {
-            addon.unregister({id: me.id, windowId})
-        }
+        addon.suspendHover({
+            id: me.id
+        });
+    }
+
+    /**
+     * @protected
+     */
+    syncGridBody() {
+        this.gridContainer.syncBodies(this.scrollTop)
     }
 
     /**
@@ -231,19 +251,21 @@ class ScrollManager extends Base {
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateDragScrollAddon(active, windowId=this.windowId) {
-        let me    = this,
+    async updateDragScrollAddon(active, windowId = this.windowId) {
+        let me = this,
             addon = await Neo.currentWorker.getAddon('GridDragScroll', windowId);
 
         if (active) {
+            let scrollerId = me.gridContainer.horizontalScrollbar?.id;
+
             addon.register({
-                bodyId     : me.gridBody.id + '__wrapper',
-                containerId: me.gridContainer.id,
-                id         : me.id,
+                viewId: me.gridContainer.view.id,
+                containerId: scrollerId || me.gridContainer.id,
+                id: me.id,
                 windowId
             })
         } else {
-            addon.unregister({id: me.id, windowId})
+            addon.unregister({ id: me.id, windowId })
         }
     }
 
@@ -252,21 +274,74 @@ class ScrollManager extends Base {
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateRowScrollPinningAddon(active, windowId=this.windowId) {
-        let me    = this,
+    async updateRowScrollPinningAddon(active, windowId = this.windowId) {
+        let me = this,
             addon = await Neo.currentWorker.getAddon('GridRowScrollPinning', windowId);
 
         if (active) {
             addon.register({
-                bodyId     : me.gridBody.id,
+                bodyIds    : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
+                verticalScrollbarId: me.gridContainer.verticalScrollbar?.id,
+                viewId             : me.gridContainer.view.id,
                 id         : me.id,
-                scrollbarId: me.gridContainer.scrollbar.id,
                 windowId
             })
         } else {
-            addon.unregister({id: me.id, windowId})
+            addon.unregister({ id: me.id, windowId })
         }
     }
+
+    /**
+     * @param {Boolean} active
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async updateGridRowHoverSyncAddon(active, windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
+
+        if (active) {
+            addon.register({
+                viewId  : me.gridContainer.view.id,
+                id      : me.id,
+                windowId
+            })
+        } else {
+            addon.unregister({ id: me.id, windowId })
+        }
+    }
+
+    /**
+     * @param {Boolean} active
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async updateGridHorizontalScrollSyncAddon(active, windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
+
+        if (active) {
+            let scrollerId = me.gridContainer.horizontalScrollbar?.id,
+                bodyId = me.gridContainer.body?.id,
+                viewId = me.gridContainer.view?.id,
+                headerId = me.gridContainer.headerToolbar?.id;
+
+            if (scrollerId && bodyId && headerId) {
+                addon.register({
+                    id: me.id + '__h_scroll',
+                    scrollerId,
+                    bodyId,
+                    viewId,
+                    headerId,
+                    windowId
+                });
+            }
+        } else {
+            addon.unregister({ id: me.id + '__h_scroll', windowId })
+        }
+    }
+
+
 
     /**
      * @returns {Object}
@@ -275,7 +350,7 @@ class ScrollManager extends Base {
         return {
             ...super.toJSON(),
             scrollLeft: this.scrollLeft,
-            scrollTop : this.scrollTop
+            scrollTop: this.scrollTop
         }
     }
 }

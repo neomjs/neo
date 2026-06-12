@@ -34,6 +34,19 @@ class TreeList extends BaseTreeList {
          */
         currentPageRecord_: null,
         /**
+         * @member {Boolean} lazyChildLoad=false
+         */
+        lazyChildLoad: false,
+        /**
+         * Optional URL prefix for relative child chunk URLs.
+         * @member {String|null} lazyChildUrlPrefix=null
+         */
+        lazyChildUrlPrefix: null,
+        /**
+         * @member {String} lazyChildUrlField='childrenUrl'
+         */
+        lazyChildUrlField: 'childrenUrl',
+        /**
          * Optional prefix for the route (e.g. '/learn' or '/releases')
          * @member {String|null} routePrefix=null
          */
@@ -91,6 +104,109 @@ class TreeList extends BaseTreeList {
     }
 
     /**
+     * @summary Resolves the URL used to fetch a folder node's deferred children.
+     * @param {Object} record
+     * @returns {String|null}
+     */
+    getLazyChildUrl(record) {
+        let me  = this,
+            url = record?.[me.lazyChildUrlField];
+
+        if (!url) {
+            return null
+        }
+
+        if (/^(?:[a-z]+:)?\/\//i.test(url) || url.startsWith('/') || url.startsWith('./') || url.startsWith('../')) {
+            return url
+        }
+
+        return (me.lazyChildUrlPrefix || '') + url
+    }
+
+    /**
+     * @summary Adds content paths to chunk leaves whose compact index payload omits them.
+     * @param {Object[]} records
+     * @param {Object} parentRecord
+     * @returns {Object[]}
+     */
+    normalizeLazyChildRecords(records, parentRecord) {
+        let {contentDir, filePrefix} = parentRecord;
+
+        if (!contentDir) {
+            return records
+        }
+
+        filePrefix ??= '';
+
+        return records.map(record => {
+            if (!record.path && record.id) {
+                return {
+                    ...record,
+                    path: `${contentDir}/${filePrefix}${record.id}.md`
+                }
+            }
+
+            return record
+        })
+    }
+
+    /**
+     * @summary Loads a folder node's child chunk on first expand when `lazyChildLoad` is enabled.
+     * @param {Object} record
+     * @returns {Promise<Boolean|void>} false cancels the folder toggle.
+     */
+    async onFolderItemClick(record) {
+        let me = this;
+
+        if (!me.lazyChildLoad || record.isLeaf || record.isChildrenLoaded) {
+            return
+        }
+
+        if (me.store.find('parentId', record.id).length > 0) {
+            record.isChildrenLoaded = true;
+            return
+        }
+
+        if (record.isLoading) {
+            return false
+        }
+
+        let url = me.getLazyChildUrl(record);
+
+        if (!url) {
+            return
+        }
+
+        record.isLoading = true;
+
+        try {
+            let response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`Failed to load tree children from ${url}: ${response.status}`)
+            }
+
+            let records = await response.json();
+
+            if (!Array.isArray(records)) {
+                records = records?.data || []
+            }
+
+            if (records.length > 0) {
+                me.store.add(me.normalizeLazyChildRecords(records, record))
+            }
+
+            record.isChildrenLoaded = true
+        } catch (error) {
+            record.hasError = true;
+            console.error('TreeList lazy child load failed', {error, record, url});
+            return false
+        } finally {
+            record.isLoading = false
+        }
+    }
+
+    /**
      * @param {Object} record
      */
     onLeafItemClick(record) {
@@ -110,7 +226,11 @@ class TreeList extends BaseTreeList {
     onStoreLoad() {
         super.onStoreLoad();
 
-        this.getStateProvider().data.countPages = this.store.getCount()
+        let stateProvider = this.getStateProvider();
+
+        if (stateProvider) {
+            stateProvider.data.countPages = this.store.getCount()
+        }
     }
 }
 

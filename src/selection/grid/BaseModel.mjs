@@ -32,7 +32,7 @@ class BaseModel extends Model {
      * @member {String[]} dataFields
      */
     get dataFields() {
-        return this.view.parent.columns.items.map(column => column.dataField)
+        return this.view.gridContainer.columns.items.map(column => column.dataField)
     }
 
     /**
@@ -56,9 +56,25 @@ class BaseModel extends Model {
             items = [items]
         }
 
+        // The single View-owned model spans bodyStart/body/bodyEnd directly (no per-body model +
+        // getActivePeers() fan-out): each record/cell is toggled in every body that renders it.
+        this.view.bodies.forEach(body => this.updateBodyRows(body, items, silent))
+    }
+
+    /**
+     * Granular per-body selection-state update — the body-scoped half of {@link #updateRows}.
+     *
+     * Resolves each Record ID / Logical Cell ID to its `Neo.grid.Row` within the given body and
+     * toggles the selection class only when the state actually changed (O(1) VDOM traffic). The single
+     * View-owned model invokes this for each body, replacing the former per-body model fan-out.
+     *
+     * @param {Neo.grid.Body} body
+     * @param {Object[]|String[]} items - Array of Record IDs (RowModel) or Logical Cell IDs (CellModel).
+     * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
+     */
+    updateBodyRows(body, items, silent=false) {
         let me        = this,
-            {view}    = me,
-            {store}   = view,
+            {store}   = body,
             processed = new Set();
 
         items.forEach(item => {
@@ -69,15 +85,15 @@ class BaseModel extends Model {
             if (isCell) {
                 // item is a logical ID: recordId__dataField
                 // We resolve the record to find the row.
-                let record = view.getRecordFromLogicalId(item);
+                let record = body.getRecordFromLogicalId(item);
                 if (record) {
-                    row = view.getRow(record);
+                    row = body.getRow(record);
 
                     if (row && !processed.has(item)) {
                         processed.add(item); // Process each logical cell only once per batch
 
                         // Find the cell node in the row's VDOM
-                        let dataField     = view.getDataField(item),
+                        let dataField     = body.getDataField(item),
                             cellNode      = row.vdom.cn.find(n => n.data?.field === dataField),
                             shouldSelect  = me.isSelected(item),
                             alreadySelect = cellNode?.cls?.includes(me.selectedCls);
@@ -110,7 +126,7 @@ class BaseModel extends Model {
                     let record = store.get(recordId);
 
                     if (record) {
-                        row = view.getRow(record);
+                        row = body.getRow(record);
 
                         if (row) {
                             let isSelected    = me.isSelectedRow(recordId),
@@ -153,7 +169,8 @@ class BaseModel extends Model {
         me.view.silentSelect = false;
 
         if (!silent) {
-            me.updateRows(item)
+            me.updateRows(item);
+            me.getActivePeers().forEach(peer => peer.updateRows(item))
         }
     }
 
@@ -169,7 +186,8 @@ class BaseModel extends Model {
         super.deselectAll(silent, itemCollection);
         me.view.silentSelect = false;
 
-        me.updateRows(items)
+        me.updateRows(items);
+        me.getActivePeers().forEach(peer => peer.updateRows(items, silent))
     }
 
     /**
@@ -184,7 +202,8 @@ class BaseModel extends Model {
         super.select(items, itemCollection, selectedCls);
         me.view.silentSelect = false;
 
-        me.updateRows(items)
+        me.updateRows(items);
+        me.getActivePeers().forEach(peer => peer.updateRows(items))
     }
 
     /**
@@ -200,7 +219,8 @@ class BaseModel extends Model {
             });
 
             if (!silent) {
-                me.updateRows(items)
+                me.updateRows(items);
+                me.getActivePeers().forEach(peer => peer.updateRows(items))
             }
 
             me.fire('selectionChange', {
@@ -221,7 +241,28 @@ class BaseModel extends Model {
 
         NeoArray.remove(me.selectedRows, recordId);
 
-        me.updateRows(recordId, silent)
+        me.updateRows(recordId, silent);
+        me.getActivePeers().forEach(peer => peer.updateRows(recordId, silent))
+    }
+
+    /**
+     * Retrieves sibling Selection Models in a Multi-Body environment.
+     * @returns {Neo.selection.grid.BaseModel[]}
+     */
+    getActivePeers() {
+        let me        = this,
+            container = me.view?.gridContainer,
+            peers     = [];
+
+        if (container) {
+            peers = [
+                container.bodyStart?.selectionModel,
+                container.body?.selectionModel,
+                container.bodyEnd?.selectionModel
+            ].filter(sm => sm && sm !== me)
+        }
+
+        return peers
     }
 
     /**
@@ -260,9 +301,9 @@ class BaseModel extends Model {
 
         if (record) return record;
 
-        // Fast path: Check visible rows
-        if (view.items) {
-            let row = view.items.find(r => r.record && view.getRecordId(r.record) === id);
+        // Fast path: check visible rows across all bodies
+        for (let body of view.bodies) {
+            let row = body.items.find(r => r.record && body.getRecordId(r.record) === id);
             if (row) return row.record
         }
 
@@ -274,7 +315,14 @@ class BaseModel extends Model {
      * @returns {Neo.grid.Row|null}
      */
     getRowComponent(recordId) {
-        return this.view.items.find(row => row.record && this.view.store.getKey(row.record) === recordId) || null
+        let me = this;
+
+        for (let body of me.view.bodies) {
+            let found = body.items.find(r => r.record && me.view.store.getKey(r.record) === recordId);
+            if (found) return found
+        }
+
+        return null
     }
 
     /**
@@ -318,6 +366,15 @@ class BaseModel extends Model {
     }
 
     /**
+     * @param {Neo.component.Base} component
+     */
+    register(component) {
+        // grid.View registers as the single model's `view`; with one View-owned model there are no
+        // sibling per-body models to adopt state from (the former multi-body Peer State Adoption).
+        super.register(component)
+    }
+
+    /**
      * @param {Number|String} recordId
      * @param {Boolean}       [silent=false]
      */
@@ -330,7 +387,8 @@ class BaseModel extends Model {
 
         NeoArray.add(me.selectedRows, recordId);
 
-        me.updateRows(recordId, silent)
+        me.updateRows(recordId, silent);
+        me.getActivePeers().forEach(peer => peer.updateRows(recordId, silent))
     }
 
     /**
@@ -361,7 +419,7 @@ class BaseModel extends Model {
 
         me.selectedRows = [];
 
-        countRows > 0 && me.view.createViewData();
+        countRows > 0 && me.view.bodies.forEach(body => body.createViewData());
 
         super.unregister()
     }

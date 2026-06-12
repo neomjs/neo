@@ -136,6 +136,9 @@ class Bridge extends Base {
 
             if (role === 'agent') {
                 this.registerAgent(id, ws);
+            } else if (role === 'test') {
+                logger.info(`Bridge: Test client connected [${id}]`);
+                this.registerAgent(id, ws);
             } else {
                 // Default to app if no role specified (backward compatibility)
                 this.registerApp(id, ws, appName);
@@ -171,6 +174,17 @@ class Bridge extends Base {
             type   : 'agent_connected',
             agentId: id
         });
+
+        // Notify the new Agent of all already-connected apps
+        for (const [appWorkerId, appWs] of this.apps.entries()) {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type       : 'app_connected',
+                    appWorkerId,
+                    appName    : appWs.appName || 'Unknown'
+                }));
+            }
+        }
     }
 
     /**
@@ -187,6 +201,7 @@ class Bridge extends Base {
             this.apps.get(id).terminate();
         }
 
+        ws.appName = appName;
         this.apps.set(id, ws);
 
         ws.on('message', (data) => this.handleAppMessage(id, data));

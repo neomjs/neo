@@ -27,18 +27,25 @@ class CellModel extends BaseModel {
      *
      */
     addDomListener() {
-        let me = this;
+        let me            = this,
+            {view}        = me,
+            {parent}      = view,
+            gridContainer = view.gridContainer || parent, // Fallback if no specific Multi-Body structure
+            listener      = {cellClick: me.onCellClick, scope: me};
 
-        me.view.parent.on('cellClick', me.onCellClick, me)
+        gridContainer.on(listener)
     }
 
     /**
      * @param args
      */
     destroy(...args) {
-        let me = this;
+        let me            = this,
+            {view}        = me,
+            parent        = view?.parent,
+            gridContainer = view?.gridContainer || parent;
 
-        me.view.parent.un('cellClick', me.onCellClick, me);
+        gridContainer?.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
     }
@@ -63,9 +70,12 @@ class CellModel extends BaseModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me        = this,
-            {view}    = me,
+        let me                  = this,
+            {view}              = me,
             {dataField, record} = data;
+
+        // The single View-owned model listens once on the gridContainer, so each cell click is
+        // processed exactly once regardless of which body fired it.
 
         if (record && dataField) {
             me.toggleSelection(view.getLogicalCellId(record, dataField))

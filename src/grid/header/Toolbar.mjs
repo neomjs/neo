@@ -26,6 +26,11 @@ class Toolbar extends BaseToolbar {
          */
         dragResortable: true,
         /**
+         * @member {Neo.grid.Container|null} gridContainer=null
+         * @protected
+         */
+        gridContainer: null,
+        /**
          * @member {Object} itemDefaults={ntype: 'grid-header-button'}
          * @reactive
          */
@@ -33,11 +38,23 @@ class Toolbar extends BaseToolbar {
             ntype: 'grid-header-button'
         },
         /**
+         * The section of the multi-body layout this toolbar belongs to.
+         * Valid values: 'start', 'end', or null (center).
+         * @member {String|null} layoutLock=null
+         * @protected
+         */
+        layoutLock: null,
+        /**
          * @member {String} role='row'
          * @reactive
          */
         role: 'row',
         /**
+         * Worker-side mirror of the grid's horizontal scroll position (absolute, in center-content
+         * pixels). Fed by `grid.ScrollManager#onContainerScroll` on every horizontal scroll, and
+         * optimistically by {@link #scrollToIndex} during drag overdrag. {@link #afterSetScrollLeft}
+         * forwards it into the column-drag SortZone's scroll-correction term. The DOM-side header
+         * scroll itself is synced main-thread by `Neo.main.addon.GridHorizontalScrollSync`.
          * @member {Number} scrollLeft_=0
          * @reactive
          */
@@ -65,8 +82,18 @@ class Toolbar extends BaseToolbar {
          * @member {Object} _vdom
          */
         _vdom:
-        {'aria-rowindex': 1, cn: [{cn: []}]}
+            { 'aria-rowindex': 1, cn: [{ cn: [] }] }
     }
+
+    /**
+     * The latest scroll value commanded by {@link #scrollToIndex} and not yet confirmed by its
+     * pipeline echo. While set (and a drag is active), {@link #beforeSetScrollLeft} rejects any
+     * non-matching incoming write as a stale out-of-order echo. Null when no command is in
+     * flight; self-clears on the first write outside an active drag.
+     * @member {Number|null} pendingScrollTarget=null
+     * @protected
+     */
+    pendingScrollTarget = null
 
     /**
      * Triggered after the mounted config got changed
@@ -101,15 +128,59 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the scrollLeft config got changed
+     * Triggered after the scrollLeft config got changed.
+     * Forwards the absolute scroll position into the column-drag SortZone's correction term.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
     afterSetScrollLeft(value, oldValue) {
-        if (oldValue !== undefined && this.sortZone) {
-            this.sortZone.scrollLeft = value
+        let {sortZone} = this;
+
+        if (oldValue !== undefined && sortZone) {
+            sortZone.scrollLeft = value;
+
+            // Term observability while a drag is in flight (itemRects = the mid-drag marker)
+            sortZone.itemRects && sortZone.traceEvent({t: 'scrollSync', sl: value})
         }
+    }
+
+    /**
+     * Command/echo reconciliation for the drag overdrag loop. While a drag is active and a
+     * commanded scroll is in flight ({@link #scrollToIndex} records it), incoming config writes
+     * are echoes from the scroll pipeline — and echoes can arrive out of order under burst
+     * scrolling (one command per walk beat). A stale echo regressing the term re-arms the
+     * loop's nearest-math and force-switches the dragged column: a feedback runaway. The gate
+     * accepts only the echo matching the latest command; anything else mid-drag is stale and
+     * rejected. Outside an active drag the gate is off (and self-clears), so user scrolling is
+     * never filtered.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetScrollLeft(value, oldValue) {
+        let me        = this,
+            {pendingScrollTarget, sortZone} = me;
+
+        if (sortZone?.itemRects) {
+            // Mid-drag this config is COMMAND-DRIVEN: scrollToIndex() writes the backing field
+            // directly and registers its command here; pipeline echoes may only CONFIRM the
+            // latest command. Sub-pixel tolerance: browsers may quantize a fractional
+            // commanded scrollLeft, so the echo can differ by less than a pixel and be ours.
+            if (Neo.isNumber(pendingScrollTarget) && Math.abs(value - pendingScrollTarget) < 1) {
+                me.pendingScrollTarget = null;
+                return value
+            }
+
+            // Everything else mid-drag is stale or foreign — INCLUDING a late echo from an
+            // OLDER command arriving after the latest echo already cleared the pending state;
+            // accepting it would regress the term and re-arm the overdrag loop.
+            return oldValue
+        }
+
+        me.pendingScrollTarget = null;
+        return value
     }
 
     /**
@@ -158,8 +229,8 @@ class Toolbar extends BaseToolbar {
      *
      */
     createItems() {
-        let me        = this,
-            {mounted} = me;
+        let me = this,
+            { mounted } = me;
 
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
@@ -175,7 +246,7 @@ class Toolbar extends BaseToolbar {
 
         super.createItems();
 
-        let {items} = me,
+        let { items } = me,
             style;
 
         items.forEach((item, index) => {
@@ -184,9 +255,9 @@ class Toolbar extends BaseToolbar {
             style = item.wrapperStyle;
 
             // todo: only add px if number
-            if (item.maxWidth) {style.maxWidth = item.maxWidth + 'px'}
-            if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
-            if (item.width)    {style.width    = item.width    + 'px'}
+            if (item.maxWidth) { style.maxWidth = item.maxWidth + 'px' }
+            if (item.minWidth) { style.minWidth = item.minWidth + 'px' }
+            if (item.width) { style.width = item.width + 'px' }
 
             item.wrapperStyle = style
         });
@@ -205,8 +276,8 @@ class Toolbar extends BaseToolbar {
 
         Neo.merge(config, {
             boundaryContainerId: [me.id, me.parent.id],
-            ignoreDragSelector : '.neo-resizable',
-            scrollLeft         : me.scrollLeft
+            ignoreDragSelector: '.neo-resizable',
+            scrollLeft: me.scrollLeft
         });
 
         super.createSortZone(config)
@@ -237,21 +308,23 @@ class Toolbar extends BaseToolbar {
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
-    async passSizeToBody(silent=false) {
-        let me              = this,
-            {items}         = me,
-            {body}          = me.parent,
+    async passSizeToBody(silent = false) {
+        let me = this,
+            gridContainer = me.gridContainer,
+            layoutLock = me.layoutLock,
+            body = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
+            { items } = me,
             columnPositions = [],
-            currentX        = 0,
+            currentX = 0,
             hasDynamicWidth = false,
-            layoutFinished  = true,
-            i               = 0,
-            len             = items.length,
+            layoutFinished = true,
+            i = 0,
+            len = items.length,
             item, rects, w, width;
 
         for (; i < len; i++) {
             item = items[i];
-            w    = item.width;
+            w = item.width;
 
             if (item.flex || !w || (Neo.isString(w) && !w.endsWith('px'))) {
                 hasDynamicWidth = true;
@@ -280,21 +353,21 @@ class Toolbar extends BaseToolbar {
                 for (i = 0; i < len; i++) {
                     columnPositions.push({
                         dataField: items[i].dataField,
-                        width    : rects[i].width,
-                        x        : currentX
+                        width: rects[i].width,
+                        x: currentX
                     });
 
                     currentX += rects[i].width
                 }
             } else {
                 for (i = 0; i < len; i++) {
-                    item  = items[i];
+                    item = items[i];
                     width = item.hidden ? 0 : parseInt(item.width, 10);
 
                     columnPositions.push({
                         dataField: item.dataField,
-                        width    : width,
-                        x        : currentX
+                        width,
+                        x: currentX
                     });
 
                     currentX += width
@@ -313,15 +386,72 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * @param {Number}  index
+     * @summary Scrolls the grid horizontally so the column slot at `index` becomes fully visible,
+     * by driving the dedicated horizontal scrollbar element — the grid's single scroll SSOT.
+     *
+     * Consumer: the column-drag overdrag loop (`draggable.container.SortZone#scrollToIndex`).
+     * Routing through the scrollbar (instead of a scrollIntoView on a header button, which scrolls
+     * whatever ancestor can move — in a locked grid that is the grid container, dragging the locked
+     * regions off-screen and never re-rendering the body) means the production pipeline performs
+     * the sync: `Neo.main.addon.GridHorizontalScrollSync` mirrors the value onto this toolbar's
+     * element and the body's `--grid-scroll-left` var in-frame, while `grid.ScrollManager` ingests
+     * it for buffered column mounting. Locked regions stay frozen; both scroll directions work.
+     *
+     * Only the center (unlocked) toolbar scrolls — locked-region toolbars no-op, since their
+     * content never overflows their region.
+     *
+     * @param {Number} index The slot index inside this toolbar
+     * @param {Object} [itemRect] The slot's rect in center-content space (the drag snapshot)
+     * @param {Number} itemRect.left
+     * @param {Number} itemRect.width
      * @returns {Promise<void>}
      */
-    async scrollToIndex(index) {
-        await Neo.main.DomAccess.scrollIntoView({
-            delay   : 125,
-            id      : this.items[index].id,
-            windowId: this.windowId
-        })
+    async scrollToIndex(index, itemRect) {
+        let me = this;
+
+        if (me.layoutLock || !itemRect) {
+            return
+        }
+
+        let {gridContainer} = me,
+            scrollbar       = gridContainer.horizontalScrollbar,
+            current         = me.scrollLeft,
+            // The center clip width: the grid minus the locked regions (= the scrollbar's scrollport)
+            clipWidth       = gridContainer.body.containerWidth
+                - (gridContainer.bodyStart?.availableWidth || 0)
+                - (gridContainer.bodyEnd?.availableWidth   || 0),
+            target          = null;
+
+        if (itemRect.left < current) {
+            target = itemRect.left
+        } else if (itemRect.left + itemRect.width > current + clipWidth) {
+            target = itemRect.left + itemRect.width - clipWidth
+        }
+
+        if (scrollbar && target !== null) {
+            // Record the command FIRST: beforeSetScrollLeft gates every subsequent config write
+            // against it — only the echo matching this latest command passes; out-of-order echoes
+            // from earlier commands are rejected (they would regress the term and re-arm the
+            // overdrag loop: the runaway switch storm).
+            me.pendingScrollTarget = target;
+
+            // Optimistic worker-side mirror, deliberately BYPASSING the config gate (a config
+            // write would consume the pending command as if the echo had already arrived): the
+            // SortZone term and the backing field update directly; the trace marks the command.
+            me._scrollLeft = target;
+
+            if (me.sortZone) {
+                me.sortZone.scrollLeft = target;
+                me.sortZone.itemRects && me.sortZone.traceEvent({t: 'scrollSync', sl: target})
+            }
+
+            await Neo.main.DomAccess.scrollTo({
+                direction: 'left',
+                id       : scrollbar.id,
+                value    : target,
+                windowId : me.windowId
+            })
+        }
     }
 
     /**
@@ -332,9 +462,9 @@ class Toolbar extends BaseToolbar {
 
         return {
             ...super.toJSON(),
-            scrollLeft        : me.scrollLeft,
-            showHeaderFilters : me.showHeaderFilters,
-            sortable          : me.sortable,
+            scrollLeft: me.scrollLeft,
+            showHeaderFilters: me.showHeaderFilters,
+            sortable: me.sortable,
             useTriStateSorting: me.useTriStateSorting
         }
     }

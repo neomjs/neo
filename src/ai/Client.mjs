@@ -94,8 +94,10 @@ class Client extends Base {
             get_vdom_vnode        : component,
             get_vnode             : component,
             highlight_component   : component,
+            observe_motion        : component,
             query_component       : component,
             query_vdom            : component,
+            verify_component      : component,
 
             call_method            : instance,
             find_instances         : instance,
@@ -108,9 +110,12 @@ class Client extends Base {
             list_stores           : data,
             modify_state_provider : data,
 
+            check_namespace       : runtime,
             get_dom_event         : runtime,
             get_drag              : runtime,
             get_method_source     : runtime,
+            get_namespace_tree    : runtime,
+            get_neo_config        : runtime,
             get_route             : runtime,
             get_window            : runtime,
             inspect_class         : runtime,
@@ -138,12 +143,18 @@ class Client extends Base {
 
         try {
             let url     = new URL(Neo.config.neuralLinkUrl || me.url),
-                appName = 'Unknown App';
+                appName = Neo.config.appName || 'Unknown App';
 
-            if (Neo.config.appPath) {
-                const match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
+            if (appName === 'Unknown App' && Neo.config.appPath) {
+                let match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
+
                 if (match) {
                     appName = match[1]
+                } else {
+                    match = Neo.config.appPath.match(/examples\/([^\/]+)\/([^\/]+)\//);
+                    if (match) {
+                        appName = `Neo.examples.${match[1]}.${match[2]}`
+                    }
                 }
             }
 
@@ -330,7 +341,7 @@ class Client extends Base {
                 id,
                 error: {
                     code   : -32603, // Internal error
-                    message: message,
+                    message,
                     data   : {stack}
                 }
             })

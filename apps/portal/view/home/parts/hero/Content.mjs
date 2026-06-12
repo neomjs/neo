@@ -44,10 +44,14 @@ class Content extends BaseContainer {
             renderSeoList: true,
 
             cycleTexts: [
+                'Self-Evolving Software Organism',
+                'Professional AI Engineering Team',
                 'The Application Engine for the AI Era',
                 'Conversational UIs',
                 'Agentic Control',
-                'The Neural Link',
+                'Neural Link Possession Interface',
+                'Active Hybrid GraphRAG',
+                'The Dream Pipeline',
                 'Live Runtime Mutation',
                 'AI-Native Runtime',
                 'JSON Blueprints since 2019',
@@ -74,8 +78,8 @@ class Content extends BaseContainer {
             tag : 'h3',
 
             text: [
-                'Neo.mjs is the Application Engine for the AI Era. Build desktop-class, multi-window apps where ',
-                'AI agents can see, understand, and control the runtime—enabling the next generation of Conversational UIs.'
+                'Neo.mjs is a self-evolving software organism: a professional AI engineering team whose cross-model ',
+                'swarm inhabits live apps through Neural Link, Active Hybrid GraphRAG, DreamService, and self-healing loops.'
             ].join('')
         }, {
             ntype: 'container',

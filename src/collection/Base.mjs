@@ -1293,7 +1293,7 @@ class Collection extends Base {
      */
     isItem(value) {
         // We can not use Neo.isObject() || Neo.isRecord(), since collections can store neo instances too.
-        return typeof value === 'object'
+        return value !== null && typeof value === 'object'
     }
 
     /**
@@ -1608,7 +1608,32 @@ class Collection extends Base {
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
-                removedItems   : toRemoveArray || removedItems
+                // Always emit actual removed objects, not input keys. `removedItems` (local) is built
+                // at line 1487-1488 from `items.splice(indexOfKey(key), 1)[0]` — always object-shaped.
+                // The legacy `toRemoveArray || removedItems` fallback emitted the INPUT array, which
+                // contained STRING IDs when remove-by-key was used. Rollback at Database.mjs:451
+                // (`store.add(mutation.removedItems)`) then attempted Symbol-assignment on primitive
+                // strings → TypeError (#11595 surface failure).
+                //
+                // Consumer-impact V-B-A 2026-05-18 (corrected scope per @neo-gpt PR #11611 Cycle 1
+                // review using `rg -n "mutate:|on(['\"]mutate" src ai`):
+                //   1. `Database.onNodesMutate` (ai/graph/Database.mjs:378) — consumes via
+                //      `storage.removeNodes` → SQLite.mjs:280 `node.id` extraction. REQUIRES object.
+                //   2. `Database.onEdgesMutate` (ai/graph/Database.mjs:358) — symmetric edge path.
+                //      REQUIRES object.
+                //   3. `Collection.Base.onMutate` (this file L1350) — source-bubble: calls
+                //      `me.splice(null, opts.removedItems, opts.addedItems)`. `splice` handles BOTH
+                //      shapes (L1483: `key = me.isItem(item) ? me.getKey(item) : item`). SHAPE-NEUTRAL.
+                //   4. `Data.Store.onCollectionMutate` (src/data/Store.mjs:1048) — uses
+                //      `opts.addedItems` only; does not touch `removedItems`. PAYLOAD-NEUTRAL.
+                //   5. `Grid.Container.onColumnsMutate` (src/grid/Container.mjs:997) — uses
+                //      `me._columns.items` directly; ignores mutation payload. PAYLOAD-NEUTRAL.
+                //
+                // Net: 2 consumers strictly require object-shape (and previously silently broke or
+                // loudly broke when fed strings); 3 are payload-compatible with either shape. Fix
+                // is structurally narrow-blast — no consumer breaks, 2 previously-silent bugs also
+                // fixed. (#11595)
+                removedItems   : removedItems
             })
         } else if (!me[silentUpdateMode]) {
             me.cacheUpdate({

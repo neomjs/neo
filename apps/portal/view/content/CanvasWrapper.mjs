@@ -1,0 +1,75 @@
+import Container      from '../../../../src/container/Base.mjs';
+import TimelineCanvas from './TimelineCanvas.mjs';
+
+/**
+ * @class Portal.view.content.CanvasWrapper
+ * @extends Neo.container.Base
+ */
+class CanvasWrapper extends Container {
+    static config = {
+        /**
+         * @member {String} className='Portal.view.content.CanvasWrapper'
+         * @protected
+         */
+        className: 'Portal.view.content.CanvasWrapper',
+        /**
+         * @member {String[]} cls=['portal-canvas-wrapper']
+         */
+        cls: ['portal-canvas-wrapper'],
+        /**
+         * @member {Neo.component.Base|null} contentComponent=null
+         */
+        contentComponent: null,
+        /**
+         * @member {Object} layout=null
+         */
+        layout: null,
+        /**
+         * @member {Object} style={overflow:'visible',paddingBottom:'20px',position:'relative'}
+         */
+        style: {overflow: 'visible', paddingBottom: '20px', position: 'relative'}
+    }
+
+    construct(config) {
+        let me = this;
+
+        config.items = [{
+            module   : TimelineCanvas,
+            reference: 'timeline-canvas',
+            style : {
+                position     : 'absolute',
+                top          : 0,
+                left         : 0,
+                width        : '100%',
+                height       : '100%',
+                zIndex       : 2,
+                pointerEvents: 'none'
+            }
+        }, {
+            module: config.contentComponent || me.contentComponent,
+            style : {
+                position: 'relative',
+                zIndex  : 1
+            },
+            listeners: {
+                toggleSummary: me.onToggleSummary,
+                scope        : me
+            }
+        }];
+
+        super.construct(config);
+    }
+
+    /**
+     *
+     */
+    onToggleSummary() {
+        let canvas = this.getReference('timeline-canvas');
+
+        if (canvas?.lastRecords) {
+            canvas.onTimelineDataLoad(canvas.lastRecords, true)
+        }
+    }
+}
+
+export default Neo.setupClass(CanvasWrapper);

@@ -62,7 +62,7 @@ test.describe('Grid Dynamic Column Updates', () => {
             appName  : 'GridDynamicColumnTest',
             height   : 400,
             width    : 300, // Constrained width to force scrolling
-            store    : store,
+            store,
             rowHeight: 40,
             bufferColumnRange: 1,
             columns  : [{

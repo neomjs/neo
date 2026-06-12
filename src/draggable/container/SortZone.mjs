@@ -72,6 +72,19 @@ class SortZone extends DragZone {
          */
         enableProxyToPopup: false,
         /**
+         * While a drag is active, force the owner's width to the full content size of its items
+         * (they leave the layout flow via `position: absolute`, so an auto-sized owner would
+         * collapse and reflow its surroundings).
+         *
+         * Subclasses whose owner is a real scroll container (e.g. the grid header toolbar) opt OUT:
+         * expanding such an owner destroys its scrollable overflow, turning the next programmatic
+         * scroll into a scroll of whatever ancestor can still move — in a locked-columns grid that
+         * is the grid container, which drags the frozen regions off-screen. The owner's height is
+         * always pinned, independent of this config.
+         * @member {Boolean} expandOwnerOnDrag=true
+         */
+        expandOwnerOnDrag: true,
+        /**
          * A CSS selector to ignore drag starts on (e.g. '.neo-resizable').
          * @member {String|null} ignoreDragSelector=null
          */
@@ -107,6 +120,15 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * Applies an inline `position: relative` to the owner for the duration of a drag, making the
+         * owner the containing block for the absolutely positioned items. Required whenever the item
+         * rects get converted into owner-relative space (adjustItemRectsToParent / adjustProxyRectToParent)
+         * but the owner is not otherwise a positioned element — without it, the written left/top values
+         * resolve against an arbitrary positioned ancestor and render offset by the owner's own origin.
+         * @member {Boolean} positionOwnerRelative=false
+         */
+        positionOwnerRelative: false,
+        /**
          * The intersection ratio (0-1) required to re-attach a window-dragged item back into the container.
          * Higher values mean the item must be dragged further in.
          * @member {Number} reattachThreshold=0.6
@@ -118,6 +140,16 @@ class SortZone extends DragZone {
          */
         reversedLayoutDirection: false,
         /**
+         * The owner's absolute horizontal scroll position, in owner-content pixels.
+         *
+         * Seeded at drag start from `owner.scrollLeft` (0 for owners without the config) and kept
+         * live during the drag by the owner — for grids: `grid.ScrollManager` mirrors every
+         * horizontal scroll into `grid.header.Toolbar#scrollLeft`, whose afterSet writes it here;
+         * the overdrag path additionally sets it optimistically (`Toolbar#scrollToIndex`).
+         *
+         * The move-delta math pairs it with `itemRects`, which subclasses snapshot in owner-CONTENT
+         * space (see `adjustProxyRectToParent`): `clientX - ownerX + scrollLeft` is the pointer's
+         * content-space position, comparable against `itemRects[i].left` at any scroll state.
          * @member {Number} scrollLeft=0
          */
         scrollLeft: 0,
@@ -139,6 +171,28 @@ class SortZone extends DragZone {
     }
 
     /**
+     * Ring buffer of recent drag traces (drag lifecycle observability for the Neural Link
+     * `get_drag_trace` tool). Bounded by traceLimit; zero cost beyond plain-object pushes.
+     * @member {Object[]} traces=[]
+     * @protected
+     * @static
+     */
+    static traces = []
+    /**
+     * @member {Number} traceLimit=5
+     * @protected
+     * @static
+     */
+    static traceLimit = 5
+    /**
+     * The trace record of the drag currently in flight, or null.
+     * @member {Object|null} activeTrace=null
+     * @protected
+     * @static
+     */
+    static activeTrace = null
+
+    /**
      * @member {Boolean} isOverDragging=false
      * @protected
      */
@@ -148,6 +202,43 @@ class SortZone extends DragZone {
      * @protected
      */
     isWindowDragging = false
+
+    /**
+     * Appends one event to the active drag trace. Events carry where the drag logic
+     * decided to be, not where the DOM is — pair with the `observe_motion` tool for
+     * the rendered-geometry side of the same window.
+     *
+     * Duplicate-delivery events get COUNT-COMPRESSED onto the previous event (`dup: n`)
+     * instead of logged individually — per-occurrence dup entries used to consume most
+     * of the buffer. At the cap the buffer drops the OLDEST event, not the newest: a
+     * drag's tail (overdrag, scroll, drop resolution) is its most diagnostic part.
+     * @param {Object} data
+     */
+    traceEvent(data) {
+        const trace = SortZone.activeTrace;
+
+        if (!trace) {
+            return
+        }
+
+        const {events} = trace;
+
+        if (data.t === 'dup') {
+            const last = events[events.length - 1];
+
+            if (last) {
+                last.dup = (last.dup || 0) + 1
+            }
+
+            return
+        }
+
+        if (events.length >= 400) {
+            events.shift()
+        }
+
+        events.push({...data, ts: Date.now()})
+    }
 
     /**
      * Toggles the neo-draggable cls on items inside our owner.
@@ -262,7 +353,31 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Handles the completion of the drag operation.
+     * Drag:end entry point. The drag listeners fan out across the owner and its child items, so one
+     * native release can deliver multiple drag:end events. This entry latches synchronously and routes
+     * exactly one delivery into {@link #processDragEnd} — without it, the async drop pipeline runs
+     * twice (double traces, double layout refreshes, double lock verdicts in grids).
+     * @param {Object} data - The drag end event data.
+     */
+    async onDragEnd(data) {
+        let me = this;
+
+        if (me.dragEndActive) {
+            return
+        }
+
+        me.dragEndActive = true;
+
+        try {
+            await me.processDragEnd(data)
+        } finally {
+            me.dragEndActive = false
+        }
+    }
+
+    /**
+     * Handles the completion of the drag operation. Invoked exactly once per drag via the
+     * {@link #onDragEnd} re-entry latch; subclasses extend this method, not `onDragEnd`.
      *
      * This method is responsible for:
      * 1.  **Finalizing the Drop:** If valid, it moves the DOM nodes to their final positions (via `Neo.applyDeltas`).
@@ -273,7 +388,7 @@ class SortZone extends DragZone {
      *
      * @param {Object} data - The drag end event data.
      */
-    async onDragEnd(data) {
+    async processDragEnd(data) {
         let me                  = this,
             {itemStyles, owner} = me,
             ownerStyle          = owner.style || {},
@@ -317,6 +432,7 @@ class SortZone extends DragZone {
 
             ownerStyle.height   = me.ownerStyle.height    || null;
             ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
+            ownerStyle.position = me.ownerStyle.position  || null;
             ownerStyle.width    = me.ownerStyle.width     || null;
 
             owner.style = ownerStyle;
@@ -363,8 +479,14 @@ class SortZone extends DragZone {
                     toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
                 }
 
+                me.traceEvent({t: 'end', from: fromIndex, to: toIndex});
                 me.moveTo(fromIndex, toIndex);
+            } else {
+                me.traceEvent({t: 'end', from: me.startIndex, to: me.currentIndex, noop: true});
             }
+
+            // activeTrace stays set until the next onDragStart replaces it: subclasses record
+            // post-drop resolution events (e.g. the grid lock verdict) after this method returns.
 
             Object.assign(me, {
                 currentIndex    : -1,
@@ -373,7 +495,10 @@ class SortZone extends DragZone {
                 isWindowDragging: false,
                 itemRects       : null,
                 itemStyles      : null,
+                lastInBoundX    : null,
+                lastInBoundY    : null,
                 ownerRect       : null,
+                scrollLeft      : 0,
                 startIndex      : -1,
                 sortableItems   : null
             });
@@ -419,8 +544,16 @@ class SortZone extends DragZone {
             index              = me.currentIndex,
             {itemRects}        = me,
             maxItems           = itemRects.length - 1,
-            ownerX             = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
-            ownerY             = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
+            // itemRects leave viewport space through EITHER conversion mechanism: the
+            // adjustItemRectsToParent flag (parent-managed) or a subclass-provided
+            // adjustProxyRectToParent (grid / table header toolbars). The delta math must
+            // shift clientX/Y into the same owner-relative space in both cases — comparing
+            // viewport cursor coordinates against owner-relative rects inflates delta by the
+            // owner's viewport origin (~the locked-start region width in a locked grid),
+            // making every in-bound move exceed every switch threshold.
+            rectsAreOwnerRelative = me.adjustItemRectsToParent || !!me.adjustProxyRectToParent,
+            ownerX             = rectsAreOwnerRelative ? me.ownerRect.x : 0,
+            ownerY             = rectsAreOwnerRelative ? me.ownerRect.y : 0,
             reversed           = me.reversedLayoutDirection,
             delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
 
@@ -439,10 +572,30 @@ class SortZone extends DragZone {
         isOverDragging = isOverDraggingEnd || isOverDraggingStart;
         moveFactor     = isOverDragging ? 0.02 : 0.55; // We can not use 0.5, since items would jump back & forth
 
+        // Duplicate-delivery guard (in-bound only): the same pointer position can reach this
+        // zone more than once — stacked delegated drag listeners along the DOM path deliver one
+        // move per matching node, and sensor fallbacks re-fire the last position. In-bound switch
+        // decisions are position-driven: re-processing an unchanged position re-qualifies the
+        // delta against already-mutated itemRects and over-switches. The overdrag branches stay
+        // exempt — their auto-scroll loop deliberately re-feeds the same position.
+        if (!isOverDragging && clientX === me.lastInBoundX && clientY === me.lastInBoundY) {
+            me.traceEvent({t: 'dup', x: clientX, y: clientY});
+            return
+        }
+
+        me.lastInBoundX = clientX;
+        me.lastInBoundY = clientY;
+
         if (isOverDraggingStart) {
             if (index > 0) {
                 me.currentIndex--;
                 await me.scrollToIndex();
+
+                // The drag can end while the scroll is awaited; the end-reset nulls itemRects
+                if (!me.itemRects) {
+                    return
+                }
+
                 me.switchItems(index, me.currentIndex)
             }
         }
@@ -451,6 +604,12 @@ class SortZone extends DragZone {
             if (index < maxItems) {
                 me.currentIndex++;
                 await me.scrollToIndex();
+
+                // See the isOverDraggingStart branch: bail when the drag ended mid-await
+                if (!me.itemRects) {
+                    return
+                }
+
                 me.switchItems(index, me.currentIndex)
             }
         }
@@ -468,6 +627,18 @@ class SortZone extends DragZone {
                 me.switchItems(index, me.currentIndex)
             }
         }
+
+        me.traceEvent({
+            t   : 'move',
+            x   : clientX,
+            y   : clientY,
+            i   : me.currentIndex,
+            over: isOverDragging,
+            d   : Math.round(delta),
+            ox  : Math.round(me.offsetX || 0),
+            sl  : me.scrollLeft,
+            ir  : itemRects[me.currentIndex] ? Math.round(itemRects[me.currentIndex].left) : null
+        });
 
         me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
 
@@ -558,8 +729,9 @@ class SortZone extends DragZone {
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
                 lastIntersectionRatio  : 1,
-                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
+                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
+                scrollLeft             : owner.scrollLeft || 0, // absolute owner scroll; subclasses snapshot itemRects in owner-content space
                 sortableItems,
                 sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
                 startIndex             : index
@@ -608,9 +780,9 @@ class SortZone extends DragZone {
 
             owner.style = {
                 ...ownerStyle,
-                height  : `${me.ownerRect.height}px`,
-                minWidth: `${me.ownerRect.width}px`,
-                width   : `${me.ownerRect.width}px`
+                height: `${me.ownerRect.height}px`,
+                ...(me.expandOwnerOnDrag      && {minWidth: `${me.ownerRect.width}px`, width: `${me.ownerRect.width}px`}),
+                ...(me.positionOwnerRelative  && {position: 'relative'})
             };
 
             adjustItemRectsToParent && itemRects.forEach(rect => {
@@ -619,6 +791,22 @@ class SortZone extends DragZone {
             });
 
             me.itemRects = itemRects;
+
+            SortZone.activeTrace = {
+                events    : [],
+                items     : sortableItems.map(item => item.id),
+                ownerId   : owner.id,
+                rects     : itemRects.map(rect => ({left: rect.left, width: rect.width})),
+                startIndex: index,
+                startedAt : Date.now(),
+                zoneId    : me.id
+            };
+
+            SortZone.traces.push(SortZone.activeTrace);
+
+            if (SortZone.traces.length > SortZone.traceLimit) {
+                SortZone.traces.shift()
+            }
 
             await me.dragStart(data);
 
@@ -663,10 +851,18 @@ class SortZone extends DragZone {
     onWindowDragContinue(intersectionRatio, data) {}
 
     /**
+     * Scrolls the owner so the current index becomes reachable. The owner performs the actual
+     * scroll through its production scroll pipeline (for grids: driving the dedicated horizontal
+     * scrollbar element — `grid.header.Toolbar#scrollToIndex`), which also keeps `me.scrollLeft`
+     * current: optimistically via the owner's reactive `scrollLeft` config, and authoritatively
+     * via the scroll-event echo (`grid.ScrollManager` → `Toolbar#afterSetScrollLeft` → this zone).
+     * Move processing is latched off (`isScrolling`) for the duration of the owner call.
      * @returns {Promise<void>}
      */
     async scrollToIndex() {
         let me = this;
+
+        me.traceEvent({t: 'scroll', i: me.currentIndex, sl: me.scrollLeft});
 
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
@@ -691,6 +887,8 @@ class SortZone extends DragZone {
         let me       = this,
             reversed = me.reversedLayoutDirection,
             tmp;
+
+        me.traceEvent({t: 'switch', i1: index1, i2: index2});
 
         if ((!reversed && index2 < index1) || (reversed && index1 < index2)) {
             tmp    = index1;

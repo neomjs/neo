@@ -40,6 +40,8 @@ import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 test.describe('Grid Pooling & Fixed-DOM-Order', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+
     let grid, store;
 
     // Helper to capture deltas during an operation
@@ -100,7 +102,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
             appName  : 'GridPoolingTest',
             height   : 400, // 10 rows visible (40px each)
             width    : 600,
-            store    : store,
+            store,
             rowHeight: 40,
             // Use small buffer for deterministic testing
             bufferRowRange: 2,
@@ -179,9 +181,11 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const scrollAmount = 400; // Scroll down 10 rows (one full page)
 
         const deltas = await captureDeltas(async () => {
-            body.scrollTop = scrollAmount;
-            // Wait for update
-            await body.promiseUpdate();
+            // Vertical scrolling is orchestrated by grid.View (the scroll SSOT): the DOM scroll
+            // event reaches View.syncBodies via the ScrollManager; body.scrollTop is a passive
+            // mirror. Driving syncBodies directly exercises the real recycle path deterministically.
+            grid.view.syncBodies(scrollAmount);
+            await grid.view.promiseUpdate();
         });
 
         // Analyze Deltas
@@ -302,8 +306,10 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const maxScroll = totalHeight - 400;
 
         await captureDeltas(async () => {
-            body.scrollTop = maxScroll;
-            await body.promiseUpdate();
+            // Driving the View-level scroll SSOT directly also asserts the engine-side clamping:
+            // no browser is present to clamp scrollTop, so the startIndex math must do it.
+            grid.view.syncBodies(maxScroll);
+            await grid.view.promiseUpdate();
         });
 
         // Check the last visible row
@@ -330,16 +336,16 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const body = grid.body;
 
         // Reset to top
-        body.scrollTop = 0;
-        await body.promiseUpdate();
+        grid.view.syncBodies(0);
+        await grid.view.promiseUpdate();
         await grid.timeout(50);
 
         const deltas = await captureDeltas(async () => {
             // Jump 4 rows (160px) to be absolutely sure we cross the buffer (2 rows)
             // Start 0 (Mounted 0..12) -> Start 4 (Mounted 2..14)
             // Rows 0, 1 recycle to Rows 13, 14.
-            body.scrollTop = 160;
-            await body.promiseUpdate();
+            grid.view.syncBodies(160);
+            await grid.view.promiseUpdate();
         });
 
         // Analysis

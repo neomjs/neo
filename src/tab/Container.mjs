@@ -415,7 +415,7 @@ class Container extends BaseContainer {
         defaultConfig = {
             module : HeaderButton,
             flex   : 'none',
-            index  : index,
+            index,
             pressed: me.activeIndex === index,
 
             domListeners: [{

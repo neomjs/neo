@@ -31,21 +31,15 @@ class NewsTabContainer extends TabContainer {
             cls: ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar']
         },
         /**
+         * Items are listed in the intended top-to-bottom display order for the left-docked tab bar.
          * @member {Object[]} items
          */
         items: [{
-            module: () => import('./medium/Container.mjs'),
+            module: () => import('./release/MainContainer.mjs'),
             header: {
-                iconCls: 'fab fa-medium',
-                route  : '/news/medium',
-                text   : 'Medium'
-            }
-        }, {
-            module: () => import('./blog/MainContainer.mjs'),
-            header: {
-                iconCls: 'neo-logo-blue',
-                route  : '/news/blog',
-                text   : 'Blog'
+                iconCls: 'fa fa-scroll',
+                route  : '/news/releases',
+                text   : 'Release Notes'
             }
         }, {
             module: () => import('./tickets/MainContainer.mjs'),
@@ -55,11 +49,32 @@ class NewsTabContainer extends TabContainer {
                 text   : 'Tickets'
             }
         }, {
-            module: () => import('./release/MainContainer.mjs'),
+            module: () => import('./discussions/MainContainer.mjs'),
             header: {
-                iconCls: 'fa fa-scroll',
-                route  : '/news/releases',
-                text   : 'Release Notes'
+                iconCls: 'fa fa-comments',
+                route  : '/news/discussions',
+                text   : 'Discussions'
+            }
+        }, {
+            module: () => import('./blog/MainContainer.mjs'),
+            header: {
+                iconCls: 'neo-logo-blue',
+                route  : '/news/blog',
+                text   : 'Blog'
+            }
+        }, {
+            module: () => import('./medium/Container.mjs'),
+            header: {
+                iconCls: 'fab fa-medium',
+                route  : '/news/medium',
+                text   : 'Medium'
+            }
+        }, {
+            module: () => import('./pulls/MainContainer.mjs'),
+            header: {
+                iconCls: 'fa fa-code-pull-request',
+                route  : '/news/pulls',
+                text   : 'Pull Requests'
             }
         }],
         /**

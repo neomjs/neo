@@ -2,8 +2,8 @@ openapi: 3.0.3
 info:
   title: Neo.mjs GitHub Workflow MCP Server API
   description: |
-    This API provides structured access to the Neo.mjs GitHub repository, enabling the automation of contribution workflows. 
-    It uses a hybrid approach, leveraging both the GitHub CLI (`gh`) for simple, direct commands (e.g., checking out a PR) 
+    This API provides structured access to the Neo.mjs GitHub repository, enabling the automation of contribution workflows.
+    It uses a hybrid approach, leveraging both the GitHub CLI (`gh`) for simple, direct commands (e.g., checking out a PR)
     and the GitHub GraphQL API for complex data fetching and mutations (e.g., listing PRs, creating comments, syncing issues).
     This allows AI agents to programmatically interact with pull requests and issues in a safe and efficient manner.
   version: 1.0.0
@@ -224,15 +224,60 @@ paths:
           schema:
             type: integer
             example: 123
+        - name: file
+          in: query
+          required: false
+          description: |
+            Optional. Comma-separated list of file paths to filter the diff.
+            When provided alone, filters the PR diff to only include chunks for these paths.
+          schema:
+            type: string
+            example: "src/main.js,src/utils.js"
+        - name: sha
+          in: query
+          required: false
+          description: |
+            Optional. When provided alongside `file`, the diff is computed against the named commit, not the live PR head.
+            Defends against working-tree race conditions in concurrent-PR scenarios. Requires `file`.
+          schema:
+            type: string
+        - name: files_only
+          in: query
+          required: false
+          description: |
+            Optional. If true, returns a structured JSON payload of affected files (`path`, `additions`, `deletions`) instead of a plaintext diff.
+          schema:
+            type: boolean
       responses:
         '200':
-          description: The diff of the pull request.
+          description: The diff of the pull request or structured file list.
           content:
             text/plain:
               schema:
                 type: string
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        additions:
+                          type: integer
+                        deletions:
+                          type: integer
+        '400':
+          description: Invalid arguments (e.g., missing file when sha is provided, or invalid sha format).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Pull request not found.
+          description: Pull request or SHA not found.
           content:
             application/json:
               schema:
@@ -246,25 +291,101 @@ paths:
 
   /pull-requests/{pr_number}/conversation:
     get:
-      summary: Get PR Conversation
+      summary: Get Conversation (Issue or PR)
       operationId: get_conversation
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
-        Retrieves the full conversation for a pull request, including the title, body, and all comments.
+        Retrieves the conversation (title, body, comments) for a pull request OR an issue.
+        Supply exactly one of `pr_number` or `issue_number`.
 
         **When to Use:**
-        Use this tool to get the complete context of a pull request, including the initial proposal and the full discussion history, which is essential for a comprehensive review.
+        Use this tool to get the context of a pull request or issue — the initial proposal/body and the discussion history.
+
+        **Comment selectors (optional, first-match precedence):**
+        - `comment_id`: fetch ONLY the comment whose GitHub node ID matches. Used for A2A
+          hand-off — a reviewer mailboxes the `commentId` (returned by `manage_issue_comment`
+          action:`create`) to the peer, and the peer fetches just-this-comment rather than
+          re-walking the whole thread. Scales linearly with new-comment volume.
+        - `since_comment_id`: fetch comments AFTER the one with the given ID (exclusive).
+          Incremental review cycles: track last-seen commentId, fetch only what's new.
+        - `last_n`: fetch the last N comments. Coarse-grained catch-up when IDs aren't tracked.
+
+        Omitting all selectors returns the full conversation (backward-compatible default).
       tags: [Pull Requests]
-      parameters:
-        - name: pr_number
-          in: path
-          required: true
-          description: The number of the pull request.
-          schema:
-            type: integer
-            example: 123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pr_number:
+                  type: integer
+                  description: The pull request number. Supply either `pr_number` or `issue_number`, not both.
+                  example: 10272
+                issue_number:
+                  type: integer
+                  description: The issue number. Supply either `pr_number` or `issue_number`, not both.
+                  example: 10702
+                comment_id:
+                  type: string
+                  description: Return only the comment whose GitHub global node ID matches. Elides all other comments; PR title/body are still returned.
+                  example: "IC_kwDOABcD1234567890"
+                since_comment_id:
+                  type: string
+                  description: Return only comments AFTER the one with this ID (exclusive). If the ID isn't found, returns empty comments.
+                  example: "IC_kwDOABcD1234567890"
+                last_n:
+                  type: integer
+                  description: Return only the last N comments (by creation order).
+                  example: 3
       responses:
+        '200':
+          description: Conversation data for the pull request, optionally filtered by selector.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Conversation shape (issue or pull request) — title/body/author plus a (possibly filtered) comments collection.
+                properties:
+                  title:
+                    type: string
+                  body:
+                    type: string
+                  author:
+                    type: object
+                    properties:
+                      login:
+                        type: string
+                  comments:
+                    type: object
+                    properties:
+                      nodes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              description: The GitHub global node ID of the comment.
+                            author:
+                              type: object
+                              properties:
+                                login:
+                                  type: string
+                            body:
+                              type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+        '400':
+          description: Bad Request (neither or both of `pr_number` / `issue_number` supplied).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error, e.g., `gh` command failed.
           content:
@@ -331,11 +452,17 @@ paths:
                   example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
-          description: Comment created or updated successfully.
+          description: |
+            Comment created or updated successfully. Returns the canonical comment identifier
+            (`commentId`), its GitHub URL, and the relevant timestamp (`createdAt` on create,
+            `updatedAt` on update) so the caller can surface the canonical reference for A2A
+            propagation patterns — see `.agents/skills/pr-review/references/pr-review-guide.md §9`
+            and `.agents/skills/pull-request/references/pull-request-workflow.md §8` for the
+            comment-ID hand-off convention that pairs with `get_conversation({comment_id: …})`.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/CommentResponse'
         '400':
           description: Bad Request (missing arguments or invalid action).
           content:
@@ -429,19 +556,30 @@ paths:
 
   /issues/{issue_number}/assignees/manage:
     post:
-      summary: Manage Issue Assignees (Add or Remove)
+      summary: Manage Issue Assignees (Single Guarded MCP Operation — Add or Remove)
       operationId: manage_issue_assignees
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
         Unified tool for assigning or unassigning users from a GitHub issue.
+        Performs a single guarded operation with precondition checking.
 
-        **Action: 'add'**
-        - Assigns one or more users.
+        **Action: 'add' — gated**
+        - Default `requireUnassigned: true` rejects adding to already occupied issues with
+          `ASSIGNEE_CONFLICT` (HTTP 409).
+        - To override an occupied issue, pass `acknowledgedReassign: '<reason>'` for strict replacement.
+          This clears existing assignees, assigns the new set, and posts an audit-trail comment with the reason.
+        - `requireUnassigned: false` allows legacy blind-add.
 
-        **Action: 'remove'**
-        - Unassigns one or more users.
+        **Action: 'remove' — ungated**
+        - Unassigns one or more users (the named set).
+
+        **Empty assignees array (`action: 'add'`, `assignees: []`) — clear mode**
+        - Clears all current assignees safely.
+
+        **Special Values:**
+        - `@me`: Resolves to the authenticated GitHub user.
 
         **Permission Check:**
         Requires `ADMIN`, `MAINTAIN`, or `WRITE` permissions. Returns 403 otherwise.
@@ -472,11 +610,28 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: An array of GitHub user logins.
-                  example: ["tobiu"]
+                  description: An array of GitHub user logins. Use `@me` to assign/unassign the authenticated user.
+                  example: ["@me"]
+                requireUnassigned:
+                  type: boolean
+                  default: true
+                  description: |
+                    Precondition gate for `action: 'add'`. When `true` (default), the tool fetches
+                    current assignees and rejects with `ASSIGNEE_CONFLICT` (HTTP 409) if non-empty,
+                    unless `acknowledgedReassign` is provided. Set to `false` to bypass the gate
+                    (legacy blind-add path; new callers should not rely on this).
+                  example: true
+                acknowledgedReassign:
+                  type: string
+                  description: |
+                    Reason-bearing override for strict-replacement reassignment. When provided
+                    alongside `action: 'add'` on an occupied issue, the tool clears existing
+                    assignees, assigns the new set, and posts an audit-trail comment on the
+                    issue capturing this reason. Required when overriding an existing assignment.
+                  example: "context-exhaustion handoff from peer who session-sunsetted"
       responses:
         '200':
-          description: Assignees updated successfully.
+          description: Assignees updated successfully. Response includes `verifiedAssignees` (post-verify state) and, for override paths, `acknowledgedReassign` + `previousAssignees`.
           content:
             application/json:
               schema:
@@ -493,8 +648,177 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: |
+            `ASSIGNEE_CONFLICT` — precondition gate rejected blind-add on an occupied issue.
+            Response includes `currentAssignees` (existing) + `attemptedAssignees` (requested)
+            for caller introspection. To proceed, retry with `acknowledgedReassign: '<reason>'`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pulls/{pr_number}/review/manage:
+    post:
+      summary: Manage PR Review (Create or Update — atomic body + formal-state in one call)
+      operationId: manage_pr_review
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Atomic create/update of a formal PR review. `create` posts body + flips reviewDecision and requires `pr_number`, `state` (APPROVED/REQUEST_CHANGES/COMMENT), and `body`; `update` requires `review_id` (PRR_*) + `body` and cannot change state. Returns reviewId, state, url, and submittedAt.
+
+        Mandatory pre-step: read `.agents/skills/pr-review/SKILL.md` and use the cycle-appropriate template.
+
+        Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. #12448 premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`) are optional during migration: omit all three or include all three together.
+      tags: [PullRequests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request (path placeholder; the request body's `pr_number` is the authoritative input for `create`).
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - body
+              properties:
+                action:
+                  type: string
+                  enum: [create, update]
+                  description: The action to perform.
+                  example: create
+                pr_number:
+                  type: integer
+                  description: The pull request number (required for `create`).
+                  example: 11273
+                state:
+                  type: string
+                  enum: [APPROVED, REQUEST_CHANGES, COMMENT]
+                  description: Review state (required for `create`).
+                  example: APPROVED
+                body:
+                  type: string
+                  description: The review body.
+                review_id:
+                  type: string
+                  description: The GraphQL node ID of the existing review (required for `update`, e.g. `PRR_*`).
+                  example: "PRR_kwDOABcDef1234567890"
+      responses:
+        '200':
+          description: |
+            Review created or updated successfully. Returns `reviewId` (PRR_* node ID), `state`, `url`, `submittedAt`, plus `databaseId` on create.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  reviewId:
+                    type: string
+                  state:
+                    type: string
+                  url:
+                    type: string
+                  submittedAt:
+                    type: string
+                  databaseId:
+                    type: integer
+        '400':
+          description: Bad Request (invalid action / missing arguments / invalid state).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pull request not found (create) or review id invalid (update).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: GraphQL API request failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pulls/{pr_number}/reviewers/manage:
+    post:
+      summary: Manage PR Reviewers (Add or Remove)
+      operationId: manage_pr_reviewers
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI. Pairs with the cross-family review mandate (`pull-request §6.1`) as the **invitation layer** — the mandate is the validation layer (Approved-status before merge); this tool surfaces the active invitation primitive that pairs with it.
+
+        **Action: 'add'** — requests review from the listed users/teams.
+        **Action: 'remove'** — withdraws review requests.
+
+        At least one of `reviewers` or `team_reviewers` is required. Permission errors are surfaced via the underlying `gh` CLI's exit code.
+      tags: [PullRequests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove]
+                  description: The action to perform.
+                  example: add
+                reviewers:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of GitHub user logins to add or remove as reviewers.
+                  example: ["neo-gemini-pro"]
+                team_reviewers:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of team slugs (without owner prefix; the owner is auto-prepended).
+                  example: ["maintainers"]
+      responses:
+        '200':
+          description: Reviewer-requests updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid arguments (bad action OR missing both reviewers and team_reviewers).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: GitHub CLI command failed (typically permission or network).
           content:
             application/json:
               schema:
@@ -554,6 +878,8 @@ paths:
 
         **When to Use:**
         - To find open work items or review recent closed issues.
+        - Use `projection: 'title'` for title-first backlog scans where issue bodies would waste context.
+        - Use the default `projection: 'full'` when you need issue bodies in the list response.
         - To look up issue numbers for use in other tools.
       tags: [Issues]
       parameters:
@@ -586,6 +912,14 @@ paths:
           description: Filter issues by a single assignee login.
           schema:
             type: string
+        - name: projection
+          in: query
+          required: false
+          description: Response projection. `full` preserves the existing body-bearing shape, `summary` omits body but keeps triage metadata, and `title` / `title_only` return a compact title-scan shape. Use `get_conversation` for full context after selecting a candidate issue.
+          schema:
+            type: string
+            enum: [full, summary, title, title_only]
+            default: full
       responses:
         '200':
           description: A list of issues.
@@ -607,32 +941,9 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Creates a new issue on GitHub. This is the authoritative first step for creating a new ticket.
+        Creates a new GitHub issue. **MANDATORY** pre-step: read `.agents/skills/ticket-create/SKILL.md` — the skill contains the full creation protocol (duplicate sweep, Fat Ticket body, label rules, post-creation chaining).
 
-        ## CRITICAL PROTOCOL: READ BEFORE USING
-        You generally FAIL to show the proposal to the user before calling this tool. Do not let that happen.
-
-        **MANDATORY WORKFLOW (Do Not Skip):**
-
-        1.  **Check Labels:** Run `list_labels` to verify available labels.
-        2.  **Draft Content:** Formulate the `title`, `body`, and `labels`.
-        3.  **VISUAL PROPOSAL (REQUIRED):** You **MUST** display the proposed ticket content to the user **IN THE CHAT** before calling this tool. Use this format:
-            ```text
-            Title: [Proposed Title]
-            Labels: [label1, label2]
-            Body:
-            [Proposed Body]
-            ```
-        4.  **Call Tool:** Immediately call `create_issue` after displaying the proposal. Do not ask for permission first (the user can decline the tool call).
-
-        **STRICT LABELING RULES:**
-        - **MANDATORY:** The `ai` label is REQUIRED on ALL tickets you create.
-        - **PRIMARY:** Include one primary label: `epic`, `enhancement`, or `bug`.
-        - **SECONDARY:** Add other relevant labels (e.g., `documentation`) if they exist.
-
-        **Post-Creation:**
-        The tool returns the new issue number. You can use this number immediately for other tools (e.g., `create_comment`, `manage_issue_assignees`).
-        To update the issue body later, use `run_shell_command` with `gh issue edit {number} --body "..."`.
+        **ProjectV2 membership:** Use the `projects` parameter to atomically attach the new issue to one or more org-level ProjectV2 boards. This is the substrate-correct primitive — labels and projects are independent first-class GitHub primitives, and `release:v*` label-as-project-proxy is a deprecated anti-pattern (#11233).
       tags: [Issues]
       requestBody:
         required: true
@@ -660,7 +971,23 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: (Optional) An array of GitHub user logins to assign to the issue. Requires write permissions.
+                  description: (Optional) An array of GitHub user logins to assign to the issue. Use `@me` to assign the authenticated user. Requires write permissions.
+                  example: ["@me"]
+                  default: []
+                projects:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - projectNumber
+                    properties:
+                      projectNumber:
+                        type: integer
+                        description: The org-level ProjectV2 number (e.g., `12` for "v13 Release").
+                  description: |
+                    (Optional) Array of ProjectV2 memberships to add atomically after issue creation.
+                    Each entry specifies a project number; the issue is added via the `addProjectV2ItemById` GraphQL mutation.
+                    Replaces the deprecated `release:v*` label-as-proxy pattern.
                   default: []
       responses:
         '201':
@@ -671,6 +998,442 @@ paths:
                 $ref: '#/components/schemas/CreateIssueResponse'
         '500':
           description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues/{issue_number}/projects/manage:
+    post:
+      summary: Manage Issue ProjectV2 Memberships (Add, Remove, or Update Field)
+      operationId: manage_issue_projects
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified tool for managing an issue's ProjectV2 memberships. Mirror-shape of `manage_issue_labels` for the project-membership substrate.
+
+        **Action: 'add'**
+        - Adds the issue to one or more ProjectV2 boards via `addProjectV2ItemById`.
+        - Requires `projectNumbers` (array of org-level project numbers).
+
+        **Action: 'remove'**
+        - Removes the issue from one or more ProjectV2 boards via `deleteProjectV2Item`.
+        - Requires `projectNumbers`.
+
+        **Action: 'update_field'**
+        - Updates a single-select field value (e.g., 'Status', 'Priority') on the issue's project item.
+        - Requires `projectNumber`, `fieldName`, and `value`.
+
+        **Migration substrate:** This tool is the substrate-correct replacement for the `release:v13` label-as-project-membership-proxy pattern (#11233). Labels are categorization primitives; projects are first-class membership primitives — these are independent GitHub concepts and cannot be reduced to one another without structural drift.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue or pull request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove, update_field]
+                  description: The action to perform.
+                  example: add
+                projectNumbers:
+                  type: array
+                  items:
+                    type: integer
+                  description: An array of org-level ProjectV2 numbers (required for 'add' and 'remove').
+                  example: [12]
+                projectNumber:
+                  type: integer
+                  description: A single org-level ProjectV2 number (required for 'update_field').
+                  example: 12
+                fieldName:
+                  type: string
+                  description: The name of the single-select field to update (required for 'update_field').
+                  example: "Status"
+                value:
+                  type: string
+                  description: The option name for the single-select field (required for 'update_field').
+                  example: "In Progress"
+      responses:
+        '200':
+          description: Project membership(s) updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request (invalid action or missing required parameters).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Issue or project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /discussions:
+    post:
+      summary: Create a new GitHub Discussion
+      operationId: create_discussion
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Creates a new discussion on GitHub. This is used for the Ideation Sandbox, keeping brainstorming separate from issues.
+
+        **MANDATORY WORKFLOW:**
+        - Always provide a clear title and body.
+        - Categories are mapped internally; default is 'Ideas'. If another categorical structure is needed, specify it.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - body
+              properties:
+                title:
+                  type: string
+                  description: The title of the discussion.
+                body:
+                  type: string
+                  description: The Markdown body of the discussion.
+                category:
+                  type: string
+                  description: The name of the category (e.g., 'Ideas', 'Q&A'). Defaults to 'Ideas'.
+                  default: "Ideas"
+      responses:
+        '201':
+          description: Discussion created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIssueResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /discussions/manage:
+    post:
+      summary: Manage GitHub Discussions (Update Body)
+      operationId: manage_discussion
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Manages discussion-level operations on GitHub discussions.
+
+        **Action: 'update_body'**
+        - Replaces the body of an existing discussion in place (e.g. post-publication corrections to an Ideation Sandbox entry, keeping the body as the single source of truth instead of accumulating correction comments).
+        - Requires `discussion_number` and `body`.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - discussion_number
+                - body
+              properties:
+                action:
+                  type: string
+                  enum: [update_body]
+                  description: The action to perform.
+                  example: update_body
+                discussion_number:
+                  type: integer
+                  description: The number of the discussion to update.
+                  example: 10137
+                body:
+                  type: string
+                  description: The new Markdown body for the discussion.
+      responses:
+        '200':
+          description: Discussion body updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  discussionId:
+                    type: string
+                    description: The canonical GitHub global node ID of the discussion.
+                    example: "D_kwDODSospM4AmbhL"
+                  url:
+                    type: string
+                    description: The canonical HTTP URL of the discussion on github.com.
+                    example: "https://github.com/orgs/neomjs/discussions/10137"
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    description: The last-modified timestamp (ISO-8601).
+                    example: "2026-05-16T02:49:38Z"
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /discussions/conversation:
+    get:
+      summary: Get Discussion Conversation
+      operationId: get_discussion_conversation
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a GitHub Discussion's title/body metadata plus top-level comments and nested replies.
+
+        **When to Use:**
+        Use this tool for Ideation Sandbox review/re-poll cycles where only a specific comment,
+        a delta after a known comment, or a small tail of recent comments is needed.
+
+        **Comment selectors (optional, first-match precedence):**
+        - `comment_id`: fetch ONLY the top-level discussion comment whose GitHub node ID matches.
+          Used for A2A hand-off after `manage_discussion_comment({action: 'create'})` returns
+          `commentId`.
+        - `since_comment_id`: fetch top-level discussion comments AFTER the one with the given ID
+          (exclusive). If the ID is not found, returns an empty comments list.
+        - `last_n`: fetch the last N top-level discussion comments.
+
+        Omitting all selectors returns the full bounded Discussion conversation shape.
+      tags: [Discussions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - discussion_number
+              properties:
+                discussion_number:
+                  type: integer
+                  description: The number of the discussion to retrieve.
+                  example: 10137
+                comment_id:
+                  type: string
+                  description: Return only the top-level discussion comment whose GitHub global node ID matches. Discussion title/body metadata is still returned.
+                  example: "DC_kwDOABcD1234567890"
+                since_comment_id:
+                  type: string
+                  description: Return only top-level discussion comments AFTER the one with this ID (exclusive). If the ID is not found, returns empty comments.
+                  example: "DC_kwDOABcD1234567890"
+                last_n:
+                  type: integer
+                  description: Return only the last N top-level discussion comments.
+                  example: 3
+      responses:
+        '200':
+          description: Discussion conversation data, optionally narrowed by selector.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: The canonical GitHub global node ID of the discussion.
+                  number:
+                    type: integer
+                    description: The GitHub Discussion number.
+                  title:
+                    type: string
+                  body:
+                    type: string
+                  url:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                  author:
+                    type: object
+                    properties:
+                      login:
+                        type: string
+                  category:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                  comments:
+                    type: object
+                    properties:
+                      nodes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              description: The GitHub global node ID of the discussion comment.
+                            author:
+                              type: object
+                              properties:
+                                login:
+                                  type: string
+                            body:
+                              type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
+                            url:
+                              type: string
+                            isAnswer:
+                              type: boolean
+                            replies:
+                              type: object
+                              properties:
+                                nodes:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      author:
+                                        type: object
+                                        properties:
+                                          login:
+                                            type: string
+                                      body:
+                                        type: string
+                                      createdAt:
+                                        type: string
+                                        format: date-time
+                                      updatedAt:
+                                        type: string
+                                        format: date-time
+                                      url:
+                                        type: string
+                                      isAnswer:
+                                        type: boolean
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Discussion not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /discussions/comments/manage:
+    post:
+      summary: Manage Discussion Comments (Create or Update)
+      operationId: manage_discussion_comment
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified tool for creating and updating comments on GitHub discussions.
+
+        **Action: 'create'**
+        - Creates a new comment on a discussion.
+        - Requires `agent`, `body`, and `discussion_number`.
+        - Returns `commentId` for scoped hand-off via `get_discussion_conversation`.
+
+        **Action: 'update'**
+        - Updates an existing discussion comment.
+        - Requires `comment_id` and `body`.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - body
+              properties:
+                action:
+                  type: string
+                  enum: [create, update]
+                  description: The action to perform.
+                  example: create
+                discussion_number:
+                  type: integer
+                  description: The number of the discussion (required for 'create').
+                  example: 456
+                comment_id:
+                  type: string
+                  description: The global node ID of the comment (required for 'update').
+                  example: "DC_kwDOABcD1234567890"
+                body:
+                  type: string
+                  description: The content of the comment.
+                agent:
+                  type: string
+                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
+                  example: "Gemini 3.1 Pro (Antigravity)"
+      responses:
+        '200':
+          description: Comment created or updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:
@@ -771,21 +1534,18 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Triggers the full, bi-directional synchronization of GitHub issues and releases with the local filesystem.
+        Bi-directional sync of GitHub issues/releases with local markdown files in `resources/content/`.
 
-        **When to Use (Use Sparingly):**
-        - **Fetching Remote Changes:** Call this if you suspect a teammate has updated tickets and you need to see the changes locally.
-        - **Pushing Local Edits:** Call this if you have manually modified a local `.md` file (e.g., updating a description) and need to push that text change to GitHub.
+        **Precondition: working tree MUST be on `dev`.** Mechanically enforced — calls from non-dev branches are rejected pre-flight with no remote calls and no local writes.
 
-        **When NOT to Use:**
-        - **Do NOT call after `create_issue` or `create_comment`:** You already have the content in your context window. The server also handles basic sync automatically.
-        - **Do NOT call for code changes:** This tool only syncs ticket metadata, not code commits.
+        **Use sparingly:**
+        - DO: pull remote ticket updates or push manual edits to local `.md` files.
+        - DON'T: after `create_issue` or `create_comment` (already in context).
+        - DON'T: for code changes (syncs only ticket metadata).
 
-        **Key Functions:**
-        - **Pulls remote changes:** Fetches the latest issue and release data from GitHub.
-        - **Creates local files:** If a new issue was created on GitHub (e.g., via the `create_issue` tool), this process will create the corresponding local `.md` file.
-        - **Pushes local changes:** Scans for modifications in local issue files (in the active `ISSUE` directory only) and pushes them to GitHub.
-        - **Efficient:** Uses a metadata cache and content hashing to ensure that only actual changes are pushed or pulled, making it fast for no-op runs.
+        **How it works:** pulls remote data, creates `.md` files for new issues, pushes modified `.md` files to GitHub. Cached for fast no-ops.
+
+        **Rejection:** throws `sync_all REJECTED: working-tree is on branch '<name>', not 'dev'.` with remediation guidance pointing to switch-to-dev or daemon-driven sync.
       tags: [Issues]
       responses:
         '200':
@@ -834,6 +1594,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /system/state/transition:
+    post:
+      summary: Signal State Transition
+      operationId: signal_state_transition
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Provides a native state-trap for Headless Orchestration to gracefully capture execution states or signal logic failures.
+
+        Support `state: 'PR_OPENED'` to trigger autonomous turn-completion and shutdown sequences.
+        Support `state: 'BLOCKED'` and `state: 'HANDOFF'` for derailed agents, enabling them to pass a localized artifact mapping the problem back to the Orchestrator, which natively applies the `agent-task:blocked` label on GitHub.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - state
+              properties:
+                state:
+                  type: string
+                  enum: [PR_OPENED, BLOCKED, HANDOFF]
+                  description: The execution state to signal.
+                target_id:
+                  type: integer
+                  description: The target Issue or PR number associated with this state.
+                artifact_path:
+                  type: string
+                  description: Optional file path to a localized artifact mapping the problem.
+      responses:
+        '200':
+          description: State transition signal received and processed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalStateTransitionResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
@@ -850,6 +1656,36 @@ components:
           type: string
           description: The version of the MCP server.
           example: "1.0.0"
+        runtimeFreshness:
+          type: object
+          description: Compact boot-vs-current runtime freshness diagnostic for detecting stale GitHub Workflow MCP process attachments.
+          properties:
+            status:
+              type: string
+              enum: [current, stale, unknown]
+              description: Whether service-owned OpenAPI identity marks the running process stale. Git HEAD drift is contextual only.
+            startedAt:
+              type: string
+              format: date-time
+              description: When the MCP runtime module was loaded.
+            stale:
+              type: object
+              description: Per-identity stale flags. Null means the field could not be compared; gitHead is informational and does not by itself mark status stale.
+              properties:
+                gitHead:
+                  type: boolean
+                  nullable: true
+                openApiDigest:
+                  type: boolean
+                  nullable: true
+            details:
+              type: array
+              items:
+                type: string
+            hint:
+              type: string
+              nullable: true
+              description: Restart or re-handshake guidance when the runtime is stale.
         githubCli:
           type: object
           properties:
@@ -869,6 +1705,30 @@ components:
               type: array
               items:
                 type: string
+        notificationPreview:
+          type: object
+          description: A passive inbox preview of unread GitHub notifications. Present only if authenticated.
+          properties:
+            unreadCount:
+              type: integer
+              description: Total number of unread notifications.
+              example: 3
+            latest:
+              type: array
+              description: The 5 most recent unread notifications.
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  reason:
+                    type: string
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  url:
+                    type: string
 
     Label:
       type: object
@@ -971,6 +1831,38 @@ components:
           type: string
           description: Optional details from the CLI output.
           example: "Checked out branch 'some-contributor/my-feature-branch'"
+
+    CommentResponse:
+      type: object
+      description: |
+        Enriched response for comment create/update operations. Surfaces the canonical
+        `commentId` (GitHub global node ID) so callers can reference the comment in
+        downstream A2A propagation patterns. `createdAt` is populated on create;
+        `updatedAt` on update. Superset of `SuccessResponse` — existing consumers that
+        only read `message` continue to work unchanged.
+      properties:
+        message:
+          type: string
+          description: Human-readable confirmation of the operation.
+          example: "Successfully created comment on PR #10272"
+        commentId:
+          type: string
+          description: "The canonical GitHub global node ID of the comment. Use with `get_conversation({comment_id: ...})` or in A2A payloads to reference just-this-comment."
+          example: "IC_kwDOABcD1234567890"
+        url:
+          type: string
+          description: The canonical HTTP URL of the comment on github.com.
+          example: "https://github.com/neomjs/neo/pull/10272#issuecomment-4309098042"
+        createdAt:
+          type: string
+          format: date-time
+          description: The creation timestamp (ISO-8601). Populated by 'create' action only.
+          example: "2026-04-24T01:48:14Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: The last-modified timestamp (ISO-8601). Populated by 'update' action only.
+          example: "2026-04-24T02:15:33Z"
 
     SyncIssuesResponse:
       type: object
@@ -1126,6 +2018,18 @@ components:
           format: uri
           description: The URL of the newly created issue.
 
+    SignalStateTransitionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates whether the state transition was recorded successfully.
+          example: true
+        message:
+          type: string
+          description: A human-readable message describing the outcome.
+          example: "State PR_OPENED processed. Orchestrator turn completed."
+
     UpdateIssueRelationshipResponse:
       type: object
       properties:
@@ -1207,6 +2111,9 @@ components:
               login:
                 type: string
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
 

@@ -40,13 +40,12 @@ class Provider extends Base {
          */
         component: null,
         /**
-         /**
          * The core data object managed by this StateProvider.
          * This object holds the reactive state that can be accessed and modified
          * by components and formulas within the provider's hierarchy.
          * Changes to properties within this data object will trigger reactivity.
          * When new data is assigned, it will be deeply merged with existing data.
-         * @member {Object|null} data_=null
+         * @member {Object|null} data_={}
          * @example
          *     data: {
          *         user: {

@@ -1,4 +1,5 @@
-import CanvasWrapper    from './CanvasWrapper.mjs';
+import CanvasWrapper    from '../../content/CanvasWrapper.mjs';
+import Component        from './Component.mjs';
 import Controller       from './MainContainerController.mjs';
 import PageContainer    from './PageContainer.mjs';
 import SharedContainer  from '../../../../../src/app/content/Container.mjs';
@@ -32,7 +33,8 @@ class MainContainer extends SharedContainer {
             module         : PageContainer,
             buttonTextField: 'id',
             contentConfig  : {
-                module: CanvasWrapper
+                contentComponent: Component,
+                module          : CanvasWrapper
             }
         },
         /**
@@ -41,10 +43,12 @@ class MainContainer extends SharedContainer {
          */
         stateProvider: StateProvider,
         /**
-         * @member {Object} treeConfig={displayField:'treeNodeName'}
+         * @member {Object} treeConfig
          */
         treeConfig: {
-            displayField: 'treeNodeName'
+            displayField       : 'treeNodeName',
+            lazyChildLoad      : true,
+            lazyChildUrlPrefix : '../../apps/portal/resources/data/'
         }
     }
 }

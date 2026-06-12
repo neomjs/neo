@@ -2,8 +2,8 @@ openapi: 3.0.3
 info:
   title: Neo Knowledge Base MCP Server API
   description: |
-    This API provides structured access to the Neo.mjs project's knowledge base. 
-    It enables AI agents to build, query, and manage the vector database containing 
+    This API provides structured access to the Neo.mjs project's knowledge base.
+    It enables AI agents to build, query, and manage the vector database containing
     source code, documentation, and learning materials.
   version: 1.0.0
   contact:
@@ -56,56 +56,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/manage:
-    post:
-      summary: Manage Database
-      operationId: manage_database
-      x-pass-as-object: true
-      description: |
-        Manages the lifecycle (start/stop) of the ChromaDB database instance.
-
-        **Behavior:**
-        - **Start:**
-          - **Managed:** If no database is running on the configured port, this tool spawns a new process managed by this server. This process will be automatically cleaned up when the agent session ends.
-          - **External:** If a database is already running, this tool simply confirms the connection. The server acts as a client and will NOT kill the database on exit.
-        - **Stop:**
-          - **Managed:** Stops the process spawned by this server.
-          - **External:** **No effect.** The server cannot stop a database it did not start.
-
-        **Multi-Agent / Swarm Recommendation:**
-        For workflows involving multiple concurrent agents, it is **highly recommended** to start the database externally using `npm run ai:server` before starting the agents. This prevents unexpected disconnects for other agents when the "owner" agent exits.
-
-        **When to Use:**
-        - Use `action: start` if a `healthcheck` reveals that the database process is not running.
-        - Use `action: stop` for debugging, forcing a restart, or freeing up resources.
-      tags: ["Database Lifecycle"]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum: [start, stop]
-                  description: The action to perform.
-      responses:
-        '200':
-          description: Operation completed successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DatabaseLifecycleResponse'
-        '500':
-          description: Operation failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /db/data/manage:
     post:
       summary: Manage Knowledge Base Data
@@ -115,14 +65,12 @@ paths:
         Manages the content of the knowledge base.
 
         **Actions:**
-        - **sync:** (Recommended) Full update. Creates the JSONL file from source and embeds it.
+        - **sync:** Full update. Creates the JSONL file from source and embeds the diff.
         - **create:** Generates the intermediate `ai-knowledge-base.jsonl` file only.
         - **embed:** Embeds the existing JSONL file into the vector database (diff-based).
-        - **delete:** (Destructive) Permanently deletes the entire collection from ChromaDB.
+        - **delete:** Permanently deletes the entire collection from ChromaDB.
 
-        **When to Use:**
-        - Use **sync** to update the database after code changes.
-        - Use **delete** followed by **sync** for a clean rebuild.
+        **Volume gate:** when the post-delta diff exceeds `mcpSyncMaxChunks` (default 50), this tool returns `KB_SYNC_VOLUME_EXCEEDED` instead of executing synchronously. Use `npm run ai:sync-kb` for bulk re-embedding work.
       tags: [Database]
       requestBody:
         required: true
@@ -137,6 +85,9 @@ paths:
                   type: string
                   enum: [sync, create, embed, delete]
                   description: The management action to perform.
+                confirmation:
+                  type: string
+                  description: Explicit production confirmation token required with the destructive bypass env for delete.
       responses:
         '200':
           description: Operation completed successfully.
@@ -146,6 +97,46 @@ paths:
                 $ref: '#/components/schemas/SuccessResponse'
         '500':
           description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/data/ingest:
+    post:
+      summary: Ingest Source Files
+      operationId: ingest_source_files
+      x-pass-as-object: true
+      description: |
+        Agent-native Knowledge Base ingestion for small batches of source files.
+
+        Accepts raw `{path, content}` file payloads or client-side `parsed-chunk-v1`
+        records, applies tenant-scoped deletion signaling, and embeds the result.
+        Use this for small incremental pushes (e.g. post-commit hook batches).
+
+        **Volume gate:** when the batch volume exceeds `mcpSyncMaxChunks`
+        (default 50) this tool refuses up-front and returns a `KB_INGEST_VOLUME_EXCEEDED`
+        payload instead of embedding synchronously — split the batch into smaller
+        `ingest_source_files` calls. Batch volume = the summed `parsedChunks` length
+        across `files`, counting each raw (un-parsed) file as 1.
+      tags: [Database]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestSourceFilesRequest'
+      responses:
+        '200':
+          description: Ingestion completed, OR refused with a KB_INGEST_VOLUME_EXCEEDED payload.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/IngestSourceFilesResponse'
+                  - $ref: '#/components/schemas/KbIngestVolumeExceededResponse'
+        '500':
+          description: Ingestion failed.
           content:
             application/json:
               schema:
@@ -162,12 +153,18 @@ paths:
         Performs a semantic search on the knowledge base using a natural language query.
         Returns a scored and ranked list of the most relevant source files.
 
+        **Prefer `ask_knowledge_base` for most queries.** It returns a synthesized answer
+        PLUS the same top-5 ranked refs (with identical scores) that this tool returns —
+        strictly a superset. Use `query_documents` only when you need exhaustive enumeration
+        beyond the top ~5 refs (e.g., building an index, listing many files, or when the
+        synthesis step is overhead).
+
         ## How to Use This Tool
-        
+
         **Input:**
         - `query`: Natural language search query (1-10 words work best)
-        - `type`: Optional filter by content type (all, blog, guide, src, example, ticket, release)
-        
+        - `type`: Optional filter by content type (all, blog, guide, src, example, ticket, release, test, skill, adr, concept)
+
         **Output:**
         A ranked list of file paths with relevance scores. Example:
         ```
@@ -175,12 +172,12 @@ paths:
         - /path/to/relevant/file1.mjs (Score: 350)
         - /path/to/relevant/file2.md (Score: 210)
         - /path/to/relevant/file3.mjs (Score: 150)
-        
+
         Top result: /path/to/relevant/file1.mjs
         ```
-        
+
         ## How to Interpret Results
-        
+
         1. **Start with the top result**: Always read the highest-scoring file first.
         2. **Scan the next 5-10 results**: Check both file types and scores.
         3. **Balance source and guides**: Read top 1-2 source files (.mjs) AND top 1-2 guides (.md).
@@ -191,7 +188,7 @@ paths:
            - `blog`: Historical context (code examples may be outdated)
            - `example`: Concrete usage patterns
            - `ticket`: Can be historical context (**closed tickets**) or potential work items (**open tickets**). Distinguish between them carefully.
-        
+
         ## Query Strategies
 
         ### The Discovery Pattern: Broad to Narrow
@@ -228,7 +225,7 @@ paths:
         - Get explicit user approval to proceed
 
         ## Handling Failures
-        
+
         If this tool fails or throws an error:
         1. Run the `healthcheck` tool to diagnose the issue.
         2. If unhealthy, consult `.github/AI_QUICK_START.md` for setup guidance.
@@ -287,14 +284,60 @@ paths:
         Performs a semantic search and uses an LLM to synthesize an answer based on the top results.
         Use this tool to get a high-level answer without manually reading multiple files.
 
+        ## Priority Positioning
+
+        **This should be your DEFAULT tool for Neo.mjs knowledge queries** — both conceptual
+        ("how does X work?") AND file-discovery ("which files implement Z?"). Empirically
+        verified: `ask_knowledge_base` returns a synthesized answer PLUS the same top-5 ranked
+        source files (with identical relevance scores) that `query_documents` would return.
+        It is strictly a superset.
+
+        Reserve `query_documents` for the narrow case where you need exhaustive enumeration
+        beyond the top ~5 refs (e.g., building an index, listing many files, or when the
+        synthesis step is overhead). For every other knowledge query, start here.
+
+        ## How It Works
+
+        This tool acts as a **zero-cost RAG subagent** — it performs semantic search across the
+        entire indexed codebase (source code, guides, examples, tickets, release notes), retrieves
+        the top-scoring documents, and uses an LLM to synthesize a grounded answer with cited
+        references. Even lightweight local models (e.g., Gemma4-31B via MLX) can invoke this tool
+        to access frontier-quality framework knowledge.
+
         **Input:**
-        - `query`: The question to ask.
-        - `limit`: (Optional) Number of source documents to consider (default 5).
-        - `type`: (Optional) Filter by content type (e.g., 'guide', 'src', 'all').
+        - `query`: The question to ask. Natural language works best — ask it like you would ask a senior developer.
+        - `limit`: (Optional) Number of source documents to consider (default 5). Increase for broader questions.
+        - `type`: (Optional) Filter by content type (e.g., 'guide', 'src', 'all', 'skill', 'adr', 'concept').
 
         **Output:**
-        - `answer`: Synthesized answer.
-        - `references`: List of source files used to generate the answer.
+        - `answer`: Synthesized answer grounded in the current codebase.
+        - `references`: List of source files used to generate the answer, with relevance scores.
+
+        ## Example Queries
+
+        ```
+        ask_knowledge_base(query='how does the reactive config system work?')
+        ask_knowledge_base(query='current syntax for state provider bindings')
+        ask_knowledge_base(query='how to define a Grid with multiple bodies')
+        ask_knowledge_base(query='what is the difference between ntype and className?', type='guide')
+        ```
+
+        ## When to Use This vs. query_documents
+
+        | Query Need | Use This Tool | Use query_documents |
+        |---|---|---|
+        | "How does X work?" | ✅ | ❌ |
+        | "What is the syntax for Y?" | ✅ | ❌ |
+        | "Which files implement Z?" (top 5 refs sufficient) | ✅ | ❌ |
+        | "Where is the Grid component defined?" (top 5 refs sufficient) | ✅ | ❌ |
+        | "Give me 25 ranked refs for exhaustive enumeration" | ❌ | ✅ |
+        | Building an index/listing (synthesis is overhead) | ❌ | ✅ |
+
+        ## Anti-Pattern Warning
+
+        **Do NOT attempt to answer Neo.mjs questions from training data.** Always ask the
+        knowledge base first. The framework evolves rapidly — your training data is almost
+        certainly outdated for syntax-level details.
       tags: [Documents]
       requestBody:
         required: true
@@ -310,8 +353,8 @@ paths:
                   description: The question to ask.
                 type:
                   type: string
-                  description: "Optional filter by content type (e.g., 'guide', 'src', 'all')."
-                  enum: [all, blog, guide, src, example, ticket, release, test]
+                  description: "Optional filter by content type (e.g., 'guide', 'src', 'all', 'skill', 'adr', 'concept')."
+                  enum: [all, blog, guide, src, example, ticket, release, test, skill, adr, concept]
                   default: all
                 limit:
                   type: integer
@@ -338,6 +381,58 @@ paths:
                           type: string
                         score:
                           type: number
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /knowledge/agent-faqs:
+    post:
+      summary: List Agent FAQs
+      operationId: list_agent_faqs
+      x-pass-as-object: true
+      description: |
+        Lists frequently repeated Knowledge Base questions captured from agent calls to
+        `ask_knowledge_base` and `query_documents`.
+
+        The rows come from the shared SQLite telemetry tables `kb_query_log` and
+        `kb_query_faqs`. Set `refresh: true` to rebuild the materialized FAQ table from
+        the raw query log before reading it. The current clustering implementation uses
+        exact normalized-query grouping and records the configured similarity threshold
+        as a calibration value for the later embedding-backed clustering phase.
+      tags: [Documents]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit:
+                  type: integer
+                  description: Maximum number of FAQ clusters to return.
+                  default: 25
+                minCount:
+                  type: integer
+                  description: Minimum query occurrences required for a cluster.
+                  default: 3
+                refresh:
+                  type: boolean
+                  description: Rebuild the `kb_query_faqs` table from `kb_query_log` before reading.
+                  default: false
+                sinceTimestamp:
+                  type: integer
+                  description: Lower timestamp bound used when `refresh` is true.
+                  default: 0
+      responses:
+        '200':
+          description: Materialized Agent FAQ clusters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentFaqResponse'
         '500':
           description: Internal server error.
           content:
@@ -493,6 +588,36 @@ components:
           format: date-time
           description: Timestamp of when the health check was performed.
           example: "2025-10-25T12:00:00Z"
+        runtimeFreshness:
+          type: object
+          description: Compact boot-vs-current runtime freshness diagnostic for detecting stale Knowledge Base MCP process attachments.
+          properties:
+            status:
+              type: string
+              enum: [current, stale, unknown]
+              description: Whether service-owned config/OpenAPI identity marks the running process stale.
+            startedAt:
+              type: string
+              format: date-time
+              description: When the MCP runtime module was loaded.
+            stale:
+              type: object
+              description: Per-identity stale flags. Null means the field could not be compared.
+              properties:
+                configDigest:
+                  type: boolean
+                  nullable: true
+                openApiDigest:
+                  type: boolean
+                  nullable: true
+            details:
+              type: array
+              items:
+                type: string
+            hint:
+              type: string
+              nullable: true
+              description: Restart or re-handshake guidance when the runtime is stale.
         database:
           type: object
           properties:
@@ -580,7 +705,7 @@ components:
             - Keep queries concise (1-10 words)
             - Use specific technical terms when known
             - Start broad, then narrow based on results
-            - Example good queries: "Button component", "state management patterns", 
+            - Example good queries: "Button component", "state management patterns",
               "afterSet hook implementation", "multi-window architecture"
           example: "How do I use the Tab Container component?"
         type:
@@ -595,7 +720,10 @@ components:
             - `ticket`: Issues from GitHub. Can be open (potential work) or closed (historical context).
             - `release`: Release notes and changelogs
             - `test`: Automated tests and specs
-          enum: [all, blog, guide, src, example, ticket, release, test]
+            - `skill`: Agent skill documentation and rules
+            - `adr`: Architecture Decision Records
+            - `concept`: Architectural concepts and primitives
+          enum: [all, blog, guide, src, example, ticket, release, test, skill, adr, concept]
           default: all
         limit:
           type: integer
@@ -622,6 +750,50 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/QueryResultItem'
+
+    AgentFaq:
+      type: object
+      properties:
+        clusterId:
+          type: string
+        canonicalQuery:
+          type: string
+        normalizedQuery:
+          type: string
+        variants:
+          type: array
+          items:
+            type: string
+        count:
+          type: integer
+        failureCount:
+          type: integer
+        firstSeen:
+          type: integer
+        lastSeen:
+          type: integer
+        relatedConceptIds:
+          type: array
+          items:
+            type: string
+        hasStrongGuideCoverage:
+          type: boolean
+        similarityThreshold:
+          type: number
+
+    AgentFaqResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        minCount:
+          type: integer
+        similarityThreshold:
+          type: number
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentFaq'
 
     Document:
       type: object
@@ -666,3 +838,138 @@ components:
         code:
           type: string
           example: "DB_CONNECTION_ERROR"
+
+    IngestSourceFilesRequest:
+      type: object
+      description: |
+        Knowledge Base ingestion push envelope (Phase 2 agent-native facade). No field is
+        strictly required at this layer — the ingestion service validates and returns a
+        structured summary (accumulating per-file errors) rather than throwing.
+      properties:
+        tenantId:
+          type: string
+          description: |
+            Authenticated tenant id. The server stamps the authoritative value; offline
+            calls fall back to `neo-shared`.
+        repoSlug:
+          type: string
+          description: |
+            Tenant-owned repo identifier used as the default repo boundary for raw files,
+            explicit tombstones without their own repoSlug, and telemetry.
+            Per-file, per-chunk, tombstone, manifest, and revision-resolver repoSlug
+            values remain authoritative for their narrower scopes.
+        visibility:
+          type: string
+          enum: [team, private]
+          description: |
+            Server-stamped visibility for the ingested chunks. Defaults to the Knowledge
+            Base server's configured default visibility when omitted.
+        files:
+          type: array
+          description: Raw file payloads or client-side parsed records to ingest.
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              path:
+                type: string
+                description: Source path relative to the repo root.
+              content:
+                type: string
+                description: Raw file content (omitted when parsedChunks is supplied).
+              parser:
+                type: string
+                description: Optional parser id hint for server-side raw-file parsing.
+              parsedChunks:
+                type: array
+                description: |
+                  Optional client-side parsed `parsed-chunk-v1` records. When present,
+                  these pass through to the ingestion service's Ajv `parsed-chunk-v1`
+                  validator — the deep per-chunk contract is enforced there, not
+                  duplicated in this tool schema.
+                items:
+                  type: object
+                  additionalProperties: true
+        deleted:
+          type: array
+          description: Explicit tombstones for files removed on the client.
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              sourcePath:
+                type: string
+              repoSlug:
+                type: string
+        manifestSnapshot:
+          type: object
+          additionalProperties: true
+          description: Post-push manifest used to derive orphaned-chunk deletions.
+          properties:
+            repoSlug:
+              type: string
+            pathsAfterPush:
+              type: array
+              items:
+                type: string
+        baseRevision:
+          type: string
+          description: Previous revision boundary (optional revision-range deletion signal).
+        headRevision:
+          type: string
+          description: Current revision boundary (optional revision-range deletion signal).
+
+    IngestSourceFilesResponse:
+      type: object
+      description: Structured ingestion summary returned by KnowledgeBaseIngestionService.
+      properties:
+        ingested:
+          type: integer
+          description: Count of chunks embedded/upserted.
+        deleted:
+          type: integer
+          description: Count of Chroma rows removed via deletion signaling.
+        embeddingsGenerated:
+          type: integer
+          description: Count of embeddings generated for this push.
+        errors:
+          type: array
+          description: Accumulated per-file caller errors; a non-empty array does not imply total failure.
+          items:
+            type: object
+            additionalProperties: true
+        tenantId:
+          type: string
+          description: The server-resolved authoritative tenant id.
+        durationMs:
+          type: integer
+          description: Wall-clock duration of the ingestion in milliseconds.
+
+    KbIngestVolumeExceededResponse:
+      type: object
+      description: |
+        Structured refusal returned (not thrown) when the batch volume exceeds the
+        MCP-callable threshold. The KB server's `'error' in result` contract converts
+        this to an MCP `isError: true` result.
+      properties:
+        error:
+          type: string
+          example: "KB ingest work volume exceeds MCP-callable threshold"
+        message:
+          type: string
+          description: Human-readable guidance, including the split-the-batch remedy.
+        code:
+          type: string
+          enum: [KB_INGEST_VOLUME_EXCEEDED]
+        bulkPath:
+          type: string
+          nullable: true
+          description: |
+            Runnable bulk-ingestion command. Currently `null` — the tenant-scoped bulk
+            ingestion facade is Phase 2C; until it ships, split the batch (see `message`).
+        batchSize:
+          type: integer
+          description: The computed batch volume that exceeded the threshold.
+        threshold:
+          type: integer
+          description: The `mcpSyncMaxChunks` threshold (default 50).

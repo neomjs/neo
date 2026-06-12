@@ -5,7 +5,7 @@ import envinfo         from 'envinfo';
 import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
 import path            from 'path';
-import {sanitizeInput} from '../util/Sanitizer.mjs';
+import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),

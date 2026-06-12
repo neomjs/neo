@@ -1,0 +1,839 @@
+{
+  "metadata": {
+    "shardType": "release-notes",
+    "chunkThreshold": 100,
+    "updatedAt": "2026-06-07T19:02:43.775Z"
+  },
+  "items": {
+    "8.1.0": {
+      "itemIndex": 0,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.1.1": {
+      "itemIndex": 1,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.1.2": {
+      "itemIndex": 2,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.1.3": {
+      "itemIndex": 3,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.2.0": {
+      "itemIndex": 4,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.3.0": {
+      "itemIndex": 5,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.4.0": {
+      "itemIndex": 6,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.4.1": {
+      "itemIndex": 7,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.4.2": {
+      "itemIndex": 8,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.5.0": {
+      "itemIndex": 9,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.6.0": {
+      "itemIndex": 10,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.6.1": {
+      "itemIndex": 11,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.6.2": {
+      "itemIndex": 12,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.7.0": {
+      "itemIndex": 13,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.7.1": {
+      "itemIndex": 14,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.8.0": {
+      "itemIndex": 15,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.9.0": {
+      "itemIndex": 16,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.9.1": {
+      "itemIndex": 17,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.10.0": {
+      "itemIndex": 18,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.10.1": {
+      "itemIndex": 19,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.11.0": {
+      "itemIndex": 20,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.12.0": {
+      "itemIndex": 21,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.13.0": {
+      "itemIndex": 22,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.14.0": {
+      "itemIndex": 23,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.14.1": {
+      "itemIndex": 24,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.14.2": {
+      "itemIndex": 25,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.14.3": {
+      "itemIndex": 26,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.15.0": {
+      "itemIndex": 27,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.16.0": {
+      "itemIndex": 28,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.17.0": {
+      "itemIndex": 29,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.17.1": {
+      "itemIndex": 30,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.18.0": {
+      "itemIndex": 31,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.18.1": {
+      "itemIndex": 32,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.19.0": {
+      "itemIndex": 33,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.19.1": {
+      "itemIndex": 34,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.20.0": {
+      "itemIndex": 35,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.20.1": {
+      "itemIndex": 36,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.20.2": {
+      "itemIndex": 37,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.21.0": {
+      "itemIndex": 38,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.21.1": {
+      "itemIndex": 39,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.21.2": {
+      "itemIndex": 40,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.22.0": {
+      "itemIndex": 41,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.23.0": {
+      "itemIndex": 42,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.24.0": {
+      "itemIndex": 43,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.25.0": {
+      "itemIndex": 44,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.26.0": {
+      "itemIndex": 45,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.26.1": {
+      "itemIndex": 46,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.27.0": {
+      "itemIndex": 47,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.27.1": {
+      "itemIndex": 48,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.28.0": {
+      "itemIndex": 49,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.28.1": {
+      "itemIndex": 50,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.29.0": {
+      "itemIndex": 51,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.30.0": {
+      "itemIndex": 52,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.31.0": {
+      "itemIndex": 53,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.31.1": {
+      "itemIndex": 54,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.32.0": {
+      "itemIndex": 55,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.33.0": {
+      "itemIndex": 56,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.34.0": {
+      "itemIndex": 57,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.35.0": {
+      "itemIndex": 58,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.35.1": {
+      "itemIndex": 59,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.36.0": {
+      "itemIndex": 60,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.37.0": {
+      "itemIndex": 61,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.38.0": {
+      "itemIndex": 62,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.39.0": {
+      "itemIndex": 63,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.39.1": {
+      "itemIndex": 64,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.40.0": {
+      "itemIndex": 65,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.41.0": {
+      "itemIndex": 66,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.41.1": {
+      "itemIndex": 67,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.41.2": {
+      "itemIndex": 68,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.42.0": {
+      "itemIndex": 69,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.43.0": {
+      "itemIndex": 70,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "8.43.1": {
+      "itemIndex": 71,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.0.0": {
+      "itemIndex": 72,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.0.1": {
+      "itemIndex": 73,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.0.2": {
+      "itemIndex": 74,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.1.0": {
+      "itemIndex": 75,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.2.0": {
+      "itemIndex": 76,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.3.0": {
+      "itemIndex": 77,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.5.0": {
+      "itemIndex": 78,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.6.0": {
+      "itemIndex": 79,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.6.1": {
+      "itemIndex": 80,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.7.0": {
+      "itemIndex": 81,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.7.1": {
+      "itemIndex": 82,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.8.0": {
+      "itemIndex": 83,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.9.0": {
+      "itemIndex": 84,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.10.0": {
+      "itemIndex": 85,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.10.1": {
+      "itemIndex": 86,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.10.2": {
+      "itemIndex": 87,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.10.3": {
+      "itemIndex": 88,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.10.4": {
+      "itemIndex": 89,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.10.5": {
+      "itemIndex": 90,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.11.0": {
+      "itemIndex": 91,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.11.1": {
+      "itemIndex": 92,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.12.0": {
+      "itemIndex": 93,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.13.0": {
+      "itemIndex": 94,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.13.1": {
+      "itemIndex": 95,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.14.0": {
+      "itemIndex": 96,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.15.0": {
+      "itemIndex": 97,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "9.16.0": {
+      "itemIndex": 98,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "10.0.0-alpha.1": {
+      "itemIndex": 99,
+      "chunk": 1,
+      "chunkDir": "chunk-1"
+    },
+    "10.0.0-alpha.2": {
+      "itemIndex": 100,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-alpha.3": {
+      "itemIndex": 101,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-alpha.4": {
+      "itemIndex": 102,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-alpha.5": {
+      "itemIndex": 103,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-beta.1": {
+      "itemIndex": 104,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-beta.2": {
+      "itemIndex": 105,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-beta.3": {
+      "itemIndex": 106,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-beta.4": {
+      "itemIndex": 107,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-beta.5": {
+      "itemIndex": 108,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0-beta.6": {
+      "itemIndex": 109,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.0": {
+      "itemIndex": 110,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.1": {
+      "itemIndex": 111,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.0.2": {
+      "itemIndex": 112,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.1.0": {
+      "itemIndex": 113,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.1.1": {
+      "itemIndex": 114,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.2.0": {
+      "itemIndex": 115,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.2.1": {
+      "itemIndex": 116,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.3.0": {
+      "itemIndex": 117,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.3.1": {
+      "itemIndex": 118,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.3.2": {
+      "itemIndex": 119,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.3.3": {
+      "itemIndex": 120,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.3.4": {
+      "itemIndex": 121,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.3.5": {
+      "itemIndex": 122,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.4.0": {
+      "itemIndex": 123,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.4.1": {
+      "itemIndex": 124,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.5.0": {
+      "itemIndex": 125,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.5.1": {
+      "itemIndex": 126,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.5.2": {
+      "itemIndex": 127,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.5.3": {
+      "itemIndex": 128,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.5.4": {
+      "itemIndex": 129,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.6.0": {
+      "itemIndex": 130,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.7.0": {
+      "itemIndex": 131,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.8.0": {
+      "itemIndex": 132,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "10.9.0": {
+      "itemIndex": 133,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.0.0": {
+      "itemIndex": 134,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.0.1": {
+      "itemIndex": 135,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.1.0": {
+      "itemIndex": 136,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.2.0": {
+      "itemIndex": 137,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.3.0": {
+      "itemIndex": 138,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.4.0": {
+      "itemIndex": 139,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.5.0": {
+      "itemIndex": 140,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.6.0": {
+      "itemIndex": 141,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.6.1": {
+      "itemIndex": 142,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.7.0": {
+      "itemIndex": 143,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.8.0": {
+      "itemIndex": 144,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.9.0": {
+      "itemIndex": 145,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.10.0": {
+      "itemIndex": 146,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.11.0": {
+      "itemIndex": 147,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.12.0": {
+      "itemIndex": 148,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.13.0": {
+      "itemIndex": 149,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.14.0": {
+      "itemIndex": 150,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.15.0": {
+      "itemIndex": 151,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.16.0": {
+      "itemIndex": 152,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.17.0": {
+      "itemIndex": 153,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.17.1": {
+      "itemIndex": 154,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.18.0": {
+      "itemIndex": 155,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.19.0": {
+      "itemIndex": 156,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.19.1": {
+      "itemIndex": 157,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.20.0": {
+      "itemIndex": 158,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.21.0": {
+      "itemIndex": 159,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.22.0": {
+      "itemIndex": 160,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.23.0": {
+      "itemIndex": 161,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.23.1": {
+      "itemIndex": 162,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "11.24.0": {
+      "itemIndex": 163,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "12.0.0": {
+      "itemIndex": 164,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "12.1.0": {
+      "itemIndex": 165,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    }
+  }
+}

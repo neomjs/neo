@@ -54,6 +54,22 @@ The neo.mjs vdom structures are not "templates", which get consumed when renderi
 but persist throughout the full component lifecycle.<br/>
 Meaning: you can easily change them the same way at any given point.
 
+## The public era
+
+The public GitHub history started on November 11, 2019 with the first commit in this repository. The same architectural bet from
+the 2015 proof of concept became the public product: the main thread should stay thin, application logic should live inside the
+App Worker, data processing and VDOM diffing should move into their own workers, and the UI should be represented as serializable
+JavaScript objects instead of string templates.
+
+This was not a syntax preference. Workers cannot touch the real DOM, so Neo had to make the UI portable across thread boundaries.
+That constraint is why Neo's VDOM is JSON-first and persistent: it can be diffed away from the browser's main thread, detached
+without losing identity, and restored without rebuilding the component tree from scratch.
+
+The same decision also made multi-window applications a native architecture instead of an afterthought. In SharedWorker mode,
+multiple browser windows can connect to the same application heap, share live state, and move existing component instances across
+monitors without recreating them. That is the through-line from the 2015 worker experiment to today's application engine and the
+AI-facing possession interface: Neo treats the runtime as a living object graph, not as disposable DOM output.
+
 Especially when creating big apps, many framework fail to provide you with a robust and solid base structure,
 on which you can build complex UI architectures. Extensibility is another huge issue.
 

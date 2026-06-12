@@ -22,10 +22,11 @@ class TabContainerController extends Component {
     }
 
     /**
-     * We need to store the current positions, since drag&drop resorting of tabs is enabled
+     * We need to store the current positions, since drag&drop resorting of tabs is enabled.
+     * The initial order mirrors `TabContainer.items` and the left-docked visual order.
      * @member {String[]} tabItems
      */
-    tabItems = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod']
+    tabItems = ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']
 
     /**
      *
@@ -37,6 +38,7 @@ class TabContainerController extends Component {
     }
 
     /**
+     * @summary Activates the examples tab whose id is carried by the current route.
      * @param {Object} params
      * @param {Object} value
      * @param {Object} oldValue
@@ -55,6 +57,7 @@ class TabContainerController extends Component {
     }
 
     /**
+     * @summary Keeps route-to-index resolution aligned after manual tab resorting.
      * @param {Object} data
      * @param {Number} data.fromIndex
      * @param {Number} data.toIndex

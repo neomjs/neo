@@ -317,7 +317,7 @@ class VdomLifecycle extends Base {
 
             /**
              * Optional hook that fires immediately before the VDOM payload is sent to the VDOM worker.
-             * This is useful for telemetry (e.g., Performance tracking) as it excludes the synchronous 
+             * This is useful for telemetry (e.g., Performance tracking) as it excludes the synchronous
              * queue wait time of the App worker and strictly measures the cross-thread roundtrip.
              */
             me.beforeExecuteVdomUpdate?.();
@@ -326,7 +326,7 @@ class VdomLifecycle extends Base {
 
             /**
              * Optional hook that fires immediately after the VDOM update resolves.
-             * Because of internal promise chaining (promiseForwardMessage), this hook fires *after* 
+             * Because of internal promise chaining (promiseForwardMessage), this hook fires *after*
              * the Main Thread has painted the resulting DOM deltas.
              */
             me.afterExecuteVdomUpdate?.();
@@ -361,7 +361,22 @@ class VdomLifecycle extends Base {
             me.isVdomUpdating = false;
             // Ensure state is cleaned up on error
             VDomUpdate.unregisterInFlightUpdate(me.id);
-            reject?.(err)
+
+            // Fire-and-forget updates have no reject callback — without this log the failure is
+            // fully silent and the symptom surfaces minutes later as "the DOM stopped following".
+            // Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
+            !reject && console.error('vdom update failed', me.id, err);
+
+            reject?.(err);
+
+            // Mirror of resolveVdomUpdate(): updates queued onto this flight while it was running
+            // are only ever drained by a follow-up cycle — without this, their content (and any
+            // attached promise callbacks) strand until the next organic update. A deterministic
+            // failure cannot hot-loop here: the retry consumes needsVdomUpdate, and with no new
+            // mutations a failing retry terminates after one bounded re-throw.
+            if (me.needsVdomUpdate) {
+                me.update()
+            }
         }
     }
 
@@ -404,16 +419,16 @@ class VdomLifecycle extends Base {
 
     /**
      * Generates the update payload for this component.
-     * 
+     *
      * **Meta Payload Concept:**
-     * If a component implements a `getVdomUpdateMeta()` method, its returned object will be 
-     * attached to the update payload as `meta`. This allows the App Worker to send contextual state 
-     * (e.g., the specific `scrollTop` value the VDOM was calculated against) alongside the VDOM deltas 
-     * to the Main Thread. The Main Thread's `DeltaUpdates` singleton fires an `update` event before 
-     * applying deltas, allowing addons (like optical pinning) to read this `meta` data and dynamically 
-     * adjust the deltas (like `translate3d` transforms) based on the *current* Main Thread state 
+     * If a component implements a `getVdomUpdateMeta()` method, its returned object will be
+     * attached to the update payload as `meta`. This allows the App Worker to send contextual state
+     * (e.g., the specific `scrollTop` value the VDOM was calculated against) alongside the VDOM deltas
+     * to the Main Thread. The Main Thread's `DeltaUpdates` singleton fires an `update` event before
+     * applying deltas, allowing addons (like optical pinning) to read this `meta` data and dynamically
+     * adjust the deltas (like `translate3d` transforms) based on the *current* Main Thread state
      * before they are painted.
-     * 
+     *
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth] Override the update depth
      * @returns {Object} opts
@@ -593,6 +608,12 @@ class VdomLifecycle extends Base {
                 return data
             }
         } catch (err) {
+            // Mirror executeVdomUpdate()'s error contract: the in-flight state MUST be released on
+            // failure, or the component wedges permanently (isVdomUpdating never clears and the
+            // registry entry blocks every ancestor update via isChildUpdating).
+            me.isVdomUpdating = false;
+            VDomUpdate.unregisterInFlightUpdate(me.id);
+
             console.error('initVnode error', err, me.id);
             throw err
         }

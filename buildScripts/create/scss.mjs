@@ -5,7 +5,7 @@ import fs              from 'fs-extra';
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import {sanitizeInput} from '../util/Sanitizer.mjs';
+import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
     __dirname   = fileURLToPath(new URL('../', import.meta.url)),

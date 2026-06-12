@@ -1,19 +1,7 @@
-.neo-grid-body-wrapper {
-    height         : 100%;
-    overflow-anchor: none;
-    overflow-x     : hidden;
-    overflow-y     : auto;
-    position       : relative;
-    scrollbar-width: none;
-
-    &:focus {
-        outline: none;
-    }
-}
-
 .neo-grid-body {
     height    : 100%;
     overflow-x: visible;
+    position  : relative;
 
     .neo-grid-cell {
         &.neo-is-modified {
@@ -37,6 +25,10 @@
 
     &.neo-is-scrolling * {
         pointer-events: none !important;
+    }
+
+    .neo-grid-body-content {
+        position: relative;
     }
 
     .neo-center {
@@ -75,6 +67,10 @@
                  border-right-width : 0;
              }
 
+             &.neo-locked-end-first-column {
+                 border-left: 1px solid var(--grid-container-border-color);
+             }
+
              &.neo-value-band-1 {
                  background-color: var(--grid-cell-value-band-1-background-color, transparent);
              }
@@ -88,14 +84,6 @@
                  z-index: 5;
              }
 
-             &.neo-locked-start {
-                 transform: translateX(var(--grid-locked-start-offset, 0px));
-             }
-
-             &.neo-locked-end {
-                 transform: translateX(var(--grid-locked-end-offset, 0px));
-             }
-
              // selection.CellModel
              &.neo-selected {
                  background-color: var(--grid-cellmodel-selected-cell-background-color) !important;
@@ -106,6 +94,10 @@
                  background-color: var(--grid-cellmodel-selected-column-cell-background-color);
                  color           : var(--grid-cellmodel-selected-column-cell-color);
              }
+         }
+
+         .neo-grid-cell:not(.neo-locked-start):not(.neo-locked-end) {
+             transform: translateX(calc(var(--grid-scroll-left, 0px) * -1));
          }
 
          // selection.RowModel
@@ -121,7 +113,8 @@
 .neo-mouse {
     .neo-grid-row {
         &:not(.neo-selected) {
-            &:hover {
+            &:hover,
+            &.neo-hover {
                 .neo-grid-cell {
                     background-color: var(--grid-cell-background-color-hover);
                 }

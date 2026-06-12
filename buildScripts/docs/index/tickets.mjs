@@ -5,21 +5,24 @@ import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
 import semver          from 'semver';
-import {sanitizeInput} from '../../util/Sanitizer.mjs';
+import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 /**
  * @module buildScripts.createTicketIndex
- * @summary Generates a hierarchical JSON index of GitHub tickets for the Neo.mjs Portal application.
+ * @summary Generates hierarchical GitHub ticket indexes for the Neo.mjs Portal application.
  *
  * This script is a critical part of the **Portal Knowledge Hub** data pipeline. It parses local markdown
- * files (synced from GitHub Issues) and transforms them into a lightweight, structured JSON index (`tickets.json`).
- * This index drives the `TreeList` navigation in the Portal's "Tickets" section.
+ * files (synced from GitHub Issues) and transforms them into two lightweight, structured JSON indexes:
+ * the legacy full-tree `tickets.json` consumed by the current Portal route and the chunked `tickets/index.json`
+ * surface that future lazy `TreeList` consumers can load folder-by-folder.
  *
  * **Key Features:**
- * - **Dual-Source Scanning:** Reads from both active issues (`resources/content/issues`) and the issue archive (`resources/content/issue-archive`).
+ * - **Dual-Source Scanning:** Reads from both active issues (`resources/content/issues`) and the issue archive (`resources/content/archive/issues`).
  * - **Intelligent Filtering:** Includes high-value tickets (bug, feature, epic) while excluding noise (chore, task) to ensure high signal-to-noise ratio for SEO and AI.
- * - **Hierarchical Grouping:** Groups tickets by "Backlog" (active) or by Release Version (archived), sorted semantically.
- * - **TreeList Optimization:** Outputs a flat-tree structure compatible with `Neo.tree.List` and `Neo.data.Store`.
+ * - **Hierarchical Grouping:** Groups tickets by "Backlog" (active) or by release version (archived), sorted semantically.
+ * - **TreeList Compatibility:** Keeps the current full flat-tree feed stable until the lazy consumer lands.
+ * - **Chunked Future Surface:** Emits a root group-index plus one per-content-chunk leaf file whose leaves omit
+ *   repeated markdown `path` values; chunk nodes carry the reconstruction metadata (`contentDir`, `filePrefix`).
  *
  * @see apps/portal/view/news/tickets/MainContainer.mjs
  * @see buildScripts/createReleaseIndex.mjs
@@ -28,13 +31,195 @@ import {sanitizeInput} from '../../util/Sanitizer.mjs';
 
 const ROOT_DIR    = process.cwd();
 const ISSUES_DIR  = path.resolve(ROOT_DIR, 'resources/content/issues');
-const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/issue-archive');
+const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/archive/issues');
 const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/tickets.json');
+const CHUNKED_OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/tickets/index.json');
+const OUTPUT_DIR          = path.resolve(ROOT_DIR, 'apps/portal/resources/data/tickets');
+const MANIFEST_FILE       = path.resolve(ROOT_DIR, 'apps/portal/resources/data/tickets/manifest.json');
 
 // Labels to include (case-insensitive check)
 const INCLUDE_LABELS = new Set(['bug', 'feature', 'enhancement', 'documentation', 'epic', 'architecture', 'refactoring']);
 // Labels to exclude (unless an include label is present)
 const EXCLUDE_LABELS = new Set(['chore', 'task', 'agent-task']);
+
+/**
+ * @param {String} value
+ * @returns {String}
+ */
+function slugify(value) {
+    return String(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+}
+
+/**
+ * @param {String} filePath
+ * @param {Object} options
+ * @param {String} options.archiveDir
+ * @param {String} options.issuesDir
+ * @param {Boolean} options.isActive
+ * @returns {Object}
+ */
+function getSourceBucket(filePath, {archiveDir, issuesDir, isActive}) {
+    const
+        dir         = path.dirname(filePath),
+        relativeDir = path.relative(isActive ? issuesDir : archiveDir, dir),
+        sourceKey   = `${isActive ? 'active' : 'archive'}-${slugify(relativeDir)}`;
+
+    return {
+        contentDir: path.relative(ROOT_DIR, dir),
+        sourceKey,
+        title     : isActive ? relativeDir : `archive/${relativeDir}`
+    }
+}
+
+/**
+ * @param {String} groupName
+ * @param {Number} index
+ * @returns {Object}
+ */
+function createGroupNode(groupName, index) {
+    return {
+        id       : groupName,
+        isLeaf   : false,
+        parentId : null,
+        collapsed: index !== 1 // Preserve the current UX: Backlog collapsed, latest release expanded.
+    }
+}
+
+/**
+ * @param {Object} a
+ * @param {Object} b
+ * @returns {Number}
+ */
+function sortTickets(a, b) {
+    const
+        dateA = a._closedAt || a._updatedAt || 0,
+        dateB = b._closedAt || b._updatedAt || 0;
+
+    if (dateA !== dateB) {
+        return new Date(dateB) - new Date(dateA)
+    }
+
+    return parseInt(b.id) - parseInt(a.id)
+}
+
+/**
+ * @param {String[]} sortedGroups
+ * @param {Map<String,Object[]>} ticketsByGroup
+ * @returns {Object[]}
+ */
+function buildLegacyFlatTree(sortedGroups, ticketsByGroup) {
+    const flatTree = [];
+
+    sortedGroups.forEach((groupName, index) => {
+        flatTree.push(createGroupNode(groupName, index));
+
+        ticketsByGroup.get(groupName).sort(sortTickets).forEach(ticket => {
+            flatTree.push({
+                id      : ticket.id,
+                parentId: ticket.parentId,
+                title   : ticket.title,
+                path    : ticket.path
+            })
+        })
+    });
+
+    return flatTree
+}
+
+/**
+ * Orders chunk-folder nodes within a group by their positional chunk number, descending (newest /
+ * highest-numbered chunk first). This matches the newest-first ordering used elsewhere in the tree
+ * (release groups are semver-descending; leaves within a chunk are date/id-descending) and, critically,
+ * keeps folder display order aligned with the positional `treeNodeName` range labels.
+ *
+ * The previous `sortDate`-based ordering scrambled folders relative to their labels: a chunk's max
+ * item-date is not monotonic with its number (item updates bump older chunks), so date-order and
+ * chunk-number order diverge while the labels stay positional.
+ * @param {Object} a
+ * @param {Object} b
+ * @returns {Number}
+ */
+function sortChunkFolders(a, b) {
+    const
+        matchA = a.title?.match(/chunk-(\d+)$/),
+        matchB = b.title?.match(/chunk-(\d+)$/);
+
+    if (matchA && matchB) {
+        return Number(matchB[1]) - Number(matchA[1])
+    }
+
+    // Defensive fallback for any bucket without a `chunk-N` title: preserve the prior date-then-id order.
+    return (new Date(b.sortDate || 0) - new Date(a.sortDate || 0)) || a.id.localeCompare(b.id)
+}
+
+/**
+ * @param {String[]} sortedGroups
+ * @param {Map<String,Object[]>} ticketsByGroup
+ * @returns {{rootIndex: Object[], chunks: Map<String,Object>}}
+ */
+function buildChunkedIndex(sortedGroups, ticketsByGroup) {
+    const
+        chunks    = new Map(),
+        rootIndex = [];
+
+    for (const groupName of sortedGroups) {
+        for (const ticket of ticketsByGroup.get(groupName).sort(sortTickets)) {
+            const
+                bucket    = ticket._bucket,
+                chunkId   = `${groupName}/${bucket.sourceKey}`,
+                chunkPath = `tickets/${slugify(groupName)}/${bucket.sourceKey}.json`,
+                dateValue = ticket._closedAt || ticket._updatedAt || '';
+
+            if (!chunks.has(chunkId)) {
+                chunks.set(chunkId, {
+                    childrenUrl: chunkPath,
+                    childCount : 0,
+                    collapsed  : true,
+                    contentDir : bucket.contentDir,
+                    filePrefix : 'issue-',
+                    id         : chunkId,
+                    isLeaf     : false,
+                    parentId   : groupName,
+                    sortDate   : dateValue,
+                    title      : bucket.title,
+                    records    : []
+                })
+            }
+
+            const chunk = chunks.get(chunkId);
+
+            chunk.childCount++;
+
+            if (dateValue && (!chunk.sortDate || new Date(dateValue) > new Date(chunk.sortDate))) {
+                chunk.sortDate = dateValue
+            }
+
+            chunk.records.push({
+                id      : ticket.id,
+                parentId: chunkId,
+                title   : ticket.title
+            })
+        }
+    }
+
+    sortedGroups.forEach((groupName, index) => {
+        rootIndex.push(createGroupNode(groupName, index));
+
+        const groupChunks = Array.from(chunks.values())
+            .filter(chunk => chunk.parentId === groupName)
+            .sort(sortChunkFolders);
+
+        rootIndex.push(...groupChunks.map(chunk => {
+            const {records, sortDate, ...node} = chunk;
+            return node
+        }))
+    });
+
+    return {rootIndex, chunks}
+}
 
 /**
  * Core logic to scan, filter, and index ticket markdown files.
@@ -45,24 +230,32 @@ const EXCLUDE_LABELS = new Set(['chore', 'task', 'agent-task']);
  * 3.  Applies inclusion/exclusion label logic.
  * 4.  Groups tickets by version (directory name) or 'Backlog'.
  * 5.  Sorts groups by SemVer and tickets by date/ID.
- * 6.  Flattens the result into a `Neo.data.Store` compatible array.
+ * 6.  Writes the current `Neo.data.Store` compatible full tree.
+ * 7.  Writes the chunked root-index, per-chunk leaf files, and crawler manifest.
  *
  * @param {Object} options Configuration options
  * @param {String} [options.issuesDir] - Directory containing active markdown tickets (defaults to `resources/content/issues`)
- * @param {String} [options.archiveDir] - Directory containing archived markdown tickets (defaults to `resources/content/issue-archive`)
- * @param {String} [options.outputFile] - Path to the output JSON file (defaults to `apps/portal/resources/data/tickets.json`)
+ * @param {String} [options.archiveDir] - Directory containing archived markdown tickets (defaults to `resources/content/archive/issues`)
+ * @param {String} [options.outputDir] - Directory for chunked ticket leaf JSON files (defaults to `apps/portal/resources/data/tickets`)
+ * @param {String} [options.outputFile] - Path to the legacy full-tree JSON file (defaults to `apps/portal/resources/data/tickets.json`)
+ * @param {String} [options.chunkedOutputFile] - Path to the chunked root-index JSON file (defaults to `apps/portal/resources/data/tickets/index.json`)
+ * @param {String} [options.manifestFile] - Path to the crawler manifest JSON file (defaults to `apps/portal/resources/data/tickets/manifest.json`)
  * @returns {Promise<void>} Resolves when the JSON file is written
  */
 async function createTicketIndex(options = {}) {
-    const issuesDir  = options.issuesDir  || ISSUES_DIR;
-    const archiveDir = options.archiveDir || ARCHIVE_DIR;
-    const outputFile = options.outputFile || OUTPUT_FILE;
+    const
+        issuesDir         = options.issuesDir         || ISSUES_DIR,
+        archiveDir        = options.archiveDir        || ARCHIVE_DIR,
+        outputDir         = options.outputDir         || OUTPUT_DIR,
+        outputFile        = options.outputFile        || OUTPUT_FILE,
+        chunkedOutputFile = options.chunkedOutputFile || CHUNKED_OUTPUT_FILE,
+        manifestFile      = options.manifestFile      || MANIFEST_FILE;
 
     console.log(`Scanning tickets in:\n- ${issuesDir}\n- ${archiveDir}`);
 
     // 1. Find all markdown files
-    const activeFiles   = await fg('*.md',    { cwd: issuesDir,  absolute: true });
-    const archivedFiles = await fg('**/*.md', { cwd: archiveDir, absolute: true });
+    const activeFiles   = await fg('**/*.md', { cwd: issuesDir,  absolute: true });
+    const archivedFiles = await fg('**/issue-*.md', { cwd: archiveDir, absolute: true });
 
     const allFiles = [
         ...activeFiles.map(f => ({ path: f, isActive: true })),
@@ -121,14 +314,16 @@ async function createTicketIndex(options = {}) {
         if (fileInfo.isActive) {
             groupName = 'Backlog';
         } else {
-            // path/to/archive/v11.19.1/issue-123.md -> v11.19.1
-            const parentDir = path.basename(path.dirname(filePath));
-            groupName = parentDir;
+            // path/to/archive/issues/v1.2.3/chunk-0/issue-123.md -> v1.2.3
+            const relativeToArchive = path.relative(archiveDir, filePath);
+            groupName = relativeToArchive.split(path.sep)[0];
         }
 
-        // Construct path relative to repo root
-        const relativePath = path.relative(ROOT_DIR, filePath);
-        const ticketId     = String(frontmatter.id);
+        // Construct path relative to repo root for the legacy full-tree feed.
+        const
+            relativePath = path.relative(ROOT_DIR, filePath),
+            ticketId     = String(frontmatter.id),
+            bucket       = getSourceBucket(filePath, {archiveDir, issuesDir, isActive: fileInfo.isActive});
 
         const ticketData = {
             id      : ticketId,
@@ -137,7 +332,8 @@ async function createTicketIndex(options = {}) {
             path    : relativePath,
             // Internal sorting keys (removed before write)
             _closedAt : frontmatter.closedAt,
-            _updatedAt: frontmatter.updatedAt
+            _updatedAt: frontmatter.updatedAt,
+            _bucket   : bucket
         };
 
         if (!ticketsByGroup.has(groupName)) {
@@ -162,41 +358,9 @@ async function createTicketIndex(options = {}) {
         return b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    const flatTree = [];
-
-    sortedGroups.forEach((groupName, index) => {
-        // Create Parent Node
-        const isSecond = index === 1;
-
-        const parentNode = {
-            id       : groupName,
-            isLeaf   : false,
-            parentId : null,
-            collapsed: !isSecond // Expand second (latest release), collapse rest (Backlog & old)
-        };
-
-        flatTree.push(parentNode);
-
-        // Sort Tickets within Group
-        // Priority: closedAt DESC -> updatedAt DESC -> id DESC
-        const tickets = ticketsByGroup.get(groupName);
-        tickets.sort((a, b) => {
-            const dateA = a._closedAt || a._updatedAt || 0;
-            const dateB = b._closedAt || b._updatedAt || 0;
-
-            if (dateA !== dateB) {
-                return new Date(dateB) - new Date(dateA);
-            }
-            return parseInt(b.id) - parseInt(a.id);
-        });
-
-        // Add Tickets to Tree (Cleanup internal keys)
-        tickets.forEach(t => {
-            delete t._closedAt;
-            delete t._updatedAt;
-            flatTree.push(t);
-        });
-    });
+    const
+        flatTree = buildLegacyFlatTree(sortedGroups, ticketsByGroup),
+        {rootIndex, chunks} = buildChunkedIndex(sortedGroups, ticketsByGroup);
 
     console.log(`Filtered down to ${flatTree.length - sortedGroups.length} tickets in ${sortedGroups.length} groups.`);
 
@@ -204,6 +368,41 @@ async function createTicketIndex(options = {}) {
     await fs.writeJSON(outputFile, flatTree);
 
     console.log(`Ticket index written to ${outputFile}`);
+
+    await fs.emptyDir(outputDir);
+
+    for (const chunk of chunks.values()) {
+        const target = path.join(path.dirname(outputFile), chunk.childrenUrl);
+
+        chunk.records.sort(sortTickets);
+
+        await fs.ensureDir(path.dirname(target));
+        await fs.writeJSON(target, chunk.records)
+    }
+
+    const manifest = {
+        indexUrl: path.relative(path.dirname(outputFile), chunkedOutputFile).split(path.sep).join('/'),
+        chunks  : Array.from(chunks.values())
+            .map(({childCount, childrenUrl, contentDir, filePrefix, id, parentId, title}) => ({
+                id,
+                parentId,
+                title,
+                childrenUrl,
+                childCount,
+                contentDir,
+                filePrefix
+            }))
+            .sort((a, b) => a.childrenUrl.localeCompare(b.childrenUrl))
+    };
+
+    await fs.ensureDir(path.dirname(chunkedOutputFile));
+    await fs.ensureDir(path.dirname(manifestFile));
+    await fs.writeJSON(chunkedOutputFile, rootIndex);
+    await fs.writeJSON(manifestFile, manifest);
+
+    console.log(`Chunked ticket root index written to ${chunkedOutputFile}`);
+    console.log(`Chunked ticket leaf files written to ${outputDir}`);
+    console.log(`Ticket crawler manifest written to ${manifestFile}`);
 }
 
 /**
@@ -213,7 +412,10 @@ async function createTicketIndex(options = {}) {
  * Supported flags:
  * - `-i, --issues <path>`: Custom issues directory
  * - `-a, --archive <path>`: Custom archive directory
- * - `-o, --output <path>`: Custom output file path
+ * - `-d, --output-dir <path>`: Custom chunk output directory
+ * - `-o, --output <path>`: Custom legacy full-tree output file path
+ * - `-c, --chunked-output <path>`: Custom chunked root-index output file path
+ * - `-m, --manifest <path>`: Custom crawler manifest output file path
  */
 async function runCli() {
     const program = new Command();
@@ -223,16 +425,22 @@ async function runCli() {
         .description('Generates a hierarchical JSON index of tickets.')
         .option('-i, --issues <path>',  'Active issues directory path', sanitizeInput)
         .option('-a, --archive <path>', 'Archive directory path', sanitizeInput)
-        .option('-o, --output <path>',  'Output file path',     sanitizeInput);
+        .option('-d, --output-dir <path>', 'Output chunk directory path', sanitizeInput)
+        .option('-o, --output <path>',  'Legacy full-tree output file path', sanitizeInput)
+        .option('-c, --chunked-output <path>', 'Chunked root-index output file path', sanitizeInput)
+        .option('-m, --manifest <path>', 'Crawler manifest output file path', sanitizeInput);
 
     program.parse(process.argv);
 
     const opts = program.opts();
 
     await createTicketIndex({
-        issuesDir : opts.issues  ? path.resolve(ROOT_DIR, opts.issues)  : undefined,
-        archiveDir: opts.archive ? path.resolve(ROOT_DIR, opts.archive) : undefined,
-        outputFile: opts.output  ? path.resolve(ROOT_DIR, opts.output)  : undefined
+        issuesDir        : opts.issues        ? path.resolve(ROOT_DIR, opts.issues)        : undefined,
+        archiveDir       : opts.archive       ? path.resolve(ROOT_DIR, opts.archive)       : undefined,
+        outputDir        : opts.outputDir     ? path.resolve(ROOT_DIR, opts.outputDir)     : undefined,
+        outputFile       : opts.output        ? path.resolve(ROOT_DIR, opts.output)        : undefined,
+        chunkedOutputFile: opts.chunkedOutput ? path.resolve(ROOT_DIR, opts.chunkedOutput) : undefined,
+        manifestFile     : opts.manifest      ? path.resolve(ROOT_DIR, opts.manifest)      : undefined
     });
 }
 

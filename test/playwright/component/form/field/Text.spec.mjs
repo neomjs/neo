@@ -25,7 +25,7 @@ async function createTextField(page, config) {
 test.describe('Neo.form.field.Text', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
     });
 
     test.afterEach(async ({page}) => {
@@ -49,7 +49,7 @@ test.describe('Neo.form.field.Text', () => {
         await expect(field).not.toHaveClass(/neo-is-touched/);
 
         await input.click();
-        await page.locator('#component-test-viewport').click(); // Click outside to blur
+        await input.blur();
 
         await expect(field).toHaveClass(/neo-is-touched/);
     });

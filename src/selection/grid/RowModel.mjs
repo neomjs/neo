@@ -27,18 +27,20 @@ class RowModel extends BaseModel {
      *
      */
     addDomListener() {
-        let me = this;
+        let me     = this,
+            target = me.view.gridContainer || me.view.parent;
 
-        me.view.parent.on('rowClick', me.onRowClick, me)
+        target.on('rowClick', me.onRowClick, me)
     }
 
     /**
      * @param args
      */
     destroy(...args) {
-        let me = this;
+        let me     = this,
+            target = me.view?.gridContainer || me.view?.parent;
 
-        me.view.parent.un('rowClick', me.onRowClick, me);
+        target?.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args)
     }
@@ -91,13 +93,17 @@ class RowModel extends BaseModel {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} event
      */
-    onRowClick({data}) {
+    onRowClick(event) {
         let me     = this,
             {view} = me,
-            record = me.getRecord(data.path),
+            {data} = event,
+            record = event.record || me.getRecord(data.path),
             recordId;
+
+        // The single View-owned model listens once on the gridContainer, so each row click is
+        // processed exactly once regardless of which body fired it.
 
         if (record) {
             if (me.hasAnnotations(record)) {

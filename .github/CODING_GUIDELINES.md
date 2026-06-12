@@ -318,7 +318,7 @@ items: [HeaderContainer, {
     reference  : 'tab-container',
     sortable   : true,
     style      : {margin: '10px', marginTop: 0},
-  
+
     items: [{
         module   : () => import('./TableContainer.mjs'),
         reference: 'table-container',
@@ -429,7 +429,11 @@ adjustTotalHeight(data, silent=false) {
 * (32) Variables do use block formatting
 * (33) Variables are separated by commas (file size)
 * (34) Create variables for every item which you use more than 2 times. (maintainability, readability & file size)
-  + This rule also counts for `this`.
+  + This rule also counts for `this` in bundled runtime-engine code (`src/`, apps, examples and docs-app source)
+    where the `me = this` pattern supports readability and minified file size.
+  + In unbundled Node.js / Agent OS code (`ai/`, `buildScripts/`) prefer direct `this` for new code unless a local
+    callback-binding or readability case makes `me` useful. Existing call sites are grandfathered; clean them up only
+    when editing the surrounding code or via a dedicated follow-up ticket.
 * (35) The framework source code is using `const` very(!) rarely. The only reason is the minified bundle size.
 
 Example:

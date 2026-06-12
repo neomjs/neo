@@ -1,18 +1,27 @@
-import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
-import {StdioServerTransport}                          from '@modelcontextprotocol/sdk/server/stdio.js';
-import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import Base                                            from '../../../../src/core/Base.mjs';
-import aiConfig                                        from './config.mjs';
-import logger                                          from './logger.mjs';
-import ConnectionService                               from './services/ConnectionService.mjs';
-import HealthService                                   from './services/HealthService.mjs';
-import {listTools, callTool}                           from './services/toolService.mjs';
+import BaseServer            from '../BaseServer.mjs';
+import aiConfig              from './config.mjs';
+import logger                from './logger.mjs';
+import ConnectionService     from '../../../services/neural-link/ConnectionService.mjs';
+import HealthService         from '../../../services/neural-link/HealthService.mjs';
+import {listTools, callTool} from './toolService.mjs';
+
+let _turnId = 0;
+
+export const getCurrentTurnId = () => _turnId;
 
 /**
+ * @summary The Neural Link MCP Server application.
+ *
+ * Bridges AI agents to the live browser application via WebSocket. Uses a non-canonical
+ * bootstrap order: the stdio MCP transport is connected EARLY (before `ConnectionService`
+ * is awaited) so the MCP client handshake succeeds even when the Bridge process is down or
+ * still spawning. The Bridge readiness then proceeds asynchronously while the server is
+ * already responsive to MCP-side health and tool inquiries.
+ *
  * @class Neo.ai.mcp.server.neural-link.Server
- * @extends Neo.core.Base
+ * @extends Neo.ai.mcp.server.BaseServer
  */
-class Server extends Base {
+class Server extends BaseServer {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.neural-link.Server'
@@ -21,78 +30,109 @@ class Server extends Base {
         className: 'Neo.ai.mcp.server.neural-link.Server'
     }
 
+    aiConfig = aiConfig
+    logger   = logger
+
     /**
+     * Bridge daemon working directory; passed via CLI / env. When set, propagated to
+     * `ConnectionService.cwd` before its `ready()` is awaited so the Bridge spawn uses the
+     * correct working tree.
      * @member {String|null} bridgeCwd=null
      */
     bridgeCwd = null
-    /**
-     * Path to a custom configuration file.
-     * @member {String|null} configFile=null
-     */
-    configFile = null
-    /**
-     * @member {McpServer|null} mcpServer=null
-     */
-    mcpServer = null
-    /**
-     * @member {StdioServerTransport|null} transport=null
-     */
-    transport = null
 
-    async initAsync() {
-        await super.initAsync();
-
-        // 1. Load custom configuration if provided
-        if (this.configFile) {
-            try {
-                await aiConfig.load(this.configFile);
-            } catch (error) {
-                logger.error('Failed to load configuration:', error);
-                throw error;
-            }
-        }
-
-        // 2. Initialize MCP Server
-        this.mcpServer = new McpServer({
-            name: 'neo-neural-link',
-            version: '1.0.0'
-        }, {
+    /**
+     * @summary MCP server identity for `createMcpServer()`.
+     * @returns {{name: String, capabilities: Object}}
+     */
+    getServerMetadata() {
+        return {
+            name        : 'neo-neural-link',
+            version     : '1.0.0',
             capabilities: {
-                tools: { listChanged: false }
+                tools: {listChanged: false}
             }
-        });
+        };
+    }
 
-        // 3. Setup Handlers
-        this.setupRequestHandlers();
+    /**
+     * @summary Per-server tool registry for ListTools / CallTool dispatch. Increments the
+     * module-level `_turnId` counter on every CallTool dispatch (consumed by `getCurrentTurnId()`
+     * for transcript-correlation).
+     * @returns {{listTools: Function, callTool: Function}}
+     */
+    getToolService() {
+        return {
+            listTools,
+            callTool: async (name, args) => {
+                _turnId++;
+                return callTool(name, args);
+            }
+        };
+    }
 
-        // 4. Connect Transport (Stdio)
-        // We connect early to ensure the MCP client handshake succeeds even if the Bridge is down.
-        this.transport = new StdioServerTransport();
-        await this.mcpServer.connect(this.transport);
-        logger.info('Neural Link MCP Server transport connected');
+    /**
+     * @summary HealthService for the healthcheck gate + startup-status logging.
+     * @returns {Object}
+     */
+    getHealthService() {
+        return HealthService;
+    }
 
-        // 5. Wait for Connection Service
-        // This might take time if spawning a new Bridge process
+    /**
+     * @summary Tools allowed without the healthcheck gate. `manage_connection` runs while the
+     * Bridge is unhealthy by design — it's the operator's recovery path.
+     * @returns {Array<String>}
+     */
+    getHealthExemptTools() {
+        return ['healthcheck', 'manage_connection'];
+    }
+
+    /**
+     * @summary Custom boot order (override of `BaseServer.boot`): transport connects EARLY
+     * so MCP-client handshake succeeds even when the Bridge is down or still spawning. The
+     * canonical order would await `ConnectionService.ready()` before `connectTransport()`,
+     * which would race against MCP clients trying to connect during Bridge spawn.
+     *
+     * Sequence:
+     * 1. Load custom config
+     * 2. Construct mcpServer + wire request handlers
+     * 3. Connect stdio transport (early — handshake-tolerance for Bridge-down scenarios)
+     * 4. Await ConnectionService.ready (non-fatal: logged but doesn't throw, so the server
+     *    stays alive to report health errors via the MCP healthcheck tool)
+     * 5. Healthcheck + startup-status log
+     *
+     * @returns {Promise<void>}
+     */
+    async boot() {
+        await this.loadCustomConfig();
+
+        this.mcpServer = this.createMcpServer();
+
+        // Connect transport EARLY — see method JSDoc for rationale (#10455 lineage).
+        await this.connectTransport();
+        this.logger.info('Neural Link MCP Server transport connected');
+
+        // ConnectionService — set cwd then ready, with non-fatal error tolerance.
         try {
             if (this.bridgeCwd) {
                 ConnectionService.cwd = this.bridgeCwd;
             }
             await ConnectionService.ready();
         } catch (e) {
-            logger.error('ConnectionService failed to initialize:', e);
-            // We do not throw here, so the server stays alive to report health errors
+            this.logger.error('ConnectionService failed to initialize:', e);
+            // Do not throw — server stays alive to report health errors via MCP healthcheck.
         }
 
-        // 6. Perform Health Check & Log Status
-        const health = await HealthService.healthcheck();
-        this.logStartupStatus(health);
+        await this.runHealthcheckAndLogStatus();
 
-        logger.info('Neural Link MCP Server started');
+        this.logger.info('Neural Link MCP Server started');
     }
 
     /**
-     * Logs the health status of the server during startup.
-     * @param {Object} health The health check result object.
+     * @summary neural-link-specific startup status formatting with session + window counts on
+     * healthy paths.
+     * @param {Object} health
      */
     logStartupStatus(health) {
         if (health.status === 'unhealthy') {
@@ -103,70 +143,6 @@ class Server extends Base {
             logger.info(`   - Active Sessions: ${health.sessions.length}`);
             logger.info(`   - Connected Windows: ${health.windows.length}`);
         }
-    }
-
-    setupRequestHandlers() {
-        // List Tools Handler
-        this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-            try {
-                const { cursor, limit } = request.params || {};
-                const { tools, nextCursor } = listTools({ cursor, limit });
-
-                const mcpTools = tools.map(tool => ({
-                    name: tool.name,
-                    description: tool.description,
-                    inputSchema: tool.inputSchema
-                }));
-
-                return { tools: mcpTools, nextCursor: nextCursor || undefined };
-            } catch (error) {
-                logger.error('[MCP] Error listing tools:', error);
-                return { tools: [], nextCursor: undefined, error: error.message };
-            }
-        });
-
-        // Call Tool Handler
-        this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-            const { name, arguments: args } = request.params;
-
-            try {
-                logger.debug(`[MCP] Calling tool: ${name} with params:`, JSON.stringify(request.params));
-
-                // Health Check Gate
-                const exemptFromHealthCheck = ['healthcheck', 'manage_connection'];
-
-                if (!exemptFromHealthCheck.includes(name)) {
-                    const health = await HealthService.healthcheck();
-                    if (health.status !== 'healthy') {
-                        return {
-                            content: [{
-                                type: 'text',
-                                text: `Cannot execute ${name}: Neural Link is unhealthy.\nDetails: ${health.details.join(', ')}`
-                            }],
-                            isError: true
-                        };
-                    }
-                }
-
-                const result = await callTool(name, args);
-
-                return {
-                    content: [{
-                        type: 'text',
-                        text: JSON.stringify(result ?? null, null, 2)
-                    }]
-                };
-            } catch (error) {
-                logger.error(`[MCP] Error executing tool ${name}:`, error);
-                return {
-                    content: [{
-                        type: 'text',
-                        text: `Error: ${error.message}`
-                    }],
-                    isError: true
-                };
-            }
-        });
     }
 }
 

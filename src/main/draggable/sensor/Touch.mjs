@@ -189,8 +189,8 @@ class Touch extends Base {
 
             Object.assign(me, {
                 currentElement: target.node,
-                pageX         : pageX,
-                pageY         : pageY,
+                pageX,
+                pageY,
                 startEvent    : event,
                 touchStartTime: Date.now()
             });

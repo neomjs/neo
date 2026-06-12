@@ -1,0 +1,305 @@
+# Production container topology for the cloud Agent OS deployment (Sub B of
+# Epic #11720). Implements the multi-container topology decided in ADR 0014
+# (Cloud Deployment Topology + Scheduler Task Taxonomy).
+#
+# Profile variants — `docker compose [--profile <name>] up`:
+#   - default (no profile): the baseline MCP stack — chroma + kb-server + mc-server.
+#   - `cloud`:              adds the orchestrator — the full Agent OS deployment,
+#                           running ADR 0014's cloud-safe scheduler profile.
+#   - `ingress`:            adds the Caddy reverse proxy — TLS termination + public
+#                           `/kb` + `/mc` path routing for the MCP servers (Sub C #11724).
+#   - `local-model`:        adds an optional self-hosted OpenAI-compatible provider
+#                           runtime. External provider endpoints remain the default.
+#
+# Per-container resource limits (`deploy.resources.limits`) are declared on every
+# service so devops can govern RAM / CPU per service. The values are conservative
+# starting points — tune per deployment host.
+
+services:
+  chroma:
+    image: chromadb/chroma:1.5.9
+    # One flat unified persist dir, identical local + cloud (ADR 0003 / Epic #12153).
+    # PERSIST_DIRECTORY is REQUIRED, not optional: the chromadb/chroma:1.5.9 image persists
+    # to its WORKDIR-relative default (/chroma/chroma) and IGNORES a volume mounted elsewhere.
+    # Without this env the daemon would write to an ephemeral container layer while the named
+    # volume sat empty. The mount and the env MUST stay in lockstep on the same leaf.
+    environment:
+      - PERSIST_DIRECTORY=/chroma/unified
+    volumes:
+      - chroma-data:/chroma/unified
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    networks:
+      - neo-mcp-network
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2.0"
+
+  kb-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TARGET_SERVER: knowledge-base
+    environment:
+      - NEO_TRANSPORT=sse
+      - NEO_AUTO_SYNC=false
+      - NEO_KB_AUTO_START_DATABASE=false
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - MCP_HTTP_PORT=3000
+      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
+      - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
+      - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
+      - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
+      - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
+      - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
+    volumes:
+      - shared-sqlite-data:/app/.neo-ai-data/sqlite
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-mcp-network
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+
+  mc-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TARGET_SERVER: memory-core
+    environment:
+      - NEO_TRANSPORT=sse
+      - NEO_MC_PRIMARY=false
+      - NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked
+      - NEO_AUTO_SUMMARIZE=false
+      - NEO_MEM_AUTO_START_DATABASE=false
+      - NEO_MEM_AUTO_START_INFERENCE=false
+      - NEO_AUTO_DREAM=false
+      - NEO_AUTO_GOLDEN_PATH=false
+      - NEO_REAL_TIME_MEMORY_PARSING=false
+      - NEO_AUTO_INGEST_FS=false
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - MCP_HTTP_PORT=3001
+      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      # Single-process container = no orchestrator-supervised embed daemon: the server hosts the
+      # WAL drain loop itself (sole-drainer invariant — exactly one loop per WAL dir; never enable
+      # alongside the embed daemon). Without it, the decoupled add_memory writes the WAL but nothing
+      # embeds it, so semantic recall reads empty. WAL dir is overridden onto the persistent
+      # shared-sqlite-data volume so pending segments survive container recreates.
+      - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
+      - NEO_MEMORY_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal
+      - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
+      - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
+      - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
+      - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
+      - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
+      - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
+    volumes:
+      - shared-sqlite-data:/app/.neo-ai-data/sqlite
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-mcp-network
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+
+  # The Agent OS maintenance orchestrator (ADR 0014 §2.3). Built from the shared
+  # image via the generalized `SERVICE_ENTRYPOINT` arg. `NEO_AI_DEPLOYMENT_MODE=cloud`
+  # activates the cloud-safe scheduler profile — only the cloud-deployable lanes
+  # (summary, backup, dream, golden-path) run; the local-only lanes (primary-dev-sync,
+  # kbSync, bridgeDaemon) are disabled via the Sub A #11722 deployment-mode toggles.
+  # `cloud` profile — started by `docker compose --profile cloud up`.
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
+    environment:
+      - NEO_AI_DEPLOYMENT_MODE=cloud
+      - NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false
+      - NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED=false
+      - NEO_ORCHESTRATOR_KB_SYNC_ENABLED=false
+      - NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false
+      - NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false
+      - NEO_ORCHESTRATOR_MLX_ENABLED=false
+      - NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data
+      - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
+      - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
+      - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
+      - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
+      - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
+      - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+    volumes:
+      - shared-sqlite-data:/app/.neo-ai-data/sqlite
+      - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
+      # Redeploy-safe backup persistence (Sub C #11724): the cloud-safe `backup`
+      # scheduler lane writes bundles here. A host bind-mount keeps them across
+      # container rebuilds and host-accessible for off-site copy / inspection.
+      - ./.neo-ai-data/backups:/app/.neo-ai-data/backups
+      # kb-config.yaml bootstrap tier (#12145): deployments that provide a kb-config.yaml
+      # (per-tenant Source/Parser registration + pull-mode `tenantRepos`) MUST mount it
+      # read-only here AND on kb-server. The pull-mode sync's tiered resolver
+      # (TenantRepoSyncService -> KnowledgeBaseIngestionService.listConfiguredTenantRepos)
+      # reads it from `<neoRootDir>/kb-config.yaml` the same way kb-server resolves it at
+      # query time; without the mount the orchestrator silently falls back to the
+      # aiConfig.tenantRepos[] default tier only. Example:
+      #   - ./kb-config.yaml:/app/kb-config.yaml:ro
+    depends_on:
+      chroma:
+        condition: service_healthy
+      kb-server:
+        condition: service_healthy
+      mc-server:
+        condition: service_healthy
+    networks:
+      - neo-mcp-network
+    profiles:
+      - cloud
+    # Liveness verified via TaskStateService's persistent state file (#11937).
+    # TaskStateService writes JSON state on every task lifecycle transition;
+    # mtime within 10 minutes (≫ swarm-heartbeat + summary cadences with safety
+    # margin) = orchestrator is alive and polling. 90s start_period covers the
+    # first-poll latency on cold container boot.
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const fs=require('fs');const f=(process.env.NEO_AI_ORCHESTRATOR_DIR||'/app/.neo-ai-data/orchestrator-daemon')+'/orchestrator-state.json';try{const m=fs.statSync(f).mtimeMs;process.exit(Date.now()-m<600000?0:1)}catch(e){process.exit(1)}\""]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+
+  # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS
+  # deployment (Sub C #11724). `ingress` profile — `docker compose --profile
+  # ingress up` (combine with `--profile cloud` for the full stack). Caddy
+  # terminates TLS and path-routes `/kb/*` -> kb-server:3000, `/mc/*` -> mc-server:3001.
+  # Config: ai/deploy/Caddyfile.
+  ingress:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+    environment:
+      - NEO_DEPLOY_HOSTNAME=${NEO_DEPLOY_HOSTNAME:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - kb-server
+      - mc-server
+    networks:
+      - neo-mcp-network
+    profiles:
+      - ingress
+    # TCP-port responsiveness on 443 (caddy's only public surface). Direct nc -z
+    # exit-status check — caddy:2-alpine includes BusyBox nc; exit 0 = port accepts
+    # TCP connection, non-zero = caddy crashed. Avoids the wget --quiet + grep
+    # silent-success-empty-output failure mode (#11939 cycle-1 review per @neo-gpt).
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 443"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  # Optional self-hosted model-provider runtime (Post-MVP residual #11734).
+  # The service is disabled unless the operator starts `--profile local-model`.
+  # It deliberately remains separate from the orchestrator: configure KB/MC/
+  # orchestrator consumers with `NEO_MODEL_PROVIDER=openAiCompatible` and
+  # `NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434` only for deployments
+  # that explicitly opt into this profile.
+  local-model:
+    image: ${NEO_LOCAL_MODEL_IMAGE:-ollama/ollama:latest}
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_MODELS=/root/.ollama
+      - OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:--1}
+      - OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-262144}
+    volumes:
+      - local-model-data:/root/.ollama
+    networks:
+      - neo-mcp-network
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    profiles:
+      - local-model
+    deploy:
+      resources:
+        limits:
+          memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-32g}"
+          cpus: "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
+
+# kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
+# `ingress` profile is the sole public surface. `caddy-data` persists Caddy's
+# internal CA + issued certs across container rebuilds (Sub C #11724).
+
+networks:
+  neo-mcp-network:
+    driver: bridge
+
+volumes:
+  chroma-data:
+  shared-sqlite-data:
+  tenant-repo-mirrors:
+  caddy-data:
+  caddy-config:
+  local-model-data:

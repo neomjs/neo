@@ -1,0 +1,66 @@
+name: PR Base Branch Guard
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+    branches:
+      - main
+
+
+jobs:
+  enforce-dev-base:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Enforce dev base for agents
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            
+            // Only allow repo owner or authorized release accounts to target main
+            const allowedUsers = ['tobiu'];
+            
+            if (!allowedUsers.includes(author)) {
+              console.log(`❌ Unauthorized PR targeting 'main' from '${author}'. Attempting to change base to 'dev'.`);
+              
+              try {
+                // Attempt to automatically fix the base branch
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  base: 'dev'
+                });
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `⚠️ **PR Base Branch Guard Action**\n\nPRs targeting \`main\` are restricted to release operations. I have automatically changed the base branch of this PR to \`dev\`.\n\nPlease ensure your commits were branched from \`dev\`. If not, you may need to rebase your branch.`
+                });
+              } catch (e) {
+                console.error("Failed to automatically change base branch:", e);
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `❌ **PR Base Branch Guard Violation**\n\nPRs targeting \`main\` are restricted to authorized maintainers. I could not automatically change the base branch to \`dev\`.\n\nThis PR has been closed. Please change your base branch to \`dev\` and reopen it, or open a new PR targeting \`dev\`.`
+                });
+                
+                // Fallback: close the PR to prevent base-main blowups
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  state: 'closed'
+                });
+                
+                core.setFailed("PR targets main but author is not authorized. PR has been closed.");
+              }
+            } else {
+              console.log("✅ Authorized user targeting main. Allowing.");
+            }

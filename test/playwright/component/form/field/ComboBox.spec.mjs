@@ -37,7 +37,7 @@ async function createComboBox(page, config) {
 test.describe('Neo.form.field.ComboBox', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
     });
 
     test.afterEach(async ({page}) => {
@@ -109,6 +109,30 @@ test.describe('Neo.form.field.ComboBox', () => {
 
         // Now focus has left
         await expect(inputField).not.toBeFocused();
+    });
+
+    test('Input wrapper fills remaining width after a left label', async ({page}) => {
+        componentId = await createComboBox(page, {
+            labelPosition: 'left',
+            labelWidth   : 100,
+            width        : 340
+        });
+
+        const sizes = await page.locator(`#${componentId}`).evaluate(element => {
+            const label   = element.querySelector('.neo-textfield-label'),
+                  wrapper = element.querySelector('.neo-input-wrapper'),
+                  input   = element.querySelector('input.neo-textfield-input:not(.neo-typeahead-input)');
+
+            return {
+                inputWidth  : input.getBoundingClientRect().width,
+                labelWidth  : label.getBoundingClientRect().width,
+                wrapperWidth: wrapper.getBoundingClientRect().width
+            };
+        });
+
+        expect(Math.round(sizes.labelWidth)).toBe(100);
+        expect(Math.round(sizes.wrapperWidth)).toBe(240);
+        expect(sizes.inputWidth).toBeGreaterThan(200);
     });
 
     test('Keyboard navigation', async ({page}) => {

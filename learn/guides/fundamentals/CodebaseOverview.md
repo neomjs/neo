@@ -2,30 +2,37 @@
 
 > **Note for Readers:** This guide is primarily written for AI agents working with the Neo.mjs codebase and is part of their required session initialization. However, it also serves as a comprehensive overview for human developers seeking to understand the platform's scale, architecture, and design philosophy. References to "querying" refer to the AI Knowledge Base system available to agents.
 
-## Understanding the Scale (State of January 2026)
+## Understanding the Scale (State of May 1, 2026)
 
-Neo.mjs is not a library. It's a **comprehensive web platform** with:
+Neo.mjs is not a library. It's a **comprehensive web platform**. Methodology: `sloc` source-only for code (excludes blanks + comments), comments tracked as a distinct metric, markdown content via `wc -l`.
 
-- **45,244 lines** of core engine source (370 files)
-- **19,210 lines** of working examples (485 files)
-- **16,478 lines** of flagship applications (313 files)
-- **13,714 lines** of AI infrastructure (105 files)
-- **6,769 lines** of automated tests (56 files)
-- **5,813 lines** of build tooling (44 files)
+- **54,363 lines** of core engine source (423 files)
+- **40,401 lines** of flagship applications (375 files)
+- **14,913 lines** of component theming (618 files)
+- **20,190 lines** of working examples (510 files)
+- **26,661 lines** of AI infrastructure (182 files)
+- **35,937 lines** of learning materials (159 files)
+- **26,331 lines** of automated tests (203 files)
+- **7,036 lines** of build tooling (60 files)
 - **1,294 lines** of documentation app (17 files)
-- **12,137 lines** of production theming (446 SCSS files)
-- **52,850 lines** of JSDoc documentation
+- **302,491 lines** of Agent Knowledge context — issues + archive + pulls + discussions (4,441 files)
+- **154 lines** of Swarm Skill routers (17 SKILL.md files)
+- **2,610 lines** of Swarm Skill references + assets (24 files — workflows, templates, protocols)
+- **73,701 lines** of pure JSDoc and inline comments (sloc Comment metric across the source layers above)
 
-**Total: ~121,000 lines of source code + 53,000 lines of documentation = ~174,000 lines of knowledge**
+**Total: ~191,000 lines of source code (sloc) + ~74,000 lines of comments + ~341,000 lines of cognitive content (Markdown) = ~606,000 lines of curated substrate.**
 
-The documentation lines count. They contain intent, architectural rationale, and usage patterns—knowledge that's as valuable as the code itself for understanding the platform.
+The documentation and cognitive content count. Issues, discussions, PR conversations, and agent skills aren't artifacts; they're the agents' working memory and execution substrate, parsed by the Knowledge Base and Memory Core for context priming + retrieval.
 
 **Note:** These metrics exclude:
-- The `/dist` directory (production builds, which would triple these numbers)
-- Markdown files in `/learn` (~100 files of guides, tutorials, and blog posts)
-- Generated documentation outputs
+- The `/dist` directory (production builds — would triple the engine source layer, projecting another ~570,000 lines of transpiled bundles + theme outputs).
+- Generated documentation outputs.
+
+**Including `/dist`, the substrate approaches ~1,180,000 lines.** A million-line organism.
 
 This is not a small library—it's a comprehensive platform with more source code than many established frameworks. It represents a decade of architectural thinking about how web applications *should* work—and how AI agents *should* collaborate with them.
+
+**Keep this number in sync.** The codebase grows fast (3,200+ commits in Q1 2026 post-Agent-OS alone). The dated header at the top of this section is the canonical signal — when it drifts more than a month from current, refresh empirically via `npx --yes sloc -e 'node_modules|dist|test-results' <dir>` per layer + `find <dir> -type f -name '*.md' | xargs wc -l` for Markdown layers. The README's `## A Platform at Scale` section mirrors these numbers and should be updated in lock-step.
 
 ---
 
@@ -43,11 +50,21 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 
 ## The Architecture: Why These Choices?
 
-### 1. True Multithreading (Not Just "Web Workers")
+First, it is critical to understand the primary execution boundary. Neo.mjs operates **two completely disjointized environments** that only ever communicate via the Neural Link (JSON-RPC WebSocket):
+1. **The Frontend UI Engine:** The browser-based application runtime that renders the DOM.
+2. **The Agent OS (Node.js):** The backend cognitive loop and local AI SDK.
 
-**The Problem**: Single-threaded frameworks fundamentally cannot prevent UI jank. They use schedulers and time-slicing, but they're still fighting the browser's event loop.
+> **Deep-Dive Guides:**
+> - [Architecture Overview](../../benefits/ArchitectureOverview.md) — How the Runtime Engine and Agent OS connect as a closed feedback loop
+> - [Swarm Intelligence](../../agentos/SwarmIntelligence.md) — Autonomous sub-agent delegation (profiles, capability gating, cost control)
+> - [Progressive Disclosure Skills](../../agentos/ProgressiveDisclosureSkills.md) — The lifecycle governance rules, including review-intake lane discovery before reviewer-only cycles
+> - [The Dream Pipeline & Golden Path](../../agentos/DreamPipeline.md) — Offline forecasting engine that scores and prioritizes work
 
-**The Solution**: Neo.mjs moves *all application logic* to dedicated workers:
+### 1. The Frontend Engine: True Multithreading via Web Workers
+
+**The Problem**: Within the browser, single-threaded frameworks fundamentally cannot prevent UI jank. They use schedulers and time-slicing, but they're still fighting the browser's event loop.
+
+**The Solution**: The Neo.mjs Frontend Engine moves *all UI application logic* to dedicated web workers:
 - **App Worker**: Your entire application (components, state, logic)
 - **VDom Worker**: Diffing and patching calculations
 - **Data Worker**: Store operations and data transformations
@@ -61,9 +78,9 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 
 ---
 
-### 2. The VDOM as a Cross-Thread Protocol
+### 2. The VDOM as a Cross-Thread Protocol (Frontend Only)
 
-**The Problem**: Workers communicate via `postMessage`, which requires serializable data. JSX and function components aren't serializable.
+**The Problem**: Within the Frontend Engine, web workers communicate via `postMessage`, which requires serializable data. JSX and function components aren't serializable.
 
 **The Solution**: The Virtual DOM *is* the protocol. Components describe themselves as **JSON blueprints**:
 ```javascript
@@ -74,13 +91,15 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 }
 ```
 
+*Note: The VDOM is strictly a capability of the Frontend UI Engine. The Agent OS SDK does not render or process VDOM internally; it merely inspects or injects it remotely via the Neural Link.*
+
 **The Trade-off**: More verbose than JSX, but:
 - Serializable by definition
 - Language-agnostic (ideal for AI generation)
 - Debuggable without source maps
 - Zero compilation required
 
-**The Result**: The VDOM isn't a rendering optimization; it's the **IPC (Inter-Process Communication) layer** of the platform.
+**The Result**: The VDOM isn't a rendering optimization; it's the **IPC (Inter-Process Communication) layer** of the frontend platform.
 
 ---
 
@@ -113,6 +132,19 @@ Neo.create(Effect, {
 **The Trade-off**: Two systems to learn, but optimal performance for each use case.
 
 **The Result**: Fine-grained reactivity where you need it, coarse-grained where you don't.
+
+> **Core Engine Deep Dives:** The concepts above — class compilation, config descriptors, reactivity, and lifecycle — are
+> each explored in depth within the `learn/guides/coreengine/` guide series. While `src/Neo.mjs` and `src/core/Base.mjs`
+> provide the implementation mechanics, these 6 guides explain the *architectural reasoning* behind them:
+>
+> 1. **Why Enhance JS Classes?** (`WhyEnhance.md`) — The native `constructor` trap and why `construct()` exists
+> 2. **Class Compilation** (`SetupClass.md`) — How `Neo.setupClass()` walks the prototype chain, merges configs, and resolves mixins
+> 3. **The Config System** (`ConfigSystem.md`) — Config descriptors, the `configSymbol` holding zone, and cross-dependent batch resolution
+> 4. **Two-Tier Reactivity** (`Reactivity.md`) — The v10 bridge: `core.Config` instances backing every reactive config, enabling `EffectManager` to observe *any* config
+> 5. **Instance Lifecycle** (`Lifecycle.md`) — `initAsync()`, remote method registration, and Main Thread Addon patterns
+> 6. **Core Utilities** (`Utilities.md`) — `core.Compare` as the infinite loop breaker, and the declarative `delayable` system
+>
+> These form a sequential narrative — each guide's closing paragraph hands off to the next.
 
 ---
 
@@ -260,7 +292,7 @@ Desktop-class application architecture:
 
 ## The Knowledge Landscape: What's Available to Query
 
-### Core Engine (`/src` - 351 files, 81k lines)
+### Core Engine (`/src` - 426 files, ~54k lines)
 
 **Foundation**:
 - `Neo.mjs`: The entry point. Class factory, `setupClass()`, global configuration
@@ -315,6 +347,16 @@ Each example is self-contained and demonstrates one concept clearly.
 - Component browser with live examples
 - Source code viewer with syntax highlighting
 
+**DevIndex** (`apps/devindex/`):
+- The **only** Neo.mjs application running `Neo.core.Base` as a **Node.js backend runtime** (no browser, no VDOM)
+- Proves the class system (configs, singletons, reactive hooks) works identically in both environments
+- Service-oriented architecture:
+  - `Spider.mjs`: Discovery engine using **weighted random walk** across 6 strategies (Network Walker, Core High Stars, Keyword, Temporal, Community, Stargazer) to avoid filter bubbles
+  - `Updater.mjs`: Enrichment pipeline with **meritocracy logic** — dynamic contribution thresholds and a "Safe Purge Protocol" handling API errors and GitHub user renames via Database IDs
+  - `Storage.mjs`: Flat-file persistence layer (`users.jsonl`, `tracker.json`, `visited.json`) with atomic writes and automatic pruning based on `maxUsers` caps
+- Accompanied by extensive learning materials (`learn/guides/devindex/` — 8 guides + FAQ)
+- Architecturally significant as the reference implementation for Neo-powered backend services
+
 **SharedCovid** (`apps/sharedcovid/`):
 - Multi-window data visualization
 - Real-time COVID-19 statistics
@@ -323,40 +365,135 @@ Each example is self-contained and demonstrates one concept clearly.
 - Gallery and Helix components
 
 **RealWorld** (`apps/RealWorld/`):
-- Standard benchmark application (Conduit clone)
-- Demonstrates full CRUD operations
-- Routing and navigation
-- Authentication and state management
+- Conduit benchmark application — a standardized playground for comparing frameworks (legacy)
+- Uses strict DOM template requirements (markup *must* match exact specifications), which constrains Neo to `component.Base` instead of leveraging the full component library
+- Demonstrates CRUD operations, routing, and authentication patterns
+- *Note: The rigid template constraints make this an anti-pattern for idiomatic Neo.mjs — use Portal or SharedCovid as reference implementations instead*
 
 ---
 
 ### Learning Materials (`/learn`)
 
+**The Index**: `learn/tree.json` is the canonical hierarchical taxonomy of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide — scanning it gives you an instant top-level perspective of the entire documentation landscape.
+
 **Structured Content**:
-- **Benefits**: Why Neo.mjs exists, what problems it solves
-- **Getting Started**: First steps, tutorials, quick wins
-- **Fundamentals**: Core concepts, architecture deep-dives
-- **Guides**: Task-oriented how-tos
+- **Benefits**: Why Neo.mjs exists, what problems it solves (12 topics)
+- **Getting Started**: First steps, tutorials, quick wins (9 topics)
+- **Agent OS & Conversational UIs**: AI infrastructure, MCP servers, tooling (13 topics)
+- **Guides**: Fundamentals, Core Engine, UI Building Blocks, Data Handling, Testing, Advanced Architecture (62 topics)
+- **DevIndex App**: Flagship application architecture, data factory, frontend (22 topics)
+- **Tutorials**: Hands-on walkthroughs (5 topics)
+- **Engine vs Frameworks**: Competitive comparisons with React, Angular, Vue, Solid, Next, Ext (7 topics)
 - **Blog**: Historical context, design decisions, evolution
 
 The content in `/learn` is the source material for the AI Knowledge Base. Query it for conceptual understanding.
 
 ---
 
-### Historical Context
+### Agent Knowledge Base (`/resources/content/` - 4,441 files, ~302,491 lines, May 1 2026)
 
-**Release Notes** (`.github/RELEASE_NOTES/`):
+The entire historical footprint and live contextual state of the Neo.mjs project is synchronized locally for the Agent OS within `resources/content/`:
+
+**Release Notes** (`resources/content/release-notes/`):
 - Version-by-version changelog
 - Feature additions with rationale
 - Bug fixes and their context
 - Breaking changes and migration guides
 
-**Ticket Archive** (`.github/ISSUE_ARCHIVE/`):
-- Closed issues organized by release version
-- Full context: problem, discussion, solution, implementation
-- Searchable history of decisions
+**Ticket Archive & Active Issues** (`resources/content/issue-archive/`, `resources/content/issues/`):
+- Full contextual history: problem, discussion, solution, implementation
+- Searchable history of architectural decisions via Native Graph ingestion
 
-Query these when you need to understand *why* something works a certain way.
+**Pull Requests** (`resources/content/pulls/`):
+- Complete PR conversations, diff summaries, and Agent-generated "Fat Ticket" reviews
+- Links directly to closing commits for deep execution context
+
+**Discussions** (`resources/content/discussions/`):
+- The Ideation Sandbox
+- Proposed architectural features, "Unknown Unknowns", and early-stage brainstorming
+
+Query these when you need to understand *why* something works a certain way, track the evolution of an architectural design, or find open tasks.
+
+---
+
+### Agent OS Backend (`/ai` - 144 files, ~20k lines)
+
+The cognitive architecture underpinning the swarm:
+- `agent/`: The cognitive loop, task schedulers, and **agent profiles** (see below).
+- `graph/`: The Native Edge Graph topology database (`Database.mjs`, `NodeModel.mjs`, `EdgeModel.mjs`).
+- `daemons/`: Offline memory consolidation pipelines (e.g., `DreamService.mjs`).
+- `mcp/ToolService.mjs`: The **universal dispatch layer** for all 5 MCP servers — `callTool()` is the single choke-point routing every tool invocation through OpenAPI-driven Zod validation. Understanding this is critical for agents planning interceptors or middleware (e.g., NL Action Recorder).
+- `sdk-manifest.md`: Public API mapping for interacting with the KB, Memory, GitHub, and Neural Link services.
+
+#### Agent Profiles (`ai/agent/profile/`)
+
+Agents are not monolithic — they have **configurable profiles** that determine model provider, connected MCP servers, and system prompts:
+- `Librarian.mjs`: GraphRAG research specialist connecting to the knowledge-base server. Defaults to `gemini` but supports `ollama` (e.g., `gemma4-31b`) for offline/swarm spawning.
+- `QA.mjs`: Validation-focused agent for test synthesis and E2E verification.
+- `Browser.mjs`: Browser-aware profile for visual interaction tasks.
+
+Local inference via MLX Server / ML Studio is a first-class deployment target — agents are not limited to cloud API providers.
+
+#### Daemon Lifecycle Scripts (`buildScripts/ai/`)
+
+Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol operations:
+- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (TEST_GAP, GUIDE_GAP). *(Note: the orchestrator's `golden-path` cadence task synthesizes the strategic roadmap into `sandman_handoff.md` directly via `GoldenPathSynthesizer.synthesizeGoldenPath()`; no separate standalone runner ships per #12078.)*
+- Additional utilities: `syncKnowledgeBase.mjs`, `defragChromaDB.mjs`, `defragSQLiteDB.mjs`, `recreateGraphDb.mjs` — the maintenance toolkit for the vector and graph databases.
+
+---
+
+### Swarm Skills & Workflows (`/.agents/skills/` - 30 skills)
+
+Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram. Canonical skill-anatomy authority: [ADR 0008: SKILL.md Anatomy and Authoring Contract](../../agentos/decisions/0008-skill-anatomy-and-authoring-contract.md).
+
+**Note:** To ensure unified cross-harness trigger salience (Antigravity vs Codex/Claude) and reduce cognitive bloat, the `description` field serves as the sole routing layer, replacing the legacy redundant `triggers` frontmatter field.
+
+**Lifecycle (execution gates):**
+- `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
+- `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, explicit custom Playwright targeting).
+- `epic-create`: Author Epic bodies as problem-scope + intended-solution — ACs live in the sub-tickets, subs are linked (not listed) so the body doesn't stale (creation-side dual of ticket-create).
+- `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness).
+- `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
+- `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence, explicit custom Playwright targeting).
+- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + a Review-Loop Cost Circuit Breaker that classifies review convergence (micro-delta when semantically cleared; scope-too-big break-up via `epic-create` for non-converging churn) (enforces mandatory ROI template usage).
+- `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
+
+**Tactical (live operations):**
+- `identity-firewall`: The L2 Channel Separation and Prompt Firewall defense mechanisms.
+- `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
+- `unit-test`: Synthetically driving custom Playwright configs natively within the single-thread architecture.
+- `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests with custom Playwright configs.
+- `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
+- `memory-mining`: Querying Memory Core before diagnosing regressions or proposing architectural claims — prevents re-derivation of prior reasoning across sessions and harnesses.
+- `context-recovery`: Reconstructing active lane state after context compaction from Memory Core recency, semantic recall, session rollups, and A2A before resuming.
+- `neo-identity-update`: Updating Neo's identity coherently across all encoding surfaces (README, VISION, package.json, GitHub metadata, portal, SEO generators) — facts, framing, and actions model per ADR 0018.
+- `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
+
+**Creative:**
+- `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue, and acts as a step-back trigger for high-blast-radius proposals).
+
+**Coordination:**
+- `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
+- `post-review-pickup`: Mandatory next-phase pickup at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution). Requires explicit `lane-state:` declaration per AGENTS.md §15.6 self-select mandate.
+- `peer-naming`: The Social Name ritual (#11240 Layer 4) — peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; codifies how a maintainer is *given* a name distinct from the `@handle` (name ≠ handle).
+
+**Meta:**
+- `create-skill`: Architectural blueprinting for new operational abilities.
+
+---
+
+### Neo Theming Engine (`/resources/scss/` - 613 files, ~14.8k lines)
+
+Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS framework rendering engine.
+
+---
+
+### Automated Validation & Docs Parsing
+
+Documenting auxiliary determinism systems:
+- **/test/** (189 files, ~21.9k lines): Testing layouts (unit, e2e, component, mcp) leveraging the Neural Link for Whitebox E2E.
+- **/buildScripts/** (62 files, ~6.8k lines): Build pipelines (Webpack distributions) and context generation layers.
+- **/docs/app/** (17 files, ~1.2k lines): The specialized JSDoc parsing pipeline generating the Neo UI documentation layer (output directed to `.gitignore`'d `/docs/output/`).
 
 ---
 
@@ -364,28 +501,58 @@ Query these when you need to understand *why* something works a certain way.
 
 Neo.mjs isn't just "AI-friendly"—it was **architected for AI collaboration from the ground up**.
 
-### The Evidence: 9,120 Lines of AI Infrastructure
+### Primary Separation: The Node.js Agent OS vs. The Frontend Engine
 
-The platform includes three dedicated Model Context Protocol (MCP) servers (47 files):
+The platform features a dedicated **Node.js Agent SDK** acting as the cognitive backend (Agent OS). This OS is **completely isolated** from the browser-based Frontend Engine.
+- The Agent OS operates within Node.js, leveraging native Child Processes for parallelization (e.g., daemon spawns) instead of Web Workers.
+- The UI Runtime (Frontend Engine) operates entirely in the browser using Web Workers.
+- The VDOM (Virtual DOM) applies *only* to the UI runtime.
+- **The Neural Link (WebSocket JSON-RPC)** serves as the exclusive, stateless bridge between these two disjoint worlds.
+
+This local infrastructure exposes five dedicated Model Context Protocol (MCP) servers:
 
 **1. Knowledge Base Server** (`ai/mcp/server/knowledge-base/`)
 - Indexes the entire platform: source code, examples, guides, release notes, tickets
 - Semantic search via vector embeddings (ChromaDB + Google Gemini)
 - Sophisticated scoring algorithm prioritizing relevance
 - Pre-calculates class inheritance chains for fast queries
-- Transforms ~158k lines of code into queryable knowledge
+- Transforms over 158k lines of code into queryable knowledge
 
-**2. Memory Core Server** (`ai/mcp/server/memory-core/`)
-- Long-term conversational memory across sessions
-- Consolidates agent "thought process" for analysis
-- Enables learning from past decisions
-- Supports session summaries and context retrieval
+**2. Memory Core Server & DreamService** (`ai/mcp/server/memory-core/`)
+- Features a sophisticated **Hybrid RAG** processing pipeline.
+- Backed by an independent SQLite-based Native Graph DB to extract topological conflict data.
+- Executes offline cognitive maintenance during the "Dream Cycle" (`runSandman.mjs`).
+- Leverages local SLMs (e.g., `gemma4-31b`) for Subagents and the Librarian daemon to automatically organize episodic memory.
+- Consolidates agent "thought process" for analysis and context retrieval.
 
 **3. GitHub Workflow Server** (`ai/mcp/server/github-workflow/`)
 - 2-way sync between local filesystem and GitHub issues
-- Automated ticket creation with templates
+- Automated ticket creation with "Fat Ticket" templates
 - Status tracking and archival
 - Ensures all work is traceable and documented
+
+**4. Neural Link Server** (`ai/mcp/server/neural-link/`)
+- Three-party WebSocket architecture enabling multi-agent concurrent access:
+  ```
+  Bridge Process (Standalone WebSocket Hub, port 8081)
+      ↑                    ↑
+      │                    │
+  Agent MCP Server    App Worker (Browser)
+  (Node.js client)    (Browser client via neo-ai-bridge.mjs)
+  ```
+- The `Bridge.mjs` is a **standalone process** — not embedded in the MCP server. Multiple agents can connect simultaneously to the same running application, which is how swarm operations work.
+- `ConnectionService` provides **session awareness**: tracks live App Worker sessions with `appName`, `connectedAt`, console logs (last 1,000), and window topology. This is what makes the Neural Link "session-aware" — agents can auto-target the most recent session without explicit session IDs.
+- Bypasses traditional HTML DOM by exposing **three tiers of introspection**:
+  - **Component Trees** (JSON-like, but richer): Hierarchical class instances with full config state. Neo classes provide `toJSON()` exports for serialized snapshots — this is what agents inspect when examining component instances.
+  - **VDOM** (pure JSON): The *desired next state* — pending until `update()` is called. Uses a distinct syntax (`tag`, `cls`, `cn`) to make it immediately distinguishable from VNodes.
+  - **VNode** (pure JSON): The *current live DOM state*. Uses a different syntax (`nodeName`, `className`, `childNodes`) so agents can tell at a glance which tree they're looking at.
+- **Delta update pipeline**: `TreeBuilder.mjs` constructs symmetric VDOM and VNode trees (honoring `updateDepth` to control child component expansion). These paired trees are sent to the VDom Worker, where `Helper.mjs` converts VDOM → VNode, then compares two VNode trees to produce a minimal delta stream. Agents can log this delta stream in main to debug exactly what changes reach the live DOM.
+- **VDOM Teleportation**: If a component is already flagged for an update (e.g., a button text change within a toolbar), it carries its own `updateDepth`. The parent can send its update to the VDom Worker containing only the flagged child — not all siblings — drastically reducing diff surface.
+- Powers deterministic **Whitebox E2E** testing frameworks, allowing agents to assert accurate internal component, VDOM, and VNode states independently.
+
+**5. File System Server** (`ai/mcp/server/file-system/`)
+- A localized file-system proxy exclusively for internal Neo agents.
+- (*Note: External clients like Claude Code, Gemini CLI, and Antigravity utilize their own native file system tools.*)
 
 ### Why This Matters for You
 
@@ -408,7 +575,37 @@ You're not just working *with* Neo.mjs. You're working *inside* an ecosystem des
 
 ## Key Concepts: Query Entry Points
 
-When you need to understand Neo.mjs, these are high-value concepts to query. Use these terms with the `query_documents` tool to find relevant source files and guides.
+### Ask First, Search Second
+
+Your most powerful tool is `ask_knowledge_base`. It reads multiple source files,
+synthesizes a grounded answer, and cites its references — all in a single call.
+
+> [!WARNING]
+> Do NOT attempt to answer Neo.mjs questions from training data. The framework evolves rapidly — your training data is almost certainly outdated for syntax-level details.
+
+**Example queries:**
+- `ask_knowledge_base(query='how does the reactive config system work?')`
+- `ask_knowledge_base(query='current syntax for state provider bindings')`
+- `ask_knowledge_base(query='how to configure locked columns in a Grid')`
+- `ask_knowledge_base(query='what is the difference between ntype and className?', type='guide')`
+
+| Question Type | Tool | Returns |
+|---|---|---|
+| "How does X work?" | `ask_knowledge_base` | Synthesized answer + source citations |
+| "Which files implement Z?" | `query_documents` | Ranked file paths with relevance scores |
+| Exact implementation details | `view_file` | Raw source code |
+
+### File Discovery Keywords
+
+When you specifically need to discover *which files* implement something,
+use `query_documents` with these high-value terms:
+
+### Agent Intelligence & Workflows
+- `"DreamService"`, `"Agent OS"`, `"Native Edge Graph"`, `"SQLite topology"`, `"Fat Ticket"`
+- `"Swarm protocols"`, `"pr-review templates"`
+
+### Validation & Parsers
+- `"Whitebox E2E"`, `"Playwright fixtures"`, `"JSDoc parsing"`
 
 ### Architecture & Philosophy
 - `"multithreading"`, `"worker architecture"`, `"App Worker"`, `"VDom Worker"`
@@ -499,15 +696,16 @@ If you're coming from other frameworks, here are the key mental shifts:
 3. Look at `/apps/portal/` for a complete application
 
 ### When Stuck
-1. Query the specific concept (e.g., `"afterSet hook"`)
-2. Read both the source file (`type='src'`) and guide (`type='guide'`)
+1. **Ask first:** `ask_knowledge_base(query='how does the afterSet hook work?')` — gets a synthesized answer with cited source file paths
+2. **Drill into code:** The answer includes ranked file references — use `grep_search` or `view_file` to inspect the specific implementation
 3. Check examples (`type='example'`) for practical usage
-4. Review tickets (`type='ticket'`) for historical context
+4. Review tickets (`type='ticket'`) and Pull Requests (`type='pull'`) for execution history
+5. Search Discussions (`type='discussion'`) for the underlying architectural "Why"
 
 ---
 
 ## Remember
 
-This is a **174,000-line knowledge base**, not a 5k-line library. And that's just the indexed source and JSDoc—it excludes the `/dist` production builds (which would triple it) and ~100 markdown files of learning content in `/learn`.
+This is a **~606,000-line curated substrate** (May 1, 2026 snapshot — see `## Understanding the Scale` at the top for the canonical breakdown), not a 5k-line library. Including `/dist` production builds (transpiled bundles + theme outputs) the substrate approaches **~1,180,000 lines**. The cognitive content (issues + discussions + PR conversations + agent skills) alone is now ~1.6× the engine source — substrate is compounding on the swarm-diet layer.
 
 Don't assume. Query. The knowledge base contains the answers. Your job is to ask the right questions.

@@ -1,0 +1,1 @@
+[{"id":"3304","parentId":"v4.0.75/archive-v4-0-75-chunk-1","title":"controller.Base: move the first onHashChange from ctor to onConstructed()"},{"id":"3303","parentId":"v4.0.75/archive-v4-0-75-chunk-1","title":"buildScripts/createClass: move the file generation logic into an own method"}]

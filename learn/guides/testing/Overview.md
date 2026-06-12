@@ -30,6 +30,14 @@ Our harness uses **Atomic In-Browser Measurement** (MutationObservers) to elimin
 
 [Read the Benchmarking Guide](Benchmarking.md)
 
+## 4. Whitebox E2E Testing (System Architecture)
+**Focus:** Deep Component Introspection, Workflow Automations, Memory Validation.
+**Environment:** Real Browser + Neural Link Protocol.
+
+Whitebox E2E testing utilizes the **Neural Link** bridge to sidestep the brittleness of traditional DOM-reliant (blackbox) E2E testing. Rather than writing brittle DOM locators, you fetch references to the actual `Neo.component.Base` class instances persisting inside the Application Worker, bypassing the asynchronous VDOM gap.
+
+[Read the Whitebox E2E Guide](WhiteboxE2E.md)
+
 ## Summary
 
 | Type | Environment | Use Case |
@@ -37,3 +45,4 @@ Our harness uses **Atomic In-Browser Measurement** (MutationObservers) to elimin
 | **Unit** | Node.js (Simulated) | "Does the logic work?" (Store filtering, VDOM generation) |
 | **Component** | Real Browser | "Does it look right and react to clicks?" (Drag & drop, Focus) |
 | **Benchmark** | Specialized Harness | "Is it fast and stable under pressure?" (100k rows, 60 FPS) |
+| **Whitebox E2E** | Neural Link | "Did the application store the right state after this flow?" |

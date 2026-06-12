@@ -20,7 +20,7 @@ import dotenv                           from 'dotenv';
 import {exec}                           from 'child_process';
 import {promisify}                      from 'util';
 import {GoogleGenerativeAI, SchemaType} from '@google/generative-ai';
-import {sanitizeInput}                  from '../../buildScripts/util/Sanitizer.mjs';
+import {sanitizeInput}                  from '../../buildScripts/util/sanitizer.mjs';
 
 import {
     GH_LocalFileService,
@@ -34,7 +34,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // --- Configuration ---
-const MODEL_NAME = 'gemini-2.5-flash'; // Consistent with Memory Core config
+const MODEL_NAME = 'gemini-3.5-flash'; // Consistent with Memory Core config
 const GENERATION_CONFIG = {
     temperature: 0.2, // Low temperature for code precision
     responseMimeType: "application/json",

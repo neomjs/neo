@@ -412,7 +412,7 @@ class GridContainer extends BaseGridContainer {
                 }
             }
         }
-        
+
         me.store.sort(sortOpts);
         me.removeSortingCss(opts.property)
     }

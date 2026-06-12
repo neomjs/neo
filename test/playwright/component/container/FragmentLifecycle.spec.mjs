@@ -6,7 +6,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
     test.beforeEach(async ({neo, page}) => {
         // Use absolute path from server root (baseURL is http://localhost:8080)
         await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
         
         // Preload classes
         await neo.loadModule('../button/Base.mjs');

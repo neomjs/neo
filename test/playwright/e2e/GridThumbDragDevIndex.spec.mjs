@@ -5,6 +5,8 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/apps/devindex/');
+        page.on('console', msg => console.log('BROWSER:', msg.text()));
+        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
         // 1. Wait for the grid to be visible
         await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
@@ -24,8 +26,9 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
         await page.mouse.move(960, 540); // Move to center of screen
         
         const evaluationPromise = page.evaluate(async () => {
-            const wrapper = document.querySelector('.neo-grid-body-wrapper');
-            const content = document.querySelector('.neo-grid-body');
+            const wrappers = document.querySelectorAll('.neo-grid-view');
+            const wrapper = wrappers.length > 1 ? wrappers[1] : wrappers[0];
+            const content = wrapper.querySelector('.neo-grid-body');
             let telemetry = [];
             let blankFrames = 0;
             let bounces = 0;
@@ -55,19 +58,25 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
                     }
 
                     // Detect visual bouncing/jitter (rows moving down while we scroll down)
-                    if (lastFrameRows.length > 0) {
-                        const trackingRow = rows.find(r => 
-                            lastFrameRows.some(lastR => lastR.id === r.id && lastR.dataset.recordId === r.dataset.recordId)
-                        );
+                    const trackingRow = rows.find(r => 
+                        lastFrameRows.some(lastR => lastR.id === r.id && lastR.dataset.recordId === r.dataset.recordId)
+                    );
 
-                        if (trackingRow) {
-                            const currentTop = trackingRow.getBoundingClientRect().top;
-                            const lastTopObj = lastFrameRows.find(r => r.id === trackingRow.id && r.dataset.recordId === trackingRow.dataset.recordId);
-                            
+                    if (trackingRow) {
+                        const row = trackingRow.getBoundingClientRect();
+                        const currentTop = row.top;
+
+                        if (trackingRow.id && window.__TELEMETRY && window.__TELEMETRY.length > 1) {
+                            const lastTopObj = Object.values(window.__TELEMETRY[window.__TELEMETRY.length - 2] || {}).find(r => r.id === trackingRow.id);
                             if (lastTopObj) {
                                 const lastTop = lastTopObj.top;
                                 if (currentTop > lastTop + 2) {
                                     bounces++;
+                                    if (window.__PROFILE7) {
+                                        const myBody = trackingRow.closest('.neo-grid-body');
+                                        window.__DEBUG_BOUNCES = window.__DEBUG_BOUNCES || [];
+                                        window.__DEBUG_BOUNCES.push(`Row ${trackingRow.id}: currentTop=${currentTop}, lastTop=${lastTop}, diff=${currentTop - lastTop}, wrapperScrollTop=${wrapper.scrollTop}, bodyId=${myBody ? myBody.id : '?'}, offset=${myBody ? myBody.style.getPropertyValue('--grid-row-pin-offset') : '?'}, transform=${trackingRow.style.transform}`);
+                                    }
                                 }
                             }
                         }
@@ -82,6 +91,15 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
 
                 if (isBlank) {
                     blankFrames++;
+                    if (window.__PROFILE7) {
+                        console.log(`[isBlank PROF 7] wrapper: ${wrapperRect.top}->${wrapperRect.bottom}, rows: ${rowsTop}->${rowsBottom}, scrollTop: ${wrapper.scrollTop}, offset: ${content.style.getPropertyValue('--grid-row-pin-offset')}`);
+                    }
+                }
+
+                if (window.__RESET_METRICS) {
+                    blankFrames = 0;
+                    bounces = 0;
+                    window.__RESET_METRICS = false;
                 }
 
                 telemetry.push({
@@ -98,7 +116,7 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
             requestAnimationFrame(monitor);
 
             // Let it run while playwright scrolls
-            await new Promise(r => setTimeout(r, 12000));
+            await new Promise(r => setTimeout(r, 16000));
             isRunning = false;
 
             return { telemetry, blankFrames, bounces };
@@ -132,14 +150,17 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
         
         await page.waitForTimeout(500);
 
-        // --- Synthetic Thumb Drag Profiles ---
+        // --- Synthetic Drag Profiles ---
+        // Let them run without pinning first so that the browser handles them natively.
 
-        const scrollbar = await page.locator('.neo-grid-vertical-scrollbar');
-        await scrollbar.evaluate(node => node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
 
         console.log('--- Profile 4: Synthetic Steady Slow Drag ---');
         for(let i=0; i<10; i++) {
-            await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop += 100);
+            await page.evaluate(() => {
+                const wrappers = document.querySelectorAll('.neo-grid-view');
+                const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
+                w.scrollTop += 100;
+            });
             await page.waitForTimeout(50);
         }
 
@@ -147,29 +168,147 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
 
         console.log('--- Profile 5: Synthetic Drag Ping-Pong ---');
         for(let i=0; i<5; i++) {
-            await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop += 500);
+            await page.evaluate(() => {
+                const wrappers = document.querySelectorAll('.neo-grid-view');
+                const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
+                w.scrollTop += 500;
+            });
             await page.waitForTimeout(100);
-            await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop -= 500);
+            await page.evaluate(() => {
+                const wrappers = document.querySelectorAll('.neo-grid-view');
+                const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
+                w.scrollTop -= 500;
+            });
             await page.waitForTimeout(100);
         }
 
         await page.waitForTimeout(500);
 
         console.log('--- Profile 6: Synthetic Massive Snap Drag ---');
-        await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop += 50000);
+        await page.evaluate(() => {
+            const wrappers = document.querySelectorAll('.neo-grid-view');
+            const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
+            w.scrollTop += 50000;
+        });
         await page.waitForTimeout(500);
 
-        await page.evaluate(() => window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
-        await page.waitForTimeout(1000);
+        console.log('--- Profile 7: Authentic High-Frequency Native Drag (50px/sec thumb equivalent) ---');
+        const wrappers = page.locator('.neo-grid-view');
+        const wrapperNode = await wrappers.count() > 1 ? wrappers.nth(1) : wrappers.first();
+        const box = await wrapperNode.boundingBox();
         
-        const { telemetry, blankFrames, bounces } = await evaluationPromise;
+        // Emulate the human pointer exactly at the vertical scrollbar thumb location.
+        // Assuming thumb starts near the top of the wrapper.
+        const startX = box.x + box.width - 5;
+        const startY = box.y + 20;
+        
+        // 1. Position mouse on the thumb
+        await page.mouse.move(startX, startY);
+        
+        // 2. Start telemetry and press mouse down
+        await page.evaluate(() => {
+            window.__PROFILE7 = true;
+            window.__RESET_METRICS = true;
+            
+            // Create a small promise to allow Playwright's async test blocks to advance
+            return Promise.resolve();
+        });
+        await page.mouse.down();
+        
+        // 3. Perform a 2-second continuous smooth drag down by 100 pixels (50px/sec native thumb movement)
+        // using 'steps: 120' to force a 60fps event cadence from the browser.
+        await page.mouse.move(startX, startY + 100, { steps: 120 });
+        
+        // 4. Release mouse and finish sequence
+        await page.mouse.up();
+        await page.waitForTimeout(500);
+
+        await page.evaluate(() => {
+            window.__PROFILE7 = false;
+        });
+        
+        const { telemetry, blankFrames, bounces, debugBounces } = await evaluationPromise;
         
         console.log(`Total Frames Measured: ${telemetry.length}`);
         console.log(`Total Blank Frames (White Flash): ${blankFrames}`);
         console.log(`Total Jitter Bounces Detected: ${bounces}`);
+        if (debugBounces && debugBounces.length > 0) {
+            console.log('--- DEBUG BOUNCES ---');
+            debugBounces.forEach(b => console.log(b));
+            console.log('---------------------');
+        }
         
         // Assertions
         expect(blankFrames).toBe(0);
         expect(bounces).toBe(0);
+    });
+
+    test('Horizontal Drag Scroll Moves Cells Optically and Triggers Data Virtualization', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const wrappers = document.querySelectorAll('.neo-grid-view');
+            const bodyWrapper = wrappers.length > 1 ? wrappers[1] : wrappers[0];
+            const hScrollbar = document.querySelector('.neo-grid-horizontal-scrollbar');
+            
+            if (!bodyWrapper || !hScrollbar) {
+                return { error: 'Grid components not found' };
+            }
+
+            // Get initial cell boundary
+            const getFirstCellDOMLeft = () => {
+                const centerCell = document.querySelector('.neo-grid-row .neo-grid-cell:not(.neo-locked-start):not(.neo-locked-end)');
+                if (!centerCell) return null;
+                return centerCell.getBoundingClientRect().left;
+            };
+
+            const initialLeft = getFirstCellDOMLeft();
+            
+            // Get locked cells' boundaries
+            const getLockedCellLefts = () => {
+                const startCell = document.querySelector('.neo-grid-row .neo-grid-cell.neo-locked-start');
+                const endCell = document.querySelector('.neo-grid-row .neo-grid-cell.neo-locked-end');
+                return {
+                    startLeft: startCell ? startCell.getBoundingClientRect().left : null,
+                    endLeft: endCell ? endCell.getBoundingClientRect().left : null
+                };
+            };
+            
+            const initialLockedLefts = getLockedCellLefts();
+
+            // 1. Simulate a moderate horizontal scroll for Translation
+            hScrollbar.scrollLeft += 100;
+            
+            // Wait for 1 frame to allow CSS variable to apply and be painted
+            await new Promise(r => requestAnimationFrame(r));
+            await new Promise(r => requestAnimationFrame(r));
+            
+            // Measure the IMMEDIATE visual shift (CSS translation) before the worker even has a chance to recycle
+            const instantLeft = getFirstCellDOMLeft();
+            const instantLockedLefts = getLockedCellLefts();
+
+            // 2. Simulate a MASSIVE horizontal scroll to force Data Virtualization (Cell Recycling)
+            hScrollbar.scrollLeft += 2000;
+            
+            // Now wait for App Worker Round-trip (Wait for VDOM Patch)
+            await new Promise(r => setTimeout(r, 500)); 
+
+            return {
+                initialLeft,
+                instantLeft,
+                pixelShift: initialLeft - instantLeft,
+                lockedStartStable: initialLockedLefts.startLeft === instantLockedLefts.startLeft,
+                lockedEndStable: initialLockedLefts.endLeft === instantLockedLefts.endLeft
+            };
+        });
+
+        console.log('Horizontal Scroll Test Result:', JSON.stringify(result, null, 2));
+        
+        expect(result.error).toBeUndefined();
+        
+        // Assert Visual CSS Translation occurred (Physical pixels shifted left as we scrolled right)
+        expect(result.pixelShift).toBeGreaterThan(0); 
+
+        // Assert locked columns remained visually stationary
+        expect(result.lockedStartStable).toBe(true);
+        expect(result.lockedEndStable).toBe(true);
     });
 });

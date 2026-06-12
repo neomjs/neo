@@ -1,4 +1,4 @@
-globalThis.Neo = {};
+globalThis.Neo ??= {};
 
 globalThis.Neo.config = {
     environment : 'development',
@@ -28,8 +28,22 @@ globalThis.DOMRect = class DOMRect {
 // This file sets up the Node.js global scope to run Neo.mjs
 // VDOM unit tests without a browser or jsdom.
 
+/**
+ * Configures the single-threaded Playwright unit-test runtime with the minimal
+ * Neo globals required by App Worker and VDom Worker classes.
+ * @param {Object} options={}
+ * @param {Object} options.appConfig={} App facade overrides.
+ * @param {Boolean} options.mockLocalStorage=true True installs minimal `Neo.main.addon.LocalStorage` methods.
+ * @param {Boolean} options.mockMain=true True installs a minimal `Neo.Main.setRoute()` method.
+ * @param {Object} options.neoConfig={} Neo.config overrides.
+ */
 export function setup(options = {}) {
-    const { neoConfig = {}, appConfig = {} } = options;
+    const {
+        appConfig        = {},
+        mockLocalStorage = true,
+        mockMain         = true,
+        neoConfig        = {}
+    } = options;
 
     const defaultNeoConfig = {
         environment : 'development',
@@ -54,6 +68,10 @@ export function setup(options = {}) {
 
     // Standardized Global Mocks to prevent cross-contamination in Playwright worker reuse
     Neo.applyDeltas ??= async () => {};
+
+    if (mockMain) {
+        Neo.ns('Neo.Main', true).setRoute ??= () => {};
+    }
 
     Neo.main ??= {
         addon: {
@@ -81,6 +99,18 @@ export function setup(options = {}) {
             scrollTo      : async () => {}
         }
     };
+
+    if (mockLocalStorage) {
+        const localStorage = Neo.ns('Neo.main.addon.LocalStorage', true);
+
+        localStorage.createLocalStorageItem  ??= async () => {};
+        localStorage.destroyLocalStorageItem ??= async () => {};
+        localStorage.readLocalStorageItem    ??= async ({key} = {}) => ({
+            key,
+            value: Array.isArray(key) ? Object.fromEntries(key.map(item => [item, null])) : null
+        });
+        localStorage.updateLocalStorageItem  ??= async () => {};
+    }
 
     Neo.currentWorker ??= {
         getAddon: async () => ({

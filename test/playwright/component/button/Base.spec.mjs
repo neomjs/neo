@@ -5,7 +5,7 @@ let buttonId;
 test.describe('Neo.button.Base', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
     });
 
     test.afterEach(async ({page}) => {

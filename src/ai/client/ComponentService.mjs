@@ -62,6 +62,123 @@ class ComponentService extends Service {
     }
 
     /**
+     * Samples the client rects of the given components over a time window, returning a motion
+     * trace. The perception side of drag verification: an agent drives the interaction through
+     * any dispatch path while this recorder observes where elements ACTUALLY render per tick.
+     * Duration is clamped below the bridge rpc timeout; chain calls for longer windows.
+     * @param {Object}   params
+     * @param {String[]} params.componentIds
+     * @param {Number}   [params.durationMs=2000] clamped to [100, 8000]
+     * @param {Number}   [params.intervalMs=100]  clamped to [16, 1000]
+     * @returns {Object} {componentIds, samples: [{t, rects}]}
+     */
+    async observeMotion({componentIds, durationMs = 2000, intervalMs = 100}) {
+        if (!Array.isArray(componentIds) || componentIds.length === 0) {
+            throw new Error('componentIds must be a non-empty array')
+        }
+
+        const component = Neo.getComponent(componentIds[0]);
+
+        if (!component) {
+            throw new Error(`Component not found: ${componentIds[0]}`)
+        }
+
+        durationMs = Math.max(100, Math.min(durationMs, 8000));
+        intervalMs = Math.max(16,  Math.min(intervalMs, 1000));
+
+        const
+            samples = [],
+            start   = Date.now();
+
+        while (Date.now() - start < durationMs) {
+            const
+                t     = Date.now() - start,
+                rects = await component.getDomRect(componentIds);
+
+            samples.push({
+                t,
+                rects: (Array.isArray(rects) ? rects : [rects]).map(rect =>
+                    rect ? {left: rect.left, top: rect.top, width: rect.width, height: rect.height} : null)
+            });
+
+            await this.timeout(intervalMs)
+        }
+
+        return {componentIds, samples}
+    }
+
+    /**
+     * Compares a container's three child-order surfaces — logical items, vdom child nodes,
+     * and the rendered DOM — and reports mismatches (count, order, membership, duplicates).
+     * The duplication detector: a column/item existing twice is a surface disagreement.
+     * @param {Object} params
+     * @param {String} params.componentId
+     * @returns {Object}
+     */
+    async verifyComponentConsistency({componentId}) {
+        const component = Neo.getComponent(componentId);
+
+        if (!component) {
+            throw new Error(`Component not found: ${componentId}`)
+        }
+
+        const
+            itemIds = (component.items || []).map(item => item?.id).filter(Boolean),
+            vdomIds = (component.getVdomItemsRoot?.()?.cn || component.vdom?.cn || [])
+                .map(node => node?.componentId || node?.id).filter(Boolean),
+            rootId  = component.getVdomItemsRoot?.()?.id || componentId;
+
+        const domIds = await Neo.main.DomAccess.getChildNodeIds({id: rootId, windowId: component.windowId});
+
+        return ComponentService.diffChildSurfaces({componentId, domIds, itemIds, vdomIds})
+    }
+
+    /**
+     * Pure differ for the three child-order surfaces. Static for direct unit coverage.
+     * @param {Object}        data
+     * @param {String}        data.componentId
+     * @param {String[]|null} data.domIds null when the root node was not found in the DOM
+     * @param {String[]}      data.itemIds
+     * @param {String[]}      data.vdomIds
+     * @returns {Object}
+     */
+    static diffChildSurfaces({componentId, domIds, itemIds, vdomIds}) {
+        const
+            mismatches = [],
+            dupes      = ids => ids.filter((id, index) => id && ids.indexOf(id) !== index);
+
+        if (domIds === null) {
+            mismatches.push({type: 'dom-root-missing'})
+        }
+
+        [['items', itemIds], ['vdom', vdomIds], ['dom', domIds || []]].forEach(([surface, ids]) => {
+            const duplicates = dupes(ids);
+
+            if (duplicates.length > 0) {
+                mismatches.push({type: 'duplicates', surface, ids: duplicates})
+            }
+        });
+
+        if (itemIds.join() !== vdomIds.join()) {
+            mismatches.push({type: 'order-or-membership', surfaces: ['items', 'vdom'], a: itemIds, b: vdomIds})
+        }
+
+        if (domIds !== null && vdomIds.join() !== domIds.join()) {
+            mismatches.push({type: 'order-or-membership', surfaces: ['vdom', 'dom'], a: vdomIds, b: domIds})
+        }
+
+        return {
+            componentId,
+            consistent: mismatches.length === 0,
+            counts    : {dom: domIds === null ? null : domIds.length, items: itemIds.length, vdom: vdomIds.length},
+            domIds,
+            itemIds,
+            mismatches,
+            vdomIds
+        }
+    }
+
+    /**
      * @param {Object} params
      * @param {String} params.componentId
      * @param {Object} [params.options]

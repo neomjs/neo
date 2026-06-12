@@ -20,7 +20,9 @@
     }
 }
 
-.neo-grid-wrapper:has(.neo-grid-body.neo-is-scrolling) {
+// In the dev branch, the wrapper class might be different, 
+// let's apply this hover logic to the container itself.
+.neo-grid-container:has(.neo-grid-body.neo-is-scrolling) {
     .neo-grid-vertical-scrollbar {
         opacity: 1;
     }

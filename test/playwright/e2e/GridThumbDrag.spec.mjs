@@ -22,14 +22,13 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
 
     test('High-Velocity Vertical Thumb Drag Stale Render Detection', async ({ page }) => {
         const result = await page.evaluate(async () => {
-            const scrollbar = document.querySelector('.neo-grid-vertical-scrollbar');
-            const bodyWrapper = document.querySelector('.neo-grid-body-wrapper');
+            const bodyWrapper = document.querySelector('.neo-grid-view');
             
-            if (!scrollbar || !bodyWrapper) {
+            if (!bodyWrapper) {
                 return { error: 'Grid components not found' };
             }
 
-            const maxScroll = scrollbar.scrollHeight - scrollbar.clientHeight;
+            const maxScroll = bodyWrapper.scrollHeight - bodyWrapper.clientHeight;
             if (maxScroll <= 0) return { skipped: true, reason: 'Not scrollable' };
 
             let maxDiscrepancy = 0;
@@ -79,9 +78,13 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
             const performDrag = async () => {
                 const duration = 1000; // 1 second fast drag
                 const start = performance.now();
-                const startTop = scrollbar.scrollTop;
+                const startTop = bodyWrapper.scrollTop;
                 // Drag down by 20000px
                 const targetTop = Math.min(startTop + 20000, maxScroll);
+                
+                // Trigger the mousedown to activate thumb dragging pinning logic
+                const rect = bodyWrapper.getBoundingClientRect();
+                bodyWrapper.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: rect.right - 5 }));
                 
                 return new Promise(resolve => {
                     const step = () => {
@@ -89,11 +92,13 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
                         const progress = Math.min(elapsed / duration, 1);
                         
                         // We set scrollTop directly to simulate moving the thumb
-                        scrollbar.scrollTop = startTop + (targetTop - startTop) * progress;
+                        bodyWrapper.scrollTop = startTop + (targetTop - startTop) * progress;
                         
                         if (progress < 1) {
                             requestAnimationFrame(step);
                         } else {
+                            // Trigger the mouse up to deactivate thumb dragging
+                            window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
                             resolve();
                         }
                     };
@@ -137,5 +142,54 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
         
         // Our goal is to fix it, so eventually maxDiscrepancy should be 0.
         // If it's failing currently, we can observe the output.
+    });
+
+    test('Horizontal Drag Scroll Moves Cells Optically and Triggers Data Virtualization', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const bodyWrapper = document.querySelector('.neo-grid-view');
+            const hScrollbar = document.querySelector('.neo-grid-horizontal-scrollbar');
+            
+            if (!bodyWrapper || !hScrollbar) {
+                return { error: 'Grid components not found' };
+            }
+
+            // Get initial cell boundary
+            const getFirstCellDOMLeft = () => {
+                const centerCell = document.querySelector('.neo-grid-row .neo-grid-cell:not(.neo-locked-start):not(.neo-locked-end)');
+                if (!centerCell) return null;
+                return centerCell.getBoundingClientRect().left;
+            };
+
+            const initialLeft = getFirstCellDOMLeft();
+
+            // 1. Simulate a moderate horizontal scroll for Translation
+            hScrollbar.scrollLeft += 100;
+            
+            // Wait for 1 frame to allow CSS variable to apply and be painted
+            await new Promise(r => requestAnimationFrame(r));
+            await new Promise(r => requestAnimationFrame(r));
+            
+            // Measure the IMMEDIATE visual shift (CSS translation) before the worker even has a chance to recycle
+            const instantLeft = getFirstCellDOMLeft();
+
+            // 2. Simulate a MASSIVE horizontal scroll to force Data Virtualization (Cell Recycling)
+            hScrollbar.scrollLeft += 2000;
+            
+            // Now wait for App Worker Round-trip (Wait for VDOM Patch)
+            await new Promise(r => setTimeout(r, 500)); 
+
+            return {
+                initialLeft,
+                instantLeft,
+                pixelShift: initialLeft - instantLeft
+            };
+        });
+
+        console.log('Horizontal Scroll Test Result:', JSON.stringify(result, null, 2));
+        
+        expect(result.error).toBeUndefined();
+        
+        // Assert Visual CSS Translation occurred (Physical pixels shifted left as we scrolled right)
+        expect(result.pixelShift).toBeGreaterThan(0); 
     });
 });

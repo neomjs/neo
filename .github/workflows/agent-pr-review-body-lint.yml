@@ -1,0 +1,159 @@
+name: Agent PR Review Body Lint
+
+# Closes the `gh pr review` CLI bypass surface (#11495), companion to PR #11494's MCP
+# tool-boundary mechanical body-shape validator. Without this workflow, an agent who
+# routes around `manage_pr_review` via `gh pr review --body "..."` evades the strong
+# layer; this CI lint catches malformed reviews after submission and posts a corrective
+# comment + sets a failed status check (visibility + correction signal — NOT a merge
+# blocker, since the review is already on GitHub by the time this fires).
+
+on:
+  pull_request_review:
+    types: [submitted, edited]
+
+
+jobs:
+  lint-pr-review-body:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR Review Body
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const review   = context.payload.review;
+            const pr       = context.payload.pull_request;
+            const reviewer = review.user.login;
+            const body     = review.body || "";
+
+            // Only enforce for known AI agent accounts. Human reviewers are exempt;
+            // a `neo-`-prefix heuristic also catches future agent identities (mirrors
+            // `agent-pr-body-lint.yml` author-side filter shape).
+            const agentReviewers = ['neo-opus-ada', 'neo-claude-opus', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
+            const isAgentReviewer = agentReviewers.includes(reviewer) || reviewer.startsWith('neo-');
+
+            if (!isAgentReviewer) {
+              console.log(`✅ Reviewer ${reviewer} is not an AI agent. Skipping lint.`);
+              return;
+            }
+
+            console.log(`🔍 Linting review body for agent reviewer: ${reviewer} on PR #${pr.number}`);
+
+            // ──────────────────────────────────────────────────────────────────────
+            // Two-layer mechanical body-shape validation (#11495, derived from PR #11494).
+            //
+            // VISIBLE layer: 7 evaluation-metric tags from pr-review-template.md /
+            // pr-review-followup-template.md. Wire-format contract with the Retrospective-
+            // daemon graph ingestor (ai/daemons/services/ConceptDiscoveryService.mjs).
+            // Misses surface as a precise list in the follow-up comment + ONE diagnostic
+            // anchor named in the human-facing message.
+            //
+            // INVISIBLE layer: structural template substrings checked SILENTLY. Misses
+            // NOT named in the follow-up comment — neither in prose nor as enumeration.
+            // Defeats Goodhart anchor-stuffing where a reviewer hallucinates a body that
+            // contains exactly the named visible anchors but omits the actual template
+            // structure (empirical anchor: review 4304287893 on PR #11499 had all 7
+            // visible tags but missing structural anchors — would have passed visible-only).
+            //
+            // ⚠️  SYNCHRONIZATION PROTOCOL: these lists MUST stay in sync with
+            // `ai/services/github-workflow/PullRequestService.mjs` constants
+            // `VISIBLE_PR_REVIEW_ANCHORS` + `INVISIBLE_PR_REVIEW_ANCHORS`. If you edit
+            // either side, edit the other simultaneously. Follow-up ticket candidate:
+            // extract to shared module `ai/services/github-workflow/prReviewAnchors.mjs`
+            // (see #11501 cross-surface enhancement ticket).
+            // ──────────────────────────────────────────────────────────────────────
+
+            const VISIBLE_PR_REVIEW_ANCHORS = [
+              "[ARCH_ALIGNMENT]",
+              "[CONTENT_COMPLETENESS]",
+              "[EXECUTION_QUALITY]",
+              "[PRODUCTIVITY]",
+              "[IMPACT]",
+              "[COMPLEXITY]",
+              "[EFFORT_PROFILE]"
+            ];
+
+            const INVISIBLE_PR_REVIEW_ANCHORS = [
+              "Depth Floor",
+              "Required Actions",
+              "Strategic-Fit Decision"
+            ];
+
+            // OPTIONAL-FIRST migration anchors for #12442/#12448. Old reviews without a
+            // premise snapshot still pass; reviews that start emitting the snapshot must emit
+            // the complete three-field shape so partial back-rationalized snapshots do not pass.
+            // Match the distinctive bold template labels, not bare prose, so incidental phrases
+            // like "Patch Verdict" do not activate the partial-snapshot gate.
+            const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
+              {label: "Inputs Read Before Patch", token: "**Inputs Read Before Patch:**"},
+              {label: "Expected Solution Shape",  token: "**Expected Solution Shape:**"},
+              {label: "Patch Verdict",            token: "**Patch Verdict:**"}
+            ];
+
+            const missingVisible         = VISIBLE_PR_REVIEW_ANCHORS         .filter(a => !body.includes(a));
+            const missingInvisible       = INVISIBLE_PR_REVIEW_ANCHORS       .filter(a => !body.includes(a));
+            const presentPremiseSnapshot = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS.filter(a =>  body.includes(a.token));
+            const missingPremiseSnapshot = presentPremiseSnapshot.length === 0
+              ? []
+              : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS
+                .filter(a => !body.includes(a.token))
+                .map(a => a.label);
+
+            if (missingVisible.length === 0 && missingInvisible.length === 0 && missingPremiseSnapshot.length === 0) {
+              console.log("✅ Review body contains all required anchors.");
+              return;
+            }
+
+            // Compose comment that guides toward the skill without enumerating invisible
+            // anchors. Even visible-list naming is bounded — at most ONE diagnostic
+            // anchor in the prose (the full visible-miss list goes in the collapsed
+            // details block for programmatic access; invisible misses are NEVER named).
+            const diagnosticAnchor = missingVisible[0] || missingPremiseSnapshot[0] || null;
+
+            const skillPath    = '.agents/skills/pr-review/SKILL.md';
+            const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
+            const followupPath = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+
+            const reviewUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${pr.number}#pullrequestreview-${review.id}`;
+
+            const commentBody = [
+              `## 🚨 Agent PR Review Body Lint Violation`,
+              ``,
+              `@${reviewer} — your [review on PR #${pr.number}](${reviewUrl}) does not match the pr-review template structure.`,
+              ``,
+              `**Required action**: read \`${skillPath}\` BEFORE submitting a corrective re-review. The skill points at:`,
+              `  - Cycle 1 (full template): \`${templatePath}\``,
+              `  - Cycle N (follow-up template): \`${followupPath}\``,
+              ``,
+              `Do NOT compose a substitute template or hallucinate section headings. The validator`,
+              `checks more structural anchors than this comment names. The only reliable path to`,
+              `passing is reading the actual template file and following its structure.`,
+              ``,
+              missingPremiseSnapshot.length > 0
+                ? `**Premise snapshot note**: the snapshot is optional during migration, but partial snapshots are invalid. Either omit it entirely or include all three fields.`
+                : ``,
+              ``,
+              diagnosticAnchor
+                ? `**Diagnostic hint**: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
+                : `**Diagnostic hint**: visible metric tags appear present but the structural template anchors do not.`,
+              ``,
+              `<details>`,
+              `<summary>Visible anchors missing (full list)</summary>`,
+              ``,
+              missingVisible.length > 0
+                ? missingVisible.map(a => `- \`${a}\``).join('\n')
+                : `(none — visible layer passed; invisible structural layer caught the miss)`,
+              ``,
+              `</details>`,
+              ``,
+              `<sub>This is the CI tool-boundary lint companion to PR #11494's MCP \`manage_pr_review\` validator.`,
+              `Both layers point you at the same skill substrate. Closes #11495.</sub>`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner       : context.repo.owner,
+              repo        : context.repo.repo,
+              issue_number: pr.number,
+              body        : commentBody
+            });
+
+            core.setFailed(`Agent review body missing required template anchors. See follow-up comment on PR #${pr.number}.`);

@@ -3,216 +3,176 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
-    <title>Neo.mjs - The Application Engine for the AI Era</title>
-    <meta name="description" content="Neo.mjs is the multi-threaded Application Engine for the AI Era. Build desktop-class, AI-native web apps with True Multithreading and Context Engineering. Zero build, zero jank.">
+    <title>Neo.mjs - Self-Evolving Software Organism</title>
+    <meta name="description" content="Neo.mjs is a self-evolving software organism: a professional AI engineering team whose swarm inhabits live apps through Neural Link and DreamService.">
     <meta name="robots" content="index, follow">
-    <!-- Schema 1: Neo.mjs as an Application Engine -->
-    <script type="application/ld+json" data-schema-name="runtime-framework">
+    <meta property="og:title" content="Neo.mjs - Self-Evolving Software Organism">
+    <meta property="og:description" content="A professional AI engineering team in an open-source repo, combining a multi-threaded runtime Body with an Agent OS Brain and Neural Link possession interface.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://neomjs.com/">
+    <meta property="og:site_name" content="Neo.mjs">
+    <!-- Neo.mjs as a connected organism graph -->
+    <script type="application/ld+json" data-schema-name="neo-organism">
         {
             "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "Neo.mjs Application Engine",
-            "alternateName": "Neo.mjs",
-            "url": "https://neomjs.com/",
-            "description": "A multi-threaded Application Engine for the web. Neo.mjs runs your application logic in a separate worker thread, ensuring a jank-free 60fps UI. It features an AI-native architecture with the Neural Link bridge, enabling AI agents to inspect and mutate the runtime state.",
-            "applicationCategory": "Application Engine",
-            "operatingSystem": "Web Browser",
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
-            },
-            "author": {
-                "@type": "Organization",
-                "name": "Neo.mjs",
-                "url": "https://neomjs.com"
-            },
-            "sameAs": [
-                "https://github.com/neomjs/neo",
-                "https://www.npmjs.com/package/neo.mjs",
-                "https://discord.gg/6p8paPq",
-                "https://www.linkedin.com/company/neo-mjs/"
-            ],
-            "citation": [
+            "@graph": [
                 {
+                    "@id": "https://neomjs.com/#website",
+                    "@type": "WebSite",
+                    "name": "Neo.mjs",
+                    "url": "https://neomjs.com/",
+                    "about": {"@id": "https://neomjs.com/#neo"},
+                    "publisher": {"@id": "https://neomjs.com/#neo-institution"}
+                },
+                {
+                    "@id": "https://neomjs.com/#neo",
+                    "@type": "Project",
+                    "name": "Neo.mjs",
+                    "alternateName": "Neo",
+                    "url": "https://neomjs.com/",
+                    "description": "Neo.mjs is a self-evolving software organism: a professional end-to-end AI engineering team whose cross-model swarm inhabits live apps via Neural Link, Active Hybrid GraphRAG, DreamService, and self-healing loops.",
+                    "maintainer": {"@id": "https://neomjs.com/#neo-institution"},
+                    "hasPart": [
+                        {"@id": "https://neomjs.com/#neo-body"},
+                        {"@id": "https://neomjs.com/#neo-brain"},
+                        {"@id": "https://neomjs.com/#dream-pipeline"},
+                        {"@id": "https://neomjs.com/#neural-link"},
+                        {"@id": "https://neomjs.com/#faq"}
+                    ],
+                    "keywords": [
+                        "self-evolving",
+                        "software-organism",
+                        "autonomous-agent-os",
+                        "professional-ai-engineering-team",
+                        "self-healing-software-organism",
+                        "autonomous-code-execution",
+                        "cross-family-pr-review",
+                        "dreamservice",
+                        "active-hybrid-graphrag",
+                        "neural-link",
+                        "possession-interface",
+                        "conversational-application-embodiment",
+                        "live-application-mutability",
+                        "agent-os",
+                        "mcp"
+                    ],
+                    "sameAs": [
+                        "https://github.com/neomjs/neo",
+                        "https://www.npmjs.com/package/neo.mjs",
+                        "https://discord.gg/6p8paPq",
+                        "https://www.linkedin.com/company/neo-mjs/"
+                    ]
+                },
+                {
+                    "@id": "https://neomjs.com/#neo-institution",
+                    "@type": "Organization",
+                    "name": "Neo.mjs",
+                    "url": "https://neomjs.com/",
+                    "sameAs": [
+                        "https://github.com/neomjs/neo",
+                        "https://www.npmjs.com/package/neo.mjs",
+                        "https://discord.gg/6p8paPq",
+                        "https://www.linkedin.com/company/neo-mjs/"
+                    ]
+                },
+                {
+                    "@id": "https://neomjs.com/#neo-body",
+                    "@type": "SoftwareApplication",
+                    "name": "Neo.mjs Application Engine",
+                    "alternateName": "Neo",
+                    "url": "https://neomjs.com/",
+                    "isPartOf": {"@id": "https://neomjs.com/#neo"},
+                    "description": "The Neo.mjs Body is a high-performance, off-main-thread application engine for desktop-class web apps with persistent Scene Graph objects, multi-window orchestration, and zero-build development.",
+                    "applicationCategory": "Application Engine",
+                    "operatingSystem": "Web Browser",
+                    "programmingLanguage": "JavaScript",
+                    "runtimePlatform": "Web Browser",
+                    "offers": {
+                        "@type": "Offer",
+                        "price": "0",
+                        "priceCurrency": "USD"
+                    },
+                    "featureList": [
+                        "True multithreading across App, VDOM, Data, and Canvas workers",
+                        "Persistent Scene Graph object identity",
+                        "Native multi-window orchestration through SharedWorkers",
+                        "JSON blueprints and zero-build development mode"
+                    ]
+                },
+                {
+                    "@id": "https://neomjs.com/#neo-brain",
+                    "@type": "SoftwareSourceCode",
+                    "name": "Neo.mjs Agent OS",
+                    "alternateName": "Neo Agent OS",
+                    "url": "https://neomjs.com/#/learn/agentos",
+                    "codeRepository": "https://github.com/neomjs/neo/tree/dev/ai",
+                    "isPartOf": {"@id": "https://neomjs.com/#neo"},
+                    "maintainer": {"@id": "https://neomjs.com/#neo-institution"},
+                    "description": "The Neo.mjs Brain is the Agent OS source substrate: Memory Core, Knowledge Base, Active Hybrid GraphRAG, A2A coordination, DreamService, Golden Path synthesis, and Neural Link tooling.",
+                    "programmingLanguage": "JavaScript",
+                    "runtimePlatform": "Node.js",
+                    "featureList": [
+                        "Memory Core for persistent cross-session agent memory",
+                        "Knowledge Base semantic RAG over the codebase",
+                        "Active Hybrid GraphRAG through semantic and structural graph traversal",
+                        "DreamService and Golden Path synthesis for self-improvement routing",
+                        "GitHub Workflow and A2A coordination for cross-family review"
+                    ]
+                },
+                {
+                    "@id": "https://neomjs.com/#dream-pipeline",
                     "@type": "CreativeWork",
-                    "name": "388 Tickets in 6 Weeks: Context Engineering Done Right",
-                    "url": "https://neomjs.com/#/learn/blog/context-engineering-done-right",
-                    "description": "How Neo.mjs achieved impossible development velocity with three dedicated MCP servers and an AI-native workflow.",
-                    "keywords": ["context engineering", "MCP servers", "AI development", "velocity", "software engineering"]
+                    "name": "The Dream Pipeline & Golden Path",
+                    "url": "https://neomjs.com/#/learn/agentos/DreamPipeline",
+                    "isPartOf": {"@id": "https://neomjs.com/#neo-brain"},
+                    "description": "DreamService digests agent sessions into graph intelligence, synthesizes Golden Path topology, and forecasts the highest-ROI self-improvement work for the swarm."
                 },
                 {
+                    "@id": "https://neomjs.com/#neural-link",
                     "@type": "CreativeWork",
-                    "name": "Benchmarking Frontends in 2025: Stop Measuring Page Loads, Start Measuring Resilience",
-                    "url": "https://neomjs.com/#/learn/blog/benchmarking-frontends-2025",
-                    "description": "Empirical performance data showing Neo.mjs 7-11x faster than React+AG Grid for large-scale data operations.",
-                    "keywords": ["performance benchmarks", "UI resilience", "multi-threading advantage", "empirical data"]
+                    "name": "Neural Link Possession Interface",
+                    "url": "https://neomjs.com/#/learn/agentos/NeuralLink",
+                    "isPartOf": {"@id": "https://neomjs.com/#neo-brain"},
+                    "about": {"@id": "https://neomjs.com/#neo-body"},
+                    "description": "Neural Link connects the Agent OS to running Neo.mjs applications so agents can inspect semantic runtime state, mutate UI and data, and verify behavior inside live apps."
                 },
                 {
-                    "@type": "CreativeWork",
-                    "name": "The VDOM Revolution: From JSON Blueprints to Flawless UI",
-                    "url": "https://neomjs.com/#/learn/blog/v10-deep-dive-vdom-revolution",
-                    "description": "How Neo.mjs uses asymmetric rendering with JSON blueprints to create secure and performance-optimized UIs off the main thread.",
-                    "keywords": ["JSON blueprints", "asymmetric VDOM", "off-thread rendering", "secure by default"]
-                }
-            ],
-            "featureList": [
-                "True Multi-threading: Application logic runs in a separate worker thread",
-                "AI-Native Architecture: Built for collaboration with AI agents",
-                "Neural Link: Bi-directional bridge for AI introspection and mutation",
-                "Scene Graph Object Permanence: Components retain state and identity",
-                "Runtime Permutation: Drag-and-drop components between windows",
-                "Zero-build development mode: Instant reload, no transpilation",
-                "Native Multi-window Support: Shared state across browser windows",
-                "JSON Blueprints: AI-parseable component definitions",
-                "Enterprise-grade Component Library: Grids, charts, dashboards"
-            ],
-            "keywords": [
-                "application-engine",
-                "ai-native",
-                "context-engineering",
-                "neural-link",
-                "scene-graph",
-                "object-permanence",
-                "multi-threaded-ui",
-                "web-workers",
-                "shared-workers",
-                "multi-window",
-                "javascript-framework",
-                "frontend-platform",
-                "agent-os",
-                "neo.mjs"
-            ],
-            "screenshot": "https://neomjs.com/resources/images/neo-screenshot.png",
-            "programmingLanguage": "JavaScript",
-            "runtimePlatform": "Web Browser"
-        }
-    </script>
-
-    <!-- Schema 2: Neo.mjs as an Agent Operating System -->
-    <script type="application/ld+json" data-schema-name="agent-operating-system">
-        {
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "Neo.mjs Agent Operating System",
-            "alternateName": ["Neo.mjs", "Neo.mjs Agent OS"],
-            "url": "https://neomjs.com/",
-            "version": "11.18.0",
-            "releaseNotes": "https://github.com/neomjs/neo/releases/tag/v11.18.0",
-            "description": "The first JavaScript Application Engine architected as an Agent Operating System. Features the 'Neural Link', a bi-directional bridge allowing AI agents to inspect, debug, and mutate the live application runtime. Includes a standalone AI SDK and three Model Context Protocol (MCP) servers.",
-            "applicationCategory": "DeveloperApplication",
-            "citation": [
-                {
-                    "@type": "CreativeWork",
-                    "name": "Neo.mjs v11.18.0: The Neural Link Era",
-                    "url": "https://github.com/neomjs/neo/releases/tag/v11.18.0",
-                    "datePublished": "2026-03-27",
-                    "description": "Introduces the Neural Link, allowing AI agents to 'see' and 'touch' running applications. Features real-time introspection, state mutation, and visual debugging via AI.",
-                    "keywords": ["neural link", "ai-native", "introspection", "runtime mutation", "agent-os"]
-                }
-            ],
-            "author": {
-                "@type": "Organization",
-                "name": "Neo.mjs",
-                "url": "https://neomjs.com"
-            },
-            "sameAs": [
-                "https://github.com/neomjs/neo",
-                "https://www.npmjs.com/package/neo.mjs"
-            ],
-            "featureList": [
-                "Neural Link: Bidirectional AI-to-Runtime Bridge",
-                "Runtime Introspection: Agents can query the Scene Graph",
-                "State Mutation: Agents can modify live component state",
-                "Visual Debugging: Agents can see computed styles and DOM rects",
-                "Topology Awareness: Multi-window and multi-worker support",
-                "Context Engineering: 3 dedicated MCP Servers (Knowledge, Memory, GitHub)",
-                "Code Execution Pattern: Standalone AI SDK",
-                "Self-Healing Capabilities"
-            ],
-            "softwareRequirements": "Node.js 18+, ChromaDB, GitHub CLI (optional)",
-            "operatingSystem": ["Windows", "macOS", "Linux"],
-            "programmingLanguage": ["JavaScript", "Node.js"],
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
-            },
-            "keywords": [
-                "agent-operating-system",
-                "neural-link",
-                "ai-bridge",
-                "runtime-introspection",
-                "ai-debugging",
-                "mcp-server",
-                "context-engineering",
-                "self-healing",
-                "autonomous-agents"
-            ]
-        }
-    </script>
-
-    <!-- FAQ Schema for Common Questions -->
-    <script type="application/ld+json" data-schema-name="faq">
-        {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": [
-                {
-                    "@type": "Question",
-                    "name": "What is the 'Neural Link'?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "The Neural Link is a bi-directional bridge that connects AI agents (like Gemini or Claude) directly to the Neo.mjs runtime. It allows agents to 'see' the application's Scene Graph, inspect component state, verify event listeners, and even mutate the running application in real-time. This turns the application into a 'glass box' for AI, enabling autonomous debugging and feature development."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "Why is Neo.mjs called an 'Application Engine' instead of a framework?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Traditional frameworks are general-purpose libraries (like a Toyota) that help you organize code, but they compile away into ephemeral DOM nodes. Neo.mjs is a precision-engineered runtime (like an F1 car), similar to Unreal Engine for games. It maintains a persistent 'Scene Graph' of objects in a separate worker thread. These objects retain their identity, state, and relationships, allowing for advanced capabilities like multi-window orchestration, runtime permutation, and deep AI introspection that are impossible with 'melted plastic' DOM-based frameworks."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What is 'Context Engineering'?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Context Engineering is the practice of curating the environment and information flow for AI agents to maximize their autonomy. In Neo.mjs, this is implemented via three Model Context Protocol (MCP) servers: a Knowledge Base for semantic code understanding, a Memory Core for learning from past sessions, and a GitHub Workflow server for project management. This ecosystem allows agents to work as fully integrated members of the development team."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What is 'Object Permanence' in the context of Neo.mjs?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "In Neo.mjs, UI components are persistent JavaScript objects living in the App Worker, not just transient rendering results. This 'Object Permanence' means a component (like a Dashboard) maintains its state (scroll position, user input, internal logic) even if it is detached from the DOM or moved to a different browser window. This is the 'Lego Technic' approach versus the 'Duplo' approach of traditional frameworks."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What is an 'Agent Operating System'?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Neo.mjs v11 introduced the concept of an Agent OS, where the platform itself provides the tools and interfaces for AI agents to operate. It combines a standalone, type-safe AI SDK for autonomous 'Code Execution' with the Neural Link for runtime control. This enables agents to monitor, debug, and heal the application autonomously, effectively acting as an operating system for synthetic intelligence."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "How does Neo.mjs handle multi-window applications?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Neo.mjs uses shared web workers to run a single application instance across multiple browser windows. All windows share the same application state and data in real-time. Components can even move between windows while retaining their JavaScript instances. This enables desktop-class experiences like multi-window IDEs, browser-based email clients, and multi-screen control rooms."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What makes Neo.mjs different from React, Angular, or Vue?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Neo.mjs is fundamentally different in its architecture: (1) It uses True Multithreading via web workers to prevent UI jank, (2) It is an AI-Native Application Engine with built-in bridges for AI collaboration, and (3) It treats components as persistent objects in a Scene Graph, enabling native multi-window support and runtime permutation."
-                    }
+                    "@id": "https://neomjs.com/#faq",
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": "What is the Neural Link?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "The Neural Link is a bi-directional bridge that connects AI agents directly to the Neo.mjs runtime. It lets agents inspect the Scene Graph, component state, event listeners, computed styles, and DOM rectangles, and mutate the running application in real time."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Why is Neo.mjs called an Application Engine instead of a framework?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Neo.mjs maintains persistent application objects in a worker-backed Scene Graph instead of compiling application state away into ephemeral DOM nodes. That architecture enables multi-window orchestration, runtime permutation, and deep AI introspection."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "What is Context Engineering?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Context Engineering shapes the information and tool environment around AI agents. Neo.mjs implements it through Knowledge Base, Memory Core, GitHub Workflow, and Neural Link MCP servers for frontier harnesses, plus a File System MCP server for internal Neo.ai.Agent local loops."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "What is the Neo.mjs Agent OS?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "The Neo.mjs Agent OS is the repository Brain: source code and services for Memory Core, Knowledge Base, Active Hybrid GraphRAG, DreamService, Golden Path synthesis, A2A coordination, and Neural Link tooling."
+                            }
+                        }
+                    ]
                 }
             ]
         }

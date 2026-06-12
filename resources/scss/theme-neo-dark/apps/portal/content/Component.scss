@@ -1,0 +1,22 @@
+// Shared GitHub-style timeline palette for the Portal news timeline views (tickets / pull requests /
+// discussions). Defined on the base `Portal.view.content.Component` that all three extend, so it loads
+// for every one of them via the prototype-chain `insertThemeFiles` recursion (triggered by
+// `Neo.component.Abstract.afterSetWindowId`). Previously these vars lived only in the tickets and
+// discussions leaf themes, which left a directly-loaded pulls view unstyled until a sibling view had
+// been visited first. Leaf themes now define only their own type-specific vars.
+:root .neo-theme-neo-dark {
+    --gh-badge-bg         : var(--sem-color-bg-neutral-highlighted);
+    --gh-badge-border     : var(--sem-color-border-subtle);
+    --gh-bg-default       : var(--sem-color-bg-neutral-default);
+    --gh-bg-subtle        : var(--purple-900);
+    --gh-border-default   : var(--sem-color-border-default);
+    --gh-timeline-border  : var(--purple-700);
+    --gh-header-text-color: var(--markdown-text-color);
+    --gh-event-text-color : var(--markdown-text-color);
+    --gh-icon-muted       : var(--sem-color-icon-neutral-subdued);
+    --gh-state-closed-bg  : #a371f7;
+    --gh-state-open-bg    : #3fb950;
+    --gh-text-inverse     : #ffffff;
+    --gh-text-primary     : var(--sem-color-text-neutral-default);
+    --gh-text-secondary   : var(--sem-color-text-neutral-subdued);
+}

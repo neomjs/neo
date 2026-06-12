@@ -1,61 +1,85 @@
+import 'dotenv/config';
 import fs               from 'fs';
 import path             from 'path';
 import {fileURLToPath}  from 'url';
 import yaml             from 'js-yaml';
-import {buildZodSchema} from './mcp/validation/OpenApiValidator.mjs';
+import {buildZodSchema} from './mcp/validation/openApiValidator.mjs';
 
 import Neo             from '../src/Neo.mjs';
 import * as core       from '../src/core/_export.mjs';
 import InstanceManager from '../src/manager/Instance.mjs';
 
+// --- Shared Services ---
+import Shared_DestructiveOperationGuard from './mcp/server/shared/services/DestructiveOperationGuard.mjs';
+
 // --- GitHub Workflow Services ---
 import GH_Config                    from './mcp/server/github-workflow/config.mjs';
-import GH_HealthService             from './mcp/server/github-workflow/services/HealthService.mjs';
-import GH_IssueService              from './mcp/server/github-workflow/services/IssueService.mjs';
-import GH_LabelService              from './mcp/server/github-workflow/services/LabelService.mjs';
-import GH_LocalFileService          from './mcp/server/github-workflow/services/LocalFileService.mjs';
-import GH_PullRequestService        from './mcp/server/github-workflow/services/PullRequestService.mjs';
-import GH_RepositoryService         from './mcp/server/github-workflow/services/RepositoryService.mjs';
-import GH_SyncService               from './mcp/server/github-workflow/services/SyncService.mjs';
+import _GH_HealthService from './services/github-workflow/HealthService.mjs';
+import _GH_IssueService from './services/github-workflow/IssueService.mjs';
+import _GH_LabelService from './services/github-workflow/LabelService.mjs';
+import _GH_LocalFileService from './services/github-workflow/LocalFileService.mjs';
+import _GH_PullRequestService from './services/github-workflow/PullRequestService.mjs';
+import _GH_RepositoryService from './services/github-workflow/RepositoryService.mjs';
+import _GH_SyncService from './services/github-workflow/SyncService.mjs';
 
 GH_Config.data.syncOnStartup = false;
 
+// --- GitLab Workflow Services ---
+import _GL_IssueService from './services/gitlab-workflow/IssueService.mjs';
+import _GL_MergeRequestService from './services/gitlab-workflow/MergeRequestService.mjs';
+
 // --- Knowledge Base Services ---
-import KB_DatabaseService           from './mcp/server/knowledge-base/services/DatabaseService.mjs';
-import KB_LifecycleService          from './mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
-import KB_DocumentService           from './mcp/server/knowledge-base/services/DocumentService.mjs';
-import KB_HealthService             from './mcp/server/knowledge-base/services/HealthService.mjs';
-import KB_QueryService              from './mcp/server/knowledge-base/services/QueryService.mjs';
-import KB_SearchService             from './mcp/server/knowledge-base/services/SearchService.mjs';
-import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
+import _KB_DatabaseService from './services/knowledge-base/DatabaseService.mjs';
+import _KB_LifecycleService from './services/knowledge-base/DatabaseLifecycleService.mjs';
+import _KB_DocumentService from './services/knowledge-base/DocumentService.mjs';
+import _KB_HealthService from './services/knowledge-base/HealthService.mjs';
+import _KB_IngestionService from './services/knowledge-base/KnowledgeBaseIngestionService.mjs';
+import _KB_RecorderService from './services/knowledge-base/KBRecorderService.mjs';
+import _KB_QueryService from './services/knowledge-base/QueryService.mjs';
+import _KB_SearchService from './services/knowledge-base/SearchService.mjs';
+import KB_ChromaManager             from './services/knowledge-base/ChromaManager.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
-// Disable auto-sync for all scripts using the SDK to prevent double-runs
-KB_Config.data.autoSync = false;
-
 // --- Memory Core Services ---
-import Memory_Service               from './mcp/server/memory-core/services/MemoryService.mjs';
-import Memory_DatabaseService       from './mcp/server/memory-core/services/DatabaseService.mjs';
-import Memory_SessionService        from './mcp/server/memory-core/services/SessionService.mjs';
-import Memory_LifecycleService      from './mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
-import Memory_HealthService         from './mcp/server/memory-core/services/HealthService.mjs';
-import Memory_SummaryService        from './mcp/server/memory-core/services/SummaryService.mjs';
-import Memory_ChromaManager         from './mcp/server/memory-core/services/ChromaManager.mjs';
+import _Memory_Service from './services/memory-core/MemoryService.mjs';
+import _Memory_DatabaseService from './services/memory-core/DatabaseService.mjs';
+import _Memory_SessionService from './services/memory-core/SessionService.mjs';
+import _Memory_HealthService from './services/memory-core/HealthService.mjs';
+import _Memory_GraphService from './services/memory-core/GraphService.mjs';
+import _Memory_SummaryService from './services/memory-core/SummaryService.mjs';
+import _Memory_ChromaLifecycleService from './services/memory-core/lifecycle/ChromaLifecycleService.mjs';
+import _Memory_InferenceLifecycleService from './services/memory-core/lifecycle/InferenceLifecycleService.mjs';
+import Memory_ChromaManager         from './services/memory-core/managers/ChromaManager.mjs';
+import Memory_StorageRouter         from './services/memory-core/managers/StorageRouter.mjs';
+import _Memory_LifecycleService from './services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import _Memory_TextEmbeddingService from './services/memory-core/TextEmbeddingService.mjs';
+import _Memory_WakeSubscriptionService from './services/memory-core/WakeSubscriptionService.mjs';
+import _Memory_MailboxService from './services/memory-core/MailboxService.mjs';
+import Memory_CoalescingEngineService from './services/memory-core/CoalescingEngineService.mjs';
+import _Memory_PermissionService from './services/memory-core/PermissionService.mjs';
+import Memory_WebhookDeliveryService from './services/memory-core/WebhookDeliveryService.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
-Memory_Config.data.autoSummarize = false;
-
 // --- Neural Link Services ---
-import NeuralLink_ComponentService   from './mcp/server/neural-link/services/ComponentService.mjs';
-import NeuralLink_ConnectionService  from './mcp/server/neural-link/services/ConnectionService.mjs';
-import NeuralLink_DataService        from './mcp/server/neural-link/services/DataService.mjs';
-import NeuralLink_HealthService      from './mcp/server/neural-link/services/HealthService.mjs';
-import NeuralLink_InstanceService    from './mcp/server/neural-link/services/InstanceService.mjs';
-import NeuralLink_InteractionService from './mcp/server/neural-link/services/InteractionService.mjs';
-import NeuralLink_RuntimeService     from './mcp/server/neural-link/services/RuntimeService.mjs';
+import _NeuralLink_ComponentService from './services/neural-link/ComponentService.mjs';
+import _NeuralLink_ConnectionService from './services/neural-link/ConnectionService.mjs';
+import _NeuralLink_DataService from './services/neural-link/DataService.mjs';
+import _NeuralLink_HealthService from './services/neural-link/HealthService.mjs';
+import _NeuralLink_InstanceService from './services/neural-link/InstanceService.mjs';
+import _NeuralLink_InteractionService from './services/neural-link/InteractionService.mjs';
+import _NeuralLink_RuntimeService from './services/neural-link/RuntimeService.mjs';
 import NeuralLink_Config             from './mcp/server/neural-link/config.mjs';
 
 NeuralLink_Config.data.autoConnect = false;
+
+// --- Daemons ---
+import DreamService from './daemons/orchestrator/services/DreamService.mjs';
+import HeavyMaintenanceLeaseService from './daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import SemanticGraphExtractor from './services/graph/SemanticGraphExtractor.mjs';
+import TopologyInferenceEngine from './services/graph/TopologyInferenceEngine.mjs';
+
+// --- Concept Ontology ---
+import ConceptService from './services/ConceptService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -84,108 +108,136 @@ function findOperation(spec, operationId) {
  * @returns {Object} - The service object with wrapped methods (mutates original or returns proxy).
  */
 function makeSafe(service, spec) {
-    // Iterate over all properties of the service (including inherited ones if it's a class instance)
-    // For simple objects/singletons:
+    if (!spec) {
+        console.warn(`[services.mjs] Warning: OpenAPI spec is null or invalid. Running ${service?.constructor?.name || 'Service'} in degraded mode (NO Zod validation).`);
+        return service;
+    }
+
+    const wrappedMethods = new Map();
     const proto = Object.getPrototypeOf(service);
     const keys  = new Set([...Object.getOwnPropertyNames(service), ...Object.getOwnPropertyNames(proto)]);
 
     for (const key of keys) {
         if (key === 'constructor') continue;
 
-        // Check if it's a function
         if (typeof service[key] === 'function') {
             const operationId = camelToSnake(key);
             const operation = findOperation(spec, operationId);
 
             if (operation) {
-                const originalMethod = service[key].bind(service);
                 const zodSchema = buildZodSchema(spec, operation);
 
-                // Replace with wrapped method
-                service[key] = async (args) => {
-                    // 1. Validate
+                wrappedMethods.set(key, async (args) => {
+                    const currentMethod = service[key];
+                    if (args !== undefined && (typeof args !== 'object' || args === null || Array.isArray(args))) {
+                        return currentMethod.call(service, args);
+                    }
                     const parsedArgs = zodSchema.parse(args || {});
 
-                    // 2. Execute
-                    // Some services expect (args), others expect (arg1, arg2).
-                    // The 'x-pass-as-object' annotation in OpenAPI tells us which.
                     if (operation['x-pass-as-object']) {
-                        return originalMethod(parsedArgs);
+                        return currentMethod.call(service, parsedArgs);
                     } else {
-                        // Map object args to positional args based on parameter order
                         const paramNames = (operation.parameters || []).map(p => p.name);
                         if (operation.requestBody?.content?.['application/json']?.schema) {
-                            // This logic mimics toolService.mjs but simplifies since we know the schema structure
-                            // For complex bodies, we usually rely on x-pass-as-object.
-                            // If not pass-as-object, we assume specific named args.
-                            // Simplification: If not pass-as-object, just pass the values in order of keys?
-                            // No, that's risky.
-                            // Fallback: if not pass-as-object, we pass the individual properties as args
-                            // in the order defined in the schema? That's hard to guess.
-                            // Let's assume for the SDK, we primarily support object-based signatures
-                            // OR we rely on the fact that our internal services mostly align with toolService logic.
-
-                            // Actually, the easiest way is to check the function signature length? No.
-                            // Let's check the Zod schema keys and pass them spread?
-                            // For now, most complex tools are x-pass-as-object.
-                            // Simple tools (like get(id)) are positional.
-
-                            // Heuristic:
                             const argValues = paramNames.map(name => parsedArgs[name]);
-                            return originalMethod(...argValues);
+                            return currentMethod.call(service, ...argValues);
                         }
-
                         const argValues = paramNames.map(name => parsedArgs[name]);
-                        return originalMethod(...argValues);
+                        return currentMethod.call(service, ...argValues);
                     }
-                };
+                });
             }
         }
     }
-    return service;
+
+    return new Proxy(service, {
+        get(target, prop) {
+            if (wrappedMethods.has(prop)) {
+                return wrappedMethods.get(prop);
+            }
+            const value = Reflect.get(target, prop, target);
+            if (typeof value === 'function') {
+                return value.bind(target);
+            }
+            return value;
+        }
+    });
 }
 
+
 // --- Load Specs ---
-const ghSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'), 'utf8'));
-const kbSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'),  'utf8'));
-const memSpec = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'),     'utf8'));
-const nlSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'), 'utf8'));
+/**
+ * Safely loads a YAML OpenAPI specification.
+ *
+ * Degraded Mode Semantics (Fail-Open):
+ * If a specification file is missing or contains syntax errors, this function catches the error
+ * and returns `null` rather than crashing the process. This prevents a single malformed MCP
+ * spec from causing a systemic boot cascade failure across all daemon services.
+ * Downstream consumers (e.g., `makeSafe`) must handle `null` by skipping validation.
+ */
+function safeLoadYaml(filePath) {
+    try {
+        return yaml.load(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+        console.error(`[services.mjs] Failed to load or parse YAML at ${filePath}:`, err.message);
+        return null;
+    }
+}
+
+const ghSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'));
+const kbSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));
+const memSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'));
+const nlSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'));
+const gitlabSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/gitlab-workflow/openapi.yaml'));
 
 // --- Apply Safety Wrappers ---
 
 // GitHub
-makeSafe(GH_HealthService,      ghSpec);
-makeSafe(GH_IssueService,       ghSpec);
-makeSafe(GH_LabelService,       ghSpec);
-makeSafe(GH_LocalFileService,   ghSpec);
-makeSafe(GH_PullRequestService, ghSpec);
-makeSafe(GH_RepositoryService,  ghSpec);
-makeSafe(GH_SyncService,        ghSpec);
+const GH_HealthService = makeSafe(_GH_HealthService, ghSpec);
+const GH_IssueService = makeSafe(_GH_IssueService, ghSpec);
+const GH_LabelService = makeSafe(_GH_LabelService, ghSpec);
+const GH_LocalFileService = makeSafe(_GH_LocalFileService, ghSpec);
+const GH_PullRequestService = makeSafe(_GH_PullRequestService, ghSpec);
+const GH_RepositoryService = makeSafe(_GH_RepositoryService, ghSpec);
+const GH_SyncService = makeSafe(_GH_SyncService, ghSpec);
+
+// GitLab
+const GL_IssueService = makeSafe(_GL_IssueService, gitlabSpec);
+const GL_MergeRequestService = makeSafe(_GL_MergeRequestService, gitlabSpec);
 
 // Knowledge Base
-makeSafe(KB_DatabaseService,  kbSpec);
-makeSafe(KB_LifecycleService, kbSpec);
-makeSafe(KB_DocumentService,  kbSpec);
-makeSafe(KB_HealthService,    kbSpec);
-makeSafe(KB_QueryService,     kbSpec);
-makeSafe(KB_SearchService,    kbSpec);
+const KB_DatabaseService = makeSafe(_KB_DatabaseService, kbSpec);
+const KB_LifecycleService = makeSafe(_KB_LifecycleService, kbSpec);
+const KB_DocumentService = makeSafe(_KB_DocumentService, kbSpec);
+const KB_HealthService = makeSafe(_KB_HealthService, kbSpec);
+const KB_IngestionService = makeSafe(_KB_IngestionService, kbSpec);
+const KB_RecorderService = makeSafe(_KB_RecorderService, kbSpec);
+const KB_QueryService = makeSafe(_KB_QueryService, kbSpec);
+const KB_SearchService = makeSafe(_KB_SearchService, kbSpec);
 
 // Memory Core
-makeSafe(Memory_Service,          memSpec);
-makeSafe(Memory_DatabaseService,  memSpec);
-makeSafe(Memory_SessionService,   memSpec);
-makeSafe(Memory_LifecycleService, memSpec);
-makeSafe(Memory_HealthService,    memSpec);
-makeSafe(Memory_SummaryService,   memSpec);
+const Memory_Service = makeSafe(_Memory_Service, memSpec);
+const Memory_DatabaseService = makeSafe(_Memory_DatabaseService, memSpec);
+const Memory_SessionService = makeSafe(_Memory_SessionService, memSpec);
+const Memory_LifecycleService = makeSafe(_Memory_LifecycleService, memSpec);
+const Memory_ChromaLifecycleService = makeSafe(_Memory_ChromaLifecycleService, memSpec);
+const Memory_InferenceLifecycleService = makeSafe(_Memory_InferenceLifecycleService, memSpec);
+const Memory_HealthService = makeSafe(_Memory_HealthService, memSpec);
+const Memory_GraphService = makeSafe(_Memory_GraphService, memSpec);
+const Memory_SummaryService = makeSafe(_Memory_SummaryService, memSpec);
+const Memory_TextEmbeddingService = makeSafe(_Memory_TextEmbeddingService, memSpec);
+const Memory_WakeSubscriptionService = makeSafe(_Memory_WakeSubscriptionService, memSpec);
+const Memory_MailboxService = makeSafe(_Memory_MailboxService, memSpec);
+const Memory_PermissionService = makeSafe(_Memory_PermissionService, memSpec);
 
 // Neural Link
-makeSafe(NeuralLink_ConnectionService,  nlSpec);
-makeSafe(NeuralLink_ComponentService,   nlSpec);
-makeSafe(NeuralLink_DataService,        nlSpec);
-makeSafe(NeuralLink_HealthService,      nlSpec);
-makeSafe(NeuralLink_InstanceService,    nlSpec);
-makeSafe(NeuralLink_InteractionService, nlSpec);
-makeSafe(NeuralLink_RuntimeService,     nlSpec);
+const NeuralLink_ConnectionService = makeSafe(_NeuralLink_ConnectionService, nlSpec);
+const NeuralLink_ComponentService = makeSafe(_NeuralLink_ComponentService, nlSpec);
+const NeuralLink_DataService = makeSafe(_NeuralLink_DataService, nlSpec);
+const NeuralLink_HealthService = makeSafe(_NeuralLink_HealthService, nlSpec);
+const NeuralLink_InstanceService = makeSafe(_NeuralLink_InstanceService, nlSpec);
+const NeuralLink_InteractionService = makeSafe(_NeuralLink_InteractionService, nlSpec);
+const NeuralLink_RuntimeService = makeSafe(_NeuralLink_RuntimeService, nlSpec);
 
 
 /**
@@ -208,6 +260,9 @@ makeSafe(NeuralLink_RuntimeService,     nlSpec);
  */
 
 export {
+    // Shared Services
+    Shared_DestructiveOperationGuard,
+
     // GitHub Workflow
     GH_Config,
     GH_HealthService,
@@ -218,6 +273,10 @@ export {
     GH_RepositoryService,
     GH_SyncService,
 
+    // GitLab Workflow
+    GL_IssueService,
+    GL_MergeRequestService,
+
     // Knowledge Base
     KB_Config,
     KB_ChromaManager,
@@ -225,6 +284,8 @@ export {
     KB_LifecycleService,
     KB_DocumentService,
     KB_HealthService,
+    KB_IngestionService,
+    KB_RecorderService,
     KB_QueryService,
     KB_SearchService,
 
@@ -235,8 +296,18 @@ export {
     Memory_SessionService,
     Memory_DatabaseService,
     Memory_LifecycleService,
+    Memory_ChromaLifecycleService,
+    Memory_InferenceLifecycleService,
+    Memory_GraphService,
     Memory_HealthService,
+    Memory_StorageRouter,
     Memory_SummaryService,
+    Memory_TextEmbeddingService,
+    Memory_WakeSubscriptionService,
+    Memory_MailboxService,
+    Memory_CoalescingEngineService,
+    Memory_PermissionService,
+    Memory_WebhookDeliveryService,
 
     // Neural Link
     NeuralLink_ComponentService,
@@ -246,5 +317,18 @@ export {
     NeuralLink_HealthService,
     NeuralLink_InstanceService,
     NeuralLink_InteractionService,
-    NeuralLink_RuntimeService
+    NeuralLink_RuntimeService,
+
+    // Daemons
+    DreamService,
+    HeavyMaintenanceLeaseService,
+    SemanticGraphExtractor,
+    TopologyInferenceEngine,
+
+    // Concept Ontology
+    ConceptService,
+
+    // Internal Testing
+    safeLoadYaml,
+    makeSafe
 };

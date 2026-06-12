@@ -1,10 +1,10 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Component       from '../component/Base.mjs';
-import Collection      from '../collection/Base.mjs';
-import Performance     from '../util/Performance.mjs';
-import Row             from './Row.mjs';
-import RowModel        from '../selection/grid/RowModel.mjs';
-import VDomUtil        from '../util/VDom.mjs';
+import Component from '../component/Base.mjs';
+import Collection from '../collection/Base.mjs';
+import Performance from '../util/Performance.mjs';
+import Row from './Row.mjs';
+import RowModel from '../selection/grid/RowModel.mjs';
+import VDomUtil from '../util/VDom.mjs';
 
 /**
  * @summary Manages the scrollable viewport and row rendering for the Grid.
@@ -121,6 +121,11 @@ class GridBody extends Component {
          */
         columnPositions_: null,
         /**
+         * @member {Neo.grid.Container|null} gridContainer=null
+         * @protected
+         */
+        gridContainer: null,
+        /**
          * @member {Boolean} highlightModifiedCells_=false
          * @reactive
          */
@@ -217,10 +222,10 @@ class GridBody extends Component {
          */
         visibleRows: [0, 0],
         /**
-         * @member {String[]} wrapperCls=['neo-grid-body-wrapper']
+         * @member {String[]|null} wrapperCls=null
          * @reactive
          */
-        wrapperCls: ['neo-grid-body-wrapper'],
+        wrapperCls: null,
         /**
          * @member {Boolean} useRowRecordIds=true
          */
@@ -233,9 +238,7 @@ class GridBody extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tabIndex: '-1', cn: [
-            {cn: []}
-        ]}
+            { tabIndex: '-1', cn: [] }
     }
 
     /**
@@ -263,9 +266,9 @@ class GridBody extends Component {
      * @member {String[]} selectedCells
      */
     get selectedCells() {
-        let {selectionModel} = this;
+        let { selectionModel } = this;
 
-        if (selectionModel.ntype?.includes('cell')) {
+        if (selectionModel?.ntype?.includes('cell')) {
             return selectionModel.items
         }
 
@@ -276,9 +279,9 @@ class GridBody extends Component {
      * @member {String[]} selectedRows
      */
     get selectedRows() {
-        let {selectionModel} = this;
+        let { selectionModel } = this;
 
-        if (selectionModel.ntype?.includes('row')) {
+        if (selectionModel?.ntype?.includes('row')) {
             return selectionModel.selectedRows
         }
 
@@ -294,15 +297,15 @@ class GridBody extends Component {
         let me = this;
 
         me.addDomListeners([{
-            click   : me.onCellClick,
+            click: me.onCellClick,
             dblclick: me.onCellDoubleClick,
             delegate: '.neo-grid-cell',
-            scope   : me
+            scope: me
         }, {
-            click   : me.onRowClick,
+            click: me.onRowClick,
             dblclick: me.onRowDoubleClick,
             delegate: '.neo-grid-row',
-            scope   : me
+            scope: me
         }])
     }
 
@@ -338,7 +341,7 @@ class GridBody extends Component {
     afterSetAnimatedRowSorting(value, oldValue) {
         if (value && !this.getPlugin('grid-animate-rows')) {
             import('./plugin/AnimateRows.mjs').then(module => {
-                let me      = this,
+                let me = this,
                     plugins = me.plugins || [];
 
                 plugins.push({
@@ -399,11 +402,22 @@ class GridBody extends Component {
      */
     afterSetAvailableWidth(value, oldValue) {
         if (value > 0) {
-            let me = this;
+            let me              = this,
+                {gridContainer} = me,
+                scrollbar       = gridContainer?.horizontalScrollbar;
 
             me.vdom.width = value + 'px';
-            me.vdom.cn[0].width = value + 'px';
-            me.update()
+            me.update();
+
+            // Per-region sync into the horizontal scrollbar: the center feeds the spacer (the
+            // scrollable content), the locked bodies feed the flanking margins which scope the
+            // scrollbar's scrollport to the center clip width — keeping its scrollLeft range
+            // identical to the center toolbar's, so the addon's verbatim copy stays exact.
+            if (scrollbar) {
+                if      (me === gridContainer.body)      {scrollbar.centerWidth = value}
+                else if (me === gridContainer.bodyStart) {scrollbar.startWidth  = value}
+                else if (me === gridContainer.bodyEnd)   {scrollbar.endWidth    = value}
+            }
         }
     }
 
@@ -432,12 +446,12 @@ class GridBody extends Component {
      */
     afterSetBufferRowRange(value, oldValue) {
         if (oldValue !== undefined) {
-            let me      = this,
+            let me = this,
                 current = Math.floor(me.scrollTop / me.rowHeight);
 
             if (Math.abs(me.startIndex - current) >= value) {
                 me.skipCreateViewData = true;
-                me.startIndex         = current;
+                me.startIndex = current;
                 me.skipCreateViewData = false
             }
 
@@ -452,7 +466,19 @@ class GridBody extends Component {
      * @protected
      */
     afterSetContainerWidth(value, oldValue) {
-        value > 0 && this.updateMountedAndVisibleColumns()
+        if (value > 0) {
+            let me = this;
+
+            // updateMountedAndVisibleColumns only re-renders rows as a side effect of mountedColumns
+            // *changing*. A width-invariant region — e.g. a single-column locked-end body whose
+            // mounted range is always [0, 0] regardless of width — would otherwise never render its
+            // rows once measured. Recompute with the row render suppressed, then fire exactly one
+            // explicit createViewData (mirroring the afterSetBufferColumnRange pattern above).
+            me.skipCreateViewData = true;
+            me.updateMountedAndVisibleColumns();
+            me.skipCreateViewData = false;
+            me.createViewData()
+        }
     }
 
     /**
@@ -463,7 +489,7 @@ class GridBody extends Component {
      */
     afterSetIsScrolling(value, oldValue) {
         this.toggleCls('neo-is-scrolling', value);
-        this.fire('isScrollingChange', {value})
+        this.fire('isScrollingChange', { value })
     }
 
     /**
@@ -523,16 +549,7 @@ class GridBody extends Component {
      * @protected
      */
     afterSetScrollTop(value, oldValue) {
-        let me               = this,
-            {bufferRowRange} = me,
-            newStartIndex    = Math.floor(value / me.rowHeight);
-
-        if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
-            me.startIndex = newStartIndex
-        } else {
-            me.visibleRows[0] = newStartIndex;
-            me.visibleRows[1] = newStartIndex + me.availableRows
-        }
+        // Controlled externally by Grid.Container.syncBodies()
     }
 
     /**
@@ -542,7 +559,12 @@ class GridBody extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.vnodeInitialized && value.register(this)
+        // The single model is owned + registered by grid.View; bodies are render/event delegates that
+        // never register as its view. A POST-construction (dynamic) body.selectionModel swap forwards up
+        // so grid.View re-hoists the one instance across all bodies. Gated on vnodeInitialized so it
+        // never fires during construction (where forwarding re-enters processConfigs and recurses);
+        // initial sharing is driven by grid.Container.applyViewSelectionModel().
+        this.vnodeInitialized && this.gridContainer?.applyViewSelectionModel?.(value)
     }
 
     /**
@@ -562,16 +584,16 @@ class GridBody extends Component {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        let me        = this,
+        let me = this,
             listeners = {
-                filter      : me.onStoreFilter,
-                load        : me.onStoreLoad,
+                filter: me.onStoreFilter,
+                load: me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
-                scope       : me
+                scope: me
             };
 
         oldValue?.un(listeners);
-        value   ?.on(listeners);
+        value?.on(listeners);
     }
 
     /**
@@ -630,7 +652,7 @@ class GridBody extends Component {
     beforeGetColumnPositions(value) {
         if (!value) {
             this._columnPositions = value = Neo.create({
-                module     : Collection,
+                module: Collection,
                 keyProperty: 'dataField'
             })
         }
@@ -645,8 +667,8 @@ class GridBody extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        oldValue?.destroy();
-
+        // grid.View owns the single model's lifecycle (including destroy on swap); a body only
+        // instantiates a config into an instance and holds the shared reference — it never destroys.
         return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
@@ -660,13 +682,13 @@ class GridBody extends Component {
      * @protected
      */
     createRowPool() {
-        let me           = this,
+        let me = this,
             countRecords = me.store.count,
-            windowSize   = me.availableRows + 2 * me.bufferRowRange,
-            needed       = Math.min(windowSize, Math.max(me.items.length, countRecords)),
-            current      = me.items.length,
-            delta        = needed - current,
-            newRows      = [],
+            windowSize = me.availableRows + 2 * me.bufferRowRange,
+            needed = Math.min(windowSize, Math.max(me.items.length, countRecords)),
+            current = me.items.length,
+            delta = needed - current,
+            newRows = [],
             config, i;
 
         me.rowPoolSize = needed;
@@ -674,15 +696,15 @@ class GridBody extends Component {
         if (delta > 0) {
             for (i = 0; i < delta; i++) {
                 config = {
-                    module       : Row,
-                    appName      : me.appName,
-                    gridContainer: me.parent,
-                    id           : me.getRowId(current + i),
-                    parentId     : me.id,
-                    record       : null,
-                    rowIndex     : -1,
-                    theme        : me.theme,
-                    windowId     : me.windowId
+                    module: Row,
+                    appName: me.appName,
+                    gridContainer: me.gridContainer,
+                    id: me.getRowId(current + i),
+                    parentId: me.id,
+                    record: null,
+                    rowIndex: -1,
+                    theme: me.theme,
+                    windowId: me.windowId
                 };
 
                 newRows.push(Neo.create(config))
@@ -721,22 +743,23 @@ class GridBody extends Component {
      * @param {Boolean} [silent=false] True to suppress the final VDOM update (used when batching).
      * @param {Boolean} [force=false] True to force row updates even if records haven't changed (e.g. column resize).
      */
-    createViewData(silent=false, force=false) {
+    createViewData(silent = false, force = false) {
         let me = this;
 
         if (me.skipCreateViewData) {
             return
         }
 
-        let {mountedRows, store} = me,
+        let { mountedRows, store } = me,
             endIndex, i, item, itemIndex, poolSize, range, recycle = true;
 
         if (
-            store.isLoading                   ||
-            me.availableRows              < 1 ||
-            me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
+            !store ||
+            store.isLoading ||
+            me.availableRows < 1 ||
+            me._containerWidth < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.getCount() < 1 ||
-            me.mountedColumns[1]          < 1
+            me.mountedColumns[1] < 0
         ) {
             return
         }
@@ -779,18 +802,18 @@ class GridBody extends Component {
 
         let usedMap = new Array(poolSize).fill(false);
 
-        for (i=mountedRows[0]; i < endIndex; i++) {
+        for (i = mountedRows[0]; i < endIndex; i++) {
             itemIndex = i % poolSize;
-            item      = me.items[itemIndex];
+            item = me.items[itemIndex];
 
             usedMap[itemIndex] = true;
 
             item.updateContent({
                 force,
-                record  : store.getAt(i),
+                record: store.getAt(i),
                 recycle,
                 rowIndex: i,
-                silent  : true
+                silent: true
             })
         }
 
@@ -801,15 +824,15 @@ class GridBody extends Component {
                 // Only update if it currently has a record (was visible)
                 if (item.record) {
                     item.updateContent({
-                        record  : null,
+                        record: null,
                         rowIndex: -1,
-                        silent  : true
+                        silent: true
                     })
                 }
             }
         }
 
-        me.parent.isLoading = false;
+        me.gridContainer.isLoading = false;
 
         me.updateScrollHeight(true); // silent
 
@@ -843,25 +866,25 @@ class GridBody extends Component {
      * @param {String} eventName
      */
     fireCellEvent(data, eventName) {
-        let me        = this,
-            id        = data.currentTarget,
+        let me = this,
+            id = data.currentTarget,
             dataField, record, recordId, target;
 
         for (target of data.path) {
             if (target.data?.field) {
                 dataField = target.data.field;
-                recordId  = target.data.recordId;
-                record    = me.getRecord(recordId);
+                recordId = target.data.recordId;
+                record = me.getRecord(recordId);
                 break
             }
         }
 
         if (!dataField) {
             dataField = me.getCellDataField(id);
-            record    = me.getRecord(id)
+            record = me.getRecord(id)
         }
 
-        me.parent.fire(eventName, {body: me, data, dataField, record})
+        me.gridContainer.fire(eventName, { body: me, data, dataField, record })
     }
 
     /**
@@ -869,14 +892,14 @@ class GridBody extends Component {
      * @param {String} eventName
      */
     fireRowEvent(data, eventName) {
-        let me     = this,
-            id     = data.currentTarget,
+        let me = this,
+            id = data.currentTarget,
             record, recordId, target;
 
         for (target of data.path) {
             if (target.cls?.includes('neo-grid-row') && target.data?.recordId) {
                 recordId = target.data.recordId;
-                record   = me.getRecord(recordId);
+                record = me.getRecord(recordId);
                 break
             }
         }
@@ -885,7 +908,7 @@ class GridBody extends Component {
             record = me.getRecord(id)
         }
 
-        me.parent.fire(eventName, {body: me, data, record})
+        me.gridContainer.fire(eventName, { body: me, data, record })
     }
 
     /**
@@ -897,18 +920,41 @@ class GridBody extends Component {
     }
 
     /**
+     * Resolves the physical cell id for a rowIndex / dataField pair. Pooled cells (`hideMode ===
+     * 'removeDom'` and not locked — mirroring {@link Neo.grid.Row#createVdom}) resolve through the
+     * MATERIALIZED slot binding: Row stamps `data.field` into every rendered cell, and pool slots
+     * keep that render-time binding even while `columnPositions` gets re-ordered mid-drag
+     * (`switchItems` moves the collection per switch). Index math over a live collection goes stale
+     * one switch in; reading the rendered binding cannot. Falls back to the region-local
+     * `columnPositions` index only before the first render pass.
      * @param {Number} rowIndex
      * @param {String} dataField
      * @returns {String}
      */
     getCellId(rowIndex, dataField) {
-        let me          = this,
-            column      = me.getColumn(dataField),
-            columnIndex = me.getColumn(dataField, true),
-            rowId       = me.getRowId(rowIndex);
+        let me            = this,
+            column        = me.getColumn(dataField),
+            rowId         = me.getRowId(rowIndex),
+            firstRowCells = me.items?.[0]?.vdom?.cn,
+            columnIndex, i, len, node, poolIndex;
 
-        if (column.hideMode === 'removeDom') {
-            return `${rowId}__cell-${columnIndex % me.cellPoolSize}`
+        if (column?.hideMode === 'removeDom' && !column.locked) {
+            if (firstRowCells) {
+                for (i = 0, len = firstRowCells.length; i < len; i++) {
+                    node = firstRowCells[i];
+
+                    if (node.data?.field === dataField && node.id?.includes('__cell-')) {
+                        poolIndex = node.id.split('__cell-')[1];
+                        return `${rowId}__cell-${poolIndex}`
+                    }
+                }
+            }
+
+            columnIndex = me.columnPositions.indexOf(dataField);
+
+            if (columnIndex > -1) {
+                return `${rowId}__cell-${columnIndex % me.cellPoolSize}`
+            }
         }
 
         return `${rowId}__${dataField}`
@@ -929,9 +975,9 @@ class GridBody extends Component {
      * @param {Boolean} returnIndex=false
      * @returns {Object|Number|null}
      */
-    getColumn(field, returnIndex=false) {
-        let {columns} = this.parent,
-            column    = columns.get(field);
+    getColumn(field, returnIndex = false) {
+        let { columns } = this.gridContainer,
+            column = columns.get(field);
 
         if (column) {
             return returnIndex ? columns.indexOf(column) : column
@@ -946,12 +992,12 @@ class GridBody extends Component {
      * @returns {Object[]}
      */
     getColumnCells(dataField) {
-        let me          = this,
-            cells       = [],
+        let me = this,
+            cells = [],
             columnIndex = -1,
-            firstRow    = me.items[0].vdom,
-            i           = 0,
-            len         = firstRow.cn.length,
+            firstRow = me.items[0].vdom,
+            i = 0,
+            len = firstRow.cn.length,
             cell;
 
         // Columns might get moved via drag&drop, so let's check for the current match
@@ -973,24 +1019,43 @@ class GridBody extends Component {
     }
 
     /**
+     * Resolves the dataField for a physical cell id — the inverse of {@link #getCellId}.
+     * Pooled cell ids resolve through the MATERIALIZED slot binding ({@link Neo.grid.Row#createVdom}
+     * stamps `data.field` into every rendered cell): pool slots keep their render-time column
+     * binding even while `columnPositions` gets re-ordered mid-drag, so index math over the live
+     * collection goes stale one switch in. Falls back to the region-local index math only before
+     * the first render pass.
      * @param {String} cellId
      * @returns {String}
      */
     getDataField(cellId) {
         if (cellId.includes('__cell-')) {
             let me            = this,
-                poolIndex     = parseInt(cellId.split('__cell-')[1]),
-                columns       = me.parent.columns,
-                {cellPoolSize, mountedColumns} = me,
-                i             = mountedColumns[0],
-                len           = mountedColumns[1],
-                column;
+                poolIndex     = cellId.split('__cell-')[1],
+                firstRowCells = me.items?.[0]?.vdom?.cn,
+                columns       = me.gridContainer.columns,
+                { cellPoolSize, columnPositions, mountedColumns } = me,
+                column, dataField, i, len, node;
 
-            for (; i <= len; i++) {
+            if (firstRowCells) {
+                for (i = 0, len = firstRowCells.length; i < len; i++) {
+                    node = firstRowCells[i];
+
+                    if (node.id?.split('__cell-')[1] === poolIndex && node.data?.field) {
+                        return node.data.field
+                    }
+                }
+            }
+
+            poolIndex = parseInt(poolIndex);
+
+            for (i = mountedColumns[0], len = mountedColumns[1]; i <= len; i++) {
                 if (i % cellPoolSize === poolIndex) {
-                    column = columns.getAt(i);
+                    dataField = columnPositions.getAt(i)?.dataField;
+                    column    = dataField && columns.get(dataField);
+
                     // Sanity check: ensure this column is actually pooled
-                    if (column && column.hideMode === 'removeDom') {
+                    if (column && column.hideMode === 'removeDom' && !column.locked) {
                         return column.dataField
                     }
                 }
@@ -1007,7 +1072,7 @@ class GridBody extends Component {
      * @returns {Object|null}
      */
     getRecord(nodeId) {
-        let me     = this,
+        let me = this,
             record = me.getRecordByRowId(nodeId),
             node, parentNodes;
 
@@ -1045,10 +1110,10 @@ class GridBody extends Component {
      * @returns {Neo.data.Model|null}
      */
     getRecordFromLogicalId(logicalId) {
-        let me        = this,
+        let me = this,
             dataField = me.getDataField(logicalId),
-            recordId  = logicalId.substring(0, logicalId.length - dataField.length - 2),
-            record    = me.getRecord(recordId); // Uses the new robust getRecord()
+            recordId = logicalId.substring(0, logicalId.length - dataField.length - 2),
+            record = me.getRecord(recordId); // Uses the new robust getRecord()
 
         if (!record) {
             record = me.store.get(parseInt(recordId))
@@ -1062,8 +1127,8 @@ class GridBody extends Component {
      * @returns {Record|null}
      */
     getRecordByRowId(rowId) {
-        let me       = this,
-            node     = Neo.getComponent(rowId)?.vdom,
+        let me = this,
+            node = Neo.getComponent(rowId)?.vdom,
             rowIndex = node?.['aria-rowindex'];
 
         if (Neo.isNumber(rowIndex)) {
@@ -1081,7 +1146,7 @@ class GridBody extends Component {
      * @returns {Neo.grid.Row|null}
      */
     getRow(record) {
-        let me       = this,
+        let me = this,
             rowIndex = me.store.indexOf(record),
             itemIndex;
 
@@ -1108,7 +1173,7 @@ class GridBody extends Component {
      * @returns {String}
      */
     getRowId(rowIndex) {
-        let me       = this,
+        let me = this,
             poolSize = me.rowPoolSize ?? (me.availableRows + 2 * me.bufferRowRange);
 
         return `${me.id}__row-${rowIndex % poolSize}`
@@ -1119,14 +1184,14 @@ class GridBody extends Component {
      * @returns {*}
      */
     getVdomRoot() {
-        return this.vdom.cn[0]
+        return this.vdom
     }
 
     /**
      * @returns {Object[]} The new vdom items root
      */
     getVdomItemsRoot() {
-        return this.vdom.cn[0]
+        return this.vdom
     }
 
     /**
@@ -1134,22 +1199,10 @@ class GridBody extends Component {
      * @returns {Neo.vdom.VNode}
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0]
+        return this.vnode
     }
 
-    /**
-     * @returns {Object}
-     */
-    getVdomUpdateMeta() {
-        let me = this;
 
-        return {
-            bufferRowRange: me.bufferRowRange,
-            id            : me.id,
-            rowHeight     : me.rowHeight,
-            scrollTop     : me.scrollTop
-        }
-    }
 
     /**
      * @param {Object} data
@@ -1169,8 +1222,7 @@ class GridBody extends Component {
      *
      */
     onConstructed() {
-        super.onConstructed();
-        this.selectionModel?.register(this)
+        super.onConstructed()
     }
 
     /**
@@ -1190,19 +1242,13 @@ class GridBody extends Component {
         this.fireRowEvent(data, 'rowDoubleClick')
     }
 
-    /**
-     * @param {Object} data
-     */
-    onScrollCapture(data) {
-        super.onScrollCapture(data);
-        this.parent.scrollManager.onBodyScroll(data)
-    }
+
 
     /**
      * @param {Object} data
      */
     onStoreFilter() {
-        this.onStoreLoad({items: this.store.items})
+        this.onStoreLoad({ items: this.store.items })
     }
 
     /**
@@ -1212,9 +1258,9 @@ class GridBody extends Component {
      * @param {Number}   [data.total]
      * @protected
      */
-    onStoreLoad({items, postChunkLoad, total}) {
-        let me         = this,
-            {windowId} = me;
+    onStoreLoad({ items, postChunkLoad, total }) {
+        let me = this,
+            { windowId } = me;
 
         // If it's the first chunked load (data.total exists and data.items is a subset of total)
         // Render the entire chunk for immediate scrollability
@@ -1230,8 +1276,8 @@ class GridBody extends Component {
             me.timeout(50).then(() => {
                 Neo.main.DomAccess.scrollTo({
                     direction: 'top',
-                    id       : me.vdom.id,
-                    value    : 0,
+                    id: me.gridContainer.view.id,
+                    value: 0,
                     windowId
                 })
             })
@@ -1244,12 +1290,12 @@ class GridBody extends Component {
      * @param {Neo.data.Model} data.model  The model instance of the changed record
      * @param {Object}         data.record
      */
-    onStoreRecordChange({fields, record}) {
-        let me                            = this,
-            fieldNames                    = fields.map(field => field.name),
-            rowIndex                      = me.store.indexOf(record),
-            {mountedRows, selectionModel} = me,
-            poolSize                      = me.items.length,
+    onStoreRecordChange({ fields, record }) {
+        let me = this,
+            fieldNames = fields.map(field => field.name),
+            rowIndex = me.store.indexOf(record),
+            { mountedRows, selectionModel } = me,
+            poolSize = me.items.length,
             itemIndex, recordId, row;
 
         if (fieldNames.includes(me.colspanField)) {
@@ -1257,7 +1303,7 @@ class GridBody extends Component {
         } else {
             if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
                 itemIndex = rowIndex % poolSize;
-                row       = me.items[itemIndex];
+                row = me.items[itemIndex];
 
                 if (row) {
                     row.createVdom(false, false)
@@ -1283,20 +1329,20 @@ class GridBody extends Component {
      * @param {Number} step
      */
     scrollByRows(index, step) {
-        let me                         = this,
-            {mountedRows, visibleRows} = me,
-            countRecords               = me.store.count,
-            newIndex                   = index + step,
+        let me = this,
+            { mountedRows, visibleRows } = me,
+            countRecords = me.store.count,
+            newIndex = index + step,
             lastRowGap, mounted, scrollTop, visible;
 
         if (newIndex >= countRecords) {
             newIndex %= countRecords;
-            step     = newIndex - index
+            step = newIndex - index
         }
 
         while (newIndex < 0) {
             newIndex += countRecords;
-            step     += countRecords
+            step += countRecords
         }
 
         mounted = newIndex >= mountedRows[0] && newIndex <= mountedRows[1];
@@ -1315,12 +1361,12 @@ class GridBody extends Component {
                 scrollTop = newIndex * me.rowHeight
             } else {
                 lastRowGap = me.rowHeight - (me.availableHeight % me.rowHeight);
-                scrollTop  = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
+                scrollTop = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
             }
 
             Neo.main.DomAccess.scrollTo({
-                id      : me.vdom.id,
-                value   : scrollTop,
+                id: me.gridContainer.view.id,
+                value: scrollTop,
                 windowId: me.windowId
             })
         }
@@ -1333,12 +1379,12 @@ class GridBody extends Component {
      * @param {Number} newWidth The new width in pixels
      */
     updateCellPositions(dataField, newWidth) {
-        let me              = this,
+        let me = this,
             columnPositions = me.columnPositions,
-            colPos          = columnPositions.get(dataField),
-            deltaWidth      = newWidth - colPos.width,
-            count           = columnPositions.getCount(),
-            isFollowing     = false,
+            colPos = columnPositions.get(dataField),
+            deltaWidth = newWidth - colPos.width,
+            count = columnPositions.getCount(),
+            isFollowing = false,
             i, pos;
 
         if (deltaWidth === 0) {
@@ -1361,8 +1407,7 @@ class GridBody extends Component {
             availableWidth: me.availableWidth + deltaWidth
         });
 
-        me.vdom.width       = me.availableWidth + 'px';
-        me.vdom.cn[0].width = me.availableWidth + 'px';
+        me.vdom.width = me.availableWidth + 'px';
 
         // 2. Update the VDOM of all active rows
         me.items.forEach(row => {
@@ -1396,13 +1441,13 @@ class GridBody extends Component {
     /**
      * @param {Boolean} [force=false]
      */
-    updateMountedAndVisibleColumns(force=false) {
-        let me       = this,
-            {bufferColumnRange, cellPoolSize, columnPositions, mountedColumns, visibleColumns} = me,
-            i            = 0,
+    updateMountedAndVisibleColumns(force = false) {
+        let me = this,
+            { bufferColumnRange, cellPoolSize, columnPositions, mountedColumns, visibleColumns } = me,
+            i = 0,
             countColumns = columnPositions.getCount(),
-            endIndex     = countColumns - 1,
-            x            = me.scrollLeft,
+            endIndex = countColumns - 1,
+            x = me.scrollLeft,
             column, newPoolSize, startIndex = 0;
 
         if (countColumns < 1) {
@@ -1427,7 +1472,7 @@ class GridBody extends Component {
 
         if (force || visibleColumns[0] <= mountedColumns[0] || visibleColumns[1] >= mountedColumns[1] || cellPoolSize === null) {
             startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
-            endIndex   = Math.min(countColumns - 1, visibleColumns[1] + bufferColumnRange);
+            endIndex = Math.min(countColumns - 1, visibleColumns[1] + bufferColumnRange);
 
             newPoolSize = endIndex - startIndex + 1;
 
@@ -1439,7 +1484,7 @@ class GridBody extends Component {
 
             if (newPoolSize !== cellPoolSize) {
                 me.set({
-                    cellPoolSize  : newPoolSize,
+                    cellPoolSize: newPoolSize,
                     mountedColumns: [startIndex, endIndex]
                 })
             } else {
@@ -1452,13 +1497,13 @@ class GridBody extends Component {
      *
      */
     updateMountedAndVisibleRows() {
-        let me             = this,
-            {bufferRowRange, availableRows, startIndex, store} = me,
-            countRecords   = store.count,
-            windowSize     = availableRows + 2 * bufferRowRange,
-            endIndex       = Math.min(countRecords, startIndex + availableRows),
-            mountedStart   = startIndex - bufferRowRange,
-            mountedEnd     = endIndex   + bufferRowRange;
+        let me = this,
+            { bufferRowRange, availableRows, startIndex, store } = me,
+            countRecords = store.count,
+            windowSize = availableRows + 2 * bufferRowRange,
+            endIndex = Math.min(countRecords, startIndex + availableRows),
+            mountedStart = startIndex - bufferRowRange,
+            mountedEnd = endIndex + bufferRowRange;
 
         me.visibleRows[0] = startIndex; // update the array inline
         me.visibleRows[1] = endIndex;
@@ -1467,7 +1512,7 @@ class GridBody extends Component {
         // via moveNode operations instead of removeNode + insertNode.
         // If we are at the top, extend the end to fill the window.
         if (mountedStart < 0) {
-            mountedEnd  += Math.abs(mountedStart);
+            mountedEnd += Math.abs(mountedStart);
             mountedStart = 0
         }
 
@@ -1477,7 +1522,7 @@ class GridBody extends Component {
         // If we are at the bottom (hit the ceiling), pull the start back to fill the window.
         // This ensures we keep the DOM nodes alive for as long as possible.
         if (mountedEnd - mountedStart < windowSize) {
-            let needed   = windowSize - (mountedEnd - mountedStart);
+            let needed = windowSize - (mountedEnd - mountedStart);
             mountedStart = Math.max(0, mountedStart - needed)
         }
 
@@ -1488,13 +1533,13 @@ class GridBody extends Component {
     /**
      * @param {Boolean} silent=false
      */
-    updateScrollHeight(silent=false) {
-        let me           = this,
+    updateScrollHeight(silent = false) {
+        let me = this,
             countRecords = me.#initialTotalSize || me.store?.count || 0,
-            {rowHeight}  = me;
+            { rowHeight } = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
+            me.vdom.height = `${(countRecords + 1) * rowHeight}px`;
             !silent && me.update()
         }
     }
@@ -1507,14 +1552,14 @@ class GridBody extends Component {
 
         return {
             ...super.toJSON(),
-            animatedRowSorting    : me.animatedRowSorting,
-            bufferColumnRange     : me.bufferColumnRange,
-            bufferRowRange        : me.bufferRowRange,
-            colspanField          : me.colspanField,
+            animatedRowSorting: me.animatedRowSorting,
+            bufferColumnRange: me.bufferColumnRange,
+            bufferRowRange: me.bufferRowRange,
+            colspanField: me.colspanField,
             highlightModifiedCells: me.highlightModifiedCells,
-            rowHeight             : me.rowHeight,
-            selectedRecordField   : me.selectedRecordField,
-            selectionModel        : me.selectionModel?.toJSON()
+            rowHeight: me.rowHeight,
+            selectedRecordField: me.selectedRecordField,
+            selectionModel: me.selectionModel?.toJSON()
         }
     }
 }

@@ -1,0 +1,89 @@
+# Copy this file to .codex/config.toml for local Codex MCP setup.
+# Keep .codex/config.toml untracked: it can contain machine-local paths,
+# trust-level overrides, and environment-specific MCP settings.
+
+# Codex project-doc discovery loads at most one instruction file per directory:
+# AGENTS.override.md, then AGENTS.md, then configured fallbacks. Since the repo
+# root owns AGENTS.md, .codex/CODEX.md is a reference file, not an auto-loaded
+# fallback. Trusted Codex projects inject .codex/CODEX.md through
+# .codex/hooks.json, keeping this customizable config file out of the runtime
+# note source-of-truth path.
+project_doc_max_bytes = 131072
+
+# Neo.mjs marathon sessions routinely exceed Codex's conservative default effective
+# context budget. As of April 2026, GPT-5.5 / GPT-5.4 expose 1M-token context
+# windows, so keep compaction late enough for architectural continuity while
+# reserving headroom for output and reasoning tokens.
+#
+# If you switch this local config to a smaller model (for example a 400K mini/codex
+# model), reduce these values accordingly before starting the session.
+model_context_window = 1000000
+model_auto_compact_token_limit = 850000
+model_max_output_tokens = 128000
+
+# Neo's Memory Core and Knowledge Base MCP servers talk to local Chroma and
+# embedding services over loopback. Keep those services bound to localhost; this
+# flag only lets Codex sandboxed commands reach them from trusted checkouts.
+[sandbox_workspace_write]
+network_access = true
+
+[mcp_servers."neo-mjs-github-workflow"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-github-workflow"]
+env_vars = ["GH_TOKEN", "GITHUB_TOKEN", "NEO_AGENT_IDENTITY"]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+# Remote Gemini credentials are intentionally opt-in for local Codex MCP
+# servers. Add GEMINI_API_KEY only to the specific ignored .codex/config.toml
+# server env_vars that is explicitly testing remote Gemini, then restart the
+# harness so already-running MCP children drop any old environment.
+[mcp_servers."neo-mjs-knowledge-base"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-knowledge-base"]
+env_vars = [
+    "NEO_AGENT_IDENTITY",
+    "NEO_CHROMA_EMBEDDING_PROVIDER",
+    "NEO_CHROMA_UNIFIED",
+    "NEO_EMBEDDING_PROVIDER",
+    "NEO_KB_AUTO_START_DATABASE",
+    "NEO_OPENAI_COMPATIBLE_API_KEY",
+    "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
+    "NEO_OPENAI_COMPATIBLE_HOST",
+    "NEO_OPENAI_COMPATIBLE_MODEL"
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+[mcp_servers."neo-mjs-memory-core"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-memory-core"]
+env_vars = [
+    "NEO_AGENT_IDENTITY",
+    "NEO_CHROMA_EMBEDDING_PROVIDER",
+    "NEO_CHROMA_UNIFIED",
+    "NEO_EMBEDDING_PROVIDER",
+    "NEO_MEM_AUTO_START_DATABASE",
+    "NEO_MEM_AUTO_START_INFERENCE",
+    "NEO_MODEL_PROVIDER",
+    "NEO_OPENAI_COMPATIBLE_API_KEY",
+    "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
+    "NEO_OPENAI_COMPATIBLE_HOST",
+    "NEO_OPENAI_COMPATIBLE_MODEL"
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+[mcp_servers."neo-mjs-neural-link"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-neural-link"]
+env_vars = ["NEO_AGENT_IDENTITY"]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+[features]
+hooks = true

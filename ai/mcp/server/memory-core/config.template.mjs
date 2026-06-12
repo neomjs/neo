@@ -1,0 +1,525 @@
+// Loads the Tier-1 realm root (Neo.ai.Config) so getParent() inheritance resolves in this process;
+// MC reads no AiConfig values directly — they resolve via the chain, not a binding.
+import '../../../config.template.mjs';
+import os                                        from 'os';
+import path                                      from 'path';
+import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
+import {fileURLToPath}                           from 'url';
+
+function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
+    const rawValue = env[envVarName];
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
+    if (['legacy', 'private', 'team'].includes(rawValue)) {
+        return rawValue;
+    }
+    throw new Error(`[Config] Invalid ${envVarName} value: "${rawValue}". Must be one of: legacy, private, team`);
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+const neoRootDir        = path.resolve(__dirname, '../../../../');
+const cwd               = neoRootDir;
+const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.resolve(cwd, '.neo-ai-data/wake-daemon'));
+const DAY_MS            = 24 * 60 * 60 * 1000;
+
+// Per-worker-unique test collection names, generated at config-load. Each playwright worker is a
+// separate process that re-evaluates this module → its own unique names, so fullyParallel workers
+// never collide on a shared collection. Generated here (not inside a `process.env` leaf default) so
+// the leaves stay declarative; selection is the `collections.useTestDatabase` toggle + formulas below.
+const testMemoryCollection  = `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+const testSessionCollection = `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+// Per-worker-unique WAL test directory under the OS temp root (same isolation rationale as the
+// test collection names above): fullyParallel workers never share a write-ahead directory, and
+// unit tests never touch the repo-local `.neo-ai-data/memory-wal` production path.
+const testMemoryWalDir = path.join(os.tmpdir(), `neo-memory-wal-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
+
+/**
+ * @summary Configuration manager for the Memory Core MCP server.
+ *
+ * Supports loading configuration from a custom file and merging with defaults.
+ *
+ * @class Neo.ai.mcp.server.memory-core.Config
+ * @extends Neo.ai.ConfigProvider
+ * @singleton
+ */
+class Config extends ConfigProvider {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.server.memory-core.Config'
+         * @protected
+         */
+        className: 'Neo.ai.mcp.server.memory-core.Config',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * @member {Object} data
+         */
+        data: {
+            /**
+             * Repo root, computed from this module's path. Exported for symmetry with the
+             * KB and Neural Link config contracts so consumers can read `aiConfig.neoRootDir`
+             * instead of recomputing the 4-level traversal locally. Module path is stable;
+             * the resolution is deterministic at boot.
+             * @type {string}
+             */
+            neoRootDir: leaf(neoRootDir),
+            /**
+             * Global debug flag for all MCP servers.
+             * @type {boolean}
+             */
+            debug: leaf(false, 'NEO_DEBUG', 'boolean'),
+            /**
+             * Transport protocol for the MCP server ('stdio' or 'sse').
+             * @type {string}
+             */
+            transport: leaf('stdio', 'NEO_TRANSPORT', 'string'),
+            /**
+             * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
+             *
+             * Operator env var: `MCP_HTTP_PORT`.
+             * @type {number}
+             */
+            mcpHttpPort: leaf(3001, 'MCP_HTTP_PORT', 'port'),
+            /**
+             * Optional public canonical URL for this MCP server.
+             * When configured, this URL is explicitly used as the resource indicator
+             * for OAuth 2.1 / OIDC audience claims and SSE callback advertising.
+             * Required when deploying behind reverse proxies (Nginx/Caddy) where
+             * the internal host:port bindings do not match the public-facing URL.
+             * Example: 'https://mcp.neo.mjs.com/memory-core'
+             * @type {string|null}
+             */
+            publicUrl: leaf(null, 'NEO_PUBLIC_URL', 'url'),
+            /**
+             * Comma-separated extra hostnames added to the MCP transport's Host-header allowlist
+             * (the SDK's DNS-rebinding protection). localhost/127.0.0.1/[::1] and the `publicUrl`
+             * hostname are always allowed; set this for multi-hostname deployments or where the
+             * client `Host` differs from `publicUrl`. Empty/null → only the implicit localhost +
+             * publicUrl hosts. Consumed by TransportService.computeAllowedHosts.
+             * @type {string|null}
+             */
+            allowedHosts: leaf(null, 'NEO_MCP_ALLOWED_HOSTS', 'string'),
+            /**
+             * Optional Express middleware function for authentication (only used if transport is 'sse').
+             * @type {Function|null}
+             */
+            authMiddleware: leaf(null),
+            /**
+             * Pagination limit for fetching records during session summarization scans.
+             * Controls the batch size for memory and summary retrieval.
+             * @type {number}
+             */
+            summarizationBatchLimit: leaf(2000),
+            /**
+             * Maximum number of undigested sessions the REM pipeline processes per cycle.
+             * Keeps each sleep pass bounded even when the query batch is larger.
+             * @type {number}
+             */
+            remSleepBatchLimit: leaf(10, 'NEO_REM_SLEEP_BATCH_LIMIT', 'number'),
+            /**
+             * Maximum number of concurrent session summarization requests.
+             * Prevents hitting LLM/Embedding API rate limits during bulk operations.
+             * @type {number}
+             */
+            summarizationConcurrency: leaf(5),
+            /**
+             * Wall-clock budget (ms) for a single session-summary synthesis call. Bounds
+             * `SessionService.summarizeSession`'s LLM invocation so a slow local synthesis aborts and
+             * degrades gracefully instead of grinding to the provider socket cap — the ~30-min stall that
+             * leaves `SummarizationJobs` leases stuck `in_progress` past expiry. Mirrors the
+             * `buildMiniSummary` timeout guard. Calibrated against the **300000ms `SummarizationJobs` lease
+             * TTL** (`claimSummarizationJob` default): the raw synthesis must abort well under the lease so
+             * it never expires the lease mid-run, AND the degraded (compact) fallback — a second, smaller
+             * synthesis — still completes within the lease. 180s leaves ~120s of that headroom. A synthesis
+             * approaching the lease TTL is already heading for the stuck-lease bug, so degrading it via the
+             * fast compact retry is the correct outcome. On overshoot the synthesis aborts and the
+             * provenance-labeled degraded fallback runs, so a too-slow session still gets a summary.
+             * Env-overridable; refine against a worst-case session-synthesis measurement (stay below the lease TTL).
+             * @type {number}
+             */
+            sessionSummaryTimeoutMs: leaf(180000, 'NEO_MEMORY_SESSION_SUMMARY_TIMEOUT_MS', 'number'),
+            /**
+             * The target Storage Architecture to use.
+             * Note: Chroma is the only supported Vector DB.
+             * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Chroma vectors only).
+             * The default is explicitly 'hybrid' for the two-pillar RAG architecture.
+             */
+            engine: leaf('hybrid'),
+            /**
+             * Physical file paths for embedded/local datasets.
+             *
+             * `graph` (the active path consumers read) is a reactive formula (see `formulas` below) that
+             * resolves `graphProd` / `graphTest` by construction from `useTestDatabase` — no inline
+             * `process.env` in a leaf default. Test-mode is resolved in the config, so
+             * the ~10 `storagePaths.graph` consumers (GraphService open, DatabaseService guard, Server
+             * diagnostic, maintenance scripts) read one value unchanged.
+             */
+            storagePaths: {
+                /**
+                 * Production graph SQLite path. Declarative leaf; env override via `NEO_MEMORY_DB_PATH`.
+                 * @type {string}
+                 */
+                graphProd      : leaf(path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+                /**
+                 * Unit-test graph path: in-memory SQLite (ephemeral, per-process). Declarative leaf.
+                 * @type {string}
+                 */
+                graphTest      : leaf(':memory:', 'NEO_MEMORY_DB_PATH_TEST', 'string'),
+                /**
+                 * Test-mode toggle (env-driven via `UNIT_TEST_MODE`). The `storagePaths.graph` formula
+                 * reads this to select `graphTest` (true) or `graphProd` (false) — safe-by-construction.
+                 * @type {boolean}
+                 */
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
+            },
+            /**
+             * Durable wake-daemon watermarks consumed by GraphLog maintenance.
+             */
+            wakeDaemon: {
+                dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
+                bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
+                wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
+            },
+            /**
+             * Data Schema/Table Names
+             * This defines WHAT the tables/collections are called logically.
+             */
+            collections: {
+                /**
+                 * `memory` / `session` (the active names consumers read) are formulas (below) resolving
+                 * `*Prod` / `*Test` by construction from `useTestDatabase` — no inline `process.env` in a
+                 * leaf default. The test names are per-worker-unique (module consts above) for fullyParallel
+                 * isolation; consumers (HealthService, ChromaManager, defragChromaDB) read `collections.memory`
+                 * / `session` unchanged.
+                 * @type {string}
+                 */
+                memoryProd     : leaf('neo-agent-memory', 'NEO_MEMORY_COLLECTION_NAME', 'string'),
+                memoryTest     : leaf(testMemoryCollection, 'NEO_MEMORY_COLLECTION_NAME_TEST', 'string'),
+                sessionProd    : leaf('neo-agent-sessions', 'NEO_SESSION_COLLECTION_NAME', 'string'),
+                sessionTest    : leaf(testSessionCollection, 'NEO_SESSION_COLLECTION_NAME_TEST', 'string'),
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                graph          : leaf('neo-native-graph', 'NEO_GRAPH_COLLECTION_NAME', 'string')
+            },
+            /**
+             * Datasets Schema/Paths
+             * This defines WHERE autonomous curation exports data.
+             */
+            datasets: {
+                rlaif: {
+                    trajectories: leaf(path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string')
+                }
+            },
+            /**
+             * Directory for per-cycle REM run/stage JSONL state artifacts.
+             * @type {string}
+             */
+            remRunStateDir: leaf(path.resolve(cwd, '.neo-ai-data/rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
+            /**
+             * Number of recent REM cycles projected by `get_rem_pipeline_state`.
+             * @type {number}
+             */
+            remRunRecentLimit: leaf(5, 'NEO_REM_RUN_RECENT_LIMIT', 'number'),
+            /**
+             * Maximum per-cycle REM run/stage JSONL artifacts retained on disk. On each append the
+             * store prunes older artifacts beyond this bound, capping both the directory file count
+             * and the read-path stat fan-out so neither grows with deployment age.
+             * @type {number}
+             */
+            remRunRetentionLimit: leaf(200, 'NEO_REM_RUN_RETENTION_LIMIT', 'number'),
+            /**
+             * Durable JSONL write-ahead store for `add_memory` payloads.
+             *
+             * The mandated per-turn save appends its full payload here BEFORE any model-dependent
+             * work, so an embed/Chroma failure or stall never fails or loses the save. `dir` (the
+             * active path consumers read) is a reactive formula (see `formulas` below) resolving
+             * `dirProd` / `dirTest` by construction from `useTestDatabase` — unit tests can never
+             * write into the production WAL.
+             */
+            memoryWal: {
+                /**
+                 * Production WAL segment directory. Declarative leaf; env override via `NEO_MEMORY_WAL_DIR`.
+                 * @type {string}
+                 */
+                dirProd        : leaf(path.resolve(cwd, '.neo-ai-data/memory-wal'), 'NEO_MEMORY_WAL_DIR', 'string'),
+                /**
+                 * Unit-test WAL directory: per-worker-unique under the OS temp root (module const above).
+                 * @type {string}
+                 */
+                dirTest        : leaf(testMemoryWalDir, 'NEO_MEMORY_WAL_DIR_TEST', 'string'),
+                /**
+                 * Test-mode toggle (env-driven via `UNIT_TEST_MODE`). The `memoryWal.dir` formula
+                 * reads this to select `dirTest` (true) or `dirProd` (false) — safe-by-construction.
+                 * @type {boolean}
+                 */
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                /**
+                 * Maximum fully-reconciled (every record embed-marked) WAL day-segments retained on
+                 * disk. Pruned on append; segments holding ANY pending record are never pruned —
+                 * the WAL is a durability buffer first, a log second.
+                 * @type {number}
+                 */
+                retentionLimit : leaf(30, 'NEO_MEMORY_WAL_RETENTION_LIMIT', 'number'),
+                /**
+                 * Minimum per-field length (after trim) for `prompt`/`thought`/`response` accepted
+                 * by `add_memory`. Default 1 = reject only empty/whitespace-only fields — the
+                 * unambiguous corrupted-memory class. Deliberately conservative: boot
+                 * heartbeats (`resumeHarness.mjs` health-check) carry thin-but-real content and
+                 * must keep passing until the planned boot-heartbeat liveness-marker carve-out
+                 * routes them off this path. Raise only with a derived threshold.
+                 * @type {number}
+                 */
+                minFieldLength : leaf(1, 'NEO_MEMORY_MIN_FIELD_LENGTH', 'number'),
+                /**
+                 * Data directory (PID file, rotating log) for the embed daemon —
+                 * `ai/daemons/embed/daemon.mjs`, the durable WAL drainer. Declarative leaf;
+                 * env override via `NEO_MEMORY_EMBED_DAEMON_DIR`.
+                 * @type {string}
+                 */
+                daemonDataDir  : leaf(path.resolve(cwd, '.neo-ai-data/embed-daemon'), 'NEO_MEMORY_EMBED_DAEMON_DIR', 'string'),
+                /**
+                 * Embed-daemon drain cadence. Per-turn saves arrive minutes apart; 5s keeps
+                 * semantic recall near-realtime without hot-looping the store. This cadence is
+                 * also what bounds the pending-backlog scan cost (see `drainCycle.mjs` AC10 note).
+                 * @type {number}
+                 */
+                pollIntervalMs : leaf(5000, 'NEO_MEMORY_WAL_POLL_INTERVAL_MS', 'number'),
+                /**
+                 * Maximum WAL records embedded per drain cycle.
+                 * @type {number}
+                 */
+                batchSize      : leaf(20, 'NEO_MEMORY_WAL_BATCH_SIZE', 'number'),
+                /**
+                 * In-cycle whole-batch retry bound for transient embed failures; beyond it the
+                 * cycle isolates failures per record (cross-cycle exponential cooldown).
+                 * @type {number}
+                 */
+                maxRetries     : leaf(5, 'NEO_MEMORY_WAL_MAX_RETRIES', 'number'),
+                /**
+                 * Exponential-backoff base for embed retries (`base * 2^attempt`, capped at the
+                 * drain module's `MAX_RECORD_COOLDOWN_MS`).
+                 * @type {number}
+                 */
+                backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number'),
+                /**
+                 * Hosts the WAL drain loop INSIDE the memory-core server process — the
+                 * containerized / single-process deployment shape (dockerized MC, npx-neo-app
+                 * workspaces) where no orchestrator-supervised embed daemon exists.
+                 *
+                 * **Mutual exclusion (sole-drainer invariant):** exactly ONE drain loop per WAL
+                 * directory. Enabling this where the embed daemon also runs is refused at startup
+                 * by the per-directory `.drain-lock` guard (whichever host starts second fails
+                 * loud), not merely discouraged. The local maintainer profile keeps this `false`
+                 * and runs the daemon.
+                 * @type {boolean}
+                 */
+                inProcessDrain : leaf(false, 'NEO_MEMORY_WAL_IN_PROCESS_DRAIN', 'boolean')
+            },
+            /**
+             * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
+             * @type {string}
+             */
+            handoffFilePath: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md')),
+            /**
+             * Stale-assignment idle threshold used by `GoldenPathSynthesizer` when rendering
+             * Sandman handoff candidates. Defaults to the ticket-intake 7-day reassignment rule.
+             * @type {number}
+             */
+            goldenPathStaleAssignmentThresholdMs: leaf(7 * DAY_MS, 'NEO_GOLDEN_PATH_STALE_ASSIGNMENT_THRESHOLD_MS', 'number'),
+            /**
+             * Maximum stale-assignment candidates rendered into the Sandman handoff.
+             * @type {number}
+             */
+            goldenPathStaleAssignmentRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_STALE_ASSIGNMENT_RENDER_LIMIT', 'number'),
+            /**
+             * Idle threshold used by `GoldenPathSynthesizer` when rendering unassigned
+             * Silent Threads. Defaults to 14 days so the section surfaces longer-running
+             * atrophy than the 7-day stale-assignment lane.
+             * @type {number}
+             */
+            goldenPathSilentThreadThresholdMs: leaf(14 * DAY_MS, 'NEO_GOLDEN_PATH_SILENT_THREAD_THRESHOLD_MS', 'number'),
+            /**
+             * Minimum `daysIdle * max(structuralWeight, 1)` score required for Silent Threads.
+             * @type {number}
+             */
+            goldenPathSilentThreadMinScore: leaf(14, 'NEO_GOLDEN_PATH_SILENT_THREAD_MIN_SCORE', 'number'),
+            /**
+             * Maximum Silent Threads candidates rendered into the Sandman handoff.
+             * @type {number}
+             */
+            goldenPathSilentThreadRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_SILENT_THREAD_RENDER_LIMIT', 'number'),
+            /**
+             * Maximum recent open PR rows rendered inside `Active PR Cycle State`.
+             * @type {number}
+             */
+            goldenPathRecentOpenPrRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
+            /**
+             * Maximum Golden Path priority nodes rendered into the Sandman handoff. The
+             * Golden Path is the one section that earns more depth than the 5-row
+             * convention applied to every other category; defaults to 10.
+             * @type {number}
+             */
+            goldenPathTopNodeRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_TOP_NODE_RENDER_LIMIT', 'number'),
+            /**
+             * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
+             * @type {number}
+             */
+            decayFactor: leaf(0.98, 'NEO_GRAPH_DECAY_FACTOR', 'number'),
+            /**
+             * Minimum weight threshold for emitting `[GUIDE_GAP]`, `[EXAMPLE_GAP]`, and `[ORPHAN_CONCEPT]`
+             * signals on CONCEPT nodes during `GapInferenceEngine.inferConceptGraphGaps`.
+             *
+             * **Derivation:** `ConceptService.calculateWeight` returns `tier_score + uniqueness + coverage_deficit`
+             * where tier-1 gets `0.8`, tier-2 `0.5`, tier-3 `0.3`; uniqueness adds `0.2`; coverage deficit (no
+             * EXPLAINED_BY) adds `0.3`. The minimum a tier-1 concept can score is `0.8` (covered, non-unique).
+             * Setting threshold = `0.8` means *"at least tier-1 baseline priority"* — every tier-1 concept
+             * without a guide qualifies; tier-2/3 concepts qualify only if uniqueness + deficit push them above.
+             *
+             * Tune up to silence tier-2/3 noise as ontology grows; tune down to surface
+             * lower-priority concepts in the handoff.
+             * @type {number}
+             */
+            guideGapWeightThreshold: leaf(0.8, 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', 'number'),
+            /**
+             * Operator-tuning knobs for `ConceptDiscoveryService`. Both values are read live
+             * at method-call time (not captured at module load) so tests + runtime overrides are honored.
+             *
+             * - `prScanLimit`: how many pull-request markdown files to process per discovery cycle.
+             *   PRs are sorted descending by PR number so the most-recent (freshest architectural
+             *   discourse) process first. Capping bounds per-cycle LLM cost against the ~300+ PR corpus.
+             * - `minSourceLength`: minimum source text length (chars) to trigger an LLM extraction call.
+             *   Short bodies aren't worth the provider round-trip; 200 ≈ 30 words of coherent prose.
+             *
+             * Expected to migrate to SDK-layer config once daemon/service ownership is split:
+             * these are daemon concerns, not memory-core concerns.
+             * @type {Object}
+             */
+            conceptDiscovery: {
+                prScanLimit    : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
+                minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
+            },
+            /**
+             * Directory for the always-on Memory Core diagnostic log files. The MC server's
+             * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-
+             * running operations (summarization, ingestion sweeps, ChromaDB lifecycle) leave
+             * a tail-able diagnostic trail observable from the host shell.
+             * Default: `<neoRootDir>/.neo-ai-data/logs/` — shared with the KB and Neural
+             * Link servers (each uses a distinct filename prefix: `mc-server-`, `kb-server-`,
+             * `nl-server-`). Per-server file isolation, single tailable directory.
+             * @type {string}
+             */
+            logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs')),
+            /**
+             * @summary Shared MCP logger policy for Memory Core.
+             *
+             * Always-on file sink plus debug-gated stderr. `flush: true` preserves the
+             * short-lived script contract used by Sandman and other immediate-exit paths.
+             * @type {Object}
+             */
+            logger: leaf({
+                filePrefix    : 'mc-server',
+                fileSink      : true,
+                flush         : true,
+                stderrMode    : 'debug',
+                timestampStyle: 'plain'
+            }),
+            /**
+             * Mailbox substrate behavior configuration.
+             *
+             * Deployment-tier selectors for the A2A mailbox service. The A2A primitives
+             * themselves (Message nodes, SENT_BY / SENT_TO edges, CAN_REPLY_TO permission
+             * edges, PermissionService.grantPermission / revokePermission / listPermissions)
+             * remain unconditionally live regardless of these selectors — this block only
+             * tunes default enforcement policy to match deployment reality.
+             *
+             * @type {Object}
+             */
+            mailbox: {
+                /**
+                 * Default reply policy for non-broadcast DMs. Controls whether `addMessage`
+                 * to a specific AgentIdentity target requires a prior `CAN_REPLY_TO` grant
+                 * or reachable-counterparty trust-lift, or accepts any authenticated sender
+                 * as a peer.
+                 *
+                 * - `'blocked'` — strict-isolation default policy. Suited for multi-user /
+                 *   multi-tenant Memory Core deployments and mixed-trust-tier installations
+                 *   where cross-tenant boundaries must be enforced at the substrate.
+                 *   Cross-tenant reach requires explicit `CAN_REPLY_TO` grants. Reachable-
+                 *   counterparty trust-lift relaxes the bootstrap once any broadcast or
+                 *   direct message has flowed between the pair.
+                 *
+                 * - `'open'` — peer-trust mode. Suited for homogeneous trusted-frontier
+                 *   swarms where every authenticated identity is a peer owned by the same
+                 *   operator (e.g. local development with Claude + Gemini + future frontier
+                 *   models). Eliminates the first-message bootstrap tax. `CAN_REPLY_TO`
+                 *   edges still queryable via `grant_permission` / `list_permissions`;
+                 *   enforcement simply skips the check.
+                 *
+                 * Does NOT weaken read-path scoping — `CAN_READ_INBOX_OF`,
+                 * `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF` remain strict regardless
+                 * of this setting. Reading someone's inbox is categorically different
+                 * from sending them a message; asymmetric treatment is intentional.
+                 *
+                 * Library default is `'open'`; multi-user / multi-tenant deployments
+                 * override to `'blocked'` in their `config.mjs` as part of installation,
+                 * or via the `NEO_MAILBOX_DEFAULT_REPLY_POLICY` environment variable.
+                 *
+                 * @type {'blocked'|'open'}
+                 */
+                defaultReplyPolicy: leaf('open', 'NEO_MAILBOX_DEFAULT_REPLY_POLICY', 'string')
+            },
+            /**
+             * Memory sharing policy for multi-tenant isolation.
+             *
+             * Defines the retrieval scope for query_raw_memories and query_summaries:
+             * - 'private': strict tenant isolation. Only caller's owned rows.
+             * - 'team': team-wide context sharing for tagged records.
+             * - 'legacy': migration-window compatibility for pre-tenant-aware data.
+             *
+             * Invalid environment variables (NEO_MEMORY_SHARING_DEFAULT_POLICY) will
+             * fail loudly on boot rather than silently weakening isolation.
+             *
+             * @type {Object}
+             */
+            memorySharing: {
+                /**
+                 * Default memory-sharing tenant policy.
+                 * - `team` (default): deployment-wide read — every maintainer in this deployment
+                 *   reads every maintainer's raw memories AND summaries (transparent swarm
+                 *   introspection). The Chroma collection is the deployment boundary.
+                 * - `legacy`: caller's own + untagged + `SHARED_USER_ID`-tagged records.
+                 * - `private`: caller's own records only.
+                 * Multi-tenant SaaS deployments that co-locate multiple orgs in one collection MUST
+                 * override to `private` via `NEO_MEMORY_SHARING_DEFAULT_POLICY`.
+                 * @type {'legacy'|'private'|'team'}
+                 */
+                defaultPolicy: {env: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', default: 'team', parse: parseMemorySharingPolicy}
+            },
+            /**
+             * Target file path for the lazy backfill queue of unresolved provenance edges.
+             * @type {string}
+             */
+            lazyEdgesQueuePath: leaf(path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
+        },
+        /**
+         * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
+         */
+        formulas: {
+            // The active graph SQLite path + memory/session collection names, resolved BY CONSTRUCTION
+            // from the `useTestDatabase` toggle. Consumers read `AiConfig.storagePaths.graph` /
+            // `collections.memory` / `collections.session` unchanged — the single resolution point.
+            // Replaces the prior inline-`process.env` leaf ternaries.
+            'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
+            'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
+            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd,
+            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd
+        }
+    }
+}
+const instance = Neo.setupClass(Config);
+
+export default createConfigProxy(instance);

@@ -10,23 +10,43 @@ const defaultConfig = {
     /**
      * A map of MCP server configurations.
      * The key is the logical name of the server (e.g., 'github-workflow').
-     * The value is an object with 'command' and 'args' properties.
+     * The value is an object with transport-specific connection properties:
+     * - `transportType: 'stdio'` uses `command` + `args`.
+     * - `transportType: 'sse'` or `'streamable-http'` uses `url` + optional `transportOptions`.
      */
     mcpServers: {
+        "chrome-devtools": {
+            transportType: "stdio",
+            command      : "npx",
+            args         : ["-y", "chrome-devtools-mcp@latest"]
+        },
+        "file-system": {
+            transportType: "stdio",
+            command      : "npm",
+            args         : ["run", "ai:mcp-server-file-system"]
+        },
         "github-workflow": {
-            command    : "npm",
-            args       : ["run", "ai:mcp-server-github-workflow"],
-            requiredEnv: ["GH_TOKEN"]
+            transportType: "stdio",
+            command      : "npm",
+            args         : ["run", "ai:mcp-server-github-workflow"],
+            requiredEnv  : ["GH_TOKEN"]
         },
         "knowledge-base": {
-            command    : "npm",
-            args       : ["run", "ai:mcp-server-knowledge-base"],
-            requiredEnv: ["GEMINI_API_KEY"]
+            transportType: "stdio",
+            command      : "npm",
+            args         : ["run", "ai:mcp-server-knowledge-base"],
+            requiredEnv  : ["GEMINI_API_KEY"]
         },
         "memory-core": {
-            command    : "npm",
-            args       : ["run", "ai:mcp-server-memory-core"],
-            requiredEnv: ["GEMINI_API_KEY"]
+            transportType: "stdio",
+            command      : "npm",
+            args         : ["run", "ai:mcp-server-memory-core"],
+            requiredEnv  : ["GEMINI_API_KEY"]
+        },
+        "neural-link": {
+            transportType: "stdio",
+            command      : "npm",
+            args         : ["run", "ai:mcp-server-neural-link"]
         }
     }
 };

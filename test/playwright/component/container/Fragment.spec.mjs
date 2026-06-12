@@ -5,7 +5,7 @@ let fragmentId;
 test.describe('Neo.container.Fragment (E2E)', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
         
         // Preload classes in the App Worker to ensure ntypes are available
         await page.evaluate(async () => {

@@ -90,9 +90,9 @@ test.describe('Grid & Store Interactions', () => {
             appName  : 'GridStoreInteractionsTest',
             height   : 400, // 10 rows visible (40px each)
             width    : 600,
-            store    : store,
+            store,
             rowHeight: 40,
-            bufferRowRange: 2, 
+            bufferRowRange: 2,
             columns  : [{
                 dataField: 'id',
                 text     : 'ID',
@@ -156,7 +156,7 @@ test.describe('Grid & Store Interactions', () => {
         // If we insert at 0, the pool rotates? No, the data shifts.
         // Item[0] should now hold 'New Row' (rowIndex 0).
         // Item[1] should now hold 'Row 0' (rowIndex 1).
-        
+
         const newFirstRow = grid.body.items.find(r => r.rowIndex === 0);
         expect(newFirstRow.record.name).toBe('New Row');
 
@@ -171,20 +171,20 @@ test.describe('Grid & Store Interactions', () => {
         // Access the cell node in the VNode tree
         const vnodeCell = newFirstRow.vnode.childNodes[1]; // Name column
         expect(vnodeCell.innerHTML).toContain('New Row');
-        
+
         // 4. Verify Deltas
         const moveNodes   = deltas.filter(d => d.action === 'moveNode');
         const insertNodes = deltas.filter(d => d.action === 'insertNode');
         const removeNodes = deltas.filter(d => d.action === 'removeNode');
-        
+
         // Content updates: 'name' column
         const contentUpdates = deltas.filter(d => d.textContent || d.innerHTML);
         // Transform updates: Rows moving visually
         const transformUpdates = deltas.filter(d => d.style?.transform);
-        
+
         // STRICT ASSERTION: No structural changes to rows
         expect(moveNodes.length).toBe(0);
-        expect(insertNodes.length).toBe(0); 
+        expect(insertNodes.length).toBe(0);
         expect(removeNodes.length).toBe(0);
 
         // Verification of Modulo-Pooling (Fixed-DOM-Order) Behavior:
@@ -222,14 +222,14 @@ test.describe('Grid & Store Interactions', () => {
         const moveNodes = deltas.filter(d => d.action === 'moveNode');
         const insertNodes = deltas.filter(d => d.action === 'insertNode');
         const removeNodes = deltas.filter(d => d.action === 'removeNode');
-        
+
         const contentUpdates = deltas.filter(d => d.textContent || d.innerHTML);
 
         // STRICT ASSERTION
         expect(moveNodes.length).toBe(0);
         expect(insertNodes.length).toBe(0);
         expect(removeNodes.length).toBe(0); // Rows should be recycled/hidden, not removed
-        
+
         expect(contentUpdates.length).toBeGreaterThan(0);
         expect(contentUpdates.length).toBeLessThanOrEqual(50);
     });
@@ -259,7 +259,7 @@ test.describe('Grid & Store Interactions', () => {
         expect(moveNodes.length).toBe(0); // Rows stay in place
         expect(insertNodes.length).toBe(0);
         expect(removeNodes.length).toBe(0);
-        
+
         expect(contentUpdates.length).toBeGreaterThan(0); // Content updates
         // 14 rows * 3 cols = 42 updates expected
         expect(contentUpdates.length).toBeLessThanOrEqual(50);
@@ -281,7 +281,7 @@ test.describe('Grid & Store Interactions', () => {
         const visibleRow = grid.body.items.find(r => r.rowIndex === 0);
         expect(visibleRow.record.name).toBe('Row 0');
         expect(visibleRow.vdom.style.display).toBeNull(); // Should be visible (null removes display:none)
-        
+
         // Verify Hidden Row (Index 2 - effectively unused/recycled to empty)
         // With Fixed-DOM-Order, unused items in the pool have rowIndex = -1
         const hiddenRow = grid.body.items.find(r => r.rowIndex === -1);
@@ -299,9 +299,9 @@ test.describe('Grid & Store Interactions', () => {
         expect(moveNodes.length).toBe(0);
         expect(insertNodes.length).toBe(0);
         expect(removeNodes.length).toBe(0); // No DOM removal
-        
+
         expect(displayUpdates.length).toBeGreaterThan(0); // Unused rows hidden
-        // We have 14 rows total (10 visible + 4 buffer). 
+        // We have 14 rows total (10 visible + 4 buffer).
         // 2 remain visible. 12 should be hidden.
         // Content updates for the 2 remaining rows (2 * 3 = 6).
         // Total deltas roughly 18-20.

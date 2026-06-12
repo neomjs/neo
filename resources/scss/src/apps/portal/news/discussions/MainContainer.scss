@@ -1,0 +1,38 @@
+.portal-discussions-maincontainer {
+    background-color: transparent;
+
+    .discussion-tree-node {
+        align-items: center;
+        display    : inline-flex;
+        gap        : 6px;
+        max-width  : 100%;
+        min-width  : 0;
+
+        .discussion-state-badge {
+            align-items    : center;
+            border-radius  : 50%;
+            color          : var(--portal-discussion-tree-state-icon-color);
+            display        : inline-flex;
+            flex           : 0 0 auto;
+            height         : 16px;
+            justify-content: center;
+            width          : 16px;
+
+            &.neo-state-answered {
+                background-color: var(--portal-discussion-tree-state-answered-bg);
+            }
+
+            &.neo-state-closed {
+                background-color: var(--portal-discussion-tree-state-closed-bg);
+            }
+
+            &.neo-state-open {
+                background-color: var(--portal-discussion-tree-state-open-bg);
+            }
+        }
+
+        .discussion-title {
+            min-width: 0;
+        }
+    }
+}

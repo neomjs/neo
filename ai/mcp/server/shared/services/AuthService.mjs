@@ -1,11 +1,12 @@
-import Base from '../../../../../src/core/Base.mjs';
+import Base         from '../../../../../src/core/Base.mjs';
+import {createHash} from 'crypto';
 
 /**
  * @summary Orchestrates OIDC and OAuth 2.1 authorization for Neo.mjs MCP servers.
  *
  * This service acts as the **Authorization Anchor** for the MCP ecosystem. It implements
  * the **Discovery-First Pattern**, where it dynamically resolves security endpoints from the
- * identity provider's `.well-known/openid-configuration`. 
+ * identity provider's `.well-known/openid-configuration`.
  *
  * Key Architectural Concepts:
  * - **Dynamic Resolution:** Autonomously fetches and parses OIDC discovery documents.
@@ -14,14 +15,22 @@ import Base from '../../../../../src/core/Base.mjs';
  *    to identify the required authorization server.
  * - **Audience Enforcement:** Strictly validates that the `aud` (Audience) claim in the
  *   Bearer token matches the MCP server's public URL to prevent passthrough attacks.
+ * - **Identity Propagation:** The `verifyAccessToken` verifier
+ *   extracts `preferred_username` (or `sub` as fallback) from the introspection response and
+ *   surfaces it as `userId` on the auth context. Downstream request handlers read this via
+ *   `RequestContextService.getUserId()` to tag ChromaDB writes and filter reads per tenant,
+ *   enabling multi-tenant Memory Core deployments without trusting reverse-proxy forwarded
+ *   headers. The identity source of truth is the OIDC provider's validated introspection
+ *   response — not an infrastructure-level HTTP header.
  *
- * This service is essential for enabling **Agent-Native Security** in distributed or 
+ * This service is essential for enabling **Agent-Native Security** in distributed or
  * cloud-native environments using Infrastructure as Code (IaC).
  *
  * @class Neo.ai.mcp.server.shared.services.AuthService
  * @extends Neo.core.Base
  * @singleton
  * @see Neo.ai.mcp.server.shared.services.TransportService
+ * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class AuthService extends Base {
     static config = {
@@ -50,9 +59,17 @@ class AuthService extends Base {
     async setup(options) {
         const {app, aiConfig, mcpServerUrl, logger, resourceName} = options;
 
+        const {requireBearerAuth} = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js');
+        const {InvalidTokenError} = await import('@modelcontextprotocol/sdk/server/auth/errors.js');
+
+        // GitLab-PAT mode installs a naked-401 bearer path (no `aud`, no PRM advertisement) and
+        // returns early — the OIDC discovery + introspection flow below does not apply.
+        if (aiConfig.auth.mode === 'gitlab-pat') {
+            this.setupGitlabPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
+            return
+        }
+
         const {mcpAuthMetadataRouter, getOAuthProtectedResourceMetadataUrl} = await import('@modelcontextprotocol/sdk/server/auth/router.js');
-        const {requireBearerAuth}                                           = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js');
-        const {InvalidTokenError}                                           = await import('@modelcontextprotocol/sdk/server/auth/errors.js');
         const {checkResourceAllowed}                                        = await import('@modelcontextprotocol/sdk/shared/auth-utils.js');
 
         let oauthUrls;
@@ -111,7 +128,7 @@ class AuthService extends Base {
                 }
 
                 const params = new URLSearchParams({
-                    token    : token,
+                    token,
                     client_id: aiConfig.auth.clientId,
                 });
 
@@ -149,11 +166,26 @@ class AuthService extends Base {
                     throw new InvalidTokenError(`None of the provided audiences are allowed. Expected ${mcpServerUrl}, got: ${audiences.join(', ')}`);
                 }
 
+                // Extract identity claims from the introspection response for downstream
+                // tenant isolation. `preferred_username` is Keycloak / GitLab /
+                // many OIDC providers' convention for the human-readable login name; `sub` is the
+                // OIDC-spec-mandated subject identifier and the reliable fallback. Providers may
+                // omit `preferred_username` (e.g. machine-to-machine client credential flows),
+                // so the `sub`-fallback guarantees a non-empty userId whenever the token is
+                // active. `username` is retained separately for human-facing logging.
+                const userId   = data.preferred_username || data.sub;
+                const username = data.preferred_username || data.name || data.email || data.sub;
+
                 return {
                     token,
                     clientId : data.client_id,
                     scopes   : data.scope ? data.scope.split(' ') : [],
                     expiresAt: data.exp,
+                    userId,
+                    username,
+                    // Provenance tag consumed by `RequestContextService.getSource()`.
+                    // Distinguishes OIDC-derived identity from stdio env-var / gh-CLI paths.
+                    source   : 'oidc'
                 };
             }
         };
@@ -174,6 +206,191 @@ class AuthService extends Base {
         app.use(authMiddleware);
 
         logger.info(`[AuthService] Authorization enabled (Issuer: ${oauthUrls.issuer})`);
+    }
+
+    /**
+     * Installs the GitLab-PAT bearer auth path: a single `requireBearerAuth` middleware whose
+     * verifier validates a GitLab Personal Access Token against the GitLab API. Deliberately
+     * installs NO `mcpAuthMetadataRouter` and passes NO `resourceMetadataUrl`, so a missing/invalid
+     * token yields a bare `WWW-Authenticate: Bearer` 401 with no `resource_metadata` breadcrumb —
+     * OAuth-aware clients (e.g. MCP Inspector) therefore do not attempt Dynamic Client Registration
+     * against an identity provider that has none. PATs carry no audience claim, so `aud` enforcement
+     * is intentionally absent here (it is exactly what rejects raw PATs in OIDC mode).
+     * @param {Object}   options
+     * @param {Object}   options.app      The Express application instance
+     * @param {Object}   options.aiConfig The server configuration object
+     * @param {Object}   options.logger   The logger instance
+     * @param {Object}   deps
+     * @param {Function} deps.requireBearerAuth SDK bearer-auth middleware factory
+     * @param {Function} deps.InvalidTokenError SDK error class for rejected tokens
+     */
+    setupGitlabPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError}) {
+        const verifier = this.createGitlabPatVerifier({aiConfig, logger, InvalidTokenError});
+
+        app.use(requireBearerAuth({verifier, requiredScopes: []}));
+
+        logger.info(`[AuthService] Authorization enabled (mode: gitlab-pat, GitLab API: ${aiConfig.auth.gitlabApiBaseUrl})`)
+    }
+
+    /**
+     * @summary Normalizes a GitLab-PAT allowlist config leaf.
+     *
+     * Config templates resolve CSV env vars to arrays; the string branch is a compatibility guard
+     * for stale gitignored overlays copied into worktrees before the `csv` type existed.
+     * @param {String[]|String|null|undefined} value
+     * @returns {String[]}
+     */
+    #normalizeGitlabPatAllowlist(value) {
+        if (Array.isArray(value)) {
+            return value.map(item => String(item).trim()).filter(Boolean)
+        }
+
+        if (typeof value === 'string') {
+            return value.split(',').map(item => item.trim()).filter(Boolean)
+        }
+
+        return []
+    }
+
+    /**
+     * Extracts the GitLab OAuth application client id from `/oauth/token/info`.
+     * GitLab documents this as `application.uid`; the fallbacks keep the verifier tolerant of
+     * self-managed version drift without weakening the default-off path.
+     * @param {Object|null} tokenInfo
+     * @returns {String|null}
+     */
+    #getGitlabTokenInfoClientId(tokenInfo) {
+        return tokenInfo?.application?.uid || tokenInfo?.application_uid || tokenInfo?.client_id || null
+    }
+
+    /**
+     * Extracts scopes from GitLab `/oauth/token/info` into the SDK AuthInfo shape.
+     * @param {Object|null} tokenInfo
+     * @returns {String[]}
+     */
+    #getGitlabTokenInfoScopes(tokenInfo) {
+        const scope = tokenInfo?.scope ?? tokenInfo?.scopes;
+
+        if (!scope) {
+            return []
+        }
+
+        if (Array.isArray(scope)) {
+            return scope
+        }
+
+        return String(scope).split(/\s+/).filter(Boolean)
+    }
+
+    /**
+     * Builds the `{verifyAccessToken}` verifier for GitLab-PAT mode. The verifier presents the
+     * incoming bearer token to `GET {gitlabApiBaseUrl}/api/v4/user`; a `200` resolves the identity
+     * (`userId` = GitLab `username`, `source` = `'gitlab-pat'`) in the same shape
+     * `RequestContextService` already consumes from the OIDC path. Optional allowlists can then
+     * gate the resolved GitLab username and/or the GitLab OAuth app client id returned by
+     * `/oauth/token/info`; both gates are default-off so the shipped PAT behavior remains unchanged
+     * unless the deployment opts in. Successful validations are cached by SHA-256 token hash for
+     * `auth.patCacheTtlSeconds` so a revoked PAT clears within that bounded window; failures are
+     * never cached (a transient GitLab error must not lock a client out). The raw token is never
+     * logged — only its resolved identity and, when checked, the resolved OAuth client id.
+     * @param {Object}   options
+     * @param {Object}   options.aiConfig
+     * @param {Object}   options.logger
+     * @param {Function} options.InvalidTokenError
+     * @returns {{verifyAccessToken: Function}}
+     */
+    createGitlabPatVerifier({aiConfig, logger, InvalidTokenError}) {
+        const
+            apiBaseUrl       = aiConfig.auth.gitlabApiBaseUrl.replace(/\/+$/, ''),
+            ttlSeconds       = aiConfig.auth.patCacheTtlSeconds,
+            ttlMs            = ttlSeconds * 1000,
+            allowedClientIds = this.#normalizeGitlabPatAllowlist(aiConfig.auth.allowedClientIds),
+            allowedUsers     = this.#normalizeGitlabPatAllowlist(aiConfig.auth.allowedUsers),
+            requireClientId  = allowedClientIds.length > 0,
+            requireUser      = allowedUsers.length > 0,
+            cache            = new Map(); // tokenHash -> {user, tokenInfo, expiresAt} (cache-freshness, ms)
+
+        // Builds the AuthInfo shape consumed by the SDK `requireBearerAuth` middleware AND
+        // `RequestContextService`. `expiresAt` is REQUIRED by `requireBearerAuth` — it rejects auth
+        // info lacking a numeric expiry with `Token has no expiration time` BEFORE `req.auth` is set,
+        // so omitting it silently breaks the valid-PAT path. GitLab `/api/v4/user` does not return the
+        // PAT's own expiry, so we use the re-validation horizon: one cache window from now (Unix
+        // seconds). The cache re-validates against GitLab after that, so a revoked PAT still clears
+        // within `patCacheTtlSeconds`. Built per-call so `expiresAt` stays request-fresh on cache hits.
+        const buildInfo = (token, user, tokenInfo = null) => {
+            const tokenInfoClientId = this.#getGitlabTokenInfoClientId(tokenInfo);
+
+            return {
+                token,
+                clientId : tokenInfoClientId || user.username,
+                scopes   : this.#getGitlabTokenInfoScopes(tokenInfo),
+                expiresAt: Math.floor(Date.now() / 1000) + ttlSeconds,
+                userId   : user.username,
+                username : user.name || user.username,
+                // Provenance tag read by RequestContextService.getSource(); distinguishes a GitLab-PAT
+                // identity from OIDC / stdio env-var / gh-CLI sources.
+                source   : 'gitlab-pat'
+            }
+        };
+
+        return {
+            verifyAccessToken: async (token) => {
+                const
+                    tokenHash = createHash('sha256').update(token).digest('hex'),
+                    cached    = cache.get(tokenHash);
+
+                if (cached && cached.expiresAt > Date.now()) {
+                    return buildInfo(token, cached.user, cached.tokenInfo)
+                }
+
+                const userResponse = await fetch(`${apiBaseUrl}/api/v4/user`, {
+                    headers: {Authorization: `Bearer ${token}`}
+                });
+
+                if (!userResponse.ok) {
+                    cache.delete(tokenHash);
+                    throw new InvalidTokenError(`GitLab PAT validation failed (HTTP ${userResponse.status})`)
+                }
+
+                const user = await userResponse.json();
+
+                if (requireUser && !allowedUsers.includes(user.username)) {
+                    cache.delete(tokenHash);
+                    throw new InvalidTokenError('GitLab user is not allowed')
+                }
+
+                let tokenInfo = null;
+
+                if (requireClientId) {
+                    const tokenInfoResponse = await fetch(`${apiBaseUrl}/oauth/token/info`, {
+                        headers: {Authorization: `Bearer ${token}`}
+                    });
+
+                    if (!tokenInfoResponse.ok) {
+                        cache.delete(tokenHash);
+                        throw new InvalidTokenError(`GitLab token info validation failed (HTTP ${tokenInfoResponse.status})`)
+                    }
+
+                    tokenInfo = await tokenInfoResponse.json();
+
+                    const tokenInfoClientId = this.#getGitlabTokenInfoClientId(tokenInfo);
+
+                    if (!tokenInfoClientId || !allowedClientIds.includes(tokenInfoClientId)) {
+                        cache.delete(tokenHash);
+                        throw new InvalidTokenError('GitLab OAuth application is not allowed')
+                    }
+                }
+
+                cache.set(tokenHash, {user, tokenInfo, expiresAt: Date.now() + ttlMs});
+
+                const tokenInfoClientId = this.#getGitlabTokenInfoClientId(tokenInfo),
+                      appSuffix         = tokenInfoClientId ? `, client: ${tokenInfoClientId}` : '';
+
+                logger.info(`[AuthService] GitLab PAT validated for user: ${user.name || user.username}${appSuffix}`);
+
+                return buildInfo(token, user, tokenInfo)
+            }
+        }
     }
 }
 

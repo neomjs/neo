@@ -36,11 +36,14 @@ class AiToolchain extends BaseContainer {
                     cn: [{
                         tag : 'h1',
                         cls : ['neo-h1'],
-                        text: 'Code at the Speed of Thought'
+                        text: 'The Agent OS Brain'
                     }, {
                         tag : 'h3',
                         cls : ['neo-h3'],
-                        text: 'AI agents can now "see" and "touch" your running Neo.mjs app in real-time via the Neural Link.'
+                        text: [
+                            'A cross-model engineering swarm uses Memory Core, Active Hybrid GraphRAG, DreamService, ',
+                            'and Neural Link to inspect, mutate, and improve live Neo.mjs apps.'
+                        ].join('')
                     }]
                 }
             }, {
@@ -49,35 +52,83 @@ class AiToolchain extends BaseContainer {
                 layout: {ntype: 'grid', columns: 3, gap: '2rem'},
                 items : [{
                     module : ContentBox,
-                    header : 'The Neural Link',
-                    route  : '#/learn/guides/mcp/NeuralLink',
+                    header : 'Neural Link',
+                    route  : '#/learn/agentos/NeuralLink',
                     content: [
-                        'Introspect the live Scene Graph.',
-                        'Live Runtime Mutation (Hot-Swapping).',
-                        'Simulate user interactions for E2E.',
-                        'Bi-directional agent communication.'
+                        'Possession interface for running apps.',
+                        'Inspect semantic runtime state.',
+                        'Mutate UI and data without reloads.',
+                        'Verify behavior inside the live Scene Graph.'
                     ]
                 }, {
                     module : ContentBox,
-                    header : 'MCP Infrastructure',
-                    route  : '#/learn/guides/mcp/Introduction',
+                    header : 'Active Hybrid GraphRAG',
+                    route  : '#/learn/agentos/MemoryCore',
                     content: [
-                        'Knowledge Base: Semantic codebase search.',
-                        'Memory Core: Persistent agent context.',
-                        'GitHub Workflow: Autonomous PR reviews.',
-                        'Neural Link: The Bridge to the runtime.'
+                        'Memory Core stores agent sessions.',
+                        'Knowledge Base searches the codebase.',
+                        'Native Edge Graph preserves topology.',
+                        'Golden Path fuses semantic and structural signals.'
                     ]
                 }, {
                     module : ContentBox,
-                    header : 'Context Engineering',
-                    route  : '#/learn/blog/context-engineering-done-right',
+                    header : 'Dream Pipeline',
+                    route  : '#/learn/agentos/DreamPipeline',
                     content: [
-                        'Advanced Code Execution: Orchestrate tools as APIs.',
-                        'Tool Composition: Chain complex workflows locally.',
-                        'On-Demand Loading: Prevent context window overload.',
-                        '181 tickets resolved in 15 days.'
+                        'DreamService digests session memory.',
+                        'Golden Path ranks next work.',
+                        'Friction becomes tickets and skills.',
+                        'The system evolves by predicting its own evolution.'
                     ]
                 }]
+            }, {
+                ntype: 'component',
+                cls  : ['agent-os-faq'],
+                flex : 'none',
+                vdom : {tag: 'section', cn: [{
+                    tag : 'h2',
+                    text: 'Agent OS FAQ'
+                }, {
+                    tag: 'div',
+                    cls: ['faq-list'],
+                    cn : [{
+                        tag: 'article',
+                        cn : [{
+                            tag : 'h3',
+                            text: 'What is the Neural Link?'
+                        }, {
+                            tag : 'p',
+                            text: 'The Neural Link is a bi-directional bridge that connects AI agents directly to the Neo.mjs runtime. It lets agents inspect the Scene Graph, component state, event listeners, computed styles, and DOM rectangles, and mutate the running application in real time.'
+                        }]
+                    }, {
+                        tag: 'article',
+                        cn : [{
+                            tag : 'h3',
+                            text: 'Why is Neo.mjs called an Application Engine instead of a framework?'
+                        }, {
+                            tag : 'p',
+                            text: 'Neo.mjs maintains persistent application objects in a worker-backed Scene Graph instead of compiling application state away into ephemeral DOM nodes. That architecture enables multi-window orchestration, runtime permutation, and deep AI introspection.'
+                        }]
+                    }, {
+                        tag: 'article',
+                        cn : [{
+                            tag : 'h3',
+                            text: 'What is Context Engineering?'
+                        }, {
+                            tag : 'p',
+                            text: 'Context Engineering shapes the information and tool environment around AI agents. Neo.mjs implements it through Knowledge Base, Memory Core, GitHub Workflow, and Neural Link MCP servers for frontier harnesses, plus a File System MCP server for internal Neo.ai.Agent local loops.'
+                        }]
+                    }, {
+                        tag: 'article',
+                        cn : [{
+                            tag : 'h3',
+                            text: 'What is the Neo.mjs Agent OS?'
+                        }, {
+                            tag : 'p',
+                            text: 'The Neo.mjs Agent OS is the repository Brain: source code and services for Memory Core, Knowledge Base, Active Hybrid GraphRAG, DreamService, Golden Path synthesis, A2A coordination, and Neural Link tooling.'
+                        }]
+                    }]
+                }]}
             }]
         }, {
             module: FooterContainer,

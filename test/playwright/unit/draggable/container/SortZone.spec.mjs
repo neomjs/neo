@@ -188,4 +188,84 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(container.items[3].id).toBe('btnD');
         expect(container.items[4].id).toBe('btnB');
     });
+
+    test('Treats non-reversed vertical layouts as forward sort direction', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+        container.layout.direction = 'column';
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
+        });
+
+        expect(sortZone.sortDirection).toBe('vertical');
+        expect(sortZone.reversedLayoutDirection).toBe(false);
+        expect(sortZone.currentIndex).toBe(0)
+    });
+
+    test('Keeps explicit column-reverse layouts on the reverse sort path', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+        container.layout.direction = 'column-reverse';
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
+        });
+
+        expect(sortZone.sortDirection).toBe('vertical');
+        expect(sortZone.reversedLayoutDirection).toBe(true);
+        expect(sortZone.currentIndex).toBe(0)
+    });
+
+    test('Drag-trace ring buffer records events, caps per-drag size and trims old drags (#12886)', () => {
+        const zone = Object.create(SortZone.prototype);
+
+        SortZone.traces.length = 0;
+        SortZone.activeTrace   = null;
+
+        // No active trace -> events are dropped silently
+        zone.traceEvent({t: 'move', x: 1});
+        expect(SortZone.traces.length).toBe(0);
+
+        // Active trace -> events accumulate with timestamps
+        SortZone.activeTrace = {events: [], startedAt: Date.now(), zoneId: 'zone-1'};
+        SortZone.traces.push(SortZone.activeTrace);
+
+        zone.traceEvent({t: 'move', x: 100, i: 0});
+        zone.traceEvent({t: 'switch', i1: 0, i2: 1});
+
+        expect(SortZone.activeTrace.events.length).toBe(2);
+        expect(SortZone.activeTrace.events[0].t).toBe('move');
+        expect(typeof SortZone.activeTrace.events[0].ts).toBe('number');
+
+        // Duplicate deliveries count-compress onto the previous event instead of appending
+        zone.traceEvent({t: 'dup', x: 100});
+        zone.traceEvent({t: 'dup', x: 100});
+        expect(SortZone.activeTrace.events.length).toBe(2);
+        expect(SortZone.activeTrace.events[1].dup).toBe(2);
+
+        // Per-drag event cap (400) guards unbounded growth — dropping the OLDEST event,
+        // keeping the tail (a drag's drop resolution is its most diagnostic part)
+        SortZone.activeTrace.events.length = 0;
+        for (let i = 0; i < 401; i++) {
+            zone.traceEvent({t: 'move', x: i});
+        }
+        expect(SortZone.activeTrace.events.length).toBe(400);
+        expect(SortZone.activeTrace.events[399].x).toBe(400);
+        expect(SortZone.activeTrace.events[0].x).toBe(1);
+
+        // Ring trims to traceLimit
+        for (let i = 0; i < SortZone.traceLimit + 3; i++) {
+            SortZone.traces.push({events: [], zoneId: `zone-${i}`});
+
+            if (SortZone.traces.length > SortZone.traceLimit) {
+                SortZone.traces.shift()
+            }
+        }
+
+        expect(SortZone.traces.length).toBe(SortZone.traceLimit);
+
+        SortZone.traces.length = 0;
+        SortZone.activeTrace   = null
+    });
 });

@@ -16,6 +16,32 @@ const
     lengthRE          = /^\d+\w+$/;
 
 /**
+ * @typedef {Object} ComponentReferenceConfig
+ * @property {String} componentId The id of the child component instance represented by this placeholder.
+ * @property {String} [id] The root VNode id for the referenced component. Defaults to `componentId` when omitted.
+ * @property {Boolean} [removeDom=false] Removes the referenced component's DOM while preserving the VDom placeholder.
+ */
+
+/**
+ * @typedef {Object|ComponentReferenceConfig} VDomNodeConfig
+ * @property {String} [tag='div'] The HTML tag name used to create the node. `fragment` creates a transparent container.
+ * @property {String} [id] A stable VNode id. Component code usually lets the framework generate this value.
+ * @property {String|String[]} [cls] CSS classes to apply to the node.
+ * @property {Object|String} [style] Inline style declaration for the node.
+ * @property {String|Number} [html] Raw HTML content. Exclusive with `text` and `cn`.
+ * @property {String|Number|Boolean} [text] Text content. Exclusive with `html` and `cn`.
+ * @property {VDomNodeConfig[]} [cn] Child VDom node configs. Exclusive with `html` and `text`.
+ * @property {'vnode'|'text'|'root'} [vtype='vnode'] VNode type. Use `text` for pure text nodes.
+ * @property {Boolean} [static=false] Excludes this node and its children from delta updates.
+ * @property {Boolean} [removeDom=false] Removes the corresponding DOM node while keeping the logical VDom node.
+ * @property {Object.<String, String|Number|Boolean>} [data] Values rendered as `data-*` attributes.
+ * @property {String} [flag] Component-local lookup marker for direct access to this VDom node.
+ * @property {String|Number} [tabIndex] HTML tabindex attribute.
+ * @property {String} [role] ARIA role attribute.
+ * @property {Boolean} [disabled] HTML disabled attribute.
+ */
+
+/**
  * Base class for all Components which have a DOM representation
  * @class Neo.component.Base
  * @extends Neo.component.Abstract
@@ -286,7 +312,7 @@ class Component extends Abstract {
         },
         /**
          * The vdom markup for this component.
-         * @member {Object} _vdom={}
+         * @member {VDomNodeConfig} _vdom={}
          */
         _vdom: {}
     }
@@ -313,7 +339,7 @@ class Component extends Abstract {
 
     /**
      * The setter will handle vdom updates automatically
-     * @member {Object} vdom=this._vdom
+     * @member {VDomNodeConfig} vdom=this._vdom
      */
     get vdom() {
         return this._vdom

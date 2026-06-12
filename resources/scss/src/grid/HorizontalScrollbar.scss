@@ -1,0 +1,11 @@
+.neo-grid-horizontal-scrollbar {
+    flex        : none; // Ensure it's not collapsed by flex-direction column on container
+    min-height  : 17px;
+    overflow-x  : auto;
+    overflow-y  : hidden;
+    position    : relative;
+
+    .neo-grid-horizontal-scrollbar-content {
+        height: 1px;
+    }
+}

@@ -230,13 +230,19 @@ class Row extends Component {
         }
 
         if (isLastColumn) {
-            cellCls.push('neo-last-column')
+            if (column.locked !== 'start') {
+                cellCls.push('neo-last-column')
+            }
         }
 
         if (column.locked === 'start') {
             cellCls.push('neo-locked-start')
         } else if (column.locked === 'end') {
-            cellCls.push('neo-locked-end')
+            cellCls.push('neo-locked-end');
+
+            if (columnIndex === 0) {
+                cellCls.push('neo-locked-end-first-column')
+            }
         }
 
         cellConfig = {
@@ -307,7 +313,7 @@ class Row extends Component {
             record           = me.record,
             rowIndex         = me.rowIndex,
             gridBody         = me.parent, // The Row is an item of Body
-            gridContainer    = gridBody.parent,
+            gridContainer    = gridBody.gridContainer,
             vdom             = me.vdom,
             {columns}        = gridContainer,
             cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
@@ -398,7 +404,10 @@ class Row extends Component {
         // Pass 1: Render Pooled Cells (hideMode === 'removeDom' && !locked)
         // We render the FULL pool to ensure stable VDOM structure (0 inserts/moves).
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
-            column = columns.getAt(i);
+            columnPosition = columnPositions.getAt(i);
+            if (!columnPosition) continue;
+
+            column = columns.get(columnPosition.dataField);
 
             // Sanity check for bounds (e.g. if column count changed)
             if (!column) continue;
@@ -416,7 +425,6 @@ class Row extends Component {
                         oldNode['aria-colindex'] = i + 1;
 
                         // Update position
-                        columnPosition = columnPositions.get(column.dataField);
                         if (columnPosition) {
                             oldNode.style.left  = columnPosition.x + 'px';
                             oldNode.style.width = columnPosition.width + 'px';
@@ -441,8 +449,6 @@ class Row extends Component {
                     rowIndex,
                     silent
                 });
-
-                columnPosition = columnPositions.get(column.dataField);
 
                 if (!columnPosition) {
                     continue
@@ -479,7 +485,13 @@ class Row extends Component {
         // We MUST render these even if they are off-screen to preserve their DOM state (e.g. Canvas context).
         // This loop is O(TotalColumns), but typically few columns use this mode.
         for (i=0; i < countColumns; i++) {
-            column = columns.getAt(i);
+            columnPosition = columnPositions.getAt(i);
+            if (!columnPosition) continue;
+
+            column = columns.get(columnPosition.dataField);
+
+            // Sanity check
+            if (!column) continue;
 
             if (column.hideMode !== 'removeDom' || column.locked) {
                 isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
@@ -489,11 +501,20 @@ class Row extends Component {
                     let oldNode = oldCellMap.get(column.dataField);
 
                     if (oldNode && oldNode.data?.recordId === recordId) {
-                        columnPosition = columnPositions.get(column.dataField);
+                        // Identity-migration symmetry with the Pass 1 recycle: this node may have
+                        // been rendered POOLED (id `…__cell-N`) before the column flipped into
+                        // permanent territory (e.g. `locked` changed on a mounted row via a
+                        // cross-region drag re-home). Pass 1's placeholder loop has already
+                        // re-issued that pool id — keeping it here puts two nodes with one id
+                        // into a single row, and id-based diffing collapses (id-less insert
+                        // storms, the DOM accumulating both generations).
+                        oldNode.id = `${me.id}__${column.dataField}`;
+                        oldNode['aria-colindex'] = i + 1;
+
                         if (columnPosition) {
                             oldNode.style.left  = columnPosition.x + 'px';
                             oldNode.style.width = columnPosition.width + 'px';
-                            
+
                             if (isMounted || column.locked) {
                                 if (columnPosition.hidden) {
                                     oldNode.style.visibility = 'hidden'
@@ -524,8 +545,6 @@ class Row extends Component {
                     rowIndex,
                     silent
                 });
-
-                columnPosition = columnPositions.get(column.dataField);
 
                 if (!columnPosition) {
                     continue

@@ -1,0 +1,344 @@
+import Base                 from './Base.mjs';
+import {createTimeoutError} from './createTimeoutError.mjs';
+
+/**
+ * Concrete AI provider for a local Ollama daemon.
+ * Uses the native JS Fetch API.
+ *
+ * @class Neo.ai.provider.Ollama
+ * @extends Neo.ai.provider.Base
+ */
+class OllamaProvider extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.provider.Ollama'
+         * @protected
+         */
+        className: 'Neo.ai.provider.Ollama',
+        /**
+         * Default API endpoint for Ollama.
+         * @member {String} host='http://127.0.0.1:11434'
+         */
+        host: 'http://127.0.0.1:11434',
+        /**
+         * @member {String} modelName='gemma4'
+         */
+        modelName: 'gemma4',
+        /**
+         * @summary Ollama `/api/chat` keep-alive retention window.
+         *
+         * `-1` keeps the model resident until explicitly unloaded; callers may
+         * override per request with a top-level `keep_alive` option.
+         * @member {Number|String} keepAlive=-1
+         */
+        keepAlive: -1,
+        /**
+         * Dedicated embedding model (e.g., `nomic-embed-text`, `mxbai-embed-large`).
+         * Distinct from `modelName` which is the chat/generation model.
+         * Falls back to `modelName` when unset (some Ollama chat models support
+         * embeddings, though operators typically configure a dedicated embedding model).
+         * @member {String} embeddingModel=null
+         */
+        embeddingModel: null,
+        /**
+         * @member {String[]} requiredEnv=[]
+         */
+        requiredEnv: []
+    }
+
+    /**
+     * Helper to prepare the payload for Ollama.
+     * @param {String|Array} input
+     * @param {Object} options
+     * @param {Boolean} stream
+     * @returns {Object}
+     * @protected
+     */
+    preparePayload(input, options, stream) {
+        let messages = [];
+
+        if (typeof input === 'string') {
+            messages.push({
+                role   : 'user',
+                content: input
+            });
+        } else if (Array.isArray(input)) {
+            // Map Neo roles to Ollama roles (system, user, assistant)
+            messages = input.map(msg => ({
+                role   : msg.role === 'model' ? 'assistant' : msg.role,
+                content: String(msg.content)
+            }));
+        }
+
+        const payload = {
+            model   : this.modelName,
+            messages,
+            stream  : stream
+        };
+
+        const clonedOptions = { ...options };
+        delete clonedOptions.operationLabel;
+        delete clonedOptions.signal;
+        delete clonedOptions.timeoutMs;
+
+        // Handle JSON extraction mirroring Gemini provider
+        if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json') {
+            payload.format = 'json';
+            delete clonedOptions.responseMimeType;
+            delete clonedOptions.response_mime_type;
+        }
+
+        if (clonedOptions.tools && clonedOptions.tools.length > 0) {
+            payload.tools = clonedOptions.tools.map(tool => ({
+                type: 'function',
+                function: {
+                    name: tool.name,
+                    description: tool.description || '',
+                    parameters: tool.inputSchema || { type: 'object', properties: {} }
+                }
+            }));
+            delete clonedOptions.tools;
+        }
+
+        payload.keep_alive = clonedOptions.keep_alive === undefined ? this.keepAlive : clonedOptions.keep_alive;
+        delete clonedOptions.keep_alive;
+
+        if (Object.keys(clonedOptions).length > 0) {
+            payload.options = clonedOptions;
+        }
+
+        return payload;
+    }
+
+    /**
+     * Generates text completion.
+     *
+     * @param {String|Array} input Prompt string or message history array.
+     * @param {Object} [options]
+     * @param {Number} [options.timeoutMs] Abort the request after this many ms of socket inactivity.
+     *     For non-streaming Ollama chat (`stream:false`) the server emits no bytes until the full
+     *     completion is ready, so the idle timeout acts as an effective total deadline. Defaults to
+     *     1 hour when unset/invalid, preserving prior behavior. Lets interactive callers (e.g. KB
+     *     `ask` synthesis) fail fast and degrade rather than wait behind a long batch inference.
+     * @param {String} [options.operationLabel] Safe diagnostic label surfaced in the timeout error.
+     * @param {AbortSignal} [options.signal] Upstream cancellation signal; when it aborts, the in-flight request is destroyed (parity with OpenAiCompatible).
+     * @returns {Promise<{content: String, raw: Object}>}
+     */
+    async generate(input, options = {}) {
+        const payload          = this.preparePayload(input, options, false);
+        const rawTimeoutMs     = Number(options.timeoutMs);
+        const requestTimeoutMs = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : 60 * 60 * 1000;
+        const operationLabel   = options.operationLabel || 'Ollama chat completion';
+
+        try {
+            const parsedUrl = new URL(`${this.host}/api/chat`);
+            const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
+
+            let resolveFunc, rejectFunc;
+            const responsePromise = new Promise((res, rej) => {
+                resolveFunc = res;
+                rejectFunc = rej;
+            });
+
+            const req = httpModule.request(parsedUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                signal : options.signal,  // honor upstream cancellation (parity with OpenAiCompatible)
+                timeout: requestTimeoutMs // configurable; defaults to 1h (see options.timeoutMs)
+            }, (res) => {
+                let body = '';
+                res.on('data', chunk => body += chunk);
+                res.on('end', () => {
+                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                        rejectFunc(new Error(`Ollama API error: ${res.statusCode} - ${body}`));
+                    } else {
+                        try {
+                            const result = JSON.parse(body);
+                            resolveFunc(result);
+                        } catch (e) {
+                            rejectFunc(new Error(`Failed to parse Ollama response: ${e.message}`));
+                        }
+                    }
+                });
+            });
+
+            req.on('error', (err) => {
+                rejectFunc(err);
+            });
+
+            req.on('timeout', () => {
+                req.destroy();
+                rejectFunc(createTimeoutError({
+                    provider      : 'Ollama',
+                    operationLabel,
+                    timeoutMs     : requestTimeoutMs,
+                    host          : this.host,
+                    modelName     : this.modelName
+                }));
+            });
+
+            req.write(JSON.stringify(payload));
+            req.end();
+
+            const result = await responsePromise;
+
+            const resultPayload = {
+                content: result.message?.content || '',
+                raw    : result
+            };
+
+            if (result.message?.tool_calls && result.message.tool_calls.length > 0) {
+                resultPayload.toolCalls = result.message.tool_calls.map(c => ({
+                    function: {
+                        name     : c.function.name,
+                        arguments: c.function.arguments
+                    }
+                }));
+            }
+
+            return resultPayload;
+        } catch (error) {
+            // Re-throw to let the caller handle it or gracefully degrade
+            // instead of vomiting a raw fetch trace if the daemon is offline
+            throw error;
+        }
+    }
+
+    /**
+     * @summary Generates embedding vectors for one or more input texts via Ollama's
+     * native `/api/embed` endpoint.
+     *
+     * The native endpoint accepts a string OR array-of-strings for `input` and returns
+     * `{embeddings: number[][]}`. Always returns an array-of-arrays for caller
+     * uniformity — single-string callers receive `[[...]]` shape just like batch.
+     *
+     * Distinct from the OpenAI-compatible `/v1/embeddings` path: this uses Ollama's
+     * native API (matches the rest of this provider class) so operators who explicitly
+     * choose `embeddingProvider: 'ollama'` get the native semantics without depending
+     * on Ollama's OpenAI-compat surface.
+     *
+     * Uses the `embeddingModel` config slot when set; falls back to `modelName` (the
+     * chat model) if `embeddingModel` is unset — Ollama supports embeddings from many
+     * chat models but operators typically want a dedicated embedding model like
+     * `nomic-embed-text`.
+     *
+     * @param {String|String[]} input Single text or array of texts to embed.
+     * @param {Object} [options]
+     * @param {String} [options.model] Override the configured `embeddingModel` / `modelName`.
+     * @returns {Promise<{embeddings: Number[][], raw: Object}>}
+     */
+    async embed(input, options = {}) {
+        const model = options.model || this.embeddingModel || this.modelName;
+        const payload = {
+            model,
+            input
+        };
+
+        try {
+            const parsedUrl  = new URL(`${this.host}/api/embed`);
+            const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
+
+            let resolveFunc, rejectFunc;
+            const responsePromise = new Promise((res, rej) => {
+                resolveFunc = res;
+                rejectFunc  = rej;
+            });
+
+            const req = httpModule.request(parsedUrl, {
+                method : 'POST',
+                headers: {'Content-Type': 'application/json'},
+                timeout: 60 * 60 * 1000 // 1h timeout matches generate()
+            }, (res) => {
+                let body = '';
+                res.on('data', chunk => body += chunk);
+                res.on('end', () => {
+                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                        rejectFunc(new Error(`Ollama embed API error: ${res.statusCode} - ${body}`));
+                    } else {
+                        try {
+                            const result = JSON.parse(body);
+                            resolveFunc(result);
+                        } catch (e) {
+                            rejectFunc(new Error(`Failed to parse Ollama embed response: ${e.message}`));
+                        }
+                    }
+                });
+            });
+
+            req.on('error', err => rejectFunc(err));
+
+            req.on('timeout', () => {
+                req.destroy();
+                rejectFunc(new Error('Ollama embed request timed out after 1 hour'));
+            });
+
+            req.write(JSON.stringify(payload));
+            req.end();
+
+            const result = await responsePromise;
+            return {
+                embeddings: result.embeddings || [],
+                raw       : result
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Streams text completion.
+     *
+     * @param {String|Array} input
+     * @param {Object} [options]
+     * @returns {AsyncGenerator<String>} Yields text chunks.
+     */
+    async *stream(input, options = {}) {
+        const payload = this.preparePayload(input, options, true);
+
+        try {
+            const response = await fetch(`${this.host}/api/chat`, {
+                method : 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Ollama API error: ${response.status} - ${text}`);
+            }
+
+            const reader  = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+
+                const chunkText = decoder.decode(value, {stream: true});
+
+                // Ollama returns newline delimited JSON for streams
+                const lines = chunkText.split('\n').filter(line => line.trim() !== '');
+
+                for (const line of lines) {
+                    try {
+                        const data = JSON.parse(line);
+                        if (data.message && typeof data.message.content === 'string') {
+                            yield data.message.content;
+                        }
+                    } catch (e) {
+                         // Ignore incomplete JSON chunks boundary issues
+                    }
+                }
+            }
+        } catch (error) {
+            // Re-throw to let the caller handle it or gracefully degrade
+            throw error;
+        }
+    }
+}
+
+export default Neo.setupClass(OllamaProvider);

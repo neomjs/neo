@@ -1,0 +1,2 @@
+node ./buildScripts/util/check-chore-sync.mjs
+npx lint-staged

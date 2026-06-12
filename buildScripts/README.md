@@ -26,7 +26,6 @@ Tools for managing the AI infrastructure, including Vector Database operations a
 | :--- | :--- | :--- |
 | `defragChromaDB.mjs` | `npm run ai:defrag-kb`<br>`npm run ai:defrag-memory` | Vacuums and optimizes the ChromaDB collections to reclaim space. |
 | `downloadKnowledgeBase.mjs` | `npm run ai:download-kb` | Downloads the latest pre-indexed Knowledge Base from the remote source. |
-| `migrateMemoryCore.mjs` | `npm run ai:migrate-memory` | Migrates the Memory Core schema when breaking changes occur. |
 | `syncKnowledgeBase.mjs` | `npm run ai:sync-kb` | Indexes the local codebase and updates the vector database with changes. |
 
 ---
@@ -164,21 +163,6 @@ Options:
 
 Downloads the pre-indexed Knowledge Base artifact matching the current `package.json` version from GitHub Releases.
 *Note: This script has no CLI options.*
-
-## `npm run ai:migrate-memory`
-**Script:** `buildScripts/ai/migrateMemoryCore.mjs`
-
-Migrates a Memory Core database backup to the current embedding model by clearing the existing collection and re-generating embeddings.
-
-```bash
-Usage: node buildScripts/migrateMemoryCore.mjs <backup-file.jsonl>
-
-Arguments:
-  <backup-file.jsonl>  Path to the JSONL backup file to import and re-embed.
-
-Options:
-  --test-mode          Use test collections (test-re-embed-*) instead of production DB.
-```
 
 ## `npm run ai:sync-kb`
 **Script:** `buildScripts/ai/syncKnowledgeBase.mjs`
@@ -373,10 +357,7 @@ npm run ai:mcp-client -- --server github-workflow --list-tools
 Manually starts the ChromaDB instance for the **Knowledge Base**.
 Useful for debugging vector store operations outside of the MCP client.
 
-## `npm run ai:server-memory`
-**Script:** `chroma run --path ./chroma-neo-memory-core --port 8001`
 
-Manually starts the ChromaDB instance for the **Memory Core** on port 8001.
 
 ## `npm run ai:server-neural-link`
 **Script:** `ai/mcp/server/neural-link/run-bridge.mjs`

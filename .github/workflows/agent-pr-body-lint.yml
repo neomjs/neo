@@ -1,0 +1,151 @@
+name: Agent PR Body Lint
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+
+jobs:
+  lint-pr-body:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR Body
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr     = context.payload.pull_request;
+            const author = pr.user.login;
+            const body   = pr.body || "";
+
+            // Only enforce for known AI agent accounts or PRs labeled with 'ai'
+            const agentAuthors  = ['neo-opus-ada', 'neo-claude-opus', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
+            const isAgentAuthor = agentAuthors.includes(author) || author.startsWith('neo-');
+            const hasAiLabel    = pr.labels && pr.labels.some(l => l.name === 'ai');
+
+            if (!isAgentAuthor && !hasAiLabel) {
+              console.log(`✅ Author ${author} is not an AI agent and no 'ai' label present. Skipping lint.`);
+              return;
+            }
+
+            console.log(`🔍 Linting PR body for agent-authored PR by: ${author}`);
+
+            // ──────────────────────────────────────────────────────────────────────
+            // Two-layer mechanical body-shape validation (#11501, mirrors reviewer-side
+            // PR #11502/#11495 pattern derived from PR #11494's MCP `manage_pr_review`
+            // canonical primary surface).
+            //
+            // VISIBLE layer: explicit anchors from `pull-request-workflow.md §9`
+            // minimum-viable PR body structure. Misses surface as a precise list in
+            // the collapsed details block + ONE diagnostic anchor named in the
+            // human-facing message.
+            //
+            // INVISIBLE layer: structural template substrings checked SILENTLY.
+            // Misses NOT named in the follow-up comment — neither in prose nor as
+            // enumeration. Defeats Goodhart anchor-stuffing where an agent hallucinates
+            // a body that contains exactly the named visible anchors but omits the
+            // actual template structure or self-identification.
+            //
+            // ⚠️  SYNCHRONIZATION PROTOCOL: this list MUST stay in sync with
+            // `pull-request-workflow.md §9` minimum-viable PR body + §5 Self-
+            // Identification mandate. Per #11501 cycle-2 scope-correction, the
+            // shared-module extraction (`prReviewAnchors.mjs`) was reverted in
+            // PR #11502; sync-by-convention with comment-pointers is the accepted
+            // cross-surface coordination shape going forward.
+            // ──────────────────────────────────────────────────────────────────────
+
+            const VISIBLE_PR_BODY_ANCHORS = [
+              "Evidence:",
+              "## Test Evidence",
+              "## Post-Merge Validation"
+            ];
+
+            const INVISIBLE_PR_BODY_ANCHORS = [
+              "Authored by ",
+              "## Deltas"
+            ];
+
+            const missingVisible   = VISIBLE_PR_BODY_ANCHORS  .filter(a => !body.includes(a));
+            const missingInvisible = INVISIBLE_PR_BODY_ANCHORS.filter(a => !body.includes(a));
+
+            // Ticket-reference is a separate visible check (regex pattern, not substring).
+            //
+            // Operator rule (#12367): every agent PR body MUST contain at least one `Resolves #N`
+            // — the ONLY sanctioned closing keyword (it means *delivered work*). This mechanically
+            // enforces the 1-PR-per-ticket model: a ticket that needs N PRs cannot have N valid
+            // `Resolves` (only one PR can resolve it), so it must become an epic + subs or be split.
+            //   - `Closes #N` is FORBIDDEN: "Closes" = closed-without-delivery (not-planned /
+            //     superseded / dropped) — that outcome needs NO PR, so a PR must never carry it.
+            //   - `Fixes #N`  is FORBIDDEN: ambiguous; use `Resolves` (bug fixes included).
+            //   - `Refs #N` / `Related: #N` are allowed as ADDITIONAL references (e.g. a parent
+            //     epic), and multiple `Resolves` lines are fine — but they never substitute for
+            //     the mandatory `Resolves`.
+            const hasResolves    = /\bResolves:?\s+#\d+/i.test(body);
+            const forbiddenClose = body.match(/\b(Closes|Fixes):?\s+#\d+/i);
+
+            if (forbiddenClose) {
+              missingVisible.push(
+                "`" + forbiddenClose[1] + " #N` is forbidden — use `Resolves #N` " +
+                "(`Closes` = closed-without-delivery → no PR needed; `Fixes` is ambiguous)"
+              );
+            }
+
+            if (!hasResolves) {
+              missingVisible.push("`Resolves #N` (mandatory closing keyword — `Refs`/`Related` alone is NOT sufficient)");
+            }
+
+            if (missingVisible.length === 0 && missingInvisible.length === 0) {
+              console.log("✅ PR body contains all required anchors.");
+              return;
+            }
+
+            // Compose comment that guides toward the skill without enumerating invisible
+            // anchors. Even visible-list naming is bounded — at most ONE diagnostic
+            // anchor in the prose (the full visible-miss list goes in the collapsed
+            // details block for programmatic access; invisible misses are NEVER named).
+            const diagnosticAnchor = missingVisible[0] || null;
+
+            const skillPath    = '.agents/skills/pull-request/SKILL.md';
+            const workflowPath = '.agents/skills/pull-request/references/pull-request-workflow.md';
+
+            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${pr.number}`;
+
+            const commentBody = [
+              `## 🚨 Agent PR Body Lint Violation`,
+              ``,
+              `@${author} — your [PR body on PR #${pr.number}](${prUrl}) does not match the pull-request template structure.`,
+              ``,
+              `**Required action**: read \`${skillPath}\` BEFORE editing the PR body. The skill points at:`,
+              `  - Minimum-viable PR body structure: \`${workflowPath} §9\``,
+              `  - Self-Identification mandate: \`${workflowPath} §5\``,
+              ``,
+              `Do NOT compose a substitute template or hallucinate section headings. The validator`,
+              `checks more structural anchors than this comment names. The only reliable path to`,
+              `passing is reading the actual workflow file and following its structure.`,
+              ``,
+              diagnosticAnchor
+                ? `**Diagnostic hint**: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
+                : `**Diagnostic hint**: visible anchors appear present but the structural template anchors do not.`,
+              ``,
+              `<details>`,
+              `<summary>Visible anchors missing (full list)</summary>`,
+              ``,
+              missingVisible.length > 0
+                ? missingVisible.map(a => `- \`${a}\``).join('\n')
+                : `(none — visible layer passed; invisible structural layer caught the miss)`,
+              ``,
+              `</details>`,
+              ``,
+              `<sub>This is the CI tool-boundary lint companion to PR #11494's MCP \`manage_pr_review\` validator and PR #11502's \`agent-pr-review-body-lint.yml\` reviewer-side lint.`,
+              `Resolves #11501.</sub>`
+            ].join('\n');
+
+            // Only comment if this is a newly opened PR, to avoid spam on edits
+            if (context.payload.action === 'opened') {
+              await github.rest.issues.createComment({
+                owner       : context.repo.owner,
+                repo        : context.repo.repo,
+                issue_number: pr.number,
+                body        : commentBody
+              });
+            }
+
+            core.setFailed(`Agent PR body missing required template anchors. See follow-up comment on PR #${pr.number}.`);

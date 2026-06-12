@@ -1,0 +1,7 @@
+tenantId: tenant-alpha
+repoSlug: mini-neo-workspace
+rootKind: neo-workspace
+useDefaultSources: true
+customSources:
+  - sourceName: MiniNeoSource
+    parserId: neo-fixture-parser

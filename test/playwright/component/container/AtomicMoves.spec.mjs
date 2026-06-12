@@ -5,7 +5,7 @@ let rootId;
 test.describe('Neo.container.Base Atomic Moves', () => {
     test.beforeEach(async ({neo, page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
 
         // Load core classes
         await neo.loadModule('../container/Base.mjs');
@@ -186,7 +186,7 @@ test.describe('Neo.container.Base Atomic Moves', () => {
     });
 
     test('Atomic Move: Preserve focus when moving', async ({neo, page}) => {
-         const config = {
+        const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
             parentId  : 'component-test-viewport',
@@ -223,5 +223,60 @@ test.describe('Neo.container.Base Atomic Moves', () => {
 
         // Verify focus is preserved
         await expect(page.locator('#focus-field__input')).toBeFocused();
+    });
+
+    test('Atomic Move: Suppress focusLeave side effects while restoring focus', async ({neo, page}) => {
+        const config = {
+            importPath: '../container/Base.mjs',
+            ntype     : 'container',
+            parentId  : 'component-test-viewport',
+            layout    : 'vbox',
+            items: [
+                {ntype: 'container', id: 'container-focus-a', items: [
+                    {ntype: 'textfield', id: 'focus-flicker-field', labelText: 'Focus Field', required: true}
+                ]},
+                {ntype: 'container', id: 'container-focus-b', items: []}
+            ]
+        };
+
+        const result = await neo.createComponent(config);
+        rootId = result.id;
+
+        const field = page.locator('#focus-flicker-field');
+        const input = page.locator('#focus-flicker-field__input');
+
+        await expect(input).toBeVisible();
+
+        await page.evaluate(() => {
+            Neo.main.DeltaUpdates.nativeMoveBefore = false;
+        });
+
+        await input.focus();
+
+        await expect(input).toBeFocused();
+        await expect(field).not.toHaveClass(/neo-is-touched/);
+        await expect(field).not.toHaveClass(/neo-invalid/);
+
+        await neo.moveComponent({
+            id      : 'focus-flicker-field',
+            parentId: 'container-focus-b'
+        });
+
+        await page.waitForFunction(() => {
+            const el         = document.getElementById('focus-flicker-field');
+            const containerB = document.getElementById('container-focus-b');
+            return containerB && el && containerB.contains(el);
+        });
+
+        await page.waitForTimeout(75);
+
+        await expect(input).toBeFocused();
+        await expect(field).not.toHaveClass(/neo-is-touched/);
+        await expect(field).not.toHaveClass(/neo-invalid/);
+
+        await input.blur();
+
+        await expect(field).toHaveClass(/neo-is-touched/);
+        await expect(field).toHaveClass(/neo-invalid/);
     });
 });

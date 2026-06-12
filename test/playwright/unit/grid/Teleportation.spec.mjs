@@ -24,6 +24,8 @@ import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 test.describe('Grid Teleportation & VDOM Deltas', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+
     let grid, store;
 
     test.beforeEach(async () => {
@@ -48,7 +50,7 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             appName  : 'GridTeleportationTest',
             height   : 400,
             width    : 600,
-            store    : store,
+            store,
             rowHeight: 40,
             columns  : [{
                 dataField: 'id',
@@ -160,14 +162,13 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
 
         // console.log('--- SCROLLING ---');
 
+        // Vertical scrolling is orchestrated by grid.View (the scroll SSOT): the DOM scroll event
+        // reaches View.syncBodies via the ScrollManager; body.scrollTop is a passive mirror.
         // Capture the update promise BEFORE triggering the change
-        const updatePromise = body.promiseUpdate();
+        const updatePromise = grid.view.promiseUpdate();
         updatePromise.catch(() => {}); // Handle potential isDestroyed rejection
 
-        body.scrollTop = scrollAmount;
-
-        // FUTURE: To test race conditions, trigger another scroll here immediately:
-        // body.scrollTop = scrollAmount + 40;
+        grid.view.syncBodies(scrollAmount);
 
         // Wait for the update to complete
         await updatePromise;
@@ -292,16 +293,16 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
 
             // console.log('--- SCROLLING (RACE) ---');
 
-            // Trigger first scroll
-            body.scrollTop = scrollAmount;
+            // Trigger first scroll through the View-level scroll SSOT
+            grid.view.syncBodies(scrollAmount);
 
             // Trigger second scroll immediately (Race Condition)
             // With buffer=0, this GUARANTEES a second 'createViewData' call on overlapping rows.
             // We capture the update promise to synchronize the test with the completion of the update cycle.
-            const updatePromise = body.promiseUpdate();
+            const updatePromise = grid.view.promiseUpdate();
             updatePromise.catch(() => {}); // Handle potential isDestroyed rejection
 
-            body.scrollTop = scrollAmount + 40;
+            grid.view.syncBodies(scrollAmount + 40);
 
             // Wait for the updates to complete (handles the 20ms latency)
             await updatePromise;
@@ -328,14 +329,10 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
                 expect(insertNodes.length).toBe(0);
                 expect(textUpdates.length).toBe(8);
 
-                // Diagnosis: The test currently PASSES because 'VdomLifecycle' correctly serializes the updates
+                // Diagnosis: The test PASSES because 'VdomLifecycle' correctly serializes the updates
                 // via 'isVdomUpdating' / 'needsVdomUpdate'. The second scroll waits for the first to finish.
                 // To reproduce the bug, we likely need to trigger a disjoint component update (e.g. Button text)
                 // that falsely believes it does not collide with the Grid update.
-                // We observe 0 moves (Fixed-DOM-Order), 0 row insertions (pure recycling!), and 8 text updates.
-                expect(moveNodes.length).toBe(0);
-                expect(insertNodes.length).toBe(0);
-                expect(textUpdates.length).toBe(8);
 
                 // Specific check: We should NOT be inserting 'text' vtypes (span wrapper for text).
                 // The duplication bug manifests as inserting a NEW text span instead of updating the existing one.

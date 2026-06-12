@@ -15,9 +15,21 @@ class Ticket extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'childCount',
+            type: 'Integer'
+        }, {
+            name: 'childrenUrl',
+            type: 'String'
+        }, {
             name        : 'collapsed',
             type        : 'Boolean',
             defaultValue: true
+        }, {
+            name: 'contentDir',
+            type: 'String'
+        }, {
+            name: 'filePrefix',
+            type: 'String'
         }, {
             name: 'id',
             type: 'String'
@@ -30,7 +42,7 @@ class Ticket extends Model {
             type        : 'String',
             defaultValue: null
         }, {
-            name: 'path', // "resources/content/issues/issue-1234.md"
+            name: 'path', // "resources/content/issues/chunk-N/issue-1234.md"
             type: 'String'
         }, {
             name: 'title', // "Fix elusive bug in Grid"
@@ -40,14 +52,31 @@ class Ticket extends Model {
             name: 'treeNodeName',
             type: 'html',
             /**
-             * @param {Object}  data
-             * @param {String}  data.id
-             * @param {Boolean} data.isLeaf
-             * @param {String}  data.title
+             * @param {Object}   data
+             * @param {Number}   data.childCount
+             * @param {String}   data.childrenUrl
+             * @param {String}   data.id
+             * @param {Boolean}  data.isLeaf
+             * @param {String}   data.title
              * @returns {String}
              */
-            calculate({id, isLeaf, title}) {
-                return isLeaf ? `<b>${id}</b> <span class="ticket-title">${title}</span>` : id
+            calculate({childCount, childrenUrl, id, isLeaf, title}) {
+                if (isLeaf) {
+                    return `<b>${id}</b> <span class="ticket-title">${title}</span>`
+                }
+
+                if (childrenUrl && title) {
+                    let match = title.match(/chunk-(\d+)$/);
+
+                    if (match) {
+                        let start = (Number(match[1]) - 1) * 100 + 1,
+                            end   = childCount ? start + childCount - 1 : start + 99;
+
+                        return `Tickets ${start}-${end}`
+                    }
+                }
+
+                return id
             }
         }]
     }

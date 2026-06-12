@@ -328,26 +328,21 @@ class GitHub extends Base {
      *
      * This method is critical for handling username changes (renames). When a stored login returns 404,
      * this method allows us to look up the new login associated with the immutable Database ID, preventing data loss.
+     * Uses GitHub's REST account lookup (`/user/{account_id}`), since GraphQL's `user` field only accepts `login`.
      *
      * @param {Number} dbId The integer user ID.
      * @returns {Promise<String|null>} The current login, or null if the ID is invalid/deleted.
      */
     async getLoginByDatabaseId(dbId) {
-        const query = `
-            query { 
-                user(databaseId: ${dbId}) {
-                    login
-                } 
-            }`;
-
         try {
-            const data = await this.query(query, {}, 1, `DB_ID:${dbId}`);
-            if (data?.user?.login) {
-                return data.user.login;
-            }
-            return null;
+            const data = await this.rest(`user/${dbId}`, `DB_ID:${dbId}`);
+            return data?.login || null;
         } catch (error) {
-            if (error.message.includes('NOT_FOUND') || error.message.includes('Could not resolve')) {
+            if (
+                error.message.includes('404') ||
+                error.message.includes('NOT_FOUND') ||
+                error.message.includes('Could not resolve')
+            ) {
                 return null;
             }
             throw error;

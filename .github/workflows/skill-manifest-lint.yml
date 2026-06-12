@@ -1,0 +1,51 @@
+name: Skill Manifest Lint
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - 'ai/scripts/lint/lint-skill-manifest.mjs'
+      - 'ai/scripts/lint/lint-agents.mjs'
+      - '.github/workflows/skill-manifest-lint.yml'
+      - 'learn/agentos/ProgressiveDisclosureSkills.md'
+      - 'learn/guides/fundamentals/CodebaseOverview.md'
+  push:
+    branches: [dev]
+    paths:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - 'ai/scripts/lint/lint-skill-manifest.mjs'
+      - 'ai/scripts/lint/lint-agents.mjs'
+      - '.github/workflows/skill-manifest-lint.yml'
+      - 'learn/agentos/ProgressiveDisclosureSkills.md'
+      - 'learn/guides/fundamentals/CodebaseOverview.md'
+
+concurrency:
+  group: skill-manifest-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Fetch base branch
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Lint skill manifest
+        run: node ai/scripts/lint/lint-skill-manifest.mjs --base origin/${{ github.base_ref || 'dev' }}
+
+      - name: Lint agent semantic anchors (ADR 0011 / #11560)
+        run: node ai/scripts/lint/lint-agents.mjs --base origin/${{ github.base_ref || 'dev' }}

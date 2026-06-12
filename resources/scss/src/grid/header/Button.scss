@@ -46,14 +46,6 @@
         z-index: 5;
     }
 
-    &.neo-locked-start {
-        transform: translateX(var(--grid-locked-start-offset, 0px));
-    }
-
-    &.neo-locked-end {
-        transform: translateX(var(--grid-locked-end-offset, 0px));
-    }
-
     &.neo-drag-over {
         background-image: linear-gradient(green, darkgreen);;
     }

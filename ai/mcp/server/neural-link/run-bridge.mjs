@@ -4,7 +4,7 @@ import * as core       from '../../../../src/core/_export.mjs';
 import Bridge          from './Bridge.mjs';
 import aiConfig        from './config.mjs';
 import logger          from './logger.mjs';
-import {sanitizeInput} from '../../../../buildScripts/util/Sanitizer.mjs';
+import {sanitizeInput} from '../../../../buildScripts/util/sanitizer.mjs';
 
 const program = new Command();
 
@@ -18,7 +18,7 @@ program
 const options = program.opts();
 
 if (options.debug) {
-    aiConfig.data.debug = true;
+    aiConfig.debug = true;
 }
 
 (async () => {
@@ -28,9 +28,9 @@ if (options.debug) {
         }
 
         logger.info('Starting Neural Link Bridge...');
-        
+
         await Bridge.ready();
-        
+
         // Keep process alive
         process.on('SIGINT', async () => {
             logger.info('Received SIGINT. Shutting down...');

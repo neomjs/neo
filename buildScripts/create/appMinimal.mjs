@@ -6,7 +6,7 @@ import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
 import os              from 'os';
 import path            from 'path';
-import {sanitizeInput} from '../util/Sanitizer.mjs';
+import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
     __dirname    = path.resolve(),
@@ -249,7 +249,7 @@ import MainStateProvider from './MainStateProvider.mjs';
 class ${className} extends Base {
     static config = {
         className: '${appName}.view.${className}',
-        
+
         controller: {module: Controller},
         stateProvider: {module: MainStateProvider},
 

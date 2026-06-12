@@ -1,0 +1,38 @@
+name: Substrate Size Guard
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'AGENTS.md'
+      - '.agents/ANTIGRAVITY_RULES.md'
+      - 'ai/scripts/diagnostics/check-substrate-size.mjs'
+      - '.github/workflows/substrate-size-guard.yml'
+      - 'package.json'
+  push:
+    branches: [dev]
+    paths:
+      - 'AGENTS.md'
+      - '.agents/ANTIGRAVITY_RULES.md'
+      - 'ai/scripts/diagnostics/check-substrate-size.mjs'
+      - '.github/workflows/substrate-size-guard.yml'
+      - 'package.json'
+
+concurrency:
+  group: substrate-size-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Check Substrate Size
+        run: npm run ai:check-substrate-size

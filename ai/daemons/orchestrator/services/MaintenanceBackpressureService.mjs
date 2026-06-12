@@ -1,0 +1,540 @@
+import path from 'path';
+import Neo  from '../../../../src/Neo.mjs';
+import Base from '../../../../src/core/Base.mjs';
+import {
+    acquireHeavyMaintenanceLeaseSync,
+    releaseHeavyMaintenanceLeaseSync
+} from './HeavyMaintenanceLeaseService.mjs';
+import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
+
+/**
+ * Canonical set of heavy-maintenance task names that participate in the cross-poll
+ * backpressure invariant: across orchestrator-owned tasks AND lease-aware manual scripts
+ * (`ai/scripts/maintenance/*.mjs`), at most one substrate-heavy maintenance job may hold
+ * the heavy-maintenance lease at a time.
+ *
+ * @type {ReadonlyArray<String>}
+ */
+export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
+    'summary',
+    'memory-summary-backfill',
+    'kbSync',
+    'backup',
+    'graphlog-compaction',
+    'primary-dev-sync',
+    'dream'
+]);
+
+/**
+ * Tasks whose graph writes must complete before Golden Path frontier refresh runs.
+ *
+ * @type {ReadonlyArray<String>}
+ */
+export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
+    'dream'
+]);
+
+// ============================================================================
+// Group 1 — Read-only predicates / finders (pure functions, no side effects)
+// ============================================================================
+
+/**
+ * @summary Checks whether a task participates in cross-task maintenance backpressure.
+ *
+ * @param {Object} options
+ * @param {String} options.taskName Stable orchestrator task name.
+ * @param {ReadonlyArray<String>} options.heavyMaintenanceTaskNames Heavy-classification set.
+ * @returns {Boolean}
+ */
+export function isHeavyMaintenanceTask({taskName, heavyMaintenanceTaskNames}) {
+    return heavyMaintenanceTaskNames.includes(taskName);
+}
+
+/**
+ * @summary Checks whether a task's graph writes block Golden Path frontier refresh.
+ *
+ * @param {Object} options
+ * @param {String} options.taskName Stable orchestrator task name.
+ * @param {ReadonlyArray<String>} options.goldenPathDependencyTaskNames Dependency set.
+ * @returns {Boolean}
+ */
+export function isGoldenPathDependencyTask({taskName, goldenPathDependencyTaskNames}) {
+    return goldenPathDependencyTaskNames.includes(taskName);
+}
+
+/**
+ * @summary Finds the first running heavy-maintenance task other than the excluded one.
+ *
+ * @param {Object} options
+ * @param {ReadonlyArray<String>} options.heavyMaintenanceTaskNames Heavy-classification set.
+ * @param {Object} options.taskStateService Service exposing `getTaskState(name)`.
+ * @param {String|null} [options.excludeTaskName=null] Task name to ignore.
+ * @returns {String|null}
+ */
+export function getActiveHeavyMaintenanceTask({
+    heavyMaintenanceTaskNames,
+    taskStateService,
+    excludeTaskName = null
+}) {
+    for (const taskName of heavyMaintenanceTaskNames) {
+        if (taskName === excludeTaskName) continue;
+        if (taskStateService.getTaskState(taskName)?.running) return taskName;
+    }
+    return null;
+}
+
+/**
+ * @summary Finds a running task that would make Golden Path read a partial graph state.
+ *
+ * @param {Object} options
+ * @param {ReadonlyArray<String>} options.goldenPathDependencyTaskNames Dependency set.
+ * @param {Object} options.taskStateService Service exposing `getTaskState(name)`.
+ * @param {String|null} [options.activeTaskName=null] Newly started task in the current poll.
+ * @returns {String|null}
+ */
+export function getActiveGoldenPathDependencyTask({
+    goldenPathDependencyTaskNames,
+    taskStateService,
+    activeTaskName = null
+}) {
+    if (activeTaskName && goldenPathDependencyTaskNames.includes(activeTaskName)) {
+        return activeTaskName;
+    }
+    for (const taskName of goldenPathDependencyTaskNames) {
+        if (taskStateService.getTaskState(taskName)?.running) return taskName;
+    }
+    return null;
+}
+
+/**
+ * @summary Resolves the shared heavy-maintenance lease file path with multi-tier fallback.
+ *
+ * Defensive at use-site rather than configure-time so direct-poll callers (unit tests
+ * bypassing `start()`) inherit a `dataDir`-scoped path instead of accidentally writing
+ * to the canonical production lease.
+ *
+ * @param {Object} options
+ * @param {String|null|undefined} options.heavyMaintenanceLeasePath Explicit override.
+ * @param {String|null|undefined} options.dataDir Daemon data directory.
+ * @returns {String}
+ */
+export function resolveHeavyMaintenanceLeasePath({heavyMaintenanceLeasePath, dataDir}) {
+    if (heavyMaintenanceLeasePath) return heavyMaintenanceLeasePath;
+    return path.join(dataDir || DEFAULT_DATA_DIR, 'heavy-maintenance-lease.json');
+}
+
+// ============================================================================
+// Group 2 — Deferral recording (pure functions; mutate caller-owned dedup Set)
+// ============================================================================
+
+/**
+ * @summary Clears all dedupe keys for a task once it is no longer deferred.
+ *
+ * @param {Object} options
+ * @param {Set<String>} options.deferralLogKeys Caller-owned dedup Set.
+ * @param {String} options.taskName Stable orchestrator task name.
+ * @returns {void}
+ */
+export function clearDeferralLogState({deferralLogKeys, taskName}) {
+    if (!deferralLogKeys) return;
+    const prefix = `${taskName}:`;
+    for (const key of deferralLogKeys) {
+        if (key.startsWith(prefix)) deferralLogKeys.delete(key);
+    }
+}
+
+/**
+ * @summary Records a sparse non-error deferral, polymorphic on `reasonCode`.
+ *
+ * Three reason classes share one entry point so operator dashboards + Memory Core graph
+ * ingestion can route deferrals via a single shape with a discriminator field. Dedup
+ * keys are constructed per-class so equivalent recurring deferrals collapse to one log
+ * line, while distinct blocker/owner combinations remain separately tracked.
+ *
+ * | `reasonCode`                            | Blocker source            | Used by                    |
+ * |-----------------------------------------|---------------------------|----------------------------|
+ * | `'heavy-maintenance-backpressure'`      | `blockingTaskName`        | Intra-process heavy tasks  |
+ * | `'heavy-maintenance-lease-held'`        | `holdingLease.owner`      | Inter-process file lease   |
+ * | `'golden-path-dependency-backpressure'` | `blockingTaskName`        | Golden Path graph waits    |
+ *
+ * @param {Object} options
+ * @param {Set<String>} options.deferralLogKeys Caller-owned dedup Set.
+ * @param {String} options.taskName Deferred task name.
+ * @param {String} options.reasonCode Discriminator field.
+ * @param {String} options.reasonText Scheduling reason for the deferred task.
+ * @param {String|null} [options.blockingTaskName=null] Active blocker (intra-process / golden-path).
+ * @param {Object|null} [options.holdingLease=null] Active lease payload (cross-daemon only).
+ * @param {Object} [options.taskDefinitions={}] Task-definition map for label resolution.
+ * @param {Function} [options.writeLog=()=>{}] Logger function `(level, message) => void`.
+ * @param {Object|null} [options.healthService=null] Optional `recordTaskOutcome(name, status, payload)` sink.
+ * @returns {void}
+ */
+export function recordDeferral({
+    deferralLogKeys,
+    taskName,
+    reasonCode,
+    reasonText,
+    blockingTaskName = null,
+    holdingLease     = null,
+    taskDefinitions  = {},
+    writeLog         = () => {},
+    healthService    = null
+}) {
+    const isLeaseHeld = reasonCode === 'heavy-maintenance-lease-held';
+    const holderOwner = holdingLease?.owner || 'unknown';
+    const dedupKey    = isLeaseHeld
+        ? `${taskName}:lease-held-by-${holderOwner}:${reasonText}`
+        : `${taskName}:${blockingTaskName}:${reasonText}`;
+
+    if (!deferralLogKeys.has(dedupKey)) {
+        const taskLabel = taskDefinitions?.[taskName]?.label || taskName;
+
+        if (isLeaseHeld) {
+            writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; cross-daemon heavy-maintenance lease held by ${holderOwner} (${reasonText}).`);
+        } else {
+            const blockingLabel = taskDefinitions?.[blockingTaskName]?.label || blockingTaskName;
+            writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; ${reasonCode === 'golden-path-dependency-backpressure' ? 'dependency task' : 'heavy maintenance task'} ${blockingLabel} is active (${reasonText}).`);
+        }
+
+        deferralLogKeys.add(dedupKey);
+    }
+
+    const outcomePayload = {
+        reason    : reasonText,
+        reasonCode,
+        deferredAt: new Date().toISOString()
+    };
+    if (isLeaseHeld) {
+        outcomePayload.holdingOwner = holderOwner;
+        outcomePayload.holdingPid   = holdingLease?.pid;
+    } else {
+        outcomePayload.blockingTaskName = blockingTaskName;
+    }
+
+    healthService?.recordTaskOutcome?.(taskName, 'skipped', outcomePayload);
+}
+
+// ============================================================================
+// Group 3 — Executor wrappers (Neo-class methods; orchestrate state + leases)
+// ============================================================================
+
+/**
+ * @summary Cross-task maintenance backpressure + cross-daemon lease coordination.
+ *
+ * Owns the orchestrator's execution-phase policy surface: heavy/dependency classification
+ * predicates, deferral recording, lease acquisition + release wrapping, and Golden Path
+ * dependency gating. The Orchestrator delegates these concerns here so its scheduling
+ * loop can be a generic registry-driven dispatch.
+ *
+ * The service WRAPS the existing `HeavyMaintenanceLeaseService` primitives — it does not
+ * replace them. Lease IO (acquire / release / inspect) remains in that service; this
+ * service owns the policy of WHEN to acquire, defer, or record.
+ *
+ * @class Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService
+ * @extends Neo.core.Base
+ */
+export class MaintenanceBackpressureService extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService'
+         * @protected
+         */
+        className: 'Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService',
+        /**
+         * @member {ReadonlyArray<String>} heavyMaintenanceTaskNames_=DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
+         * @reactive
+         */
+        heavyMaintenanceTaskNames_: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+        /**
+         * @member {ReadonlyArray<String>} goldenPathDependencyTaskNames_=DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+         * @reactive
+         */
+        goldenPathDependencyTaskNames_: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
+        /**
+         * @member {String|null} heavyMaintenanceLeasePath_=null
+         * @reactive
+         */
+        heavyMaintenanceLeasePath_: null,
+        /**
+         * @member {String} dataDir_=DEFAULT_DATA_DIR
+         * @reactive
+         */
+        dataDir_: DEFAULT_DATA_DIR,
+        /**
+         * @member {Object|null} taskStateService_=null
+         * @reactive
+         */
+        taskStateService_: null,
+        /**
+         * @member {Object|null} healthService_=null
+         * @reactive
+         */
+        healthService_: null,
+        /**
+         * @member {Object|null} taskDefinitions_=null
+         * @reactive
+         */
+        taskDefinitions_: null,
+        /**
+         * @member {Function} writeLog_=()=>{}
+         * @reactive
+         */
+        writeLog_: () => {},
+        /**
+         * @member {Function} acquireLeaseFn_=acquireHeavyMaintenanceLeaseSync
+         * @reactive
+         */
+        acquireLeaseFn_: acquireHeavyMaintenanceLeaseSync,
+        /**
+         * @member {Function} releaseLeaseFn_=releaseHeavyMaintenanceLeaseSync
+         * @reactive
+         */
+        releaseLeaseFn_: releaseHeavyMaintenanceLeaseSync
+    }
+
+    /**
+     * Per-instance dedup Set for sparse deferral logging.
+     * @member {Set<String>} deferralLogKeys
+     */
+    deferralLogKeys = new Set()
+
+    // --- Predicate / finder delegations to module-level pure functions ---
+
+    /**
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isHeavyMaintenanceTask(taskName) {
+        return isHeavyMaintenanceTask({taskName, heavyMaintenanceTaskNames: this.heavyMaintenanceTaskNames});
+    }
+
+    /**
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isGoldenPathDependencyTask(taskName) {
+        return isGoldenPathDependencyTask({taskName, goldenPathDependencyTaskNames: this.goldenPathDependencyTaskNames});
+    }
+
+    /**
+     * @param {Object} [options]
+     * @param {String|null} [options.excludeTaskName=null]
+     * @returns {String|null}
+     */
+    getActiveHeavyMaintenanceTask({excludeTaskName = null} = {}) {
+        return getActiveHeavyMaintenanceTask({
+            heavyMaintenanceTaskNames: this.heavyMaintenanceTaskNames,
+            taskStateService         : this.taskStateService,
+            excludeTaskName
+        });
+    }
+
+    /**
+     * @param {Object} [options]
+     * @param {String|null} [options.activeTaskName=null]
+     * @returns {String|null}
+     */
+    getActiveGoldenPathDependencyTask({activeTaskName = null} = {}) {
+        return getActiveGoldenPathDependencyTask({
+            goldenPathDependencyTaskNames: this.goldenPathDependencyTaskNames,
+            taskStateService             : this.taskStateService,
+            activeTaskName
+        });
+    }
+
+    /**
+     * @returns {String}
+     */
+    resolveHeavyMaintenanceLeasePath() {
+        return resolveHeavyMaintenanceLeasePath({
+            heavyMaintenanceLeasePath: this.heavyMaintenanceLeasePath,
+            dataDir                  : this.dataDir
+        });
+    }
+
+    // --- Deferral recording delegations ---
+
+    /**
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {void}
+     */
+    clearDeferralLogState(taskName) {
+        clearDeferralLogState({deferralLogKeys: this.deferralLogKeys, taskName});
+    }
+
+    /**
+     * @param {Object} options
+     * @param {String} options.taskName Deferred task name.
+     * @param {String} options.reasonCode Discriminator field.
+     * @param {String} options.reasonText Scheduling reason.
+     * @param {String|null} [options.blockingTaskName]
+     * @param {Object|null} [options.holdingLease]
+     * @returns {void}
+     */
+    recordDeferral({taskName, reasonCode, reasonText, blockingTaskName = null, holdingLease = null}) {
+        recordDeferral({
+            deferralLogKeys: this.deferralLogKeys,
+            taskName,
+            reasonCode,
+            reasonText,
+            blockingTaskName,
+            holdingLease,
+            taskDefinitions: this.taskDefinitions,
+            writeLog       : this.writeLog,
+            healthService  : this.healthService
+        });
+    }
+
+    // --- Executor wrappers (Group 3 entry points) ---
+
+    /**
+     * Wraps a heavy-maintenance task executor with intra-process backpressure +
+     * inter-process lease acquisition + deferral recording + release-on-completion.
+     *
+     * Two-tier backpressure:
+     * 1. **Intra-process:** `activeHeavyTask` tracker serializes heavy tasks within
+     *    a single orchestrator poll cycle.
+     * 2. **Inter-process:** shared file lease at `heavyMaintenanceLeasePath`
+     *    serializes heavy tasks across concurrent orchestrator daemons + lease-aware
+     *    manual CLI scripts.
+     *
+     * Lease release timing: synchronous `false` return → release immediately;
+     * thenable → release on settle (both fulfill and reject); other → release
+     * immediately. A synchronous throw from `executeFn` releases the lease before
+     * re-throwing.
+     *
+     * @param {Object} options
+     * @param {String} options.taskName Stable orchestrator task name.
+     * @param {Function} options.executeFn Task body `(taskName, reason, onSuccess, taskOptions) => result`.
+     * @param {Object} [options.reason] Scheduling reason (string or trigger object).
+     * @param {Function|null} [options.onSuccess=null] Success hook forwarded to `executeFn`.
+     * @param {Object} options.activeHeavyTask Mutable `{name: String|null}` tracker for the current poll.
+     * @returns {Boolean|Promise|*} `false` when deferred; otherwise whatever `executeFn` returns.
+     */
+    acquireLeaseAndExecute({taskName, executeFn, reason, onSuccess = null, activeHeavyTask}) {
+        const reasonText = reason || 'scheduled';
+
+        if (!this.isHeavyMaintenanceTask(taskName)) {
+            this.clearDeferralLogState(taskName);
+            return executeFn(taskName, reason, onSuccess);
+        }
+
+        const blockingTaskName = activeHeavyTask?.name && activeHeavyTask.name !== taskName
+            ? activeHeavyTask.name
+            : this.getActiveHeavyMaintenanceTask({excludeTaskName: taskName});
+
+        if (blockingTaskName) {
+            this.recordDeferral({
+                taskName,
+                reasonCode: 'heavy-maintenance-backpressure',
+                reasonText,
+                blockingTaskName
+            });
+            return false;
+        }
+
+        let acquisition;
+        try {
+            acquisition = this.acquireLeaseFn({
+                owner    : taskName,
+                reason   : reasonText,
+                metadata : {source: 'orchestrator'},
+                leasePath: this.resolveHeavyMaintenanceLeasePath()
+            });
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease acquire failed for ${taskName}: ${e.message}`);
+            this.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                reason    : reasonText,
+                reasonCode: 'heavy-maintenance-lease-acquire-error',
+                error     : e.message,
+                failedAt  : new Date().toISOString()
+            });
+            return false;
+        }
+
+        if (!acquisition.acquired) {
+            this.recordDeferral({
+                taskName,
+                reasonCode  : 'heavy-maintenance-lease-held',
+                reasonText,
+                holdingLease: acquisition.lease
+            });
+            return false;
+        }
+
+        this.clearDeferralLogState(taskName);
+
+        const releaseLease = () => {
+            try {
+                this.releaseLeaseFn({
+                    token    : acquisition.lease.token,
+                    leasePath: this.resolveHeavyMaintenanceLeasePath()
+                });
+            } catch (e) {
+                this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease release failed for ${taskName}: ${e.message}`);
+            }
+        };
+
+        const taskOptions = {
+            env       : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: acquisition.lease.token},
+            onComplete: releaseLease
+        };
+
+        let result;
+        try {
+            result = executeFn(taskName, reason, onSuccess, taskOptions);
+        } catch (e) {
+            releaseLease();
+            throw e;
+        }
+
+        if (result === false) {
+            releaseLease();
+        } else if (result && typeof result.then === 'function') {
+            result.then(releaseLease, releaseLease);
+        } else if (result !== true) {
+            releaseLease();
+        }
+
+        if (result !== false && activeHeavyTask) {
+            activeHeavyTask.name = taskName;
+        }
+
+        return result;
+    }
+
+    /**
+     * Wraps Golden Path execution with dependency ordering. Does NOT acquire a lease —
+     * Golden Path is graph-dependent but classified as light maintenance (the synthesizer
+     * reads the graph; it does not write the heavy substrates), so it only needs the
+     * dependency gate to avoid reading a partial graph state.
+     *
+     * @param {Object} options
+     * @param {String} options.taskName Stable orchestrator task name (`'golden-path'`).
+     * @param {Function} options.executeFn Task body `(taskName, reason) => result`.
+     * @param {Object} [options.reason] Scheduling reason.
+     * @param {Object} options.activeHeavyTask Mutable `{name: String|null}` tracker for the current poll.
+     * @returns {Boolean|*} `false` when deferred; otherwise whatever `executeFn` returns.
+     */
+    executeWithGoldenPathDependencyGate({taskName, executeFn, reason, activeHeavyTask}) {
+        const reasonText = reason || 'scheduled';
+        const blockingTaskName = this.getActiveGoldenPathDependencyTask({
+            activeTaskName: activeHeavyTask?.name
+        });
+
+        if (blockingTaskName) {
+            this.recordDeferral({
+                taskName  : 'golden-path',
+                reasonCode: 'golden-path-dependency-backpressure',
+                reasonText,
+                blockingTaskName
+            });
+            return false;
+        }
+
+        this.clearDeferralLogState(taskName);
+        return executeFn(taskName, reason);
+    }
+}
+
+export default Neo.setupClass(MaintenanceBackpressureService);
