@@ -394,6 +394,21 @@ class Manager extends Base {
         if (deltas?.length > 0) {
             me.promiseForwardMessage(data).then(msgData => {
                 me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
+            }).catch(({originalData, error}) => {
+                // A delta failed to apply (see Main.mjs#processQueue). The reply MUST still reach the
+                // originating worker — a dropped reply permanently wedges every component awaiting the
+                // batch (isVdomUpdating never clears). We reply with the reject marker and the
+                // error INSTEAD of the computed vnodes: the App worker's executeVdomUpdate() catch then
+                // clears its in-flight state WITHOUT adopting a vnode the DOM never received, keeping
+                // the vnode truthful so the next update cycle re-diffs and self-heals.
+                let reply = forward
+                    ? {...originalData, data: {error}}
+                    : {replyId: originalData.id, data: {error}};
+
+                reply.action = 'reply';
+                reply.reject = true;
+
+                me.sendMessage(replyDest, reply)
             });
 
             me.fire('updateVdom', forward ? data : {data, replyId: data.id});
@@ -573,6 +588,29 @@ class Manager extends Base {
 
             me.promises[msgId] = {reject, resolve}
         })
+    }
+
+    /**
+     * Rejects the delayed-reply promise for a DOM operation whose delta application threw.
+     *
+     * Counterpart to {@link #resolveDomOperationPromise}: a failed operation must settle its
+     * promise too — otherwise the originating worker's update promise hangs forever and every
+     * component in that batch wedges with `isVdomUpdating: true`. The rejection value
+     * carries the error message; `handleDomUpdate`'s catch relays it as a `reject: true` reply,
+     * which the far side's `worker.Base#onMessage` turns into a promise rejection.
+     * @param {String} replyId
+     * @param {Error|String} error The reason the DOM operation failed
+     */
+    rejectDomOperationPromise(replyId, error) {
+        if (replyId) {
+            let {promises} = this,
+                promise    = promises[replyId];
+
+            if (promise) {
+                promise.reject({originalData: promise.data, error: error?.message || String(error)});
+                delete promises[replyId]
+            }
+        }
     }
 
     /**
