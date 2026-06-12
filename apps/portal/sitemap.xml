@@ -209,7 +209,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/NeuralLink</loc>
-    <lastmod>2026-05-31T12:47:26+02:00</lastmod>
+    <lastmod>2026-06-12T06:05:11Z</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
@@ -820,7 +820,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-06-12T05:01:19Z</lastmod>
+    <lastmod>2026-06-12T06:05:11Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -1140,6 +1140,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/lockedColumns/index.html</loc>
+    <lastmod>2025-08-12T02:02:10+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/nestedRecordFields/index.html</loc>

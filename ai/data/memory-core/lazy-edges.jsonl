@@ -1,0 +1,2 @@
+{"source":"CONCEPT:Extensible_Singleton_Pattern","target":"session:init_v19","relationship":"DISCUSSED_IN","weight":1,"justification":"The pattern was explicitly defined and corrected during this session.","timestamp":"2026-06-07T16:41:43.827Z"}
+{"source":"FILE:.github/RELEASE_NOTES/v11.19.0.md","target":"session:init_v19","relationship":"DISCUSSED_IN","weight":1,"justification":"The file was modified to reflect the correct architectural terminology.","timestamp":"2026-06-07T16:41:43.828Z"}
