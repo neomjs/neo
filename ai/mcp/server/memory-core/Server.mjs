@@ -98,12 +98,15 @@ class Server extends BaseServer {
     /**
      * @summary Tools allowed without the healthcheck gate. The A2A
      * mailbox/permission surface is graph/SQLite-scoped and must remain reachable during
-     * summarization/vector-provider incidents so agents can coordinate the recovery.
+     * summarization/vector-provider incidents so agents can coordinate the recovery — as is
+     * add_memory, whose never-fail WAL write is local-disk-scoped with the embed deferred to the
+     * drain, so memory capture never blocks on an embedder/vector-provider outage.
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
         return [
             'healthcheck',
+            'add_memory',
             'add_message',
             'list_messages',
             'get_message',
