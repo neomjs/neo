@@ -137,6 +137,16 @@ const DefaultConfig = {
      */
     logDeltaUpdates: false,
     /**
+     * true will validate VDom delta batches in the main thread before applying them.
+     * Guard-grade findings reject the whole batch before the first DOM mutation; candidate
+     * structural findings are logged for measurement only.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useDeltaGrammarGuards
+     * @type Boolean
+     */
+    useDeltaGrammarGuards: false,
+    /**
      * true will log console warnings, in case a component tries to update() while a parent update is running.
      * A parent update results in a short delay, so you might want to resolve these collisions.
      * @default false

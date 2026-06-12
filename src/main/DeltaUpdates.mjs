@@ -2,6 +2,7 @@ import Base             from '../core/Base.mjs';
 import DomAccess        from './DomAccess.mjs';
 import Observable       from '../core/Observable.mjs';
 import {voidAttributes} from '../vdom/domConstants.mjs';
+import {checkStructuralUniqueness, validateBatch} from '../vdom/util/DeltaGrammar.mjs';
 
 const NeoConfig = Neo.config;
 
@@ -860,6 +861,42 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * @summary Validates a final pre-apply delta batch before dispatch.
+     *
+     * Runs the guard-grade delta grammar predicates over the post-event batch. Guard findings
+     * throw before dispatch so the operation rejects atomically; U5 structural uniqueness
+     * remains observe-only until its real-world corpus has been falsified.
+     * @param {Object[]} deltas The normalized batch after `update` listeners had their mutation window.
+     * @throws {Error} If guard-grade delta grammar findings are present.
+     * @protected
+     */
+    validateDeltaGrammarBatch(deltas) {
+        const
+            validation = validateBatch(deltas, {useDomApiRenderer: NeoConfig.useDomApiRenderer}),
+            context    = {
+                deltas,
+                useDomApiRenderer: NeoConfig.useDomApiRenderer
+            };
+
+        if (!validation.valid) {
+            const error = new Error('Neo.main.DeltaUpdates: delta grammar validation failed');
+
+            error.code = 'NEO_DELTA_GRAMMAR_INVALID';
+            error.findings = validation.findings;
+
+            console.error('Delta grammar validation failed', {...context, findings: validation.findings});
+
+            throw error
+        }
+
+        const candidateFindings = checkStructuralUniqueness(deltas);
+
+        if (candidateFindings.length > 0) {
+            console.warn('Delta grammar candidate findings', {...context, findings: candidateFindings})
+        }
+    }
+
+    /**
      * Applies a set of VDom delta updates to the real DOM.
      * This method is the core entry point for rendering changes initiated from the VDom worker.
      * It iterates through the provided deltas and dispatches them to specific DOM manipulation
@@ -893,6 +930,15 @@ class DeltaUpdates extends Base {
         // Addons (like GridRowPinning) can safely mutate the deltas array or individual delta
         // properties here, and those modifications will be consumed directly by the update loop below.
         me.fire('update', data);
+
+        if (NeoConfig.useDeltaGrammarGuards) {
+            // Keep the enabled guard path aligned with post-event array mutations.
+            len = deltas.length;
+
+            if (len > 0) {
+                me.validateDeltaGrammarBatch(deltas)
+            }
+        }
 
         if (NeoConfig.logDeltaUpdates && len > 0) {
             me.countDeltas += len;

@@ -494,9 +494,13 @@ class Manager extends Base {
                         let deltas = payload.deltas;
 
                         if (payload.autoMount) {
+                            // Parent-less automounts previously appended via an undefined childNodes
+                            // index. Keep append semantics while making the wire field explicit.
+                            const index = payload.parentIndex ?? Number.MAX_SAFE_INTEGER;
+
                             deltas = [{
                                 action   : 'insertNode',
-                                index    : payload.parentIndex,
+                                index,
                                 outerHTML: payload.outerHTML,
                                 parentId : payload.parentId,
                                 vnode    : payload.vnode

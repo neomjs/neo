@@ -13,8 +13,9 @@ import { test, expect } from '../fixtures.mjs';
  *
  *   1. zero duplicate DOM ids anywhere under the grid (the keystone signature)
  *   2. zero id-less `insertNode` deltas, harvested via `Neo.config.logDeltaUpdates`
- *   3. exactly three region-body elements (ghost-body copies counted directly)
- *   4. items/vdom/DOM consistency on every region body (worker-truth vs rendered truth)
+ *   3. zero delta-grammar guard errors and U5 candidate findings
+ *   4. exactly three region-body elements (ghost-body copies counted directly)
+ *   5. items/vdom/DOM consistency on every region body (worker-truth vs rendered truth)
  *
  * Gestures are the three convicted corruption triggers, run twice (repeat-gesture accumulation
  * was part of the original signature): a centre overdrag walk with return leg, a cross-region
@@ -41,7 +42,11 @@ test.describe('Locked-grid DnD duplication net (#12939)', () => {
         // Harvest id-less insertNode deltas at the main-thread apply boundary
         await page.evaluate(() => {
             Neo.config.logDeltaUpdates = true;
+            Neo.config.useDeltaGrammarGuards = true;
             window.__idlessInserts = 0;
+            window.__deltaGrammarErrors = 0;
+            window.__deltaGrammarErrorDetails = [];
+            window.__deltaGrammarU5Findings = 0;
             const orig = console.log.bind(console);
             console.log = (...args) => {
                 try {
@@ -54,6 +59,28 @@ test.describe('Locked-grid DnD duplication net (#12939)', () => {
                     }
                 } catch (e) {}
                 orig(...args);
+            };
+            const origError = console.error.bind(console);
+            console.error = (...args) => {
+                try {
+                    if (args[0] === 'Delta grammar validation failed') {
+                        window.__deltaGrammarErrors++;
+                        window.__deltaGrammarErrorDetails.push({
+                            findings         : args[1]?.findings,
+                            useDomApiRenderer: args[1]?.useDomApiRenderer
+                        });
+                    }
+                } catch (e) {}
+                origError(...args);
+            };
+            const origWarn = console.warn.bind(console);
+            console.warn = (...args) => {
+                try {
+                    if (args[0] === 'Delta grammar candidate findings') {
+                        window.__deltaGrammarU5Findings += args[1]?.findings?.length || 1;
+                    }
+                } catch (e) {}
+                origWarn(...args);
             };
         });
 
@@ -69,12 +96,17 @@ test.describe('Locked-grid DnD duplication net (#12939)', () => {
                 return {
                     dups: dups.slice(0, 10),
                     bodyCount: document.querySelectorAll('.neo-grid-body').length,
-                    idless: window.__idlessInserts
+                    guardDetails: window.__deltaGrammarErrorDetails,
+                    guardErrors: window.__deltaGrammarErrors,
+                    idless: window.__idlessInserts,
+                    u5Findings: window.__deltaGrammarU5Findings
                 };
             });
 
             expect(dom.dups, `${label}: duplicate DOM ids under the grid`).toEqual([]);
             expect(dom.idless, `${label}: id-less insertNode deltas at the apply boundary`).toBe(0);
+            expect(dom.guardErrors, `${label}: delta-grammar guard errors ${JSON.stringify(dom.guardDetails)}`).toBe(0);
+            expect(dom.u5Findings, `${label}: U5 candidate findings`).toBe(0);
             expect(dom.bodyCount, `${label}: region-body element count (ghost-body copies)`).toBe(3);
 
             const bodies = await app.findInstances({ ntype: 'grid-body' }, ['id']);
