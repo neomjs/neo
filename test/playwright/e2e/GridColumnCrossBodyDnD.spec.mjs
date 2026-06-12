@@ -31,7 +31,9 @@ import { test, expect } from '../fixtures.mjs';
  *
  * Run: npx playwright test GridColumnCrossBodyDnD -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-test.describe('Desktop (1920x1080): DevIndex Locked-Column DnD (#12807)', () => {
+// ticket-ref-ok: skip pointer is load-bearing — #12933 removed devindex's locked-column config this spec's region assertions require.
+// ticket-ref-ok: #12936 re-homes this spec onto the dedicated locked fixture; un-skip rides that migration.
+test.describe.skip('Desktop (1920x1080): DevIndex Locked-Column DnD (#12807)', () => {
     test.setTimeout(90000); // DevIndex is heavy; allow time for render + Neural Link mapping.
     test.use({ viewport: { width: 1920, height: 1080 } });
 
