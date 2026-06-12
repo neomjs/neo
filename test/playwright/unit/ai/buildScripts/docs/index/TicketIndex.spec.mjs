@@ -5,8 +5,8 @@ import path           from 'path';
 import createTicketIndex from '../../../../../../../buildScripts/docs/index/tickets.mjs';
 
 /**
- * @summary Verifies the Portal ticket index generator emits both the legacy full-tree feed
- * and the chunked root-plus-leaves contract.
+ * @summary Verifies the Portal ticket index generator emits the chunked
+ * root-plus-leaves contract (root index, path-free leaf files, crawler manifest).
  */
 
 function frontmatter(data) {
@@ -53,12 +53,12 @@ test.describe('Portal ticket index generator (#12217)', () => {
         await fs.remove(tempDir)
     });
 
-    test('emits compatibility tickets.json plus chunked path-free leaves and manifest', async () => {
+    test('emits the chunked path-free leaves, root index and manifest', async () => {
         const
             issuesDir         = path.join(tempDir, 'resources/content/issues'),
             archiveDir        = path.join(tempDir, 'resources/content/archive/issues'),
-            outputFile        = path.join(tempDir, 'apps/portal/resources/data/tickets.json'),
-            outputDir         = path.join(tempDir, 'apps/portal/resources/data/tickets'),
+            dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
+            outputDir         = path.join(dataDir, 'tickets'),
             chunkedOutputFile = path.join(outputDir, 'index.json'),
             manifestFile      = path.join(outputDir, 'manifest.json');
 
@@ -90,23 +90,7 @@ test.describe('Portal ticket index generator (#12217)', () => {
             closedAt: '2025-11-05T00:00:00Z'
         }));
 
-        await createTicketIndex({archiveDir, chunkedOutputFile, issuesDir, manifestFile, outputDir, outputFile});
-
-        const legacy = await fs.readJson(outputFile);
-
-        expect(legacy.map(record => record.id)).toEqual([
-            'Backlog',
-            '30',
-            'v12.1.0',
-            '20',
-            'v11.0.0',
-            '5'
-        ]);
-        expect(legacy.find(record => record.id === '30')).toMatchObject({
-            parentId: 'Backlog',
-            path    : path.relative(process.cwd(), path.join(issuesDir, 'chunk-2/issue-30.md')),
-            title   : 'Active enhancement'
-        });
+        await createTicketIndex({archiveDir, chunkedOutputFile, dataDir, issuesDir, manifestFile, outputDir});
 
         const root = await fs.readJson(chunkedOutputFile);
 
@@ -157,8 +141,8 @@ test.describe('Portal ticket index generator (#12217)', () => {
         const
             issuesDir         = path.join(tempDir, 'resources/content/issues'),
             archiveDir        = path.join(tempDir, 'resources/content/archive/issues'),
-            outputFile        = path.join(tempDir, 'apps/portal/resources/data/tickets.json'),
-            outputDir         = path.join(tempDir, 'apps/portal/resources/data/tickets'),
+            dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
+            outputDir         = path.join(dataDir, 'tickets'),
             chunkedOutputFile = path.join(outputDir, 'index.json'),
             manifestFile      = path.join(outputDir, 'manifest.json');
 
@@ -184,7 +168,7 @@ test.describe('Portal ticket index generator (#12217)', () => {
             updatedAt: '2026-05-15T00:00:00Z'
         }));
 
-        await createTicketIndex({archiveDir, chunkedOutputFile, issuesDir, manifestFile, outputDir, outputFile});
+        await createTicketIndex({archiveDir, chunkedOutputFile, dataDir, issuesDir, manifestFile, outputDir});
 
         // Chunk folders descend by chunk-number (newest/highest chunk first), regardless of sortDate.
         const root = await fs.readJson(chunkedOutputFile);
