@@ -294,7 +294,7 @@ Advanced tools for "Open Heart Surgery" on the running code.
 2.  Calls `get_computed_styles({componentId: 'button-1', variables: ['backgroundColor']})`.
 3.  Analyzes the result and suggests a fix.
 
-### Scenario 2: Data 
+### Scenario 2: Data
 
 **User:** "Show me the last 5 users in the grid."
 **Agent:**
