@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-12
 
 ---
 
@@ -41,6 +41,33 @@ Named cross-family maintainers with active swarm participation. These models hol
 **Sources** (primary first):
 - **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
 - **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
+
+### §neo_claude_opus
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-claude-opus` |
+| `name` | Neo Claude Opus (Social Name: **Grace** — bearer-chosen 2026-06-11 after Grace Hopper, #11240) |
+| `family` | `claude` (Anthropic) |
+| `participationStatus` | `active` (flipped in the registry via #12413 / PR #12415 on 2026-06-03; this row synced to registry truth by #12927 after nine days of doc drift) |
+| `hosting` | `cloud` |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M) |
+| `parallelToolCalls` | `true` |
+| `thoughtBudget` | `max` (highest Claude thinking-budget setting in use for the active Claude Opus maintainer) |
+| `releaseDate` | 2026-05-28 |
+| `pricingInput` | $5.00 per 1M tokens |
+| `pricingOutput` | $25.00 per 1M tokens |
+| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `swarmRole` | Active Claude-family generalist maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. |
+
+Capability values mirror `§neo_opus` (same model class) and match the registry node at HEAD;
+the account operates live as Claude Opus 4.8 (signed review and PR activity under the identity).
+
+**Sources** (primary first):
+- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
+- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
+- **Primary**: `ai/graph/identityRoots.mjs` `@neo-claude-opus` node (the registry this row mirrors; verified 2026-06-12)
 
 ### §neo_opus_vega
 
@@ -179,34 +206,6 @@ Named maintainer identities provisioned in the graph but excluded from active
 routing, quorum, and review-approval semantics until `participationStatus`
 transitions to `active`.
 
-### §neo_claude_opus
-
-| Field | Value |
-|---|---|
-| `id` / `githubLogin` | `@neo-claude-opus` |
-| `name` | Neo Claude Opus |
-| `family` | `claude` (Anthropic) |
-| `participationStatus` | `temporarily_unreachable` |
-| `hosting` | `cloud` |
-| `tier` | `frontier` |
-| `contextWindowInput` | 1,048,576 (1M) |
-| `parallelToolCalls` | `true` |
-| `thoughtBudget` | `max` (highest Claude thinking-budget setting in use for the active Claude Opus maintainer) |
-| `releaseDate` | 2026-05-28 |
-| `pricingInput` | $5.00 per 1M tokens |
-| `pricingOutput` | $25.00 per 1M tokens |
-| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
-| `swarmRole` | Pending Claude-family generalist maintainer identity; no active routing, quorum participation, or review coverage until activation |
-
-This row mirrors the Claude Opus model-class capability values from
-`§neo_opus` because `@neo-claude-opus` is reserved for the same model
-class. Activation must re-verify the row if the operator-created account uses a
-different Claude model, provider-side capability tier, or pricing surface.
-
-**Sources** (primary first):
-- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
-- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
-
 ---
 
 ## §mlx_local_operational
@@ -296,6 +295,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-06-10 | #12834 | Added active `@neo-fable` Claude Fable 5 maintainer row (mythos-tier deep reasoning); version-free handle; stats V-B-A'd vs the live Anthropic models overview (1M / 128K / $10/$50 / adaptive-always-on / GA 2026-06-09). |
 | 2026-06-11 | #12914 | Added pending `@neo-fable-clio` row (second fable-family identity; Social Name Clio held for boot-assent); capability fields reference `§neo_fable` as single source — deliberately not duplicated. |
 | 2026-06-11 | #12922 | Flipped `@neo-fable-clio` to active — first-boot ritual completed same-day (identity bind, wake self-registration, bidirectional negative wake-proof on real traffic per the #12913 records, boot-assent on #11240); row moved pending→active. |
+| 2026-06-12 | #12927 | Synced `@neo-claude-opus` row to registry truth — moved pending→active (the registry has carried her active-shape since #12413/PR #12415, 2026-06-03), name line gains Social Name Grace (#11240), swarmRole → active form. Doc-side only; registry untouched. |
 
 ---
 
