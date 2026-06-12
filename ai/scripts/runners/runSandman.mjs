@@ -90,8 +90,9 @@ export async function runSandman({
     output           = console,
     exit             = code => process.exit(code)
 } = {}) {
-    // Keep manual Sandman runs verbose so lease and REM progress are visible.
-    Memory_Config.data.debug = true;
+    // Keep manual Sandman runs verbose (lease + REM progress). B4-safe activation: drive NEO_DEBUG
+    // via the Provider override API, never mutate the read-only reactive Provider.
+    Memory_Config.setEnvOverride('NEO_DEBUG', true);
 
     output.log('⏳ Initializing Sandman REM Extraction Pipeline...');
 

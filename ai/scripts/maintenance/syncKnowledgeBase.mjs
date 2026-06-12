@@ -15,8 +15,9 @@ import {withHeavyMaintenanceLease}  from '../../daemons/orchestrator/services/He
  */
 
 async function syncKnowledgeBase() {
-    // Enable debug logging to see progress
-    KB_Config.data.debug = true;
+    // Enable debug logging to see progress. B4-safe activation: drive NEO_DEBUG via the Provider
+    // override API, never mutate the read-only reactive Provider.
+    KB_Config.setEnvOverride('NEO_DEBUG', true);
     const staleStrategy   = process.env.NEO_KB_STALE_STRATEGY || undefined;
 
     console.log('⏳ Initializing Knowledge Base Services...');

@@ -59,8 +59,9 @@ async function migrate() {
         process.exit(1);
     }
 
-    // Enable debug logging for visibility
-    MC_Config.data.debug = true;
+    // Enable debug logging for visibility. B4-safe activation: drive NEO_DEBUG via the Provider
+    // override API, never mutate the read-only reactive Provider.
+    MC_Config.setEnvOverride('NEO_DEBUG', true);
 
     try {
         console.log('⏳ Initializing Services...');
