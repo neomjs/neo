@@ -800,7 +800,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-06-12T17:06:15Z</lastmod>
+    <lastmod>2026-06-12T19:31:44Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -820,7 +820,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-06-12T17:06:18Z</lastmod>
+    <lastmod>2026-06-12T19:31:45Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2157,6 +2157,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12995</loc>
+    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12994</loc>
@@ -2649,7 +2650,6 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12686</loc>
-    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12682</loc>
@@ -38670,6 +38670,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/12997</loc>
+    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -39190,7 +39191,6 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/12691</loc>
-    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -56495,6 +56495,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/12942</loc>
+    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
@@ -56523,7 +56524,6 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/12669</loc>
-    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
