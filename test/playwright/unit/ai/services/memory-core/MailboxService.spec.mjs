@@ -49,7 +49,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         SwarmHeartbeatService = (await import('../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
         buildMailboxDelta = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).buildMailboxDelta;
 
-        // Pin this suite to strict-isolation mode (#10252). These tests predate the
+        // Pin this suite to strict-isolation mode. These tests predate the
         // config-gated default and assert `'blocked'`-mode behavior (Unauthorized
         // throws on ungranted DMs, reachable-counterparty trust-lift semantics).
         // Explicit pin preserves their invariants regardless of the library default
@@ -195,7 +195,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             await MailboxService.addMessage({ to: '@bob', subject: 'To Bob', body: 'Secret' });
         });
 
-        // Charlie is registered before the broadcast, so the #11029 send-time audience snapshot includes them.
+            // Charlie is registered before the broadcast, so the send-time audience snapshot includes them.
         GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
 
         // Alice sends to Broadcast
@@ -348,7 +348,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             // `fromIdentity` rather than `from` — the latter is blocked by AuthMiddleware
-            // as a claim-of-authorship key. See #10174 and MailboxService JSDoc.
+            // as a claim-of-authorship key. See MailboxService JSDoc.
             const filterFrom = await MailboxService.listMessages({ fromIdentity: '@alice' });
             expect(filterFrom.messages.length).toBe(2);
 
@@ -474,7 +474,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // Pre-fix, this was rejected with Unauthorized because the reachable-counterparty
         // iteration only matched SENT_TO edges whose target equaled the caller directly,
         // never the AGENT:* sentinel. Replicates the empirical 2026-04-22 Opus↔Gemini
-        // handshake failure documented on PR #10177.
+            // handshake failure documented by the reachable-counterparty regression history.
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({ to: '@bob', subject: 'Re: ping', body: 'body' });
             expect(res.status).toBe('sent');
@@ -490,7 +490,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
 
         // Alice tries to DM Bob — must still be rejected. Ed's broadcast grants DM access
-        // *to Ed* for every authenticated recipient (per #10179 trust lift), but does not
+            // *to Ed* for every authenticated recipient (per reachable-counterparty trust lift), but does not
         // transitively grant Alice reply-access to unrelated third parties. Validates the
         // guard's core invariant survives the broadcast-receipt extension.
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
@@ -660,7 +660,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('#10180 cycle-1 hardening: countMessages rejects unsupported box values explicitly', async () => {
-        // Per @neo-gpt review on PR #11528 cycle 1: previously, `if (box === 'outbox') ... else ...`
+        // Per review feedback: previously, `if (box === 'outbox') ... else ...`
         // silently aliased `box='all'` (deferred per PR body) AND any typo to the inbox query —
         // returning a plausible but partial-result count. This regression pins fail-fast semantics
         // on unsupported enums so callers see the deferred-vs-implemented boundary at call-time
@@ -873,7 +873,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     // ------------------------------------------------------------------
-    // #10174 regression coverage — production-convention addressing
+    // Regression coverage — production-convention addressing
     //
     // The tests above use the `AGENT:<name>` test-fixture convention. Production seeds
     // AgentIdentity nodes under bare `@login` (per ai/scripts/setup/seedAgentIdentities.mjs), and
@@ -902,7 +902,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 expect(res.status).toBe('sent');
                 messageId = res.messageId;
 
-                // Core #10174 assertion: SENT_TO edge MUST persist. Pre-fix, GraphService.linkNodes
+                // Core production-convention assertion: SENT_TO edge MUST persist. Pre-fix, GraphService.linkNodes
                 // culled this silently because @gemini was a seeded AgentIdentity node — wait,
                 // it should have worked. Actually: this specific case was the ONE that worked
                 // pre-fix (bare `@login` IS the seeded form). The value of this test is as a
@@ -1049,7 +1049,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
 
         test('#10259 accidental `@@login` double-prefix normalizes to canonical `@login`', async () => {
-            // Defense-in-depth per #10259: if misformed automation or ID copy-paste
+            // Defense-in-depth: if misformed automation or ID copy-paste
             // sends `to: '@@gemini'`, the normalizeMailboxTarget strip brings it back
             // to the canonical `@gemini` form before linkNodes' FK-style guard runs.
             // Without the strip, the SENT_TO edge gets culled because `@@gemini` is
@@ -1153,14 +1153,23 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
 
         test('#11029 broadcast markRead updates only the caller delivery receipt', async () => {
+            const
+                senderIdentity = '@neo-mailbox-markread-sender',
+                readIdentity   = '@neo-mailbox-markread-reader',
+                unreadIdentity = '@neo-mailbox-markread-unread';
+
             let messageId;
 
-            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+            GraphService.upsertNode({ id: senderIdentity, type: 'AgentIdentity', name: 'MarkReadSender', properties: { accountType: 'agent' } });
+            GraphService.upsertNode({ id: readIdentity,   type: 'AgentIdentity', name: 'MarkReadReader', properties: { accountType: 'agent' } });
+            GraphService.upsertNode({ id: unreadIdentity, type: 'AgentIdentity', name: 'MarkReadUnread', properties: { accountType: 'agent' } });
+
+            await RequestContextService.run({ agentIdentityNodeId: senderIdentity }, async () => {
                 const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'receipt split', body: 'body' });
                 messageId = res.messageId;
             });
 
-            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+            await RequestContextService.run({ agentIdentityNodeId: readIdentity }, async () => {
                 const before = await MailboxService.listMessages({ status: 'unread' });
                 expect(before.messages.map(msg => msg.messageId)).toContain(messageId);
 
@@ -1178,29 +1187,33 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(messageNode.properties.readAt).toBeNull();
 
             const geminiDelivery = GraphService.db.edges.items.find(e =>
-                e.source === messageId && e.type === 'DELIVERED_TO' && e.target === '@gemini'
+                e.source === messageId && e.type === 'DELIVERED_TO' && e.target === readIdentity
             );
             const gptDelivery = GraphService.db.edges.items.find(e =>
-                e.source === messageId && e.type === 'DELIVERED_TO' && e.target === '@gpt'
+                e.source === messageId && e.type === 'DELIVERED_TO' && e.target === unreadIdentity
             );
 
             expect(geminiDelivery.properties.readAt).toBeTruthy();
             expect(gptDelivery.properties.readAt).toBeNull();
 
-            const gptUnread = await RequestContextService.run({ agentIdentityNodeId: '@gpt' }, async () => {
+            const gptUnread = await RequestContextService.run({ agentIdentityNodeId: unreadIdentity }, async () => {
                 return await MailboxService.listMessages({ status: 'unread' });
             });
             expect(gptUnread.messages.map(msg => msg.messageId)).toContain(messageId);
 
-            const geminiDelta = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, () => buildMailboxDelta());
-            const gptDelta = await RequestContextService.run({ agentIdentityNodeId: '@gpt' }, () => buildMailboxDelta());
+            const geminiDelta = await RequestContextService.run({ agentIdentityNodeId: readIdentity }, () => buildMailboxDelta());
+            const gptDelta = await RequestContextService.run({ agentIdentityNodeId: unreadIdentity }, () => buildMailboxDelta());
             expect(geminiDelta.unreadCount).toBe(0);
             expect(gptDelta.unreadCount).toBe(1);
 
-            SwarmHeartbeatService.identity = '@gemini';
-            expect(await SwarmHeartbeatService.getUnreadCount()).toBe(0);
-            SwarmHeartbeatService.identity = '@gpt';
-            expect(await SwarmHeartbeatService.getUnreadCount()).toBe(1);
+            try {
+                SwarmHeartbeatService.identity = readIdentity;
+                expect(await SwarmHeartbeatService.getUnreadCount()).toBe(0);
+                SwarmHeartbeatService.identity = unreadIdentity;
+                expect(await SwarmHeartbeatService.getUnreadCount()).toBe(1);
+            } finally {
+                SwarmHeartbeatService.identity = null;
+            }
         });
 
         test('buildMailboxDelta counts unread and surfaces latest preview for bound identity', async () => {
@@ -1298,7 +1311,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     // ------------------------------------------------------------------
-    // #11417 — Reject or resolve invalid `to:` in add_message instead of silent null-storage.
+    // Reject or resolve invalid `to:` in add_message instead of silent null-storage.
     //
     // Pre-fix the canonical `to:` field accepted any string, and `GraphService.linkNodes`
     // silently culled the SENT_TO edge when the target did not match a registered Node.
@@ -1391,7 +1404,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 });
 
 /**
- * #10252: Mailbox reply policy — `'open'` mode behavior.
+ * Mailbox reply policy — `'open'` mode behavior.
  *
  * Separate top-level describe so the config mutation + serial ordering are
  * self-contained. Mirrors the setup pattern of the parent suite (isolated tmp
@@ -1514,7 +1527,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
 
         // Charlie tries to read Alice's inbox — should fail regardless of reply policy.
         // Open mode only relaxes the WRITE gate; read-path isolation is a separate
-        // scope (`CAN_READ_INBOX_OF`) and stays strict per #10252's Out of Scope.
+        // scope (`CAN_READ_INBOX_OF`) and stays strict per the reply-policy boundary.
         await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             await expect(MailboxService.listMessages({ to: '@alice' })).rejects.toThrow(/Unauthorized/);
         });
@@ -1579,11 +1592,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         });
     });
 
-    // #10334 — A2A Task envelope primitive (Track 2 Phase 1).
+    // A2A Task envelope primitive.
     // Phase 1 stores the optional `task` field as opaque JSON and roundtrips it through
     // get_message + list_messages. State-machine semantics + RBAC enforcement layer on
-    // top in Track 2B (#10338). Schema follows Option C hybrid: A2A spec subset + Neo
-    // extensions (`expiresAt`, `Blocked`) per Discussion #10313 graduation. See
+    // top in the task state-machine layer. Schema follows Option C hybrid: A2A spec subset + Neo
+    // extensions (`expiresAt`, `Blocked`) per the originating Discussion graduation. See
     // https://a2a-protocol.org/latest/specification/.
     test('#10334 task envelope: roundtrips through addMessage/getMessage/listMessages', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
@@ -1673,7 +1686,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
 });
 
 /**
- * #10338: A2A_TASK state-machine + transition authority + idempotency claim-and-lock
+ * A2A_TASK state-machine + transition authority + idempotency claim-and-lock
  */
 test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)', () => {
     test.describe.configure({ mode: 'serial' });
@@ -1891,10 +1904,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
 });
 
 /**
- * #10339: TTL/Expired sweeper — cron-driven stale-task transition to Expired state.
+ * TTL/Expired sweeper — cron-driven stale-task transition to Expired state.
  *
  * Maintenance-role bulk operation that complements the agent-flow `transitionTask` from
- * #10338. Tests the atomic `UPDATE-WHERE` semantics, idempotency, opt-in `expiresAt`
+ * Tests the atomic `UPDATE-WHERE` semantics, idempotency, opt-in `expiresAt`
  * gating, terminal-state preservation, and bulk multi-state transition.
  */
 test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#10339)', () => {
@@ -1957,7 +1970,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         // (Playwright `fullyParallel` interleaves across files even with `mode: 'serial'`
         // per memory `feedback_symmetric_spec_cleanup`) cannot corrupt this suite's seeds.
         // Sweep itself bypasses RBAC; we only need identities for `addMessage` to attach
-        // SENT_BY/SENT_TO edges. Default policy is `'open'` outside the #10174 pin window,
+            // SENT_BY/SENT_TO edges. Default policy is `'open'` outside the strict-isolation pin window,
         // so no `CAN_REPLY_TO` grants are required.
         GraphService.upsertNode({ id: '@ttl-alice', type: 'AGENT', name: 'TTL-Alice', properties: {} });
         GraphService.upsertNode({ id: '@ttl-bob',   type: 'AGENT', name: 'TTL-Bob',   properties: {} });
