@@ -73,6 +73,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo Gallery](https://neomjs.com/examples/component/gallery/index.html)
 - [Neo Helix](https://neomjs.com/examples/component/helix/index.html)
 - [Neo Magic Move - Text](https://neomjs.com/examples/component/magicmovetext/index.html)
+- [Neo Markdown VDOM (streaming)](https://neomjs.com/examples/component/markdown/index.html)
 - [Gallery Controls](https://neomjs.com/examples/component/multiWindowCoronaGallery/childapp/index.html)
 - [Neo Multi-Window Corona Gallery](https://neomjs.com/examples/component/multiWindowCoronaGallery/index.html)
 - [Helix Controls](https://neomjs.com/examples/component/multiWindowHelix/childapp/index.html)
@@ -446,6 +447,7 @@ Here you find the full history of Neo.mjs updates.
 - [Wake Substrate Incident Protocol](https://neomjs.com/raw/learn/agentos/tooling/WakeSubstrateIncidentProtocol.md)
 - [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
 - [0019 — AiConfig Reactive Provider SSOT](https://neomjs.com/raw/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md)
+- [0020 — Agent Harness Concept Anchor](https://neomjs.com/raw/learn/agentos/decisions/0020-agent-harness-concept.md)
 
 ## Guides
 
