@@ -16,13 +16,21 @@ import {ID_SORTS} from '../../../../src/vdom/util/DeltaGrammar.mjs';
  * fragment/vtext lifecycles which legitimately fail DOM element lookups. Findings are asserted
  * by rule identity — never by exact counts of unrelated rules — so the spec survives rule growth.
  *
- * Note this spec imports the module directly WITHOUT the shared setup helper: the registry
- * inherits the kernel's pure-module discipline (no Neo globals, no DOM access at all — liveness
- * is ledger-resolved by contract), and that import-time purity is itself one of the pinned
- * contracts.
+ * The registry is a per-Main-realm plain-object singleton (the `StringFromVnode` sibling
+ * discipline): this STRUCTURE spec exercises it single-threaded, which is exactly the layer
+ * unit tests own — falsification against the real multi-threaded pipeline lives in
+ * whitebox-e2e. Tests isolate through `clear()`; the batch sequence deliberately keeps
+ * counting across clears, so batch-count assertions are delta-based.
  */
 
 const rulesOf = findings => findings.map(finding => finding.rule);
+
+/** Resets the singleton between tests and stamps the window label — the per-test ledger. */
+const freshLedger = (windowId = null) => {
+    DeltaCoherenceRegistry.clear();
+    DeltaCoherenceRegistry.windowId = windowId;
+    return DeltaCoherenceRegistry
+};
 
 /** Evaluates AND commits a batch, returning its findings — the applied-batch happy path. */
 const apply = (registry, batch) => {
@@ -34,7 +42,7 @@ const apply = (registry, batch) => {
 
 test.describe('DeltaCoherenceRegistry — ledger model', () => {
     test('carries the {windowId, idSort, id} model: explicit window label, per-entry sort', () => {
-        const registry = new DeltaCoherenceRegistry({windowId: 'window-7'});
+        const registry = freshLedger('window-7');
 
         expect(registry.windowId).toBe('window-7');
 
@@ -51,15 +59,21 @@ test.describe('DeltaCoherenceRegistry — ledger model', () => {
         expect(live.get('txt-1').idSort).toBe(ID_SORTS.vtext)
     });
 
-    test('per-window partitioning: instances never share state (the teleportation falsifier)', () => {
+    test('per-window partitioning rides the per-realm singleton: a cleared ledger is a new window', () => {
+        // Each browser window owns its own Main realm and therefore its own module instance —
+        // the teleportation falsifier (same id, different windows) cannot collide across realms.
+        // Single-threaded stand-in: clear() models the fresh-realm ledger.
         const
-            windowA = new DeltaCoherenceRegistry({windowId: 'a'}),
-            windowB = new DeltaCoherenceRegistry({windowId: 'b'}),
-            birth   = [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'shared-id', nodeName: 'div'}}];
+            birth   = [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'shared-id', nodeName: 'div'}}],
+            windowA = freshLedger('a');
 
         expect(apply(windowA, birth)).toEqual([]);
+
+        const windowB = freshLedger('b');
+
         // The same id borning in another window is legal — ids are only unique per window.
-        expect(apply(windowB, birth)).toEqual([])
+        expect(apply(windowB, birth)).toEqual([]);
+        expect(windowB.windowId).toBe('b')
     });
 
     test('extractInsertRootId reads vnode.id, falls back to the outerHTML root tag, ignores delta.id', () => {
@@ -90,7 +104,7 @@ test.describe('DeltaCoherenceRegistry — ledger model', () => {
 
 test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defect class)', () => {
     test('catches the replayed stale-baseline insert: a payload root id that is already live', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         // Batch 1: the legitimate birth.
         expect(apply(registry, [
@@ -110,7 +124,7 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
     });
 
     test('catches a string-rendered re-birth through the outerHTML root id', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, outerHTML: '<div id="neo-s-1"></div>'}]);
 
@@ -120,7 +134,7 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
     });
 
     test('catches a data-neo-id string-rendered re-birth (useDomIds: false renderer output)', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, outerHTML: '<div data-neo-id="neo-dn-1"></div>'}]);
 
@@ -130,7 +144,7 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
     });
 
     test('replaceChild births its toId under the same collision rule', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'a', nodeName: 'div'}},
@@ -145,7 +159,7 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
 
     test('re-birth after removal is a legal lifecycle, not a finding', () => {
         const
-            registry = new DeltaCoherenceRegistry(),
+            registry = freshLedger(),
             birth    = [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'cycle-1', nodeName: 'div'}}];
 
         expect(apply(registry, birth)).toEqual([]);
@@ -156,7 +170,7 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
 
 test.describe('DeltaCoherenceRegistry — C-rekey (AC: the lock-flip migration stays silent)', () => {
     test('a legitimate attributes.id identity migration produces ZERO findings', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'neo-cell-a', nodeName: 'div'}}]);
 
@@ -171,7 +185,7 @@ test.describe('DeltaCoherenceRegistry — C-rekey (AC: the lock-flip migration s
     });
 
     test('the freed old id is legally reusable — freed, not died', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'neo-cell-a', nodeName: 'div'}}]);
         apply(registry, [{id: 'neo-cell-a', attributes: {id: 'neo-cell-b'}}]);
@@ -182,7 +196,7 @@ test.describe('DeltaCoherenceRegistry — C-rekey (AC: the lock-flip migration s
     });
 
     test('renaming ONTO a live id is the finding: two nodes now answer to one id', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'x', nodeName: 'div'}},
@@ -197,7 +211,7 @@ test.describe('DeltaCoherenceRegistry — C-rekey (AC: the lock-flip migration s
     });
 
     test('rekey re-points the witnessed child edges: cascade follows the NEW id', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'p-old', nodeName: 'div'}},
@@ -213,7 +227,7 @@ test.describe('DeltaCoherenceRegistry — C-rekey (AC: the lock-flip migration s
     });
 
     test('an attributes.id removal sentinel retires the identity as unaddressable', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'doomed', nodeName: 'div'}}]);
         expect(apply(registry, [{id: 'doomed', attributes: {id: null}}])).toEqual([]);
@@ -228,8 +242,9 @@ test.describe('DeltaCoherenceRegistry — C-rekey (AC: the lock-flip migration s
 test.describe('DeltaCoherenceRegistry — recycling exemplars (AC: pooled runs stay silent)', () => {
     test('pooled updateNode reuse with permanent-resident ids produces ZERO findings across batches', () => {
         const
-            registry = new DeltaCoherenceRegistry(),
-            rowIds   = ['neo-row-1', 'neo-row-2', 'neo-row-3'];
+            registry  = freshLedger(),
+            baseCount = registry.batchCount,
+            rowIds    = ['neo-row-1', 'neo-row-2', 'neo-row-3'];
 
         // Mount batch: the pool's permanent residents are born once.
         expect(apply(registry, rowIds.map((id, index) => (
@@ -248,13 +263,14 @@ test.describe('DeltaCoherenceRegistry — recycling exemplars (AC: pooled runs s
             expect(findings).toEqual([])
         }
 
-        expect(registry.batchCount).toBe(6)
+        // Delta-based: the batch sequence keeps counting across clear() by design.
+        expect(registry.batchCount - baseCount).toBe(6)
     });
 });
 
 test.describe('DeltaCoherenceRegistry — sort-awareness (AC: ledger resolution, never DOM probes)', () => {
     test('vtext lifecycle resolves against the ledger: update, remove-with-parentId, then dead', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'neo-label-1', index: 0, vnode: {id: 'neo-vtext-1', vtype: 'text'}}]);
 
@@ -276,7 +292,7 @@ test.describe('DeltaCoherenceRegistry — sort-awareness (AC: ledger resolution,
     });
 
     test('fragment lifecycle resolves against the ledger identically', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'neo-host-1', index: 0, vnode: {id: 'neo-frag-1', nodeName: 'fragment'}}]);
         expect(registry.liveSnapshot.get('neo-frag-1').idSort).toBe(ID_SORTS.fragment);
@@ -290,7 +306,7 @@ test.describe('DeltaCoherenceRegistry — sort-awareness (AC: ledger resolution,
     });
 
     test('updateVtext refines a first-touch sort guess silently — sort is metadata, never a gate', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         // Pre-session id, first witnessed through a generic touch: guessed element.
         apply(registry, [{action: 'focusNode', id: 'pre-session-1'}]);
@@ -306,7 +322,7 @@ test.describe('DeltaCoherenceRegistry — sort-awareness (AC: ledger resolution,
 
 test.describe('DeltaCoherenceRegistry — seeding and conservatism', () => {
     test('accept-unknown-as-live-on-first-touch: pre-session ids are absorbed, then protected', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         // The ledger was born mid-session; this id predates it. First touch absorbs it…
         expect(apply(registry, [{id: 'pre-session-row', style: {color: 'red'}}])).toEqual([]);
@@ -319,7 +335,9 @@ test.describe('DeltaCoherenceRegistry — seeding and conservatism', () => {
     });
 
     test('an evaluated-but-uncommitted batch leaves the ledger untouched (the rejected-batch contract)', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const
+            registry  = freshLedger(),
+            baseCount = registry.batchCount;
 
         apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'stable-1', nodeName: 'div'}}]);
 
@@ -333,11 +351,11 @@ test.describe('DeltaCoherenceRegistry — seeding and conservatism', () => {
         expect(evaluation.findings).toEqual([]);
         expect(registry.liveSnapshot.has('stable-1')).toBe(true);
         expect(registry.liveSnapshot.has('phantom-1')).toBe(false);
-        expect(registry.batchCount).toBe(1)
+        expect(registry.batchCount - baseCount).toBe(1)
     });
 
     test('within-batch transitions resolve in order, like the consumer applies them', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         // One batch: birth + in-place update + remove tail (U3-legal ordering).
         expect(apply(registry, [
@@ -350,7 +368,7 @@ test.describe('DeltaCoherenceRegistry — seeding and conservatism', () => {
     });
 
     test('never throws on garbage batches — findings or silence, never exceptions', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         expect(() => apply(registry, null)).not.toThrow();
         expect(() => apply(registry, [null, undefined, 42, 'nonsense'])).not.toThrow();
@@ -361,7 +379,7 @@ test.describe('DeltaCoherenceRegistry — seeding and conservatism', () => {
 
 test.describe('DeltaCoherenceRegistry — retirement cascades over witnessed edges', () => {
     test('removeNode retires the witnessed subtree transitively', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'branch', nodeName: 'div'}},
@@ -375,7 +393,7 @@ test.describe('DeltaCoherenceRegistry — retirement cascades over witnessed edg
     });
 
     test('removeAll retires the witnessed children of the parent; the parent survives', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'list', nodeName: 'ul'}},
@@ -397,7 +415,7 @@ test.describe('DeltaCoherenceRegistry — retirement cascades over witnessed edg
     });
 
     test('moveNode re-points the witnessed edge: cascade follows the CURRENT parent', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'old-home', nodeName: 'div'}},
@@ -417,7 +435,7 @@ test.describe('DeltaCoherenceRegistry — retirement cascades over witnessed edg
     });
 
     test('an unaddressable node stays a cascade conduit: ancestor removal still reaches its children', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'grandparent', nodeName: 'div'}},
@@ -435,7 +453,7 @@ test.describe('DeltaCoherenceRegistry — retirement cascades over witnessed edg
     });
 
     test('replaceChild retires the fromId subtree and frees its label for later reuse', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [
             {action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'before', nodeName: 'div'}},
@@ -456,7 +474,7 @@ test.describe('DeltaCoherenceRegistry — retirement cascades over witnessed edg
     });
 
     test('positioning against a retired parent is a C-target finding', () => {
-        const registry = new DeltaCoherenceRegistry();
+        const registry = freshLedger();
 
         apply(registry, [{action: 'insertNode', parentId: 'root', index: 0, vnode: {id: 'gone-parent', nodeName: 'div'}}]);
         apply(registry, [{action: 'removeNode', id: 'gone-parent'}]);

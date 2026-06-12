@@ -66,8 +66,11 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
         Neo.config.useDeltaGrammarGuards     = false;
         Neo.config.useDomApiRenderer         = true;
 
-        // Each test starts with a fresh ledger.
-        delete DeltaUpdates.coherenceRegistry;
+        // Each test starts with a fresh ledger AND an unloaded instrument ref — the dynamic
+        // import is part of the wiring under test.
+        DeltaUpdates.coherenceRegistry?.clear();
+        DeltaUpdates.coherenceRegistry = null;
+        DeltaUpdates.deltaGrammar      = null;
 
         DeltaUpdates.updateNode      = delta => applied.push(delta);
         DeltaUpdates.moveNode        = delta => applied.push(delta);
@@ -90,34 +93,55 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
         DeltaUpdates.updateNode      = originalUpdateNode;
         DeltaUpdates.updateVtext     = originalUpdateVtext;
 
-        delete DeltaUpdates.coherenceRegistry;
+        DeltaUpdates.coherenceRegistry?.clear();
+        DeltaUpdates.coherenceRegistry = null;
+        DeltaUpdates.deltaGrammar      = null;
 
         Neo.config.useDeltaCoherenceRegistry = false;
         Neo.config.useDeltaGrammarGuards     = false;
         Neo.config.useDomApiRenderer         = true
     });
 
-    test('default-off never instantiates the registry and never logs', () => {
+    test('default-off never loads the registry module and never logs', async () => {
         const warnCalls = [];
 
         console.warn = (...args) => warnCalls.push(args);
+
+        // Both flags off: the loader is a no-op — Main bundles stay tiny.
+        await DeltaUpdates.importDeltaInstruments();
 
         DeltaUpdates.update({deltas: [
             {action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-a', nodeName: 'div'}},
             {action: 'insertNode', parentId: 'neo-parent', index: 1, vnode: {id: 'neo-a', nodeName: 'div'}}
         ]});
 
-        expect(DeltaUpdates.coherenceRegistry).toBeUndefined();
+        expect(DeltaUpdates.coherenceRegistry).toBeNull();
+        expect(DeltaUpdates.deltaGrammar).toBeNull();
         expect(warnCalls).toEqual([]);
         expect(applied).toHaveLength(2)
     });
 
-    test('enabled registry logs cross-batch findings WITHOUT blocking dispatch (observe-mode)', () => {
+    test('a set flag stays inert until the dynamic import lands (boot-race grace)', () => {
+        const warnCalls = [];
+
+        console.warn = (...args) => warnCalls.push(args);
+        Neo.config.useDeltaCoherenceRegistry = true;
+
+        // Flag on, module not yet loaded: dispatch proceeds, nothing evaluates, nothing throws.
+        DeltaUpdates.update({deltas: [{id: 'neo-pre-load', style: {color: 'red'}}]});
+
+        expect(DeltaUpdates.coherenceRegistry).toBeNull();
+        expect(warnCalls).toEqual([]);
+        expect(applied).toHaveLength(1)
+    });
+
+    test('enabled registry logs cross-batch findings WITHOUT blocking dispatch (observe-mode)', async () => {
         const
             birth     = {action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-dup', nodeName: 'div'}},
             warnCalls = [];
 
         Neo.config.useDeltaCoherenceRegistry = true;
+        await DeltaUpdates.importDeltaInstruments();
         console.warn = (...args) => warnCalls.push(args);
 
         DeltaUpdates.update({deltas: [birth]});
@@ -133,23 +157,29 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
         expect(warnCalls[0][1].findings.map(finding => finding.rule)).toEqual(['C-insert'])
     });
 
-    test('the ledger commits after application: state advances batch by batch', () => {
+    test('the ledger commits after application: state advances batch by batch', async () => {
         Neo.config.useDeltaCoherenceRegistry = true;
+        await DeltaUpdates.importDeltaInstruments();
+
+        const baseCount = DeltaUpdates.coherenceRegistry.batchCount;
 
         DeltaUpdates.update({deltas: [{action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-x', nodeName: 'div'}}]});
         DeltaUpdates.update({deltas: [{action: 'removeNode', id: 'neo-x'}]});
 
         const registry = DeltaUpdates.coherenceRegistry;
 
-        expect(registry.batchCount).toBe(2);
+        expect(registry.batchCount - baseCount).toBe(2);
         expect(registry.liveSnapshot.has('neo-x')).toBe(false);
         expect(registry.retiredSnapshot.has('neo-x')).toBe(true)
     });
 
-    test('a guard-rejected batch never reaches the ledger (guards throw before the registry evaluates)', () => {
+    test('a guard-rejected batch never reaches the ledger (guards throw before the registry evaluates)', async () => {
         Neo.config.useDeltaCoherenceRegistry = true;
         Neo.config.useDeltaGrammarGuards     = true;
+        await DeltaUpdates.importDeltaInstruments();
         console.error = () => {};
+
+        const baseCount = DeltaUpdates.coherenceRegistry.batchCount;
 
         DeltaUpdates.update({deltas: [{action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-keeper', nodeName: 'div'}}]});
 
@@ -161,12 +191,15 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
         const registry = DeltaUpdates.coherenceRegistry;
 
         // The rejected batch left no trace: the keeper is still live, the sequence unmoved.
-        expect(registry.batchCount).toBe(1);
+        expect(registry.batchCount - baseCount).toBe(1);
         expect(registry.liveSnapshot.has('neo-keeper')).toBe(true)
     });
 
-    test('a mid-application abort never commits the ledger (it mirrors what reached the DOM)', () => {
+    test('a mid-application abort never commits the ledger (it mirrors what reached the DOM)', async () => {
         Neo.config.useDeltaCoherenceRegistry = true;
+        await DeltaUpdates.importDeltaInstruments();
+
+        const baseCount = DeltaUpdates.coherenceRegistry.batchCount;
 
         DeltaUpdates.update({deltas: [{action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-keeper-2', nodeName: 'div'}}]});
 
@@ -183,12 +216,13 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
 
         const registry = DeltaUpdates.coherenceRegistry;
 
-        expect(registry.batchCount).toBe(1);
+        expect(registry.batchCount - baseCount).toBe(1);
         expect(registry.liveSnapshot.has('neo-keeper-2')).toBe(true)
     });
 
-    test('the registry instance is per-window-singleton-owned and carries the windowId label', () => {
+    test('the loaded registry is the per-realm singleton and carries the windowId label', async () => {
         Neo.config.useDeltaCoherenceRegistry = true;
+        await DeltaUpdates.importDeltaInstruments();
 
         DeltaUpdates.update({deltas: [{id: 'neo-touch-1', style: {color: 'red'}}]});
 

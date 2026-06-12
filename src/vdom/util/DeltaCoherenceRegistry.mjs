@@ -9,18 +9,19 @@ import {ID_SORTS, RESERVED_TARGET_IDS, resolveAction, normalizeBatch} from './De
  * visible against the live tree state previous batches left behind. Stateless guards are
  * structurally blind to that class; this registry is the state.
  *
- * **The ledger model is `{windowId, idSort, id}`:** one registry instance per browser window
- * (`Neo.main.DeltaUpdates` is a per-window singleton, so the partition is structural; the
- * `windowId` field keeps it explicit for the registry's own contract), each entry carrying its
- * witnessed id sort. Teleportation and multi-window apps legitimately reuse ids across windows —
- * a global ledger would false-positive; never share an instance across windows.
+ * **Singleton discipline (the `StringFromVnode` sibling pattern):** a plain-object singleton —
+ * no class lifecycle, no instantiation. Each browser window owns its own Main-thread realm, so
+ * the singleton IS per-window by construction; the `windowId` field keeps the partition explicit
+ * for the `{windowId, idSort, id}` ledger model and for diagnostics. Teleportation and
+ * multi-window apps legitimately reuse ids across windows — the per-realm module instance is the
+ * isolation boundary. The module is loaded DYNAMICALLY by `Neo.main.DeltaUpdates` only when
+ * `Neo.config.useDeltaCoherenceRegistry` is enabled: Main-thread bundles stay tiny; with the
+ * flag off, not a byte of this file ships into the page.
  *
  * **Liveness is ledger-resolved, never DOM-probed:** the id space is three-sorted (see
  * `ID_SORTS`) — a failed element lookup does not imply an id is not live (fragment ranges and
  * vtext comment pairs legitimately fail element lookups). The ledger is the oracle; this module
- * performs no DOM access at all, keeping it importable from the Main thread, the VDom worker,
- * and the Node unit-test environment (the same plain-module discipline as `DeltaGrammar.mjs` —
- * stateful instances, but no class lifecycle and no `Neo` globals).
+ * performs no DOM access at all.
  *
  * **Seeding — accept-unknown-as-live-on-first-touch:** a ledger born mid-session starts blind.
  * Instead of seeding from a DOM walk (realm coupling) or staying silent until a full mount
@@ -45,9 +46,11 @@ import {ID_SORTS, RESERVED_TARGET_IDS, resolveAction, normalizeBatch} from './De
  * direction: misses degrade to false negatives, never false positives.
  *
  * **Findings, never throws — observe-mode:** like the U5 candidate predicate, every rule reports
- * `{rule, deltaIndex, detail}` findings and never throws. Promotion to a throwing guard requires
- * a falsification run over the unit corpus plus an example-app interaction pass showing zero
- * false positives, recorded as an explicit decision.
+ * `{rule, deltaIndex, detail}` findings and never throws. The single-threaded unit layer covers
+ * the ledger structure itself; falsification evidence for the real multi-threaded pipeline —
+ * where the motivating defect family actually lives — belongs to whitebox-e2e runs against live
+ * apps with the config flag enabled. Promotion to a throwing guard requires that e2e evidence,
+ * recorded as an explicit decision.
  *
  * **Check/commit split — rejected batches must not mutate the ledger:** `evaluateBatch()`
  * computes findings against the pre-batch state (simulating within-batch transitions in order)
@@ -56,7 +59,7 @@ import {ID_SORTS, RESERVED_TARGET_IDS, resolveAction, normalizeBatch} from './De
  * ledger mirrors what reached the DOM. A mid-loop DOM exception after a successful guard pass
  * desyncs the DOM from the vnode model itself; the uncommitted ledger then under-counts, which
  * first-touch absorbs (missed findings, never false ones).
- * @module vdom/util/DeltaCoherenceRegistry
+ * @namespace Neo.vdom.util.DeltaCoherenceRegistry
  */
 
 /**
@@ -146,63 +149,56 @@ export function witnessInsertSort(delta) {
 /**
  * @summary The per-window cross-batch live-id ledger with coherence rules over delta batches.
  *
- * Plain ES class on purpose — no `Neo.setupClass`, no config lifecycle — so instances are
- * trivially constructable in any realm (Main, VDom worker, Node tests). The consumer owns the
- * instance; `Neo.main.DeltaUpdates` lazily creates one per window behind
- * `Neo.config.useDeltaCoherenceRegistry`.
+ * Plain-object singleton on purpose (the `StringFromVnode` sibling discipline): the consumer
+ * (`Neo.main.DeltaUpdates`) dynamically imports it behind `Neo.config.useDeltaCoherenceRegistry`
+ * and assigns `windowId` once; tests reset shared state via `clear()`.
  */
-export default class DeltaCoherenceRegistry {
+const DeltaCoherenceRegistry = {
     /**
      * Monotonic batch sequence, incremented per committed batch. `bornAt` / `retiredAt`
      * diagnostics reference these values.
-     * @member {Number} #batchSeq
-     * @private
+     * @member {Number} batchSeq=0
+     * @protected
      */
-    #batchSeq = 0;
+    batchSeq: 0,
     /**
      * Witnessed parent→children edges over live (and unaddressable-retired) ids:
      * parentId → Set of child ids. Retirement cascades traverse exactly these edges.
-     * @member {Map<String, Set<String>>} #children
-     * @private
+     * @member {Map<String, Set<String>>} children
+     * @protected
      */
-    #children = new Map();
+    children: new Map(),
     /**
      * The live set: id → `{idSort, parentId, bornAt, witnessed}`.
      * `witnessed` records how the entry came to be known: `'insert'`, `'rekey'`, or
      * `'first-touch'` (pre-session id accepted as live on first reference).
-     * @member {Map<String, Object>} #live
-     * @private
+     * @member {Map<String, Object>} live
+     * @protected
      */
-    #live = new Map();
+    live: new Map(),
     /**
      * The retired set: id → `{idSort, retiredAt, kind}` with `kind` from `RETIREMENT_KINDS`.
      * Distinguishing known-dead from never-seen is the whole point of this map — `C-target`
      * fires only against known-dead ids; never-seen ids first-touch into the live set.
-     * @member {Map<String, Object>} #retired
-     * @private
+     * @member {Map<String, Object>} retired
+     * @protected
      */
-    #retired = new Map();
-
+    retired: new Map(),
     /**
-     * @param {Object} [config]
-     * @param {String|null} [config.windowId=null] Explicit window partition label. The consumer
-     * holds one instance per window either way; the label makes the `{windowId, idSort, id}`
-     * ledger model explicit and surfaces in diagnostics.
+     * Explicit window partition label for the `{windowId, idSort, id}` ledger model. The
+     * per-realm module instance is the actual isolation boundary; the consumer assigns this
+     * once at load time for diagnostics.
+     * @member {String|null} windowId=null
      */
-    constructor({windowId = null} = {}) {
-        /**
-         * @member {String|null} windowId
-         */
-        this.windowId = windowId
-    }
+    windowId: null,
 
     /**
      * The number of committed batches so far.
      * @returns {Number}
      */
     get batchCount() {
-        return this.#batchSeq
-    }
+        return this.batchSeq
+    },
 
     /**
      * A snapshot of the live id set (for tests and diagnostics; mutating it does not affect
@@ -210,16 +206,140 @@ export default class DeltaCoherenceRegistry {
      * @returns {Map<String, Object>}
      */
     get liveSnapshot() {
-        return new Map(this.#live)
-    }
+        return new Map(this.live)
+    },
 
     /**
      * A snapshot of the retired id set (for tests and diagnostics).
      * @returns {Map<String, Object>}
      */
     get retiredSnapshot() {
-        return new Map(this.#retired)
-    }
+        return new Map(this.retired)
+    },
+
+    /**
+     * Births an id into the live view: legal over unknown (fresh birth) and retired (re-birth —
+     * remove→insert is a legitimate node lifecycle); a birth colliding with a LIVE id is the
+     * `C-insert` defect class — two nodes answering to one id.
+     * Re-birthing an `unaddressable`-retired id severs that id's stale child edges first: the
+     * physical id-less node (and its subtree) remains in the DOM, but the label now belongs to
+     * the new node — the orphaned children stay live with an unknown parent (conservative leak
+     * in the false-negative direction).
+     * @param {Object} tx The active transaction
+     * @param {String} id The id being born
+     * @param {String} idSort One of `ID_SORTS`
+     * @param {String|undefined} parentId The witnessed parent
+     * @param {Number} deltaIndex
+     * @param {String} action The acting delta's action (for the finding detail)
+     * @protected
+     */
+    birth(tx, id, idSort, parentId, deltaIndex, action) {
+        if (typeof id !== 'string' || id === '') {
+            return
+        }
+
+        const resolved = this.resolve(tx, id);
+
+        if (resolved.state === 'live') {
+            tx.findings.push({
+                rule      : COHERENCE_RULES.insert,
+                deltaIndex,
+                detail    : `${action} births id "${id}" which is already live (born batch ${resolved.entry.bornAt}, sort ${resolved.entry.idSort})`
+            });
+            return
+        }
+
+        if (resolved.state === 'retired' && resolved.entry.kind === RETIREMENT_KINDS.unaddressable) {
+            this.orphanChildren(tx, id)
+        }
+
+        tx.live.set(id, {idSort, parentId: parentId ?? null, bornAt: this.batchSeq, witnessed: 'insert'});
+        tx.retired.delete(id);
+        tx.touchedRetired.add(id);
+        this.linkChild(tx, parentId, id)
+    },
+
+    /**
+     * Reads a child set through the transaction, cloning the committed set on first write-touch.
+     * @param {Object} tx
+     * @param {String} parentId
+     * @returns {Set<String>}
+     * @protected
+     */
+    childrenOf(tx, parentId) {
+        if (!tx.children.has(parentId)) {
+            tx.children.set(parentId, new Set(this.children.get(parentId) ?? []))
+        }
+
+        return tx.children.get(parentId)
+    },
+
+    /**
+     * Resets every ledger structure (tests, or an explicit operator reset). The window label
+     * survives; the batch sequence deliberately keeps counting so diagnostics stay monotonic.
+     */
+    clear() {
+        const me = this;
+
+        me.children.clear();
+        me.live.clear();
+        me.retired.clear()
+    },
+
+    /**
+     * Applies a transaction's accumulated state onto the committed ledger structures and
+     * advances the batch sequence. Invoked via the `commit` handle `evaluateBatch()` returns.
+     * @param {Object} tx The evaluated transaction
+     * @protected
+     */
+    commitTransaction(tx) {
+        const me = this;
+
+        tx.freed.forEach(id => {
+            me.live.delete(id)
+        });
+
+        tx.touchedRetired.forEach(id => {
+            me.retired.delete(id)
+        });
+
+        tx.retired.forEach((entry, id) => {
+            me.retired.set(id, entry);
+            me.live.delete(id)
+        });
+
+        tx.live.forEach((entry, id) => {
+            me.live.set(id, entry)
+        });
+
+        tx.children.forEach((set, parentId) => {
+            if (set.size === 0) {
+                me.children.delete(parentId)
+            } else {
+                me.children.set(parentId, set)
+            }
+        });
+
+        me.batchSeq++
+    },
+
+    /**
+     * Creates the per-batch transaction: copy-on-write views over the committed maps plus the
+     * findings accumulator. `touchedRetired` records un-retirements (re-births) so commit can
+     * clear them from the committed retired set; `freed` records rekey-released old ids.
+     * @returns {Object}
+     * @protected
+     */
+    createTransaction() {
+        return {
+            children      : new Map(), // parentId → Set (cloned from committed on first touch)
+            findings      : [],
+            freed         : new Set(), // ids released by a rekey — reusable, never "died"
+            live          : new Map(), // id → entry (this batch's births / first-touches / rekeys)
+            retired       : new Map(), // id → retirement entry (this batch's retirements)
+            touchedRetired: new Set()  // ids un-retired this batch
+        }
+    },
 
     /**
      * @summary Evaluates a delta batch against the ledger, returning findings plus a commit handle.
@@ -237,7 +357,7 @@ export default class DeltaCoherenceRegistry {
         const
             me    = this,
             batch = normalizeBatch(deltas),
-            tx    = me.#createTransaction();
+            tx    = me.createTransaction();
 
         batch.forEach((delta, deltaIndex) => {
             if (!delta || typeof delta !== 'object') {
@@ -246,143 +366,46 @@ export default class DeltaCoherenceRegistry {
 
             switch (resolveAction(delta)) {
                 case 'focusNode':
-                    me.#touchTarget(tx, delta.id, deltaIndex, 'focusNode');
+                    me.touchTarget(tx, delta.id, deltaIndex, 'focusNode');
                     break
                 case 'insertNode':
-                    me.#evaluateInsert(tx, delta, deltaIndex);
+                    me.evaluateInsert(tx, delta, deltaIndex);
                     break
                 case 'moveNode':
-                    me.#touchTarget(tx, delta.id, deltaIndex, 'moveNode');
-                    me.#touchParent(tx, delta.parentId, deltaIndex, 'moveNode');
-                    me.#reparent(tx, delta.id, delta.parentId);
+                    me.touchTarget(tx, delta.id, deltaIndex, 'moveNode');
+                    me.touchParent(tx, delta.parentId, deltaIndex, 'moveNode');
+                    me.reparent(tx, delta.id, delta.parentId);
                     break
                 case 'removeAll':
-                    me.#touchParent(tx, delta.parentId, deltaIndex, 'removeAll');
-                    me.#retireChildren(tx, delta.parentId);
+                    me.touchParent(tx, delta.parentId, deltaIndex, 'removeAll');
+                    me.retireChildren(tx, delta.parentId);
                     break
                 case 'removeNode':
-                    me.#touchTarget(tx, delta.id, deltaIndex, 'removeNode');
-                    delta.parentId && me.#touchParent(tx, delta.parentId, deltaIndex, 'removeNode');
-                    me.#retire(tx, delta.id);
+                    me.touchTarget(tx, delta.id, deltaIndex, 'removeNode');
+                    delta.parentId && me.touchParent(tx, delta.parentId, deltaIndex, 'removeNode');
+                    me.retire(tx, delta.id);
                     break
                 case 'replaceChild':
-                    me.#touchTarget(tx, delta.fromId, deltaIndex, 'replaceChild');
-                    me.#touchParent(tx, delta.parentId, deltaIndex, 'replaceChild');
-                    me.#retire(tx, delta.fromId);
-                    me.#birth(tx, delta.toId, ID_SORTS.element, delta.parentId, deltaIndex, 'replaceChild');
+                    me.touchTarget(tx, delta.fromId, deltaIndex, 'replaceChild');
+                    me.touchParent(tx, delta.parentId, deltaIndex, 'replaceChild');
+                    me.retire(tx, delta.fromId);
+                    me.birth(tx, delta.toId, ID_SORTS.element, delta.parentId, deltaIndex, 'replaceChild');
                     break
                 case 'updateNode':
-                    me.#evaluateUpdate(tx, delta, deltaIndex);
+                    me.evaluateUpdate(tx, delta, deltaIndex);
                     break
                 case 'updateVtext':
-                    me.#touchTarget(tx, delta.id, deltaIndex, 'updateVtext', ID_SORTS.vtext);
-                    delta.parentId && me.#touchParent(tx, delta.parentId, deltaIndex, 'updateVtext');
+                    me.touchTarget(tx, delta.id, deltaIndex, 'updateVtext', ID_SORTS.vtext);
+                    delta.parentId && me.touchParent(tx, delta.parentId, deltaIndex, 'updateVtext');
                     break
             }
         });
 
         return {
             findings: tx.findings,
-            commit  : () => me.#commit(tx)
+            commit  : () => me.commitTransaction(tx)
         }
-    }
-
-    /**
-     * Births an id into the live view: legal over unknown (fresh birth) and retired (re-birth —
-     * remove→insert is a legitimate node lifecycle); a birth colliding with a LIVE id is the
-     * `C-insert` defect class — two nodes answering to one id.
-     * Re-birthing an `unaddressable`-retired id severs that id's stale child edges first: the
-     * physical id-less node (and its subtree) remains in the DOM, but the label now belongs to
-     * the new node — the orphaned children stay live with an unknown parent (conservative leak
-     * in the false-negative direction).
-     * @param {Object} tx The active transaction
-     * @param {String} id The id being born
-     * @param {String} idSort One of `ID_SORTS`
-     * @param {String|undefined} parentId The witnessed parent
-     * @param {Number} deltaIndex
-     * @param {String} action The acting delta's action (for the finding detail)
-     * @private
-     */
-    #birth(tx, id, idSort, parentId, deltaIndex, action) {
-        if (typeof id !== 'string' || id === '') {
-            return
-        }
-
-        const resolved = this.#resolve(tx, id);
-
-        if (resolved.state === 'live') {
-            tx.findings.push({
-                rule      : COHERENCE_RULES.insert,
-                deltaIndex,
-                detail    : `${action} births id "${id}" which is already live (born batch ${resolved.entry.bornAt}, sort ${resolved.entry.idSort})`
-            });
-            return
-        }
-
-        if (resolved.state === 'retired' && resolved.entry.kind === RETIREMENT_KINDS.unaddressable) {
-            this.#orphanChildren(tx, id)
-        }
-
-        tx.live.set(id, {idSort, parentId: parentId ?? null, bornAt: this.#batchSeq, witnessed: 'insert'});
-        tx.retired.delete(id);
-        tx.touchedRetired.add(id);
-        this.#linkChild(tx, parentId, id)
-    }
-
-    /**
-     * Applies a transaction's accumulated state onto the committed ledger structures and
-     * advances the batch sequence. Invoked via the `commit` handle `evaluateBatch()` returns.
-     * @param {Object} tx The evaluated transaction
-     * @private
-     */
-    #commit(tx) {
-        const me = this;
-
-        tx.freed.forEach(id => {
-            me.#live.delete(id)
-        });
-
-        tx.touchedRetired.forEach(id => {
-            me.#retired.delete(id)
-        });
-
-        tx.retired.forEach((entry, id) => {
-            me.#retired.set(id, entry);
-            me.#live.delete(id)
-        });
-
-        tx.live.forEach((entry, id) => {
-            me.#live.set(id, entry)
-        });
-
-        tx.children.forEach((set, parentId) => {
-            if (set.size === 0) {
-                me.#children.delete(parentId)
-            } else {
-                me.#children.set(parentId, set)
-            }
-        });
-
-        me.#batchSeq++
-    }
-
-    /**
-     * Creates the per-batch transaction: copy-on-write views over the committed maps plus the
-     * findings accumulator. `touchedRetired` records un-retirements (re-births) so commit can
-     * clear them from the committed retired set.
-     * @returns {Object}
-     * @private
-     */
-    #createTransaction() {
-        return {
-            children      : new Map(), // parentId → Set (cloned from committed on first touch)
-            findings      : [],
-            freed         : new Set(), // ids released by a rekey — reusable, never "died"
-            live          : new Map(), // id → entry (this batch's births / first-touches / rekeys)
-            retired       : new Map(), // id → retirement entry (this batch's retirements)
-            touchedRetired: new Set()  // ids un-retired this batch
-        }
-    }
+    },
 
     /**
      * Evaluates an `insertNode`: parent reference first (witnessing the edge), then the payload
@@ -391,17 +414,17 @@ export default class DeltaCoherenceRegistry {
      * @param {Object} tx
      * @param {Object} delta
      * @param {Number} deltaIndex
-     * @private
+     * @protected
      */
-    #evaluateInsert(tx, delta, deltaIndex) {
-        this.#touchParent(tx, delta.parentId, deltaIndex, 'insertNode');
+    evaluateInsert(tx, delta, deltaIndex) {
+        this.touchParent(tx, delta.parentId, deltaIndex, 'insertNode');
 
         const rootId = extractInsertRootId(delta);
 
         if (rootId) {
-            this.#birth(tx, rootId, witnessInsertSort(delta), delta.parentId, deltaIndex, 'insertNode')
+            this.birth(tx, rootId, witnessInsertSort(delta), delta.parentId, deltaIndex, 'insertNode')
         }
-    }
+    },
 
     /**
      * Evaluates an `updateNode` (including the action-less wire spelling): target reference
@@ -412,16 +435,16 @@ export default class DeltaCoherenceRegistry {
      * @param {Object} tx
      * @param {Object} delta
      * @param {Number} deltaIndex
-     * @private
+     * @protected
      */
-    #evaluateUpdate(tx, delta, deltaIndex) {
+    evaluateUpdate(tx, delta, deltaIndex) {
         const id = delta.id;
 
         if (typeof id !== 'string' || id === '' || RESERVED_TARGET_IDS.has(id)) {
             return // U4 territory (id-less) or an intentional global write — never ledger entries
         }
 
-        const targetOk = this.#touchTarget(tx, id, deltaIndex, 'updateNode');
+        const targetOk = this.touchTarget(tx, id, deltaIndex, 'updateNode');
 
         if (!targetOk || !delta.attributes || !Object.hasOwn(delta.attributes, 'id')) {
             return
@@ -431,7 +454,7 @@ export default class DeltaCoherenceRegistry {
 
         if (REMOVAL_SENTINELS.has(newId)) {
             // Identity removal: the node physically remains (children edges stay), the label dies.
-            this.#retireSingle(tx, id, RETIREMENT_KINDS.unaddressable);
+            this.retireSingle(tx, id, RETIREMENT_KINDS.unaddressable);
             return
         }
 
@@ -439,7 +462,7 @@ export default class DeltaCoherenceRegistry {
             return
         }
 
-        const collision = this.#resolve(tx, newId);
+        const collision = this.resolve(tx, newId);
 
         if (collision.state === 'live') {
             tx.findings.push({
@@ -449,53 +472,38 @@ export default class DeltaCoherenceRegistry {
             });
             // Model what the DOM does: the renamed node stops answering to its old id; the
             // first-witnessed holder keeps the colliding label in the ledger.
-            this.#retireSingle(tx, id, RETIREMENT_KINDS.unaddressable);
+            this.retireSingle(tx, id, RETIREMENT_KINDS.unaddressable);
             return
         }
 
-        this.#rekey(tx, id, newId)
-    }
-
-    /**
-     * Reads a child set through the transaction, cloning the committed set on first write-touch.
-     * @param {Object} tx
-     * @param {String} parentId
-     * @returns {Set<String>}
-     * @private
-     */
-    #childrenOf(tx, parentId) {
-        if (!tx.children.has(parentId)) {
-            tx.children.set(parentId, new Set(this.#children.get(parentId) ?? []))
-        }
-
-        return tx.children.get(parentId)
-    }
+        this.rekey(tx, id, newId)
+    },
 
     /**
      * Witnesses a parent→child edge.
      * @param {Object} tx
      * @param {String|undefined} parentId
      * @param {String} id
-     * @private
+     * @protected
      */
-    #linkChild(tx, parentId, id) {
+    linkChild(tx, parentId, id) {
         if (typeof parentId === 'string' && parentId !== '' && !RESERVED_TARGET_IDS.has(parentId)) {
-            this.#childrenOf(tx, parentId).add(id)
+            this.childrenOf(tx, parentId).add(id)
         }
-    }
+    },
 
     /**
      * Severs a re-birthed `unaddressable` id's stale child edges: the orphaned children remain
      * live (their physical nodes still exist under the old id-less node) with an unknown parent.
      * @param {Object} tx
      * @param {String} id
-     * @private
+     * @protected
      */
-    #orphanChildren(tx, id) {
+    orphanChildren(tx, id) {
         const me = this;
 
-        me.#childrenOf(tx, id).forEach(childId => {
-            const resolved = me.#resolve(tx, childId);
+        me.childrenOf(tx, id).forEach(childId => {
+            const resolved = me.resolve(tx, childId);
 
             if (resolved.state === 'live') {
                 tx.live.set(childId, {...resolved.entry, parentId: null})
@@ -503,7 +511,7 @@ export default class DeltaCoherenceRegistry {
         });
 
         tx.children.set(id, new Set())
-    }
+    },
 
     /**
      * Re-keys a live entry old→new atomically: the entry moves, its child edges move with it
@@ -512,12 +520,12 @@ export default class DeltaCoherenceRegistry {
      * @param {Object} tx
      * @param {String} oldId
      * @param {String} newId
-     * @private
+     * @protected
      */
-    #rekey(tx, oldId, newId) {
+    rekey(tx, oldId, newId) {
         const
             me       = this,
-            resolved = me.#resolve(tx, oldId),
+            resolved = me.resolve(tx, oldId),
             entry    = {...resolved.entry, witnessed: 'rekey'};
 
         // The entry moves to its new key; the old key is "freed", not "died" — it never enters
@@ -528,10 +536,10 @@ export default class DeltaCoherenceRegistry {
         tx.freed.add(oldId);
 
         // Child edges follow the rename.
-        const childSet = me.#childrenOf(tx, oldId);
+        const childSet = me.childrenOf(tx, oldId);
 
         childSet.forEach(childId => {
-            const childResolved = me.#resolve(tx, childId);
+            const childResolved = me.resolve(tx, childId);
 
             if (childResolved.state === 'live') {
                 tx.live.set(childId, {...childResolved.entry, parentId: newId})
@@ -543,12 +551,41 @@ export default class DeltaCoherenceRegistry {
 
         // Parent membership swaps.
         if (entry.parentId) {
-            const siblings = me.#childrenOf(tx, entry.parentId);
+            const siblings = me.childrenOf(tx, entry.parentId);
 
             siblings.delete(oldId);
             siblings.add(newId)
         }
-    }
+    },
+
+    /**
+     * Witnesses a `moveNode` reparenting: the entry's parent edge re-points and child-set
+     * membership moves.
+     * @param {Object} tx
+     * @param {String} id
+     * @param {String|undefined} parentId
+     * @protected
+     */
+    reparent(tx, id, parentId) {
+        if (typeof id !== 'string' || id === '' || typeof parentId !== 'string' || parentId === '') {
+            return
+        }
+
+        const resolved = this.resolve(tx, id);
+
+        if (resolved.state !== 'live') {
+            return
+        }
+
+        const oldParent = resolved.entry.parentId;
+
+        if (oldParent && oldParent !== parentId) {
+            this.childrenOf(tx, oldParent).delete(id)
+        }
+
+        tx.live.set(id, {...resolved.entry, parentId});
+        this.linkChild(tx, parentId, id)
+    },
 
     /**
      * Resolves an id's state through the transaction view: this batch's transitions shadow the
@@ -556,9 +593,9 @@ export default class DeltaCoherenceRegistry {
      * @param {Object} tx
      * @param {String} id
      * @returns {Object} `{state: 'live'|'retired'|'unknown', entry}`
-     * @private
+     * @protected
      */
-    #resolve(tx, id) {
+    resolve(tx, id) {
         if (tx.retired.has(id)) {
             return {state: 'retired', entry: tx.retired.get(id)}
         }
@@ -571,16 +608,16 @@ export default class DeltaCoherenceRegistry {
             return {state: 'unknown', entry: null}
         }
 
-        if (this.#retired.has(id)) {
-            return {state: 'retired', entry: this.#retired.get(id)}
+        if (this.retired.has(id)) {
+            return {state: 'retired', entry: this.retired.get(id)}
         }
 
-        if (this.#live.has(id)) {
-            return {state: 'live', entry: this.#live.get(id)}
+        if (this.live.has(id)) {
+            return {state: 'live', entry: this.live.get(id)}
         }
 
         return {state: 'unknown', entry: null}
-    }
+    },
 
     /**
      * Retires an id as physically removed, cascading transitively over witnessed child edges:
@@ -588,9 +625,9 @@ export default class DeltaCoherenceRegistry {
      * intermediates upgrades them to `removed` (their physical nodes are gone now too).
      * @param {Object} tx
      * @param {String} id
-     * @private
+     * @protected
      */
-    #retire(tx, id) {
+    retire(tx, id) {
         if (typeof id !== 'string' || id === '') {
             return
         }
@@ -600,35 +637,35 @@ export default class DeltaCoherenceRegistry {
             queue = [id];
 
         while (queue.length > 0) {
-            const current = queue.shift(),
-                  resolved = me.#resolve(tx, current);
+            const current  = queue.shift(),
+                  resolved = me.resolve(tx, current);
 
             // Enqueue witnessed children before retiring the parent edge view.
-            me.#childrenOf(tx, current).forEach(childId => queue.push(childId));
+            me.childrenOf(tx, current).forEach(childId => queue.push(childId));
             tx.children.set(current, new Set());
 
             if (resolved.state === 'live') {
-                me.#retireSingle(tx, current, RETIREMENT_KINDS.removed)
+                me.retireSingle(tx, current, RETIREMENT_KINDS.removed)
             } else if (resolved.state === 'retired' && resolved.entry?.kind === RETIREMENT_KINDS.unaddressable) {
                 tx.retired.set(current, {...resolved.entry, kind: RETIREMENT_KINDS.removed})
             }
         }
-    }
+    },
 
     /**
      * Retires every witnessed child of a parent (the `removeAll` children wipe), cascading per
      * child; the parent itself stays live.
      * @param {Object} tx
      * @param {String} parentId
-     * @private
+     * @protected
      */
-    #retireChildren(tx, parentId) {
+    retireChildren(tx, parentId) {
         if (typeof parentId !== 'string' || parentId === '') {
             return
         }
 
-        [...this.#childrenOf(tx, parentId)].forEach(childId => this.#retire(tx, childId))
-    }
+        [...this.childrenOf(tx, parentId)].forEach(childId => this.retire(tx, childId))
+    },
 
     /**
      * Retires exactly one id (no cascade) with the given kind. `removed` dissolves the id's
@@ -637,10 +674,10 @@ export default class DeltaCoherenceRegistry {
      * @param {Object} tx
      * @param {String} id
      * @param {String} kind One of `RETIREMENT_KINDS`
-     * @private
+     * @protected
      */
-    #retireSingle(tx, id, kind) {
-        const resolved = this.#resolve(tx, id);
+    retireSingle(tx, id, kind) {
+        const resolved = this.resolve(tx, id);
 
         if (resolved.state !== 'live') {
             return
@@ -649,12 +686,12 @@ export default class DeltaCoherenceRegistry {
         const entry = resolved.entry;
 
         tx.live.delete(id);
-        tx.retired.set(id, {idSort: entry.idSort, retiredAt: this.#batchSeq, kind});
+        tx.retired.set(id, {idSort: entry.idSort, retiredAt: this.batchSeq, kind});
 
         if (kind === RETIREMENT_KINDS.removed && entry.parentId) {
-            this.#childrenOf(tx, entry.parentId).delete(id)
+            this.childrenOf(tx, entry.parentId).delete(id)
         }
-    }
+    },
 
     /**
      * Reference semantics for ids a delta positions against (`parentId` fields): unknown ids
@@ -665,14 +702,14 @@ export default class DeltaCoherenceRegistry {
      * @param {String|undefined} parentId
      * @param {Number} deltaIndex
      * @param {String} action
-     * @private
+     * @protected
      */
-    #touchParent(tx, parentId, deltaIndex, action) {
+    touchParent(tx, parentId, deltaIndex, action) {
         if (typeof parentId !== 'string' || parentId === '' || RESERVED_TARGET_IDS.has(parentId)) {
             return
         }
 
-        const resolved = this.#resolve(tx, parentId);
+        const resolved = this.resolve(tx, parentId);
 
         if (resolved.state === 'retired') {
             tx.findings.push({
@@ -681,9 +718,9 @@ export default class DeltaCoherenceRegistry {
                 detail    : `${action} positions against retired parent id "${parentId}" (${resolved.entry.kind}, batch ${resolved.entry.retiredAt})`
             })
         } else if (resolved.state === 'unknown') {
-            tx.live.set(parentId, {idSort: ID_SORTS.element, parentId: null, bornAt: this.#batchSeq, witnessed: 'first-touch'})
+            tx.live.set(parentId, {idSort: ID_SORTS.element, parentId: null, bornAt: this.batchSeq, witnessed: 'first-touch'})
         }
-    }
+    },
 
     /**
      * Target semantics for ids a delta acts upon: unknown ids first-touch into the live set
@@ -697,14 +734,14 @@ export default class DeltaCoherenceRegistry {
      * @param {String} action
      * @param {String} [witnessSort=ID_SORTS.element] Sort to witness on first touch
      * @returns {Boolean} false when the reference is a finding or untrackable
-     * @private
+     * @protected
      */
-    #touchTarget(tx, id, deltaIndex, action, witnessSort = ID_SORTS.element) {
+    touchTarget(tx, id, deltaIndex, action, witnessSort = ID_SORTS.element) {
         if (typeof id !== 'string' || id === '' || RESERVED_TARGET_IDS.has(id)) {
             return false
         }
 
-        const resolved = this.#resolve(tx, id);
+        const resolved = this.resolve(tx, id);
 
         if (resolved.state === 'retired') {
             tx.findings.push({
@@ -716,7 +753,7 @@ export default class DeltaCoherenceRegistry {
         }
 
         if (resolved.state === 'unknown') {
-            tx.live.set(id, {idSort: witnessSort, parentId: null, bornAt: this.#batchSeq, witnessed: 'first-touch'})
+            tx.live.set(id, {idSort: witnessSort, parentId: null, bornAt: this.batchSeq, witnessed: 'first-touch'})
         } else if (resolved.entry.idSort !== witnessSort && witnessSort === ID_SORTS.vtext) {
             // Better evidence refines a first-touch sort guess; sort is diagnostic metadata,
             // never a liveness gate, so refinement is silent.
@@ -725,33 +762,6 @@ export default class DeltaCoherenceRegistry {
 
         return true
     }
+};
 
-    /**
-     * Witnesses a `moveNode` reparenting: the entry's parent edge re-points and child-set
-     * membership moves.
-     * @param {Object} tx
-     * @param {String} id
-     * @param {String|undefined} parentId
-     * @private
-     */
-    #reparent(tx, id, parentId) {
-        if (typeof id !== 'string' || id === '' || typeof parentId !== 'string' || parentId === '') {
-            return
-        }
-
-        const resolved = this.#resolve(tx, id);
-
-        if (resolved.state !== 'live') {
-            return
-        }
-
-        const oldParent = resolved.entry.parentId;
-
-        if (oldParent && oldParent !== parentId) {
-            this.#childrenOf(tx, oldParent).delete(id)
-        }
-
-        tx.live.set(id, {...resolved.entry, parentId});
-        this.#linkChild(tx, parentId, id)
-    }
-}
+export default DeltaCoherenceRegistry;

@@ -1,9 +1,7 @@
-import Base                    from '../core/Base.mjs';
-import DeltaCoherenceRegistry  from '../vdom/util/DeltaCoherenceRegistry.mjs';
-import DomAccess               from './DomAccess.mjs';
-import Observable              from '../core/Observable.mjs';
-import {voidAttributes}        from '../vdom/domConstants.mjs';
-import {checkStructuralUniqueness, validateBatch} from '../vdom/util/DeltaGrammar.mjs';
+import Base             from '../core/Base.mjs';
+import DomAccess        from './DomAccess.mjs';
+import Observable       from '../core/Observable.mjs';
+import {voidAttributes} from '../vdom/domConstants.mjs';
 
 const NeoConfig = Neo.config;
 
@@ -60,6 +58,21 @@ class DeltaUpdates extends Base {
         singleton: true
     }
 
+    /**
+     * The dynamically loaded coherence-registry singleton (`Neo.vdom.util.DeltaCoherenceRegistry`),
+     * present only while `Neo.config.useDeltaCoherenceRegistry` is enabled — Main-thread bundles
+     * stay tiny; with the flag off, the module never loads.
+     * @member {Object|null} coherenceRegistry=null
+     * @protected
+     */
+    coherenceRegistry = null
+    /**
+     * The dynamically loaded `Neo.vdom.util.DeltaGrammar` module namespace, present only while
+     * `Neo.config.useDeltaGrammarGuards` is enabled — same tiny-Main discipline as the registry.
+     * @member {Object|null} deltaGrammar=null
+     * @protected
+     */
+    deltaGrammar = null
     /**
      * @member {Number} logDeltasIntervalId=0
      * @protected
@@ -187,6 +200,32 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * Imports the flag-gated dev/test delta instruments (if not already imported):
+     * the delta grammar guards for `Neo.config.useDeltaGrammarGuards`, and the coherence
+     * registry for `Neo.config.useDeltaCoherenceRegistry`.
+     *
+     * Dynamic on purpose — Main-thread bundles must stay tiny: with both flags off, neither
+     * module ships a byte into the page. Re-invoked on runtime config changes, so the flags
+     * can be enabled mid-session (e.g. through the Neural Link).
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async importDeltaInstruments() {
+        let me = this;
+
+        if (NeoConfig.useDeltaGrammarGuards && !me.deltaGrammar) {
+            me.deltaGrammar = await import('../vdom/util/DeltaGrammar.mjs')
+        }
+
+        if (NeoConfig.useDeltaCoherenceRegistry && !me.coherenceRegistry) {
+            const registry = (await import('../vdom/util/DeltaCoherenceRegistry.mjs')).default;
+
+            registry.windowId    = NeoConfig.windowId ?? null;
+            me.coherenceRegistry = registry
+        }
+    }
+
+    /**
      * Imports either (if not already imported):
      * `Neo.main.render.DomApiRenderer`      if Neo.config.useDomApiRenderer === true
      * `Neo.main.render.StringBasedRenderer` if Neo.config.useDomApiRenderer === false
@@ -221,7 +260,10 @@ class DeltaUpdates extends Base {
             scope          : me
         });
 
-        await me.importRenderer()
+        await Promise.all([
+            me.importDeltaInstruments(),
+            me.importRenderer()
+        ])
     }
 
     /**
@@ -623,8 +665,14 @@ class DeltaUpdates extends Base {
      * @return {Promise<void>}
      */
     async onNeoConfigChange(config) {
+        let me = this;
+
         if (Object.hasOwn(config, 'useDomApiRenderer')) {
-            await this.importRenderer()
+            await me.importRenderer()
+        }
+
+        if (Object.hasOwn(config, 'useDeltaGrammarGuards') || Object.hasOwn(config, 'useDeltaCoherenceRegistry')) {
+            await me.importDeltaInstruments()
         }
     }
 
@@ -862,34 +910,24 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * @summary Lazily creates and returns this window's delta coherence registry.
-     *
-     * One instance per browser window — `DeltaUpdates` is a per-window singleton, which IS the
-     * `{windowId, idSort, id}` ledger model's partition; the explicit label rides along for
-     * diagnostics. Teleportation and multi-window apps legitimately reuse ids across windows,
-     * so the instance must never be shared.
-     * @returns {DeltaCoherenceRegistry}
-     * @protected
-     */
-    getCoherenceRegistry() {
-        return this.coherenceRegistry ??= new DeltaCoherenceRegistry({windowId: NeoConfig.windowId ?? null})
-    }
-
-    /**
      * @summary Evaluates a final pre-apply delta batch against the coherence registry, observe-mode.
      *
      * Cross-batch coherence findings (insert-on-live-id, retired-id targets, rename collisions)
      * are logged for measurement only — the registry ships observe-first like the U5 candidate;
-     * promotion to a throwing guard is gated on a documented zero-false-positive falsification
-     * run. Returns the ledger commit handle: the caller invokes it strictly AFTER the
-     * batch applied to the DOM, so a guard-rejected or mid-application-aborted batch never
-     * mutates the ledger.
+     * promotion to a throwing guard is gated on whitebox-e2e falsification evidence against the
+     * real multi-threaded pipeline. Returns the ledger commit handle: the caller invokes it
+     * strictly AFTER the batch applied to the DOM, so a guard-rejected or
+     * mid-application-aborted batch never mutates the ledger.
+     *
+     * The registry is the per-Main-realm singleton `this.coherenceRegistry`, dynamically loaded
+     * by `importDeltaInstruments()` — each browser window owns its own realm, which IS the
+     * `{windowId, idSort, id}` partition.
      * @param {Object[]} deltas The normalized batch after `update` listeners had their mutation window.
      * @returns {Function} The ledger commit handle
      * @protected
      */
     observeDeltaCoherence(deltas) {
-        const evaluation = this.getCoherenceRegistry().evaluateBatch(deltas);
+        const evaluation = this.coherenceRegistry.evaluateBatch(deltas);
 
         if (evaluation.findings.length > 0) {
             console.warn('Delta coherence findings', {deltas, findings: evaluation.findings})
@@ -910,6 +948,7 @@ class DeltaUpdates extends Base {
      */
     validateDeltaGrammarBatch(deltas) {
         const
+            {checkStructuralUniqueness, validateBatch} = this.deltaGrammar,
             validation = validateBatch(deltas, {useDomApiRenderer: NeoConfig.useDomApiRenderer}),
             context    = {
                 deltas,
@@ -970,7 +1009,9 @@ class DeltaUpdates extends Base {
         // properties here, and those modifications will be consumed directly by the update loop below.
         me.fire('update', data);
 
-        if (NeoConfig.useDeltaGrammarGuards) {
+        // The instruments load dynamically (importDeltaInstruments); a just-flipped flag is
+        // inert until its module arrives — dev-mode graceful, deterministic after init.
+        if (NeoConfig.useDeltaGrammarGuards && me.deltaGrammar) {
             // Keep the enabled guard path aligned with post-event array mutations.
             len = deltas.length;
 
@@ -979,7 +1020,7 @@ class DeltaUpdates extends Base {
             }
         }
 
-        if (NeoConfig.useDeltaCoherenceRegistry) {
+        if (NeoConfig.useDeltaCoherenceRegistry && me.coherenceRegistry) {
             // Keep the enabled registry path aligned with post-event array mutations.
             len = deltas.length;
 

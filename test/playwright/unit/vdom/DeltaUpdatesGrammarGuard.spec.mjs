@@ -63,6 +63,8 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
         Neo.config.useDeltaGrammarGuards = false;
         Neo.config.useDomApiRenderer = true;
 
+        DeltaUpdates.deltaGrammar = null;
+
         DeltaUpdates.updateNode = delta => applied.push(delta);
         DeltaUpdates.moveNode   = delta => applied.push(delta);
         DeltaUpdates.removeAll  = delta => applied.push(delta);
@@ -96,7 +98,7 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
         expect(applied).toEqual([batch[0]])
     });
 
-    test('enabled guard rejects illegal batches before the first dispatch', () => {
+    test('enabled guard rejects illegal batches before the first dispatch', async () => {
         const
             batch      = [
                 {id: 'neo-valid-1', style: {color: 'green'}},
@@ -105,6 +107,7 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
             errorCalls = [];
 
         Neo.config.useDeltaGrammarGuards = true;
+        await DeltaUpdates.importDeltaInstruments();
         console.error = (...args) => errorCalls.push(args);
 
         expect(() => DeltaUpdates.update({deltas: batch})).toThrow(/delta grammar validation failed/);
@@ -120,7 +123,7 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
         }
     });
 
-    test('enabled guard passes legal batches through unchanged', () => {
+    test('enabled guard passes legal batches through unchanged', async () => {
         const
             batch = [
                 {id: 'neo-grid-row-1', cls: {add: ['selected']}, style: {transform: 'translateY(32px)'}},
@@ -135,6 +138,7 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
             warnCalls = [];
 
         Neo.config.useDeltaGrammarGuards = true;
+        await DeltaUpdates.importDeltaInstruments();
         console.warn = (...args) => warnCalls.push(args);
 
         expect(() => DeltaUpdates.update({deltas: batch})).not.toThrow();
@@ -142,10 +146,11 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
         expect(warnCalls).toEqual([])
     });
 
-    test('forwards useDomApiRenderer into the insertNode payload contract', () => {
+    test('forwards useDomApiRenderer into the insertNode payload contract', async () => {
         const htmlOnly = [{action: 'insertNode', parentId: 'neo-parent', index: 0, outerHTML: '<div></div>'}];
 
         Neo.config.useDeltaGrammarGuards = true;
+        await DeltaUpdates.importDeltaInstruments();
         Neo.config.useDomApiRenderer = true;
         console.error = () => {};
 
@@ -158,7 +163,7 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
         expect(applied).toEqual(htmlOnly)
     });
 
-    test('logs U5 candidate findings without blocking dispatch', () => {
+    test('logs U5 candidate findings without blocking dispatch', async () => {
         const
             batch     = [
                 {action: 'moveNode', id: 'neo-reused-1', parentId: 'neo-parent', index: 0},
@@ -167,6 +172,7 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
             warnCalls = [];
 
         Neo.config.useDeltaGrammarGuards = true;
+        await DeltaUpdates.importDeltaInstruments();
         console.warn = (...args) => warnCalls.push(args);
 
         expect(() => DeltaUpdates.update({deltas: batch})).not.toThrow();
