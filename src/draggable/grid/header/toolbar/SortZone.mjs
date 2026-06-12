@@ -394,6 +394,26 @@ class SortZone extends BaseSortZone {
 
             me.gridBody.createViewData(false, true)
         }
+
+        // Scrolled-state drop re-sync: restoring the items out of `position: absolute` passes
+        // through a reflow frame where the owner toolbar has no scrollable overflow, so the
+        // browser clamps the toolbar element's native scrollLeft to 0 — while the dedicated
+        // scrollbar element and the body's scroll var still hold the drop-time value (the addon
+        // only re-copies on scrollbar scroll EVENTS, and a same-value scrollTo fires none).
+        // Until the next manual scroll, headers and cells render offset by the full scroll
+        // amount, and a drag started in that window has its term contradict the toolbar's
+        // actual position. Re-apply the worker-side scroll truth to the toolbar element once
+        // the restore has settled.
+        if (owner.scrollLeft > 0) {
+            await me.timeout(30);
+
+            await Neo.main.DomAccess.scrollTo({
+                direction: 'left',
+                id       : owner.id,
+                value    : owner.scrollLeft,
+                windowId : me.windowId
+            })
+        }
     }
 
     /**
