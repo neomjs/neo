@@ -17,10 +17,11 @@ import {test, expect}        from '@playwright/test';
 import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 /**
- * #10017 write-side invariant regression coverage.
+ * Write-side invariant regression coverage.
  *
  * The Memory Core's multi-tenant migration strategy (lazy-tag-on-read, per
  * `learn/agentos/tooling/MultiTenantMigrationGuide.md §1`) depends on a write-side
@@ -59,7 +60,7 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         }
         dbPath = path.join(tmpDir, `neo-writeside-invariant-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
-        // ADR 0019 B4: storagePaths.graph (→ ':memory:') + collections.{memory,session} (→ test-*)
+        // ADR B4: storagePaths.graph (→ ':memory:') + collections.{memory,session} (→ test-*)
         // resolve to test values BY CONSTRUCTION under UNIT_TEST_MODE — no singleton mutation.
 
         GraphService     = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -81,6 +82,26 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
             try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
             try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
         }
+    });
+
+    test.beforeEach(async () => {
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes?.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+            }
+        }
+
+        GraphService.upsertNode({
+            id        : 'AGENT:*',
+            type      : 'BroadcastSentinel',
+            name      : 'Broadcast',
+            properties: {}
+        });
     });
 
     test('MailboxService.addMessage rejects writes without a bound agent identity', async () => {
@@ -115,17 +136,20 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         // Positive case: proper bind → write succeeds. Anchors the invariant to a
         // working baseline so a future regression that falsely rejects ALL writes
         // (over-tightened guard) is also caught.
-        // #11417: also seed `@neo-test-receiver` — `validateMailboxTarget` now rejects
+        // Also seed the receiver — `validateMailboxTarget` now rejects
         // unrecognized targets at addMessage-time (instead of letting linkNodes silently
         // cull the SENT_TO edge), so the test must seed both endpoints to exercise the
         // happy path.
-        GraphService.upsertNode({id: '@neo-test-writer',   type: 'AgentIdentity',     name: 'TestWriter',   properties: {}});
-        GraphService.upsertNode({id: '@neo-test-receiver', type: 'AgentIdentity',     name: 'TestReceiver', properties: {}});
-        GraphService.upsertNode({id: 'AGENT:*',            type: 'BroadcastSentinel', name: 'Broadcast',    properties: {}});
+        const
+            writerIdentity   = '@neo-writeside-invariant-writer',
+            receiverIdentity = '@neo-writeside-invariant-receiver';
 
-        const result = await RequestContextService.run({agentIdentityNodeId: '@neo-test-writer'}, () =>
+        GraphService.upsertNode({id: writerIdentity,   type: 'AgentIdentity', name: 'WriteSideWriter',   properties: {accountType: 'agent'}});
+        GraphService.upsertNode({id: receiverIdentity, type: 'AgentIdentity', name: 'WriteSideReceiver', properties: {accountType: 'agent'}});
+
+        const result = await RequestContextService.run({agentIdentityNodeId: writerIdentity}, () =>
             MailboxService.addMessage({
-                to     : '@neo-test-receiver',
+                to     : receiverIdentity,
                 subject: 'bound-write-succeeds',
                 body   : 'Identity is bound; write must succeed.'
             })
