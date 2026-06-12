@@ -47,8 +47,19 @@ class Viewport extends BaseViewport {
                 ntype: 'label',
                 text : 'Agent OS Command Center'
             }, '->', {
+                ntype    : 'button',
+                cls      : ['agent-button', 'agent-theme-button'],
+                handler  : 'onSwitchTheme',
+                iconCls  : 'fa-solid fa-moon',
+                reference: 'theme-switch-button',
+                tooltip  : {
+                    text     : 'Switch theme',
+                    showDelay: 0,
+                    hideDelay: 0
+                }
+            }, {
                 ntype  : 'button',
-                cls    : ['agent-button'],
+                cls    : ['agent-button', 'agent-detach-button'],
                 iconCls: 'fa fa-window-restore',
                 text   : 'Detach Swarm View',
                 handler: 'onOpenSwarmClick'
