@@ -37,28 +37,20 @@ import { test, expect } from '../fixtures.mjs';
  *
  * Run: npx playwright test GridColumnOverdragScroll -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-// ticket-ref-ok: known-failing since #12933 removed devindex's locked-column config; #12936 re-homes this spec onto the dedicated locked fixture.
-test.describe('Desktop (1920x1080): DevIndex Column Overdrag Scrolling (#12906/#12907)', () => {
-    test.setTimeout(120000); // DevIndex is heavy; two overdrag legs poll-settle sequentially.
+test.describe('Desktop (1920x1080): lockedColumns Fixture Column Overdrag Scrolling (#12906/#12907)', () => {
+    test.setTimeout(120000); // two overdrag legs poll-settle sequentially.
     test.use({ viewport: { width: 1920, height: 1080 } });
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('/apps/devindex/');
+        await page.goto('/examples/grid/lockedColumns/');
         page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
         await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
-        const stopButton = page.locator('.devindex-stop-stream-button');
-        try {
-            await expect(stopButton).toBeVisible({ timeout: 5000 });
-            await stopButton.click({ timeout: 2000, force: true }); // stop the stream so we don't wait for all rows
-        } catch {
-            // stream settled instantly — button never appeared / already hid
-        }
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(500); // settle render before measuring
     });
 
     test('overdrag right then back left to index 0 — scrollbar-routed, locked region frozen, exact landing', async ({ page, neuralLink }) => {
-        const app    = await neuralLink.connectToApp('DevIndex');
+        const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
         const gridId = await resolveGridId(app);
 
         // Worker preconditions: pristine layout + the dragged column's identity (centre index 2)
@@ -149,7 +141,7 @@ test.describe('Desktop (1920x1080): DevIndex Column Overdrag Scrolling (#12906/#
     });
 
     test('scrollbar scrollport is scoped to the centre region — full range, margins = locked widths (#12907)', async ({ page, neuralLink }) => {
-        await neuralLink.connectToApp('DevIndex'); // session-bind keeps the page's worker authoritative
+        await neuralLink.connectToApp('Neo.examples.grid.lockedColumns'); // session-bind keeps the page's worker authoritative
 
         const result = await page.evaluate(async () => {
             const sleep   = ms => new Promise(r => setTimeout(r, ms));
