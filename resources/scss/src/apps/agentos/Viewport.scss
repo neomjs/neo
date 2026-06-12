@@ -25,12 +25,21 @@
             text-transform : uppercase;
             font-family    : var(--agent-font-mono);
             font-weight    : bold;
+            min-height     : 36px;
             transition     : all 0.3s ease;
 
             &:hover {
                 background : rgba(0, 210, 255, 0.1);
                 box-shadow : 0 0 10px var(--agent-accent-swarm);
             }
+        }
+
+        .agent-theme-button {
+            align-items     : center;
+            display         : inline-flex;
+            justify-content : center;
+            min-width       : 40px;
+            padding         : 0;
         }
     }
 
@@ -74,6 +83,24 @@
 
         .neo-panel-header-text {
             color : var(--agent-accent-swarm);
+        }
+    }
+}
+
+@media (max-width: 560px) {
+    .agent-os-viewport.neo-viewport .agent-top-toolbar {
+        padding: 0 12px;
+
+        .agent-detach-button {
+            align-items     : center;
+            display         : inline-flex;
+            justify-content : center;
+            min-width       : 40px;
+            padding         : 0;
+
+            .neo-button-text {
+                display: none;
+            }
         }
     }
 }
