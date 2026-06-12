@@ -275,6 +275,48 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(content).toMatch(/^closedAt: '2026-05-01T00:00:00Z'$/m);
     });
 
+    test('syncDiscussions prunes emptied active chunk directories after archive moves (#13002)', async () => {
+        const discussion = buildDiscussion(24006, {
+            closed  : true,
+            closedAt: '2026-05-01T00:00:00Z'
+        });
+        const oldPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-77', 'discussion-24006.md');
+        const oldRel  = path.relative(aiConfig.projectRoot, oldPath);
+
+        await fs.ensureDir(path.dirname(oldPath));
+        await fs.writeFile(oldPath, 'OLD DISCUSSION CONTENT', 'utf8');
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes   : [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const metadata = {
+            discussions: {
+                24006: {
+                    closed     : false,
+                    closedAt   : null,
+                    contentHash: 'old-hash',
+                    path       : oldRel
+                }
+            }
+        };
+
+        const stats      = await DiscussionSyncer.syncDiscussions(metadata);
+        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'discussions', 'v13.0.0', 'chunk-1', 'discussion-24006.md');
+
+        expect(stats.synced).toEqual([24006]);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+        await expect(fs.pathExists(oldPath)).resolves.toBe(false);
+        await expect(fs.pathExists(path.dirname(oldPath))).resolves.toBe(false);
+        await expect(fs.pathExists(aiConfig.issueSync.discussionsDir)).resolves.toBe(true);
+        expect(metadata.discussions[24006].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+    });
+
     test('delta cutoff stops discussion pagination once a batch predates the cached high-water mark (#12190)', async () => {
         // Mirror of the PR/issue delta: order UPDATED_AT DESC + stop at the cached high-water mark.
         const metadata = {
