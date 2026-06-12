@@ -279,6 +279,14 @@ If the template evolves and your local file falls out of shape-parity, the
 `npm run prepare -- --migrate-config` to refresh `ai/config.mjs` from the
 template (drops local edits — re-apply them afterward).
 
+Note that `npm install` deliberately does NOT populate the Knowledge Base:
+the release artifact carries pre-computed embedding vectors and weighs
+hundreds of MB, so fetching it is an explicit opt-in. Run
+`npm run ai:download-kb` once (release artifact, no re-embedding) or
+`npm run ai:sync-kb` (build the corpus locally) before relying on
+`ask_knowledge_base`-class tools — an empty collection answers with exactly
+this pointer.
+
 Then start the existing local orchestrator command:
 
 ```sh

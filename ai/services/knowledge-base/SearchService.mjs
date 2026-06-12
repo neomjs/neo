@@ -264,8 +264,17 @@ class SearchService extends Base {
         const queryResult = await QueryService.queryDocuments({query, type, limit, includeMetadata: true});
 
         if (queryResult.message || !queryResult.results || queryResult.results.length === 0) {
+            // An EMPTY collection is the common cold-start cause since the KB artifact download
+            // left the npm `prepare` chain (it is opt-in now) — name the one-liner so the absence
+            // is discoverable instead of reading like a bad query.
+            const count = await ChromaManager.getKnowledgeBaseCollection()
+                .then(collection => collection.count())
+                .catch(() => null);
+
             return {
-                answer    : "No relevant documents found in the knowledge base.",
+                answer: count === 0
+                    ? "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb')."
+                    : "No relevant documents found in the knowledge base.",
                 references: []
             };
         }
