@@ -9,11 +9,40 @@
  * right axis — the GraphLog `logId` high-water-mark of what the recipient has already been woken
  * for — and compose with (do NOT replace) the `readAt` reconcile + `flushDeferPolicy` defer.
  *
- * `logId` is the append-only GraphLog position, so it is monotonic: an event at or below the
- * per-subscription watermark has already been included in a prior digest; only events strictly
- * above it are genuinely-new-since-last-wake. The daemon owns the durable, per-subscription
+ * `logId` is the append-only GraphLog position inside one graph epoch, so it is monotonic while
+ * that epoch survives. Graph restore/rebuild can reset the log while wake-daemon state survives;
+ * callers must detect a stale-high watermark against graph-tip evidence, then clamp it to a
+ * trusted pre-batch cursor before filtering. The daemon owns the durable, per-subscription
  * watermark map + its persistence; this module is the pure, unit-testable decision core.
  */
+
+/**
+ * @summary Caps a persisted already-woken watermark only when it sits ahead of graph-tip evidence.
+ *
+ * If graph state is restored/rebuilt while `.neo-ai-data/wake-daemon/woken-watermark.json`
+ * survives, the persisted watermark can sit ahead of the current GraphLog epoch and suppress every
+ * new event. The safe read-side behavior mirrors the daemon cursor clamp, but uses the pre-batch
+ * cursor as the reset ceiling so the first post-reset event (`ceiling + 1`) is still delivered.
+ * In a normal graph epoch where a low cursor replays old events, the persisted watermark remains
+ * authoritative as long as it is not ahead of the batch's trusted GraphLog tip.
+ *
+ * @param {Number} watermark       Persisted per-subscription already-woken watermark.
+ * @param {Number} maxTrustedLogId Highest trusted GraphLog id observed for the current queue.
+ * @param {Number} resetCeiling    Highest trusted GraphLog id before the reset-suspect batch.
+ * @returns {Number}
+ */
+export function clampWatermark(watermark, maxTrustedLogId, resetCeiling = maxTrustedLogId) {
+    const mark = Number(watermark);
+    if (!Number.isFinite(mark) || mark < 0) return 0;
+
+    const trustedMax = Number(maxTrustedLogId);
+    if (!Number.isFinite(trustedMax) || trustedMax < 0 || mark <= trustedMax) return mark;
+
+    const ceiling = Number(resetCeiling);
+    if (!Number.isFinite(ceiling) || ceiling < 0) return trustedMax;
+
+    return Math.min(ceiling, trustedMax);
+}
 
 /**
  * @summary Keeps only the coalesced events that are genuinely new since the last wake — those

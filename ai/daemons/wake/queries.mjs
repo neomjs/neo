@@ -24,22 +24,26 @@ export function initializeDatabase(dbPath) {
  * backlog as one volume-escalated HIGH wake (the full-backlog wake-flood this guards against).
  * Only a genuinely-parseable non-negative integer is trusted as a cursor: a legitimately
  * persisted `0` is preserved, while `NaN` (truncated/empty file) or a negative value falls
- * through to the safe tip.
+ * through to the safe tip. A cursor ahead of the current tip is also clamped back to the tip:
+ * stale wake-daemon state can survive graph restore/rebuild, and trusting that future cursor
+ * would silence the daemon until GraphLog catches up.
  *
  * @param {Database} db        SQLite database handle.
  * @param {String}   stateFile Path to the persisted cursor file.
  * @returns {Number} The log id to resume tail-sync from.
  */
 export function getLastSyncId(db, stateFile) {
+    const maxLogId = getMaxLogId(db);
+
     if (fs.existsSync(stateFile)) {
         const parsed = parseInt(fs.readFileSync(stateFile, 'utf8'), 10);
         // A valid cursor is a non-negative integer; anything else (NaN from a truncated/empty
         // file, or a negative value) is corruption → fail to the tip, never replay from 0.
-        return Number.isInteger(parsed) && parsed >= 0 ? parsed : getMaxLogId(db);
+        return Number.isInteger(parsed) && parsed >= 0 ? Math.min(parsed, maxLogId) : maxLogId;
     }
 
     // Missing cursor (first boot / fresh data dir) → resume at the tip, skip the backlog.
-    return getMaxLogId(db);
+    return maxLogId;
 }
 
 /**
