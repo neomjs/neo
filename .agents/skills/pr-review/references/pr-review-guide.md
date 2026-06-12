@@ -428,6 +428,16 @@ For multi-cycle reviews, after posting a review comment **capture its `commentId
 - **The dominant miss is forgetting the ping.** Pre-Flight after every `manage_issue_comment` create, before yielding: *"captured commentId `<ID>`; will A2A it to `<recipient>`."*
 - **Cold cache** (fresh session / cycle-1 / cross-agent hand-off): full-thread fetch + memory query instead — a scoped fetch lands one isolated comment without the prior context it depends on.
 
+### 10.1 PR-State Freshness Gate (every lifecycle relay, not just review-start)
+
+§2.1's `state: OPEN` check fires at review-START only. Under merge-on-approval, every PR signal (A2A, wake, comment) is stale within seconds of being read. Therefore, immediately before **relaying any review outcome or posting any merge-eligibility claim** — A2A handoff, `[merge-eligible]` broadcast, re-stamp request, chat report, or follow-up action keyed to merge state — run:
+
+```bash
+gh pr view <N> --json state,mergedAt
+```
+
+If `MERGED`/`CLOSED`: relay the TERMINAL state instead; never emit "at the merge gate" language for a settled PR. Relay the review BODY's §9 Strategic-Fit verdict, not the `reviewDecision` enum — the enum flattens `Approve+Follow-Up` (whose leaves file AT merge) into plain `APPROVED`. Empirical provenance: PR `#12950` (a `[merge-eligible]` broadcast landed 15s after the merge) and PR `#12956` (approval relayed off `reviewDecision` alone; the verdict was `Approve+Follow-Up`), both 2026-06-12, operator-flagged. Same check-at-last-moment epistemics as `ticket-create`'s `#12856` two-phase claim. Sunset: if A2A lifecycle messages ever carry a mechanical state echo, compress this to a trigger line.
+
 ## 11. Post-Review-Cycle Reviewer Pickup
 
 After a reviewer posts the substantive review, chains the formal GitHub review
