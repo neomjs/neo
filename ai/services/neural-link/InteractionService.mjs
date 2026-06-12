@@ -55,16 +55,26 @@ class InteractionService extends Base {
     }
 
     /**
-     * Samples component client rects over a time window (motion trace).
-     * @param {Object}   opts
-     * @param {String[]} opts.componentIds
-     * @param {Number}   [opts.durationMs]
-     * @param {Number}   [opts.intervalMs]
-     * @param {String}   [opts.sessionId]
+     * Samples component and raw DOM-node client rects over a time window (motion trace).
+     * @param {Object}         opts
+     * @param {String[]}       [opts.componentIds]
+     * @param {{rowId:String}} [opts.cellsOf]
+     * @param {Number}         [opts.durationMs]
+     * @param {Number}         [opts.intervalMs]
+     * @param {String[]}       [opts.nodeIds]
+     * @param {String}         [opts.sessionId]
+     * @param {String}         [opts.windowId]
      * @returns {Promise<Object>}
      */
-    async observeMotion({componentIds, durationMs, intervalMs, sessionId}) {
-        return await ConnectionService.call(sessionId, 'observe_motion', {componentIds, durationMs, intervalMs})
+    async observeMotion({cellsOf, componentIds, durationMs, intervalMs, nodeIds, sessionId, windowId}) {
+        return await ConnectionService.call(sessionId, 'observe_motion', {
+            cellsOf,
+            componentIds,
+            durationMs,
+            intervalMs,
+            nodeIds,
+            windowId
+        })
     }
 
     /**

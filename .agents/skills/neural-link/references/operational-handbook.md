@@ -37,9 +37,13 @@ When verifying a fix or reproducing a bug interactively:
 When debugging drag-and-drop, animations, or any "elements move wrong" symptom, final-state
 assertions are blind to the motion layer. Three tools cover it:
 
-1. **`observe_motion`** — start it (componentIds + window ≤8s) BEFORE driving the interaction;
-   it samples client rects per tick and returns the rendered-geometry trace. Pair with any
-   dispatch path (simulate_event, in-page MouseEvent, playwright `page.mouse`).
+1. **`observe_motion`** — start it (componentIds and/or nodeIds + window ≤8s) BEFORE driving
+   the interaction; it samples client rects per tick and returns the rendered-geometry trace.
+   Use component ids for component roots and raw node ids for pooled vdom elements such as
+   grid cells. Geometry traces are the right tool for layout/transform/animation defects;
+   paint-only defects (z-order, clipping, opacity/GPU artifacts) still belong to screenshot
+   or browser-side visual inspection. Pair with any dispatch path (simulate_event, in-page
+   MouseEvent, playwright `page.mouse`).
 2. **`get_drag_trace`** — AFTER a drag, returns the SortZone lifecycle ring (start geometry,
    per-move target decisions, item switches, scroll activations, end resolution, grid lock
    verdicts). The logic side; diff it against the `observe_motion` trace to localize whether

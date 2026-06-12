@@ -56,4 +56,47 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — every region body 
             expect(check.counts.vdom,  `body ${body.id}: vdom rows`).toBe(rowCount);
         }
     });
+
+    test('observeMotion samples a header component and raw row-cell nodes in one trace', async ({ neuralLink }) => {
+        const app = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
+
+        const
+            headers = await app.findInstances({ntype: 'grid-header-button'}, ['id', 'text', 'windowId']),
+            header  = (Array.isArray(headers) ? headers[0] : headers) || {};
+
+        expect(header.id, 'a grid-header-button component must exist for the component side of the trace').toBeTruthy();
+
+        const
+            bodies = await app.findInstances({className: 'Neo.grid.Body'}, ['id', 'items.length']),
+            body   = (Array.isArray(bodies) ? bodies.find(item => item.properties?.['items.length'] > 0) : bodies) || {};
+
+        expect(body.id, 'a rendered grid body must exist for the row-cell side of the trace').toBeTruthy();
+
+        const consistency = await app.verifyComponentConsistency(body.id);
+
+        expect(consistency.consistent, `body ${body.id}: row DOM must agree before sampling cells`).toBe(true);
+        expect(consistency.domIds?.length, `body ${body.id}: rendered row ids must be available`).toBeGreaterThan(0);
+
+        const motion = await app.observeMotion({
+            cellsOf     : {rowId: consistency.domIds[0]},
+            componentIds: [header.id],
+            durationMs  : 120,
+            intervalMs  : 60
+        });
+
+        expect(motion.componentIds).toEqual([header.id]);
+        expect(motion.nodeIds.length, 'cellsOf must expand to raw cell node ids').toBeGreaterThan(0);
+        expect(motion.targetIds).toEqual([header.id, ...motion.nodeIds]);
+        expect(motion.samples.length, 'motion trace must contain at least one rendered-geometry sample').toBeGreaterThan(0);
+
+        for (const sample of motion.samples) {
+            expect(sample.rects.length, `sample ${sample.t}: rect count must match sampled targets`).toBe(motion.targetIds.length);
+
+            for (const [index, rect] of sample.rects.entries()) {
+                expect(rect, `sample ${sample.t}: ${motion.targetIds[index]} should resolve to a rendered rect`).not.toBeNull();
+                expect(rect.width,  `sample ${sample.t}: ${motion.targetIds[index]} width`).toBeGreaterThan(0);
+                expect(rect.height, `sample ${sample.t}: ${motion.targetIds[index]} height`).toBeGreaterThan(0);
+            }
+        }
+    });
 });
