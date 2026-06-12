@@ -13,6 +13,7 @@ import {
     createContentIndexEntry,
     updateContentIndex
 } from '../shared/contentIndex.mjs';
+import pruneEmptyDirs               from '../shared/pruneEmptyDirs.mjs';
 import {verifyDiscussionFrontmatter} from './verifyFrontmatterIntegrity.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
@@ -245,6 +246,7 @@ class DiscussionSyncer extends Base {
 
         const cachedDiscussions = metadata.discussions || {};
         const planBuckets = this.#planBuckets(metadata, allDiscussions);
+        let shouldPruneEmptyDirs = false;
 
         for (const discussion of allDiscussions) {
             try {
@@ -325,6 +327,7 @@ class DiscussionSyncer extends Base {
                 if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     try {
                         await fs.unlink(oldAbsolutePath);
+                        shouldPruneEmptyDirs = true;
                         logger.debug(`📦 Moved Discussion #${discussion.number}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         // File might not exist
@@ -341,6 +344,11 @@ class DiscussionSyncer extends Base {
             } catch (e) {
                 logger.warn(`⚠️ Could not sync discussion #${discussion.number}: ${e.message}`);
             }
+        }
+
+        await pruneEmptyDirs(issueSyncConfig.discussionsDir);
+        if (shouldPruneEmptyDirs) {
+            await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'discussions'));
         }
 
         // Cache for the main orchestrator to merge

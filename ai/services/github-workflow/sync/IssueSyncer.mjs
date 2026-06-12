@@ -13,6 +13,7 @@ import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} fr
 import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
 import contentPath                                      from '../shared/contentPath.mjs';
 import {createContentIndexEntry, updateContentIndex}    from '../shared/contentIndex.mjs';
+import pruneEmptyDirs                                  from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -608,6 +609,7 @@ class IssueSyncer extends Base {
         };
 
         const indexMutations = {upsert: [], remove: []};
+        let shouldPruneEmptyDirs = false;
 
         const planBuckets = this.#planBuckets(metadata, allIssues);
 
@@ -650,6 +652,7 @@ class IssueSyncer extends Base {
                     try {
                         const oldPath = this.#resolvePath(oldPathRelative);
                         await fs.unlink(oldPath);
+                        shouldPruneEmptyDirs = true;
                         logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
                     } catch (e) { /* File might not exist */ }
                 }
@@ -690,10 +693,11 @@ class IssueSyncer extends Base {
                     stats.pulled.moved++;
                     try {
                         await fs.rename(oldAbsolutePath, targetPath);
+                        shouldPruneEmptyDirs = true;
                         logger.debug(`📦 Moved #${issueNumber}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
-                        await fs.unlink(oldAbsolutePath).catch(() => {});
+                        await fs.unlink(oldAbsolutePath).then(() => { shouldPruneEmptyDirs = true; }).catch(() => {});
                     }
                 } else {
                     stats.pulled.updated++;
@@ -787,6 +791,11 @@ class IssueSyncer extends Base {
             stats.pulled.count   += refetchStats.refetched.count;
             stats.pulled.updated += refetchStats.refetched.count;
             stats.pulled.issues.push(...refetchStats.refetched.issues);
+        }
+
+        await pruneEmptyDirs(issueSyncConfig.issuesDir);
+        if (shouldPruneEmptyDirs) {
+            await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'issues'));
         }
 
         try {
@@ -1023,6 +1032,7 @@ class IssueSyncer extends Base {
         logger.info('🔄 Reconciling closed issue locations...');
 
         const stats = { count: 0, issues: [] };
+        let shouldPruneEmptyDirs = false;
 
         // Ensure releases are loaded
         if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
@@ -1078,6 +1088,7 @@ class IssueSyncer extends Base {
 
                     // Move the file
                     await fs.rename(currentAbsolutePath, correctPath);
+                    shouldPruneEmptyDirs = true;
 
                     // Update metadata with relative path
                     metadata.issues[issueNumber].path = this.#relativePath(correctPath);
@@ -1091,6 +1102,8 @@ class IssueSyncer extends Base {
                 }
             }
         }
+
+        await pruneEmptyDirs(issueSyncConfig.issuesDir);
 
         if (stats.count > 0) {
             logger.info(`📦 Archived ${stats.count} closed issue(s)`);
@@ -1195,35 +1208,11 @@ class IssueSyncer extends Base {
         await updateContentIndex(issueSyncConfig, {upsert: upserts});
 
         // Prune chunk/version directories emptied by the relocation.
-        await this.#pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'issues'));
-        await this.#pruneEmptyDirs(issueSyncConfig.issuesDir);
+        await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'issues'));
+        await pruneEmptyDirs(issueSyncConfig.issuesDir);
 
         logger.info(`[REBUCKET] moved ${moves.length} issue(s), ${unchanged} unchanged. Distribution: ${JSON.stringify(byVersion)}`);
         return summary;
-    }
-
-    /**
-     * Recursively removes now-empty directories under `root` (after a re-bucket relocation leaves
-     * source chunk/version folders empty). Children are pruned before parents; `root` is never removed.
-     * @param {string} root Absolute directory to prune within.
-     * @private
-     */
-    async #pruneEmptyDirs(root) {
-        let entries;
-        try {
-            entries = await fs.readdir(root, {withFileTypes: true});
-        } catch {
-            return; // root absent — nothing to prune
-        }
-
-        for (const entry of entries) {
-            if (!entry.isDirectory()) continue;
-            const child = path.join(root, entry.name);
-            await this.#pruneEmptyDirs(child);
-            try {
-                if ((await fs.readdir(child)).length === 0) await fs.rmdir(child);
-            } catch { /* race / already removed */ }
-        }
     }
 
     /**
