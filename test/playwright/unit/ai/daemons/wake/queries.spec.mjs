@@ -164,6 +164,17 @@ test.describe('ai/daemons/wake/queries', () => {
                 expect(getLastSyncId(db, stateFile)).toBe(42);
             });
 
+            test('cursor ahead of MAX(log_id) clamps to the current tip', () => {
+                seedLog(99);
+                fs.writeFileSync(stateFile, '150', 'utf8');
+                expect(getLastSyncId(db, stateFile)).toBe(99);
+            });
+
+            test('cursor ahead of an empty GraphLog clamps to 0', () => {
+                fs.writeFileSync(stateFile, '150', 'utf8');
+                expect(getLastSyncId(db, stateFile)).toBe(0);
+            });
+
             test('valid 0 cursor is preserved (not treated as corruption)', () => {
                 seedLog(99);
                 fs.writeFileSync(stateFile, '0', 'utf8');

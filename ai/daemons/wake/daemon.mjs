@@ -63,7 +63,7 @@ import {
     isHeavyDeltaPoll,
     shouldDeferFlush
 } from './flushDeferPolicy.mjs';
-import {filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
+import {clampWatermark, filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
@@ -342,6 +342,7 @@ async function pollLoop() {
         if (logs.length > 0) {
             const invalidNodes = new Set();
             const invalidEdges = new Set();
+            const batchBaseSyncId = lastSyncId;
             let maxId = lastSyncId;
 
             for (const trace of logs) {
@@ -370,7 +371,7 @@ async function pollLoop() {
                     for (const sub of subscriptions) {
                         const eventPayload = evaluateSubscription(sub, trace, entity, nodesMap, edgesMap);
                         if (eventPayload) {
-                            queueEvent(sub, eventPayload);
+                            queueEvent(sub, eventPayload, batchBaseSyncId, maxId);
                         }
                     }
                 }
@@ -441,17 +442,30 @@ function daemonHasDeliveryReceipts(messageId, edgesMap) {
  * Queues an event for coalescing.
  * Applies tuple-based deduplication (type + identity-tuple) to prevent duplicate
  * wake event triggers within a single coalescing window.
- * @param {Object} subscription - The target subscription node
- * @param {Object} eventPayload - The wake event to queue
+ * @param {Object} subscription          The target subscription node.
+ * @param {Object} eventPayload          The wake event to queue.
+ * @param {Number} watermarkResetCeiling Highest trusted GraphLog id before this batch.
+ * @param {Number} watermarkGraphTip     Highest trusted GraphLog id observed in this batch.
  */
-function queueEvent(subscription, eventPayload) {
+function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, watermarkGraphTip = watermarkResetCeiling) {
     const subId = subscription.id;
     if (!coalesceState[subId]) {
         coalesceState[subId] = {
             subscription,
             queue: [],
-            timer: null
+            timer: null,
+            watermarkGraphTip,
+            watermarkResetCeiling
         };
+    } else {
+        coalesceState[subId].watermarkGraphTip = Math.min(
+            coalesceState[subId].watermarkGraphTip ?? watermarkGraphTip,
+            watermarkGraphTip
+        );
+        coalesceState[subId].watermarkResetCeiling = Math.min(
+            coalesceState[subId].watermarkResetCeiling ?? watermarkResetCeiling,
+            watermarkResetCeiling
+        );
     }
 
     // Deduplicate within the coalescing window
@@ -579,7 +593,7 @@ async function flushSubscription(subId) {
         return;
     }
 
-    const { queue, subscription } = state;
+    const { queue, subscription, watermarkGraphTip, watermarkResetCeiling } = state;
     delete coalesceState[subId]; // reset
 
     if (queue.length === 0) return;
@@ -604,7 +618,7 @@ async function flushSubscription(subId) {
     // (logId <= the per-subscription watermark) so a re-queued backlog can't inflate the "N new" count
     // or spoof a HIGH digest from a stale message. Composes with the readAt reconcile above + the
     // heavy-delta defer at the top — reconciling on the right axis (already-woken, not merely unread).
-    const watermark = wokenWatermark[subId] ?? 0;
+    const watermark = clampWatermark(wokenWatermark[subId] ?? 0, watermarkGraphTip, watermarkResetCeiling);
     messages    = filterEventsByWatermark(messages,    watermark);
     tasks       = filterEventsByWatermark(tasks,       watermark);
     permissions = filterEventsByWatermark(permissions, watermark);
