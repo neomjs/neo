@@ -428,6 +428,10 @@ For multi-cycle reviews, after posting a review comment **capture its `commentId
 - **The dominant miss is forgetting the ping.** Pre-Flight after every `manage_issue_comment` create, before yielding: *"captured commentId `<ID>`; will A2A it to `<recipient>`."*
 - **Cold cache** (fresh session / cycle-1 / cross-agent hand-off): full-thread fetch + memory query instead — a scoped fetch lands one isolated comment without the prior context it depends on.
 
+### 10.1 PR-State Freshness Gate
+
+<!-- trigger: before relaying ANY review outcome / merge-eligibility claim / lane-state naming a PR → read ../audits/pr-state-freshness.md (live `state,mergedAt` read; verdict-not-enum) -->
+
 ## 11. Post-Review-Cycle Reviewer Pickup
 
 After a reviewer posts the substantive review, chains the formal GitHub review
