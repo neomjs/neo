@@ -182,7 +182,9 @@ async function ingestTenant() {
         process.exit(1);
     }
 
-    KB_Config.data.debug = true;
+    // Enable debug logging for ingest visibility. B4-safe activation: drive NEO_DEBUG via the
+    // Provider override API, never mutate the read-only reactive Provider.
+    KB_Config.setEnvOverride('NEO_DEBUG', true);
     console.log(`⏳ ai:ingest-tenant — tenant='${args.tenantId}', source=${args.fromStdin ? 'stdin' : args.fromFile}, batchSize=${args.batchSize}`);
 
     let outcome;
