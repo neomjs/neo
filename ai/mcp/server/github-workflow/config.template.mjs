@@ -146,6 +146,15 @@ class Config extends ConfigProvider {
                  */
                 droppedLabels: leaf(['dropped', 'wontfix', 'duplicate']),
                 /**
+                 * Containment denylist: discussions whose `number` or `author.login` match are excluded
+                 * from sync — never written to `resources/content/**` or downstream KB chunks. Cached
+                 * copies are quarantined (file + content-index entry removed) by `number` even when
+                 * GitHub no longer lists them; `author` matching is fetch-time exclusion only (the sync
+                 * cache persists `number`, not author). Policy-free; the empty default is a no-op.
+                 * @type {{numbers: Number[], authors: String[]}}
+                 */
+                discussionDenylist: leaf({numbers: [], authors: []}),
+                /**
                  * The date from which to start synchronizing issues and releases.
                  * @type {string}
                  */

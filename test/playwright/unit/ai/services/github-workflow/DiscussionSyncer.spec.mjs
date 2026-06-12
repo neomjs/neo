@@ -31,6 +31,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     let originalContentRoot;
     let originalQuery;
     let originalSortedReleases;
+    let originalDiscussionDenylist;
     let tmpRoot;
 
     test.beforeAll(async () => {
@@ -45,6 +46,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         originalContentRoot    = aiConfig.issueSync.contentRoot;
         originalQuery          = GraphqlService.query.bind(GraphqlService);
         originalSortedReleases = ReleaseNotesSyncer.sortedReleases;
+        originalDiscussionDenylist = aiConfig.issueSync.discussionDenylist;
     });
 
     test.beforeEach(async () => {
@@ -56,6 +58,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         aiConfig.issueSync.issuesDir      = path.join(tmpRoot, 'issues');
         aiConfig.issueSync.contentRoot    = tmpRoot;
         ReleaseNotesSyncer.sortedReleases      = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
+        aiConfig.issueSync.discussionDenylist  = {numbers: [], authors: []};
     });
 
     test.afterEach(async () => {
@@ -65,6 +68,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         aiConfig.issueSync.discussionsDir  = originalDiscussionsDir;
         aiConfig.issueSync.issuesDir       = originalIssuesDir;
         aiConfig.issueSync.contentRoot     = originalContentRoot;
+        aiConfig.issueSync.discussionDenylist = originalDiscussionDenylist;
 
         await fs.remove(tmpRoot).catch(() => {});
     });
@@ -296,6 +300,139 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 
         // Stopped at page 2 (its oldest discussion predates the high-water mark); page 3 never requested.
         expect(queryCalls).toBe(2);
+    });
+
+    test('containment: skips and excludes a denylisted discussion (by number)', async () => {
+        const allowed = buildDiscussion(25001, {closed: false});
+        const denied  = buildDiscussion(25002, {closed: false});
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [allowed, denied],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        aiConfig.issueSync.discussionDenylist = {numbers: [25002], authors: []};
+
+        const metadata = {discussions: {}};
+        const stats = await DiscussionSyncer.syncDiscussions(metadata);
+
+        const allowedPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25001.md');
+        const deniedPath  = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25002.md');
+
+        expect(stats.synced).toEqual([25001]);                      // allowed synced, denied excluded
+        await expect(fs.pathExists(allowedPath)).resolves.toBe(true);
+        await expect(fs.pathExists(deniedPath)).resolves.toBe(false);
+        expect(metadata.discussions[25002]).toBeUndefined();        // never enters cache/index
+        const index = await fs.readJson(path.join(tmpRoot, '_index.json'));
+        expect(index.some(e => e.type === 'discussions' && e.id === 25001)).toBe(true);
+        expect(index.some(e => e.type === 'discussions' && e.id === 25002)).toBe(false);
+    });
+
+    test('containment: skips a denylisted discussion (by author)', async () => {
+        const denied = buildDiscussion(25003, {closed: false});
+        denied.author = {login: 'astroturf-account'};
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [denied],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        aiConfig.issueSync.discussionDenylist = {numbers: [], authors: ['astroturf-account']};
+
+        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}});
+        const deniedPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25003.md');
+
+        expect(stats.synced).toEqual([]);
+        await expect(fs.pathExists(deniedPath)).resolves.toBe(false);
+    });
+
+    test('containment: quarantines a fetched denylisted previously-synced copy (file + metadata + index)', async () => {
+        const discussion = buildDiscussion(25004, {closed: false});
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        // First run: normal sync writes the file, metadata, and index entry.
+        const metadata = {discussions: {}};
+        await DiscussionSyncer.syncDiscussions(metadata);
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25004.md');
+        const indexPath  = path.join(tmpRoot, '_index.json');
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25004)).toBe(true);
+
+        // Second run: now denylisted → file, metadata, AND index entry are quarantined/removed.
+        aiConfig.issueSync.discussionDenylist = {numbers: [25004], authors: []};
+        const stats = await DiscussionSyncer.syncDiscussions(metadata);
+
+        expect(stats.synced).toEqual([]);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(false);
+        expect(metadata.discussions[25004]).toBeUndefined();
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25004)).toBe(false);
+    });
+
+    test('containment: quarantines a cached denylisted number absent from the current GitHub list (hidden/spam-hammered)', async () => {
+        // Run 1: 25006 syncs normally (file + metadata + index entry).
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [buildDiscussion(25006, {closed: false})],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+        const metadata = {discussions: {}};
+        await DiscussionSyncer.syncDiscussions(metadata);
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25006.md');
+        const indexPath  = path.join(tmpRoot, '_index.json');
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25006)).toBe(true);
+
+        // Run 2: 25006 is now denylisted AND GitHub no longer returns it in the list query.
+        // The cached copy must still be quarantined by number — file + metadata + index entry.
+        aiConfig.issueSync.discussionDenylist = {numbers: [25006], authors: []};
+        GraphqlService.query = async () => ({
+            repository: {discussions: {nodes: [], pageInfo: {hasNextPage: false, endCursor: null}}}
+        });
+        await DiscussionSyncer.syncDiscussions(metadata);
+
+        await expect(fs.pathExists(targetPath)).resolves.toBe(false);
+        expect(metadata.discussions[25006]).toBeUndefined();
+        expect((await fs.readJson(indexPath)).some(e => e.type === 'discussions' && e.id === 25006)).toBe(false);
+    });
+
+    test('containment: empty denylist preserves normal sync (no-op)', async () => {
+        const discussion = buildDiscussion(25005, {closed: false});
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes: [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        aiConfig.issueSync.discussionDenylist = {numbers: [], authors: []};
+
+        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}});
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25005.md');
+
+        expect(stats.synced).toEqual([25005]);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
     });
 });
 
