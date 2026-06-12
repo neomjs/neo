@@ -1,10 +1,10 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
- * Tree-node model for the portal Pull Requests view. Mirrors `Portal.model.Ticket`: group roots +
- * PR leaves carrying their markdown `path`. The `childCount` / `childrenUrl` / `contentDir` /
- * `filePrefix` fields are retained in parity with the tickets model for the shared chunked future
- * surface; the current flat `pulls.json` does not populate them.
+ * Tree-node model for the portal Pull Requests view. Mirrors `Portal.model.Ticket`: release group
+ * roots, chunk folder nodes and PR leaves of the chunked surface. The `childCount` / `childrenUrl` /
+ * `contentDir` / `filePrefix` fields carry the chunk nodes' lazy-load and content-reconstruction
+ * metadata; leaves omit repeated per-item paths by design.
  * @class Portal.model.Pull
  * @extends Neo.data.Model
  */
