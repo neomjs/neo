@@ -1117,14 +1117,15 @@ class HealthService extends Base {
     }
 
     /**
-     * Computes the untagged-legacy-node counts for the multi-tenant migration observability
-     * surface. Operators scrape `healthcheck.migration.untaggedCount.total` to track
+     * Computes the untagged-legacy-node counts for the multi-tenant migration census. Reached via
+     * the on-demand `getMigrationCensus()` (the `ai:migration-census-report` script) — NOT the
+     * healthcheck (the census was relocated off the hot path). Operators read `graph.total` to track
      * how much pre-tenant-aware-era data remains as natural query patterns move writes toward
      * 100% tagged coverage. A zero total is the signal that defaults can be flipped from
      * `'legacy'` to `'private'` for the deployment.
      *
      * Implementation is pure SQLite aggregation via `GraphService.db.storage.db`. Two
-     * `COUNT(*)` queries (one per tracked node label), negligible cost per healthcheck.
+     * `COUNT(*)` queries (one per tracked node label), negligible cost.
      * Filters for `userId` absent OR empty in the node's `properties` JSON.
      *
      * Returns `{available: false, ...zeros}` when the SQLite graph is not yet mounted
