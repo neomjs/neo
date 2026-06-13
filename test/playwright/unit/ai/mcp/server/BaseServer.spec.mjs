@@ -80,6 +80,7 @@ function makeTestServerClass(overrides = {}) {
         getHealthService()         { return overrides.getHealthService?.() ?? null; }
         getHealthExemptTools()     { return overrides.getHealthExemptTools?.() ?? ['healthcheck']; }
         getDependentServices()     { return overrides.getDependentServices?.() ?? []; }
+        buildToolProjectionContext(ctx) { return overrides.buildToolProjectionContext?.(ctx) ?? null; }
         async wrapDispatch(d)      { return overrides.wrapDispatch?.(d) ?? d(); }
         async beforeToolDispatch(ctx) { return overrides.beforeToolDispatch?.(ctx); }
         async onHealthGateFailure(ctx) { return overrides.onHealthGateFailure?.(ctx); }
@@ -151,6 +152,13 @@ test.describe('Neo.ai.mcp.server.BaseServer — optional hook defaults', () => {
         const server = Neo.create(Cls);
 
         await expect(server.buildRequestContext()).resolves.toEqual({});
+    });
+
+    test('buildToolProjectionContext default preserves full tool surface', () => {
+        const Cls    = makeTestServerClass();
+        const server = Neo.create(Cls);
+
+        expect(server.buildToolProjectionContext({request: {}, phase: 'listTools'})).toBeNull();
     });
 });
 
@@ -282,6 +290,40 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
         });
     });
 
+    test('ListTools handler passes projection context into per-server toolService', async () => {
+        const seen = [];
+        const Cls = makeTestServerClass({
+            buildToolProjectionContext: ({request, phase}) => {
+                expect(phase).toBe('listTools');
+                expect(request.params._meta.neoToolProjection).toBe('harness-embedded');
+                return {mode: 'harness-embedded'};
+            },
+            getToolService: () => ({
+                listTools: ({toolProjection}) => {
+                    seen.push(toolProjection);
+                    return {
+                        tools: [{
+                            name       : 'sample',
+                            title      : 'Sample Tool',
+                            description: 'A test tool',
+                            inputSchema: {type: 'object'}
+                        }]
+                    };
+                },
+                callTool: async () => null
+            })
+        });
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
+        server.setupRequestHandlers(mockMcp);
+
+        await mockMcp.getListToolsHandler()({
+            params: {_meta: {neoToolProjection: 'harness-embedded'}}
+        });
+
+        expect(seen).toEqual([{mode: 'harness-embedded'}]);
+    });
+
     test('CallTool handler dispatches via wrapDispatch + formatToolResult', async () => {
         const Cls       = makeTestServerClass();
         const server    = Neo.create(Cls);
@@ -298,6 +340,39 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
             name  : 'sample',
             args  : {x: 1}
         });
+    });
+
+    test('CallTool handler passes projection context into per-server toolService', async () => {
+        let seen;
+        const Cls = makeTestServerClass({
+            buildToolProjectionContext: ({request, phase, toolName, args}) => {
+                expect(phase).toBe('callTool');
+                expect(toolName).toBe('sample');
+                expect(args).toEqual({x: 7});
+                expect(request.params._meta.neoToolProjection).toBe('harness-embedded');
+                return {mode: 'harness-embedded'};
+            },
+            getToolService: () => ({
+                listTools: () => ({tools: []}),
+                callTool : async (name, args, options) => {
+                    seen = options.toolProjection;
+                    return {result: 'ok'};
+                }
+            })
+        });
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
+        server.setupRequestHandlers(mockMcp);
+
+        await mockMcp.getCallToolHandler()({
+            params: {
+                name     : 'sample',
+                arguments: {x: 7},
+                _meta    : {neoToolProjection: 'harness-embedded'}
+            }
+        });
+
+        expect(seen).toEqual({mode: 'harness-embedded'});
     });
 
     test('CallTool handler applies health-gate when healthService present and tool not exempt', async () => {
