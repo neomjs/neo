@@ -259,6 +259,75 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toContain('[Wake Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 
+    test('#13077: a failed wake delivery is retried, then capped with a terminal error', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-retry';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId, label: 'AGENT', properties: { name: 'Test Agent Retry' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                // The test-fail adapter throws deterministically → the delivery path fails without a live target.
+                harnessTargetMetadata: { adapter: 'test-fail', coalesceWindow: 1 }
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        // Cap retries at 2 so the terminal "giving up" path is reached within a few 3s poll cycles.
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, WAKE_MAX_DELIVERY_RETRIES: '2' }
+        });
+
+        const terminalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not reach the retry-cap terminal within timeout')), 20000);
+            // ERROR-level logs go to stderr; watch both streams to be robust.
+            const onData = (data) => {
+                if (data.toString().includes('Giving up wake delivery')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Inject a MESSAGE + SENT_TO edge → triggers the wake → test-fail adapter throws → retry → cap.
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId, label: 'MESSAGE', properties: { from: '@sender', subject: 'Retry Wake Event', priority: 'normal' }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id: edgeId, source: msgId, target: agentId, type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        await terminalPromise;
+
+        // Authoritative assertions on the persisted log: the delivery was attempted MORE THAN ONCE
+        // (retried, not consumed on first failure) and eventually gave up with a bounded terminal error.
+        const logFile     = path.join(DAEMON_DIR, 'wake-daemon.log');
+        const logContents = fs.readFileSync(logFile, 'utf8');
+        const failMatches = logContents.match(/Failed to deliver via test-fail/g) || [];
+        expect(failMatches.length).toBeGreaterThanOrEqual(2);   // initial failure + at least one retry
+        expect(logContents).toContain('Giving up wake delivery'); // bounded terminal reached
+        expect(logContents).toContain('after 2 failed attempts'); // cap respected
+    });
+
     test('detects and delivers a CAN_* permission_granted wake via the dead-to-live edge path', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-perm';

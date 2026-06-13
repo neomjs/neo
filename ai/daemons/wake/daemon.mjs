@@ -381,6 +381,10 @@ async function pollLoop() {
             writeLastSyncId(STATE_FILE, lastSyncId);
         }
 
+        // Re-attempt any wake deliveries that previously failed (live-target dispatch threw). Runs
+        // every poll regardless of new GraphLog activity, independent of the lastSyncId cursor.
+        await attemptDeliveryRetries();
+
     } catch (err) {
         writeLog('ERROR', `[Wake Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
     }
@@ -655,8 +659,12 @@ async function flushSubscription(subId) {
 
     const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}`;
 
-    // Delivery to per-harness adapter
-    await deliverDigest(subscription, digest);
+    // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a live
+    // target) is re-queued for retry; intentional skips and successful deliveries are not.
+    const deliveryOutcome = await deliverDigest(subscription, digest);
+    if (deliveryOutcome === 'failed') {
+        enqueueDeliveryRetry(subscription, digest);
+    }
 
     // Advance the per-subscription watermark to the highest delivered logId so these events are not
     // re-counted if the backlog is re-queued; persist for restart durability. logId is monotonic
@@ -760,6 +768,14 @@ function escapeAppleScriptString(value) {
  * Prevents concurrent osascript calls from colliding when multiple agents wake simultaneously.
  */
 let deliveryPromise = Promise.resolve();
+
+// Bounded retry store for wake digests whose adapter dispatch THREW (a live-target delivery failure,
+// not an intentional skip). The global lastSyncId tail cursor consumes the source GraphLog events
+// regardless of delivery outcome, so a failed delivery is otherwise lost; this holds the built digest
+// and re-attempts it on later poll cycles, independent of the cursor. After the cap the wake is
+// dropped with a terminal error so a persistently-failing target cannot storm or wedge the loop.
+const MAX_DELIVERY_RETRIES   = Number(process.env.WAKE_MAX_DELIVERY_RETRIES) || 5;
+const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, digest, attempts, nextAttemptAt}
 
 /**
  * Delivers the digest to the correct adapter (tmux or osascript).
@@ -1040,15 +1056,76 @@ async function deliverDigest(subscription, digest) {
             await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName);
         } else if (adapter === 'test') {
             writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+        } else if (adapter === 'test-fail') {
+            // Deterministic delivery-failure hook for retry-path testing (no live target needed).
+            throw new Error('test-fail adapter: simulated delivery failure');
         } else {
             writeLog('ERROR', `[Wake Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
         }
+        return 'delivered';
     } catch (err) {
         writeLog('ERROR', `[Wake Daemon] Failed to deliver via ${adapter}: ${err.message}`);
+        return 'failed';
     }
     });
 
     return deliveryPromise;
+}
+
+/**
+ * @summary Queues a wake digest whose adapter dispatch failed for a bounded retry. Keyed by
+ * subscription id; a newer failure for the same subscription replaces the older digest but preserves
+ * the running attempt count so the cap still applies.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest The already-built wake digest to re-deliver.
+ * @returns {void}
+ */
+function enqueueDeliveryRetry(subscription, digest) {
+    const subId    = subscription.id,
+          existing = pendingDeliveryRetries.get(subId);
+
+    pendingDeliveryRetries.set(subId, {
+        subscription,
+        digest,
+        attempts     : existing ? existing.attempts : 0,
+        nextAttemptAt: Date.now() + POLL_INTERVAL_MS
+    });
+}
+
+/**
+ * @summary Re-attempts due wake-delivery retries; called once per poll cycle. A success or skip
+ * clears the entry; a repeat failure increments the attempt count with linear backoff; exceeding
+ * `MAX_DELIVERY_RETRIES` drops the entry with a terminal ERROR so a persistently-unreachable target
+ * cannot storm or wedge the loop.
+ * @returns {Promise<void>}
+ */
+async function attemptDeliveryRetries() {
+    if (pendingDeliveryRetries.size === 0) return;
+
+    const now = Date.now();
+
+    for (const [subId, entry] of pendingDeliveryRetries) {
+        if (entry.nextAttemptAt > now) continue;
+
+        const outcome = await deliverDigest(entry.subscription, entry.digest);
+
+        if (outcome === 'failed') {
+            entry.attempts += 1;
+            if (entry.attempts >= MAX_DELIVERY_RETRIES) {
+                pendingDeliveryRetries.delete(subId);
+                writeLog('ERROR',
+                    `[Wake Daemon] Giving up wake delivery for ${subId} after ${entry.attempts} failed attempts; wake dropped.`
+                );
+            } else {
+                entry.nextAttemptAt = now + POLL_INTERVAL_MS * entry.attempts;
+            }
+        } else {
+            pendingDeliveryRetries.delete(subId);
+            writeLog('INFO',
+                `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
+            );
+        }
+    }
 }
 
 /**
