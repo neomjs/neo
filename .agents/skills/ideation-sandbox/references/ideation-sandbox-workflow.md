@@ -183,7 +183,9 @@ For the canonical markdown template (post-Epic `#11796` family-keyed shape, same
 
 **Precondition (if author's family has no other active identity):** author posts `[AUTHOR_SIGNAL]` at the current body anchor *before* the final non-author-APPROVED poll. The author-signal covers the author-family's quorum representation per §6.2 — without it the floor-2 cannot be reached when only one non-author family is active.
 
-When the Signal Ledger reaches the §6.2 quorum, the author executes a 4-step graduation sequence: (1) add `[GRADUATED_TO_TICKET: #N]` marker; (2) update body with the §6.6 required sections plus any `Decision Record:` line; (3) file the ADR / Epic / ticket / PR; (4) `closeDiscussion(reason: RESOLVED)` via GraphQL. `Decision Record: REQUIRED` => file/update ADR; name merge gate. Full step-by-step sequence + closed-Discussion-as-archaeological-source framing in [`audits/consensus-mandate.md §author-actions`](../audits/consensus-mandate.md).
+At §6.2 quorum, author graduates in order: add `[GRADUATED_TO_TICKET: #N]`; update §6.6 sections plus any `Decision Record:` line; file the ADR / Epic / ticket / PR; then `closeDiscussion(reason: RESOLVED)`. `Decision Record: REQUIRED` => file/update ADR; name merge gate. Full sequence + archaeological-source framing: [`audits/consensus-mandate.md §author-actions`](../audits/consensus-mandate.md).
+
+Closure: [`audits/discussion-lifecycle-closure.md`](../audits/discussion-lifecycle-closure.md); guard: `npm run ai:audit-discussion-lifecycle`.
 
 ### 6.8 Two-Axis Substrate: Discussion-Graduation + PR-Merge
 
