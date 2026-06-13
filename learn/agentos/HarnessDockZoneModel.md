@@ -1,0 +1,225 @@
+# Agent Harness Dock-Zone Model Contract
+
+`@summary` Minimal model contract for Agent Harness docking: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
+
+## Scope
+
+This contract is the first concrete slice of the QT-grade docking line under the Agent Harness. It defines the data model that future rendering, preview, and persistence slices consume.
+
+This document does not implement drag previews, split/tab rendering, layout persistence, or cross-window choreography. Those are follow-up leaves. This slice exists so those leaves do not invent incompatible object models.
+
+## Existing Substrates
+
+The contract composes with these current Neo substrates:
+
+| Substrate | Current authority | Contract implication |
+|---|---|---|
+| Declarative layouts | `learn/guides/uibuildingblocks/Layouts.md`, `src/layout/HBox.mjs`, `src/layout/VBox.mjs`, `src/layout/Card.mjs` | Dock splits map to `hbox` / `vbox`; tabbed slots map to a tab header plus `card`-style active content. |
+| JSON-first UI state | `learn/benefits/JSONFirstUIs.md`, `learn/gettingstarted/DescribingTheUI.md` | Persist only pure JSON. Runtime component instances, DOMRects, and window objects stay out of the serialized model. |
+| Dashboard drag substrate | `src/dashboard/Container.mjs`, `src/draggable/dashboard/SortZone.mjs` | Future dock rendering should adapt this model into dashboard/sort-zone mechanics instead of forking drag handling. |
+| Cross-window geometry | `src/manager/Window.mjs`, `src/manager/DragCoordinator.mjs`, `src/main/addon/WindowPosition.mjs` | Dock drop targeting uses existing screen-coordinate and remote-drag authority. The model stores the accepted result, not transient geometry. |
+| Harness self-use | `apps/agentos/view/Viewport.mjs`, ADR 0020 | The first independent use shape is the Agent Harness operator cockpit: strategy, swarm, intervention, terminal, transcript, and inspector panes arranged as a persistent workspace. |
+
+No dedicated dock manager exists today. ADR 0020 names QT-grade docking as a gap, and the KB/source sweep found dashboard drag and layout primitives but no generic `DockManager`.
+
+## Ownership Boundary
+
+The model is a harness product contract now, not a new core layout primitive yet.
+
+Initial durable surface: this document.
+
+Future code ownership should follow this decision tree:
+
+1. If the first implementation only proves Agent Harness workspace persistence, place the adapter in the harness app layer and keep the model documented here.
+2. If a second independent in-repo use lands, lift the reusable model/parser into the dashboard/container substrate. Candidate second use: the Portal learning workspace, where docs, Monaco/live preview, output panes, and inspectors benefit from saveable split/tab workspaces.
+3. Only after reusable behavior exceeds dashboard adaptation should a generic core layout primitive be considered.
+
+Rejected alternatives:
+
+- **Core `src/layout/Dock` first:** rejected. Layout classes arrange existing children; they do not own drag, remote-window handoff, component re-parenting, or persistence semantics.
+- **Dashboard-only implicit state:** rejected. `Dashboard` already moves live components, but without a serializable model contract it cannot become a stable blueprint/persistence surface.
+- **External docking-library object model:** rejected. Neo must preserve worker-owned JSON, live component identity, and multi-window object continuity.
+- **Pixel-absolute workspace persistence:** rejected. Persist semantic splits/tabs/order; runtime pixels and preview rectangles are derived state.
+
+## Data Model
+
+The persisted document is a versioned JSON object:
+
+```json
+{
+  "schema": "neo.harness.dockZone.v1",
+  "root": "root",
+  "items": {
+    "strategy": {
+      "componentRef": "strategy",
+      "title": "Strategy",
+      "kind": "panel"
+    },
+    "swarm": {
+      "componentRef": "swarm",
+      "title": "Swarm",
+      "kind": "panel"
+    },
+    "terminal": {
+      "componentRef": "terminal",
+      "title": "Terminal",
+      "kind": "terminal"
+    },
+    "inspector": {
+      "componentRef": "inspector",
+      "title": "Inspector",
+      "kind": "inspector"
+    }
+  },
+  "nodes": {
+    "root": {
+      "type": "edge-zone",
+      "zones": {
+        "center": "main-tabs",
+        "right": "side-split"
+      }
+    },
+    "main-tabs": {
+      "type": "tabs",
+      "items": ["strategy", "swarm"],
+      "activeItemId": "swarm"
+    },
+    "side-split": {
+      "type": "split",
+      "orientation": "vertical",
+      "children": ["terminal-tabs", "inspector-tabs"],
+      "sizes": [0.55, 0.45]
+    },
+    "terminal-tabs": {
+      "type": "tabs",
+      "items": ["terminal"],
+      "activeItemId": "terminal"
+    },
+    "inspector-tabs": {
+      "type": "tabs",
+      "items": ["inspector"],
+      "activeItemId": "inspector"
+    }
+  }
+}
+```
+
+### Node Types
+
+| Type | Required fields | Meaning | Layout mapping |
+|---|---|---|---|
+| `edge-zone` | `zones` | Root or nested edge container with `top`, `right`, `bottom`, `left`, and/or `center` entries. Missing zones are empty. | A future adapter composes edge bands around the center with `vbox`/`hbox`. |
+| `split` | `orientation`, `children` | Ordered splitter container. `orientation: horizontal` means children are side-by-side; `vertical` means stacked. | `horizontal` -> `hbox`; `vertical` -> `vbox`. |
+| `tabs` | `items`, `activeItemId` | Ordered tab slot containing stable item ids. | Tab header plus `card` active content. |
+
+### Item Records
+
+`items` is an id-keyed catalog. Item ids are stable workspace identity, not necessarily component instance ids.
+
+Required item fields:
+
+- `componentRef`: stable reference used by the rendering adapter to locate or create the component.
+- `title`: display label for tab headers and persistence UIs.
+- `kind`: coarse category such as `panel`, `terminal`, `transcript`, `inspector`, or `tool`.
+
+Optional item fields:
+
+- `blueprint`: a serializable Neo component config when the item is created from saved state rather than a live instance.
+- `closable`, `pinnable`, `movable`: UI policy hints. Defaults are adapter-defined.
+- `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, secrets, PATs, or live component objects.
+
+## Serializable vs Runtime State
+
+Persist:
+
+- `schema`
+- root node id
+- node ids, types, zone mapping, split orientation, split child order, normalized split sizes
+- tab item order and `activeItemId`
+- stable item ids and JSON-only item metadata
+
+Do not persist:
+
+- `DOMRect`, screen coordinates, hover rectangles, and preview overlays
+- `windowId`, `appName`, `sourceSortZone`, `targetSortZone`, `currentIndex`, `draggedItem`
+- live `Neo.component.Base` instances
+- functions, controllers, event listeners, PATs, or harness credentials
+- transient popup/window-drag flags such as `isWindowDragging`
+
+If a future slice needs to restore detached windows, it should persist semantic placement plus an optional window placement hint separately. The dock-zone model remains the component-layout authority, not an OS-window session dump.
+
+## Operations
+
+Future implementations should mutate the model through semantic operations instead of direct tree surgery in UI handlers:
+
+| Operation | Inputs | Result |
+|---|---|---|
+| `moveItem` | `itemId`, `targetNodeId`, `index` | Reorders an item within a tab slot or split-derived target. |
+| `splitNode` | `targetNodeId`, `orientation`, `beforeNodeId`, `afterNodeId`, `sizes` | Replaces a node with a split containing the old and new nodes. |
+| `addTab` | `itemId`, `tabsNodeId`, `index` | Inserts an item into a tab slot and may set `activeItemId`. |
+| `detachItem` | `itemId` | Removes an item from the dock tree while preserving its item record for popup/window ownership. |
+| `closeItem` | `itemId` | Removes an item from both tree and catalog when policy permits. |
+| `normalizeTree` | full model | Removes empty tabs/splits and validates references after any operation. |
+
+Every operation must maintain:
+
+- all referenced item ids exist in `items`
+- every item appears at most once in the dock tree unless a future explicit mirroring model is added
+- split sizes match child count and normalize to `1`
+- `tabs.activeItemId` is either null for empty tabs or one of `tabs.items`
+- empty structural nodes are collapsed before serialization
+
+## Drag Integration Boundary
+
+The dock model does not own pointer events.
+
+Future drag-to-dock preview slices should listen to existing drag surfaces and produce a transient `dockPreview` object:
+
+```json
+{
+  "itemId": "strategy",
+  "targetNodeId": "main-tabs",
+  "placement": "tab-after",
+  "index": 1
+}
+```
+
+`dockPreview` is runtime-only. On drop, the adapter converts it into one of the semantic operations above. This keeps the existing `DashboardSortZone` / `DragCoordinator` responsibilities intact:
+
+- `DashboardSortZone` and base sort zones keep drag lifecycle, proxy, overdrag, and reorder math.
+- `DragCoordinator` keeps cross-window source/target arbitration.
+- `Window` keeps screen-coordinate to window-id lookup.
+- The dock model records the accepted workspace shape after the drop.
+
+## Blueprint Compatibility
+
+The contract is deliberately JSON-first. A future renderer can project the model into Neo configs without changing the persisted shape:
+
+- `split.orientation: horizontal` -> container `layout: {ntype: 'hbox', align: 'stretch'}`
+- `split.orientation: vertical` -> container `layout: {ntype: 'vbox', align: 'stretch'}`
+- `split.sizes` -> child `flex` values
+- `tabs.items` -> tab header order plus card children
+- `activeItemId` -> active card index derived from `items.indexOf(activeItemId)`
+
+The adapter must treat `componentRef` as the stable bridge between persisted layout and live component ownership. When no live component exists, the adapter may instantiate from `item.blueprint`; when a live component exists, it should move/re-parent the instance without destroying it, matching the existing dashboard and multi-window precedent.
+
+## Demand Validation
+
+The contract is justified by two independent shapes:
+
+1. Enterprise desktop migration signal: users expect QT/WPF-class dock/split/tab workspaces in web-delivered software.
+2. Agent Harness self-use: operators need persistent workspaces for fleet, transcript, terminal, strategy, preview, and inspector panes, with panes detachable into OS windows and reintegratable without losing state.
+
+The Portal learning workspace is the next in-repo validation candidate before lifting any implementation into a generic core primitive.
+
+## Acceptance Boundaries
+
+This contract satisfies the model-contract leaf when:
+
+- the tree covers edge zones, nested splits, tabbed slots, stable item identity, and serializable ordering
+- ownership is documented as harness-contract-first, dashboard-adapter-second, core-layout-last
+- serializable fields are separated from drag/preview/window runtime state
+- a second independent use shape is named
+- no preview UI, persistence implementation, or split/tab rendering is bundled into this slice
+
+If a future PR introduces new `.mjs` files for this contract, it must run `structural-pre-flight` before choosing the destination.
