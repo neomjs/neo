@@ -1082,14 +1082,15 @@ class HealthService extends Base {
     }
 
     /**
-     * Computes the untagged-legacy-node counts for the multi-tenant migration observability
-     * surface. Operators scrape `healthcheck.migration.untaggedCount.total` to track
+     * Computes the untagged-legacy-node counts for the multi-tenant migration census. Reached via
+     * the on-demand `getMigrationCensus()` (the `ai:migration-census-report` script) — NOT the
+     * healthcheck (the census was relocated off the hot path). Operators read `graph.total` to track
      * how much pre-tenant-aware-era data remains as natural query patterns move writes toward
      * 100% tagged coverage. A zero total is the signal that defaults can be flipped from
      * `'legacy'` to `'private'` for the deployment.
      *
      * Implementation is pure SQLite aggregation via `GraphService.db.storage.db`. Two
-     * `COUNT(*)` queries (one per tracked node label), negligible cost per healthcheck.
+     * `COUNT(*)` queries (one per tracked node label), negligible cost.
      * Filters for `userId` absent OR empty in the node's `properties` JSON.
      *
      * Returns `{available: false, ...zeros}` when the SQLite graph is not yet mounted
@@ -1236,6 +1237,33 @@ class HealthService extends Base {
     }
 
     /**
+     * @summary On-demand migration census: SQLite graph untagged-userId counts, plus the
+     *          ChromaDB-side actionable migration-debt scan when `includeChroma` is set.
+     *
+     * Relocated off the healthcheck payload: the Chroma count batch-reads the full memory + summary
+     * collections (`#scanChromaMetadata`), an `O(records)` cost that should not run on every liveness
+     * probe. Operators run `ai:migration-census-report` (or call this) when they want the census;
+     * nothing pays the scan cost otherwise. The cheap SQLite graph counts are always included;
+     * `includeChroma` opts into the batch scan.
+     *
+     * @param {Object} [options]
+     * @param {Boolean} [options.includeChroma=false] Run the `O(records)` ChromaDB metadata scan.
+     * @returns {Promise<{graph: Object, chromadb: Object|undefined, measuredAt: String}>}
+     */
+    async getMigrationCensus({includeChroma = false} = {}) {
+        const census = {
+            graph     : await this.#checkMigrationState(),
+            measuredAt: new Date().toISOString()
+        };
+
+        if (includeChroma) {
+            census.chromadb = await this.#checkChromaMigrationState();
+        }
+
+        return census;
+    }
+
+    /**
      * Resolves the live runtime freshness diagnostic for the attached Memory Core MCP process.
      *
      * A stale runtime is a warning, not a service outage: callers can still use healthy read
@@ -1376,7 +1404,6 @@ class HealthService extends Base {
                 tasks: buildTaskOutcomesBlock(this.#taskOutcomes)
             },
             identity : buildIdentityBlock(this.#stdioIdentityState),
-            migration: await this.#checkMigrationState(),
             providers: {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
                 summary  : buildSummaryProviderBlock(aiConfig),
@@ -1398,14 +1425,6 @@ class HealthService extends Base {
             payload.details.push(connectionCheck.error);
             return payload;
         }
-
-        // Step 1.5: ChromaDB-side migration observability.
-        // MUST run AFTER #checkDatabaseConnections so `ChromaManager.connected` is established.
-        // Earlier ordering (initialized at payload-construction time) cached `available: false`
-        // on cold-process healthchecks even when the same payload reported `database.connected: true`.
-        // This ordering keeps the migration counters consistent with the connection status
-        // surfaced in the same payload.
-        payload.migration.chromadb = await this.#checkChromaMigrationState();
 
         // Step 2: Check collections
         const collectionsCheck = await this.#checkCollections();
