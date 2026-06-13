@@ -3,6 +3,7 @@ import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
+import {projectConversationTrust} from './shared/conversationTrust.mjs';
 import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
 import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
 
@@ -80,8 +81,12 @@ class DiscussionService extends Base {
         };
 
         try {
-            const data       = await GraphqlService.query(GET_DISCUSSION_CONVERSATION, variables);
-            const discussion = data.repository.discussion;
+            const data = await GraphqlService.query(GET_DISCUSSION_CONVERSATION, variables);
+            // Trust-project at the read boundary (root body + comments + nested replies gain
+            // `authorTrust`; untrusted-author bodies are defanged; root carries `contentTrust`).
+            // A null resource passes through the projection untouched, preserving the
+            // not-found contract below.
+            const discussion = projectConversationTrust(data.repository.discussion);
 
             if (!discussion) {
                 return {

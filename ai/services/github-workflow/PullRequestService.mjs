@@ -10,6 +10,7 @@ import {
     UPDATE_PULL_REQUEST_REVIEW
 }                                              from './queries/mutations.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
+import {projectConversationTrust}             from './shared/conversationTrust.mjs';
 
 const execAsync     = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -201,9 +202,12 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data         = await GraphqlService.query(GET_CONVERSATION, variables);
-            const pullRequest  = data.repository.pullRequest;
-            const allComments  = pullRequest.comments?.nodes || [];
+            const data = await GraphqlService.query(GET_CONVERSATION, variables);
+            // Trust-project at the read boundary: every authored node gains `authorTrust`,
+            // untrusted-author bodies are defanged, the root carries a `contentTrust` summary.
+            // Applied before selector filtering so all return paths inherit projected nodes.
+            const pullRequest = projectConversationTrust(data.repository.pullRequest);
+            const allComments = pullRequest.comments?.nodes || [];
 
             // Selector precedence: comment_id > since_comment_id > last_n > full.
             let filtered;
