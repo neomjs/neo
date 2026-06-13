@@ -10,6 +10,20 @@ let _turnId = 0;
 export const getCurrentTurnId = () => _turnId;
 
 /**
+ * @summary Resolves the server-instance forced tool-projection mode from its launch sources, in
+ * precedence order: the explicit `--tool-projection-mode` CLI flag wins; else the
+ * `NEO_NL_TOOL_PROJECTION_MODE` env var (the channel the Fleet Manager spawner injects for embedded
+ * agents — a fixed cross-process contract name, not a configurable field on either side); else `null`
+ * (unforced → the full developer/operator
+ * surface, the trusted dev/operator launch). The single testable authority for this resolution.
+ * @param {String|null} [cliMode] The `--tool-projection-mode` value (null/undefined when the flag is absent).
+ * @param {Object} [env=process.env] Env source (injectable for tests).
+ * @returns {String|null}
+ */
+export const resolveToolProjectionMode = (cliMode, env = process.env) =>
+    cliMode ?? env.NEO_NL_TOOL_PROJECTION_MODE ?? null;
+
+/**
  * @summary The Neural Link MCP Server application.
  *
  * Bridges AI agents to the live browser application via WebSocket. Uses a non-canonical
