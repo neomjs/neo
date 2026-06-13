@@ -817,7 +817,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: GitHub CLI command failed (typically permission or network).
+          description: REST `requested_reviewers` call failed (`GH_API_ERROR` — typically a repo-scope/permission or network error).
           content:
             application/json:
               schema:
