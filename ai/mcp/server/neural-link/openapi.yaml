@@ -800,6 +800,43 @@ paths:
                     items:
                       type: object
 
+  /component/create:
+    post:
+      summary: Create Component
+      operationId: create_component
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Creates a component inside a target container at runtime — a schema-validated, CONSTRAINED
+        alternative to the admin-tier `call_method(container.add(...))`.
+
+        **When to Use:**
+        To add a new component to a live container (e.g. add a `Button` to a `Toolbar`) without granting
+        admin method-call access. The `config` must declare a `module`, `ntype`, or `className`; the
+        target container is resolved by `parentId`.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateComponentRequest'
+      responses:
+        '200':
+          description: Component added to the container
+        '400':
+          description: Invalid request body (config not an object, or missing module / ntype / className)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/vdom/query:
     post:
       summary: Query VDOM
@@ -1727,6 +1764,22 @@ components:
           type: array
           items: {}
           description: Arguments to pass to the method (heterogeneous — any JSON-serializable value)
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    CreateComponentRequest:
+      type: object
+      required:
+        - parentId
+        - config
+      properties:
+        parentId:
+          type: string
+          description: The target container's component ID (the parent to add into)
+        config:
+          type: object
+          description: The component configuration; must declare a `module`, `ntype`, or `className`
         sessionId:
           type: string
           description: The target App Worker Session ID
