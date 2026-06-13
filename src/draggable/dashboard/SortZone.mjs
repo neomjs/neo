@@ -257,6 +257,33 @@ class DashboardSortZone extends SortZone {
     }
 
     /**
+     * @summary Returns a terminal detached popup item for geometry-only reintegration.
+     *
+     * Returns the detached terminal popup item represented by a native OS window.
+     * This is the source side of geometry-only titlebar drag reintegration.
+     * @param {String} windowId
+     * @returns {Object|null}
+     */
+    getNativeWindowDrag(windowId) {
+        let me = this;
+
+        if (!me.owner.detachedItems) {
+            return null
+        }
+
+        for (const [widgetName, detachedItem] of me.owner.detachedItems.entries()) {
+            if (detachedItem.windowId === windowId && detachedItem.terminalDrop && detachedItem.widget) {
+                return {
+                    draggedItem: detachedItem.widget,
+                    widgetName
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Completes dashboard drag cleanup under the base drag-end latch.
      * @param {Object} data The drag end event data.
      */
