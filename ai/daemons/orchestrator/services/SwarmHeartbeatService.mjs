@@ -12,6 +12,7 @@ import {
     Memory_GraphService     as GraphService,
     Memory_LifecycleService as LifecycleService
 }                    from '../../../services.mjs';
+import {getWakeRelevantNotifications} from '../../../services/github-workflow/HealthService.mjs';
 import MailboxService from '../../../services/memory-core/MailboxService.mjs';
 import RequestContextService from '../../../mcp/server/shared/services/RequestContextService.mjs';
 import logger        from '../../../mcp/server/memory-core/logger.mjs';
@@ -59,6 +60,52 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  */
 function heartbeatAlivePath() {
     return AiConfig.wakeDaemonHeartbeatAlivePath;
+}
+
+/**
+ * @summary Durable dedup state path for GitHub-notification heartbeat wakes.
+ *
+ * Reuses the wake-daemon data directory resolved by the existing heartbeat
+ * liveness path, avoiding a new config leaf while keeping the state alongside
+ * the other wake-delivery cursors.
+ * @returns {String}
+ */
+function githubNotificationWakeStatePath() {
+    return path.join(path.dirname(heartbeatAlivePath()), 'github-notification-wake-ids.json')
+}
+
+/**
+ * @summary Whether a git remote URL points at GitHub.
+ * @param {String} remoteUrl
+ * @returns {Boolean}
+ */
+function isGitHubRemoteUrl(remoteUrl = '') {
+    return /(?:^|@|\/\/)github\.com[:/][^/:\s]+\/[^/\s]+/.test(String(remoteUrl).trim())
+}
+
+/**
+ * @summary Builds a compact heartbeat-pulse payload for GitHub notification wake digests.
+ *
+ * The heartbeat-pulse GraphLog row has no JSON payload column, so source content rides inside the
+ * pulse id as URL-safe base64. The wake daemon decodes only this `github-notification.` prefix; all
+ * other heartbeat pulses keep their existing opaque UUID semantics.
+ * @param {Object[]} notifications Wake-relevant GitHub notification projections.
+ * @returns {String}
+ */
+function buildGitHubNotificationPulseId(notifications = []) {
+    const latest = notifications[notifications.length - 1] || {};
+    const json   = JSON.stringify({
+        source: 'github-notification',
+        count : notifications.length,
+        latest: {
+            id    : latest.id,
+            reason: latest.reason,
+            type  : latest.type,
+            title : latest.title,
+            url   : latest.url
+        }
+    });
+    return `github-notification.${Buffer.from(json).toString('base64url')}`
 }
 
 /**
@@ -251,7 +298,12 @@ class SwarmHeartbeatService extends Base {
      *        reality rather than by the Orchestrator process owner's env var.
      *   4. All-agent-idle detection via `checkAllAgentIdle.mjs` direct export.
      *      - allIdle=true + gate-open → `swarmWakeCooldown.mjs` direct export.
-     *   5. Per-identity 3-signal-decision-gated heartbeat-pulse emit. For each
+     *   5. GitHub notification wake-content ingestion. When the current workspace
+     *      is GitHub-backed, unread `mention` / `review_requested` notifications
+     *      are deduped by GitHub notification id and emitted once through the
+     *      same Shape B heartbeat-pulse transport. Non-GitHub deployments log and
+     *      no-op.
+     *   6. Per-identity 3-signal-decision-gated heartbeat-pulse emit. For each
      *      identity in `pulseIdentities`, query A2A activity
      *      timestamps + readiness sentinels + orchestrator-local backoff window,
      *      compose via `WakeDecisionService.decideWake({active, idle, ready})`, and
@@ -339,7 +391,12 @@ class SwarmHeartbeatService extends Base {
             }
         }
 
-        // Step 5: Per-identity 3-signal-decision-gated heartbeat-pulse emit.
+        // Step 5: GitHub notification wake-content ingestion. The notification
+        // source is gated by repo remote and deduped by GitHub notification id;
+        // it never mutates GitHub's own notification read/unread state.
+        await this.emitGitHubNotificationWakes(pulseIdentities);
+
+        // Step 6: Per-identity 3-signal-decision-gated heartbeat-pulse emit.
         // Replaces old push-capability bypass + token-economy gate + tmux-inject
         // with a unified Shape B emit path.
         // Wake = active AND idle AND ready (per WakeDecisionService.decideWake).
@@ -691,6 +748,187 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
+     * @summary Ingest GitHub mention/review-request notifications as once-per-id
+     * heartbeat wake signals.
+     *
+     * The GitHub notification feed belongs to the current local GitHub account, so
+     * this first slice maps it only to the configured primary `identity` when that
+     * identity is part of the current heartbeat target set. Multi-agent username
+     * routing is intentionally left out of this PR rather than guessing from
+     * maintainer handles.
+     *
+     * @param {String[]} pulseIdentities Identities active for this heartbeat pulse.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async emitGitHubNotificationWakes(pulseIdentities = []) {
+        const targetIdentity = this.identity;
+        if (!targetIdentity || !pulseIdentities.includes(targetIdentity)) {
+            logger.debug('[SwarmHeartbeatService] GitHub notification ingestion skipped: primary identity is not in pulse target set.');
+            return
+        }
+
+        if (!await this.hasGitHubRemote()) return;
+
+        const state = await this.readGitHubNotificationWakeState();
+        if (!state) return; // corrupt/unreadable state: fail closed to avoid wake storms
+
+        const notifications = await this.getGitHubNotifications();
+        if (notifications.length === 0) return;
+
+        const durableSeenIds = Array.isArray(state[targetIdentity]) ? state[targetIdentity] : [],
+              volatileSeenIds = this.getVolatileGitHubNotificationSeenIds(targetIdentity),
+              seenIds = new Set([...durableSeenIds, ...volatileSeenIds]);
+        const unseen  = notifications.filter(notification => !seenIds.has(notification.id));
+        if (unseen.length === 0) return;
+
+        const result = await WakeSubscriptionService.emitHeartbeatPulse({
+            targetIdentity,
+            pulseId: buildGitHubNotificationPulseId(unseen)
+        });
+        if (result?.status !== 'emitted') {
+            logger.info(`[SwarmHeartbeatService] GitHub notification wake skipped for ${targetIdentity}: heartbeat pulse ${result?.status || 'unknown'} (${result?.reason || 'no reason'}).`);
+            return
+        }
+
+        for (const notification of unseen) {
+            seenIds.add(notification.id)
+        }
+
+        state[targetIdentity] = [...seenIds].slice(-200);
+        try {
+            await this.writeGitHubNotificationWakeState(state);
+            this.clearVolatileGitHubNotificationSeenIds(targetIdentity)
+        } catch (err) {
+            this.rememberVolatileGitHubNotificationSeenIds(targetIdentity, state[targetIdentity]);
+            logger.error(
+                `[SwarmHeartbeatService] Failed to persist GitHub notification wake-state after emitting for ${targetIdentity}; ` +
+                `retaining ids in process memory to avoid wake storms: ${err.message}`
+            )
+        }
+
+        logger.info(`[SwarmHeartbeatService] GitHub notification wake emitted for ${targetIdentity}: ${unseen.length} new notification(s).`)
+    }
+
+    /**
+     * @summary Returns process-local GitHub notification ids retained after persist failures.
+     *
+     * Durable state is the source of truth. This fallback covers the post-emit /
+     * pre-persist failure window so a transient or persistent filesystem failure
+     * cannot re-emit the same GitHub notification on every heartbeat until the
+     * orchestrator restarts.
+     * @param {String} identity
+     * @returns {Set<String>}
+     * @protected
+     */
+    getVolatileGitHubNotificationSeenIds(identity) {
+        const map = this._volatileGitHubNotificationSeenIds;
+        return new Set(map?.get(identity) || [])
+    }
+
+    /**
+     * @summary Retains emitted GitHub notification ids in process memory after a persist failure.
+     * @param {String} identity
+     * @param {String[]} ids
+     * @returns {void}
+     * @protected
+     */
+    rememberVolatileGitHubNotificationSeenIds(identity, ids = []) {
+        if (!this._volatileGitHubNotificationSeenIds) {
+            this._volatileGitHubNotificationSeenIds = new Map()
+        }
+
+        const previous = this._volatileGitHubNotificationSeenIds.get(identity) || [],
+              merged   = [...new Set([...previous, ...ids].filter(Boolean))].slice(-200);
+
+        this._volatileGitHubNotificationSeenIds.set(identity, merged)
+    }
+
+    /**
+     * @summary Clears process-local GitHub notification ids once durable persist succeeds.
+     * @param {String} identity
+     * @returns {void}
+     * @protected
+     */
+    clearVolatileGitHubNotificationSeenIds(identity) {
+        this._volatileGitHubNotificationSeenIds?.delete(identity)
+    }
+
+    /**
+     * @summary Whether the current workspace is backed by a GitHub remote.
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async hasGitHubRemote() {
+        try {
+            const remoteUrl = await this.getGitRemoteUrl();
+            const enabled   = isGitHubRemoteUrl(remoteUrl);
+            if (!enabled) {
+                logger.info('[SwarmHeartbeatService] GitHub notification ingestion disabled: no GitHub remote detected.')
+            }
+            return enabled
+        } catch (err) {
+            logger.info(`[SwarmHeartbeatService] GitHub notification ingestion disabled: failed to resolve git remote (${err.message}).`);
+            return false
+        }
+    }
+
+    /**
+     * Test-stubbable seam over git remote detection.
+     * @returns {Promise<String>}
+     * @protected
+     */
+    async getGitRemoteUrl() {
+        return (await this.runCmd('git', ['config', '--get', 'remote.origin.url'])).trim()
+    }
+
+    /**
+     * Test-stubbable seam over GitHub notification fetch.
+     * @returns {Promise<Object[]>}
+     * @protected
+     */
+    async getGitHubNotifications() {
+        try {
+            const output = await this.runCmd('gh', ['api', 'notifications?participating=true']);
+            return getWakeRelevantNotifications(JSON.parse(output || '[]'))
+        } catch (err) {
+            logger.warn(`[SwarmHeartbeatService] GitHub notification fetch failed: ${err.message}`);
+            return []
+        }
+    }
+
+    /**
+     * @summary Reads durable GitHub notification wake-state.
+     * @returns {Promise<Object|null>} Object map, `{}` when missing, or null when malformed.
+     * @protected
+     */
+    async readGitHubNotificationWakeState() {
+        const statePath = githubNotificationWakeStatePath();
+        try {
+            const parsed = JSON.parse(await fs.readFile(statePath, 'utf8'));
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+            logger.error('[SwarmHeartbeatService] GitHub notification wake-state malformed; ingestion disabled for this pulse.');
+            return null
+        } catch (err) {
+            if (err.code === 'ENOENT') return {};
+            logger.error(`[SwarmHeartbeatService] Failed to read GitHub notification wake-state: ${err.message}`);
+            return null
+        }
+    }
+
+    /**
+     * @summary Persists durable GitHub notification wake-state.
+     * @param {Object} state
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async writeGitHubNotificationWakeState(state) {
+        const statePath = githubNotificationWakeStatePath();
+        await fs.mkdir(path.dirname(statePath), {recursive: true});
+        await fs.writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
+    }
+
+    /**
      * Test-stubbable seam over the SDK GraphService database handle.
      * @returns {Object} better-sqlite3 database handle
      * @protected
@@ -949,4 +1187,4 @@ class SwarmHeartbeatService extends Base {
 
 export default Neo.setupClass(SwarmHeartbeatService);
 
-export {HEARTBEAT_LOCK_PATH, DEFAULT_POLL_INTERVAL_MS, heartbeatAlivePath};
+export {HEARTBEAT_LOCK_PATH, DEFAULT_POLL_INTERVAL_MS, heartbeatAlivePath, githubNotificationWakeStatePath, isGitHubRemoteUrl};
