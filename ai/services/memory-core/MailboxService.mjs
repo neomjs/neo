@@ -1256,6 +1256,8 @@ class MailboxService extends Base {
      * me with `readAt` on the DELIVERY edge), and legacy broadcasts
      * (`SENT_TO AGENT:*` with the shared-read fallback when no `DELIVERED_TO`
      * edges exist). Mirrors `buildMailboxDelta`'s unread-count taxonomy exactly.
+     * Default counts exclude archived inbox messages, matching `listMessages`;
+     * opt in with `includeArchived: true` when a caller needs the persisted archive.
      *
      * **Outbox path:** count of `SENT_BY` edges from the caller's identity.
      * `status` filter is a no-op for outbox — outbox messages have per-recipient
@@ -1280,9 +1282,12 @@ class MailboxService extends Base {
      *   reads require `CAN_READ_INBOX_OF` permission, mirroring `listMessages`.
      * @param {String} [args.fromIdentity] Filter inbox messages by sender identity.
      *   Ignored for outbox (no inverse-of-sender semantic).
+     * @param {Boolean} [args.includeArchived=false] Include archived inbox messages.
+     *   Default excludes MESSAGE-level direct/legacy archives and DELIVERED_TO
+     *   per-recipient broadcast archives, matching `listMessages`.
      * @returns {Promise<{count: Number}>}
      */
-    async countMessages({ box = 'inbox', status = 'all', to, fromIdentity } = {}) {
+    async countMessages({ box = 'inbox', status = 'all', to, fromIdentity, includeArchived = false } = {}) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
             throw new Error("Cannot count messages: no agent identity context bound.");
@@ -1321,6 +1326,14 @@ class MailboxService extends Base {
                 ? `AND json_extract(e.data, '$.properties.readAt') IS NOT NULL`
                 : '';
 
+        const messageArchivedAtClause = includeArchived
+            ? ''
+            : `AND json_extract(n.data, '$.properties.archivedAt') IS NULL`;
+
+        const edgeArchivedAtClause = includeArchived
+            ? ''
+            : `AND json_extract(e.data, '$.properties.archivedAt') IS NULL`;
+
         // Optional sender filter — applies to inbox only.
         const senderFilterSql = fromIdentity
             ? `AND EXISTS (SELECT 1 FROM Edges sb WHERE sb.source = n.id AND sb.type = 'SENT_BY' AND sb.target = ?)`
@@ -1350,6 +1363,7 @@ class MailboxService extends Base {
                       AND e.target = ?
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       ${messageReadAtClause}
+                      ${messageArchivedAtClause}
                       ${senderFilterSql}
 
                     UNION
@@ -1361,6 +1375,7 @@ class MailboxService extends Base {
                       AND e.target = ?
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       ${edgeReadAtClause}
+                      ${edgeArchivedAtClause}
                       ${senderFilterSql}
 
                     UNION
@@ -1372,6 +1387,7 @@ class MailboxService extends Base {
                       AND e.target = 'AGENT:*'
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       ${messageReadAtClause}
+                      ${messageArchivedAtClause}
                       ${senderFilterSql}
                       AND NOT EXISTS (
                           SELECT 1 FROM Edges de

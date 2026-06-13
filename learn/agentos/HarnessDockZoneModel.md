@@ -8,6 +8,8 @@ This contract is the first concrete slice of the QT-grade docking line under the
 
 This document does not implement drag previews, split/tab rendering, layout persistence, or cross-window choreography. Those are follow-up leaves. This slice exists so those leaves do not invent incompatible object models.
 
+The preview-state section below records the follow-up drag-to-dock contract. It still defines data shape only: no renderer, event listener, persistence writer, or drag manager lives here.
+
 ## Existing Substrates
 
 The contract composes with these current Neo substrates:
@@ -149,6 +151,7 @@ Persist:
 Do not persist:
 
 - `DOMRect`, screen coordinates, hover rectangles, and preview overlays
+- `dockPreview` payloads, preview ids, rejection reasons, and placement hints
 - `windowId`, `appName`, `sourceSortZone`, `targetSortZone`, `currentIndex`, `draggedItem`
 - live `Neo.component.Base` instances
 - functions, controllers, event listeners, PATs, or harness credentials
@@ -185,10 +188,24 @@ Future drag-to-dock preview slices should listen to existing drag surfaces and p
 
 ```json
 {
+  "schema": "neo.harness.dockPreview.v1",
+  "previewId": "preview:strategy:main-tabs:tab-after:1",
   "itemId": "strategy",
-  "targetNodeId": "main-tabs",
-  "placement": "tab-after",
-  "index": 1
+  "source": {
+    "surface": "dashboard-sort-zone",
+    "sortZoneId": "left-workspace"
+  },
+  "target": {
+    "containerId": "workspace",
+    "nodeId": "main-tabs"
+  },
+  "placement": {
+    "kind": "tab-after",
+    "index": 1
+  },
+  "feedback": {
+    "state": "accepted"
+  }
 }
 ```
 
@@ -198,6 +215,58 @@ Future drag-to-dock preview slices should listen to existing drag surfaces and p
 - `DragCoordinator` keeps cross-window source/target arbitration.
 - `Window` keeps screen-coordinate to window-id lookup.
 - The dock model records the accepted workspace shape after the drop.
+
+## Preview State Contract
+
+`dockPreview` is the only transient payload a docking adapter should expose while a drag is in progress. It is produced by existing drag/sort/window signals and consumed by visual affordances or drop handlers. It is never serialized into the dock-zone model.
+
+Required fields:
+
+| Field | Meaning | Persistence |
+|---|---|---|
+| `schema` | Preview payload version, initially `neo.harness.dockPreview.v1`. | Runtime only. |
+| `previewId` | Stable-enough id for one hover frame or dwell window; useful for renderer diffing. | Runtime only. |
+| `itemId` | Stable dock item id from `items`. | Serializable only after a drop commits an operation. |
+| `source.surface` | Existing producer surface, e.g. `dashboard-sort-zone`, `drag-coordinator`, or `window-geometry`. | Runtime only. |
+| `source.sortZoneId` | Optional source sort-zone identity when the drag starts inside a dashboard zone. | Runtime only. |
+| `target.containerId` | Stable id for the dock workspace/container being hovered. | Runtime only unless a drop commits into that container. |
+| `target.nodeId` | Candidate dock-zone node id receiving the drop. | Runtime only until converted into an operation. |
+| `placement.kind` | Candidate intent: `edge-top`, `edge-right`, `edge-bottom`, `edge-left`, `split-before`, `split-after`, `tab-before`, `tab-after`, `tab-into`, or `rejected`. | Runtime only. |
+| `placement.orientation` | Required for split previews: `horizontal` or `vertical`. | Runtime only; accepted split operations persist orientation. |
+| `placement.ratio` | Optional normalized split preview ratio. | Runtime only; accepted split operations persist normalized sizes. |
+| `placement.index` | Optional tab or child insertion index. | Runtime only; accepted operations persist item order. |
+| `feedback.state` | `accepted` or `rejected`. | Runtime only. |
+| `feedback.reason` | Optional rejection reason such as `same-source`, `locked-target`, `invalid-node`, or `policy-denied`. | Runtime only. |
+
+`feedback.state` is the canonical accept/reject verdict for a hover frame. `placement.kind = rejected` is reserved for hovers that do not have a meaningful candidate placement; otherwise the adapter should keep the candidate `placement.kind` and set `feedback.state = rejected` with a reason.
+
+Allowed producers:
+
+- `src/draggable/dashboard/SortZone.mjs` and base sort-zone drag lifecycle for in-window drags.
+- `src/manager/DragCoordinator.mjs` for cross-window or popup-to-pane arbitration.
+- `src/manager/Window.mjs` / `src/main/addon/WindowPosition.mjs` geometry when OS-window movement has no pointer events.
+
+Forbidden producers:
+
+- A new docking-specific pointer-event manager that bypasses the existing drag lifecycle.
+- Persisted hover rectangles or screen coordinates as blueprint data.
+- A private adapter allowlist that maps visual zones without referencing dock-zone node ids.
+
+Conversion rules on drop:
+
+| Preview placement | Semantic operation |
+|---|---|
+| `tab-before`, `tab-after`, `tab-into` | `addTab` or `moveItem` into the target `tabs` node. |
+| `split-before`, `split-after` | `splitNode` with the preview orientation and normalized sizes. |
+| `edge-top`, `edge-right`, `edge-bottom`, `edge-left` | `splitNode` or edge-zone insertion chosen by the adapter, then `normalizeTree`. |
+| `rejected` | No model mutation; the renderer clears the preview. |
+
+Consumer boundaries:
+
+- Rendering consumes `dockPreview` to draw edge/split/tab affordances.
+- Drop handling consumes `dockPreview` once, then converts it into a semantic operation.
+- Persistence consumes only the normalized dock-zone model after operations run.
+- Tests should prove preview-only fields disappear before serialization.
 
 ## Blueprint Compatibility
 
@@ -212,6 +281,69 @@ The contract is deliberately JSON-first. A future renderer can project the model
 The adapter must treat `componentRef` as the stable bridge between persisted layout and live component ownership. When no live component exists, the adapter may instantiate from `item.blueprint`; when a live component exists, it should move/re-parent the instance without destroying it, matching the existing dashboard and multi-window precedent.
 
 If neither a live component nor a valid `item.blueprint` exists, the adapter must follow the stale-component-reference policy above instead of silently dropping the item.
+
+## Split/Tab Adapter Boundary
+
+The first rendering slice is an adapter, not a new layout engine. It consumes the dock-zone model and emits ordinary Neo child configs and live component moves that existing containers can own.
+
+Adapter ownership starts in the Agent Harness / dashboard layer because the current proof surface is a harness workspace. A later lift into dashboard/container substrate requires a second independent in-repo consumer and source evidence that the adapter logic is reusable outside the harness.
+
+Rejected placements for the first adapter:
+
+- **Generic core layout primitive:** rejected for this slice. Core layout classes own child arrangement; they do not yet need to own dock item identity, stale component recovery, drag-drop producer handoff, or future blueprint persistence.
+- **Tab-container fork:** rejected. `Neo.tab.Container` already owns tab button order, card-backed active content, `activeIndex`, and `tabBarPosition`; the adapter should feed it compatible child/header configs rather than create a harness-only tab system.
+- **Splitter-owned model:** rejected. `Neo.component.Splitter` is a resize affordance for existing siblings, not the authority for persistent split topology. The model keeps split orientation, child order, and normalized sizes; splitters may render between children later.
+- **Preview producer as adapter owner:** rejected. Drag preview state is runtime-only and converts to semantic operations on drop. The adapter receives committed model changes; it must not depend on hover rectangles or pointer lifecycle state.
+
+### Adapter Input
+
+The adapter input is the persisted model plus a runtime component resolver:
+
+| Input | Source | Boundary |
+|---|---|---|
+| `model.nodes` / `model.root` | persisted dock-zone document | Structural tree authority. |
+| `model.items` | persisted dock-zone item catalog | Stable item identity, titles, policy hints, and optional blueprints. |
+| `componentRef` resolver | harness/dashboard runtime | Finds an existing live component or returns null so the adapter can instantiate from `blueprint`. |
+| `operation` result | drag/drop or command surface | Already-committed semantic model mutation; not raw hover/preview state. |
+
+The adapter must not read `DOMRect`, `windowId`, pointer coordinates, preview placement, or drag-zone internals while projecting committed layout. Those surfaces belong to drag integration and post-drop mutation.
+
+### Split Projection
+
+`split` nodes project to ordinary Neo containers:
+
+| Dock model field | Adapter projection | Notes |
+|---|---|---|
+| `orientation: horizontal` | container `layout: {ntype: 'hbox', align: 'stretch'}` | Children render side-by-side. |
+| `orientation: vertical` | container `layout: {ntype: 'vbox', align: 'stretch'}` | Children render stacked. |
+| `children` | projected child configs in listed order | Ordering is model-owned and serializable. |
+| `sizes` | child `flex` values when present | Normalize or ignore invalid ratios before projection. |
+
+Resizable splitters are a later rendering affordance. When added, they should sit between projected children and write back semantic size changes through an operation, not mutate persisted `sizes` directly from pointer handlers.
+
+### Tab Projection
+
+`tabs` nodes project to `Neo.tab.Container`-compatible config:
+
+| Dock model field | Adapter projection | Notes |
+|---|---|---|
+| `items` | tab/card item configs in listed order | Item order maps to tab button order and card order. |
+| `activeItemId` | `activeIndex` derived from `items.indexOf(activeItemId)` | Invalid or missing active item falls back to index `0` when items exist, otherwise `null`. |
+| item `title` | child `header.text` or equivalent header config | The title is display text, not identity. |
+| item `componentRef` | existing component move or blueprint instantiation | Runtime refs stay outside serialized state. |
+
+The adapter must preserve the current `Neo.tab.Container` contract: tab headers and card children stay index-aligned, and active state is index-based at render time even though the persisted dock model is id-based.
+
+### Component Identity Handoff
+
+`componentRef` is the bridge between saved layout and live ownership:
+
+1. Resolve `componentRef` against the harness/dashboard registry.
+2. If a live component exists, move or re-parent that instance into the projected structure without destroying it.
+3. If no live component exists and `item.blueprint` exists, instantiate from the blueprint.
+4. If neither exists, render a recoverable placeholder, validation error, or other policy-owned fail-safe state, then leave the persisted item record intact for recovery.
+
+This aligns the adapter with stale `componentRef` restore behavior: runtime component references are recoverable state, not a reason to corrupt the persisted dock tree.
 
 ## Demand Validation
 
@@ -230,6 +362,15 @@ This contract satisfies the model-contract leaf when:
 - ownership is documented as harness-contract-first, dashboard-adapter-second, core-layout-last
 - serializable fields are separated from drag/preview/window runtime state
 - a second independent use shape is named
-- no preview UI, persistence implementation, or split/tab rendering is bundled into this slice
+- the split/tab adapter boundary is documented as model-in / existing-Neo-primitive-out
+- no preview UI, persistence implementation, or concrete split/tab rendering component is bundled into this slice
+
+The preview-state follow-up satisfies its leaf when:
+
+- `dockPreview` covers edge targets, split orientation/ratio, tab placement, rejected targets, stable item identity, and target container identity
+- allowed producers are existing drag, sort-zone, drag-coordinator, and window-geometry signals
+- forbidden producers prevent a parallel docking drag system
+- preview-only fields are explicitly runtime-only and are not serialized
+- downstream consumers for rendering, drop handling, and persistence are named
 
 If a future PR introduces new `.mjs` files for this contract, it must run `structural-pre-flight` before choosing the destination.

@@ -396,6 +396,50 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toContain('2 new messages');          // coalesced breakdown
     });
 
+    test('every wake digest carries the standing pick-up-a-lane directive (#13095)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-directive';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId, label: 'AGENT', properties: { name: 'Test Agent Directive' }
+        }));
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId, label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId, harnessTarget: 'bridge-daemon', status: 'active',
+                trigger: 'SENT_TO_ME', harnessTargetMetadata: { adapter: 'test', coalesceWindow: 1 }
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Directive Presence Probe'});
+
+        // The escalation fix: every digest must DIRECT an idle agent to pick up + execute a lane,
+        // not merely report what happened — otherwise wakes get acknowledged-and-idled, burning turns.
+        const output = await deliveryPromise;
+        expect(output).toContain('pick up a lane');
+        expect(output).toContain('implementation → test → PR');
+        expect(output).toContain('never idle or hold');
+    });
+
     test('detects and delivers a CAN_* permission_granted wake via the dead-to-live edge path', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-perm';
