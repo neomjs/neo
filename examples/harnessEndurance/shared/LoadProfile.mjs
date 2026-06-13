@@ -12,9 +12,10 @@
  *     from the Playwright runner would let cross-process round-trip latency dominate the
  *     measured signal; self-driven appends keep the latency the app's own, and mirror how a
  *     real streamed model response actually renders into a transcript.
- *   - The RUNNER injects the low-frequency keystroke probes from {@link LoadProfile#keystrokeTimes}
- *     as real synthetic input events and measures keystroke→echo latency (the headline metric),
- *     alongside frame time / main-thread task-queue depth / heap growth samples.
+ *   - The RUNNER samples main-thread event-loop lag + JS heap growth while the stream plays — the
+ *     two metrics this benchmark currently implements. The keystroke probes from
+ *     {@link LoadProfile#keystrokeTimes} are emitted for a planned keystroke→echo-latency layer
+ *     (alongside frame-time / task-queue-depth), which is NOT measured yet.
  *
  * Determinism note: reproducibility forbids `Math.random()`; token selection uses a seeded
  * `mulberry32` PRNG. The keystroke cadence is fixed, so it needs no PRNG.

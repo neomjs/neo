@@ -10,14 +10,15 @@ import {LoadProfile}  from '../shared/LoadProfile.mjs';
  *
  * The engine-favourable subject: the streaming markdown transcript (`Neo.component.markdown.Component`)
  * parses + diffs OFF the main thread, leaving the main thread a thin DOM-applicator. Under a long
- * streamed-append load, the keystroke→echo latency on the probe field is the saturation diagnostic
- * the runner measures head-to-head against the single-main-thread comparator (Subject B).
+ * streamed-append load, the runner samples main-thread event-loop lag head-to-head against the
+ * single-main-thread comparator (Subject B). (The probe field below anchors a planned
+ * keystroke→echo-latency layer — present as the input surface, not measured yet.)
  *
  * The append load is SELF-DRIVEN (the in-app loop in {@link MainContainer#startLoad}), not injected
  * per-append by the runner: pushing ~20 appends/s for hours across the Playwright process boundary
  * would let cross-process round-trip latency dominate the very signal under test. The runner triggers
- * a run via `startLoad` (over the Neural Link) and then injects only the low-frequency keystroke
- * probes + samples metrics. The toolbar makes the subject runnable + manually verifiable standalone.
+ * a run via `startLoad` (over the Neural Link) and then samples main-thread event-loop lag + heap
+ * over a window. The toolbar makes the subject runnable + manually verifiable standalone.
  *
  * @class Neo.examples.harnessEndurance.neo.MainContainer
  * @extends Neo.container.Viewport
@@ -56,9 +57,10 @@ class MainContainer extends Viewport {
                 text   : 'Reset'
             }]
         }, {
-            // Keystroke probe: the runner types here + measures echo latency. The field value
-            // round-trips through Neo's worker pipeline, so a deep task queue under load surfaces
-            // as echo lag — the headline saturation diagnostic.
+            // Keystroke probe: the input surface for a planned keystroke→echo-latency layer (NOT
+            // measured yet — the current metric is main-thread event-loop lag). The field value
+            // round-trips through Neo's worker pipeline, so a deep task queue under load would
+            // surface as echo lag once that layer lands.
             module   : TextField,
             reference: 'probe',
             flex     : 'none',
