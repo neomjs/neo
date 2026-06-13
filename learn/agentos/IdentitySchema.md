@@ -38,7 +38,7 @@ Each `AgentIdentity` node in the graph is structured with the following properti
 
 Beyond the core identity fields above, `AgentIdentity` nodes carry capability-bearing properties that inform swarm-routing decisions, training-drift defense, and sunset/promotion lifecycle. The full framework lives in [ADR 0012: Model-Stats Framework](decisions/0012-model-stats-framework.md); per-model values live in the live registry at [ModelStats.md](ModelStats.md).
 
-These fields are populated at provisioning time (via `ai/scripts/seedAgentIdentities.mjs`) and updated per ADR 0012 §2.5 registry-update discipline (authoritative-source-cite required).
+These fields are populated at provisioning time (via `ai/scripts/setup/seedAgentIdentities.mjs`) and updated per ADR 0012 §2.5 registry-update discipline (authoritative-source-cite required).
 
 | Property | Type | Description | Example |
 | :--- | :--- | :--- | :--- |
@@ -54,19 +54,22 @@ These fields are populated at provisioning time (via `ai/scripts/seedAgentIdenti
 | `license` | `String` (optional) | License identifier for open-weights models. | `'Apache-2.0'` (Gemma 4) |
 | `benchmarkSnapshot` | `Object` (optional) | Latest benchmark scores for capability-trend tracking. | `{ 'SWE-bench': 0.876 }` |
 | `sunsetTriggers` | `String[]` | Conditions under which this identity transitions to deprecated state per ADR 0012 §2.3. | `['Anthropic releases Opus 4.8+']` |
+| `modelAssignment` | `Object` (optional) | Current engine assignment override for a stable identity. Absent means the identity runs its baseline model with no managed temporary/reversion window. | `{ model: 'claude-fable-5', baselineModel: 'claude-opus-4-8', temporary: true, authority: '@tobiu', since: '2026-06-13', until: '2026-06-21', reversionTrigger: 'revert unless extended' }` |
 | `swarmRole` | `String` (optional) | Current or aspirational role in the swarm. Aspirational roles require V-B-A measurement before substrate-codification per ADR 0012 §2.4. | `'cross-family substrate review'` |
 
 `modelFamily` (declared above) is the family identifier consumed by the registry's `family` field — both surface the same conceptual property; `modelFamily` is the graph-node primary, `family` is the registry-side mirror.
 
-**Update discipline:** Capability values that change post-provisioning (e.g., Anthropic releases a context-window upgrade for an existing identity) update via `ModelStats.md` first; the graph node is reseeded via `ai/scripts/seedAgentIdentities.mjs` to reflect.
+`modelAssignment` is the source-of-truth field for managed engine swaps under a stable `AgentIdentity`. It must not change handle routing, memory authorship, quorum family, or review semantics by itself; those remain keyed to the identity node and `modelFamily`. Consumers such as the Fleet Manager registry project this field instead of defining a parallel assignment schema. When present, the object carries `model`, `baselineModel`, `temporary`, `authority`, `since`, `until`, and `reversionTrigger`.
+
+**Update discipline:** Capability values that change post-provisioning (e.g., Anthropic releases a context-window upgrade for an existing identity) update via `ModelStats.md` first; the graph node is reseeded via `ai/scripts/setup/seedAgentIdentities.mjs` to reflect.
 
 ## Ingestion Mechanism
 
-Agent identities are seeded idempotently into the native graph using the `ai/scripts/seedAgentIdentities.mjs` utility. The script interacts with the `Memory_GraphService` to upsert nodes, taking care to preserve the original `createdAt` timestamp if updating existing properties.
+Agent identities are seeded idempotently into the native graph using the `ai/scripts/setup/seedAgentIdentities.mjs` utility. The script interacts with the `Memory_GraphService` to upsert nodes, taking care to preserve the original `createdAt` timestamp if updating existing properties.
 
 **Usage:**
 ```bash
-node ai/scripts/seedAgentIdentities.mjs
+node ai/scripts/setup/seedAgentIdentities.mjs
 ```
 
 ## Test Pollution Hazard
@@ -77,4 +80,4 @@ node ai/scripts/seedAgentIdentities.mjs
 
 **The Safer Pattern:** Other specs (e.g., `DreamService`, `SemanticGraphExtractor`) use concrete `testDbPath` temporary files per test. This provides a robust isolation boundary and eliminates the leak surface.
 
-**Recovery Procedure:** If you find the identities missing (often manifesting as identity unbound errors or `null` mailbox previews), run the `ai/scripts/seedAgentIdentities.mjs` script. If the root cause was test pollution, please file a ticket to refactor the offending specs to the concrete temporary file pattern.
+**Recovery Procedure:** If you find the identities missing (often manifesting as identity unbound errors or `null` mailbox previews), run the `ai/scripts/setup/seedAgentIdentities.mjs` script. If the root cause was test pollution, please file a ticket to refactor the offending specs to the concrete temporary file pattern.

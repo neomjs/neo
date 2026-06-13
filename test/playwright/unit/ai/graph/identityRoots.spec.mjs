@@ -85,3 +85,31 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
         });
     }
 });
+
+test.describe('ai/graph/identityRoots — model assignments', () => {
+    const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
+
+    test('@neo-opus-ada records the temporary Fable assignment as structured data', () => {
+        const entry = findIdentity('@neo-opus-ada');
+
+        expect(entry, '@neo-opus-ada must be a registered AgentIdentity root').toBeTruthy();
+        expect(entry.properties.modelAssignment).toEqual({
+            model           : 'claude-fable-5',
+            baselineModel   : 'claude-opus-4-8',
+            temporary       : true,
+            authority       : '@tobiu',
+            since           : '2026-06-13',
+            until           : '2026-06-21',
+            reversionTrigger: 'Window end: revert to baseline Claude Opus 4.8 unless the operator extends the assignment.'
+        });
+    });
+
+    for (const id of ['@neo-gpt', '@neo-fable']) {
+        test(`${id} omits modelAssignment when no managed engine swap is active`, () => {
+            const entry = findIdentity(id);
+
+            expect(entry, `${id} must be a registered AgentIdentity root`).toBeTruthy();
+            expect(entry.properties).not.toHaveProperty('modelAssignment');
+        });
+    }
+});
