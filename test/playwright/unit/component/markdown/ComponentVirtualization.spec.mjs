@@ -149,6 +149,32 @@ test.describe('Markdown settled-block windowing', () => {
         expect(blockChildren(component).at(-1).id).not.toBe(component.parser.blockMeta.at(-1).id)
     });
 
+    test('a value reset also resets the follow-state machine: the NEXT stream follows its tail', async () => {
+        // Exit follow-mode like a real reader (depth seed, then an upward jump).
+        component.onTranscriptScroll({scrollTop: 20000, clientHeight: 800});
+        component.onTranscriptScroll({scrollTop: 0, clientHeight: 800});
+        await component.promiseUpdate();
+
+        expect(component.followMode).toBe(false);
+
+        // The wipe — and then a brand-new transcript streams in.
+        component.setSilent({value: null});
+        await component.promiseUpdate();
+
+        expect(component.followMode).toBe(true);
+        expect(component.maxScrollSeen).toBe(0);
+
+        component.setSilent({value: marathon(500)});
+        await component.promiseUpdate();
+
+        const mounted = blockChildren(component);
+
+        // The fresh stream mounts its TAIL window — not the stale head window the previous
+        // reader-mode state would have produced.
+        expect(mounted.at(-1).id).toBe(component.parser.blockMeta.at(-1).id);
+        expect(parseInt(spacers(component)[0].style.height)).toBeGreaterThan(5000)
+    });
+
     test('virtualize: false renders every block with no spacers (the escape hatch)', async () => {
         component.virtualize = false;
         await component.promiseUpdate();

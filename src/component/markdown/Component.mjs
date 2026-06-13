@@ -169,8 +169,18 @@ class MarkdownComponent extends BaseComponent {
         if (value) {
             me.renderWindow(me.parser.update(value), true)
         } else {
+            // The reset boundary covers BOTH state owners: the parser's block ledger AND this
+            // component's windowing state machine. A fresh stream after a wipe must start in
+            // follow-mode at the tail — stale reader-mode state (followMode false, old scroll
+            // depths) would mount the HEAD window for the new transcript. The viewport size
+            // survives on purpose: the element did not change.
             me.parser.reset();
-            me.vdom.cn = [];
+            me.followMode    = true;
+            me.lastScrollTop = 0;
+            me.maxScrollSeen = 0;
+            me.scrollTop     = 0;
+            me.mountedBlocks = [0, 0];
+            me.vdom.cn       = [];
             me.update()
         }
     }
