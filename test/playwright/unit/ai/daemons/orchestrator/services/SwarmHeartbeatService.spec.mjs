@@ -145,6 +145,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.checkAllAgentIdle  = async () => null;
         SwarmHeartbeatService.swarmWakeCooldown  = async () => {};
         SwarmHeartbeatService.emitGitHubNotificationWakes = async () => {};
+        delete SwarmHeartbeatService._volatileGitHubNotificationSeenIds;
         SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => [];
         SwarmHeartbeatService.runScriptJson      = async () => null;
         SwarmHeartbeatService.runScript          = async () => '';
@@ -173,6 +174,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.pollIntervalMs  = 5 * 60 * 1000;
         SwarmHeartbeatService.targetSource    = null;
         SwarmHeartbeatService.explicitTargets = null;
+        delete SwarmHeartbeatService._volatileGitHubNotificationSeenIds;
         delete SwarmHeartbeatService.getGraphDb;
     });
 
@@ -927,6 +929,32 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         await SwarmHeartbeatService.emitGitHubNotificationWakes(['@test']);
 
         expect(state).toEqual({});
+    });
+
+    test('emitGitHubNotificationWakes keeps emitted ids volatile when wake-state persist fails (#12937)', async () => {
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.emitGitHubNotificationWakes;
+
+        const emitted = [];
+
+        SwarmHeartbeatService.getGitRemoteUrl = async () => 'https://github.com/acme/repo.git';
+        SwarmHeartbeatService.getGitHubNotifications = async () => [{id: 'ghn-1', reason: 'mention'}];
+        SwarmHeartbeatService.readGitHubNotificationWakeState  = async () => ({});
+        SwarmHeartbeatService.writeGitHubNotificationWakeState = async () => {
+            throw new Error('simulated persist failure')
+        };
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity, pulseId}) => {
+            emitted.push({targetIdentity, pulseId});
+            return {status: 'emitted', targetIdentity, pulseId}
+        };
+
+        await expect(SwarmHeartbeatService.emitGitHubNotificationWakes(['@test'])).resolves.toBeUndefined();
+        await expect(SwarmHeartbeatService.emitGitHubNotificationWakes(['@test'])).resolves.toBeUndefined();
+
+        // First pulse is delivered, then the failed persist is retained in process
+        // memory so a persistent fs failure cannot re-emit the same id every heartbeat.
+        expect(emitted).toHaveLength(1);
+        expect(emitted[0].targetIdentity).toBe('@test');
     });
 
     test('heartbeatAlivePath() reads AiConfig.wakeDaemonHeartbeatAlivePath verbatim (#11872)', async () => {

@@ -776,7 +776,9 @@ class SwarmHeartbeatService extends Base {
         const notifications = await this.getGitHubNotifications();
         if (notifications.length === 0) return;
 
-        const seenIds = new Set(Array.isArray(state[targetIdentity]) ? state[targetIdentity] : []);
+        const durableSeenIds = Array.isArray(state[targetIdentity]) ? state[targetIdentity] : [],
+              volatileSeenIds = this.getVolatileGitHubNotificationSeenIds(targetIdentity),
+              seenIds = new Set([...durableSeenIds, ...volatileSeenIds]);
         const unseen  = notifications.filter(notification => !seenIds.has(notification.id));
         if (unseen.length === 0) return;
 
@@ -794,9 +796,62 @@ class SwarmHeartbeatService extends Base {
         }
 
         state[targetIdentity] = [...seenIds].slice(-200);
-        await this.writeGitHubNotificationWakeState(state);
+        try {
+            await this.writeGitHubNotificationWakeState(state);
+            this.clearVolatileGitHubNotificationSeenIds(targetIdentity)
+        } catch (err) {
+            this.rememberVolatileGitHubNotificationSeenIds(targetIdentity, state[targetIdentity]);
+            logger.error(
+                `[SwarmHeartbeatService] Failed to persist GitHub notification wake-state after emitting for ${targetIdentity}; ` +
+                `retaining ids in process memory to avoid wake storms: ${err.message}`
+            )
+        }
 
         logger.info(`[SwarmHeartbeatService] GitHub notification wake emitted for ${targetIdentity}: ${unseen.length} new notification(s).`)
+    }
+
+    /**
+     * @summary Returns process-local GitHub notification ids retained after persist failures.
+     *
+     * Durable state is the source of truth. This fallback covers the post-emit /
+     * pre-persist failure window so a transient or persistent filesystem failure
+     * cannot re-emit the same GitHub notification on every heartbeat until the
+     * orchestrator restarts.
+     * @param {String} identity
+     * @returns {Set<String>}
+     * @protected
+     */
+    getVolatileGitHubNotificationSeenIds(identity) {
+        const map = this._volatileGitHubNotificationSeenIds;
+        return new Set(map?.get(identity) || [])
+    }
+
+    /**
+     * @summary Retains emitted GitHub notification ids in process memory after a persist failure.
+     * @param {String} identity
+     * @param {String[]} ids
+     * @returns {void}
+     * @protected
+     */
+    rememberVolatileGitHubNotificationSeenIds(identity, ids = []) {
+        if (!this._volatileGitHubNotificationSeenIds) {
+            this._volatileGitHubNotificationSeenIds = new Map()
+        }
+
+        const previous = this._volatileGitHubNotificationSeenIds.get(identity) || [],
+              merged   = [...new Set([...previous, ...ids].filter(Boolean))].slice(-200);
+
+        this._volatileGitHubNotificationSeenIds.set(identity, merged)
+    }
+
+    /**
+     * @summary Clears process-local GitHub notification ids once durable persist succeeds.
+     * @param {String} identity
+     * @returns {void}
+     * @protected
+     */
+    clearVolatileGitHubNotificationSeenIds(identity) {
+        this._volatileGitHubNotificationSeenIds?.delete(identity)
     }
 
     /**
