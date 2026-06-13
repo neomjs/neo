@@ -333,14 +333,18 @@ class DockZoneModel extends Base {
      * @summary Splits `targetNodeId` against a new pane holding `itemId`.
      *
      * Wraps `itemId` in a fresh single-tab node and replaces `targetNodeId` in its parent with a new
-     * `split` whose children are `[new, target]` (position `before`) or `[target, new]` (position
-     * `after`). When `targetNodeId` is the root, the new split becomes the root.
+     * `split` whose children are `[new, target]` (leading) or `[target, new]` (trailing). When
+     * `targetNodeId` is the root, the new split becomes the root.
+     *
+     * The leading/trailing side comes from an explicit `position` (`before` / `after`) when given;
+     * otherwise it is derived from the descriptor's `edge` — `top` / `left` lead (before), `bottom` /
+     * `right` trail (after) — so a `DockPreview.previewToOperation()` edge descriptor places correctly.
      * @param {Object} document
-     * @param {Object} args {itemId, targetNodeId, orientation, position, sizes}
+     * @param {Object} args {itemId, targetNodeId, orientation, position, sizes, edge}
      * @returns {{document:Object, errors:String[]}}
      * @static
      */
-    static splitNode(document, {itemId, targetNodeId, orientation, position = 'after', sizes} = {}) {
+    static splitNode(document, {edge, itemId, orientation, position, sizes, targetNodeId} = {}) {
         if (!document.items?.[itemId])     return {document, errors: [`unknown item "${itemId}"`]};
         if (!document.nodes?.[targetNodeId]) return {document, errors: [`unknown target node "${targetNodeId}"`]};
         if (orientation !== 'horizontal' && orientation !== 'vertical') {
@@ -353,7 +357,10 @@ class DockZoneModel extends Base {
 
         let newTabsId  = DockZoneModel.genId(doc, `tabs-${itemId}`),
             newSplitId = DockZoneModel.genId(doc, `split-${targetNodeId}`),
-            ratio      = (Array.isArray(sizes) && sizes.length === 2) ? sizes : [0.5, 0.5];
+            ratio      = (Array.isArray(sizes) && sizes.length === 2) ? sizes : [0.5, 0.5],
+            // Edge descriptors encode the side in `edge`, not `position`: top / left lead (before),
+            // bottom / right trail (after). An explicit `position` always wins.
+            atPosition = position || ((edge === 'top' || edge === 'left') ? 'before' : 'after');
 
         // Resolve the target's parent BEFORE inserting the new split — otherwise the new split
         // (which references the target) would be found as the target's own parent.
@@ -363,7 +370,7 @@ class DockZoneModel extends Base {
         doc.nodes[newSplitId] = {
             type    : 'split',
             orientation,
-            children: position === 'before' ? [newTabsId, targetNodeId] : [targetNodeId, newTabsId],
+            children: atPosition === 'before' ? [newTabsId, targetNodeId] : [targetNodeId, newTabsId],
             // `sizes` maps positionally to `children` in their final order; the caller
             // (DockPreview.previewToOperation) supplies them already in that order.
             sizes   : ratio

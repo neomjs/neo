@@ -251,5 +251,33 @@ test.describe('AgentOS.dock.DockZoneModel', () => {
         test('rejects an unknown operation', () => {
             expect(DockZoneModel.applyOperation(doc(), {operation: 'frobnicate'}).errors.length).toBeGreaterThan(0)
         })
+    });
+
+    test.describe('edge descriptor seam (previewToOperation edges — top/left lead, bottom/right trail)', () => {
+        const cases = [
+            {edge: 'top',    orientation: 'vertical',   target: 'main-tabs', zone: 'center', lead: true},
+            {edge: 'left',   orientation: 'horizontal', target: 'main-tabs', zone: 'center', lead: true},
+            {edge: 'bottom', orientation: 'vertical',   target: 'side-tabs', zone: 'right',  lead: false},
+            {edge: 'right',  orientation: 'horizontal', target: 'side-tabs', zone: 'right',  lead: false}
+        ];
+
+        for (const c of cases) {
+            test(`edge-${c.edge} places the new pane ${c.lead ? 'before (leading)' : 'after (trailing)'}`, () => {
+                // exact previewToOperation edge-descriptor shape: carries `edge`, no `position`
+                const descriptor = {operation: 'splitNode', itemId: 'inspector', targetNodeId: c.target, edge: c.edge, orientation: c.orientation, sizes: [0.5, 0.5]};
+                const {document, errors} = DockZoneModel.applyOperation(doc(), descriptor);
+                expect(errors).toEqual([]);
+
+                const split   = document.nodes[document.nodes.root.zones[c.zone]],
+                      newPane = c.lead ? split.children[0] : split.children[1],
+                      keep    = c.lead ? split.children[1] : split.children[0];
+
+                expect(split.type).toBe('split');
+                expect(split.orientation).toBe(c.orientation);
+                expect(document.nodes[newPane].items).toEqual(['inspector']);
+                expect(keep).toBe(c.target);
+                expect(DockZoneModel.validate(document)).toEqual([])
+            })
+        }
     })
 });
