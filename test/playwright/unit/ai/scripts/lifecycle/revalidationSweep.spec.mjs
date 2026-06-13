@@ -146,21 +146,22 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 '@neo-opus-vega'
             ]));
             expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-ada');
+            // resolveIdentitiesForFamily returns ACTIVE identities only. The two fable-family
+            // identities are benched (temporarily_unreachable, asserted below) because their model
+            // access was suspended, so the active claude fan-out is ada/grace/vega.
             expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
                 '@neo-opus-ada',
                 '@neo-claude-opus',
-                '@neo-opus-vega',
-                '@neo-fable',
-                '@neo-fable-clio'
+                '@neo-opus-vega'
             ]);
             expect(claudeIdentities.find(identity => identity.id === '@neo-claude-opus')?.properties.participationStatus)
                 .toBe('active');
             expect(claudeIdentities.find(identity => identity.id === '@neo-opus-vega')?.properties.participationStatus)
                 .toBe('active');
             expect(claudeIdentities.find(identity => identity.id === '@neo-fable')?.properties.participationStatus)
-                .toBe('active');
+                .toBe('temporarily_unreachable');
             expect(claudeIdentities.find(identity => identity.id === '@neo-fable-clio')?.properties.participationStatus)
-                .toBe('active');
+                .toBe('temporarily_unreachable');
         });
 
         test('throws on unknown family', () => {
@@ -287,7 +288,9 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 io     : fakeIo
             });
             expect(result.identityLogin).toBe('@neo-opus-ada');
-            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega', '@neo-fable', '@neo-fable-clio']);
+            // Active claude fan-out only: the two fable-family identities are benched, so they are
+            // not notified in the live sweep (the bench window itself is what a future sweep flags).
+            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega']);
             expect(result.results[0].notification).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
         });
 
