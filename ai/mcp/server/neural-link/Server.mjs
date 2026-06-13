@@ -72,24 +72,33 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary Resolves the Neural Link harness projection context from MCP request metadata.
+     * @summary Resolves the Neural Link harness projection context for ListTools / CallTool.
      *
-     * Existing developer/operator sessions send no projection metadata and keep the full
-     * surface. Embedded harness clients opt into the fail-closed read projection by passing
-     * `_meta.neoToolProjection: 'harness-embedded'` on `tools/list` and `call_tool`.
+     * **Server-instance forced mode is the ceiling.** When this instance was launched with a forced
+     * {@link toolProjectionMode} (the spawner / Fleet Manager pinning an embedded-agent server via
+     * `--tool-projection-mode`), every request is pinned to it and the client `_meta` is ignored — a
+     * client can NEVER widen its surface by omitting or altering `_meta`. Capability binds to what the
+     * server instance *is*, not to what the client *claims*.
+     *
+     * When NOT forced (trusted dev/operator launch), the client `_meta.neoToolProjection` hint selects
+     * the projection (`'harness-embedded'` → fail-closed read surface); absent → `null` → the full
+     * developer/operator surface (back-compat).
      *
      * @param {Object} context
      * @param {Object} context.request The raw MCP request.
      * @returns {Object|null}
      */
     buildToolProjectionContext({request}) {
-        const projection = request?.params?._meta?.neoToolProjection;
-
-        if (projection === undefined) {
-            return null;
+        // Forced server-instance mode wins and is the ceiling — client `_meta` cannot widen past it.
+        // Only null/undefined is "unset"; an empty/malformed configured value stays a forced mode and
+        // fails closed downstream (a truthiness check would erase `''` into full-surface — fail-OPEN).
+        if (this.toolProjectionMode != null) {
+            return {mode: this.toolProjectionMode};
         }
 
-        return {mode: projection};
+        // Unforced: the client hint selects the projection; absent → full developer/operator surface.
+        const projection = request?.params?._meta?.neoToolProjection;
+        return projection === undefined ? null : {mode: projection};
     }
 
     /**
@@ -130,7 +139,7 @@ class Server extends BaseServer {
 
         this.mcpServer = this.createMcpServer();
 
-        // Connect transport EARLY — see method JSDoc for rationale (#10455 lineage).
+        // Connect transport EARLY — see method JSDoc for rationale.
         await this.connectTransport();
         this.logger.info('Neural Link MCP Server transport connected');
 

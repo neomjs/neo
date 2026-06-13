@@ -16,6 +16,7 @@ program
     .option('-c, --config <path>', 'Path to the configuration file', sanitizeInput)
     .option('-w, --cwd <path>', 'Working directory for the bridge process')
     .option('-d, --debug', 'Enable debug logging')
+    .option('--tool-projection-mode <mode>', 'Pin this server instance to a forced tool-projection ceiling (e.g. harness-embedded) a client cannot widen past. Unset = full developer/operator surface.')
     .parse(process.argv);
 
 const options = program.opts();
@@ -27,8 +28,9 @@ if (options.debug) {
 
 try {
     await Neo.create(Server, {
-        configFile: options.config,
-        bridgeCwd : options.cwd
+        configFile        : options.config,
+        bridgeCwd         : options.cwd,
+        toolProjectionMode: options.toolProjectionMode ?? null
     }).ready();
 } catch (error) {
     logger.error('Fatal error during server initialization:', error);

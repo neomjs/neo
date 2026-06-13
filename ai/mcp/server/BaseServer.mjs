@@ -78,6 +78,17 @@ class BaseServer extends Base {
      */
     configFile = null
     /**
+     * Server-instance forced tool-projection mode — the security *ceiling* for the tool surface this
+     * instance exposes, set at boot by the spawner (the Fleet Manager when it launches a server for an
+     * embedded agent; neural-link's `--tool-projection-mode harness-embedded` CLI flag). When set,
+     * {@link buildToolProjectionContext} pins every request to this mode, so a client can NEVER widen
+     * its surface by omitting or altering request `_meta` — the projection becomes a server-bound
+     * capability, not a client-asserted convention. Default `null` = no ceiling: the full
+     * developer/operator surface, for trusted dev/operator-launched servers (back-compat).
+     * @member {String|null} toolProjectionMode=null
+     */
+    toolProjectionMode = null
+    /**
      * Per-server `logger` module. Subclasses assign at class-body level.
      * Falls back to `console.error` when null.
      * @member {Object|null} logger=null
@@ -160,13 +171,24 @@ class BaseServer extends Base {
      * Returning `null` preserves the existing full developer/operator surface. Returning
      * `{mode: 'harness-embedded'}` asks the underlying ToolService to apply its OpenAPI-root
      * `x-neo-harness-tool-projection` policy before listing or dispatching tools.
+     *
+     * This default honors the server-instance {@link toolProjectionMode} ceiling: when the spawner
+     * pinned this instance to a mode, every request gets it. Subclasses that read a client narrowing
+     * hint (e.g. neural-link's `_meta`) MUST keep the forced mode as the ceiling — a client can never
+     * widen past it.
+     *
+     * **Only `null` / `undefined` is "unset"** (the trusted full-surface launch). Any *configured*
+     * value — including an empty/whitespace string from a misconfigured spawner — stays a forced mode
+     * and fails CLOSED downstream (`ToolService.isToolAllowedForProjection` returns no tools for any
+     * non-`harness-embedded` mode). A truthiness check would erase `''` into the unset/full-surface
+     * case — a fail-OPEN on a security launch parameter — so the nullish check is load-bearing.
      * @param {Object} context
      * @param {Object} context.request The raw MCP request.
      * @param {String} context.phase   `listTools` or `callTool`.
      * @returns {Object|String|null}
      */
     buildToolProjectionContext(context) {
-        return null;
+        return this.toolProjectionMode != null ? {mode: this.toolProjectionMode} : null;
     }
 
     /**

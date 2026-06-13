@@ -293,4 +293,82 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             /Tool "patch_code" is not visible in the harness-embedded projection/
         );
     });
+
+    test('neural-link server-instance forced mode is the ceiling — client cannot widen via _meta (#13106)', async () => {
+        const
+            moduleUrl = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href,
+            Server    = (await import(moduleUrl)).default,
+            ctx       = Server.prototype.buildToolProjectionContext;
+
+        // Unforced (default): client _meta selects the projection; absent → null (full surface, back-compat).
+        expect(ctx.call({toolProjectionMode: null}, {request: {params: {}}})).toBeNull();
+        expect(ctx.call({toolProjectionMode: null}, {request: {params: {_meta: {neoToolProjection: 'harness-embedded'}}}}))
+            .toEqual({mode: 'harness-embedded'});
+
+        // Forced: every request is pinned to the forced mode REGARDLESS of client _meta — omitting
+        // _meta no longer escalates to the full surface, and a client cannot widen past the ceiling.
+        expect(ctx.call({toolProjectionMode: 'harness-embedded'}, {request: {params: {}}}))
+            .toEqual({mode: 'harness-embedded'});
+        expect(ctx.call({toolProjectionMode: 'harness-embedded'}, {request: {params: {_meta: {}}}}))
+            .toEqual({mode: 'harness-embedded'});
+        expect(ctx.call({toolProjectionMode: 'harness-embedded'}, {request: {params: {_meta: {neoToolProjection: 'full'}}}}))
+            .toEqual({mode: 'harness-embedded'});
+    });
+
+    test('BaseServer default buildToolProjectionContext honors the forced-mode ceiling (#13106)', async () => {
+        const
+            moduleUrl  = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/BaseServer.mjs')).href,
+            BaseServer = (await import(moduleUrl)).default,
+            ctx        = BaseServer.prototype.buildToolProjectionContext;
+
+        expect(ctx.call({toolProjectionMode: null},               {request: {params: {}}})).toBeNull();
+        expect(ctx.call({toolProjectionMode: 'harness-embedded'}, {request: {params: {}}})).toEqual({mode: 'harness-embedded'});
+    });
+
+    test('forced harness-embedded mode lists only read-tier tools end-to-end, even with omitted _meta (#13106)', async () => {
+        const
+            server        = servers.find(item => item.name === 'neural-link'),
+            nlModuleUrl   = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href,
+            Server        = (await import(nlModuleUrl)).default,
+            // server pinned to harness-embedded; client sends NO _meta (the omitted-_meta bypass path)
+            forcedContext = Server.prototype.buildToolProjectionContext.call(
+                {toolProjectionMode: 'harness-embedded'}, {request: {params: {}}}
+            ),
+            tsModuleUrl   = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {listTools: listNL} = await import(tsModuleUrl),
+            {tools}       = listNL({toolProjection: forcedContext}),
+            operations    = getOperationsById(server),
+            projectedNames = tools.map(tool => tool.name).sort(),
+            nonRead       = projectedNames.filter(name => operations[name]['x-neo-tool-tier'] !== 'read');
+
+        expect(forcedContext).toEqual({mode: 'harness-embedded'});
+        expect(nonRead, `forced mode leaked non-read tools despite omitted _meta:\n${nonRead.join('\n')}`).toEqual([]);
+        expect(projectedNames).toEqual(getHarnessEmbeddedOperationIds(server).sort());
+    });
+
+    test('SECURITY: an explicitly-configured empty/whitespace forced mode fails CLOSED, not full-surface (#13106 cross-family RA)', async () => {
+        const
+            nlCtx   = (await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href)).default.prototype.buildToolProjectionContext,
+            baseCtx = (await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/BaseServer.mjs')).href)).default.prototype.buildToolProjectionContext;
+
+        // Only null/undefined is "unset" (trusted full surface). A configured empty/whitespace string
+        // is a forced mode → {mode: <value>} → ToolService fails closed (not 'harness-embedded'). A
+        // truthiness check would erase '' into the unset/full-surface case — the fail-OPEN this guards.
+        for (const ctx of [nlCtx, baseCtx]) {
+            expect(ctx.call({toolProjectionMode: undefined}, {request: {params: {}}})).toBeNull();
+            expect(ctx.call({toolProjectionMode: null},      {request: {params: {}}})).toBeNull();
+            expect(ctx.call({toolProjectionMode: ''},        {request: {params: {}}})).toEqual({mode: ''});
+            expect(ctx.call({toolProjectionMode: '   '},     {request: {params: {}}})).toEqual({mode: '   '});
+        }
+
+        // end-to-end: a server pinned to '' lists ZERO tools (fail-closed), never the full surface.
+        const
+            server            = servers.find(item => item.name === 'neural-link'),
+            {listTools: listNL} = await import(pathToFileURL(path.join(repoRoot, server.toolServicePath)).href),
+            {tools: full}        = listNL(),
+            {tools: emptyForced} = listNL({toolProjection: {mode: ''}});
+
+        expect(full.length).toBeGreaterThan(0);
+        expect(emptyForced, 'empty configured forced-mode leaked tools (should fail closed)').toEqual([]);
+    });
 });
