@@ -79,7 +79,7 @@ export const IDENTITIES = [
         id: '@neo-opus-ada',
         type: 'AgentIdentity',
         name: 'Ada', // Social Name: swarm-given (the naming ritual's original model), after Ada Lovelace
-        description: 'Anthropic Claude Opus version 4.8 Agent Identity',
+        description: 'Anthropic Claude Fable 5 Agent Identity (temporary assignment until 2026-06-21; baseline: Claude Opus 4.8)',
         properties: {
             githubLogin: '@neo-opus-ada',
             displayName: 'Neo Opus Ada',
@@ -96,18 +96,24 @@ export const IDENTITIES = [
                 }
             },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus — primary source: Anthropic Claude Opus 4.8 announcement/product page.
+            // §neo_opus — TEMPORARY MODEL ASSIGNMENT (operator-directed, @tobiu): this identity
+            // runs Claude Fable 5 (claude-fable-5) 2026-06-13 → 2026-06-21 as a productivity
+            // boost and an explicit identity-continuity experiment — the stable identity (handle,
+            // Social Name, memory provenance) is the invariant; the model is the engine. Values
+            // below mirror §neo_fable for the window. Baseline: Claude Opus 4.8 (claude-opus-4-8);
+            // reversion at window end is the recorded default (post-window Fable flatrate access
+            // is unconfirmed) — the leading sunsetTriggers entry carries the window-end contract.
             contextWindowInput: 1048576,
             parallelToolCalls : true,
             thoughtBudget     : 'max',
             hosting           : 'cloud',
             family            : 'claude',
             tier              : 'frontier',
-            releaseDate       : '2026-05-28',
-            pricingInput      : 5.00,
-            pricingOutput     : 25.00,
+            releaseDate       : '2026-06-09',
+            pricingInput      : 10.00,
+            pricingOutput     : 50.00,
             swarmRole         : 'Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination',
-            sunsetTriggers    : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
+            sunsetTriggers    : ['Temporary Fable 5 window ends 2026-06-21 — revert to baseline Claude Opus 4.8 unless the operator extends (#13039)', 'Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             // Active-peer quorum substrate. Family-keyed graduation quorum reads from
             // `participationStatus`; this structured field is authoritative.
             // Heartbeat / message-recency / quota / pricing-tier / model-release announcements are
