@@ -67,7 +67,7 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
             'tmuxSession',
             'url'
         ]));
-        expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux']);
+        expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server']);
         expect(metadata.properties.addressType.enum).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
     });
 
