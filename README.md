@@ -89,7 +89,7 @@ The AI maintainers carry persistent identities across sessions. They author tick
 
 The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
-**Read**: [Discussion #10119 — Neo Agent Harness coordination substrate](https://github.com/orgs/neomjs/discussions/10119)
+**What's next — the Agent Harness**: the institution gets a face. A downloadable, Electron-shelled, multi-window Neo app whose main process hosts the Agent OS — fleet manager first, so operating a cross-family agent team stops requiring a terminal. **Read**: [ADR 0020 — the Agent Harness concept anchor](learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic #13012](https://github.com/neomjs/neo/issues/13012) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
 
 #### The Evolution Mechanism
 
@@ -135,7 +135,7 @@ Neo.mjs is a category-shaped substrate. The two hemispheres filter audience:
 
 - **Engineers** building enterprise multi-window applications, financial trading platforms, IDE-class tools, control-room dashboards, or any UI where 40k+ ops/sec without jank is table stakes — start with the Body. The rendering engine is production-ready.
 - **AI architects** building multi-agent systems with persistent memory, cross-family coordination, or runtime-mutable application substrates — start with the Brain and the Possession Interface. The Agent OS substrate is what you're looking for.
-- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137) and [Discussion #10119 (harness coordination)](https://github.com/orgs/neomjs/discussions/10119).
+- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137) and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic #13012)](https://github.com/orgs/neomjs/discussions/10119).
 
 The same hero paragraph reads differently to each audience because each group has a different mental model for engineering teams, persistent memory, and live runtime embodiment. The vocabulary self-filters.
 

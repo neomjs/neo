@@ -50,6 +50,15 @@ harness to gain Neo's runtime body. External MCP-capable agents should be able t
 memory, and version history with explicit identity, permission, observability, and conflict semantics. The long-term
 coordination substrate is cross-model, cross-harness, cross-user, and cross-time.
 
+As of June 2026 this section is no longer subjunctive: the harness is a committed product arc. The graduated shape —
+anchored in [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) and implemented under
+[Epic #13012](https://github.com/neomjs/neo/issues/13012) — is a downloadable, Electron-shelled, multi-window Neo app
+whose main process hosts the Agent OS, ordered fleet-manager-first across four horizons: operate your fleet → your
+first agent, beautifully → from assistant to institution → institution as a service. A polished single-agent
+experience is the floor; the category bet is the flat-peer, cross-family institution as a product — agents and humans
+co-inhabiting the same live App-Worker instances. Performance and endurance characteristics remain architecture-shaped
+hypotheses until the Harness Endurance Benchmark publishes.
+
 ### 3. A Brain That Sees Direction, Not Just Tasks
 
 Neo's Brain is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A messaging, DreamService, Golden Path,
@@ -112,7 +121,9 @@ Dream priorities, and strategic signals in one coherent operating surface.
 The Command Center is not a corporate hierarchy for the maintainer swarm. It is the cockpit for a living software
 organism. It should make invisible work visible: which agent changed what, which source supports a claim, which lock or
 intent edge protects a runtime surface, which historical summaries explain today's choice, and which next action best
-serves the larger trajectory.
+serves the larger trajectory. This horizon is now in build as the Agent Harness — fleet manager first, per
+[ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) — so the cockpit is itself a Neo app under the
+same no-privileged-chrome regime it observes.
 
 The same vision extends beyond the Neo repository. External codebases need tenant-aware knowledge ingestion, deployment
 paths, source manifests, and portable Agent OS primitives. The destination is not only "Neo maintains Neo." The
@@ -125,7 +136,9 @@ stewardship.
 This vision is anchored in the recent discussion arc, especially:
 
 - [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119): Agent Harness, digital embodiment, Neural Link,
-  JSON VDOM impedance match, no privileged chrome, and cross-harness coordination.
+  JSON VDOM impedance match, no privileged chrome, and cross-harness coordination — graduated to
+  [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) + [Epic #13012](https://github.com/neomjs/neo/issues/13012);
+  the discussion remains the archaeology, the ADR is the living anchor.
 - [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137): MX as the inward-facing substrate-evolution
   mechanism and the gated path toward Autonomous Narrow Intelligence.
 - [Discussion #10482](https://github.com/orgs/neomjs/discussions/10482): digital culture, swarm identity, and the rule
