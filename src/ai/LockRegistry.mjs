@@ -203,15 +203,17 @@ class LockRegistry extends Base {
     }
 
     /**
-     * @summary Whether an explicit write target is mandatory given the live-session count.
-     * Encodes the auto-targeting-deprecation rule: with more than one session live, a writer must name its
-     * target, because the implicit "most recent session" shortcut (`ConnectionService.call()`) is only safe
-     * for a single writer. Zero or one live session keeps the back-compatible implicit path.
+     * @summary Whether an explicit write target is mandatory for the given live-session count (fail-safe).
+     * Only a count *known* to be exactly 0 or 1 permits the implicit "most recent session" shortcut
+     * (`ConnectionService.call()`, single-writer-safe). Any other value — 2+, or a non-finite / unexpected
+     * count such as a consumer's `sessions?.length` resolving to `undefined` — requires an explicit target:
+     * if the live-session count cannot be confirmed safe, we must not silently re-enable auto-targeting
+     * while co-habitation may be live. The fail direction is the strict one (`true`).
      * @param {Number} liveSessionCount
      * @returns {Boolean}
      */
     static requiresExplicitTarget(liveSessionCount) {
-        return Number.isFinite(liveSessionCount) && liveSessionCount > 1
+        return liveSessionCount !== 0 && liveSessionCount !== 1
     }
 }
 

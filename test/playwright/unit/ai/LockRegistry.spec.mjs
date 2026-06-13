@@ -270,9 +270,12 @@ test.describe('Neo.ai.LockRegistry', () => {
             expect(LockRegistry.requiresExplicitTarget(5)).toBe(true);
         });
 
-        test('fails closed to false for non-finite counts', () => {
-            expect(LockRegistry.requiresExplicitTarget(NaN)).toBe(false);
-            expect(LockRegistry.requiresExplicitTarget(Infinity)).toBe(false);
+        test('fails safe (requires explicit) for non-finite or unexpected counts', () => {
+            expect(LockRegistry.requiresExplicitTarget(NaN)).toBe(true);
+            expect(LockRegistry.requiresExplicitTarget(Infinity)).toBe(true);
+            // the realistic trigger: a consumer's `sessions?.length` resolving to `undefined`
+            expect(LockRegistry.requiresExplicitTarget(undefined)).toBe(true);
+            expect(LockRegistry.requiresExplicitTarget(-1)).toBe(true);
         });
     });
 });
