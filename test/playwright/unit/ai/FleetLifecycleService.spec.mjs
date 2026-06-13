@@ -177,16 +177,17 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         expect(FleetLifecycleService.status('a')).toMatchObject({state: 'stopped', running: false});
     });
 
-    test('drains + captures child stderr into a bounded tail (no pipe backpressure)', () => {
+    test('drains stderr (no backpressure) but never surfaces its content through status — counts bytes only', () => {
         install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
         FleetLifecycleService.start('a');
         const child = FleetLifecycleService.processes.get('a').child;
 
-        child.stderr.emit('data', Buffer.from('[WARN] harness warming up\n'));
-        expect(FleetLifecycleService.status('a').recentStderr).toContain('harness warming up');
+        // a misbehaving harness echoes its injected token to stderr — status must NOT surface it
+        child.stderr.emit('data', Buffer.from('[ERROR] auth failed with token ghp_LEAKED_via_stderr\n'));
 
-        // a large burst is drained, but the retained tail stays bounded
-        child.stderr.emit('data', Buffer.from('x'.repeat(10_000)));
-        expect(FleetLifecycleService.status('a').recentStderr.length).toBeLessThanOrEqual(4096);
+        const status = FleetLifecycleService.status('a');
+        expect(JSON.stringify(status)).not.toContain('ghp_LEAKED_via_stderr');  // content never surfaced
+        expect(status.recentStderr).toBeUndefined();                            // no raw-content field at all
+        expect(status.stderrBytes).toBeGreaterThan(0);                          // but it WAS drained (counted)
     });
 });
