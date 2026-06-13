@@ -733,7 +733,7 @@ class PullRequestService extends Base {
     }
 
     /**
-     * @summary Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI.
+     * @summary Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint.
      *
      * Sibling to `IssueService.manageIssueAssignees` for PR reviewer invitations — closes the
      * **invitation layer** of the cross-family review mandate (`pull-request §6.1`). The mandate
@@ -741,22 +741,22 @@ class PullRequestService extends Base {
      * invitation primitive that pairs with it. Without invitation, reviewers learn about PRs
      * needing review via passive notification polling — the latency this tool closes.
      *
-     * Surfaces GitHub's `requested_reviewers` API (`POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`,
-     * mirrored as `gh pr edit <pr-number> --add-reviewer <login>` / `--remove-reviewer <login>`).
-     * Permission errors are surfaced via the underlying `gh` CLI's exit code rather than a
-     * pre-flight check — keeps the service-internal logic decoupled from `RepositoryService`'s
-     * permission cache while preserving end-to-end error visibility.
+     * Calls GitHub's `requested_reviewers` REST endpoint directly (`POST` to add / `DELETE` to remove,
+     * on `/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`) — it needs only the `repo`
+     * scope. The prior `gh pr edit --add/remove-reviewer` path resolved logins via GraphQL, which
+     * requires `read:org` (a scope agent tokens routinely lack), so it failed for every agent on that
+     * credential class. Permission errors still surface via the `gh` exit code.
      *
      * @param {object}    options
      * @param {number}    options.pr_number          The number of the pull request.
      * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
-     * @param {string[]}  [options.team_reviewers]   Array of team slugs (without owner prefix). The owner is auto-prepended via `aiConfig.owner`.
+     * @param {string[]}  [options.team_reviewers]   Array of bare team slugs (no owner prefix — the REST endpoint takes slugs directly).
      * @param {string}    options.action             Either `'add'` or `'remove'`.
      * @returns {Promise<object>} Success message + reviewer payload on success, or structured error.
      *
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
-    async managePrReviewers({pr_number, reviewers, team_reviewers, action}) {
+    async managePrReviewers({pr_number, reviewers, team_reviewers, action}, {execFn = execAsync} = {}) {
         if (!['add', 'remove'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -765,8 +765,9 @@ class PullRequestService extends Base {
             };
         }
 
-        const reviewerList     = reviewers || [];
-        const teamReviewerList = team_reviewers || [];
+        // Logins/slugs may arrive with a leading `@`; the REST body wants bare values.
+        const reviewerList     = (reviewers || []).map(r => r.replace(/^@/, ''));
+        const teamReviewerList = (team_reviewers || []).map(t => t.replace(/^@/, ''));
 
         if (reviewerList.length === 0 && teamReviewerList.length === 0) {
             return {
@@ -777,17 +778,22 @@ class PullRequestService extends Base {
         }
 
         try {
-            const flagName        = action === 'add' ? '--add-reviewer' : '--remove-reviewer';
-            const reviewerFlags   = reviewerList.map(r => `${flagName} "${r}"`).join(' ');
-            // Team-reviewer syntax in `gh pr edit` requires the OWNER/team-slug form.
-            const teamFlags       = teamReviewerList.map(t => `${flagName} "${aiConfig.owner}/${t}"`).join(' ');
-            const allFlags        = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
-            const allTargets      = [...reviewerList, ...teamReviewerList.map(t => `${aiConfig.owner}/${t}`)];
+            // Use the REST `requested_reviewers` endpoint rather than `gh pr edit --add/remove-reviewer`:
+            // the CLI resolves logins via GraphQL, which requires the `read:org` scope that agent tokens
+            // routinely lack (they carry `repo`/`project`/`user`/etc. but not `read:org`), so the CLI path
+            // fails for every agent on that credential class. REST needs only `repo`. Request body:
+            // `reviewers[]` (user logins) + `team_reviewers[]` (bare team slugs — REST takes the slug, not
+            // the `owner/slug` form `gh pr edit` requires).
+            const method        = action === 'add' ? 'POST' : 'DELETE';
+            const reviewerFlags = reviewerList.map(r => `-f 'reviewers[]=${r}'`).join(' ');
+            const teamFlags     = teamReviewerList.map(t => `-f 'team_reviewers[]=${t}'`).join(' ');
+            const allFlags      = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
+            const allTargets    = [...reviewerList, ...teamReviewerList];
 
-            const command = `gh pr edit ${pr_number} ${allFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
-            logger.info(`Attempting to ${action} reviewers on PR #${pr_number}: ${allTargets.join(', ')}`);
+            const command = `gh api repos/${aiConfig.owner}/${aiConfig.repo}/pulls/${pr_number}/requested_reviewers -X ${method} ${allFlags}`;
+            logger.info(`Attempting to ${action} reviewers on PR #${pr_number} via REST: ${allTargets.join(', ')}`);
 
-            await execAsync(command, {cwd: aiConfig.projectRoot});
+            await execFn(command, {cwd: aiConfig.projectRoot});
 
             const verb = action === 'add' ? 'requested' : 'removed';
             return {
@@ -799,9 +805,9 @@ class PullRequestService extends Base {
         } catch (error) {
             logger.error(`Error managing reviewers on PR #${pr_number}:`, error);
             return {
-                error  : 'GitHub CLI command failed',
-                message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message}`,
-                code   : 'GH_CLI_ERROR',
+                error  : 'GitHub API request failed',
+                message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message} (REST requested_reviewers needs only the repo scope)`,
+                code   : 'GH_API_ERROR',
                 details: error.stderr || error.message
             };
         }
