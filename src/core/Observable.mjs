@@ -300,6 +300,8 @@ class Observable extends Base {
     }
 
     /**
+     * @summary Remove listeners by id, handler, or object-valued listener specs.
+     *
      * There are different syntax's how you can use this method.
      * Using the eventId:
      * ```
@@ -340,6 +342,11 @@ class Observable extends Base {
             }
 
             Object.entries(name).forEach(([key, value]) => {
+                const
+                    valueObject = Neo.isObject(value),
+                    fn          = valueObject ? value.fn : value,
+                    entryScope  = valueObject && Object.hasOwn(value, 'scope') ? value.scope : scope;
+
                 listeners = me[eventMapSymbol][key] || [];
                 i         = 0;
                 len       = listeners.length;
@@ -348,8 +355,11 @@ class Observable extends Base {
                     listener = listeners[i];
 
                     if (
-                        listener.fn.name === (Neo.isString(value) ? value : value.name) &&
-                        listener.scope   === scope
+                        (
+                            listener.fn === fn ||
+                            listener.fn?.name === (Neo.isString(fn) ? fn : fn?.name)
+                        ) &&
+                        listener.scope === entryScope
                     ) {
                         listeners.splice(i, 1);
                         break
