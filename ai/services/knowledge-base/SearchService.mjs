@@ -377,7 +377,8 @@ Instructions:
 
             result = await this.model.generateContent(prompt, {
                 timeoutMs     : ask.provider === 'gemini' ? ask.timeoutMsRemote : ask.timeoutMs,
-                operationLabel: 'ask_knowledge_base synthesis'
+                operationLabel: 'ask_knowledge_base synthesis',
+                priority      : 'interactive'
             });
             answer = result.response.text();
         } catch (error) {

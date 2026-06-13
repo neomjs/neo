@@ -583,7 +583,7 @@ ${sessionContent}
         // friction symptom, which the degraded fallback below treats like an oversize skip.
         const runGuardrailed = (prompt, note) => invokeWithGuardrail({
             invocationFn             : () => withTimeout(
-                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization'}),
+                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization', priority: 'batch'}),
                 summaryTimeoutMs,
                 'session summarization'
             ),
