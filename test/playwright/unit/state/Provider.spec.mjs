@@ -14,6 +14,7 @@ setup({
 
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
 import Component       from '../../../../src/component/Base.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
@@ -266,7 +267,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
         expect(component.testConfig).toBe('A');
         expect(component.userObject).toBe('B');
-        
+
         // Ensure both effects exist and haven't overwritten each other
         expect(effect1.isDestroyed).toBe(false);
         expect(effect2.isDestroyed).toBe(false);
@@ -276,7 +277,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
         // The old effect for 'testConfig' MUST be destroyed to prevent leaks/conflicts
         expect(effect1.isDestroyed).toBe(true);
-        
+
         // The new effect should be active
         expect(effect3.isDestroyed).toBe(false);
         expect(component.testConfig).toBe('C');
@@ -382,6 +383,100 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
         component.destroy();
         store.destroy();
+    });
+
+    test('Inline provider stores should get predictable ids and resolve sibling sourceId keys', () => {
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                id: 'state-provider-sourceid-test',
+                stores: {
+                    users: {
+                        module: Store,
+                        data  : [{id: 1, name: 'Item 1'}],
+                        model : {fields: [{name: 'id'}, {name: 'name'}]}
+                    },
+                    activeUsers: {
+                        module  : Store,
+                        sourceId: 'users',
+                        model   : {fields: [{name: 'id'}, {name: 'name'}]}
+                    }
+                }
+            },
+            bind: {
+                testConfig: 'stores.activeUsers'
+            }
+        });
+
+        const
+            provider    = component.getStateProvider(),
+            users       = provider.getStore('users'),
+            activeUsers = provider.getStore('activeUsers');
+
+        expect(users.id).toBe('state-provider-sourceid-test__users');
+        expect(activeUsers.id).toBe('state-provider-sourceid-test__activeUsers');
+        expect(activeUsers.sourceId).toBe(users.id);
+        expect(activeUsers.getSource()).toBe(users);
+        expect(component.testConfig).toBe(activeUsers);
+        expect(activeUsers.count).toBe(1);
+
+        users.add({id: 2, name: 'Item 2'});
+        expect(activeUsers.count).toBe(2);
+
+        component.destroy();
+        activeUsers.destroy();
+        users.destroy();
+    });
+
+    test('Provider store sourceId resolution should preserve explicit and external ids', () => {
+        const externalStore = Neo.create(Store, {
+            id   : 'provider-sourceid-external-store',
+            data : [{id: 1, name: 'External 1'}],
+            model: {fields: [{name: 'id'}, {name: 'name'}]}
+        });
+
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                id: 'state-provider-explicit-sourceid-test',
+                stores: {
+                    explicitUsers: {
+                        id    : 'provider-sourceid-explicit-users',
+                        module: Store,
+                        data  : [{id: 1, name: 'Item 1'}],
+                        model : {fields: [{name: 'id'}, {name: 'name'}]}
+                    },
+                    explicitUsersCopy: {
+                        module  : Store,
+                        sourceId: 'explicitUsers',
+                        model   : {fields: [{name: 'id'}, {name: 'name'}]}
+                    },
+                    externalUsersCopy: {
+                        module  : Store,
+                        sourceId: 'provider-sourceid-external-store',
+                        model   : {fields: [{name: 'id'}, {name: 'name'}]}
+                    }
+                }
+            }
+        });
+
+        const
+            provider          = component.getStateProvider(),
+            explicitUsers     = provider.getStore('explicitUsers'),
+            explicitUsersCopy = provider.getStore('explicitUsersCopy'),
+            externalUsersCopy = provider.getStore('externalUsersCopy');
+
+        expect(explicitUsers.id).toBe('provider-sourceid-explicit-users');
+        expect(explicitUsersCopy.sourceId).toBe('provider-sourceid-explicit-users');
+        expect(explicitUsersCopy.getSource()).toBe(explicitUsers);
+
+        expect(externalUsersCopy.sourceId).toBe('provider-sourceid-external-store');
+        expect(externalUsersCopy.getSource()).toBe(externalStore);
+        expect(externalUsersCopy.id).toBe('state-provider-explicit-sourceid-test__externalUsersCopy');
+
+        component.destroy();
+        explicitUsersCopy.destroy();
+        externalUsersCopy.destroy();
+        explicitUsers.destroy();
+        externalStore.destroy();
     });
 
     test('Provider data_ config should deep merge class and instance level data', () => {
@@ -524,7 +619,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
             }
         });
 
-        // Effect execution is asynchronous in some test contexts or deferred, 
+        // Effect execution is asynchronous in some test contexts or deferred,
         // but here they are evaluated synchronously on creation if state exists.
         expect(component.testConfig1).toBe('A');
         expect(component.testConfig2).toBe('B');
