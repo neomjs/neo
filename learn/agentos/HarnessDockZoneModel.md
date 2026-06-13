@@ -32,8 +32,8 @@ Initial durable surface: this document.
 
 Future code ownership should follow this decision tree:
 
-1. If the first implementation only proves Agent Harness workspace persistence, place the adapter in the harness app layer and keep the model documented here.
-2. If a second independent in-repo use lands, lift the reusable model/parser into the dashboard/container substrate. Candidate second use: the Portal learning workspace, where docs, Monaco/live preview, output panes, and inspectors benefit from saveable split/tab workspaces.
+1. If the first implementation only proves Agent Harness workspace persistence with app-specific pane wiring or persistence glue, place that app-specific code in the harness app layer and keep the model documented here.
+2. If the first implementation is a reusable projection adapter that consumes dashboard/container/tab primitives and emits ordinary Neo configs, place the adapter in the dashboard layer while keeping the model contract here. A second independent in-repo use is still required before lifting the model/parser or public API beyond dashboard adaptation. Candidate second use: the Portal learning workspace, where docs, Monaco/live preview, output panes, and inspectors benefit from saveable split/tab workspaces.
 3. Only after reusable behavior exceeds dashboard adaptation should a generic core layout primitive be considered.
 
 Rejected alternatives:
