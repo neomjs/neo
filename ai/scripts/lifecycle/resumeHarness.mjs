@@ -292,8 +292,10 @@ export async function resolveResumeHarnessInstancePid({
 }
 
 /**
- * Build a boot-grounding prompt that instructs the fresh agent to read
- * AGENTS_STARTUP.md and pick up prior context via Memory Core + sandman_handoff.
+ * @summary Builds the fresh-session boot prompt used by resume recovery.
+ *
+ * Instructs the fresh agent to read AGENTS_STARTUP.md, persist a meaningful
+ * non-empty boot heartbeat, and pick up prior context via Memory Core + sandman_handoff.
  * @param {string} identity        Agent identity (e.g. '@neo-opus-ada').
  * @param {string} reason          Human-readable sunset cause from checkSunsetted.
  * @param {string} originSessionId Memory Core session ID of the just-sunsetted run; falsy → omitted gracefully.
@@ -304,7 +306,7 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
         ? `Origin Session ID: ${originSessionId}.`
         : 'Origin Session ID unavailable in recovery payload — pull most recent SUNSET-tagged memory for this identity instead.';
     return [
-        `hi ${identity}, please read @AGENTS_STARTUP.md, then call add_memory once as a boot heartbeat, then proceed normally.`,
+        `hi ${identity}, please read @AGENTS_STARTUP.md, then call add_memory once as a boot heartbeat with explicit non-empty prompt/thought/response fields (for example: prompt="Boot heartbeat for ${identity}", thought="Fresh recovery boot after AGENTS_STARTUP.md read; Memory Core write-path health check.", response="Boot heartbeat saved; continuing recovery."), then proceed normally.`,
         `Recovery context: ${reason}.`,
         `${sessionAnchor} Read resources/content/sandman_handoff.md and your Memory Core context to resume swarm coordination from the prior session anchor.`
     ].join(' ');

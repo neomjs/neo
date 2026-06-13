@@ -392,6 +392,9 @@ test.describe('ai/scripts/resumeHarness', () => {
         // prose payload. Static-read the prompt builder to verify the shape.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain('@AGENTS_STARTUP.md');
+        expect(scriptContent).toContain('explicit non-empty prompt/thought/response fields');
+        expect(scriptContent).toContain('Boot heartbeat for ${identity}');
+        expect(scriptContent).not.toContain('call add_memory once as a boot heartbeat, then proceed normally');
         expect(scriptContent).toContain('resources/content/sandman_handoff.md');
         expect(scriptContent).toContain('Origin Session ID');
         // Negative assertion: the old Q1a prose payload must be gone
