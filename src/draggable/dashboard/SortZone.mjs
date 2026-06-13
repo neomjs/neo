@@ -264,7 +264,6 @@ class DashboardSortZone extends SortZone {
         let me = this;
 
         if (!me.isRemoteDragging) {
-            // Signal Coordinator about end of drag
             DragCoordinator.onDragEnd({
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
@@ -272,6 +271,17 @@ class DashboardSortZone extends SortZone {
         }
 
         await super.processDragEnd(data)
+    }
+
+    /**
+     * Finalizes a window drag released outside every registered dashboard target.
+     * @param {Neo.component.Base} draggedItem
+     */
+    onTerminalWindowDrop(draggedItem) {
+        this.owner.onWindowDragTerminalDrop?.({
+            draggedItem,
+            sortZone: this
+        })
     }
 
     /**
