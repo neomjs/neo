@@ -158,22 +158,10 @@ paths:
     post:
       summary: Checkout PR Branch
       operationId: checkout_pull_request
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
-      description: |
-        Checks out the branch for a given pull request locally using `gh pr checkout`.
-        This modifies the local filesystem to reflect the state of the pull request branch.
-
-        **When to Use:**
-        Use this tool when you need to locally inspect the code changes of a pull request, run tests, or perform a more detailed review.
-
-        **Workflow:**
-        1. **Ensure your current work is committed or stashed.** Before switching branches, make sure you save your current work to prevent losing changes (e.g., using `git stash`).
-        2. **Check out the pull request branch** using this tool.
-        3. **Review and test the code locally.**
-        4. **Return to your previous branch** when you are done (e.g., using `git checkout -`).
-
-        **Safety Note:** Always commit or stash your changes before checking out a new branch to avoid losing work.
+      description: Checks out a PR in explicit caller git-root `repoPath`; refuses with `CALLER_WORKSPACE_REQUIRED` when omitted. Use only for local review/test work after saving target workspace changes, then compare returned `headSha` with the current PR head. If you cannot supply `repoPath`, run manual `gh pr checkout` in your workspace.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -183,13 +171,24 @@ paths:
           schema:
             type: integer
             example: 123
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                repoPath:
+                  type: string
+                  description: Absolute path to the caller workspace git root that may be mutated by `gh pr checkout`.
+                  example: "/Users/Shared/codex/neomjs/neo"
       responses:
         '200':
           description: Pull request branch checked out successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/CheckoutPullRequestResponse'
         '404':
           description: Pull request not found.
           content:
@@ -1831,6 +1830,30 @@ components:
           type: string
           description: Optional details from the CLI output.
           example: "Checked out branch 'some-contributor/my-feature-branch'"
+
+    CheckoutPullRequestResponse:
+      type: object
+      description: Verifiable result for `checkout_pull_request`; callers should compare `headSha` with the current PR head before executing tests.
+      properties:
+        message:
+          type: string
+          example: "Successfully checked out PR #123"
+        details:
+          type: string
+          description: Optional details from the CLI output.
+          example: "Switched to branch 'some-contributor/my-feature-branch'"
+        repoPath:
+          type: string
+          description: Verified git top-level mutated by the checkout.
+          example: "/Users/Shared/codex/neomjs/neo"
+        branch:
+          type: string
+          description: Current branch after checkout; empty when Git leaves the worktree detached.
+          example: "some-contributor/my-feature-branch"
+        headSha:
+          type: string
+          description: "`git rev-parse HEAD` read back from `repoPath` after checkout."
+          example: "0123456789abcdef0123456789abcdef01234567"
 
     CommentResponse:
       type: object

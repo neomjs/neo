@@ -19,6 +19,149 @@ import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
+test.describe('Neo.ai.services.github-workflow.PullRequestService — checkoutPullRequest (#13052)', () => {
+    let buildCheckoutPullRequest;
+
+    const silentLogger = {error: () => {}};
+
+    test.beforeAll(async () => {
+        ({buildCheckoutPullRequest} = await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs'));
+    });
+
+    test('refuses checkout when caller workspace repoPath is absent', async () => {
+        let execCalls = 0;
+        const checkoutPullRequest = buildCheckoutPullRequest({
+            projectRoot: '/server/shared-repo',
+            log        : silentLogger,
+            execFileFn : async () => {
+                execCalls++;
+                throw new Error('should not execute git or gh');
+            }
+        });
+
+        const result = await checkoutPullRequest(13050);
+
+        expect(result.error).toBe('Unsafe checkout refused');
+        expect(result.code).toBe('CALLER_WORKSPACE_REQUIRED');
+        expect(result.repoPath).toBe('/server/shared-repo');
+        expect(result.message).toContain('cannot infer the caller workspace');
+        expect(execCalls).toBe(0);
+    });
+
+    test('rejects repoPath that is not the git top-level', async () => {
+        const calls = [];
+        const checkoutPullRequest = buildCheckoutPullRequest({
+            projectRoot: '/server/shared-repo',
+            log        : silentLogger,
+            execFileFn : async (command, args, options) => {
+                calls.push({command, args, cwd: options.cwd});
+                return {stdout: '/tmp/caller-worktree\n'};
+            }
+        });
+
+        const result = await checkoutPullRequest({
+            pr_number: 13050,
+            repoPath : '/tmp/caller-worktree/subdir'
+        });
+
+        expect(result.error).toBe('Unsafe checkout refused');
+        expect(result.code).toBe('REPO_PATH_NOT_GIT_ROOT');
+        expect(result.repoPath).toBe('/tmp/caller-worktree/subdir');
+        expect(result.gitTopLevel).toBe('/tmp/caller-worktree');
+        expect(calls).toHaveLength(1);
+        expect(calls[0]).toEqual({
+            command: 'git',
+            args   : ['rev-parse', '--show-toplevel'],
+            cwd    : '/tmp/caller-worktree/subdir'
+        });
+    });
+
+    test('checks out explicit repoPath and returns read-back git state', async () => {
+        const calls = [];
+        const checkoutPullRequest = buildCheckoutPullRequest({
+            projectRoot: '/server/shared-repo',
+            log        : silentLogger,
+            execFileFn : async (command, args, options) => {
+                calls.push({command, args, cwd: options.cwd});
+
+                if (command === 'git' && args[0] === 'rev-parse' && args[1] === '--show-toplevel') {
+                    return {stdout: '/tmp/caller-worktree\n'};
+                }
+
+                if (command === 'gh') {
+                    return {stdout: "Switched to branch 'agent/13050-fixture'\n"};
+                }
+
+                if (command === 'git' && args[0] === 'branch') {
+                    return {stdout: 'agent/13050-fixture\n'};
+                }
+
+                if (command === 'git' && args[0] === 'rev-parse' && args[1] === 'HEAD') {
+                    return {stdout: '0123456789abcdef0123456789abcdef01234567\n'};
+                }
+
+                throw new Error(`unexpected command ${command} ${args.join(' ')}`);
+            }
+        });
+
+        const result = await checkoutPullRequest({
+            pr_number: 13050,
+            repoPath : '/tmp/caller-worktree'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.repoPath).toBe('/tmp/caller-worktree');
+        expect(result.branch).toBe('agent/13050-fixture');
+        expect(result.headSha).toBe('0123456789abcdef0123456789abcdef01234567');
+        expect(result.details).toContain('Switched to branch');
+        expect(calls.map(call => call.cwd)).toEqual([
+            '/tmp/caller-worktree',
+            '/tmp/caller-worktree',
+            '/tmp/caller-worktree',
+            '/tmp/caller-worktree'
+        ]);
+        expect(calls[1]).toEqual({
+            command: 'gh',
+            args   : ['pr', 'checkout', '13050'],
+            cwd    : '/tmp/caller-worktree'
+        });
+    });
+
+    test('surfaces gh checkout failure without reporting success state', async () => {
+        const calls = [];
+        const error = new Error('checkout failed');
+        error.code = 1;
+        error.stderr = 'could not find remote ref';
+
+        const checkoutPullRequest = buildCheckoutPullRequest({
+            projectRoot: '/server/shared-repo',
+            log        : silentLogger,
+            execFileFn : async (command, args, options) => {
+                calls.push({command, args, cwd: options.cwd});
+
+                if (command === 'git' && args[0] === 'rev-parse' && args[1] === '--show-toplevel') {
+                    return {stdout: '/tmp/caller-worktree\n'};
+                }
+
+                throw error;
+            }
+        });
+
+        const result = await checkoutPullRequest({
+            pr_number: 99999,
+            repoPath : '/tmp/caller-worktree'
+        });
+
+        expect(result.error).toBe('GitHub CLI command failed');
+        expect(result.code).toBe('GH_CLI_ERROR');
+        expect(result.repoPath).toBe('/tmp/caller-worktree');
+        expect(result.details).toContain('could not find remote ref');
+        expect(result.branch).toBeUndefined();
+        expect(result.headSha).toBeUndefined();
+        expect(calls).toHaveLength(2);
+    });
+});
+
 /**
  * @summary Contract coverage for `PullRequestService.getConversation` comment-selector params.
  *
