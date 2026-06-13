@@ -1,0 +1,44 @@
+.neo-dock-preview {
+    pointer-events : none;
+
+    .neo-dock-preview-affordance {
+        border-radius  : 3px;
+        box-sizing     : border-box;
+        opacity        : 0.85;
+        pointer-events : none;
+        position       : absolute;
+        transition     : opacity 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
+    }
+
+    // Zone highlights — edge bands and whole-node tab targets — read as a translucent filled region.
+    .neo-dock-preview-edge,
+    .neo-dock-preview-tab-into {
+        &.neo-dock-preview-accepted {
+            background-color : var(--agent-dock-preview-accept-fill, rgba(88, 166, 255, 0.22));
+            border           : 2px solid var(--agent-dock-preview-accept, #58a6ff);
+        }
+
+        &.neo-dock-preview-rejected {
+            background-color : var(--agent-dock-preview-reject-fill, rgba(207, 34, 46, 0.16));
+            border           : 2px dashed var(--agent-dock-preview-reject, #cf222e);
+            opacity          : 0.55;
+        }
+    }
+
+    // Insertion guides — split lines and tab before/after markers — read as a solid bar.
+    .neo-dock-preview-split,
+    .neo-dock-preview-tab-before,
+    .neo-dock-preview-tab-after {
+        border-radius : 2px;
+
+        &.neo-dock-preview-accepted {
+            background-color : var(--agent-dock-preview-accept, #58a6ff);
+            box-shadow       : 0 0 6px var(--agent-dock-preview-accept, #58a6ff);
+        }
+
+        &.neo-dock-preview-rejected {
+            background-color : var(--agent-dock-preview-reject, #cf222e);
+            opacity          : 0.55;
+        }
+    }
+}
