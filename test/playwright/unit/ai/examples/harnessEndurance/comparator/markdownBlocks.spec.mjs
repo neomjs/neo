@@ -1,8 +1,8 @@
 import {test, expect}                       from '@playwright/test';
-import parseMarkdownBlocks, {parseMarkdownBlocks as named} from '../../../../../../examples/harnessEndurance/comparator/markdownBlocks.mjs';
+import parseMarkdownBlocks, {parseMarkdownBlocks as named} from '../../../../../../../ai/examples/harnessEndurance/comparator/markdownBlocks.mjs';
 
 /**
- * @summary Coverage for examples/harnessEndurance/comparator/markdownBlocks.mjs — the pure
+ * @summary Coverage for ai/examples/harnessEndurance/comparator/markdownBlocks.mjs — the pure
  * single-main-thread markdown→block-HTML renderer that powers the Harness Endurance Benchmark's
  * comparator (Subject B).
  *
@@ -13,7 +13,7 @@ import parseMarkdownBlocks, {parseMarkdownBlocks as named} from '../../../../../
  * Test axes: segmentation · inline marks + safe links · security (inert hostile input) · ordered
  * lists · empty/nullish · export shape.
  */
-test.describe('examples/harnessEndurance/comparator/markdownBlocks', () => {
+test.describe('ai/examples/harnessEndurance/comparator/markdownBlocks', () => {
     test('segments headings, paragraphs, lists, and blockquotes into separate blocks', () => {
         const blocks = parseMarkdownBlocks('# Title\n\npara one\n\n- a\n- b\n\n> quote');
 

@@ -13,7 +13,7 @@ import {median, percentile} from '../../../ai/scripts/benchmark/helpers/stats.mj
  *
  * Grounded selectors: `.neo-markdown-vdom` is the Neo component's `baseCls`; the Neo app name +
  * "Start load" button + the comparator's `globalThis.__enduranceComparator` are authored in
- * `examples/harnessEndurance/`.
+ * `ai/examples/harnessEndurance/`.
  *
  * Metric credibility: main-thread responsiveness = event-loop lag (a fixed-interval timer's lateness
  * beyond schedule, each tick re-anchored). NOT rAF inter-frame gaps (free-run without vsync in
@@ -57,7 +57,7 @@ test.describe('Harness Endurance Benchmark', () => {
     test.setTimeout(120000);
 
     test('Subject A (Neo) mounts, drives the LoadProfile stream, and renders the transcript', async ({page, neuralLink}) => {
-        await page.goto('/examples/harnessEndurance/neo/index.html');
+        await page.goto('/ai/examples/harnessEndurance/neo/index.html');
 
         const app = await neuralLink.connectToApp('Neo.examples.harnessEndurance.neo');
         expect(app).toBeTruthy();
@@ -74,7 +74,7 @@ test.describe('Harness Endurance Benchmark', () => {
     });
 
     test('Subject A (Neo) — event-loop lag + heap under the streamed load', async ({page, neuralLink}) => {
-        await page.goto('/examples/harnessEndurance/neo/index.html');
+        await page.goto('/ai/examples/harnessEndurance/neo/index.html');
         await neuralLink.connectToApp('Neo.examples.harnessEndurance.neo');
         await page.getByRole('button', {name: 'Start load'}).click();
 
@@ -90,7 +90,7 @@ test.describe('Harness Endurance Benchmark', () => {
     });
 
     test('Subject B (main-thread comparator) — event-loop lag under the same load', async ({page}) => {
-        await page.goto('/examples/harnessEndurance/comparator/index.html');
+        await page.goto('/ai/examples/harnessEndurance/comparator/index.html');
         await page.waitForFunction(() => globalThis.__enduranceComparator?.start);
         await page.evaluate(() => { globalThis.__enduranceComparator.start() });   // fire-and-forget (8h default loop; we sample a window)
 
@@ -103,12 +103,12 @@ test.describe('Harness Endurance Benchmark', () => {
     });
 
     test('cross-subject delta — Neo vs main-thread comparator (same load, same sampler)', async ({page, neuralLink}) => {
-        await page.goto('/examples/harnessEndurance/neo/index.html');
+        await page.goto('/ai/examples/harnessEndurance/neo/index.html');
         await neuralLink.connectToApp('Neo.examples.harnessEndurance.neo');
         await page.getByRole('button', {name: 'Start load'}).click();
         const neo = await sampleEventLoopLag(page, {windowMs: 8000});
 
-        await page.goto('/examples/harnessEndurance/comparator/index.html');
+        await page.goto('/ai/examples/harnessEndurance/comparator/index.html');
         await page.waitForFunction(() => globalThis.__enduranceComparator?.start);
         await page.evaluate(() => { globalThis.__enduranceComparator.start() });   // fire-and-forget (8h default loop; we sample a window)
         const comparator = await sampleEventLoopLag(page, {windowMs: 8000});

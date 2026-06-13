@@ -1,8 +1,8 @@
-import Button        from '../../../src/button/Base.mjs';
-import MarkdownVdom   from '../../../src/component/markdown/Component.mjs';
-import TextField      from '../../../src/form/field/Text.mjs';
-import Toolbar        from '../../../src/toolbar/Base.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+import Button        from '../../../../src/button/Base.mjs';
+import MarkdownVdom   from '../../../../src/component/markdown/Component.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
+import Toolbar        from '../../../../src/toolbar/Base.mjs';
+import Viewport       from '../../../../src/container/Viewport.mjs';
 import {LoadProfile}  from '../shared/LoadProfile.mjs';
 
 /**

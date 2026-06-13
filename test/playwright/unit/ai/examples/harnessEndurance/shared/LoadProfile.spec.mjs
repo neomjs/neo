@@ -1,9 +1,9 @@
 import {test, expect} from '@playwright/test';
 
-import DefaultLoadProfile, {EVENT_TYPE, LoadProfile} from '../../../../../../examples/harnessEndurance/shared/LoadProfile.mjs';
+import DefaultLoadProfile, {EVENT_TYPE, LoadProfile} from '../../../../../../../ai/examples/harnessEndurance/shared/LoadProfile.mjs';
 
 /**
- * @summary Coverage for examples/harnessEndurance/shared/LoadProfile.mjs — the pure, seeded,
+ * @summary Coverage for ai/examples/harnessEndurance/shared/LoadProfile.mjs — the pure, seeded,
  * deterministic load profile shared by the Harness Endurance Benchmark's subject apps and its
  * Playwright runner.
  *
@@ -19,7 +19,7 @@ import DefaultLoadProfile, {EVENT_TYPE, LoadProfile} from '../../../../../../exa
  * - keystrokeTimes — fixed-cadence schedule, seed-independent, bounded by duration
  * - appendCount + defaults — matches the materialized length; 8h default is consistent un-materialized
  */
-test.describe('examples/harnessEndurance/shared/LoadProfile', () => {
+test.describe('ai/examples/harnessEndurance/shared/LoadProfile', () => {
     const cfg = {seed: 42, durationMs: 1000, appendCadenceMs: 50, keystrokeCadenceMs: 200};
 
     test.describe('determinism (the falsifier reproducibility contract)', () => {

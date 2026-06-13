@@ -1,7 +1,0 @@
-{
-    "appPath"    : "examples/harnessEndurance/neo/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs",
-    "useAiClient": true
-}
