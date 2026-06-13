@@ -9,11 +9,13 @@ import path from 'path';
  * Given the already-derived checkout path, inspect what is actually on disk so the later
  * side-effecting clone/repair leaf can decide WITHOUT clobbering: an absent path is safe to clone
  * into; an existing valid checkout is reused as-is (path stability is load-bearing — Fleet Manager
- * auto-memory is path-keyed, so a reclone would fork it); a path occupied by a non-checkout is a
- * conflict that must never be overwritten.
+ * auto-memory is path-keyed, so a reclone would fork it); any other occupant is a conflict that must
+ * never be overwritten. A **symlink** at the path is always a conflict regardless of its target: it
+ * could redirect a reuse or clone outside the managed root, defeating the containment the derived
+ * path guarantees — so it fails closed (and a dangling symlink is a conflict too, never `absent`).
  *
- * Read-only and **fs-only** by design (no git binary, no network, no writes) — `existsSync` /
- * `statSync` / `readdirSync` only — so the classification is deterministic and unit-testable against
+ * Read-only and **fs-only** by design (no git binary, no network, no writes) — `lstatSync` /
+ * `existsSync` / `readdirSync` only — so the classification is deterministic and unit-testable against
  * temp-dir fixtures. It is deliberately decoupled from the path-derivation helper (it takes the
  * resolved `repoPath` rather than importing it), so each concern is independently testable and the
  * composition (derive → inspect → act) lives in the consuming I/O shell.
@@ -35,12 +37,26 @@ export function inspectAgentRepo({repoPath} = {}) {
         throw new Error(`inspectAgentRepo: 'repoPath' must be an absolute path, received '${repoPath}'.`);
     }
 
-    if (!fs.existsSync(repoPath)) {
+    let stats;
+
+    try {
+        // lstatSync does NOT follow symlinks — so a symlink at repoPath is observed as itself, not its
+        // target. Probing with the symlink-following existsSync/statSync would classify a symlink-to-a-
+        // checkout as a reusable checkout, redirecting a reuse/clone outside the managed root.
+        stats = fs.lstatSync(repoPath);
+    } catch {
+        // Nothing readable at the path (ENOENT is the expected case) — safe to clone into.
         return result(repoPath, false, false, 'absent', 'clone');
     }
 
-    // A path occupied by a non-directory (a file, a symlink to one) is a hard conflict — never clobber.
-    if (!fs.statSync(repoPath).isDirectory()) {
+    // A symlink occupant is a hard conflict regardless of its target (including a dangling one): it can
+    // redirect writes outside managedRoot, defeating the derived path's containment guarantee. Fail closed.
+    if (stats.isSymbolicLink()) {
+        return result(repoPath, true, false, 'occupied-non-checkout', 'conflict');
+    }
+
+    // Any non-directory occupant (a regular file, socket, device) is also a hard conflict — never clobber.
+    if (!stats.isDirectory()) {
         return result(repoPath, true, false, 'occupied-non-checkout', 'conflict');
     }
 

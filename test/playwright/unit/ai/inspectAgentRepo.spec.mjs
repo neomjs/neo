@@ -77,6 +77,31 @@ test.describe('inspectAgentRepo (Fleet Manager checkout-state classification)', 
         expect(r.provisioningAction).toBe('conflict');
     });
 
+    test('a symlink occupant fails closed even when it points to an outside checkout (no reuse escape)', () => {
+        // the link target is itself a valid checkout (.git present) sitting OUTSIDE the managed path
+        const outsideCheckout = freshDir('outside-checkout');
+        fs.mkdirSync(path.join(outsideCheckout, '.git'));
+
+        const link = path.join(suiteRoot, 'symlink-to-checkout');
+        fs.symlinkSync(outsideCheckout, link);
+
+        const r = inspectAgentRepo({repoPath: link});
+        // must NOT follow the symlink into the target's .git and report a reusable checkout
+        expect(r.isCheckout).toBe(false);
+        expect(r.state).toBe('occupied-non-checkout');
+        expect(r.provisioningAction).toBe('conflict')
+    });
+
+    test('a dangling symlink is a conflict, not absent (never clone into a redirected path)', () => {
+        const link = path.join(suiteRoot, 'dangling-symlink');
+        fs.symlinkSync(path.join(suiteRoot, 'no-such-target'), link);
+
+        const r = inspectAgentRepo({repoPath: link});
+        expect(r.exists).toBe(true);
+        expect(r.state).toBe('occupied-non-checkout');
+        expect(r.provisioningAction).toBe('conflict')
+    });
+
     test('fails loud on contract violations (no silent default)', () => {
         expect(() => inspectAgentRepo({repoPath: ''})).toThrow(/repoPath/);
         expect(() => inspectAgentRepo({repoPath: 42})).toThrow(/repoPath/);
