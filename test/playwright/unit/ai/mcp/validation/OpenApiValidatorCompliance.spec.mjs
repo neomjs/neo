@@ -176,6 +176,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
               addMessageSchema   = zodToJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].post), {target: 'openApi3', $refStrategy: 'none'}),
               listMessagesSchema = zodToJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].get),  {target: 'openApi3', $refStrategy: 'none'}),
               wakeSchema         = zodToJsonSchema(buildZodSchema(doc, doc.paths['/wake-subscriptions/manage'].post), {target: 'openApi3', $refStrategy: 'none'}),
+              adapter            = wakeSchema.properties.harnessTargetMetadata.properties.adapter,
               coalesceWindow     = wakeSchema.properties.harnessTargetMetadata.properties.coalesceWindow;
 
         expect(addMessageSchema.properties.priority.enum).toEqual(['low', 'normal', 'high']);
@@ -188,6 +189,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(listMessagesSchema.properties.status.default).toBe('all');
         expect(listMessagesSchema.properties.limit.default).toBe(50);
         expect(listMessagesSchema.properties.offset.default).toBe(0);
+
+        expect(adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server']);
 
         expect(coalesceWindow.type).toBe('integer');
         expect(coalesceWindow.minimum).toBe(0);
