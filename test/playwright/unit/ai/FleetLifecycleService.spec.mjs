@@ -55,7 +55,10 @@ function makeSpawnStub() {
 function makeRegistry(agents, creds) {
     return {
         getAgent         : id => agents[id] || null,
-        resolveCredential: id => (Object.hasOwn(creds, id) ? creds[id] : null)
+        resolveCredential: id => (Object.hasOwn(creds, id) ? creds[id] : null),
+        // Stub the Bridge-token mint with a deterministic per-id token, so spawn-injection specs can
+        // assert env carriage without touching the real registry's crypto store.
+        mintBridgeToken  : id => ({token: `bridge_${id}_token`, expiresAt: Date.now() + 3_600_000})
     };
 }
 
@@ -72,6 +75,10 @@ function install({agents = {}, creds = {}} = {}) {
     FleetLifecycleService.spawnFn         = spawnStub;
     FleetLifecycleService.registry        = makeRegistry(agents, creds);
     FleetLifecycleService.sigkillTimeoutMs = 50;
+    // Reset the configurable env-key fields to their defaults so a collision test cannot bleed into
+    // the next serial sibling (singleton-stateful service).
+    FleetLifecycleService.credentialEnvVar  = 'GH_TOKEN';
+    FleetLifecycleService.bridgeTokenEnvVar = 'NEO_FLEET_BRIDGE_TOKEN';
     return spawnStub;
 }
 
@@ -108,6 +115,59 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         expect(JSON.stringify(status)).not.toContain(pat);
         // the live parent env was not mutated to carry the secret
         expect(process.env.GH_TOKEN).not.toBe(pat);
+    });
+
+    test('start mints + injects a Bridge token + forced NL projection into the child env', () => {
+        const pat   = 'ghp_dual_class';
+        const spawn = install({agents: {a: agentDef('a')}, creds: {a: pat}});
+        FleetLifecycleService.start('a');
+        const env = spawn.calls[0].opts.env;
+
+        // Bridge token under its OWN var — a credential class distinct from the PAT
+        expect(env.NEO_FLEET_BRIDGE_TOKEN).toBe('bridge_a_token');
+        expect(env.NEO_FLEET_BRIDGE_TOKEN).not.toBe(env.GH_TOKEN);
+        // forced NL projection: FM-spawned ⇒ embedded ⇒ harness-embedded, by construction
+        expect(env.NEO_NL_TOOL_PROJECTION_MODE).toBe('harness-embedded');
+        // the PAT injection is unaffected
+        expect(env.GH_TOKEN).toBe(pat);
+        // injected on a COPY of process.env; parent env never mutated to carry the bridge token
+        expect(env).not.toBe(process.env);
+        expect(process.env.NEO_FLEET_BRIDGE_TOKEN).not.toBe('bridge_a_token');
+    });
+
+    test('SECURITY: the injected Bridge token never enters the process record / status', () => {
+        const spawn  = install({agents: {a: agentDef('a')}}),
+              status = FleetLifecycleService.start('a'),
+              token  = spawn.calls[0].opts.env.NEO_FLEET_BRIDGE_TOKEN;
+
+        expect(token).toBe('bridge_a_token');                                       // it WAS injected
+        expect(JSON.stringify(status)).not.toContain(token);                        // never via status
+        expect(JSON.stringify(FleetLifecycleService.status('a'))).not.toContain(token);
+    });
+
+    test('forced NL projection is set by construction for every FM spawn (fail-closed invariant)', () => {
+        // even a tokenless agent (no PAT) gets the forced embedded projection — never the full surface
+        const spawn = install({agents: {a: agentDef('a')}, creds: {}});
+        FleetLifecycleService.start('a');
+        expect(spawn.calls[0].opts.env.NEO_NL_TOOL_PROJECTION_MODE).toBe('harness-embedded');
+    });
+
+    test('SECURITY: start fails fast when bridgeTokenEnvVar collides with credentialEnvVar (Bridge token would land in the PAT slot)', () => {
+        const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.bridgeTokenEnvVar = 'GH_TOKEN'; // === credentialEnvVar ⇒ credential classes collapse
+        expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
+        expect(spawn.calls).toHaveLength(0); // guard is fail-fast: never spawned, no secret injected
+    });
+
+    test('SECURITY: start fails fast when a key collides with the fixed forced-projection var, or is empty', () => {
+        install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.bridgeTokenEnvVar = 'NEO_NL_TOOL_PROJECTION_MODE'; // collides w/ the FIXED forced var
+        expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
+
+        const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}}); // fresh install resets the keys
+        FleetLifecycleService.credentialEnvVar = ''; // empty key ⇒ contract violation
+        expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
+        expect(spawn.calls).toHaveLength(0); // never spawned
     });
 
     test('a tokenless agent starts without injecting a fleet credential', () => {

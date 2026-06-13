@@ -2,6 +2,12 @@ import {spawn}           from 'child_process';
 import Base              from '../../../src/core/Base.mjs';
 import FleetRegistryService from './FleetRegistryService.mjs';
 
+// The forced-projection env var is a CROSS-PROCESS CONTRACT: the FM sets it on the spawned child env,
+// and the Neural Link server's `resolveToolProjectionMode` reads this exact name as the fallback to
+// `--tool-projection-mode`. Intentionally NOT a configurable field — an override would set a var the
+// NL server never reads, silently dropping the forced read-only projection (fail-OPEN).
+const TOOL_PROJECTION_MODE_ENV_VAR = 'NEO_NL_TOOL_PROJECTION_MODE';
+
 /**
  * @class Neo.ai.services.fleet.FleetLifecycleService
  * @extends Neo.core.Base
@@ -22,7 +28,16 @@ import FleetRegistryService from './FleetRegistryService.mjs';
  * (the parent env is never mutated), under a configurable var (`credentialEnvVar`, default
  * `GH_TOKEN`). It is **never** placed in `argv` (visible in `ps`), never written to the tracked
  * process record, and never logged. A status read can never surface a secret because the records
- * hold none.
+ * hold none. The **Bridge session token** is a SECOND, distinct credential class, injected the same
+ * way under its own var (`bridgeTokenEnvVar`) — minted per spawn, never co-mingled with the PAT.
+ *
+ * **Harness-auth provisioning at spawn:** every FM-spawned agent is an *embedded* agent, so `start`
+ * provisions its harness-auth surfaces into the child env: (1) a freshly-minted Bridge token for the
+ * agent↔Neural-Link-Bridge handshake, and (2) the forced read-only Neural Link tool-projection
+ * (`toolProjectionMode`, default `harness-embedded`) under the FIXED `NEO_NL_TOOL_PROJECTION_MODE` var
+ * (a cross-process contract, intentionally NOT configurable — an override would set a var the NL server
+ * never reads → fail-OPEN) — the NL server reads it as a fallback to its `--tool-projection-mode` flag.
+ * Fail-closed by construction: an FM-spawned agent never receives the full developer tool surface.
  *
  * **Supervision idiom** mirrors `ai/daemons/orchestrator/services/ProcessSupervisorService` (the
  * injectable `spawnFn` test seam, env-merge, graceful `SIGTERM`→`SIGKILL` stop, and draining the
@@ -31,8 +46,9 @@ import FleetRegistryService from './FleetRegistryService.mjs';
  * fit for a dynamic registry-keyed fleet. Extracting a shared primitive would touch critical
  * orchestrator infra and is intentionally deferred.
  *
- * Scope is process supervision only. Spawn-time identity-env + wake-subscription provisioning is
- * gated on cross-harness session-id canonicalization and lives in a separate provisioning leaf.
+ * Scope: process supervision + harness-auth provisioning (Bridge token + forced NL projection, above).
+ * Spawn-time *identity-env* + wake-subscription provisioning remains deferred — gated on cross-harness
+ * session-id canonicalization, in a separate provisioning leaf.
  */
 class FleetLifecycleService extends Base {
     static config = {
@@ -48,7 +64,7 @@ class FleetLifecycleService extends Base {
         singleton: true
     }
 
-    // The four members below are PLAIN fields, not reactive `_` configs: they are injectable seams /
+    // The members below are PLAIN fields, not reactive `_` configs: they are injectable seams /
     // settings, not change-propagating state, and a singleton's reactive configs do not re-apply
     // synchronously when overwritten per test (verified failure). Plain assignment is immediate.
 
@@ -58,6 +74,20 @@ class FleetLifecycleService extends Base {
      * @member {String} credentialEnvVar='GH_TOKEN'
      */
     credentialEnvVar = 'GH_TOKEN'
+
+    /**
+     * Child-env variable the minted Bridge session token is injected under — a credential class
+     * DISTINCT from the PAT, so never `credentialEnvVar`. The Bridge handshake reads it.
+     * @member {String} bridgeTokenEnvVar='NEO_FLEET_BRIDGE_TOKEN'
+     */
+    bridgeTokenEnvVar = 'NEO_FLEET_BRIDGE_TOKEN'
+
+    /**
+     * The forced NL tool-projection mode injected into every FM-spawned (embedded) agent — the
+     * fail-closed security ceiling. FM-spawned ⇒ embedded ⇒ forced, by construction.
+     * @member {String} toolProjectionMode='harness-embedded'
+     */
+    toolProjectionMode = 'harness-embedded'
 
     /**
      * Grace period after `SIGTERM` before `stop` escalates to `SIGKILL`.
@@ -101,11 +131,35 @@ class FleetLifecycleService extends Base {
 
         const {command, args} = this.resolveLaunch(agent);
 
+        // Env-key contract guard (fail-fast): each credential class occupies a DISTINCT child-env slot.
+        // The PAT + Bridge-token keys are configurable, so a misconfiguration that collides two (e.g.
+        // bridgeTokenEnvVar === credentialEnvVar) would write one credential then overwrite it with the
+        // other — collapsing the distinct-credential-class boundary (the Bridge token lands in the PAT
+        // slot), or stomping the forced-projection var. Reject BEFORE injecting any secret; never spawn
+        // under a broken env contract.
+        const envKeys = [this.credentialEnvVar, this.bridgeTokenEnvVar, TOOL_PROJECTION_MODE_ENV_VAR];
+        if (envKeys.some(key => !key) || new Set(envKeys).size !== envKeys.length) {
+            throw new Error(`FleetLifecycleService.start: env-key contract violated — credentialEnvVar, bridgeTokenEnvVar, and the forced-projection var must be non-empty and pairwise distinct (got ${JSON.stringify(envKeys)}).`);
+        }
+
         // Secret handling: copy the parent env (never mutate process.env), inject the PAT — if any —
         // under credentialEnvVar. Absent credential → start without it (a tokenless agent is valid).
         const env = {...process.env},
               pat = this.getRegistry().resolveCredential(id);
         if (pat != null) env[this.credentialEnvVar] = pat;
+
+        // Bridge token: a credential class DISTINCT from the PAT. Mint one + inject it under
+        // bridgeTokenEnvVar (never credentialEnvVar). The raw token enters the child env only — the
+        // tracked process record never carries it (mirrors the PAT secret posture); the Bridge
+        // handshake verifies it and fails closed on absence/mismatch.
+        env[this.bridgeTokenEnvVar] = this.getRegistry().mintBridgeToken(id).token;
+
+        // Forced Neural Link tool-projection: an FM-spawned agent is embedded by definition, so its
+        // NL server is pinned to the read-only projection (server-bound, fail-closed) — set by
+        // construction for every spawn, never the full developer surface. The NL server reads this
+        // FIXED env var (a cross-process contract, not configurable) as a fallback to its
+        // --tool-projection-mode flag.
+        env[TOOL_PROJECTION_MODE_ENV_VAR] = this.toolProjectionMode;
 
         let child;
         try {
