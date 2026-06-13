@@ -1,4 +1,5 @@
 import {exec, execFile}                        from 'child_process';
+import path                                    from 'path';
 import {promisify}                             from 'util';
 import Base                                    from '../../../src/core/Base.mjs';
 import GraphqlService                          from './GraphqlService.mjs';
@@ -98,6 +99,116 @@ const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
     {label: 'Patch Verdict',             token: '**Patch Verdict:**'}
 ];
 
+function normalizeCheckoutOptions(options) {
+    if (typeof options === 'number') {
+        return {pr_number: options};
+    }
+
+    return options || {};
+}
+
+/**
+ * @summary Builds the guarded `checkout_pull_request` executor.
+ *
+ * The MCP transport does not carry the caller's current working directory, so the
+ * checkout path must be explicit. The returned executor refuses caller-unknown
+ * mutations, verifies the supplied path is the git top-level, performs checkout
+ * there, and reads back git state for reviewer-side V-B-A.
+ *
+ * @param {Object}   [options]
+ * @param {Function} [options.execFileFn] Injectable command runner for unit tests.
+ * @param {String}   [options.projectRoot] Server process repo root used only for refusal diagnostics.
+ * @param {Object}   [options.log] Logger with an `error()` method.
+ * @returns {Function} Guarded checkout function.
+ */
+function buildCheckoutPullRequest({
+    execFileFn = execFileAsync,
+    projectRoot = aiConfig.projectRoot,
+    log = logger
+} = {}) {
+    return async function checkoutPullRequest(options) {
+        const {pr_number, repoPath} = normalizeCheckoutOptions(options);
+        const prNumber = Number(pr_number);
+
+        if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing or invalid required argument: 'pr_number' must be a positive integer.",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
+        const serverRepoPath = path.resolve(projectRoot);
+
+        if (!repoPath) {
+            return {
+                error  : 'Unsafe checkout refused',
+                message: [
+                    '`checkout_pull_request` cannot infer the caller workspace over shared MCP transport. ',
+                    'Pass `repoPath` equal to the caller workspace git root, or run `gh pr checkout` manually in that workspace.'
+                ].join(''),
+                code    : 'CALLER_WORKSPACE_REQUIRED',
+                repoPath: serverRepoPath
+            };
+        }
+
+        const normalizedRepoPath = path.resolve(repoPath);
+        let gitTopLevel;
+
+        try {
+            const {stdout} = await execFileFn('git', ['rev-parse', '--show-toplevel'], {cwd: normalizedRepoPath});
+            gitTopLevel = path.resolve(stdout.trim());
+        } catch (error) {
+            log.error(`Error resolving git top-level for checkout_pull_request repoPath '${normalizedRepoPath}':`, error);
+            return {
+                error  : 'Invalid repoPath',
+                message: `repoPath '${normalizedRepoPath}' is not a readable git worktree root.`,
+                code   : 'INVALID_REPO_PATH',
+                repoPath: normalizedRepoPath,
+                details : error.stderr || error.message
+            };
+        }
+
+        if (gitTopLevel !== normalizedRepoPath) {
+            return {
+                error      : 'Unsafe checkout refused',
+                message    : [
+                    `repoPath '${normalizedRepoPath}' resolves to git top-level '${gitTopLevel}'. `,
+                    'Pass the git top-level explicitly so the checkout target is unambiguous.'
+                ].join(''),
+                code       : 'REPO_PATH_NOT_GIT_ROOT',
+                repoPath   : normalizedRepoPath,
+                gitTopLevel
+            };
+        }
+
+        try {
+            const {stdout}       = await execFileFn('gh', ['pr', 'checkout', String(prNumber)], {cwd: gitTopLevel});
+            const branchResult   = await execFileFn('git', ['branch', '--show-current'], {cwd: gitTopLevel});
+            const headShaResult  = await execFileFn('git', ['rev-parse', 'HEAD'], {cwd: gitTopLevel});
+            const branch         = branchResult.stdout.trim();
+            const headSha        = headShaResult.stdout.trim();
+
+            return {
+                message: `Successfully checked out PR #${prNumber}`,
+                details: stdout.trim(),
+                repoPath: gitTopLevel,
+                branch,
+                headSha
+            };
+        } catch (error) {
+            log.error(`Error checking out PR #${prNumber}:`, error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
+                code   : 'GH_CLI_ERROR',
+                repoPath: gitTopLevel,
+                details : error.stderr || error.message
+            };
+        }
+    };
+}
+
 /**
  * @summary Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
  *
@@ -125,22 +236,15 @@ class PullRequestService extends Base {
     }
 
     /**
-     * Checks out a specific pull request locally.
-     * @param {number} prNumber The number of the pull request to check out
-     * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
+     * Checks out a pull request into an explicitly supplied caller workspace.
+     *
+     * @param {Object|Number} options Object form `{pr_number, repoPath}` or legacy
+     *                                positional PR number. Legacy numeric form now
+     *                                refuses until a caller workspace is explicit.
+     * @returns {Promise<object>} Structured checkout state or an explicit refusal/error.
      */
-    async checkoutPullRequest(prNumber) {
-        try {
-            const {stdout} = await execAsync(`gh pr checkout ${prNumber}`, {cwd: aiConfig.projectRoot});
-            return {message: `Successfully checked out PR #${prNumber}`, details: stdout.trim()};
-        } catch (error) {
-            logger.error(`Error checking out PR #${prNumber}:`, error);
-            return {
-                error  : 'GitHub CLI command failed',
-                message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
-            };
-        }
+    async checkoutPullRequest(options) {
+        return buildCheckoutPullRequest()(options);
     }
 
     /**
@@ -698,4 +802,7 @@ class PullRequestService extends Base {
     }
 }
 
-export default Neo.setupClass(PullRequestService);
+const PullRequestServiceSingleton = Neo.setupClass(PullRequestService);
+
+export {buildCheckoutPullRequest};
+export default PullRequestServiceSingleton;

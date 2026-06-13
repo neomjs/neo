@@ -26,7 +26,7 @@ The true power of this server is best understood through the "Autonomous Review 
 2.  **Context Gathering:**
     *   It reads the conversation history with **`get_conversation`**.
     *   It analyzes the code changes with **`get_pull_request_diff`**.
-    *   If needed, it checks out the branch locally with **`checkout_pull_request`** to run tests (`npm test`).
+    *   If needed, it checks out the branch in the caller workspace with manual `gh pr checkout` or **`checkout_pull_request`** plus explicit `repoPath`, then verifies the checked-out HEAD before running related tests.
 3.  **Analysis & Review:** The agent synthesizes this information to form a review.
 4.  **Participation:** The agent posts a structured review comment using **`create_comment`**.
 
@@ -103,7 +103,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 ### 4.3 Pull Request Management
 
 *   **`list_pull_requests`**: Lists PRs with status filtering.
-*   **`checkout_pull_request`**: Checks out a PR branch locally using `gh pr checkout`.
+*   **`checkout_pull_request`**: Checks out a PR branch in an explicitly supplied caller workspace using `gh pr checkout`; missing `repoPath` is rejected so a shared MCP server cannot silently mutate its own checkout.
 *   **`get_pull_request_diff`**: Fetches the code difference via `gh pr diff`.
 *   **`get_conversation`**: Retrieves the full conversation (title, body, comments) for a **pull request _or_ an issue** — supply exactly one of `pr_number` / `issue_number`. The same comment selectors (`comment_id` / `since_comment_id` / `last_n`) narrow the result on both.
 *   **`create_comment`**: Posts a new comment to a PR or Issue. Supports "Agent Headers" to identify which AI identity is speaking.
