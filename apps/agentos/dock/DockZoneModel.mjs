@@ -38,13 +38,17 @@ class DockZoneModel extends Base {
     }
 
     /**
-     * @summary Deep-clones a JSON-only dock-zone document.
+     * @summary Type-aware deep clone of a dock-zone document.
+     *
+     * Uses `Neo.clone` (deep, ignoring Neo instances) rather than a `JSON.parse(JSON.stringify())`
+     * round-trip: the round-trip corrupts `Date` values into strings and silently drops `undefined`,
+     * functions, `Map`/`Set`, and symbol keys, whereas `Neo.clone`'s type map preserves them.
      * @param {Object} document
      * @returns {Object}
      * @static
      */
     static clone(document) {
-        return JSON.parse(JSON.stringify(document))
+        return Neo.clone(document, true, true)
     }
 
     /**
