@@ -64,48 +64,46 @@ This is a deliberate architectural choice, not a temporary state. The absence of
 
 The `memorySharing` default flips from `'legacy'` to `'private'` when operators decide the untagged-surface-area has shrunk enough that default-legacy semantics no longer match the deployment's tenant-awareness expectations. Signals that guide the flip:
 
-- **`healthcheck.migration.untaggedCount` trending toward zero** — observability surface shipped in point 5 below. Operators watch the trend and decide based on their deployment's write volume and legacy-data relevance.
+- **The migration-census untagged total trending toward zero** — the on-demand observability surface in point 5 below (`npm run ai:migration-census-report`). Operators watch the trend and decide based on their deployment's write volume and legacy-data relevance.
 - **Roadmap milestone** — the first real multi-user Memory Core deployment under `#9999` is a natural trigger for the flip on that deployment.
 
 The flip itself is config-gated (`aiConfig.memorySharing?.defaultPolicy` — pattern borrowed from `#10253`'s `mailbox.defaultReplyPolicy`). No hard cutoff of legacy reads. Legacy rows remain queryable forever via explicit `memorySharing: 'legacy'` even after the default flips.
 
-### 5. `healthcheck.migration.untaggedCount` observability
+### 5. Migration-census observability (on-demand)
 
-The Memory Core healthcheck surfaces a migration status block:
+The migration census is an **on-demand** surface — run `npm run ai:migration-census-report` (or call `HealthService.getMigrationCensus({includeChroma})`). It was deliberately relocated off the healthcheck hot path: the Chroma-side count batch-scans the full collections, so it runs only when an operator asks for it, not on every liveness probe. The cheap SQLite graph counts are always included; `--chroma` / `includeChroma` opts into the Chroma scan.
 
 ```json
 {
-  "migration": {
-    "untaggedCount": {
-      "memory":  <integer>,
-      "session": <integer>,
-      "total":   <integer>
-    },
+  "graph": {
+    "memory":  <integer>,
+    "session": <integer>,
+    "total":   <integer>,
     "available": true
-  }
+  },
+  "measuredAt": "<ISO-timestamp>"
 }
 ```
 
-Computed at healthcheck time via direct SQLite queries against `Nodes` table, filtering for `label IN ('MEMORY', 'SESSION')` with null or empty `userId` in properties JSON. Negligible cost (two `COUNT(*)` queries per healthcheck). Operators can scrape this field to track legacy-surface-area reduction over time as natural query-pattern shifts move writes toward 100% tagged coverage.
+The SQLite graph counts come from direct queries against the `Nodes` table, filtering for `label IN ('MEMORY', 'SESSION')` with null or empty `userId` in properties JSON (two `COUNT(*)` queries). Operators run the report to track legacy-surface-area reduction over time as natural query-pattern shifts move writes toward 100% tagged coverage.
 
-`available: false` is returned when the SQLite graph is not yet mounted (e.g., during pre-init healthchecks). This is a substrate-readiness signal, not a migration error.
+`graph.available: false` is returned when the SQLite graph is not yet mounted (e.g., during pre-init runs). This is a substrate-readiness signal, not a migration error.
 
 ## Operator Runbook
 
 ### Verifying a healthy migration baseline
 
-After upgrading to the post-#10017 substrate, run:
+After upgrading to the post-#10017 substrate, run the on-demand census:
 
 ```bash
-# Via MCP tool
-mcp call neo-mjs-memory-core.healthcheck
+npm run ai:migration-census-report
 ```
 
-Inspect the `migration` block. Healthy states:
+Inspect the census output. Healthy states:
 
-- `migration.untaggedCount.total: 0` with `available: true` → fully tagged; safe to flip default to `'private'` at any time.
-- `migration.untaggedCount.total > 0` with `available: true` → legacy surface area present; keep default at `'legacy'` or flip based on operator judgment (see Operational Window above).
-- `migration.available: false` → SQLite graph not yet mounted; retry after `GraphService.initAsync` completes.
+- `graph.total: 0` with `graph.available: true` → fully tagged; safe to flip default to `'private'` at any time.
+- `graph.total > 0` with `graph.available: true` → legacy surface area present; keep default at `'legacy'` or flip based on operator judgment (see Operational Window above).
+- `graph.available: false` → SQLite graph not yet mounted; retry after `GraphService.initAsync` completes.
 
 ### Flipping the default policy (post-migration)
 
