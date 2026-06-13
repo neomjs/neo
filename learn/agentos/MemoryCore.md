@@ -85,7 +85,7 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 
 ## Healthcheck Response Shape
 
-Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint when the server is exposed over HTTP) receive a structured payload covering connectivity, identity, mailbox, multi-tenant migration state, and ChromaDB topology resolution. The shape is stable — new observability blocks are additive, existing blocks are not renamed or reshaped.
+Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint when the server is exposed over HTTP) receive a structured payload covering connectivity, identity, and multi-tenant migration state. The shape is stable — new observability blocks are additive, existing blocks are not renamed or reshaped.
 
 ```json readonly
 {
@@ -101,18 +101,12 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
                 "memories":  { "name": "neo-agent-memory",   "exists": true, "count": 8599 },
                 "summaries": { "name": "neo-agent-sessions", "exists": true, "count": 794 }
             }
-        },
-        "topology": {
-            "mode": "unified",
-            "coordinates": { "host": "localhost", "port": 8100 },
-            "resolvedVia": "engines.chroma"
         }
     },
     "features": {
         "summarization": true
     },
     "startup":   { "summarizationStatus": "not_attempted", "summarizationDetails": null },
-    "mailboxPreview": null,
     "identity":  { "source": "env-var", "bound": true, "nodeId": "@neo-opus-ada" },
     "migration": { "memory": 0, "session": 0, "total": 0, "available": true },
     "providers": {
@@ -140,19 +134,6 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
     "uptime":    0.21
 }
 ```
-
-### `database.topology` — Effective ChromaDB Coordinate Resolution
-
-Introduced in #10127. The block surfaces **which ChromaDB instance Memory Core is actually using**, so operators can verify coordinates without inspecting logs or re-running the config through `node -e`.
-
-| Field | Type | Meaning |
-|---|---|---|
-| `mode` | `'unified'` | Always `'unified'`. Memory Core shares the underlying ChromaDB instance with the KB. |
-| `coordinates` | `{host, port} \| null` | The effective `{host, port}` the client is targeting. `null` when `engines.chroma` is missing from config — a misconfig surfaced as observable data rather than a 500. |
-| `resolvedVia` | `'engines.chroma'` | The exact config key path the resolver read. Gives operators a direct pointer to what to inspect when coordinates look wrong. |
-| `error` | `string` (optional) | Present only when the resolver threw — names the specific misconfig. |
-
-**Why this matters:** The block closes the observability gap in-band by confirming the exact coordinates the Memory Core client is targeting.
 
 ### `identity` — Stdio Identity Binding
 
