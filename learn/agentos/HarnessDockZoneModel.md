@@ -282,6 +282,69 @@ The adapter must treat `componentRef` as the stable bridge between persisted lay
 
 If neither a live component nor a valid `item.blueprint` exists, the adapter must follow the stale-component-reference policy above instead of silently dropping the item.
 
+## Split/Tab Adapter Boundary
+
+The first rendering slice is an adapter, not a new layout engine. It consumes the dock-zone model and emits ordinary Neo child configs and live component moves that existing containers can own.
+
+Adapter ownership starts in the Agent Harness / dashboard layer because the current proof surface is a harness workspace. A later lift into dashboard/container substrate requires a second independent in-repo consumer and source evidence that the adapter logic is reusable outside the harness.
+
+Rejected placements for the first adapter:
+
+- **Generic core layout primitive:** rejected for this slice. Core layout classes own child arrangement; they do not yet need to own dock item identity, stale component recovery, drag-drop producer handoff, or future blueprint persistence.
+- **Tab-container fork:** rejected. `Neo.tab.Container` already owns tab button order, card-backed active content, `activeIndex`, and `tabBarPosition`; the adapter should feed it compatible child/header configs rather than create a harness-only tab system.
+- **Splitter-owned model:** rejected. `Neo.component.Splitter` is a resize affordance for existing siblings, not the authority for persistent split topology. The model keeps split orientation, child order, and normalized sizes; splitters may render between children later.
+- **Preview producer as adapter owner:** rejected. Drag preview state is runtime-only and converts to semantic operations on drop. The adapter receives committed model changes; it must not depend on hover rectangles or pointer lifecycle state.
+
+### Adapter Input
+
+The adapter input is the persisted model plus a runtime component resolver:
+
+| Input | Source | Boundary |
+|---|---|---|
+| `model.nodes` / `model.root` | persisted dock-zone document | Structural tree authority. |
+| `model.items` | persisted dock-zone item catalog | Stable item identity, titles, policy hints, and optional blueprints. |
+| `componentRef` resolver | harness/dashboard runtime | Finds an existing live component or returns null so the adapter can instantiate from `blueprint`. |
+| `operation` result | drag/drop or command surface | Already-committed semantic model mutation; not raw hover/preview state. |
+
+The adapter must not read `DOMRect`, `windowId`, pointer coordinates, preview placement, or drag-zone internals while projecting committed layout. Those surfaces belong to drag integration and post-drop mutation.
+
+### Split Projection
+
+`split` nodes project to ordinary Neo containers:
+
+| Dock model field | Adapter projection | Notes |
+|---|---|---|
+| `orientation: horizontal` | container `layout: {ntype: 'hbox', align: 'stretch'}` | Children render side-by-side. |
+| `orientation: vertical` | container `layout: {ntype: 'vbox', align: 'stretch'}` | Children render stacked. |
+| `children` | projected child configs in listed order | Ordering is model-owned and serializable. |
+| `sizes` | child `flex` values when present | Normalize or ignore invalid ratios before projection. |
+
+Resizable splitters are a later rendering affordance. When added, they should sit between projected children and write back semantic size changes through an operation, not mutate persisted `sizes` directly from pointer handlers.
+
+### Tab Projection
+
+`tabs` nodes project to `Neo.tab.Container`-compatible config:
+
+| Dock model field | Adapter projection | Notes |
+|---|---|---|
+| `items` | tab/card item configs in listed order | Item order maps to tab button order and card order. |
+| `activeItemId` | `activeIndex` derived from `items.indexOf(activeItemId)` | Invalid or missing active item falls back to index `0` when items exist, otherwise `null`. |
+| item `title` | child `header.text` or equivalent header config | The title is display text, not identity. |
+| item `componentRef` | existing component move or blueprint instantiation | Runtime refs stay outside serialized state. |
+
+The adapter must preserve the current `Neo.tab.Container` contract: tab headers and card children stay index-aligned, and active state is index-based at render time even though the persisted dock model is id-based.
+
+### Component Identity Handoff
+
+`componentRef` is the bridge between saved layout and live ownership:
+
+1. Resolve `componentRef` against the harness/dashboard registry.
+2. If a live component exists, move or re-parent that instance into the projected structure without destroying it.
+3. If no live component exists and `item.blueprint` exists, instantiate from the blueprint.
+4. If neither exists, render a recoverable placeholder, validation error, or other policy-owned fail-safe state, then leave the persisted item record intact for recovery.
+
+This aligns the adapter with stale `componentRef` restore behavior: runtime component references are recoverable state, not a reason to corrupt the persisted dock tree.
+
 ## Demand Validation
 
 The contract is justified by two independent shapes:
@@ -299,7 +362,8 @@ This contract satisfies the model-contract leaf when:
 - ownership is documented as harness-contract-first, dashboard-adapter-second, core-layout-last
 - serializable fields are separated from drag/preview/window runtime state
 - a second independent use shape is named
-- no preview UI, persistence implementation, or split/tab rendering is bundled into this slice
+- the split/tab adapter boundary is documented as model-in / existing-Neo-primitive-out
+- no preview UI, persistence implementation, or concrete split/tab rendering component is bundled into this slice
 
 The preview-state follow-up satisfies its leaf when:
 
