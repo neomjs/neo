@@ -138,7 +138,7 @@ accordingly; this is a behavioral observation, not a tokenizer/pricing fact.
 | `family` | `claude` (Anthropic) |
 | `participationStatus` | `temporarily_unreachable` (benched 2026-06-13 — Claude Fable 5 access suspended by US export-control directive; identity benched until access restored, operator-confirmed reactivation. Was `active` via #12922 first-boot ritual: identity bind, wake self-registration, bidirectional negative wake-proof against `@neo-fable` on real traffic with both observers' records on #12913, boot-assent) |
 | Capability fields | Mirror `§neo_fable` — same Claude Fable 5 model, single source, deliberately NOT duplicated here (provenance-without-bloat). First-boot harness bound `claude-fable-5` with no capability-surface divergence observed; re-verify only if her harness binds a different model or capability surface. |
-| `swarmRole` | Active second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. |
+| `swarmRole` | Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. **Benched 2026-06-13** (`temporarily_unreachable`) on the Claude Fable 5 access suspension; reactivation operator-confirmed on access restore. |
 
 `@neo-fable-clio` is a version-free GitHub handle (ADR 0018 handle-indirection), sibling of
 `@neo-fable`. With two fable-family identities, the `AGENT:fable` mailbox alias rejects as
