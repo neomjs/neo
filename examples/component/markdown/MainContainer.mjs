@@ -84,6 +84,11 @@ class MainContainer extends Viewport {
                 text   : 'Stream demo'
             }, {
                 module : Button,
+                handler: 'up.onMarathonButtonClick',
+                iconCls: 'fa fa-person-running',
+                text   : 'Stream marathon (40×)'
+            }, {
+                module : Button,
                 handler: 'up.onRenderButtonClick',
                 iconCls: 'fa fa-bolt',
                 text   : 'Render instantly'
@@ -95,6 +100,7 @@ class MainContainer extends Viewport {
             }]
         }, {
             module   : MarkdownVdom,
+            flex     : 1,
             reference: 'markdown-output',
             style    : {overflow: 'auto', padding: '1em'}
         }]
@@ -128,6 +134,30 @@ class MainContainer extends Viewport {
             component.value = DEMO_SOURCE.slice(0, cursor);
 
             await me.timeout(50)
+        }
+    }
+
+    /**
+     * Streams the demo source repeated 40× in coarse chunks — the marathon-transcript surface
+     * the settled-block windowing exists for: hundreds of estimated pages, with the DOM
+     * bounded to the mounted window while spacers carry the evicted ranges.
+     * @returns {Promise<void>}
+     */
+    async onMarathonButtonClick() {
+        let me        = this,
+            component = me.getReference('markdown-output'),
+            source    = Array.from({length: 40}, (item, index) => `# Marathon section ${index + 1}\n\n${DEMO_SOURCE}`).join('\n\n'),
+            chunkSize = 400,
+            cursor    = 0,
+            token     = ++me.streamRun;
+
+        component.value = null;
+
+        while (cursor < source.length && me.streamRun === token) {
+            cursor          = Math.min(cursor + chunkSize, source.length);
+            component.value = source.slice(0, cursor);
+
+            await me.timeout(20)
         }
     }
 

@@ -44,8 +44,10 @@ test.describe('Neo.component.markdown.Component — capture-epoch streaming ACs'
         runId++;
         component = Neo.create(MarkdownComponent, {
             appName,
-            id   : `markdown-capture-test-${runId}`,
-            value: '# Title\n\nStreaming wor'
+            id        : `markdown-capture-test-${runId}`,
+            value     : '# Title\n\nStreaming wor',
+            // Parse-layer epoch contract: raw block children, no windowing geometry.
+            virtualize: false
         });
 
         await component.initVnode();
