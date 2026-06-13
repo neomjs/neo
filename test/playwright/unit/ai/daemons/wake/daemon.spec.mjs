@@ -396,7 +396,7 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toContain('2 new messages');          // coalesced breakdown
     });
 
-    test('every wake digest carries the standing pick-up-a-lane directive (#13095)', async () => {
+    test('every wake digest carries the standing lifecycle-first lane directive (#13095, #13118)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-directive';
 
@@ -432,12 +432,13 @@ test.describe('Wake Daemon', () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
         insertMessageWake(db, {agentId, subject: 'Directive Presence Probe'});
 
-        // The escalation fix: every digest must DIRECT an idle agent to pick up + execute a lane,
-        // not merely report what happened — otherwise wakes get acknowledged-and-idled, burning turns.
+        // The escalation-fix directive evolved to lifecycle-first: every digest must DIRECT an idle
+        // agent to first clear PR lifecycle obligations, THEN pick up a fresh lane — not push
+        // backlog-first, and not merely report what happened (which gets acknowledged-and-idled).
         const output = await deliveryPromise;
-        expect(output).toContain('pick up a lane');
+        expect(output).toContain('lifecycle-first');
         expect(output).toContain('implementation → test → PR');
-        expect(output).toContain('never idle or hold');
+        expect(output).toContain('verified-empty');
     });
 
     test('detects and delivers a CAN_* permission_granted wake via the dead-to-live edge path', async () => {
