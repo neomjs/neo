@@ -573,6 +573,21 @@ function isMessageReadFor(db, messageId, recipient) {
 }
 
 /**
+ * @summary Standing directive appended to every wake digest.
+ *
+ * Closes the acknowledge-and-idle failure mode: an agent receiving a wake would acknowledge it and
+ * idle, reading the wake as an interruption to ack rather than a prompt to execute. Embedding the
+ * pick-up-a-lane mandate in the wake CONTENT itself (not only the loaded rule substrate) puts it in
+ * front of the agent on every single wake, so an idle agent always sees the directive to advance a
+ * lane instead of burning the turn on a bare acknowledgement.
+ */
+const WAKE_LANE_DIRECTIVE = 'Directive — pick up a lane: if you are not already executing one, ' +
+    'survey the open backlog (list_issues / ideation), claim an unclaimed lane, and drive it ' +
+    'implementation → test → PR this turn. A wake is not "handled" by acknowledgement alone while ' +
+    'you have idle capacity and open lanes exist. Acknowledge pure-FYI broadcasts in one line; ' +
+    'never idle or hold waiting for permission to start unassigned work.';
+
+/**
  * @summary Flushes the coalesced wake queue into a priority-tagged digest.
  *
  * The digest header carries the highest coalesced message priority so agent policy can
@@ -653,7 +668,7 @@ async function flushSubscription(subId) {
         breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId})`;
     }
 
-    const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}`;
+    const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\n\n${WAKE_LANE_DIRECTIVE}`;
 
     // Delivery to per-harness adapter
     await deliverDigest(subscription, digest);
