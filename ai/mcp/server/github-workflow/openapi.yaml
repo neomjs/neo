@@ -763,12 +763,12 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI. Pairs with the cross-family review mandate (`pull-request §6.1`) as the **invitation layer** — the mandate is the validation layer (Approved-status before merge); this tool surfaces the active invitation primitive that pairs with it.
+        Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint (`POST` add / `DELETE` remove). This needs only the `repo` scope — not the `read:org` scope `gh pr edit` requires to resolve logins via GraphQL, which agent tokens routinely lack. Pairs with the cross-family review mandate (`pull-request §6.1`) as the **invitation layer** — the mandate is the validation layer (Approved-status before merge); this tool surfaces the active invitation primitive that pairs with it.
 
-        **Action: 'add'** — requests review from the listed users/teams.
-        **Action: 'remove'** — withdraws review requests.
+        **Action: 'add'** — `POST`s a review request for the listed users/teams.
+        **Action: 'remove'** — `DELETE`s the review requests.
 
-        At least one of `reviewers` or `team_reviewers` is required. Permission errors are surfaced via the underlying `gh` CLI's exit code.
+        At least one of `reviewers` or `team_reviewers` is required. A leading `@` on a login is stripped. Errors surface as `GH_API_ERROR` carrying the REST `requested_reviewers` response (repo-scope semantics), not a `gh` CLI exit code.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -801,7 +801,7 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: An array of team slugs (without owner prefix; the owner is auto-prepended).
+                  description: An array of team slugs — bare slug, no owner prefix (the REST requested_reviewers endpoint takes the slug directly; the owner is NOT prepended).
                   example: ["maintainers"]
       responses:
         '200':
