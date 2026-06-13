@@ -60,6 +60,9 @@ class DiscussionService extends Base {
      * @param {String} [options.since_comment_id]   Return top-level comments strictly after the matching comment. Unknown id -> empty comments.
      * @param {Number} [options.last_n]             Return only the last N top-level comments.
      * @returns {Promise<Object>} Discussion conversation data, optionally filtered, or a structured error.
+     *          Payloads are trust-projected: authored nodes (incl. nested replies) carry `authorTrust`,
+     *          untrusted-author bodies arrive defanged, and the root carries a `contentTrust` summary
+     *          (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         const {discussion_number, comment_id, since_comment_id, last_n} = options || {};

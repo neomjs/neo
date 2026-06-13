@@ -82,7 +82,9 @@ class IssueService extends Base {
      * @param {String} [options.comment_id]       Return only the matching comment; others elided. Issue title/body still returned.
      * @param {String} [options.since_comment_id] Return comments strictly after the matching comment (by createdAt order). Unknown id → empty comments.
      * @param {Number} [options.last_n]           Return only the last N comments (by createdAt order).
-     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error.
+     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error. Payloads
+     *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
+     *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         const {issue_number, comment_id, since_comment_id, last_n} = options || {};

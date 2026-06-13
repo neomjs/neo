@@ -177,7 +177,9 @@ class PullRequestService extends Base {
      *                                                  returns empty comments (callers can interpret as
      *                                                  "nothing new" or "id invalid").
      * @param {number}        [options.last_n]          Return only the last N comments (by createdAt order).
-     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error.
+     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error. Payloads
+     *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
+     *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         // Accept positional `prNumber` form for backward compatibility.
