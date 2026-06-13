@@ -211,6 +211,8 @@ class Provider extends Base {
 
     /**
      * Triggered before the stores config gets changed.
+     * @summary Normalizes provider-local store configs before instantiation, including predictable same-provider
+     * ids and sibling-key `sourceId` references.
      * @param {Object|null} value
      * @param {Object|null} oldValue
      * @returns {Object|null}
@@ -218,9 +220,21 @@ class Provider extends Base {
      */
     beforeSetStores(value, oldValue) {
         if (value) {
-            let me = this;
+            const
+                me       = this,
+                storeIds = {};
 
             Object.entries(value).forEach(([key, storeValue]) => {
+                const storeId = me.getProviderStoreId(key, storeValue);
+
+                if (storeId) {
+                    storeIds[key] = storeId
+                }
+            });
+
+            Object.entries(value).forEach(([key, storeValue]) => {
+                storeValue = me.normalizeProviderStoreConfig(key, storeValue, storeIds);
+
                 // support mapping string based listeners into the stateProvider instance
                 Object.entries(storeValue.listeners || {}).forEach(([listenerKey, listener]) => {
                     me.bindCallback(listener, listenerKey, me, storeValue.listeners)
@@ -231,6 +245,72 @@ class Provider extends Base {
         }
 
         return value
+    }
+
+    /**
+     * Resolves the id a provider-local store config will use after instantiation.
+     * @summary Store config keys become predictable instance ids unless an explicit id or existing instance id
+     * already owns the store identity.
+     * @param {String} key
+     * @param {Class|Object|Neo.core.Base} storeValue
+     * @returns {String|null}
+     * @protected
+     */
+    getProviderStoreId(key, storeValue) {
+        const type = Neo.typeOf(storeValue);
+
+        if (type === 'NeoInstance') {
+            return storeValue.id
+        }
+
+        if (type === 'Object') {
+            return storeValue.id || `${this.id}__${key}`
+        }
+
+        if (type === 'NeoClass') {
+            return `${this.id}__${key}`
+        }
+
+        return null
+    }
+
+    /**
+     * Normalizes a provider-local store declaration before the ClassSystem creates the instance.
+     * @summary Converts class shorthand to config objects, assigns missing predictable ids, and resolves
+     * sibling store-key `sourceId` values to their concrete instance ids.
+     * @param {String} key
+     * @param {Class|Object|Neo.core.Base} storeValue
+     * @param {Object} storeIds
+     * @returns {Class|Object|Neo.core.Base}
+     * @protected
+     */
+    normalizeProviderStoreConfig(key, storeValue, storeIds) {
+        let type = Neo.typeOf(storeValue);
+
+        if (type === 'NeoInstance') {
+            return storeValue
+        }
+
+        if (type === 'NeoClass') {
+            storeValue = {module: storeValue};
+            type       = 'Object'
+        }
+
+        if (type === 'Object') {
+            const config = {...storeValue};
+
+            if (!config.id) {
+                config.id = storeIds[key]
+            }
+
+            if (Neo.isString(config.sourceId) && storeIds[config.sourceId]) {
+                config.sourceId = storeIds[config.sourceId]
+            }
+
+            return config
+        }
+
+        return storeValue
     }
 
     /**
