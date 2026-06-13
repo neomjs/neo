@@ -168,6 +168,14 @@ class GridContainer extends BaseContainer {
          */
         role: 'grid',
         /**
+         * Declarative width breakpoints for moving columns between locked regions.
+         * Breakpoint `columns` keys match a column `dataField` or `id`; values are
+         * `'start'`, `'end'`, `null`, or `false`.
+         * @member {Object|null} responsiveLockPolicy_=null
+         * @reactive
+         */
+        responsiveLockPolicy_: null,
+        /**
          * Number in px
          * @member {Number} rowHeight_=32
          * @reactive
@@ -245,6 +253,11 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     scrollManager = null
+    /**
+     * @member {Number|null} responsiveLockPolicyActiveMaxWidth=null
+     * @protected
+     */
+    responsiveLockPolicyActiveMaxWidth = null
 
     /**
      * @member {Boolean} hasLockedColumns=false
@@ -445,6 +458,18 @@ class GridContainer extends BaseContainer {
 
         if (scrollManager) {
             scrollManager.mounted = value
+        }
+    }
+
+    /**
+     * Triggered after the responsiveLockPolicy config got changed.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetResponsiveLockPolicy(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.responsiveLockPolicyActiveMaxWidth = null
         }
     }
 
@@ -898,6 +923,106 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Applies the first matching responsive locked-column breakpoint.
+     * @param {Object|Number} data Resize payload or measured width
+     * @returns {Boolean} true when at least one column lock state changed
+     */
+    applyResponsiveLockPolicy(data) {
+        let me          = this,
+            policy      = me.responsiveLockPolicy,
+            width       = me.resolveResponsiveLockPolicyWidth(data),
+            breakpoints = me.getResponsiveLockPolicyBreakpoints(policy),
+            changed     = false;
+
+        if (!width || breakpoints.length === 0) {
+            return false
+        }
+
+        let hysteresis = Math.max(0, Number(policy.hysteresis) || 0),
+            breakpoint = me.getResponsiveLockPolicyBreakpoint(width, breakpoints, hysteresis),
+            columns    = breakpoint?.columns;
+
+        me.responsiveLockPolicyActiveMaxWidth = breakpoint?.maxWidth ?? null;
+
+        if (!columns) {
+            return false
+        }
+
+        for (let key in columns) {
+            let column = me.getResponsiveLockPolicyColumn(key),
+                locked = me.normalizeResponsiveLockValue(columns[key]);
+
+            if (column && locked !== undefined && column.locked !== locked) {
+                column.locked = locked;
+                changed       = true
+            }
+        }
+
+        return changed
+    }
+
+    /**
+     * @param {Object|null} policy
+     * @returns {Object[]}
+     * @protected
+     */
+    getResponsiveLockPolicyBreakpoints(policy) {
+        let breakpoints = policy?.breakpoints;
+
+        if (!Array.isArray(breakpoints)) {
+            return []
+        }
+
+        return breakpoints
+            .map(breakpoint => {
+                let maxWidth = Number(breakpoint?.maxWidth);
+
+                return {
+                    ...breakpoint,
+                    maxWidth
+                }
+            })
+            .filter(breakpoint =>
+                Number.isFinite(breakpoint.maxWidth) &&
+                breakpoint.maxWidth > 0 &&
+                breakpoint.columns &&
+                Neo.typeOf(breakpoint.columns) === 'Object'
+            )
+            .sort((a, b) => a.maxWidth - b.maxWidth)
+    }
+
+    /**
+     * @param {Number} width
+     * @param {Object[]} breakpoints
+     * @param {Number} hysteresis
+     * @returns {Object|null}
+     * @protected
+     */
+    getResponsiveLockPolicyBreakpoint(width, breakpoints, hysteresis) {
+        let me             = this,
+            activeMaxWidth = me.responsiveLockPolicyActiveMaxWidth,
+            active         = breakpoints.find(breakpoint => breakpoint.maxWidth === activeMaxWidth),
+            candidate      = breakpoints.find(breakpoint => width <= breakpoint.maxWidth) || null;
+
+        if (active && (!candidate || candidate.maxWidth > active.maxWidth) && width <= active.maxWidth + hysteresis) {
+            return active
+        }
+
+        return candidate
+    }
+
+    /**
+     * @param {String} key
+     * @returns {Neo.grid.column.Base|null}
+     * @protected
+     */
+    getResponsiveLockPolicyColumn(key) {
+        let {columns} = this;
+
+        return columns?.get(key) || columns?.items.find(column => column.id === key || column.dataField === key) || null
+    }
+
+    /**
      * @param args
      */
     destroy(...args) {
@@ -1054,6 +1179,8 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         if (!me.initialResizeEvent) {
+            me.applyResponsiveLockPolicy(data);
+
             await me.passSizeToBody(true);
 
             me.bodyStart?.updateMountedAndVisibleColumns();
@@ -1064,6 +1191,19 @@ class GridContainer extends BaseContainer {
         } else {
             me.initialResizeEvent = false
         }
+    }
+
+    /**
+     * @param {*} value
+     * @returns {String|null|undefined}
+     * @protected
+     */
+    normalizeResponsiveLockValue(value) {
+        if (value === false || value === null) {
+            return null
+        }
+
+        return value === 'start' || value === 'end' ? value : undefined
     }
 
     /**
@@ -1141,6 +1281,25 @@ class GridContainer extends BaseContainer {
             me.bodyStart && me.bodyStart[silent ? 'setSilent' : 'set'](config);
             me.bodyEnd   && me.bodyEnd[silent ? 'setSilent' : 'set'](config)
         }
+    }
+
+    /**
+     * @param {Object|Number} data
+     * @returns {Number|null}
+     * @protected
+     */
+    resolveResponsiveLockPolicyWidth(data) {
+        let width = Neo.typeOf(data) === 'Number' ? data :
+            data?.width ??
+            data?.contentRect?.width ??
+            data?.rect?.width ??
+            data?.containerWidth ??
+            data?.borderBoxSize?.inlineSize ??
+            data?.contentBoxSize?.inlineSize;
+
+        width = Number(width);
+
+        return Number.isFinite(width) && width > 0 ? width : null
     }
 
     /**
