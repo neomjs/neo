@@ -128,6 +128,14 @@ Optional item fields:
 - `closable`, `pinnable`, `movable`: UI policy hints. Defaults are adapter-defined.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, secrets, PATs, or live component objects.
 
+### Stale Component References
+
+`componentRef` is a stable lookup key, not a guarantee that a live component instance or constructable blueprint still exists.
+
+When a rendering adapter cannot resolve `componentRef` to a live component, and cannot instantiate from `item.blueprint`, restore behavior is adapter-defined until a concrete renderer or persistence slice owns a stricter policy. The adapter must still fail non-silently: preserve the item record and its semantic placement long enough for validation, explicit user recovery, or an intentional close/remove operation.
+
+Allowed fallback shapes include a validation error tied to the item id or a recoverable placeholder pane. The adapter must not silently drop the item, synthesize live runtime references into persisted state, or rewrite the dock tree in a way that corrupts the saved layout. A future adapter may narrow this policy, but it must cite or update this contract rather than inventing incompatible restore semantics.
+
 ## Serializable vs Runtime State
 
 Persist:
@@ -202,6 +210,8 @@ The contract is deliberately JSON-first. A future renderer can project the model
 - `activeItemId` -> active card index derived from `items.indexOf(activeItemId)`
 
 The adapter must treat `componentRef` as the stable bridge between persisted layout and live component ownership. When no live component exists, the adapter may instantiate from `item.blueprint`; when a live component exists, it should move/re-parent the instance without destroying it, matching the existing dashboard and multi-window precedent.
+
+If neither a live component nor a valid `item.blueprint` exists, the adapter must follow the stale-component-reference policy above instead of silently dropping the item.
 
 ## Demand Validation
 
