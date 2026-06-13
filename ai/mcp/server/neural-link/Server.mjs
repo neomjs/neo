@@ -13,7 +13,8 @@ export const getCurrentTurnId = () => _turnId;
  * @summary Resolves the server-instance forced tool-projection mode from its launch sources, in
  * precedence order: the explicit `--tool-projection-mode` CLI flag wins; else the
  * `NEO_NL_TOOL_PROJECTION_MODE` env var (the channel the Fleet Manager spawner injects for embedded
- * agents via its `toolProjectionModeEnvVar`); else `null` (unforced → the full developer/operator
+ * agents — a fixed cross-process contract name, not a configurable field on either side); else `null`
+ * (unforced → the full developer/operator
  * surface, the trusted dev/operator launch). The single testable authority for this resolution.
  * @param {String|null} [cliMode] The `--tool-projection-mode` value (null/undefined when the flag is absent).
  * @param {Object} [env=process.env] Env source (injectable for tests).

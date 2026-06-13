@@ -75,6 +75,10 @@ function install({agents = {}, creds = {}} = {}) {
     FleetLifecycleService.spawnFn         = spawnStub;
     FleetLifecycleService.registry        = makeRegistry(agents, creds);
     FleetLifecycleService.sigkillTimeoutMs = 50;
+    // Reset the configurable env-key fields to their defaults so a collision test cannot bleed into
+    // the next serial sibling (singleton-stateful service).
+    FleetLifecycleService.credentialEnvVar  = 'GH_TOKEN';
+    FleetLifecycleService.bridgeTokenEnvVar = 'NEO_FLEET_BRIDGE_TOKEN';
     return spawnStub;
 }
 
@@ -146,6 +150,24 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         const spawn = install({agents: {a: agentDef('a')}, creds: {}});
         FleetLifecycleService.start('a');
         expect(spawn.calls[0].opts.env.NEO_NL_TOOL_PROJECTION_MODE).toBe('harness-embedded');
+    });
+
+    test('SECURITY: start fails fast when bridgeTokenEnvVar collides with credentialEnvVar (Bridge token would land in the PAT slot)', () => {
+        const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.bridgeTokenEnvVar = 'GH_TOKEN'; // === credentialEnvVar ⇒ credential classes collapse
+        expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
+        expect(spawn.calls).toHaveLength(0); // guard is fail-fast: never spawned, no secret injected
+    });
+
+    test('SECURITY: start fails fast when a key collides with the fixed forced-projection var, or is empty', () => {
+        install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.bridgeTokenEnvVar = 'NEO_NL_TOOL_PROJECTION_MODE'; // collides w/ the FIXED forced var
+        expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
+
+        const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}}); // fresh install resets the keys
+        FleetLifecycleService.credentialEnvVar = ''; // empty key ⇒ contract violation
+        expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
+        expect(spawn.calls).toHaveLength(0); // never spawned
     });
 
     test('a tokenless agent starts without injecting a fleet credential', () => {
