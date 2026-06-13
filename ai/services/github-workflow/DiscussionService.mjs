@@ -3,6 +3,7 @@ import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
+import {projectConversationTrust} from './shared/conversationTrust.mjs';
 import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
 import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
 
@@ -59,6 +60,9 @@ class DiscussionService extends Base {
      * @param {String} [options.since_comment_id]   Return top-level comments strictly after the matching comment. Unknown id -> empty comments.
      * @param {Number} [options.last_n]             Return only the last N top-level comments.
      * @returns {Promise<Object>} Discussion conversation data, optionally filtered, or a structured error.
+     *          Payloads are trust-projected: authored nodes (incl. nested replies) carry `authorTrust`,
+     *          untrusted-author bodies arrive defanged, and the root carries a `contentTrust` summary
+     *          (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         const {discussion_number, comment_id, since_comment_id, last_n} = options || {};
@@ -80,8 +84,12 @@ class DiscussionService extends Base {
         };
 
         try {
-            const data       = await GraphqlService.query(GET_DISCUSSION_CONVERSATION, variables);
-            const discussion = data.repository.discussion;
+            const data = await GraphqlService.query(GET_DISCUSSION_CONVERSATION, variables);
+            // Trust-project at the read boundary (root body + comments + nested replies gain
+            // `authorTrust`; untrusted-author bodies are defanged; root carries `contentTrust`).
+            // A null resource passes through the projection untouched, preserving the
+            // not-found contract below.
+            const discussion = projectConversationTrust(data.repository.discussion);
 
             if (!discussion) {
                 return {
