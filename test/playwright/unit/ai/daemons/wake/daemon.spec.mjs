@@ -450,13 +450,24 @@ test.describe('Wake Daemon', () => {
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        const pulseId = `HEARTBEAT_PULSE:${agentId}:${crypto.randomUUID()}`;
+        const pulseSummary = Buffer.from(JSON.stringify({
+            source: 'github-notification',
+            count : 1,
+            latest: {
+                id    : 'ghn-test-1',
+                reason: 'mention',
+                title : 'Ping Euclid',
+                url   : 'https://api.github.com/repos/neomjs/neo/issues/12937'
+            }
+        })).toString('base64url');
+        const pulseId = `HEARTBEAT_PULSE:${agentId}:github-notification.${pulseSummary}`;
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
 
         const output = await deliveryPromise;
         expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('heartbeat pulses');
+        expect(output).toContain('latest GitHub mention: "Ping Euclid"');
         expect(output).not.toContain('new messages');
     });
 
