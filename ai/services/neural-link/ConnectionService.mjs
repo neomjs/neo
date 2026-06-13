@@ -3,8 +3,9 @@ import {spawn}   from 'child_process';
 import crypto    from 'crypto';
 import fs        from 'fs';
 import WebSocket from 'ws';
-import Base      from '../../../src/core/Base.mjs';
-import logger    from '../../mcp/server/neural-link/logger.mjs';
+import Base              from '../../../src/core/Base.mjs';
+import logger            from '../../mcp/server/neural-link/logger.mjs';
+import {resolveCallTarget} from './resolveCallTarget.mjs';
 
 /**
  * @summary Manages the connection to the Neural Link Bridge and orchestrates RPC calls.
@@ -100,16 +101,8 @@ class ConnectionService extends Base {
             throw new Error('Not connected to Neural Link Bridge');
         }
 
-        // If no sessionId, pick the most recent one (Auto-Targeting)
-        if (!sessionId) {
-            if (this.sessionData.size > 0) {
-                sessionId = Array.from(this.sessionData.keys()).pop();
-                logger.warn(`No sessionId provided. Defaulting to ${sessionId}`);
-            } else {
-                // Wait for a session?
-                throw new Error('No active App Worker sessions found.');
-            }
-        }
+        // Resolve the target session (explicit target honored; silent multi-session auto-targeting denied).
+        sessionId = resolveCallTarget(sessionId, Array.from(this.sessionData.keys()));
 
         const id = ++this.msgId;
         const rpcMessage = {
