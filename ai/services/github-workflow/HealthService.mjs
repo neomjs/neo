@@ -24,6 +24,57 @@ const
     });
 
 /**
+ * GitHub notification reasons that should become active wake-content signals.
+ * `review_requested` is included alongside direct mentions because both are
+ * user-addressed GitHub notification primitives an agent must discover in-session.
+ * @type {String[]}
+ */
+export const GITHUB_WAKE_NOTIFICATION_REASONS = Object.freeze(['mention', 'review_requested']);
+
+/**
+ * @summary Projects a raw GitHub notification into the wake-safe shape shared by
+ * the health preview and swarm-heartbeat ingestion.
+ * @param {Object} notification Raw `gh api notifications` entry.
+ * @returns {Object}
+ */
+export function projectWakeNotification(notification = {}) {
+    return {
+        id    : notification.id,
+        reason: notification.reason,
+        type  : notification.subject?.type,
+        title : notification.subject?.title,
+        url   : notification.subject?.url
+    }
+}
+
+/**
+ * @summary Filters raw GitHub notifications down to wake-relevant reasons.
+ * @param {Object[]} notifications Raw `gh api notifications` payload.
+ * @returns {Object[]} Wake-safe projected notifications.
+ */
+export function getWakeRelevantNotifications(notifications = []) {
+    if (!Array.isArray(notifications)) return [];
+    return notifications
+        .filter(notification => GITHUB_WAKE_NOTIFICATION_REASONS.includes(notification?.reason))
+        .map(projectWakeNotification)
+        .filter(notification => notification.id)
+}
+
+/**
+ * @summary Builds the passive healthcheck preview from the same notification
+ * projection that the heartbeat lane consumes.
+ * @param {Object[]} notifications Raw `gh api notifications` payload.
+ * @returns {{unreadCount:Number,latest:Object[]}}
+ */
+export function buildNotificationPreview(notifications = []) {
+    const relevant = getWakeRelevantNotifications(notifications);
+    return {
+        unreadCount: relevant.length,
+        latest     : relevant.slice(0, 5)
+    }
+}
+
+/**
  * @summary Monitors and validates the GitHub CLI dependency for the MCP server.
  *
  * This service acts as a gatekeeper, ensuring that the GitHub CLI (`gh`) is properly
@@ -465,18 +516,7 @@ class HealthService extends Base {
             try {
                 const { stdout } = await execAsync("gh api 'notifications?participating=true'");
                 const notifications = JSON.parse(stdout);
-                const mentions = notifications.filter(n => n.reason === 'mention');
-
-                payload.notificationPreview = {
-                    unreadCount: mentions.length,
-                    latest: mentions.slice(0, 5).map(n => ({
-                        id: n.id,
-                        reason: n.reason,
-                        type: n.subject?.type,
-                        title: n.subject?.title,
-                        url: n.subject?.url
-                    }))
-                };
+                payload.notificationPreview = buildNotificationPreview(notifications);
             } catch (e) {
                 logger.warn(`[HealthService] Failed to fetch notifications for preview: ${e.message}`);
                 // Don't fail the healthcheck if notifications fail, just omit the preview

@@ -416,9 +416,26 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
         case 'permission_granted':
             return {type: 'permission', scope: payload.scope, grantedBy: payload.grantedBy, logId};
         case 'heartbeat_pulse':
-            return {type: 'heartbeat', targetIdentity: payload.targetIdentity, pulseId: payload.pulseId, logId};
+            return {type: 'heartbeat', targetIdentity: payload.targetIdentity, pulseId: payload.pulseId, summary: decodeHeartbeatPulseSummary(payload.pulseId), logId};
         default:
             return null;
+    }
+}
+
+/**
+ * @summary Decodes optional content embedded in heartbeat-pulse ids.
+ * @param {String} pulseId
+ * @returns {Object|null}
+ */
+function decodeHeartbeatPulseSummary(pulseId = '') {
+    if (!pulseId.startsWith('github-notification.')) return null;
+    try {
+        const encoded = pulseId.slice('github-notification.'.length);
+        const parsed  = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+        if (parsed?.source !== 'github-notification') return null;
+        return parsed
+    } catch {
+        return null
     }
 }
 
@@ -650,7 +667,10 @@ async function flushSubscription(subId) {
     }
     if (heartbeats.length > 0) {
         const latest = heartbeats[heartbeats.length - 1];
-        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId})`;
+        const gitHubSummary = latest.summary?.source === 'github-notification'
+            ? `; latest GitHub ${latest.summary.latest?.reason || 'notification'}: "${latest.summary.latest?.title || latest.summary.latest?.id || 'untitled'}"${latest.summary.latest?.url ? ` (${latest.summary.latest.url})` : ''}`
+            : '';
+        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${gitHubSummary})`;
     }
 
     const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}`;
