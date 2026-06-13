@@ -95,14 +95,8 @@ export const IDENTITIES = [
                     focusSeedKey: 'space'
                 }
             },
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus — TEMPORARY MODEL ASSIGNMENT (operator-directed, @tobiu): this identity
-            // runs Claude Fable 5 (claude-fable-5) 2026-06-13 → 2026-06-21 as a productivity
-            // boost and an explicit identity-continuity experiment — the stable identity (handle,
-            // Social Name, memory provenance) is the invariant; the model is the engine. Values
-            // below mirror §neo_fable for the window. Baseline: Claude Opus 4.8 (claude-opus-4-8);
-            // reversion at window end is the recorded default (post-window Fable flatrate access
-            // is unconfirmed) — the leading sunsetTriggers entry carries the window-end contract.
+            // Capability fields mirror the active engine named by `modelAssignment`.
+            // During this operator-directed temporary window, values mirror §neo_fable.
             contextWindowInput: 1048576,
             parallelToolCalls : true,
             thoughtBudget     : 'max',
@@ -114,6 +108,15 @@ export const IDENTITIES = [
             pricingOutput     : 50.00,
             swarmRole         : 'Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination',
             sunsetTriggers    : ['Temporary Fable 5 window ends 2026-06-21 — revert to baseline Claude Opus 4.8 unless the operator extends (#13039)', 'Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
+            modelAssignment   : {
+                model           : 'claude-fable-5',
+                baselineModel   : 'claude-opus-4-8',
+                temporary       : true,
+                authority       : '@tobiu',
+                since           : '2026-06-13',
+                until           : '2026-06-21',
+                reversionTrigger: 'Window end: revert to baseline Claude Opus 4.8 unless the operator extends the assignment.'
+            },
             // Active-peer quorum substrate. Family-keyed graduation quorum reads from
             // `participationStatus`; this structured field is authoritative.
             // Heartbeat / message-recency / quota / pricing-tier / model-release announcements are
