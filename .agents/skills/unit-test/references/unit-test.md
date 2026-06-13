@@ -49,6 +49,11 @@ To understand the "Neo.mjs Way", you **MUST** read these examples:
 - **Mocking:** Do NOT mock `postMessage`. The `setup()` helper wires `App` and `VDom` layers directly.
 - **Environment:** Global `Neo` namespace persists across tests in the same file.
 
+### Import-Time Side Effects (connect-on-init singletons)
+Some singleton services connect to — or spawn — external infrastructure the moment their module is imported: `Neo.setupClass` constructs the singleton and runs `initAsync()`, so a service whose `initAsync` auto-connects (e.g. `ai/services/neural-link/ConnectionService` with `autoConnect`) reaches out to the Bridge *during the import itself*. In a unit spec that means a live socket connection — or, in CI where nothing is listening, a **spawned Bridge process**. A unit test must cause neither.
+- **Do NOT import a connect-on-init singleton just to unit-test its logic** — the import runs the side-effect before your test body does.
+- **Extract the pure logic into a standalone module** (a plain function or static helper with no socket/Bridge coupling) and import THAT directly. The pure module has no host side-effects, so the suite stays hermetic in CI. Example: `resolveCallTarget` lives beside `ConnectionService` and is unit-tested directly, never through the singleton.
+
 ### Critical Rules (Zero Tolerance)
 1.  **Import Neo + Core Augmentation:** You **MUST** import `src/Neo.mjs` and `src/core/_export.mjs` in every test file that depends on Neo globals or the shared `test/playwright/setup.mjs` helper.
     - *Why:* `src/Neo.mjs` initializes the global Neo namespace and defines helpers like `Neo.ns`; `src/core/_export.mjs` augments that namespace with utilities like `Neo.isString` or `Neo.isEqual`. Missing `src/Neo.mjs` surfaces as setup-driven errors like `TypeError: Neo.ns is not a function`; missing `src/core/_export.mjs` surfaces later as absent core utilities.
