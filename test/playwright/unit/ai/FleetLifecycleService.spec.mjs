@@ -29,6 +29,7 @@ class FakeChild extends EventEmitter {
         super();
         this.pid     = ++nextPid;
         this.signals = [];
+        this.stderr  = new EventEmitter();
     }
 
     kill(signal) {
@@ -174,5 +175,18 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
     test('status of a never-started agent is stopped', () => {
         install({agents: {a: agentDef('a')}, creds: {}});
         expect(FleetLifecycleService.status('a')).toMatchObject({state: 'stopped', running: false});
+    });
+
+    test('drains + captures child stderr into a bounded tail (no pipe backpressure)', () => {
+        install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.start('a');
+        const child = FleetLifecycleService.processes.get('a').child;
+
+        child.stderr.emit('data', Buffer.from('[WARN] harness warming up\n'));
+        expect(FleetLifecycleService.status('a').recentStderr).toContain('harness warming up');
+
+        // a large burst is drained, but the retained tail stays bounded
+        child.stderr.emit('data', Buffer.from('x'.repeat(10_000)));
+        expect(FleetLifecycleService.status('a').recentStderr.length).toBeLessThanOrEqual(4096);
     });
 });

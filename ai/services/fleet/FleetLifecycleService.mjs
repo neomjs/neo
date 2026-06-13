@@ -25,7 +25,8 @@ import FleetRegistryService from './FleetRegistryService.mjs';
  * hold none.
  *
  * **Supervision idiom** mirrors `ai/daemons/orchestrator/services/ProcessSupervisorService` (the
- * injectable `spawnFn` test seam, env-merge, graceful `SIGTERM`→`SIGKILL` stop) without reusing it:
+ * injectable `spawnFn` test seam, env-merge, graceful `SIGTERM`→`SIGKILL` stop, and draining the
+ * child's stderr into a bounded tail so a noisy harness cannot block on pipe backpressure) without reusing it:
  * that supervisor is coupled to the orchestrator's fixed task-definition / task-state model, a poor
  * fit for a dynamic registry-keyed fleet. Extracting a shared primitive would touch critical
  * orchestrator infra and is intentionally deferred.
@@ -63,6 +64,13 @@ class FleetLifecycleService extends Base {
      * @member {Number} sigkillTimeoutMs=5000
      */
     sigkillTimeoutMs = 5000
+
+    /**
+     * Bounded cap (chars) on the per-process captured stderr tail. Draining stderr prevents pipe
+     * backpressure from blocking a noisy child; the bound keeps the retained tail small.
+     * @member {Number} maxStderrChars=4096
+     */
+    maxStderrChars = 4096
 
     /**
      * Registry collaborator. Defaults (via {@link getRegistry}) to the `FleetRegistryService`
@@ -114,8 +122,14 @@ class FleetLifecycleService extends Base {
             throw error;
         }
 
-        const record = {id, child, pid: child.pid ?? null, state: 'running', startedAt: new Date().toISOString(), exitCode: null, signal: null, exitedAt: null};
+        const record = {id, child, pid: child.pid ?? null, state: 'running', startedAt: new Date().toISOString(), exitCode: null, signal: null, exitedAt: null, recentStderr: ''};
         this.processes.set(id, record);
+
+        // Drain stderr so a noisy harness can't block on a full pipe buffer; retain a bounded,
+        // diagnostic tail (the child's own output — the PAT is injected via env, never stderr).
+        child.stderr?.on?.('data', chunk => {
+            record.recentStderr = (record.recentStderr + chunk.toString()).slice(-this.maxStderrChars);
+        });
 
         child.on?.('exit', (code, signal) => {
             record.state    = 'stopped';
@@ -190,17 +204,18 @@ class FleetLifecycleService extends Base {
      */
     status(id) {
         const record = this.processes.get(id);
-        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null};
+        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, recentStderr: null};
 
         return {
             id,
-            state    : record.state,
-            running  : record.state === 'running',
-            pid      : record.pid,
-            startedAt: record.startedAt,
-            uptimeMs : record.state === 'running' && record.startedAt ? Date.now() - Date.parse(record.startedAt) : null,
-            exitCode : record.exitCode,
-            exitedAt : record.exitedAt
+            state       : record.state,
+            running     : record.state === 'running',
+            pid         : record.pid,
+            startedAt   : record.startedAt,
+            uptimeMs    : record.state === 'running' && record.startedAt ? Date.now() - Date.parse(record.startedAt) : null,
+            exitCode    : record.exitCode,
+            exitedAt    : record.exitedAt,
+            recentStderr: record.recentStderr || null
         };
     }
 
