@@ -2,8 +2,8 @@ import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import Blackboard         from './Blackboard.mjs';
+import FleetSettingsPanel from './FleetSettingsPanel.mjs';
 import InterventionPanel  from './InterventionPanel.mjs';
-import StrategyPanel      from './StrategyPanel.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -75,9 +75,9 @@ class Viewport extends BaseViewport {
             style            : {margin: '20px'},
 
             items: [{
-                module   : StrategyPanel,
-                flex     : 2,
-                reference: 'strategy'
+                module   : FleetSettingsPanel,
+                flex     : 4,
+                reference: 'settings'
             }, {
                 module   : Panel,
                 cls      : ['agent-panel-swarm'],
