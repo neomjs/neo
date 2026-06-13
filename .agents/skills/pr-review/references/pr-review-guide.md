@@ -378,6 +378,7 @@ For PRs that introduce new workflow primitives, skill files, architectural conve
 - [ ] Does any reference file mention a predecessor pattern that should now also mention the new one?
 - [ ] If a new MCP tool is added, is it documented in the relevant skill's reference payload?
 - [ ] If a new convention is introduced, is there documentation somewhere explaining when the convention applies and how it fires?
+- [ ] If a PR cites `Decision Record: REQUIRED`, does it verify ADR authority and name any merge-order gate?
 - [ ] If a wire format or substrate contract was changed, does the PR explicitly enumerate downstream consumers and verify they were updated to handle the new format?
 
 If any check surfaces a miss, flag it in Required Actions. A PR that ships a new convention without the cross-skill references creates a **latent integration gap** — the convention exists but won't fire because no other skill knows to invoke it.
