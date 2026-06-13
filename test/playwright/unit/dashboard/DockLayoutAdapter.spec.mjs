@@ -67,6 +67,63 @@ const createModel = () => ({
     }
 });
 
+const createEdgeZoneModel = () => ({
+    schema: 'neo.harness.dockZone.v1',
+    root  : 'root',
+    items : {
+        strategy: {
+            componentRef: 'strategy',
+            title       : 'Strategy',
+            kind        : 'panel'
+        },
+        swarm: {
+            componentRef: 'swarm',
+            title       : 'Swarm',
+            kind        : 'panel'
+        },
+        terminal: {
+            componentRef: 'terminal',
+            title       : 'Terminal',
+            kind        : 'terminal'
+        },
+        inspector: {
+            componentRef: 'inspector',
+            title       : 'Inspector',
+            kind        : 'inspector'
+        }
+    },
+    nodes: {
+        root: {
+            type : 'edge-zone',
+            zones: {
+                center: 'main-tabs',
+                right : 'side-split'
+            }
+        },
+        'main-tabs': {
+            type        : 'tabs',
+            items       : ['strategy', 'swarm'],
+            activeItemId: 'swarm'
+        },
+        'side-split': {
+            type       : 'split',
+            orientation: 'vertical',
+            children   : ['terminal-tabs', 'inspector-tabs'],
+            sizes      : [0.55, 0.45]
+        },
+        'terminal-tabs': {
+            type        : 'tabs',
+            items       : ['terminal'],
+            activeItemId: 'terminal'
+        },
+        'inspector-tabs': {
+            type        : 'tabs',
+            items       : ['inspector'],
+            activeItemId: 'inspector'
+        }
+    }
+});
+
 test.describe('Neo.dashboard.DockLayoutAdapter', () => {
     test('projects split nodes to existing hbox and vbox layout primitives', () => {
         let model  = createModel(),
@@ -97,6 +154,31 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(result.items[0].activeIndex).toBe(1);
         expect(result.items[0].items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
         expect(result.items[0].items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
+    });
+
+    test('projects the documented edge-zone root model through the dashboard adapter', () => {
+        let result = DockLayoutAdapter.project(createEdgeZoneModel(), {
+                resolveComponentRef: componentRef => ({
+                    ntype    : 'dashboard-panel',
+                    reference: componentRef
+                })
+            }),
+            row    = result.items[0],
+            center = row.items[0],
+            right  = row.items[1];
+
+        expect(result.dockNodeType).toBe('edge-zone');
+        expect(result.layout).toEqual({ntype: 'vbox', align: 'stretch'});
+        expect(row.dockNodeType).toBe('edge-zone-row');
+        expect(row.layout).toEqual({ntype: 'hbox', align: 'stretch'});
+
+        expect(center.ntype).toBe('tab-container');
+        expect(center.activeIndex).toBe(1);
+        expect(center.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
+
+        expect(right.layout).toEqual({ntype: 'vbox', align: 'stretch'});
+        expect(right.items.map(item => item.flex)).toEqual([0.55, 0.45]);
+        expect(right.items.map(item => item.items[0].data.dockItemId)).toEqual(['terminal', 'inspector']);
     });
 
     test('falls back to recoverable placeholders without mutating the source model', () => {
@@ -145,5 +227,15 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         };
 
         expect(() => DockLayoutAdapter.project(model)).toThrow(/preview-only field "dockPreview"/);
+    });
+
+    test('rejects runtime-only drag metadata from the full contract list', () => {
+        let model = createModel();
+
+        model.items.strategy.metadata = {
+            sourceSortZone: 'left'
+        };
+
+        expect(() => DockLayoutAdapter.project(model)).toThrow(/preview-only field "sourceSortZone"/);
     });
 });

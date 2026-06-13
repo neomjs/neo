@@ -26,14 +26,20 @@ class DockLayoutAdapter extends Base {
      * @static
      */
     static forbiddenPreviewKeys = new Set([
+        'appName',
+        'currentIndex',
+        'draggedItem',
         'dockPreview',
         'domRect',
         'DOMRect',
+        'isWindowDragging',
         'placement',
         'pointer',
         'pointerX',
         'pointerY',
         'previewId',
+        'sourceSortZone',
+        'targetSortZone',
         'windowId'
     ])
 
