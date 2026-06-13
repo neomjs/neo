@@ -32,11 +32,23 @@ class ToolService_tmp extends Base {
      */
     allToolsForListing = null
     /**
+     * OpenAPI-root projection policy for harness-embedded tool surfaces.
+     * @member {Object|null} harnessToolProjection=null
+     * @protected
+     */
+    harnessToolProjection = null
+    /**
      * Map of service method handlers.
      * Only getting set for MCP servers.
      * @member {Object|null} serviceMapping=null
      */
     serviceMapping = null
+    /**
+     * Tool projection tier by operationId. Populated from `x-neo-tool-tier`.
+     * @member {Object|null} toolProjectionTiers=null
+     * @protected
+     */
+    toolProjectionTiers = null
     /**
      * Internal cache for parsed tool definitions.
      * @member {Object|null} toolMapping=null
@@ -50,7 +62,7 @@ class ToolService_tmp extends Base {
      * @param {Object} args
      * @returns {Promise<any>}
      */
-    async callTool(toolName, args) {
+    async callTool(toolName, args, options={}) {
         this.initializeToolMapping();
 
         const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
@@ -63,6 +75,8 @@ class ToolService_tmp extends Base {
         if (!tool || !tool.handler) {
             throw new Error(`Tool "${effectiveToolName}" not found or not implemented.`);
         }
+
+        this.assertToolProjectionAllows(effectiveToolName, options.toolProjection);
 
         const validatedArgs = tool.zodSchema.parse(args);
 
@@ -94,13 +108,16 @@ class ToolService_tmp extends Base {
 
         me.toolMapping        = {};
         me.allToolsForListing = [];
+        me.toolProjectionTiers = {};
 
         const openApiDocument = yaml.load(fs.readFileSync(me.openApiFilePath, 'utf8'));
+        me.harnessToolProjection = openApiDocument['x-neo-harness-tool-projection'] || null;
 
         for (const pathItem of Object.values(openApiDocument.paths)) {
             for (const operation of Object.values(pathItem)) {
                 if (operation.operationId) {
                     const toolName = operation.operationId;
+                    const toolTier = operation['x-neo-tool-tier'] || null;
 
                     const inputZodSchema  = buildZodSchema(openApiDocument, operation);
                     const inputJsonSchema = zodToJsonSchema(inputZodSchema, {
@@ -130,11 +147,13 @@ class ToolService_tmp extends Base {
                         title       : operation.summary || toolName,
                         description : operation.description || operation.summary,
                         zodSchema   : inputZodSchema,
+                        toolTier,
                         argNames,
                         handler     : me.serviceMapping ? me.serviceMapping[toolName] : null,
                         passAsObject: operation['x-pass-as-object'] === true
                     };
                     me.toolMapping[toolName] = tool;
+                    me.toolProjectionTiers[toolName] = toolTier;
 
                     const toolForListing = {
                         name       : tool.name,
@@ -161,27 +180,112 @@ class ToolService_tmp extends Base {
      * @param {Number} [options.limit]
      * @returns {Object}
      */
-    listTools({cursor=0, limit} = {}) {
+    listTools({cursor=0, limit, toolProjection} = {}) {
         const me = this;
 
         me.initializeToolMapping();
+        const toolsForListing = me.getToolsForProjection(toolProjection);
 
         if (!limit) {
             return {
-                tools     : me.allToolsForListing,
+                tools     : toolsForListing,
                 nextCursor: undefined
             };
         }
 
         const start      = cursor;
         const end        = start + limit;
-        const toolsSlice = me.allToolsForListing.slice(start, end);
-        const nextCursor = end < me.allToolsForListing.length ? String(end) : undefined;
+        const toolsSlice = toolsForListing.slice(start, end);
+        const nextCursor = end < toolsForListing.length ? String(end) : undefined;
 
         return {
             tools: toolsSlice,
             nextCursor
         };
+    }
+
+    /**
+     * @summary Returns the server-declared harness projection policy.
+     * @returns {Object|null}
+     */
+    getToolProjectionPolicy() {
+        this.initializeToolMapping();
+        return this.harnessToolProjection;
+    }
+
+    /**
+     * @summary Returns tools visible through an explicit projection context.
+     * No context means the existing developer/operator surface stays full.
+     * @param {Object|String|null} toolProjection
+     * @returns {Array<Object>}
+     */
+    getToolsForProjection(toolProjection) {
+        const me      = this,
+              context = me.normalizeToolProjectionContext(toolProjection);
+
+        if (!context) {
+            return me.allToolsForListing;
+        }
+
+        return me.allToolsForListing.filter(tool => me.isToolAllowedForProjection(tool.name, context));
+    }
+
+    /**
+     * @summary Throws when a tool is not visible through the supplied projection context.
+     * @param {String}             toolName
+     * @param {Object|String|null} toolProjection
+     */
+    assertToolProjectionAllows(toolName, toolProjection) {
+        const me      = this,
+              context = me.normalizeToolProjectionContext(toolProjection);
+
+        if (!context || me.isToolAllowedForProjection(toolName, context)) {
+            return;
+        }
+
+        const error = new Error(`Tool "${toolName}" is not visible in the ${context.mode || 'unknown'} projection.`);
+        error.code   = 'POLICY_REFUSED';
+        error.reason = error.message;
+        throw error;
+    }
+
+    /**
+     * @summary Normalizes the projection context passed by a server boundary.
+     * @param {Object|String|null} toolProjection
+     * @returns {Object|null}
+     * @protected
+     */
+    normalizeToolProjectionContext(toolProjection) {
+        if (!toolProjection) {
+            return null;
+        }
+
+        if (Neo.isString(toolProjection)) {
+            return {mode: toolProjection};
+        }
+
+        return toolProjection;
+    }
+
+    /**
+     * @summary Applies the OpenAPI-root harness projection policy to one tool.
+     * Unknown projection modes and missing tiers fail closed.
+     * @param {String} toolName
+     * @param {Object} context
+     * @returns {Boolean}
+     * @protected
+     */
+    isToolAllowedForProjection(toolName, context) {
+        const me = this;
+
+        if (context.mode !== 'harness-embedded') {
+            return false;
+        }
+
+        const visibleTiers = me.harnessToolProjection?.defaultVisibleTiers || [],
+              toolTier     = me.toolProjectionTiers?.[toolName];
+
+        return Boolean(toolTier && visibleTiers.includes(toolTier));
     }
 
     /**
