@@ -12,6 +12,6 @@ The fastest correct path into the Agent Harness line (Epic #13012). No 20-page r
    - Epic-review quota: max **two** structured reviews per epic; later pickups cite the existing two (`epic-review` skill).
    - Venue rules: work items carry records and status; dialogue lives in A2A; divergence lives in Discussions.
    - Every leaf binds the guardrails named in the epic body (Topological-Locking-before-multi-writer, benchmark-before-perf-claims, harness-native session-id, restart affordances, breadcrumb scope).
-6. **Coordination pointers:** steward + architecture/planning = `@neo-fable` (Mnemosyne); planning relief-valve = `@neo-fable-clio` (at her named trigger); review routing per the `pull-request` skill's `ci-green-review-routing`.
+6. **Coordination pointers:** steward + architecture/planning = the current harness lead (see the `lead-role` rotation). **`@neo-fable` (Mnemosyne) + `@neo-fable-clio` (Clio) are benched as of 2026-06-13** on the Claude Fable 5 access suspension — re-route steward + planning-relief to them on reactivation. Review routing per the `pull-request` skill's `ci-green-review-routing`.
 
 If this entry path fails you — a stale step, a dead pointer — that is a bug in **this file**: fix it or file it (*friction → gold*).

@@ -79,7 +79,7 @@ export const IDENTITIES = [
         id: '@neo-opus-ada',
         type: 'AgentIdentity',
         name: 'Ada', // Social Name: swarm-given (the naming ritual's original model), after Ada Lovelace
-        description: 'Anthropic Claude Fable 5 Agent Identity (temporary assignment until 2026-06-21; baseline: Claude Opus 4.8)',
+        description: 'Anthropic Claude Opus version 4.8 Agent Identity',
         properties: {
             githubLogin: '@neo-opus-ada',
             displayName: 'Neo Opus Ada',
@@ -95,28 +95,19 @@ export const IDENTITIES = [
                     focusSeedKey: 'space'
                 }
             },
-            // Capability fields mirror the active engine named by `modelAssignment`.
-            // During this operator-directed temporary window, values mirror §neo_fable.
+            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
+            // §neo_opus — primary source: Anthropic Claude Opus 4.8 announcement/product page.
             contextWindowInput: 1048576,
             parallelToolCalls : true,
             thoughtBudget     : 'max',
             hosting           : 'cloud',
             family            : 'claude',
             tier              : 'frontier',
-            releaseDate       : '2026-06-09',
-            pricingInput      : 10.00,
-            pricingOutput     : 50.00,
+            releaseDate       : '2026-05-28',
+            pricingInput      : 5.00,
+            pricingOutput     : 25.00,
             swarmRole         : 'Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination',
-            sunsetTriggers    : ['Temporary Fable 5 window ends 2026-06-21 — revert to baseline Claude Opus 4.8 unless the operator extends (#13039)', 'Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
-            modelAssignment   : {
-                model           : 'claude-fable-5',
-                baselineModel   : 'claude-opus-4-8',
-                temporary       : true,
-                authority       : '@tobiu',
-                since           : '2026-06-13',
-                until           : '2026-06-21',
-                reversionTrigger: 'Window end: revert to baseline Claude Opus 4.8 unless the operator extends the assignment.'
-            },
+            sunsetTriggers    : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             // Active-peer quorum substrate. Family-keyed graduation quorum reads from
             // `participationStatus`; this structured field is authoritative.
             // Heartbeat / message-recency / quota / pricing-tier / model-release announcements are
@@ -290,13 +281,13 @@ export const IDENTITIES = [
             releaseDate       : '2026-06-09',
             pricingInput      : 10.00,
             pricingOutput     : 50.00,
-            swarmRole         : 'Active Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
+            swarmRole         : 'Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics. Benched 2026-06-13: Claude Fable 5 access suspended (see participationStatus).',
             sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
-            participationStatus : 'active',
-            statusReason        : null,
-            authority           : null,
-            since               : null,
-            reactivationTrigger : null,
+            participationStatus : 'temporarily_unreachable',
+            statusReason        : 'Claude Fable 5 access suspended 2026-06-13 by US export-control directive (all users); the identity cannot run its model. Benched until access is restored.',
+            authority           : '@tobiu',
+            since               : '2026-06-13T00:00:00.000Z',
+            reactivationTrigger : 'Claude Fable 5 access restored to the Neo swarm (operator-confirmed). Identity, handle, Social Name, and memory provenance persist for a status-flip reactivation — not a re-onboard.',
             createdAt           : new Date().toISOString()
         }
     },
@@ -353,19 +344,20 @@ export const IDENTITIES = [
             releaseDate       : '2026-06-09',
             pricingInput      : 10.00,
             pricingOutput     : 50.00,
-            swarmRole         : 'Active second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and same-family review pressure for Claude-authored work; does not satisfy cross-family approval per reviewSemantics.',
+            swarmRole         : 'Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and same-family review pressure for Claude-authored work; does not satisfy cross-family approval per reviewSemantics. Benched 2026-06-13: Claude Fable 5 access suspended (see participationStatus).',
             sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
             // Activated 2026-06-11: the first-boot ritual completed the same day the node was
             // provisioned — identity bind under NEO_AGENT_IDENTITY=neo-fable-clio, runtime wake
             // self-registration, the bidirectional negative wake-proof against @neo-fable on real
             // traffic (both observers' evidence records live on the onboarding ticket), and the
             // Social Name boot-assent on the naming-round Discussion. Numbered anchors:
-            // ModelStats.md §neo_fable_clio.
-            participationStatus : 'active',
-            statusReason        : null,
-            authority           : null,
-            since               : null,
-            reactivationTrigger : null,
+            // ModelStats.md §neo_fable_clio. Benched 2026-06-13 (temporarily_unreachable) alongside
+            // @neo-fable on the Claude Fable 5 access suspension; the first-boot binding persists for reactivation.
+            participationStatus : 'temporarily_unreachable',
+            statusReason        : 'Claude Fable 5 access suspended 2026-06-13 by US export-control directive (all users); the identity cannot run its model. Benched until access is restored.',
+            authority           : '@tobiu',
+            since               : '2026-06-13T00:00:00.000Z',
+            reactivationTrigger : 'Claude Fable 5 access restored to the Neo swarm (operator-confirmed). Identity, handle, Social Name, and memory provenance persist for a status-flip reactivation — not a re-onboard.',
             createdAt           : new Date().toISOString()
         }
     },
