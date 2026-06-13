@@ -195,6 +195,49 @@ test.describe('Neo.ai.services.github-workflow — getConversation trust wiring'
         expect(result.contentTrust.projected).toBe(true)
     });
 
+    test('IssueService selector paths inherit the projection (comment_id)', async () => {
+        GraphqlService.query = async () => ({repository: {issue: {
+            title   : 'Issue under attack',
+            body    : 'Root body.',
+            author  : {login: 'tobiu'},
+            comments: {nodes: [
+                {id: 'IC_first', author: {login: 'neo-gpt'}, body: 'clean'},
+                structuredClone(hostileComment)
+            ]}
+        }}});
+
+        // comment_id selects only the matching comment; projection is applied pre-selector, so the
+        // surviving node is already defanged.
+        const result = await IssueService.getConversation({issue_number: 1, comment_id: 'IC_hostile'});
+
+        expect(result.comments.nodes).toHaveLength(1);
+        expect(result.comments.nodes[0].id).toBe('IC_hostile');
+        expect(result.comments.nodes[0].authorTrust).toBe(TRUST_TIERS.EXTERNAL);
+        expect(result.comments.nodes[0].body).toContain('[QUARANTINED_URL: arkforge.tech]');
+        expect(result.contentTrust.projected).toBe(true)
+    });
+
+    test('IssueService selector paths inherit the projection (since_comment_id)', async () => {
+        GraphqlService.query = async () => ({repository: {issue: {
+            title   : 'Issue under attack',
+            body    : 'Root body.',
+            author  : {login: 'tobiu'},
+            comments: {nodes: [
+                {id: 'IC_anchor', author: {login: 'neo-gpt'}, body: 'clean anchor'},
+                structuredClone(hostileComment)
+            ]}
+        }}});
+
+        // since_comment_id returns comments strictly after the anchor; the hostile one survives and
+        // is defanged, proving the projection inherits through this selector path too.
+        const result = await IssueService.getConversation({issue_number: 1, since_comment_id: 'IC_anchor'});
+
+        expect(result.comments.nodes).toHaveLength(1);
+        expect(result.comments.nodes[0].id).toBe('IC_hostile');
+        expect(result.comments.nodes[0].body).toContain('[QUARANTINED_URL: arkforge.tech]');
+        expect(result.contentTrust.projected).toBe(true)
+    });
+
     test('PullRequestService.getConversation returns a projected payload', async () => {
         GraphqlService.query = async () => ({repository: {pullRequest: {
             title   : 'A PR',
