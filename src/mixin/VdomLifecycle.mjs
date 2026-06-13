@@ -212,7 +212,7 @@ class VdomLifecycle extends Base {
     async executeVdomUpdate(resolve, reject) {
         let me = this;
 
-        resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
+        (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
         me.isVdomUpdating = true;
         // Centralize in-flight state
@@ -362,12 +362,15 @@ class VdomLifecycle extends Base {
             // Ensure state is cleaned up on error
             VDomUpdate.unregisterInFlightUpdate(me.id);
 
-            // Fire-and-forget updates have no reject callback — without this log the failure is
-            // fully silent and the symptom surfaces minutes later as "the DOM stopped following".
-            // Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
-            !reject && console.error('vdom update failed', me.id, err);
+            // A failed flight must reject every promise parked on it — the initiator AND any
+            // children merged into the cycle (rejectCallbacks is the error-path twin of the
+            // resolveVdomUpdate -> executeCallbacks success path). Detect the fire-and-forget case
+            // first (no parked promise), so a genuinely silent failure still logs rather than
+            // vanishing — the symptom otherwise surfaces minutes later as "the DOM stopped
+            // following". Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
+            VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
 
-            reject?.(err);
+            VDomUpdate.rejectCallbacks(me.id, err);
 
             // Mirror of resolveVdomUpdate(): updates queued onto this flight while it was running
             // are only ever drained by a follow-up cycle — without this, their content (and any
@@ -949,9 +952,14 @@ class VdomLifecycle extends Base {
 
         me.ensureStableIds();
 
-        // If there's a promise, register it against this component's ID immediately.
-        // The manager will ensure it's called when the appropriate update cycle completes.
-        resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
+        // If there's a promise, register its {resolve, reject} pair against this component's ID
+        // immediately — BEFORE the merge / in-flight / initiator branching below. The manager
+        // settles it when the owning cycle completes: resolve on success (executeCallbacks),
+        // reject when the flight it parks on fails (rejectCallbacks). Registering the pair here —
+        // rather than carrying reject as a lone param on the initiator path — is what lets a
+        // promiseUpdate() queued onto an already-in-flight or parent-merged cycle reject honestly
+        // if that cycle fails, instead of stranding resolve-only.
+        (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
         // Attempt to merge into a parent's update cycle.
         // We do this even if silent, to ensure we catch the bus if a parent is departing.
@@ -995,7 +1003,9 @@ class VdomLifecycle extends Base {
                             me.updateVdom(resolve, reject)
                         }, me, {once: true})
                     } else {
-                        me.executeVdomUpdate(null, reject)
+                        // The {resolve, reject} pair is already parked under me.id above; the catch
+                        // settles it via VDomUpdate.rejectCallbacks, so no reject param is threaded here.
+                        me.executeVdomUpdate()
                     }
                 }
             }
