@@ -115,7 +115,10 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * Finalizes a dashboard window drag by either dropping into the active target
+     * or leaving the source popup as the terminal drop state.
      * @param {Object} data
+     * @param {Neo.component.Base} data.draggedItem
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
      */
     onDragEnd(data) {
@@ -129,8 +132,8 @@ class DragCoordinator extends Manager {
             data.sourceSortZone.onRemoteDropOut(data.draggedItem);
 
             me.activeTargetZone = null
-        } else {
-            // Drag ended in void or source window (handled locally by source)
+        } else if (data.sourceSortZone.isWindowDragging) {
+            data.sourceSortZone.onTerminalWindowDrop?.(data.draggedItem)
         }
     }
 

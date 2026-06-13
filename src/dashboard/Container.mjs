@@ -184,9 +184,32 @@ class Container extends BaseContainer {
         // Reset the window dragging flag when any drag operation ends
         // This ensures proper cleanup even if the drag ends outside the viewport
         this.#isWindowDragging = false;
-        
+
         // Fire the event for other listeners
         this.fire('dragEnd', data);
+    }
+
+    /**
+     * Marks a detached widget as intentionally left in its popup after a terminal window drop.
+     * @param {Object} data
+     * @param {Neo.component.Base} data.draggedItem
+     * @param {Neo.draggable.dashboard.SortZone} data.sortZone
+     */
+    onWindowDragTerminalDrop(data) {
+        let me            = this,
+            {draggedItem} = data,
+            widgetName    = draggedItem?.reference || draggedItem?.id,
+            detachedItem  = widgetName ? me.detachedItems.get(widgetName) : null;
+
+        if (detachedItem) {
+            detachedItem.terminalDrop = true
+        }
+
+        me.fire('windowDragTerminalDrop', {
+            detachedItem,
+            draggedItem,
+            sortZone: data.sortZone
+        })
     }
 
     /**
