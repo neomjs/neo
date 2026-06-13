@@ -32,6 +32,11 @@
                 background : rgba(0, 210, 255, 0.1);
                 box-shadow : 0 0 10px var(--agent-accent-swarm);
             }
+
+            .neo-button-glyph,
+            .neo-button-text {
+                color: inherit;
+            }
         }
 
         .agent-theme-button {
