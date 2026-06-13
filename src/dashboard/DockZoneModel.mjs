@@ -18,6 +18,9 @@ import Base from '../core/Base.mjs';
  * unchanged plus a non-empty `errors` array, never a partially-mutated tree. The model persists
  * semantic splits/tabs/order only; runtime pixels, DOMRects and preview state never enter it.
  *
+ * Saved-layout helpers wrap the same committed model in `neo.harness.dockLayout.v1` after rejecting
+ * runtime-only fields and non-JSON values. They deliberately do not choose a storage backend.
+ *
  * Return shape for every operation: `{document, errors}` — `errors` empty means the operation
  * committed; non-empty means it was rejected and `document` is the untouched input.
  */
@@ -28,6 +31,57 @@ class DockZoneModel extends Base {
      * @static
      */
     static SCHEMA = 'neo.harness.dockZone.v1'
+
+    /**
+     * The saved layout wrapper schema around a normalized dock-zone document.
+     * @member {String} LAYOUT_SCHEMA='neo.harness.dockLayout.v1'
+     * @static
+     */
+    static LAYOUT_SCHEMA = 'neo.harness.dockLayout.v1'
+
+    /**
+     * Runtime, preview, live-component, or credential fields forbidden in saved layouts.
+     * @member {Set<String>} forbiddenSavedLayoutKeys
+     * @protected
+     * @static
+     */
+    static forbiddenSavedLayoutKeys = new Set([
+        'accessToken',
+        'appName',
+        'bridgeToken',
+        'component',
+        'componentInstance',
+        'controller',
+        'controllers',
+        'credential',
+        'credentials',
+        'currentIndex',
+        'domRect',
+        'DOMRect',
+        'draggedItem',
+        'dockPreview',
+        'eventListener',
+        'eventListeners',
+        'handler',
+        'handlers',
+        'isWindowDragging',
+        'listener',
+        'listeners',
+        'pat',
+        'PAT',
+        'password',
+        'placement',
+        'pointer',
+        'pointerX',
+        'pointerY',
+        'previewId',
+        'secret',
+        'secrets',
+        'sourceSortZone',
+        'targetSortZone',
+        'token',
+        'windowId'
+    ].map(key => key.toLowerCase()))
 
     static config = {
         /**
@@ -49,6 +103,136 @@ class DockZoneModel extends Base {
      */
     static clone(document) {
         return Neo.clone(document, true, true)
+    }
+
+    /**
+     * @summary Deep-clones a value after JSON-only validation has passed.
+     * @param {*} value
+     * @returns {*}
+     * @protected
+     * @static
+     */
+    static cloneJson(value) {
+        return JSON.parse(JSON.stringify(value))
+    }
+
+    /**
+     * @summary Returns the first forbidden runtime/persistence key in an object graph.
+     * @param {*} value
+     * @param {String} [path='value']
+     * @param {WeakSet<Object>} [seen=new WeakSet()]
+     * @returns {{key:String, path:String}|null}
+     * @protected
+     * @static
+     */
+    static findForbiddenSavedLayoutKey(value, path='value', seen=new WeakSet()) {
+        if (!value || typeof value !== 'object') {
+            return null
+        }
+
+        if (seen.has(value)) {
+            return null
+        }
+
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = DockZoneModel.findForbiddenSavedLayoutKey(value[i], `${path}[${i}]`, seen);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        for (const key of Object.keys(value)) {
+            if (DockZoneModel.forbiddenSavedLayoutKeys.has(key.toLowerCase())) {
+                return {key, path: `${path}.${key}`}
+            }
+
+            let match = DockZoneModel.findForbiddenSavedLayoutKey(value[key], `${path}.${key}`, seen);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Returns true for JSON object records only.
+     * @param {*} value
+     * @returns {Boolean}
+     * @protected
+     * @static
+     */
+    static isJsonRecord(value) {
+        return value !== null &&
+            typeof value === 'object' &&
+            (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
+    }
+
+    /**
+     * @summary Returns the first value that cannot round-trip as JSON.
+     * @param {*} value
+     * @param {String} [path='value']
+     * @param {WeakSet<Object>} [seen=new WeakSet()]
+     * @returns {{path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findNonJsonValue(value, path='value', seen=new WeakSet()) {
+        if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+            return null
+        }
+
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? null : {path, reason: 'number must be finite'}
+        }
+
+        if (typeof value !== 'object') {
+            return {path, reason: `${typeof value} is not JSON-serializable`}
+        }
+
+        if (seen.has(value)) {
+            return {path, reason: 'cyclic object graph is not JSON-serializable'}
+        }
+
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = DockZoneModel.findNonJsonValue(value[i], `${path}[${i}]`, seen);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        if (!DockZoneModel.isJsonRecord(value)) {
+            return {path, reason: `${value.constructor?.name || 'object'} is not a JSON record`}
+        }
+
+        for (const key of Reflect.ownKeys(value)) {
+            if (typeof key === 'symbol') {
+                return {path: `${path}.${String(key)}`, reason: 'symbol keys are not JSON-serializable'}
+            }
+
+            let match = DockZoneModel.findNonJsonValue(value[key], `${path}.${key}`, seen);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
     }
 
     /**
@@ -291,6 +475,136 @@ class DockZoneModel extends Base {
             errors     = DockZoneModel.validate(normalized);
 
         return errors.length ? {document: original, errors} : {document: normalized, errors: []}
+    }
+
+    /**
+     * @summary Wraps a valid committed dock-zone document in a JSON-only saved-layout envelope.
+     * @param {Object} document
+     * @param {Object} [metadata={}] {layoutId, title, revision, metadata}
+     * @returns {{layout:Object|null, errors:String[]}}
+     * @static
+     */
+    static createSavedLayout(document, metadata={}) {
+        if (!DockZoneModel.isJsonRecord(metadata)) {
+            return {layout: null, errors: ['metadata must be a JSON object']}
+        }
+
+        let errors = DockZoneModel.validate(document);
+
+        if (errors.length) {
+            return {layout: null, errors}
+        }
+
+        let forbiddenKey = DockZoneModel.findForbiddenSavedLayoutKey(document);
+
+        if (forbiddenKey) {
+            return {
+                layout: null,
+                errors: [`saved layout contains forbidden runtime field "${forbiddenKey.key}" at ${forbiddenKey.path}`]
+            }
+        }
+
+        let normalized = DockZoneModel.normalizeTree(document),
+            layoutId   = Object.hasOwn(metadata, 'layoutId') ? metadata.layoutId : 'default',
+            title      = Object.hasOwn(metadata, 'title') ? metadata.title : layoutId,
+            layout     = {
+                schema  : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId,
+                title,
+                dockZone: normalized,
+                metadata: Object.hasOwn(metadata, 'metadata') ? metadata.metadata : {}
+            };
+
+        if (Object.hasOwn(metadata, 'revision')) {
+            layout.revision = metadata.revision
+        }
+
+        if (typeof layout.layoutId !== 'string' || !layout.layoutId.trim()) {
+            errors.push('layoutId must be a non-empty string')
+        }
+
+        if (typeof layout.title !== 'string' || !layout.title.trim()) {
+            errors.push('title must be a non-empty string')
+        }
+
+        if (!DockZoneModel.isJsonRecord(layout.metadata)) {
+            errors.push('metadata must be a JSON object')
+        }
+
+        forbiddenKey = DockZoneModel.findForbiddenSavedLayoutKey(layout);
+
+        if (forbiddenKey) {
+            errors.push(`saved layout contains forbidden runtime field "${forbiddenKey.key}" at ${forbiddenKey.path}`)
+        }
+
+        let nonJson = DockZoneModel.findNonJsonValue(layout);
+
+        if (nonJson) {
+            errors.push(`saved layout ${nonJson.path} is not JSON-only: ${nonJson.reason}`)
+        }
+
+        return errors.length ? {layout: null, errors} : {layout: DockZoneModel.cloneJson(layout), errors: []}
+    }
+
+    /**
+     * @summary Restores a saved-layout wrapper into a validated dock-zone document.
+     * @param {Object} savedLayout
+     * @returns {{document:Object|null, errors:String[]}}
+     * @static
+     */
+    static restoreSavedLayout(savedLayout) {
+        let errors = [];
+
+        if (!DockZoneModel.isJsonRecord(savedLayout)) {
+            return {document: null, errors: ['saved layout must be a JSON object']}
+        }
+
+        if (savedLayout.schema !== DockZoneModel.LAYOUT_SCHEMA) {
+            errors.push(`schema must be ${DockZoneModel.LAYOUT_SCHEMA}`)
+        }
+
+        if (typeof savedLayout.layoutId !== 'string' || !savedLayout.layoutId.trim()) {
+            errors.push('layoutId must be a non-empty string')
+        }
+
+        if (typeof savedLayout.title !== 'string' || !savedLayout.title.trim()) {
+            errors.push('title must be a non-empty string')
+        }
+
+        if (!DockZoneModel.isJsonRecord(savedLayout.dockZone)) {
+            errors.push('dockZone must be a JSON object')
+        }
+
+        if (Object.hasOwn(savedLayout, 'metadata') && !DockZoneModel.isJsonRecord(savedLayout.metadata)) {
+            errors.push('metadata must be a JSON object')
+        }
+
+        let forbiddenKey = DockZoneModel.findForbiddenSavedLayoutKey(savedLayout);
+
+        if (forbiddenKey) {
+            errors.push(`saved layout contains forbidden runtime field "${forbiddenKey.key}" at ${forbiddenKey.path}`)
+        }
+
+        let nonJson = DockZoneModel.findNonJsonValue(savedLayout);
+
+        if (nonJson) {
+            errors.push(`saved layout ${nonJson.path} is not JSON-only: ${nonJson.reason}`)
+        }
+
+        if (!errors.length) {
+            errors.push(...DockZoneModel.validate(savedLayout.dockZone));
+        }
+
+        if (errors.length) {
+            return {document: null, errors}
+        }
+
+        let normalized = DockZoneModel.normalizeTree(savedLayout.dockZone),
+            normalizedErrors = DockZoneModel.validate(normalized);
+
+        return normalizedErrors.length
+            ? {document: null, errors: normalizedErrors}
+            : {document: DockZoneModel.cloneJson(normalized), errors: []}
     }
 
     /**
