@@ -396,7 +396,7 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toContain('2 new messages');          // coalesced breakdown
     });
 
-    test('every wake digest carries the standing lifecycle-first lane directive (#13095, #13118)', async () => {
+    test('a message-wake digest omits the lane directive — it is heartbeat-only (#13118, #13137)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-directive';
 
@@ -432,13 +432,14 @@ test.describe('Wake Daemon', () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
         insertMessageWake(db, {agentId, subject: 'Directive Presence Probe'});
 
-        // The escalation-fix directive evolved to lifecycle-first: every digest must DIRECT an idle
-        // agent to first clear PR lifecycle obligations, THEN pick up a fresh lane — not push
-        // backlog-first, and not merely report what happened (which gets acknowledged-and-idled).
+        // The lifecycle-first directive is an IDLE-watchdog nudge that belongs ONLY on pure-heartbeat
+        // digests. A message wake already carries actionable content, so its digest must NOT carry the
+        // generic directive — that unconditional placement was the dominant token cost (message wakes
+        // far outnumber the heartbeat).
         const output = await deliveryPromise;
-        expect(output).toContain('lifecycle-first');
-        expect(output).toContain('implementation → test → PR');
-        expect(output).toContain('verified-empty');
+        expect(output).toContain('new messages');          // the message digest still delivers normally
+        expect(output).not.toContain('lifecycle-first');   // ...but WITHOUT the lane directive (heartbeat-only)
+        expect(output).not.toContain('verified-empty');
     });
 
     test('detects and delivers a CAN_* permission_granted wake via the dead-to-live edge path', async () => {
@@ -649,6 +650,7 @@ test.describe('Wake Daemon', () => {
         expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('heartbeat pulses');
+        expect(output).toContain('lifecycle-first');   // a pure-heartbeat digest DOES carry the lane directive (heartbeat-only placement)
         expect(output).toContain('latest GitHub mention: "Ping Euclid"');
         expect(output).not.toContain('new messages');
     });
