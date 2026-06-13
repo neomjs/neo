@@ -1,0 +1,41 @@
+// Streaming markdown VDOM component (transcript-grade).
+//
+// Phase-1 render virtualization: every direct block child opts into browser-native
+// content-visibility — off-screen blocks skip style/layout/paint entirely, with an
+// intrinsic-size placeholder keeping scroll geometry sane. This composes with (and is
+// independent of) the component's settled-block DOM windowing: windowing bounds the DOM
+// node count, content-visibility bounds the rendering cost of whatever is mounted.
+// Precedent: the docs-grade component's identical opt-in (component/Markdown.scss).
+.neo-markdown-vdom {
+    overflow-y: auto;
+
+    > * {
+        content-visibility       : auto;
+        contain-intrinsic-size   : auto 28px;
+    }
+
+    // Spacers stand in for evicted block ranges — pure geometry, never painted content.
+    > .neo-md-spacer {
+        content-visibility: visible;
+        flex-shrink       : 0;
+    }
+
+    .neo-md-code {
+        overflow-x: auto;
+    }
+
+    .neo-md-table {
+        border-collapse: collapse;
+
+        th, td {
+            border : 1px solid var(--grid-border-color, #444);
+            padding: .3em .6em;
+        }
+    }
+
+    .neo-md-quote {
+        border-inline-start: 3px solid var(--blockquote-border-color, #888);
+        margin             : .5em 0;
+        padding-inline     : .8em;
+    }
+}

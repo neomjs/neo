@@ -148,6 +148,23 @@ export default class MarkdownParser {
     }
 
     /**
+     * The virtualization index: one `{id, type, units, open}` entry per block, in render order.
+     * `units` is the block's structural content size (content lines for code/paragraphs/quotes,
+     * items for lists, rows+header for tables, 1 for headings/breaks) — the owner maps units to
+     * estimated pixel heights. Settled blocks are immutable, so their `units` are measure-once
+     * facts; only the open tail entry can still change.
+     * @returns {Object[]}
+     */
+    get blockMeta() {
+        return this.#blocks.map(block => ({
+            id   : block.id,
+            type : block.type,
+            units: block.units,
+            open : block.open
+        }))
+    }
+
+    /**
      * Clears the block ledger and source memory. The id sequence deliberately keeps counting —
      * see `#seq`.
      */
@@ -218,7 +235,7 @@ export default class MarkdownParser {
      * one case: the open tail block growing across appends (same identity, in-place diff).
      * @param {Object} raw `{type, lines, lang, open, source}` from the segmenter
      * @param {String|null} [reuseId=null]
-     * @returns {Object} The ledger entry `{id, type, source, open, vdom}`
+     * @returns {Object} The ledger entry `{id, type, source, open, units, vdom}`
      * @private
      */
     #createBlock(raw, reuseId = null) {
@@ -303,7 +320,15 @@ export default class MarkdownParser {
                 }
         }
 
-        return {id, type: raw.type, source: raw.source, open: raw.open, vdom}
+        // Structural size units for virtualization estimates: content lines for code /
+        // paragraphs / quotes, items for lists, rows + header for tables, 1 for the rest.
+        // Settled-immutability makes these measure-once facts.
+        const units = raw.type === BLOCK_TYPES.list  ? raw.items.length :
+                      raw.type === BLOCK_TYPES.table ? raw.rows.length + 1 :
+                      raw.lines                      ? Math.max(raw.lines.length, 1) :
+                      1;
+
+        return {id, type: raw.type, source: raw.source, open: raw.open, units, vdom}
     }
 
     /**
