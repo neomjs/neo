@@ -595,9 +595,10 @@ function isMessageReadFor(db, messageId, recipient) {
     return node ? node.readAt != null : false;
 }
 
-// WAKE_LANE_DIRECTIVE — the standing lifecycle-first directive appended to every wake digest (below).
-// Its single canonical, testable authority is `./wakeLaneDirective.mjs` (imported above); keep the
-// wording there, not duplicated here, so the discussion / ticket / source cannot silently drift.
+// WAKE_LANE_DIRECTIVE — the standing lifecycle-first directive, appended in buildWakeDigest ONLY to
+// pure-heartbeat digests (the idle-watchdog nudge; message / task / permission wakes omit it — they
+// already carry actionable content). Its single canonical, testable authority is `./wakeLaneDirective.mjs`
+// (imported above); keep the wording there, not duplicated here, so the discussion / ticket / source cannot silently drift.
 
 /**
  * @summary Flushes the coalesced wake queue into a priority-tagged digest.
@@ -1155,7 +1156,14 @@ function buildWakeDigest(identity, subId, {messages = [], tasks = [], permission
         breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${gitHubSummary})`;
     }
 
-    return `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\n\n${WAKE_LANE_DIRECTIVE}`;
+    // The lifecycle-first lane directive is an IDLE-watchdog nudge — append it ONLY to pure-heartbeat
+    // digests (the watchdog pulse with no actionable A2A content). A digest carrying messages / tasks /
+    // permissions already has a specific event to act on, so the generic directive is noise + token waste
+    // there; and message wakes vastly outnumber the heartbeat, so this gate is the dominant token saving.
+    const isPureHeartbeat = heartbeats.length > 0 && messages.length === 0 && tasks.length === 0 && permissions.length === 0,
+          laneDirective   = isPureHeartbeat ? `\n\n${WAKE_LANE_DIRECTIVE}` : '';
+
+    return `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}${laneDirective}`;
 }
 
 /**
