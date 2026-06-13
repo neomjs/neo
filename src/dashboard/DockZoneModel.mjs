@@ -1,7 +1,7 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from '../core/Base.mjs';
 
 /**
- * @class AgentOS.dock.DockZoneModel
+ * @class Neo.dashboard.DockZoneModel
  * @extends Neo.core.Base
  *
  * @summary Executor for the harness dock-zone semantic operations (`neo.harness.dockZone.v1`).
@@ -31,10 +31,10 @@ class DockZoneModel extends Base {
 
     static config = {
         /**
-         * @member {String} className='AgentOS.dock.DockZoneModel'
+         * @member {String} className='Neo.dashboard.DockZoneModel'
          * @protected
          */
-        className: 'AgentOS.dock.DockZoneModel'
+        className: 'Neo.dashboard.DockZoneModel'
     }
 
     /**
