@@ -114,10 +114,28 @@ test.describe('Neo.ai.WriteGuard', () => {
         expect(guard.heldLocks()).toHaveLength(0);
     });
 
-    test('heldLocks returns a snapshot that cannot mutate the live state', () => {
-        guard.requestWrite(lock('ada', 's1', ['root']));
-        guard.heldLocks().push('tampered');
+    test('heldLocks is a deep snapshot — neither the array, the lock objects, nor their paths leak', () => {
+        guard.requestWrite(lock('ada', 's1', ['root', 'panel']));
 
-        expect(guard.heldLocks()).toHaveLength(1);
+        const snap = guard.heldLocks();
+        snap.push('tampered');               // array-level
+        snap[0].agentId = 'mallory';         // object-level
+        snap[0].subtreePath.push('injected'); // nested-array-level
+
+        const live = guard.heldLocks();
+        expect(live).toHaveLength(1);
+        expect(live[0].agentId).toBe('ada');
+        expect(live[0].subtreePath).toEqual(['root', 'panel']);
+    });
+
+    test('a returned conflict is a copy — mutating it cannot free the live held lock', () => {
+        guard.requestWrite(lock('ada', 's1', ['root', 'panel']));
+        const denied = guard.requestWrite(lock('vega', 's2', ['root', 'panel']));
+
+        denied.conflict.subtreePath.push('injected'); // tamper with the reported holder
+
+        // the live lock still blocks vega on the original subtree
+        expect(guard.requestWrite(lock('vega', 's2', ['root', 'panel'])).granted).toBe(false);
+        expect(guard.heldLocks()[0].subtreePath).toEqual(['root', 'panel']);
     });
 });

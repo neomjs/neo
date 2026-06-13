@@ -2,6 +2,14 @@ import Base         from '../core/Base.mjs';
 import LockRegistry from './LockRegistry.mjs';
 
 /**
+ * Defensive copy of a lock descriptor — the lock object **and** its `subtreePath` array — so the in-heap
+ * authority never hands a caller a reference into its live held-lock state.
+ * @param {Object} lock
+ * @returns {Object}
+ */
+const copyLock = lock => ({agentId: lock.agentId, sessionId: lock.sessionId, subtreePath: [...lock.subtreePath]});
+
+/**
  * @summary The in-heap authoritative layer that holds the live topological-lock state for one App-Worker
  * heap and enforces it on write-class Neural Link operations.
  *
@@ -47,7 +55,8 @@ class WriteGuard extends Base {
      * in the live table (held until {@link releaseWrite} or {@link releaseAgent}), so a later overlapping
      * write by a *different* writer is denied for as long as the holder keeps it. Re-acquiring an identical
      * lock by the same writer is re-entrant (granted, no duplicate). A malformed lock or a cross-writer
-     * conflict is denied and the table is left unchanged (fail-closed).
+     * conflict is denied and the table is left unchanged (fail-closed). The returned `conflict` is a
+     * defensive copy of the blocking holder, never a live reference into the held table.
      * @param {Object} lock
      * @param {String} lock.agentId
      * @param {String} lock.sessionId
@@ -61,7 +70,7 @@ class WriteGuard extends Base {
             this.locks = lockTable
         }
 
-        return {granted, conflict, errors}
+        return {granted, conflict: conflict ? copyLock(conflict) : null, errors}
     }
 
     /**
@@ -97,11 +106,13 @@ class WriteGuard extends Base {
     }
 
     /**
-     * @summary A snapshot copy of the currently-held locks (introspection; never the live array).
+     * @summary A deep snapshot of the currently-held locks (introspection).
+     * Every returned lock — including its `subtreePath` array — is a copy, so a caller cannot mutate the
+     * live held-lock state through the result (neither the array nor the lock objects nor their paths).
      * @returns {Object[]}
      */
     heldLocks() {
-        return [...this.locks]
+        return this.locks.map(copyLock)
     }
 }
 
