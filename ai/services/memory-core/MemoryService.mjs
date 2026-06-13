@@ -77,7 +77,9 @@ function buildMailboxDelta() {
     try {
         // Unread-count: direct DMs still use MESSAGE.properties.readAt. Receipt-backed broadcasts use
         // per-recipient DELIVERED_TO.readAt edges; legacy broadcasts without DELIVERY edges keep
-        // the historical shared-read fallback. DISTINCT defends against duplicate edge rows.
+        // the historical shared-read fallback. Archived messages stay out of the default delta,
+        // matching MailboxService.listMessages' default inbox view. DISTINCT defends against
+        // duplicate edge rows.
         const unreadRow = sqlite.prepare(`
             WITH unread_messages AS (
                 SELECT n.id AS messageId
@@ -87,6 +89,7 @@ function buildMailboxDelta() {
                   AND e.target = ?
                   AND json_extract(n.data, '$.label') = 'MESSAGE'
                   AND json_extract(n.data, '$.properties.readAt') IS NULL
+                  AND json_extract(n.data, '$.properties.archivedAt') IS NULL
 
                 UNION
 
@@ -97,6 +100,7 @@ function buildMailboxDelta() {
                   AND e.target = ?
                   AND json_extract(n.data, '$.label') = 'MESSAGE'
                   AND json_extract(e.data, '$.properties.readAt') IS NULL
+                  AND json_extract(e.data, '$.properties.archivedAt') IS NULL
 
                 UNION
 
@@ -107,6 +111,7 @@ function buildMailboxDelta() {
                   AND e.target = 'AGENT:*'
                   AND json_extract(n.data, '$.label') = 'MESSAGE'
                   AND json_extract(n.data, '$.properties.readAt') IS NULL
+                  AND json_extract(n.data, '$.properties.archivedAt') IS NULL
                   AND NOT EXISTS (
                       SELECT 1 FROM Edges de
                       WHERE de.source = n.id AND de.type = 'DELIVERED_TO'
@@ -128,6 +133,7 @@ function buildMailboxDelta() {
                   AND e.target = ?
                   AND json_extract(n.data, '$.label') = 'MESSAGE'
                   AND json_extract(n.data, '$.properties.readAt') IS NULL
+                  AND json_extract(n.data, '$.properties.archivedAt') IS NULL
 
                 UNION
 
@@ -138,6 +144,7 @@ function buildMailboxDelta() {
                   AND e.target = ?
                   AND json_extract(n.data, '$.label') = 'MESSAGE'
                   AND json_extract(e.data, '$.properties.readAt') IS NULL
+                  AND json_extract(e.data, '$.properties.archivedAt') IS NULL
 
                 UNION
 
@@ -148,6 +155,7 @@ function buildMailboxDelta() {
                   AND e.target = 'AGENT:*'
                   AND json_extract(n.data, '$.label') = 'MESSAGE'
                   AND json_extract(n.data, '$.properties.readAt') IS NULL
+                  AND json_extract(n.data, '$.properties.archivedAt') IS NULL
                   AND NOT EXISTS (
                       SELECT 1 FROM Edges de
                       WHERE de.source = n.id AND de.type = 'DELIVERED_TO'

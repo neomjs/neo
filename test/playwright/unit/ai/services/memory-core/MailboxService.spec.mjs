@@ -105,6 +105,12 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
     });
 
+    function persistMessageNode(messageId) {
+        GraphService.db.storage.db.prepare(`
+            UPDATE Nodes SET data = ? WHERE id = ?
+        `).run(JSON.stringify(GraphService.db.nodes.get(messageId)), messageId);
+    }
+
     test('addMessage enforces identity and routes correctly', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
@@ -713,6 +719,80 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
     });
 
+    test('#13091: countMessages excludes archived direct-DMs by default', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let archivedId;
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            archivedId = (await MailboxService.addMessage({ to: '@bob', subject: 'done', body: 'body' })).messageId;
+            await MailboxService.addMessage({ to: '@bob', subject: 'still-open', body: 'body' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.archiveMessage({ messageId: archivedId });
+
+            const list = await MailboxService.listMessages({ box: 'inbox', status: 'unread' });
+            expect(list.messages.map(msg => msg.messageId)).not.toContain(archivedId);
+
+            const count = await MailboxService.countMessages({ box: 'inbox', status: 'unread' });
+            expect(count.count).toBe(list.messages.length);
+            expect(count.count).toBe(1);
+
+            const withArchived = await MailboxService.countMessages({
+                box            : 'inbox',
+                status         : 'unread',
+                includeArchived: true
+            });
+            expect(withArchived.count).toBe(2);
+
+            const preview = await MailboxService.getHealthcheckPreview();
+            expect(preview.unreadCount).toBe(1);
+            expect(preview.inbox.map(msg => msg.id)).not.toContain(archivedId);
+        });
+    });
+
+    test('#13091: countMessages excludes archived per-recipient broadcasts by default', async () => {
+        const
+            senderIdentity    = '@neo-mailbox-archive-broadcast-sender',
+            archivedIdentity  = '@neo-mailbox-archive-broadcast-recipient',
+            unreadIdentity    = '@neo-mailbox-archive-broadcast-unread';
+
+        GraphService.upsertNode({ id: senderIdentity,   type: 'AgentIdentity', name: 'ArchiveBroadcastSender',    properties: { accountType: 'agent' } });
+        GraphService.upsertNode({ id: archivedIdentity, type: 'AgentIdentity', name: 'ArchiveBroadcastRecipient', properties: { accountType: 'agent' } });
+        GraphService.upsertNode({ id: unreadIdentity,   type: 'AgentIdentity', name: 'ArchiveBroadcastUnread',    properties: { accountType: 'agent' } });
+
+        let messageId;
+
+        await RequestContextService.run({ agentIdentityNodeId: senderIdentity }, async () => {
+            messageId = (await MailboxService.addMessage({ to: 'AGENT:*', subject: 'broadcast done', body: 'body' })).messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: archivedIdentity }, async () => {
+            await MailboxService.archiveMessage({ messageId });
+
+            const list = await MailboxService.listMessages({ box: 'inbox', status: 'unread' });
+            expect(list.messages.map(msg => msg.messageId)).not.toContain(messageId);
+
+            const count = await MailboxService.countMessages({ box: 'inbox', status: 'unread' });
+            expect(count.count).toBe(0);
+
+            const withArchived = await MailboxService.countMessages({
+                box            : 'inbox',
+                status         : 'unread',
+                includeArchived: true
+            });
+            expect(withArchived.count).toBe(1);
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: unreadIdentity }, async () => {
+            const count = await MailboxService.countMessages({ box: 'inbox', status: 'unread' });
+            expect(count.count).toBe(1);
+        });
+    });
+
     test('#10148 AC1: archiveMessage rejects non-recipient (sender + third-party)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
@@ -1235,12 +1315,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 // Persist the patched sentAt to SQLite so the SELECT json_extract(...) read
                 // matches. addMessage wrote the original sentAt; we patched the in-memory copy
                 // but still need to write that through.
-                GraphService.db.storage.db.prepare(`
-                    UPDATE Nodes SET data = ? WHERE id = ?
-                `).run(JSON.stringify(GraphService.db.nodes.get(first.messageId)),  first.messageId);
-                GraphService.db.storage.db.prepare(`
-                    UPDATE Nodes SET data = ? WHERE id = ?
-                `).run(JSON.stringify(GraphService.db.nodes.get(second.messageId)), second.messageId);
+                persistMessageNode(first.messageId);
+                persistMessageNode(second.messageId);
             });
 
             const delta = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, () => {
@@ -1253,6 +1329,35 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(delta.latestPreview.subject).toBe('two');  // newest-first ordering
             expect(delta.latestPreview.from).toBe('@opus');
             expect(delta.latestPreview.messageId).toMatch(/^MESSAGE:/);
+        });
+
+        test('#13091: buildMailboxDelta excludes archived direct-DMs from count and preview', async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                await PermissionService.grantPermission({ to: '@opus', scope: 'CAN_REPLY_TO' });
+            });
+
+            let visibleId, archivedId;
+
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                visibleId = (await MailboxService.addMessage({ to: '@gemini', subject: 'visible', body: '1' })).messageId;
+                GraphService.db.nodes.get(visibleId).properties.sentAt = '2026-04-22T13:00:00.000Z';
+                persistMessageNode(visibleId);
+
+                archivedId = (await MailboxService.addMessage({ to: '@gemini', subject: 'archived-newer', body: '2' })).messageId;
+                GraphService.db.nodes.get(archivedId).properties.sentAt = '2026-04-22T14:00:00.000Z';
+                persistMessageNode(archivedId);
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                await MailboxService.archiveMessage({ messageId: archivedId });
+
+                const delta = buildMailboxDelta();
+
+                expect(delta).not.toBeNull();
+                expect(delta.unreadCount).toBe(1);
+                expect(delta.latestPreview.messageId).toBe(visibleId);
+                expect(delta.latestPreview.subject).toBe('visible');
+            });
         });
 
         test('buildMailboxDelta returns null when identity is unbound (single-tenant fallthrough)', async () => {
@@ -1275,6 +1380,44 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(delta).not.toBeNull();
             expect(delta.unreadCount).toBe(1);
             expect(delta.latestPreview.subject).toBe('hello all');
+        });
+
+        test('#13091: buildMailboxDelta excludes archived per-recipient broadcasts', async () => {
+            const
+                senderIdentity    = '@neo-mailbox-delta-broadcast-sender',
+                archivedIdentity  = '@neo-mailbox-delta-broadcast-recipient',
+                unreadIdentity    = '@neo-mailbox-delta-broadcast-unread';
+
+            GraphService.upsertNode({ id: senderIdentity,   type: 'AgentIdentity', name: 'DeltaBroadcastSender',    properties: { accountType: 'agent' } });
+            GraphService.upsertNode({ id: archivedIdentity, type: 'AgentIdentity', name: 'DeltaBroadcastRecipient', properties: { accountType: 'agent' } });
+            GraphService.upsertNode({ id: unreadIdentity,   type: 'AgentIdentity', name: 'DeltaBroadcastUnread',    properties: { accountType: 'agent' } });
+
+            let visibleId, archivedId;
+
+            await RequestContextService.run({ agentIdentityNodeId: senderIdentity }, async () => {
+                visibleId = (await MailboxService.addMessage({ to: 'AGENT:*', subject: 'visible broadcast', body: '1' })).messageId;
+                GraphService.db.nodes.get(visibleId).properties.sentAt = '2026-04-22T13:00:00.000Z';
+                persistMessageNode(visibleId);
+
+                archivedId = (await MailboxService.addMessage({ to: 'AGENT:*', subject: 'archived broadcast', body: '2' })).messageId;
+                GraphService.db.nodes.get(archivedId).properties.sentAt = '2026-04-22T14:00:00.000Z';
+                persistMessageNode(archivedId);
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: archivedIdentity }, async () => {
+                await MailboxService.archiveMessage({ messageId: archivedId });
+
+                const delta = buildMailboxDelta();
+
+                expect(delta).not.toBeNull();
+                expect(delta.unreadCount).toBe(1);
+                expect(delta.latestPreview.messageId).toBe(visibleId);
+                expect(delta.latestPreview.subject).toBe('visible broadcast');
+            });
+
+            const unreadDelta = await RequestContextService.run({ agentIdentityNodeId: unreadIdentity }, () => buildMailboxDelta());
+            expect(unreadDelta.unreadCount).toBe(2);
+            expect(unreadDelta.latestPreview.messageId).toBe(archivedId);
         });
 
         test('BLOCKED_BY overrides CAN_REPLY_TO in blocked mode', async () => {
