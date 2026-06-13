@@ -1,6 +1,20 @@
+import InteractiveBatchQueue from './InteractiveBatchQueue.mjs';
+
 let GoogleGenerativeAIClass,
     OllamaProviderClass,
     OpenAiCompatibleProviderClass;
+
+/**
+ * @summary Shared serializing queue for the LOCAL chat endpoint (openAiCompatible / ollama).
+ *
+ * Every chat request across services — session summaries, post-`add_memory` mini-summaries, and
+ * `ask` synthesis — routes through this single queue, so a heavy `batch` summary cannot starve a
+ * latency-sensitive `interactive` request on the single serialized local endpoint. The remote
+ * `gemini` provider is high-concurrency and is never queued. Injectable per `buildChatModel` call
+ * (test seam); defaults to this process-wide instance.
+ * @type {InteractiveBatchQueue}
+ */
+const sharedLocalChatRequestQueue = new InteractiveBatchQueue();
 
 /**
  * @summary Loads the remote Gemini SDK only when the configured chat provider needs it.
@@ -74,6 +88,7 @@ function toGeminiEnvelope(result) {
  * @param {Function} [options.ollamaProviderFactory] Test seam — if omitted, lazily imports `./Ollama.mjs` and calls `Neo.create(...)`.
  * @param {Function} [options.openAiCompatibleProviderFactory] Test seam — if omitted, lazily imports `./OpenAiCompatible.mjs` and calls `Neo.create(...)`.
  * @param {Function} [options.geminiClientFactory] Test seam — if omitted, lazily imports `@google/generative-ai` on first `generateContent()`.
+ * @param {InteractiveBatchQueue} [options.chatRequestQueue] Test seam — the serializing queue the local providers route through; defaults to the process-wide {@link sharedLocalChatRequestQueue}.
  * @returns {Object|null} Gemini-shaped `{generateContent}` model, OR `null` for gemini without an API key.
  * @throws {Error} When `modelProvider` is not in the supported set.
  */
@@ -85,7 +100,8 @@ export function buildChatModel({
     geminiModelName,
     ollamaProviderFactory,
     openAiCompatibleProviderFactory,
-    geminiClientFactory
+    geminiClientFactory,
+    chatRequestQueue = sharedLocalChatRequestQueue
 } = {}) {
     if (modelProvider === 'openAiCompatible') {
         const cfg = openAiCompatibleConfig || {};
@@ -112,17 +128,24 @@ export function buildChatModel({
         };
 
         return {
-            generateContent: async (promptText, generationOptions = {}) => {
-                const provider = await getProvider();
+            generateContent: (promptText, generationOptions = {}) => {
+                const {priority = 'interactive', ...providerOptions} = generationOptions;
 
-                provider.apiKey    = cfg.apiKey;
-                provider.host      = cfg.host;
-                provider.modelName = cfg.model;
-                if (cfg.keep_alive !== undefined) {
-                    provider.keepAlive = cfg.keep_alive;
-                }
+                // Serialize through the shared local-endpoint queue so a heavy `batch` summary cannot
+                // block an `interactive` request. `priority` is a queue-control param — stripped here
+                // so it never leaks into the provider request.
+                return chatRequestQueue.enqueue(async () => {
+                    const provider = await getProvider();
 
-                return toGeminiEnvelope(await provider.generate(promptText, generationOptions));
+                    provider.apiKey    = cfg.apiKey;
+                    provider.host      = cfg.host;
+                    provider.modelName = cfg.model;
+                    if (cfg.keep_alive !== undefined) {
+                        provider.keepAlive = cfg.keep_alive;
+                    }
+
+                    return toGeminiEnvelope(await provider.generate(promptText, providerOptions));
+                }, priority);
             }
         };
     }
@@ -152,16 +175,21 @@ export function buildChatModel({
         };
 
         return {
-            generateContent: async (promptText, generationOptions = {}) => {
-                const provider = await getProvider();
+            generateContent: (promptText, generationOptions = {}) => {
+                const {priority = 'interactive', ...providerOptions} = generationOptions;
 
-                provider.host      = cfg.host;
-                provider.modelName = cfg.model;
-                if (cfg.keep_alive !== undefined) {
-                    provider.keepAlive = cfg.keep_alive;
-                }
+                // Serialize through the shared local-endpoint queue (see the openAiCompatible branch).
+                return chatRequestQueue.enqueue(async () => {
+                    const provider = await getProvider();
 
-                return toGeminiEnvelope(await provider.generate(promptText, generationOptions));
+                    provider.host      = cfg.host;
+                    provider.modelName = cfg.model;
+                    if (cfg.keep_alive !== undefined) {
+                        provider.keepAlive = cfg.keep_alive;
+                    }
+
+                    return toGeminiEnvelope(await provider.generate(promptText, providerOptions));
+                }, priority);
             }
         };
     }
@@ -184,9 +212,13 @@ export function buildChatModel({
         };
 
         return {
-            generateContent: async (...args) => {
+            generateContent: async (promptText, generationOptions = {}) => {
+                // Remote gemini is high-concurrency → never queued. Strip the queue-control `priority`
+                // so it never reaches the SDK; the remaining options forward unchanged (when no
+                // priority is passed, `rest` equals the original options — preserving prior behavior).
+                const {priority, ...rest} = generationOptions;
                 const model = await getModel();
-                return model.generateContent(...args);
+                return model.generateContent(promptText, rest);
             }
         };
     }
