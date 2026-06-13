@@ -302,6 +302,20 @@ class Client extends Base {
             })
         })
 
+        // 2b. A non-SharedWorker app never fires the App-worker `connect` event that populates
+        // WindowManager.items, so the rehydration above sends nothing — the bridge never learns
+        // about the single implicit window, leaving `get_window_topology` empty and `simulate_event`
+        // unroutable (every event needs a windowId). Register each app's window explicitly from the
+        // windowId-keyed `Neo.apps` registry. Rects stay optional here (the SharedWorker path also
+        // omits them until a WindowManager entry exists); routing only needs the windowId.
+        if (!appWorker.isSharedWorker) {
+            Object.entries(Neo.apps).forEach(([windowId, app]) => {
+                if (!WindowManager.get(windowId)) {
+                    this.sendNotification('window_connected', {appName: app.name, windowId})
+                }
+            })
+        }
+
         // 3. Rehydrate drag state (if active)
         const dragCoordinator = Neo.manager?.DragCoordinator;
 
