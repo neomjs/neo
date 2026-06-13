@@ -1,0 +1,6 @@
+:root .neo-theme-neo-dark {
+    --agent-dock-preview-accept      : var(--agent-state-focus, #58a6ff);
+    --agent-dock-preview-accept-fill : rgba(88, 166, 255, 0.22);
+    --agent-dock-preview-reject      : var(--agent-accent-intervention, #cf222e);
+    --agent-dock-preview-reject-fill : rgba(207, 34, 46, 0.16);
+}

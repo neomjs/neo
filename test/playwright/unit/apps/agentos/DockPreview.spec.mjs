@@ -10,6 +10,9 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import DockPreview    from '../../../../../apps/agentos/view/DockPreview.mjs';
+import fs             from 'fs';
+import path           from 'path';
+import {fileURLToPath} from 'url';
 
 /**
  * @summary Tests for AgentOS.view.DockPreview — the drag-time dock preview renderer.
@@ -35,7 +38,39 @@ function preview(overrides = {}) {
     }
 }
 
+const
+    __filename = fileURLToPath(import.meta.url),
+    __dirname  = path.dirname(__filename),
+    repoRoot   = path.resolve(__dirname, '../../../../..');
+
 test.describe('AgentOS.view.DockPreview', () => {
+    test.describe('stylesheet contract (visible affordances)', () => {
+        test('the structural scss backs the emitted affordance classes with visible styling', () => {
+            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/apps/agentos/DockPreview.scss'), 'utf8');
+
+            expect(scss).toContain('.neo-dock-preview-affordance');
+            expect(scss).toContain('.neo-dock-preview-accepted');
+            expect(scss).toContain('.neo-dock-preview-rejected');
+            // accepted/rejected states carry real visual treatment, not just class names
+            expect(scss).toContain('background-color');
+            expect(scss).toContain('border');
+            expect(scss).toContain('opacity')
+        });
+
+        test('both harness themes define the accept/reject affordance tokens', () => {
+            const dark  = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/DockPreview.scss'), 'utf8');
+            const light = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/DockPreview.scss'), 'utf8');
+
+            expect(dark).toContain('neo-theme-neo-dark');
+            expect(dark).toContain('--agent-dock-preview-accept');
+            expect(dark).toContain('--agent-dock-preview-reject');
+
+            expect(light).toContain('neo-theme-neo-light');
+            expect(light).toContain('--agent-dock-preview-accept');
+            expect(light).toContain('--agent-dock-preview-reject')
+        })
+    });
+
     test.describe('isValidPreview (fail-closed)', () => {
         test('accepts a well-formed preview', () => {
             expect(DockPreview.isValidPreview(preview())).toBe(true)
