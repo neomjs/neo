@@ -222,6 +222,133 @@ test.describe('Grid Locked Columns', () => {
         expect(hoverSyncActive).toBe(true);
     });
 
+    test('responsiveLockPolicy applies matching breakpoint lock states through column setters', async () => {
+        grid.responsiveLockPolicy = {
+            breakpoints: [{
+                maxWidth: 500,
+                columns : {
+                    col3: null,
+                    col5: 'end'
+                }
+            }, {
+                maxWidth: 900,
+                columns : {
+                    col3: 'start',
+                    col5: null
+                }
+            }]
+        };
+
+        expect(grid.applyResponsiveLockPolicy({width: 480})).toBe(true);
+        await grid.timeout(50);
+
+        expect(grid.columns.get('col3').locked).toBe(null);
+        expect(grid.columns.get('col5').locked).toBe('end');
+
+        expect(grid.applyResponsiveLockPolicy({width: 760})).toBe(true);
+        await grid.timeout(50);
+
+        expect(grid.columns.get('col3').locked).toBe('start');
+        expect(grid.columns.get('col5').locked).toBe(null);
+    });
+
+    test('responsiveLockPolicy leaves omitted columns user-owned and ignores invalid descriptors', async () => {
+        const col1 = grid.columns.get('col1'),
+              col2 = grid.columns.get('col2'),
+              col3 = grid.columns.get('col3');
+
+        col1.locked = 'start';
+        await grid.timeout(50);
+
+        grid.responsiveLockPolicy = {
+            breakpoints: [{
+                maxWidth: 700,
+                columns : {
+                    col2   : 'middle',
+                    col3   : false,
+                    missing: 'start'
+                }
+            }]
+        };
+
+        expect(grid.applyResponsiveLockPolicy(640)).toBe(true);
+        await grid.timeout(50);
+
+        expect(col1.locked).toBe('start');
+        expect(col2.locked).toBe('end');
+        expect(col3.locked).toBe(null);
+    });
+
+    test('responsiveLockPolicy holds the active breakpoint inside its hysteresis band', async () => {
+        const col3 = grid.columns.get('col3');
+
+        grid.responsiveLockPolicy = {
+            hysteresis : 20,
+            breakpoints: [{
+                maxWidth: 500,
+                columns : {
+                    col3: null
+                }
+            }, {
+                maxWidth: 900,
+                columns : {
+                    col3: 'start'
+                }
+            }]
+        };
+
+        expect(grid.applyResponsiveLockPolicy({width: 490})).toBe(true);
+        await grid.timeout(50);
+        expect(col3.locked).toBe(null);
+        expect(grid.responsiveLockPolicyActiveMaxWidth).toBe(500);
+
+        expect(grid.applyResponsiveLockPolicy({width: 510})).toBe(false);
+        await grid.timeout(50);
+        expect(col3.locked).toBe(null);
+        expect(grid.responsiveLockPolicyActiveMaxWidth).toBe(500);
+
+        expect(grid.applyResponsiveLockPolicy({width: 525})).toBe(true);
+        await grid.timeout(50);
+        expect(col3.locked).toBe('start');
+        expect(grid.responsiveLockPolicyActiveMaxWidth).toBe(900);
+    });
+
+    test('onResize evaluates responsiveLockPolicy before the sizing refresh', async () => {
+        let bodyUpdated    = false,
+            headerRefreshed = false,
+            passSilentArgs  = [];
+
+        grid.initialResizeEvent = false;
+        grid.responsiveLockPolicy = {
+            breakpoints: [{
+                maxWidth: 500,
+                columns : {
+                    col3: null
+                }
+            }]
+        };
+
+        grid.passSizeToBody = async silent => {
+            passSilentArgs.push(silent);
+
+            if (silent === true) {
+                expect(grid.columns.get('col3').locked).toBe(null)
+            }
+        };
+        grid.body.updateMountedAndVisibleColumns = () => {bodyUpdated = true};
+        grid.bodyStart && (grid.bodyStart.updateMountedAndVisibleColumns = () => {});
+        grid.bodyEnd   && (grid.bodyEnd.updateMountedAndVisibleColumns   = () => {});
+        grid.headerToolbar.passSizeToBody = async () => {headerRefreshed = true};
+
+        await GridContainer.prototype.onResize.call(grid, {contentRect: {width: 480}});
+        await grid.timeout(50);
+
+        expect(grid.columns.get('col3').locked).toBe(null);
+        expect(passSilentArgs).toContain(true);
+        expect(bodyUpdated).toBe(true);
+        expect(headerRefreshed).toBe(true);
+    });
+
     test('Setting a new columns array at runtime correctly sorts them', async () => {
         // Provide a completely new set of columns, out of order regarding lock state.
         grid.columns = [{
