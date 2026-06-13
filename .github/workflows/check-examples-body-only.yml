@@ -1,0 +1,34 @@
+name: Examples Body-Only Check
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'examples/**'
+      - 'buildScripts/util/check-examples-body-only.mjs'
+      - '.github/workflows/check-examples-body-only.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'examples/**'
+      - 'buildScripts/util/check-examples-body-only.mjs'
+      - '.github/workflows/check-examples-body-only.yml'
+
+concurrency:
+  group: check-examples-body-only-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Check examples/ is Body-only
+        run: npm run check-examples-body-only
