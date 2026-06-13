@@ -1271,6 +1271,33 @@ class HealthService extends Base {
     }
 
     /**
+     * @summary On-demand migration census: SQLite graph untagged-userId counts, plus the
+     *          ChromaDB-side actionable migration-debt scan when `includeChroma` is set.
+     *
+     * Relocated off the healthcheck payload: the Chroma count batch-reads the full memory + summary
+     * collections (`#scanChromaMetadata`), an `O(records)` cost that should not run on every liveness
+     * probe. Operators run `ai:migration-census-report` (or call this) when they want the census;
+     * nothing pays the scan cost otherwise. The cheap SQLite graph counts are always included;
+     * `includeChroma` opts into the batch scan.
+     *
+     * @param {Object} [options]
+     * @param {Boolean} [options.includeChroma=false] Run the `O(records)` ChromaDB metadata scan.
+     * @returns {Promise<{graph: Object, chromadb: Object|undefined, measuredAt: String}>}
+     */
+    async getMigrationCensus({includeChroma = false} = {}) {
+        const census = {
+            graph     : await this.#checkMigrationState(),
+            measuredAt: new Date().toISOString()
+        };
+
+        if (includeChroma) {
+            census.chromadb = await this.#checkChromaMigrationState();
+        }
+
+        return census;
+    }
+
+    /**
      * Resolves the live runtime freshness diagnostic for the attached Memory Core MCP process.
      *
      * A stale runtime is a warning, not a service outage: callers can still use healthy read
@@ -1416,7 +1443,6 @@ class HealthService extends Base {
             },
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
-            migration: await this.#checkMigrationState(),
             providers: {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
                 summary  : buildSummaryProviderBlock(aiConfig),
@@ -1438,14 +1464,6 @@ class HealthService extends Base {
             payload.details.push(connectionCheck.error);
             return payload;
         }
-
-        // Step 1.5: ChromaDB-side migration observability.
-        // MUST run AFTER #checkDatabaseConnections so `ChromaManager.connected` is established.
-        // Earlier ordering (initialized at payload-construction time) cached `available: false`
-        // on cold-process healthchecks even when the same payload reported `database.connected: true`.
-        // This ordering keeps the migration counters consistent with the connection status
-        // surfaced in the same payload.
-        payload.migration.chromadb = await this.#checkChromaMigrationState();
 
         // Step 2: Check collections
         const collectionsCheck = await this.#checkCollections();
