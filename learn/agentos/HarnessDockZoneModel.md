@@ -26,11 +26,13 @@ No dedicated dock manager exists today. ADR 0020 names QT-grade docking as a gap
 
 ## Ownership Boundary
 
-The model is a harness product contract now, not a new core layout primitive yet.
+The model is a harness product contract that lives in the dashboard layer (`src/dashboard/`), not a new core layout primitive yet.
 
 Initial durable surface: this document.
 
-Future code ownership should follow this decision tree:
+**Resolved (operator, 2026-06-13):** the dock-zone subsystem lives in `src/dashboard/` — `Neo.dashboard.DockZoneModel` (the executor) co-located with `Neo.dashboard.DockLayoutAdapter` (the renderer) — reusable across apps. Dock zones are a Neo layout topic available to other apps, not a harness-app-private concern; only app-specific pane wiring / persistence glue stays in the harness app. The decision tree below is the rationale that led here — its conditional "harness app layer" model placement (option 1) and the "second independent in-repo consumer required before lifting" gate (option 2) are superseded by this decision.
+
+The rationale that resolved to the dashboard layer:
 
 1. If the first implementation only proves Agent Harness workspace persistence with app-specific pane wiring or persistence glue, place that app-specific code in the harness app layer and keep the model documented here.
 2. If the first implementation is a reusable projection adapter that consumes dashboard/container/tab primitives and emits ordinary Neo configs, place the adapter in the dashboard layer while keeping the model contract here. A second independent in-repo use is still required before lifting the model/parser or public API beyond dashboard adaptation. Candidate second use: the Portal learning workspace, where docs, Monaco/live preview, output panes, and inspectors benefit from saveable split/tab workspaces.
@@ -328,7 +330,7 @@ First implementation ownership may be harness-local when the storage backend, pa
 
 The first rendering slice is an adapter, not a new layout engine. It consumes the dock-zone model and emits ordinary Neo child configs and live component moves that existing containers can own.
 
-Adapter ownership starts in the Agent Harness / dashboard layer because the current proof surface is a harness workspace. A later lift into dashboard/container substrate requires a second independent in-repo consumer and source evidence that the adapter logic is reusable outside the harness.
+Adapter and model both live in the dashboard layer (`src/dashboard/`) — per the operator's 2026-06-13 placement decision (see §Ownership Boundary), the dock-zone subsystem is a reusable Neo layout topic, not harness-app-private. A *further* lift into a generic core layout primitive (beyond dashboard adaptation) still requires a second independent in-repo consumer and source evidence that the logic is reusable outside dashboard adaptation.
 
 Rejected placements for the first adapter:
 

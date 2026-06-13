@@ -1,18 +1,18 @@
-import {setup} from '../../../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 setup({
     appConfig: {
-        name: 'AgentOSDockZoneModelTest'
+        name: 'NeoDashboardDockZoneModelTest'
     }
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import DockZoneModel  from '../../../../../../apps/agentos/dock/DockZoneModel.mjs';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import DockZoneModel  from '../../../../src/dashboard/DockZoneModel.mjs';
 
 /**
- * @summary Tests for AgentOS.dock.DockZoneModel — the dock-zone semantic operations executor.
+ * @summary Tests for Neo.dashboard.DockZoneModel — the dock-zone semantic operations executor.
  * Pure-JSON: validity invariants, each operation, fail-closed behavior, normalizeTree collapse,
  * and the previewToOperation descriptor seam. No component construction needed.
  */
@@ -45,7 +45,7 @@ function tabsOf(document, itemId) {
     return DockZoneModel.findContainingTabsId(document, itemId)
 }
 
-test.describe('AgentOS.dock.DockZoneModel', () => {
+test.describe('Neo.dashboard.DockZoneModel', () => {
     test.describe('validate (invariants)', () => {
         test('accepts the canonical document', () => {
             expect(DockZoneModel.validate(doc())).toEqual([])
