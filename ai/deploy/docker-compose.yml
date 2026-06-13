@@ -83,6 +83,9 @@ services:
       - neo-mcp-network
     expose:
       - "3000"
+    # If this deployment opts into NEO_AUTH_MODE=gitlab-pat, the in-container MCP
+    # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
+    # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
     healthcheck:
       test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
       interval: 10s
@@ -141,6 +144,9 @@ services:
       - neo-mcp-network
     expose:
       - "3001"
+    # If this deployment opts into NEO_AUTH_MODE=gitlab-pat, the in-container MCP
+    # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
+    # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
     healthcheck:
       test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
       interval: 10s
