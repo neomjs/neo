@@ -63,7 +63,8 @@ test.describe.serial('check-examples-body-only CI guard', () => {
 
     test('exits 1 (FAIL) on an app.mjs build target missing neo-config.json', () => {
         const {exitCode, output} = runWithFixture({
-            'vanillaComparator/app.mjs': 'document.body.innerHTML = "vanilla";\n'
+            'vanillaComparator/app.mjs'   : 'document.body.innerHTML = "vanilla";\n',
+            'vanillaComparator/index.html': '<!doctype html>\n'
         });
 
         expect(exitCode).toBe(1);
@@ -72,10 +73,24 @@ test.describe.serial('check-examples-body-only CI guard', () => {
         expect(output).toContain('ai/examples/');
     });
 
+    test('exits 1 (FAIL) on an app.mjs build target missing index.html', () => {
+        // createStartingPoint reads index.html unconditionally too, so a build target with
+        // neo-config.json but no index.html is still a build-all breakage class.
+        const {exitCode, output} = runWithFixture({
+            'noIndexApp/app.mjs'        : "import Viewport from '../../../src/container/Viewport.mjs';\nexport default Viewport;\n",
+            'noIndexApp/neo-config.json': '{}\n'
+        });
+
+        expect(exitCode).toBe(1);
+        expect(output).toContain('FAIL');
+        expect(output).toContain('missing index.html');
+    });
+
     test('exits 1 (FAIL) on an example importing from ai/', () => {
         const {exitCode, output} = runWithFixture({
             'harnessProbe/app.mjs'        : "import x from '../../../ai/services/Probe.mjs';\nexport default x;\n",
-            'harnessProbe/neo-config.json': '{}\n'
+            'harnessProbe/neo-config.json': '{}\n',
+            'harnessProbe/index.html'     : '<!doctype html>\n'
         });
 
         expect(exitCode).toBe(1);

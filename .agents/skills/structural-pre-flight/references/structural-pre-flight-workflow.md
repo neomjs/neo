@@ -37,7 +37,7 @@ If your new `.mjs` file has a clear sibling pattern in the chosen directory — 
 - New widget under `src/component/`: numerous siblings (`Button.mjs`, `Container.mjs`, etc.). **Fast-path.**
 - New unit spec at `test/playwright/unit/ai/services/<server>/`: sibling specs establish setup pattern. **Fast-path.**
 
-**Domain-boundary caveat — `examples/` is Body-only.** A new example `.mjs` under top-level `examples/` is fast-path ONLY if it is a **Body (frontend) Neo app** (carries `app.mjs` + `neo-config.json`). `npm run build-all` recursively walks `examples/` and builds every `app.mjs`-bearing directory as a Neo app, so an AI / harness / vanilla / app-less example placed there breaks the build. **AI-domain examples go under `ai/examples/`** (served by the dev-server's `process.cwd()` static root, so browser e2e still works). The `check-examples-body-only` CI guard enforces this at the merge-gate — but catch it HERE, at authoring time, before the file lands in the wrong tree.
+**Domain-boundary caveat — `examples/` is Body-only.** A new example `.mjs` under top-level `examples/` is fast-path ONLY if it is a **Body (frontend) Neo app** (carries `app.mjs` + `neo-config.json` + `index.html`). `npm run build-all` recursively walks `examples/` and builds every `app.mjs`-bearing directory as a Neo app, so an AI / harness / vanilla / app-less example placed there breaks the build. **AI-domain examples go under `ai/examples/`** (served by the dev-server's `process.cwd()` static root, so browser e2e still works). The `check-examples-body-only` CI guard enforces this at the merge-gate — but catch it HERE, at authoring time, before the file lands in the wrong tree.
 
 **Pre-Flight statement (mandatory, even on fast-path):**
 

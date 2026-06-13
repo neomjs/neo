@@ -14,10 +14,10 @@ import path from 'node:path';
  * Why this guard exists: `build-all` enumerates examples via webpack's `parseFolder`
  * (`buildScripts/webpack/production/webpack.config.appworker.mjs`). It recursively walks `examples/`
  * and treats EVERY directory containing an `app.mjs` as a buildable Neo app, then `createStartingPoint`
- * builds each from its `neo-config.json`. Two misplacement classes break the build, and both surface
- * only when `build-all` blows up or a human notices in review:
- *   1. A build target (an `app.mjs`-bearing dir) with no `neo-config.json` — `createStartingPoint`
- *      chokes (the vanilla / app-less comparator case).
+ * builds each from its `neo-config.json` + `index.html` (it reads BOTH unconditionally). Two misplacement
+ * classes break the build, and both surface only when `build-all` blows up or a human notices in review:
+ *   1. A build target (an `app.mjs`-bearing dir) missing `neo-config.json` or `index.html` —
+ *      `createStartingPoint` chokes (the vanilla / app-less comparator case).
  *   2. Any example under `examples/` that imports from `ai/` — an AI-domain example that belongs under
  *      `ai/examples/` (which the dev-server's `process.cwd()` static root still serves, so e2e keeps working).
  *
@@ -25,9 +25,9 @@ import path from 'node:path';
  * "build-all broke again" friction into an unmergeable red gate carrying an actionable, location-correcting message.
  */
 
-// The single build-critical marker `createStartingPoint` reads for each app.mjs target. Its absence is
-// the precise predicate for "build-all will choke on this directory".
-const NEO_APP_BUILD_MARKER = 'neo-config.json';
+// The Neo-app marker files `createStartingPoint` reads for every app.mjs build target — it reads BOTH
+// unconditionally, so a missing either is the precise predicate for "build-all will choke on this dir".
+const NEO_APP_BUILD_MARKERS = ['neo-config.json', 'index.html'];
 
 const DIR_SKIP = new Set(['node_modules', 'dist', '.git']);
 
@@ -83,8 +83,9 @@ function findExamplesViolations(examplesRoot, repoRoot) {
     const aiImports                = [];
 
     for (const dir of buildTargets) {
-        if (!fs.existsSync(path.join(dir, NEO_APP_BUILD_MARKER))) {
-            malformed.push(path.relative(repoRoot, dir));
+        const missing = NEO_APP_BUILD_MARKERS.filter(marker => !fs.existsSync(path.join(dir, marker)));
+        if (missing.length > 0) {
+            malformed.push(`${path.relative(repoRoot, dir)} (missing ${missing.join(' + ')})`);
         }
     }
 
@@ -126,8 +127,8 @@ function main() {
     console.error('   AI / harness / non-Body examples belong under ai/examples/ (still served by the dev-server static root, so browser e2e keeps working).\n');
 
     if (malformed.length > 0) {
-        console.error('  ▸ app.mjs build target(s) missing neo-config.json — build-all will choke on these:');
-        malformed.forEach(dir => console.error(`      examples → ${dir}`));
+        console.error('  ▸ app.mjs build target(s) missing a required Neo-app file (neo-config.json and/or index.html) — build-all will choke on these:');
+        malformed.forEach(entry => console.error(`      examples → ${entry}`));
         console.error('');
     }
 

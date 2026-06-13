@@ -7,8 +7,8 @@ walks this tree and builds every directory containing an `app.mjs` as a Neo app 
 **AI / harness / non-Body examples belong under `ai/examples/`** — which the dev-server's
 `process.cwd()` static root still serves, so browser e2e keeps working. The
 `check-examples-body-only` CI guard (`buildScripts/util/check-examples-body-only.mjs`) enforces this:
-it fails the merge-gate when an `app.mjs` build target under `examples/` lacks `neo-config.json`, or
-when any example here imports from `ai/`.
+it fails the merge-gate when an `app.mjs` build target under `examples/` lacks `neo-config.json` or
+`index.html` (webpack's `createStartingPoint` reads both), or when any example here imports from `ai/`.
 
 # Client Requirements
 
