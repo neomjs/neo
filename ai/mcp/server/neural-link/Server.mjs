@@ -90,7 +90,9 @@ class Server extends BaseServer {
      */
     buildToolProjectionContext({request}) {
         // Forced server-instance mode wins and is the ceiling — client `_meta` cannot widen past it.
-        if (this.toolProjectionMode) {
+        // Only null/undefined is "unset"; an empty/malformed configured value stays a forced mode and
+        // fails closed downstream (a truthiness check would erase `''` into full-surface — fail-OPEN).
+        if (this.toolProjectionMode != null) {
             return {mode: this.toolProjectionMode};
         }
 

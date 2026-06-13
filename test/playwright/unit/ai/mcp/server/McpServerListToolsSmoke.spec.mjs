@@ -345,4 +345,30 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(nonRead, `forced mode leaked non-read tools despite omitted _meta:\n${nonRead.join('\n')}`).toEqual([]);
         expect(projectedNames).toEqual(getHarnessEmbeddedOperationIds(server).sort());
     });
+
+    test('SECURITY: an explicitly-configured empty/whitespace forced mode fails CLOSED, not full-surface (#13106 cross-family RA)', async () => {
+        const
+            nlCtx   = (await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href)).default.prototype.buildToolProjectionContext,
+            baseCtx = (await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/BaseServer.mjs')).href)).default.prototype.buildToolProjectionContext;
+
+        // Only null/undefined is "unset" (trusted full surface). A configured empty/whitespace string
+        // is a forced mode → {mode: <value>} → ToolService fails closed (not 'harness-embedded'). A
+        // truthiness check would erase '' into the unset/full-surface case — the fail-OPEN this guards.
+        for (const ctx of [nlCtx, baseCtx]) {
+            expect(ctx.call({toolProjectionMode: undefined}, {request: {params: {}}})).toBeNull();
+            expect(ctx.call({toolProjectionMode: null},      {request: {params: {}}})).toBeNull();
+            expect(ctx.call({toolProjectionMode: ''},        {request: {params: {}}})).toEqual({mode: ''});
+            expect(ctx.call({toolProjectionMode: '   '},     {request: {params: {}}})).toEqual({mode: '   '});
+        }
+
+        // end-to-end: a server pinned to '' lists ZERO tools (fail-closed), never the full surface.
+        const
+            server            = servers.find(item => item.name === 'neural-link'),
+            {listTools: listNL} = await import(pathToFileURL(path.join(repoRoot, server.toolServicePath)).href),
+            {tools: full}        = listNL(),
+            {tools: emptyForced} = listNL({toolProjection: {mode: ''}});
+
+        expect(full.length).toBeGreaterThan(0);
+        expect(emptyForced, 'empty configured forced-mode leaked tools (should fail closed)').toEqual([]);
+    });
 });

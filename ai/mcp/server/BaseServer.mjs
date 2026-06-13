@@ -176,13 +176,19 @@ class BaseServer extends Base {
      * pinned this instance to a mode, every request gets it. Subclasses that read a client narrowing
      * hint (e.g. neural-link's `_meta`) MUST keep the forced mode as the ceiling — a client can never
      * widen past it.
+     *
+     * **Only `null` / `undefined` is "unset"** (the trusted full-surface launch). Any *configured*
+     * value — including an empty/whitespace string from a misconfigured spawner — stays a forced mode
+     * and fails CLOSED downstream (`ToolService.isToolAllowedForProjection` returns no tools for any
+     * non-`harness-embedded` mode). A truthiness check would erase `''` into the unset/full-surface
+     * case — a fail-OPEN on a security launch parameter — so the nullish check is load-bearing.
      * @param {Object} context
      * @param {Object} context.request The raw MCP request.
      * @param {String} context.phase   `listTools` or `callTool`.
      * @returns {Object|String|null}
      */
     buildToolProjectionContext(context) {
-        return this.toolProjectionMode ? {mode: this.toolProjectionMode} : null;
+        return this.toolProjectionMode != null ? {mode: this.toolProjectionMode} : null;
     }
 
     /**
