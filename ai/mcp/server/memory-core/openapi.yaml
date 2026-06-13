@@ -1762,44 +1762,6 @@ components:
                 sessions:
                   - title: "Implement MCP Server Configuration"
                     memoryCount: 15
-        mailboxPreview:
-          type: object
-          nullable: true
-          description: "A preview of the agent's mailbox, including unread count and recent messages."
-          properties:
-            unreadCount:
-              type: integer
-              example: 2
-            inbox:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  from:
-                    type: string
-                  subject:
-                    type: string
-                  createdAt:
-                    type: string
-                  priority:
-                    type: string
-            outboxRecent:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  from:
-                    type: string
-                  subject:
-                    type: string
-                  createdAt:
-                    type: string
-                  priority:
-                    type: string
         identity:
           type: object
           description: |

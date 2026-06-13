@@ -21,7 +21,6 @@ import AiConfig        from '../../../../../../ai/config.mjs';
 import ChromaManager   from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
 import StorageRouter   from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
-import MailboxService  from '../../../../../../ai/services/memory-core/MailboxService.mjs';
 
 /**
  * @summary Coverage for the identity observability block in the healthcheck payload.
@@ -376,8 +375,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             chromaConnect           : ChromaManager.connect,
             getMemoryCollection     : StorageRouter.getMemoryCollection,
             getSummaryCollection    : StorageRouter.getSummaryCollection,
-            getDatabaseStatus       : ChromaLifecycleService.getDatabaseStatus,
-            getHealthcheckPreview   : MailboxService.getHealthcheckPreview
+            getDatabaseStatus       : ChromaLifecycleService.getDatabaseStatus
         };
 
         ChromaManager.connected = true;
@@ -394,7 +392,6 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         };
 
         ChromaLifecycleService.getDatabaseStatus = () => ({running: true});
-        MailboxService.getHealthcheckPreview     = async () => ({unreadCount: 0, latestPreview: null});
         TextEmbeddingService.embedText            = async () => new Array(4096).fill(0.1);
         process.env.GEMINI_API_KEY               = 'unit-test-key';
 
@@ -418,7 +415,6 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         StorageRouter.getMemoryCollection      = originals.getMemoryCollection;
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
-        MailboxService.getHealthcheckPreview     = originals.getHealthcheckPreview;
         TextEmbeddingService.embedText            = originalEmbedText;
 
         HealthService.setStdioIdentityState(null);
@@ -662,63 +658,6 @@ test.describe('HealthService #11181 — buildChromaMigrationStats', () => {
         expect(result.coreSwarmParticipant).toBe(3);
         expect(result.coreSwarmParticipantHidden).toBe(2);
         expect(result.migrationDebt).toBe(3);
-    });
-});
-
-/**
- * @summary Coverage for the topology observability block in the healthcheck payload.
- *
- * Mirrors the identity-observability precedent above: the end-to-end integration path requires a live ChromaDB
- * plus the full StorageRouter/ChromaManager singleton bootstrap, which is out of scope for a
- * pure-projection unit test. This spec pins the contract of `buildTopologyBlock` — the module-scope
- * pure function consumed from `#performHealthCheck` to fill `database.topology`. Integration
- * correctness (does the value reach the MCP healthcheck response under both real topologies?) is
- * validated empirically post-merge via harness restart + healthcheck inspection.
- *
- * The function reads the current unified `engines.chroma` coordinates directly. Here we verify the
- * three surface properties operators consume: `mode` (unified), `coordinates` (pass-through of the
- * configured coordinates), and `resolvedVia` (the config-key-path string that names the source).
- *
- * @see Neo.ai.services.memory-core.HealthService#buildTopologyBlock
- */
-test.describe('HealthService #10127, #11011 — buildTopologyBlock', () => {
-    let buildTopologyBlock;
-
-    test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildTopologyBlock = mod.buildTopologyBlock;
-    });
-
-    test('unified mode surfaces engines.chroma coordinates + resolvedVia path', () => {
-        // After federated-topology retirement, Memory Core reads the shared
-        // unified instance coordinates directly from `engines.chroma`.
-        const cfg = {
-            engines: {
-                chroma: {host: 'localhost', port: 8000}
-            }
-        };
-        expect(buildTopologyBlock(cfg)).toEqual({
-            mode       : 'unified',
-            coordinates: {host: 'localhost', port: 8000},
-            resolvedVia: 'engines.chroma'
-        });
-    });
-
-    test('missing engines.chroma surfaces error, does not throw', () => {
-        // Misconfig path: coordinates are missing or incomplete. Healthcheck
-        // must NOT propagate the throw — the remaining observability surface
-        // is still valuable. `coordinates: null` + `error` string aligns
-        // with the "surface, don't obscure" principle.
-        const cfg = {
-            engines: {
-                // chroma deliberately absent
-            }
-        };
-        const result = buildTopologyBlock(cfg);
-        expect(result.mode).toBe('unified');
-        expect(result.coordinates).toBeNull();
-        expect(result.resolvedVia).toBe('engines.chroma');
-        expect(result.error).toMatch(/engines\.chroma/);
     });
 });
 
