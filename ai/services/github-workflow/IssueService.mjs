@@ -3,6 +3,7 @@ import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
+import {projectConversationTrust} from './shared/conversationTrust.mjs';
 import {exec}            from 'child_process';
 import {promisify}       from 'util';
 import {spawn}           from 'child_process';
@@ -81,7 +82,9 @@ class IssueService extends Base {
      * @param {String} [options.comment_id]       Return only the matching comment; others elided. Issue title/body still returned.
      * @param {String} [options.since_comment_id] Return comments strictly after the matching comment (by createdAt order). Unknown id → empty comments.
      * @param {Number} [options.last_n]           Return only the last N comments (by createdAt order).
-     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error.
+     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error. Payloads
+     *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
+     *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         const {issue_number, comment_id, since_comment_id, last_n} = options || {};
@@ -104,8 +107,11 @@ class IssueService extends Base {
         };
 
         try {
-            const data        = await GraphqlService.query(GET_ISSUE_CONVERSATION, variables);
-            const issue       = data.repository.issue;
+            const data = await GraphqlService.query(GET_ISSUE_CONVERSATION, variables);
+            // Trust-project at the read boundary: every authored node gains `authorTrust`,
+            // untrusted-author bodies are defanged, the root carries a `contentTrust` summary.
+            // Applied before selector filtering so all return paths inherit projected nodes.
+            const issue       = projectConversationTrust(data.repository.issue);
             const allComments = issue.comments?.nodes || [];
 
             // Selector precedence: comment_id > since_comment_id > last_n > full.

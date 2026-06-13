@@ -11,6 +11,7 @@ import {
     UPDATE_PULL_REQUEST_REVIEW
 }                                              from './queries/mutations.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
+import {projectConversationTrust}             from './shared/conversationTrust.mjs';
 
 const execAsync     = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -280,7 +281,9 @@ class PullRequestService extends Base {
      *                                                  returns empty comments (callers can interpret as
      *                                                  "nothing new" or "id invalid").
      * @param {number}        [options.last_n]          Return only the last N comments (by createdAt order).
-     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error.
+     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error. Payloads
+     *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
+     *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         // Accept positional `prNumber` form for backward compatibility.
@@ -305,9 +308,12 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data         = await GraphqlService.query(GET_CONVERSATION, variables);
-            const pullRequest  = data.repository.pullRequest;
-            const allComments  = pullRequest.comments?.nodes || [];
+            const data = await GraphqlService.query(GET_CONVERSATION, variables);
+            // Trust-project at the read boundary: every authored node gains `authorTrust`,
+            // untrusted-author bodies are defanged, the root carries a `contentTrust` summary.
+            // Applied before selector filtering so all return paths inherit projected nodes.
+            const pullRequest = projectConversationTrust(data.repository.pullRequest);
+            const allComments = pullRequest.comments?.nodes || [];
 
             // Selector precedence: comment_id > since_comment_id > last_n > full.
             let filtered;
