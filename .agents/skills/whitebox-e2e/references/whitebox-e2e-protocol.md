@@ -80,6 +80,46 @@ surfaces, pair the Playwright interaction with the Neural Link perception tools:
 - **`verify_component_consistency`** (after the drop): items/vdom/DOM three-surface diff —
   assert zero duplicates and aligned order across all three.
 
+## 5.2 Delta-Stream Inspection (`logDeltaUpdates`)
+
+Neural Link tools inspect *end-state*; some corruption classes live in the **delta stream** itself — a stray `moveNode`, an id-less `insertNode`, a wrong `index` — and still leave a consistent end-state behind. To see exactly what the engine applied, make the main-thread VDOM delta stream observable.
+
+`Neo.config.logDeltaUpdates = true` causes `src/main/DeltaUpdates.mjs` to log every applied update to the page console:
+
+```javascript
+// emitted per applied update at the main-thread apply boundary (DeltaUpdates.mjs):
+console.log('update ' + countUpdates, 'total deltas ', countDeltas, /* deep-cloned delta payload */)
+```
+
+The 4th argument is a **deep clone** (`Neo.clone(data, true)`) — a faithful snapshot of exactly the deltas applied, in order. Each delta carries the `vdom.Helper` grammar shape `{action, id, index, parentId, …}`.
+
+**Whitebox pattern** — enable it inside `page.evaluate`, intercept `console.log`, and assert on the exact sequence:
+
+```javascript
+await page.evaluate(() => {
+    Neo.config.logDeltaUpdates = true;
+    window.__idlessInserts = 0;
+
+    const orig = console.log.bind(console);
+    console.log = (...args) => {
+        if (typeof args[0] === 'string' && args[0].startsWith('update ')) {
+            const data   = args[3],
+                  deltas = Array.isArray(data) ? data : (data?.deltas || []);
+            // keystone signature: an insertNode with no id
+            window.__idlessInserts += deltas.filter(d => d.action === 'insertNode' && !d.id).length;
+        }
+        orig(...args);
+    };
+});
+
+// ... drive the interaction via Playwright ...
+
+const idless = await page.evaluate(() => window.__idlessInserts);
+expect(idless, 'id-less insertNode deltas at the apply boundary').toBe(0);
+```
+
+This is the single best lever for VDOM/rendering divergences: a wrong delta sits in the stream even when every individual end-state surface looks internally consistent. See `test/playwright/e2e/GridLockedDnDDuplication.spec.mjs` for a full multi-oracle net built on it.
+
 ## 6. Deep Dive Documentation
 For the complete API of the `neuralLink` test SDK (`nlApp`) including simulating native VNode events, VDOM querying, and complex store inspection, you MUST reference the foundational guide:
 `learn/guides/testing/WhiteboxE2E.md`
