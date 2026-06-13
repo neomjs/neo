@@ -86,6 +86,96 @@ function findSilentlyStrippingOpenBags(node, pathLabel = '') {
     return findings;
 }
 
+const neuralLinkToolTiers = ['read', 'write-locked', 'admin'];
+
+const expectedNeuralLinkToolTiers = {
+    call_method                 : 'admin',
+    check_namespace              : 'read',
+    find_instances               : 'read',
+    get_component_tree           : 'read',
+    get_computed_styles          : 'read',
+    get_console_logs             : 'read',
+    get_dom_event_listeners      : 'read',
+    get_dom_event_summary        : 'read',
+    get_dom_rect                 : 'read',
+    get_drag_state               : 'read',
+    get_drag_trace               : 'read',
+    get_instance_properties      : 'read',
+    get_method_source            : 'read',
+    get_namespace_tree           : 'read',
+    get_record                   : 'read',
+    get_route_history            : 'read',
+    get_window_topology          : 'read',
+    get_worker_topology          : 'read',
+    healthcheck                  : 'read',
+    highlight_component          : 'write-locked',
+    inspect_class                : 'read',
+    inspect_component_render_tree: 'read',
+    inspect_state_provider       : 'read',
+    inspect_store                : 'read',
+    list_stores                  : 'read',
+    manage_connection            : 'admin',
+    manage_neo_config            : 'admin',
+    modify_state_provider        : 'write-locked',
+    observe_motion               : 'read',
+    patch_code                   : 'admin',
+    query_component              : 'read',
+    query_vdom                   : 'read',
+    reload_page                  : 'admin',
+    set_instance_properties      : 'write-locked',
+    set_route                    : 'write-locked',
+    simulate_event               : 'write-locked',
+    verify_component_consistency : 'read'
+};
+
+const neuralLinkDangerousReadForbidden = [
+    'call_method',
+    'highlight_component',
+    'manage_connection',
+    'manage_neo_config',
+    'modify_state_provider',
+    'patch_code',
+    'reload_page',
+    'set_instance_properties',
+    'set_route',
+    'simulate_event'
+];
+
+/**
+ * Reads OpenAPI operations by operationId.
+ * @param {object} doc Parsed OpenAPI document.
+ * @returns {Object<string, object>} Operation map.
+ */
+function getOperationsById(doc) {
+    const operations = {};
+
+    for (const [, pathItem] of Object.entries(doc.paths || {})) {
+        for (const [, op] of Object.entries(pathItem)) {
+            if (op?.operationId) {
+                operations[op.operationId] = op;
+            }
+        }
+    }
+
+    return operations;
+}
+
+/**
+ * Extracts Neural Link serviceMapping keys so OpenAPI tier metadata cannot drift from
+ * the callable server surface.
+ * @returns {string[]} Sorted serviceMapping operation ids.
+ */
+function getNeuralLinkServiceMappingKeys() {
+    const
+        toolServicePath = path.join(repoRoot, 'ai/mcp/server/neural-link/toolService.mjs'),
+        source          = fs.readFileSync(toolServicePath, 'utf8'),
+        match           = source.match(/const serviceMapping = \{([\s\S]*?)\n\};/);
+
+    expect(match, 'Could not locate neural-link serviceMapping object').toBeTruthy();
+
+    return [...match[1].matchAll(/^\s+([a-z0-9_]+)\s*:/gm)].map(item => item[1]).sort();
+}
+
 test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
     /**
      * Direct regression for https://github.com/neomjs/neo/issues/10064. Prior to the fix,
@@ -210,6 +300,50 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(queryType.description).toContain('`concept`');
         expect(querySchema.properties.type.enum).toEqual(expectedTypes);
         expect(askSchema.properties.type.enum).toEqual(expectedTypes);
+    });
+
+    test('neural-link declares the harness-visible projection policy (#13064)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
+            projection = doc['x-neo-harness-tool-projection'];
+
+        expect(projection, 'Missing x-neo-harness-tool-projection contract').toBeTruthy();
+        expect(projection.defaultVisibleTiers).toEqual(['read']);
+        expect(projection.withheldUntilTopologicalLocking).toEqual(['write-locked']);
+        expect(projection.operatorOnlyTiers).toEqual(['admin']);
+        expect(projection.description).toContain('Harness-embedded agents receive read-tier Neural Link tools by default');
+    });
+
+    test('neural-link classifies every operation into one harness tool tier (#13064)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc),
+            tiers      = Object.fromEntries(Object.entries(operations).map(([id, op]) => [id, op['x-neo-tool-tier']]));
+
+        const missing = Object.entries(tiers).filter(([, tier]) => tier === undefined).map(([id]) => id);
+        const invalid = Object.entries(tiers).filter(([, tier]) => tier !== undefined && !neuralLinkToolTiers.includes(tier));
+
+        expect(missing, `Neural Link operations missing x-neo-tool-tier:\n${missing.join('\n')}`).toEqual([]);
+        expect(invalid, `Invalid Neural Link x-neo-tool-tier values:\n${invalid.map(([id, tier]) => `${id}: ${tier}`).join('\n')}`).toEqual([]);
+        expect(tiers).toEqual(expectedNeuralLinkToolTiers);
+    });
+
+    test('neural-link mutation and admin operations cannot be tiered as read (#13064)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc),
+            offenders  = neuralLinkDangerousReadForbidden.filter(id => operations[id]?.['x-neo-tool-tier'] === 'read');
+
+        expect(offenders, `Dangerous Neural Link operations mislabeled read:\n${offenders.join('\n')}`).toEqual([]);
+    });
+
+    test('neural-link OpenAPI operations stay aligned with serviceMapping keys (#13064)', () => {
+        const
+            doc          = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
+            operationIds = Object.keys(getOperationsById(doc)).sort(),
+            mappingIds   = getNeuralLinkServiceMappingKeys();
+
+        expect(operationIds).toEqual(mappingIds);
     });
 
     for (const server of servers) {
