@@ -356,7 +356,10 @@ class DockPreview extends Component {
     }
 
     /**
-     *
+     * @summary Unbinds the drag-source lifecycle listeners before delegating to the base destroy,
+     * so the overlay never leaves dangling `dragEnd` / `dragBoundaryExit` handlers on the drag
+     * surface it was bound to.
+     * @param {...*} args forwarded to {@link Neo.component.Base#destroy}
      */
     destroy(...args) {
         this.unbindDragSource();
