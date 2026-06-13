@@ -1,5 +1,5 @@
-import parseMarkdownBlocks from './markdownBlocks.mjs';
-import {LoadProfile}       from '../shared/LoadProfile.mjs';
+import {createIncrementalBlocks} from './markdownBlocks.mjs';
+import {LoadProfile}             from '../shared/LoadProfile.mjs';
 
 /**
  * @summary Subject B — the honest single-main-thread comparator for the Harness Endurance Benchmark.
@@ -12,12 +12,11 @@ import {LoadProfile}       from '../shared/LoadProfile.mjs';
  * RENDER (best-practice shape): tail-incremental — settled blocks are written once then frozen, only
  * the open last block re-renders as it grows; NOT an O(n²) full-`innerHTML` rewrite.
  *
- * PARSE (honest caveat for the fairness fork): this re-parses the full growing source each tick — the
- * COMMON main-thread approach. Neo's parser memoizes settled blocks (re-parses only the open tail), so
- * the lag delta here includes Neo's memoization benefit ALONGSIDE the worker-topology effect; a
- * memoized comparator would isolate threading more tightly. Documented as the naive-vs-best-practice
- * refinement on the benchmark ticket — a defensible first comparator, biased if anything toward
- * realism (this is what typical main-thread streaming-markdown code does), reviewable.
+ * PARSE (best-practice shape): incremental — settled blocks (everything before the last blank line) are
+ * parsed ONCE and only the open region re-parses from each delta (`createIncrementalBlocks`), mirroring
+ * the off-thread Neo parser's memoization. So the lag delta isolates the worker-topology variable (WHERE
+ * the work runs) rather than conflating it with parse strategy — the benchmark's naive-vs-best-practice
+ * fork, resolved to best-practice.
  */
 
 const
@@ -64,17 +63,16 @@ function applyBlocks(blocks) {
 }
 
 /**
- * Drives the deterministic `LoadProfile` append stream, parsing + rendering each growing-source tick
- * synchronously on the main thread. A run token prevents overlapping runs.
+ * Drives the deterministic `LoadProfile` append stream, parsing the open block + rendering each delta
+ * synchronously on the main thread (settled blocks memoized). A run token prevents overlapping runs.
  * @param {Object} [config] forwarded to `LoadProfile` (seed, durationMs, cadences).
  * @returns {Promise<void>}
  */
 async function start(config = {}) {
     const
         profile = new LoadProfile(config),
-        token   = ++runToken;
-
-    let accumulated = '';
+        token   = ++runToken,
+        blocks  = createIncrementalBlocks();
 
     containers.forEach(container => container.remove());
     containers = [];
@@ -84,8 +82,7 @@ async function start(config = {}) {
             break
         }
 
-        accumulated += text;
-        applyBlocks(parseMarkdownBlocks(accumulated));
+        applyBlocks(blocks.push(text));
 
         await new Promise(resolve => setTimeout(resolve, profile.appendCadenceMs))
     }

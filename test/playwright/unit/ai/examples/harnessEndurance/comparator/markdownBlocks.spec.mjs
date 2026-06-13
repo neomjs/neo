@@ -1,5 +1,5 @@
 import {test, expect}                       from '@playwright/test';
-import parseMarkdownBlocks, {parseMarkdownBlocks as named} from '../../../../../../../ai/examples/harnessEndurance/comparator/markdownBlocks.mjs';
+import parseMarkdownBlocks, {parseMarkdownBlocks as named, createIncrementalBlocks} from '../../../../../../../ai/examples/harnessEndurance/comparator/markdownBlocks.mjs';
 
 /**
  * @summary Coverage for ai/examples/harnessEndurance/comparator/markdownBlocks.mjs — the pure
@@ -52,5 +52,38 @@ test.describe('ai/examples/harnessEndurance/comparator/markdownBlocks', () => {
 
     test('default export equals the named export', () => {
         expect(parseMarkdownBlocks).toBe(named);
+    });
+
+    test('createIncrementalBlocks streams to the SAME result as a full parse at every prefix', () => {
+        // The list (`- a\n- b`) is the regression guard: a forward-only stream transiently parses
+        // `- a\n-` as list+paragraph, so block-granularity settling would split it — blank-line
+        // settling must keep it ONE list once `- b` arrives.
+        const source = '# Title\n\npara one grows\n\n- a\n- b\n\n> quote here';
+        const parser = createIncrementalBlocks();
+        let acc = '', last = [];
+
+        for (let i = 0; i < source.length; i += 3) {
+            const chunk = source.slice(i, i + 3);
+            acc += chunk;
+            last  = parser.push(chunk);
+            // The memoized incremental output must equal a full re-parse of the same prefix — always.
+            expect(last).toEqual(parseMarkdownBlocks(acc));
+        }
+
+        expect(last).toEqual(parseMarkdownBlocks(source));
+        expect(last).toEqual(['<h1>Title</h1>', '<p>para one grows</p>', '<ul><li>a</li><li>b</li></ul>', '<blockquote>quote here</blockquote>']);
+    });
+
+    test('createIncrementalBlocks settles blocks at blank-line boundaries; the open region re-parses', () => {
+        const parser = createIncrementalBlocks();
+
+        expect(parser.push('a para'))     .toEqual(['<p>a para</p>']);                            // open region
+        expect(parser.push(' continues')) .toEqual(['<p>a para continues</p>']);                  // same open block grows
+        expect(parser.push('\n\n# Head')) .toEqual(['<p>a para continues</p>', '<h1>Head</h1>']); // blank line settles the paragraph
+        expect(parser.push('er'))         .toEqual(['<p>a para continues</p>', '<h1>Header</h1>']); // settled stays byte-stable
+    });
+
+    test('createIncrementalBlocks tolerates empty deltas', () => {
+        expect(createIncrementalBlocks().push('')).toEqual([]);
     });
 });
