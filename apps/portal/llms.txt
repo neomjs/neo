@@ -415,6 +415,7 @@ Here you find the full history of Neo.mjs updates.
 - [Provision Your Own Agent Team](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)
 - [Deployment Cookbook](https://neomjs.com/raw/learn/agentos/DeploymentCookbook.md)
 - [The aiConfig Configuration Model](https://neomjs.com/raw/learn/agentos/AiConfigModel.md)
+- [Agent Harness Dock-Zone Model](https://neomjs.com/raw/learn/agentos/HarnessDockZoneModel.md)
 - [Why Deploy the Agent OS](https://neomjs.com/raw/learn/agentos/cloud-deployment/WhyDeploy.md)
 - [Cloud-Native KB Ingestion Overview](https://neomjs.com/raw/learn/agentos/cloud-deployment/Overview.md)
 - [Day-0 Tutorial](https://neomjs.com/raw/learn/agentos/cloud-deployment/Day0Tutorial.md)
