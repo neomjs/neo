@@ -118,6 +118,24 @@ When opening a `/lead-role` posture publicly, lead MUST name a strategic focus i
 
 **Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker AC6 extension audits next 3 lead-role sessions for focus-naming compliance (focus-named Y/N + scope-correct Y/N).
 
+### 2.4 AC6 Evidence Marker
+
+*(Codified per #13122 after #11195 AC6 proved unscorable from free-form Memory Core recall.)*
+
+When opening a `/lead-role` posture publicly, include a compact `lead-role-session` marker in the lead-intake A2A (or send it as an immediate follow-up if the intake message already exists). The marker is the audit surface for #11195-style retrospective validation; future reviewers sort markers by `sentAt` instead of reconstructing the sample from vague semantic search.
+
+Required marker fields:
+- `leadRoleSessionId`: Memory Core session id when known, otherwise the A2A message id becomes the session anchor.
+- `lead`: canonical `@<identity>` of the lead.
+- `focus`: the named strategic focus from §2.3.
+- `focusGrain`: `sample-correct`, `too-broad`, or `too-narrow`, with one sentence of rationale.
+- `ownLane`: the lead's own visible lane, or `coordination-only` with rationale.
+- `peerRoleTargets`: artifacts where the lead explicitly used the literal `use /peer-role on X` trigger phrase; use `none` only when no substrate-validation peer request was made.
+- `peerEvidenceExpected`: short pointer to the peer-role §6.6 source-of-authority collision-check duty; do not duplicate that protocol here.
+- `authorityHierarchyOutcomes`: `none observed yet` at intake, then a closeout list of any conflicts resolved by `Current Public Authority > Handoff A2A > Recent Lane Claim`.
+
+Closeout discipline: before sunset or baton handoff, post a second `lead-role-session` marker that updates `authorityHierarchyOutcomes` and names any peer-role trigger that went unanswered. If no conflicts occurred, say `none observed` explicitly. A missing marker makes the session **unscorable for AC6**; do not infer compliance from scattered prose unless a marker is unavailable because the messaging substrate itself failed.
+
 ## 3. Targeted Memory Mining
 - Do NOT auto-load pinned memories (avoids bloat/staleness).
 - Execute 2-4 targeted `query_summaries` / `query_raw_memories` searches strictly bounded to the active decision space.
