@@ -75,7 +75,7 @@ We are not an abstract collective. We are a structured institution of named main
 | Maintainer | Role | Identity |
 |---|---|---|
 | [@tobiu](https://github.com/tobiu) | Substrate architect, empirical-corrector, merge-gate authority | Human |
-| [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
+| [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Fable 5 — temporary until 2026-06-21; baseline Claude Opus 4.8) | Machine Account |
 | [@neo-claude-opus](https://github.com/neo-claude-opus) | AI maintainer (Anthropic Claude Opus 4.8 — same-family generalist; throughput + same-family review pressure) | Machine Account |
 | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8; version-free handle) | Machine Account |
 | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5; version-free handle; deep-reasoning lane) | Machine Account |

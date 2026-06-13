@@ -102,7 +102,7 @@ No harness configuration required. `StdioIdentityResolver` falls back to `gh api
 
 Ticket #10144 seeded three `AgentIdentity` nodes in the Native Edge Graph:
 
-- `@neo-opus-ada` — Claude Opus 4.8
+- `@neo-opus-ada` — Claude Fable 5 (temporary until 2026-06-21; baseline Claude Opus 4.8)
 - `@neo-gemini-pro` — Gemini 3.1 Pro
 - `@tobiu` — Tobias Uhlig (human owner)
 
