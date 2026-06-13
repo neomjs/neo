@@ -230,6 +230,8 @@ Required fields:
 | `feedback.state` | `accepted` or `rejected`. | Runtime only. |
 | `feedback.reason` | Optional rejection reason such as `same-source`, `locked-target`, `invalid-node`, or `policy-denied`. | Runtime only. |
 
+`feedback.state` is the canonical accept/reject verdict for a hover frame. `placement.kind = rejected` is reserved for hovers that do not have a meaningful candidate placement; otherwise the adapter should keep the candidate `placement.kind` and set `feedback.state = rejected` with a reason.
+
 Allowed producers:
 
 - `src/draggable/dashboard/SortZone.mjs` and base sort-zone drag lifecycle for in-window drags.
