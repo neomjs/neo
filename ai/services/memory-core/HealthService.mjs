@@ -150,46 +150,11 @@ export function buildTaskOutcomesBlock(taskOutcomes) {
 }
 
 /**
- * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
- *          observability block.
- *
- * Pure function: takes an `aiConfig`-shaped input and returns the three-field projection operators
- * need to verify ChromaDB coordinate resolution — `{mode, coordinates, resolvedVia}`.
- *
- * **Post-v13 topology:** The federated topology has been retired. The system operates
- * permanently in `unified` mode. Memory Core connects as a downstream client to the shared
- * ChromaDB instance via `cfg.engines.chroma`. The `mode` is statically `'unified'` and
- * `resolvedVia` is statically `'engines.chroma'`.
- *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.engines.chroma.{host, port}`.
- * @returns {{mode: String, coordinates: Object|null, resolvedVia: String, error: String|undefined}}
- *     `mode` is statically `'unified'`. `coordinates` is `{host, port}` on success or `null` on
- *     resolver throw. `resolvedVia` is statically `'engines.chroma'`.
- * @see learn/agentos/MemoryCore.md
- */
-export function buildTopologyBlock(cfg) {
-    try {
-        const coordinates = cfg.engines?.chroma || null;
-        if (!coordinates || !coordinates.host || !coordinates.port) {
-            throw new Error('engines.chroma.{host, port} is undefined or incomplete.');
-        }
-        return {
-            mode: 'unified',
-            coordinates,
-            resolvedVia: 'engines.chroma'
-        };
-    } catch (e) {
-        return {mode: 'unified', coordinates: null, resolvedVia: 'engines.chroma', error: e.message};
-    }
-}
-
-/**
  * @summary Projects the active embedding-provider configuration into the healthcheck `providers.embedding`
  *          observability block.
  *
  * Pure function: takes an `aiConfig`-shaped input and returns the active embedding provider with
- * their host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
- * for module-scope pure projections.
+ * their host, model, and configured vector dimension. Mirrors the module-scope pure-projection precedent.
  *
  * **Why this block exists:** Operators deploying the shared MC/KB topology against a local-model stack
  * (e.g., MLX-served Qwen3 embedding model) need an observable surface confirming WHICH Chroma-side
@@ -1384,9 +1349,6 @@ class HealthService extends Base {
      * @private
      */
     async #performHealthCheck() {
-        // Dynamic import to avoid circular dependencies
-        const { default: MailboxService } = await import('./MailboxService.mjs');
-
         const payload = {
             status          : 'healthy',
             timestamp       : new Date().toISOString(),
@@ -1399,8 +1361,7 @@ class HealthService extends Base {
                 connection: {
                     connected  : false,
                     collections: null
-                },
-                topology  : buildTopologyBlock(aiConfig)
+                }
             },
             features : {
                 summarization: false,
@@ -1414,7 +1375,6 @@ class HealthService extends Base {
             orchestrator: {
                 tasks: buildTaskOutcomesBlock(this.#taskOutcomes)
             },
-            mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
             migration: await this.#checkMigrationState(),
             providers: {

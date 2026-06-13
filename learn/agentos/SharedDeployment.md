@@ -188,22 +188,22 @@ A symmetric healthcheck `providers.auth` block is shipped under [#10770](https:/
 
 ## Healthcheck Verification
 
-The Memory Core's `healthcheck` MCP tool exposes the effective topology so operators can verify shared mode took effect without inspecting logs or re-running config through `node -e`:
+The topology is **permanently unified** (§ above): Memory Core and the Knowledge Base always share a single ChromaDB instance, resolved from the `engines.chroma` config coordinate. There is no runtime topology toggle — so what operators verify is **connectivity to the shared instance**, not a topology field.
+
+The Memory Core's `healthcheck` MCP tool reports `database.connection` against the configured coordinate:
 
 ```json
 "database": {
-    "topology": {
-        "mode": "unified",
-        "coordinates": { "host": "team-chroma.example.com", "port": 8000 },
-        "resolvedVia": "engines.chroma"
+    "connection": {
+        "connected": true,
+        "engines": { "chroma": true },
+        "collections": {
+            "memories":  { "exists": true, "count": 8599 },
+            "summaries": { "exists": true, "count": 794 }
+        }
     }
 }
 ```
-
-Three diagnostic fields:
-- `mode`: Always `'unified'`. Memory Core shares the underlying ChromaDB instance with the KB.
-- `coordinates`: the actual `{host, port}` the Memory Core's client is targeting. In shared mode this should match the team's Chroma service. `null` indicates a misconfiguration (`engines.chroma` not populated).
-- `resolvedVia`: `'engines.chroma'`. Direct pointer to the config key path the resolver consulted.
 
 See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full healthcheck payload contract.
 
@@ -304,10 +304,10 @@ Teams adopting shared mode from per-developer local should follow this migration
 
 3. **Update each developer's config.** Each developer points their `engines.chroma.{host, port}` config at the shared instance. The setting can live in the developer's environment or in a shared `.env` template.
 
-4. **Verify via healthcheck.** Each developer runs `healthcheck` against both servers, but the proof shape differs per server:
-   - **Memory Core** surfaces the effective topology in its `database.topology` block — expect `mode === 'unified'`, matching `coordinates`, and `resolvedVia === 'engines.chroma'`. This is the canonical topology proof.
-   - **Knowledge Base** proves connectivity to the shared Chroma instance and reports collection availability/counts (the KB healthcheck does not surface a topology block; that diagnostic is MC-side per #10127).
-   - Cross-server consistency: when both servers report `connected: true` against matching `{host, port}`, the shared topology is verified end-to-end. Connection failures surface as structured `error` fields, not 500s.
+4. **Verify via healthcheck.** Each developer runs `healthcheck` against both servers and confirms connectivity to the shared instance:
+   - **Memory Core** reports `database.connection.connected === true` with `engines.chroma === true` and the expected collection counts. The topology is permanently `unified` by config (`engines.chroma`) — there is no separate runtime topology field to inspect.
+   - **Knowledge Base** proves connectivity to the same shared Chroma instance and reports collection availability/counts.
+   - Cross-server consistency: when both servers report `connected: true` against matching `engines.chroma` `{host, port}`, shared mode is verified end-to-end. Connection failures surface as structured `error` fields, not 500s.
 
 5. **First-session smoke test.** Have each developer's agent run a `query_summaries` query against Memory Core — this is the canonical cross-agent **memory visibility** proof. The first agent populates baseline; subsequent agents should see each other's summaries on subsequent queries. Optionally also run an `ask_knowledge_base` query against the Knowledge Base to validate **KB sharing** through the same Chroma instance — it's a separate retrieval surface, not a memory-visibility proof.
 

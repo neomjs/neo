@@ -25,8 +25,6 @@ test.describe('Dockerized KB/MC MCP healthcheck integration (#10805 Lane A)', ()
 
         expect(mcHealth.status).toBe('healthy');
         expect(mcHealth.database.connection.connected).toBe(true);
-        expect(mcHealth.database.topology.mode).toBe('unified');
-        expect(mcHealth.database.topology.resolvedVia).toBe('engines.chroma');
         expect(mcHealth.database.connection.collections.memories.exists).toBe(true);
         expect(mcHealth.database.connection.collections.summaries.exists).toBe(true);
         expect(mcHealth.providers.embedding.active).toBe('openAiCompatible');
