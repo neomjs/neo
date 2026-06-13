@@ -687,6 +687,86 @@ test.describe('Wake Daemon', () => {
         expect(finalDigest).not.toContain('priority: normal');
     });
 
+    test('delivers Codex wake events via app-server adapter without osascript fallback (#13067)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-app-server';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'codex-app-server',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir               = path.join(DAEMON_DIR, 'bin');
+        const mockCodexPath        = path.join(binDir, 'codex');
+        const mockCodexOutPath     = path.join(DAEMON_DIR, 'mock_codex_appserver_out.json');
+        const mockOsascriptPath    = path.join(binDir, 'osascript');
+        const mockOsascriptOutPath = path.join(DAEMON_DIR, 'mock_codex_appserver_osascript_out.json');
+
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        fs.writeFileSync(mockCodexPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockCodexOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockCodexPath, 0o755);
+        fs.writeFileSync(mockOsascriptPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockOsascriptOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                CODEX_CLI_PATH    : mockCodexPath,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+            }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver Codex app-server digest within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`[Wake Daemon] Delivered ${subId} via codex-app-server`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+                if (out.includes(`[Wake Daemon] Delivered ${subId} via osascript`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon fell back to osascript for codex-app-server route'));
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Codex App Server Wake'
+        });
+
+        await deliveryPromise;
+
+        const args = JSON.parse(fs.readFileSync(mockCodexOutPath, 'utf8'));
+        expect(args.slice(0, 3)).toEqual(['debug', 'app-server', 'send-message-v2']);
+        expect(args.length).toBe(4);
+        expect(args[3]).toContain('[WAKE][priority:normal]');
+        expect(args[3]).toContain('Codex App Server Wake');
+        expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+    });
+
     test('uses the highest coalesced message priority in the wake digest header and preserves divergent latest priority', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-priority';
@@ -1444,10 +1524,9 @@ test.describe('Wake Daemon', () => {
         // proves safe it needs a distinct implementation path (sequence primitive or
         // app-server route), NOT a `focusSeedKey: 'r'` opt-in.
         //
-        // This test is a defense-in-depth check: even if @neo-gpt's WAKE_SUBSCRIPTION is
-        // accidentally re-enabled (currently set to harnessTarget:'disabled' as an
-        // operator mitigation), the bridge refuses to send any osascript keystroke for a
-        // Codex subscription that lacks an explicit composer-focus primitive.
+        // This test is a defense-in-depth check: the bridge refuses to send any
+        // osascript keystroke for a Codex subscription that lacks an explicit
+        // composer-focus primitive.
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-fail-closed';
 

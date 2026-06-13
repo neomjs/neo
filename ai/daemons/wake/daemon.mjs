@@ -73,6 +73,7 @@ const WOKEN_WATERMARK_FILE     = path.join(DAEMON_DATA_DIR, 'woken-watermark.jso
 const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
+const CODEX_APP_SERVER_ADAPTER   = 'codex-app-server';
 const WAKE_PRIORITY_RANKS      = {
     low   : 0,
     normal: 1,
@@ -690,6 +691,42 @@ function spawnAsync(command, args) {
 }
 
 /**
+ * @summary Resolves the Codex CLI used by the app-server wake adapter.
+ *
+ * `CODEX_CLI_PATH` mirrors the resume-harness test hook so unit tests can assert
+ * the command shape without reaching a live Codex Desktop app-server.
+ *
+ * @returns {String}
+ */
+function resolveCodexCliPath() {
+    return process.env.CODEX_CLI_PATH || 'codex';
+}
+
+/**
+ * @summary Delivers a Codex wake digest through the native Codex app-server control plane.
+ *
+ * This is the normal wake-daemon equivalent of the existing resume-harness
+ * `codex debug app-server send-message-v2 <payload>` route. It intentionally does
+ * not fall back to `osascript`; a route explicitly configured as `codex-app-server`
+ * must fail visibly instead of recreating the GUI-focus delivery path.
+ *
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @returns {Promise<void>}
+ */
+async function deliverViaCodexAppServer(subscription, digest) {
+    const meta    = subscription.properties?.harnessTargetMetadata || {};
+    const appName = meta.appName;
+
+    if (appName !== 'Codex') {
+        throw new Error(`codex-app-server requires harnessTargetMetadata.appName='Codex' (received '${appName || ''}')`);
+    }
+
+    await spawnAsync(resolveCodexCliPath(), ['debug', 'app-server', 'send-message-v2', digest]);
+    writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via codex-app-server`);
+}
+
+/**
  * @summary Delivers a wake digest via osascript, retrying transient frontmost-loss races.
  *
  * macOS focus-stealing prevention makes a background daemon's `activate` / `set frontmost`
@@ -762,7 +799,7 @@ function escapeAppleScriptString(value) {
 let deliveryPromise = Promise.resolve();
 
 /**
- * Delivers the digest to the correct adapter (tmux or osascript).
+ * Delivers the digest to the configured harness adapter.
  */
 async function deliverDigest(subscription, digest) {
     const meta = subscription.properties?.harnessTargetMetadata || {};
@@ -789,6 +826,11 @@ async function deliverDigest(subscription, digest) {
 
         if (addressType === 'webhookUrl') {
             await deliverViaWebhookUrl(subscription, digest, instanceAddress);
+            return;
+        }
+
+        if (adapter === CODEX_APP_SERVER_ADAPTER) {
+            await deliverViaCodexAppServer(subscription, digest);
             return;
         }
 
