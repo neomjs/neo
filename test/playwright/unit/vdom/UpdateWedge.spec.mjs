@@ -126,6 +126,49 @@ test.describe('VdomLifecycle update wedge (#12946)', () => {
         expect(child.vnode.textContent ?? child.vnode.childNodes?.[0]?.textContent).toBe('healed');
     });
 
+    test('#12957: a promiseUpdate() queued onto a failing in-flight flight rejects, not resolve-only', async () => {
+        Neo.applyDeltas = async () => {};
+
+        const containerId = getUniqueId('wedge-container');
+        const childId     = getUniqueId('wedge-child');
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(WedgeContainer, {
+            appName,
+            id   : containerId,
+            items: [{module: WedgeChild, id: childId, text: 'pristine'}]
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+
+        const child = container.items[0];
+        await container.promiseUpdate();
+
+        // The apply boundary fails for the in-flight flight below.
+        VdomHelper.updateBatch = () => Promise.reject({data: {error: 'test-injected apply failure'}});
+
+        // Flight 1 enters in-flight synchronously (executeVdomUpdate flips isVdomUpdating before its
+        // macrotask yield), so flight 2 — issued with no await between — parks ONTO flight 1's cycle.
+        const flight1 = child.promiseUpdate();
+        expect(child.isVdomUpdating).toBe(true);
+
+        // Flight 2 lands while flight 1 is in-flight. Previously this parked resolve-only with no
+        // reject: if flight 1 failed, flight 2 could never settle (resolve-late at best, permanent
+        // hang at worst). It must now reject honestly off the shared failed flight.
+        const flight2 = child.promiseUpdate();
+
+        await expect(flight1).rejects.toBeTruthy();
+        await expect(flight2).rejects.toBeTruthy();
+
+        // Let the bounded post-failure drain (needsVdomUpdate set by flight 2) settle.
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // No wedge: the shared in-flight state is released.
+        expect(child.isVdomUpdating).toBe(false);
+        expect(VDomUpdate.inFlightUpdateMap.has(child.id)).toBe(false);
+    });
+
     test('REGRESSION: initVnode failure releases the flag and the in-flight registry entry', async () => {
         const containerId = getUniqueId('wedge-container');
         createdComponentIds.push(containerId);

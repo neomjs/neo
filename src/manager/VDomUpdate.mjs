@@ -140,7 +140,7 @@ class VDomUpdate extends Collection {
      * When a component's VDOM update is finalized, the callbacks for its ID are executed,
      * resolving the Promise returned by the component's `update()` method.
      *
-     * The structure is: `Map<'component-id', [callback1, callback2, ...]>`
+     * The structure is: `Map<'component-id', [{resolve, reject}, ...]>`
      *
      * @member {Map|null} promiseCallbackMap=null
      * @protected
@@ -164,20 +164,24 @@ class VDomUpdate extends Collection {
     }
 
     /**
-     * Registers a callback function to be executed when a specific component's
-     * VDOM update completes. This is the mechanism that resolves the Promise
-     * returned by `Component#update()`.
-     * @param {String}   ownerId  The `id` of the component owning the update.
-     * @param {Function} callback The function to execute upon completion.
+     * Registers a `{resolve, reject}` settlement pair to be settled when a specific
+     * component's VDOM update completes. This is the mechanism that settles the Promise
+     * returned by `Component#promiseUpdate()`: `resolve` fires from `executeCallbacks`
+     * (success), `reject` from `rejectCallbacks` (a failed flight). Either side may be
+     * `undefined` (fire-and-forget `update()` registers neither; a legacy resolve-only
+     * post-update entry registers a `reject`-less pair).
+     * @param {String}    ownerId  The `id` of the component owning the update.
+     * @param {Function} [resolve] Settles the promise on update success.
+     * @param {Function} [reject]  Settles the promise when the flight it is parked on fails.
      */
-    addPromiseCallback(ownerId, callback) {
+    addPromiseCallback(ownerId, resolve, reject) {
         let me = this;
 
         if (!me.promiseCallbackMap.has(ownerId)) {
             me.promiseCallbackMap.set(ownerId, [])
         }
 
-        me.promiseCallbackMap.get(ownerId).push(callback)
+        me.promiseCallbackMap.get(ownerId).push({resolve, reject})
     }
 
     /**
@@ -242,10 +246,61 @@ class VDomUpdate extends Collection {
 
         if (callbacks) {
             for (let i = 0, len = callbacks.length; i < len; i++) {
-                callbacks[i](data)
+                callbacks[i].resolve?.(data)
             }
             me.promiseCallbackMap.delete(ownerId);
         }
+    }
+
+    /**
+     * Rejects all registered promise callbacks for a given `ownerId` — the error-path twin
+     * of {@link #executePromiseCallbacks}. Fires each parked `reject` (resolve-only / legacy
+     * entries are skipped via optional chaining) and clears the queue.
+     * @param {String} ownerId The `id` of the component whose flight failed.
+     * @param {*}       error   The error to reject the parked promises with.
+     */
+    rejectPromiseCallbacks(ownerId, error) {
+        let me        = this,
+            callbacks = me.promiseCallbackMap.get(ownerId);
+
+        if (callbacks) {
+            for (let i = 0, len = callbacks.length; i < len; i++) {
+                callbacks[i].reject?.(error)
+            }
+            me.promiseCallbackMap.delete(ownerId)
+        }
+    }
+
+    /**
+     * Rejects the promise callbacks for a failed update flight — the error-path twin of
+     * {@link #executeCallbacks}. A failed flight has no `processedChildIds` (nothing was
+     * applied), so every child merged into `ownerId` is rejected alongside the owner.
+     * @param {String} ownerId The `id` of the component whose update flight failed.
+     * @param {*}       error   The error to reject the parked promises with.
+     */
+    rejectCallbacks(ownerId, error) {
+        let me   = this,
+            item = me.mergedCallbackMap.get(ownerId);
+
+        if (item) {
+            for (const childId of item.children.keys()) {
+                me.rejectPromiseCallbacks(childId, error)
+            }
+            me.mergedCallbackMap.remove(ownerId)
+        }
+
+        me.rejectPromiseCallbacks(ownerId, error)
+    }
+
+    /**
+     * Whether any promise callbacks are currently parked for the given `ownerId`. Used by the
+     * update catch to distinguish a genuinely fire-and-forget failure (which must log, since
+     * nothing else surfaces it) from one whose attached promise will reject.
+     * @param {String}  ownerId The component `id`.
+     * @returns {Boolean}
+     */
+    hasPromiseCallbacks(ownerId) {
+        return this.promiseCallbackMap.has(ownerId)
     }
 
     /**
@@ -474,7 +529,7 @@ class VDomUpdate extends Collection {
                 component = Neo.getComponent(entry.childId);
 
                 if (component) {
-                    entry.resolve && me.addPromiseCallback(component.id, entry.resolve);
+                    (entry.resolve || entry.reject) && me.addPromiseCallback(component.id, entry.resolve, entry.reject);
                     component.update()
                 }
             }
