@@ -51,8 +51,11 @@ test.describe('Neo.component.markdown.Component — streaming deltas', () => {
         runId++;
         component = Neo.create(MarkdownComponent, {
             appName,
-            id   : `markdown-vdom-test-${runId}`,
-            value: '# Title\n\nStreaming wor'
+            id        : `markdown-vdom-test-${runId}`,
+            value     : '# Title\n\nStreaming wor',
+            // This suite pins the PARSE-layer delta contract on raw block children;
+            // windowed mode (spacers + eviction) has its own dedicated spec.
+            virtualize: false
         });
 
         await component.initVnode();
