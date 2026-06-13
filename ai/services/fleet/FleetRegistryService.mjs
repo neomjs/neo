@@ -175,7 +175,10 @@ class FleetRegistryService extends Base {
         this.ensureLoaded();
         const existed = this.agents.delete(id);
         if (existed) this.writeRegistry();
+        // Both credential classes die with the agent — the PAT AND the Bridge token. Leaving a live
+        // Bridge token for a removed agent would let it keep authenticating to the Bridge.
         this.removeCredential(id);
+        this.removeBridgeToken(id);
         return {success: existed, id};
     }
 
@@ -198,6 +201,11 @@ class FleetRegistryService extends Base {
      * persisted — only its SHA-256 hash + expiry land in `bridgeTokens.enc`, a store distinct from
      * the reversibly-encrypted PAT (the Bridge token can never route through the PAT helpers). A
      * re-mint for the same id replaces the prior record.
+     *
+     * Minting does **not** require `id` to be a registered agent (it only produces + stores a hash) —
+     * the validity boundary is {@link verifyBridgeToken}, which fails closed unless `id` is a current
+     * fleet member. So a token minted for a non-member never authenticates; binding the check at
+     * verify (not mint) keeps the gate in one place and tolerates a register-after-mint ordering.
      * @param {String}  id          The agent id the token is minted for.
      * @param {Object} [opts]
      * @param {Number} [opts.ttlMs] Token lifetime in ms; defaults to {@link bridgeTokenTtlMs}.
@@ -220,15 +228,26 @@ class FleetRegistryService extends Base {
     /**
      * @summary Verify a presented Bridge token against the hash-stored record for `id`. This is the
      * untrusted-input path: a **constant-time** hash compare ({@link crypto.timingSafeEqual}) that
-     * rejects expired tokens and **fails closed** — returns `false` (never throws) on an unknown id,
-     * an absent / unreadable / malformed store, a bad hash encoding, or a missing / expired
+     * rejects expired tokens and **fails closed** — returns `false` (never throws) on an id that is
+     * not a currently-registered agent (never registered, or removed via {@link removeAgent}), an
+     * unknown / absent / unreadable / malformed store, a bad hash encoding, or a missing / expired
      * `expiresAt`. Mirrors {@link resolveCredential}'s fail-closed posture; no secret ever surfaces.
+     *
+     * **The Bridge token authenticates a *current fleet member*** — validity is bound to registry
+     * membership, so a removed agent's token can never authenticate (the security invariant the
+     * `removeAgent` → `removeBridgeToken` cleanup and this gate jointly guarantee).
      * @param {String} id        The agent id presenting the token.
      * @param {String} presented The raw token to check.
-     * @returns {Boolean} `true` only for a live, matching token; `false` otherwise.
+     * @returns {Boolean} `true` only for a live, matching token owned by a registered agent; `false` otherwise.
      */
     verifyBridgeToken(id, presented) {
         try {
+            // Bind validity to fleet membership: a never-registered or removed id fails closed even
+            // if a token record lingers (defense-in-depth over the removeAgent cleanup). `Map.has`
+            // is prototype-safe for untrusted ids.
+            this.ensureLoaded();
+            if (!this.agents.has(id)) return false;
+
             const tokens = this.readBridgeTokens();
             // own-property only: an untrusted id like `toString` must fail closed, never alias a proto member.
             if (!Object.hasOwn(tokens, id)) return false;
@@ -380,6 +399,21 @@ class FleetRegistryService extends Base {
     writeBridgeTokens(map) {
         this.ensureDataDir();
         fs.writeFileSync(this.bridgeTokensPath(), this.encrypt(JSON.stringify(map)), {mode: 0o600});
+    }
+
+    /**
+     * Remove a single Bridge-token record from the store (no-op if absent). Invoked by
+     * {@link removeAgent} so the Bridge credential dies with the agent — the analog of
+     * {@link removeCredential} for the second credential class.
+     * @param {String} id
+     * @private
+     */
+    removeBridgeToken(id) {
+        const tokens = this.readBridgeTokens();
+        if (Object.hasOwn(tokens, id)) {
+            delete tokens[id];
+            this.writeBridgeTokens(tokens);
+        }
     }
 
     // ---- crypto (AES-256-GCM) ----------------------------------------------
