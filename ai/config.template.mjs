@@ -372,7 +372,16 @@ class Config extends ConfigProvider {
                      */
                     dreamOverflowThreshold: leaf(0.8, 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', 'number'),
                     goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
-                    swarmHeartbeatMs      : leaf(15 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number')
+                    /**
+                     * Generic swarm-heartbeat / watchdog nudge cadence — the periodic pulse that fires a
+                     * wake digest even with no new messages. Set to 20 min so the generic watchdog nudge
+                     * sits in the operator's 20-30 min target, cutting wake noise. DIRECT actionable A2A
+                     * wakes (review-request / REQUEST_CHANGES / task-state) stay event-driven and are NOT
+                     * affected by this cadence — this slot is only the periodic pulse. The pulse cadence is
+                     * a layer ABOVE the wake-coalescing window (the 300s digest-batching cap, an orthogonal
+                     * mechanism), so widening it does not change coalescing semantics.
+                     */
+                    swarmHeartbeatMs      : leaf(20 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number')
                 },
                 /**
                  * Chroma daemon recycle policy. The orchestrator kills and respawns the supervised

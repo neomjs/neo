@@ -32,6 +32,7 @@ import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 import AiConfig        from '../../config.mjs';
 import memoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
+import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -594,20 +595,9 @@ function isMessageReadFor(db, messageId, recipient) {
     return node ? node.readAt != null : false;
 }
 
-/**
- * @summary Standing directive appended to every wake digest.
- *
- * Closes the acknowledge-and-idle failure mode: an agent receiving a wake would acknowledge it and
- * idle, reading the wake as an interruption to ack rather than a prompt to execute. Embedding the
- * pick-up-a-lane mandate in the wake CONTENT itself (not only the loaded rule substrate) puts it in
- * front of the agent on every single wake, so an idle agent always sees the directive to advance a
- * lane instead of burning the turn on a bare acknowledgement.
- */
-const WAKE_LANE_DIRECTIVE = 'Directive — pick up a lane: if you are not already executing one, ' +
-    'survey the open backlog (list_issues / ideation), claim an unclaimed lane, and drive it ' +
-    'implementation → test → PR this turn. A wake is not "handled" by acknowledgement alone while ' +
-    'you have idle capacity and open lanes exist. Acknowledge pure-FYI broadcasts in one line; ' +
-    'never idle or hold waiting for permission to start unassigned work.';
+// WAKE_LANE_DIRECTIVE — the standing lifecycle-first directive appended to every wake digest (below).
+// Its single canonical, testable authority is `./wakeLaneDirective.mjs` (imported above); keep the
+// wording there, not duplicated here, so the discussion / ticket / source cannot silently drift.
 
 /**
  * @summary Flushes the coalesced wake queue into a priority-tagged digest.
