@@ -127,6 +127,8 @@ When reviewing a PR, audit every issue named as a close-target via GitHub's magi
 - **Resolves-only for agent PRs:** author-side discipline (`pull-request §9`) mandates newline-isolated `Resolves #N`; `Closes` means no-delivery/no-PR, `Fixes` is ambiguous, and `Refs` / `Related` do not satisfy the close-target requirement.
 - **Syntax-exact:** prose-embedded close targets and comma-separated lists are forbidden.
 
+<!-- trigger: close-target over-claim or lint/body contradiction -> read ./close-target-remediation.md -->
+
 **Reviewer-side check:**
 
 1. Parse the PR body + commit messages for `Closes #N` / `Resolves #N` / `Fixes #N` patterns (case-insensitive). For local checkout reviews, use `git log origin/dev..HEAD --format='%h%x09%s%n%b'` or an equivalent exact-head commit-message fetch; do not rely on PR body or `closingIssuesReferences` alone.
