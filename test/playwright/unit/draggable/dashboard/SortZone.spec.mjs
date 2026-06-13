@@ -17,14 +17,19 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
  * @summary Tests for Neo.draggable.dashboard.SortZone directional thresholds
  */
 test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () => {
-    let DashboardSortZone, Rectangle, sortZone;
+    let DashboardContainer, DashboardSortZone, Rectangle, realDragCoordinatorOnDragEnd, sortZone;
 
     test.beforeAll(async () => {
+        const containerModule = await import('../../../../../src/dashboard/Container.mjs');
+        DashboardContainer = containerModule.default;
+
         const sortZoneModule = await import('../../../../../src/draggable/dashboard/SortZone.mjs');
         DashboardSortZone = sortZoneModule.default;
 
         const rectModule = await import('../../../../../src/util/Rectangle.mjs');
         Rectangle = rectModule.default;
+
+        realDragCoordinatorOnDragEnd = Object.getPrototypeOf(Neo.manager.DragCoordinator).onDragEnd;
     });
 
     test.beforeEach(() => {
@@ -186,6 +191,130 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(appliedDeltas.some(delta => delta.action === 'moveNode' && delta.id === remoteItem.id)).toBe(false);
         expect(sortZone.isRemoteDragging).toBe(false);
         expect(sortZone.isWindowDragging).toBe(false)
+    });
+
+    test('keeps a terminal popup drop detached instead of running remote-drop cleanup (#13025)', async () => {
+        const
+            appliedDeltas   = [],
+            terminalDrops   = [],
+            DragCoordinator = Neo.manager.DragCoordinator,
+            item            = {
+                id          : 'item1',
+                reference   : 'item1',
+                vdom        : {cls: ['neo-draggable']},
+                wrapperStyle: {}
+            },
+            placeholder     = {
+                id          : 'placeholder',
+                vdom        : {cls: []},
+                wrapperStyle: {},
+                destroy     : () => {}
+            },
+            detachedItems   = new Map([['item1', {
+                index   : 0,
+                widget  : item,
+                windowId: 'popup-item1'
+            }]]),
+            mockOwner       = {
+                id                      : 'mockOwner',
+                cls                     : [],
+                detachedItems,
+                dragResortable          : true,
+                items                   : [item, placeholder],
+                style                   : {},
+                vdom                    : {},
+                addDomListeners         : () => {},
+                getDomRect              : () => Promise.resolve([{x:0, y:0, width:200, height:100}]),
+                getVdomItemsRoot        : () => ({id: 'mockOwner-items'}),
+                on                      : () => {},
+                onWindowDragTerminalDrop: data => terminalDrops.push(data)
+            };
+
+        Neo.applyDeltas = (windowId, deltas) => {
+            appliedDeltas.push(...deltas);
+            return Promise.resolve()
+        };
+
+        DragCoordinator.activeTargetZone = null;
+        DragCoordinator.onDragEnd = data => realDragCoordinatorOnDragEnd.call(DragCoordinator, data);
+
+        sortZone = Neo.create(DashboardSortZone, {
+            owner  : mockOwner,
+            timeout: () => Promise.resolve()
+        });
+
+        Object.assign(sortZone, {
+            currentIndex    : 1,
+            dragComponent   : item,
+            dragPlaceholder : placeholder,
+            dragProxy       : {id: 'proxy', cls: [], destroy: () => {}},
+            isWindowDragging: true,
+            itemRects       : [
+                {height: 100, left: 0, top: 0, width: 100},
+                {height: 100, left: 100, top: 0, width: 100}
+            ],
+            itemStyles: [
+                {height: '100px', width: '100px'},
+                {height: '100px', width: '100px'}
+            ],
+            ownerStyle   : {},
+            sortableItems: [item, placeholder],
+            startIndex   : 0,
+            windowId     : 1
+        });
+
+        await sortZone.processDragEnd({type: 'drag:end'});
+
+        expect(terminalDrops).toHaveLength(1);
+        expect(terminalDrops[0].draggedItem).toBe(item);
+        expect(terminalDrops[0].sortZone).toBe(sortZone);
+        expect(detachedItems.has('item1')).toBe(true);
+        expect(appliedDeltas.some(delta => delta.action === 'moveNode' && delta.id === item.id)).toBe(false);
+        expect(appliedDeltas.some(delta => delta.action === 'removeNode' && delta.id === placeholder.id)).toBe(true);
+        expect(sortZone.isWindowDragging).toBe(false)
+    });
+
+    test('does not classify an ordinary source-window drag end as a terminal popup drop (#13025)', () => {
+        const
+            DragCoordinator = Neo.manager.DragCoordinator,
+            sourceSortZone  = {
+                isWindowDragging    : false,
+                onTerminalWindowDrop: () => {
+                    throw new Error('ordinary drag-end should not terminal-drop')
+                }
+            };
+
+        DragCoordinator.activeTargetZone = null;
+
+        realDragCoordinatorOnDragEnd.call(DragCoordinator, {
+            draggedItem: {id: 'item1'},
+            sourceSortZone
+        })
+    });
+
+    test('marks dashboard detached items as terminal popup drops (#13025)', () => {
+        const
+            item          = {id: 'item1', reference: 'item1'},
+            detachedItem  = {index: 0, widget: item, windowId: 'popup-item1'},
+            detachedItems = new Map([['item1', detachedItem]]),
+            events        = [],
+            container     = Object.create(DashboardContainer.prototype);
+
+        Object.assign(container, {
+            detachedItems,
+            fire: (event, data) => events.push({data, event})
+        });
+
+        container.onWindowDragTerminalDrop({
+            draggedItem: item,
+            sortZone   : {id: 'source-zone'}
+        });
+
+        expect(detachedItems.get('item1')).toBe(detachedItem);
+        expect(detachedItem.terminalDrop).toBe(true);
+        expect(events).toHaveLength(1);
+        expect(events[0].event).toBe('windowDragTerminalDrop');
+        expect(events[0].data.detachedItem).toBe(detachedItem)
     });
 
     test('latches dashboard drag-end coordinator notification (#12895)', async () => {
