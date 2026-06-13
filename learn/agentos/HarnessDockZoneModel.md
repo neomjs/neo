@@ -282,6 +282,48 @@ The adapter must treat `componentRef` as the stable bridge between persisted lay
 
 If neither a live component nor a valid `item.blueprint` exists, the adapter must follow the stale-component-reference policy above instead of silently dropping the item.
 
+## Layout Persistence Boundary
+
+Layout persistence owns saved workspace documents, not drag-time state or component lifetime.
+
+A persisted layout is a small versioned wrapper around the normalized dock-zone model:
+
+```json
+{
+  "schema": "neo.harness.dockLayout.v1",
+  "layoutId": "operator-default",
+  "title": "Operator Default",
+  "dockZone": {
+    "schema": "neo.harness.dockZone.v1",
+    "root": "root",
+    "items": {},
+    "nodes": {}
+  },
+  "revision": 1,
+  "metadata": {}
+}
+```
+
+Required wrapper fields:
+
+- `schema`: saved-layout wrapper version. The inner dock-zone document keeps its own `schema`.
+- `layoutId`: stable user/workspace layout identity, distinct from dock item ids.
+- `title`: display label for layout pickers or recovery UIs.
+- `dockZone`: a normalized `neo.harness.dockZone.v1` model after semantic operations have run.
+
+Optional wrapper fields:
+
+- `revision`: monotonic revision, content version, or adapter-owned equivalent used for conflict/recovery messaging.
+- `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, live component instances, credentials, PATs, access tokens, or harness bridge tokens.
+
+Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
+
+Restore must validate the wrapper schema, the inner dock-zone schema, and the normalized model invariants before replacing an active layout. Unsupported wrapper versions, unsupported dock-zone versions, invalid references, or invalid split/tab invariants fail closed: keep the last-good active layout and surface validation or recovery state to the caller.
+
+Component recovery remains the adapter's responsibility. A restored item with an unresolved `componentRef` follows the stale component reference policy above: preserve the item record and semantic placement long enough for validation, explicit recovery, placeholder rendering, or intentional removal. Persistence must not silently drop the item or rewrite the dock tree to hide the missing component.
+
+First implementation ownership may be harness-local when the storage backend, pane registry, or preference wiring is specific to the Agent Harness. Reusable import/export, validation, or storage projection logic should follow the dock-zone relocation path into `src/` only after the source-placement decision has landed and a second in-repo consumer proves the logic is not harness-specific.
+
 ## Split/Tab Adapter Boundary
 
 The first rendering slice is an adapter, not a new layout engine. It consumes the dock-zone model and emits ordinary Neo child configs and live component moves that existing containers can own.
@@ -372,5 +414,13 @@ The preview-state follow-up satisfies its leaf when:
 - forbidden producers prevent a parallel docking drag system
 - preview-only fields are explicitly runtime-only and are not serialized
 - downstream consumers for rendering, drop handling, and persistence are named
+
+The layout-persistence follow-up satisfies its leaf when:
+
+- a saved layout wrapper is defined separately from the inner dock-zone model
+- wrapper schema, layout identity, display title, and normalized `dockZone` payload are named
+- restore fails closed on unsupported schema or invalid saved state
+- stale `componentRef` recovery delegates to the adapter policy instead of duplicating restore semantics
+- runtime preview/window/component/credential state remains outside persisted layout data
 
 If a future PR introduces new `.mjs` files for this contract, it must run `structural-pre-flight` before choosing the destination.
