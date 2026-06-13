@@ -382,6 +382,10 @@ async function pollLoop() {
             writeLastSyncId(STATE_FILE, lastSyncId);
         }
 
+        // Re-attempt any wake deliveries that previously failed (live-target dispatch threw). Runs
+        // every poll regardless of new GraphLog activity, independent of the lastSyncId cursor.
+        await attemptDeliveryRetries();
+
     } catch (err) {
         writeLog('ERROR', `[Wake Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
     }
@@ -662,37 +666,17 @@ async function flushSubscription(subId) {
         return;
     }
 
-    const N = messages.length + tasks.length + permissions.length + heartbeats.length;
+    const events = {messages, tasks, permissions, heartbeats};
+    const digest = buildWakeDigest(identity, subId, events);
 
-    let breakdown = '';
-    const digestPriority = getHighestWakePriority(messages);
-
-    if (messages.length > 0) {
-        const latest = messages[messages.length - 1];
-        const latestPriority = normalizeWakePriority(latest.priority);
-        const prioritySuffix = latestPriority === digestPriority ? '' : `, latest priority: ${latestPriority}`;
-        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from}${prioritySuffix})`;
+    // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a live
+    // target) is re-queued for retry — carrying the EVENTS, not just this digest string, so a second
+    // failure for the same subscription coalesces them without loss. Intentional skips and successful
+    // deliveries are not re-queued.
+    const deliveryOutcome = await deliverDigest(subscription, digest);
+    if (deliveryOutcome === 'failed') {
+        enqueueDeliveryRetry(subscription, identity, events);
     }
-    if (tasks.length > 0) {
-        const latest = tasks[tasks.length - 1];
-        breakdown += `\n- ${tasks.length} task transitions (latest: ${latest.newState} on task ${latest.taskId})`;
-    }
-    if (permissions.length > 0) {
-        const latest = permissions[permissions.length - 1];
-        breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
-    }
-    if (heartbeats.length > 0) {
-        const latest = heartbeats[heartbeats.length - 1];
-        const gitHubSummary = latest.summary?.source === 'github-notification'
-            ? `; latest GitHub ${latest.summary.latest?.reason || 'notification'}: "${latest.summary.latest?.title || latest.summary.latest?.id || 'untitled'}"${latest.summary.latest?.url ? ` (${latest.summary.latest.url})` : ''}`
-            : '';
-        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${gitHubSummary})`;
-    }
-
-    const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\n\n${WAKE_LANE_DIRECTIVE}`;
-
-    // Delivery to per-harness adapter
-    await deliverDigest(subscription, digest);
 
     // Advance the per-subscription watermark to the highest delivered logId so these events are not
     // re-counted if the backlog is re-queued; persist for restart durability. logId is monotonic
@@ -832,6 +816,15 @@ function escapeAppleScriptString(value) {
  * Prevents concurrent osascript calls from colliding when multiple agents wake simultaneously.
  */
 let deliveryPromise = Promise.resolve();
+
+// Bounded retry store for wakes whose adapter dispatch THREW (a live-target delivery failure, not an
+// intentional skip). The global lastSyncId tail cursor consumes the source GraphLog events regardless
+// of delivery outcome, so a failed delivery is otherwise lost; this holds the failed EVENTS and
+// rebuilds + re-attempts the digest on later poll cycles, independent of the cursor — coalescing
+// repeated same-subscription failures so no earlier wake is overwritten. After the cap the wake is
+// dropped with a terminal error so a persistently-failing target cannot storm or wedge the loop.
+const MAX_DELIVERY_RETRIES   = Number(process.env.WAKE_MAX_DELIVERY_RETRIES) || 5;
+const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, identity, events, attempts, nextAttemptAt}
 
 /**
  * Delivers the digest to the configured harness adapter.
@@ -1117,15 +1110,133 @@ async function deliverDigest(subscription, digest) {
             await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName);
         } else if (adapter === 'test') {
             writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+        } else if (adapter === 'test-fail') {
+            // Deterministic delivery-failure hook for retry-path testing (no live target needed).
+            // Log the attempted digest first so the coalesced retry content is observable, then throw.
+            writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${digest}`);
+            throw new Error('test-fail adapter: simulated delivery failure');
         } else {
             writeLog('ERROR', `[Wake Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
         }
+        return 'delivered';
     } catch (err) {
         writeLog('ERROR', `[Wake Daemon] Failed to deliver via ${adapter}: ${err.message}`);
+        return 'failed';
     }
     });
 
     return deliveryPromise;
+}
+
+/**
+ * @summary Builds the `[WAKE]` digest string for a set of wake events. Extracted so the retry path
+ * can rebuild a SINGLE digest over the UNION of events accumulated across same-subscription failures
+ * (correct total count + max priority), rather than replaying one stale per-failure string.
+ * @param {String} identity Recipient agent identity.
+ * @param {String} subId Subscription id.
+ * @param {Object} events `{messages, tasks, permissions, heartbeats}` arrays.
+ * @returns {String}
+ */
+function buildWakeDigest(identity, subId, {messages = [], tasks = [], permissions = [], heartbeats = []} = {}) {
+    const N              = messages.length + tasks.length + permissions.length + heartbeats.length,
+          digestPriority = getHighestWakePriority(messages);
+
+    let breakdown = '';
+
+    if (messages.length > 0) {
+        const latest         = messages[messages.length - 1],
+              latestPriority = normalizeWakePriority(latest.priority),
+              prioritySuffix = latestPriority === digestPriority ? '' : `, latest priority: ${latestPriority}`;
+        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from}${prioritySuffix})`;
+    }
+    if (tasks.length > 0) {
+        const latest = tasks[tasks.length - 1];
+        breakdown += `\n- ${tasks.length} task transitions (latest: ${latest.newState} on task ${latest.taskId})`;
+    }
+    if (permissions.length > 0) {
+        const latest = permissions[permissions.length - 1];
+        breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
+    }
+    if (heartbeats.length > 0) {
+        const latest        = heartbeats[heartbeats.length - 1],
+              gitHubSummary = latest.summary?.source === 'github-notification'
+                  ? `; latest GitHub ${latest.summary.latest?.reason || 'notification'}: "${latest.summary.latest?.title || latest.summary.latest?.id || 'untitled'}"${latest.summary.latest?.url ? ` (${latest.summary.latest.url})` : ''}`
+                  : '';
+        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${gitHubSummary})`;
+    }
+
+    return `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\n\n${WAKE_LANE_DIRECTIVE}`;
+}
+
+/**
+ * @summary Queues a failed wake for a bounded retry, keyed by subscription id and holding the wake
+ * EVENTS (not a pre-built digest). A second failure for the same subscription COALESCES — its events
+ * merge into the pending entry (the watermark advanced between flushes, so the sets are disjoint →
+ * concat, no loss) and the digest is rebuilt over the union at retry time. The running attempt count
+ * is preserved so the target's consecutive-failure cap still applies.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} identity Recipient agent identity (for the rebuilt digest).
+ * @param {Object} events `{messages, tasks, permissions, heartbeats}` arrays from the failed flush.
+ * @returns {void}
+ */
+function enqueueDeliveryRetry(subscription, identity, events) {
+    const subId    = subscription.id,
+          existing = pendingDeliveryRetries.get(subId);
+
+    if (existing) {
+        existing.events = {
+            messages   : [...existing.events.messages,    ...events.messages],
+            tasks      : [...existing.events.tasks,       ...events.tasks],
+            permissions: [...existing.events.permissions, ...events.permissions],
+            heartbeats : [...existing.events.heartbeats,  ...events.heartbeats]
+        };
+        return;
+    }
+
+    pendingDeliveryRetries.set(subId, {
+        subscription,
+        identity,
+        events,
+        attempts     : 0,
+        nextAttemptAt: Date.now() + POLL_INTERVAL_MS
+    });
+}
+
+/**
+ * @summary Re-attempts due wake-delivery retries; called once per poll cycle. A success or skip
+ * clears the entry; a repeat failure increments the attempt count with linear backoff; exceeding
+ * `MAX_DELIVERY_RETRIES` drops the entry with a terminal ERROR so a persistently-unreachable target
+ * cannot storm or wedge the loop.
+ * @returns {Promise<void>}
+ */
+async function attemptDeliveryRetries() {
+    if (pendingDeliveryRetries.size === 0) return;
+
+    const now = Date.now();
+
+    for (const [subId, entry] of pendingDeliveryRetries) {
+        if (entry.nextAttemptAt > now) continue;
+
+        const digest  = buildWakeDigest(entry.identity, subId, entry.events);
+        const outcome = await deliverDigest(entry.subscription, digest);
+
+        if (outcome === 'failed') {
+            entry.attempts += 1;
+            if (entry.attempts >= MAX_DELIVERY_RETRIES) {
+                pendingDeliveryRetries.delete(subId);
+                writeLog('ERROR',
+                    `[Wake Daemon] Giving up wake delivery for ${subId} after ${entry.attempts} failed attempts; wake dropped.`
+                );
+            } else {
+                entry.nextAttemptAt = now + POLL_INTERVAL_MS * entry.attempts;
+            }
+        } else {
+            pendingDeliveryRetries.delete(subId);
+            writeLog('INFO',
+                `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
+            );
+        }
+    }
 }
 
 /**
