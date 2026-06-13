@@ -15,8 +15,9 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import InteractiveBatchQueue from '../../../../../../ai/provider/InteractiveBatchQueue.mjs';
 
 test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     let buildChatModel;
@@ -202,6 +203,29 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         const response = await model.generateContent('hello');
         // Resolved to the configured local provider, NOT Gemini, despite the key being present.
         expect(response.response.text()).toBe('local:hello');
+    });
+
+    test('routes local requests through the injected queue and strips priority from provider options (#12748)', async () => {
+        const captured = [];
+        const fakeProvider = {
+            async generate(promptText, generationOptions) {
+                captured.push({promptText, generationOptions});
+                return {content: 'r:' + promptText};
+            }
+        };
+        const queue = new InteractiveBatchQueue();
+        const model = buildChatModel({
+            modelProvider                  : 'openAiCompatible',
+            openAiCompatibleConfig         : {host: 'http://oai.test', model: 'm'},
+            openAiCompatibleProviderFactory: () => fakeProvider,
+            chatRequestQueue               : queue
+        });
+
+        const response = await model.generateContent('hi', {timeoutMs: 100, priority: 'batch'});
+
+        expect(response.response.text()).toBe('r:hi');
+        // `priority` is a queue-control param — it MUST NOT leak into the provider request.
+        expect(captured[0].generationOptions).toEqual({timeoutMs: 100});
     });
 
     test('modelProvider=gemini returns null when geminiApiKey is missing', () => {

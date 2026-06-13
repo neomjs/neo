@@ -900,7 +900,8 @@ class MemoryService extends Base {
             const result     = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs      : TIMEOUT_MS,
-                    operationLabel : 'miniSummary generation'
+                    operationLabel : 'miniSummary generation',
+                    priority       : 'interactive'
                 }),
                 TIMEOUT_MS,
                 'miniSummary generation'
