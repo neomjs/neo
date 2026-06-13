@@ -22,6 +22,7 @@ import {fileURLToPath,
 import yaml              from 'js-yaml';
 import Neo               from '../../../../../../src/Neo.mjs';
 import * as core         from '../../../../../../src/core/_export.mjs';
+import ToolService       from '../../../../../../ai/mcp/ToolService.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -88,6 +89,28 @@ function getOperationIds(server) {
 }
 
 /**
+ * @summary Returns OpenAPI operations keyed by operationId.
+ * @param {Object} server The server fixture.
+ * @returns {Object}
+ */
+function getOperationsById(server) {
+    const
+        openApiFile = path.join(repoRoot, server.openApiPath),
+        doc         = yaml.load(fs.readFileSync(openApiFile, 'utf8')),
+        operations  = {};
+
+    for (const pathItem of Object.values(doc.paths || {})) {
+        for (const operation of Object.values(pathItem || {})) {
+            if (operation && typeof operation === 'object' && operation.operationId) {
+                operations[operation.operationId] = operation;
+            }
+        }
+    }
+
+    return operations;
+}
+
+/**
  * @summary Resolves operation ids expected in default `tools/list` for a server.
  * @param {Object} server The server fixture.
  * @returns {String[]} Expected default-listed operation ids.
@@ -100,6 +123,23 @@ function getDefaultListedOperationIds(server) {
     }
 
     return operationIds;
+}
+
+/**
+ * @summary Resolves operation ids visible to the Neural Link embedded-harness projection.
+ * @param {Object} server The Neural Link server fixture.
+ * @returns {String[]} Expected embedded-harness operation ids.
+ */
+function getHarnessEmbeddedOperationIds(server) {
+    const
+        openApiFile  = path.join(repoRoot, server.openApiPath),
+        doc          = yaml.load(fs.readFileSync(openApiFile, 'utf8')),
+        visibleTiers = doc['x-neo-harness-tool-projection']?.defaultVisibleTiers || [],
+        operations   = getOperationsById(server);
+
+    return Object.entries(operations)
+        .filter(([, operation]) => visibleTiers.includes(operation['x-neo-tool-tier']))
+        .map(([operationId]) => operationId);
 }
 
 /**
@@ -204,4 +244,53 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             expect(serviceMappingKeys, `${server.name} serviceMapping drifted from openapi.yaml operationIds`).toEqual(operationIds);
         });
     }
+
+    test('neural-link embedded-harness projection lists only default-visible tier tools (#13084)', async () => {
+        const
+            server           = servers.find(item => item.name === 'neural-link'),
+            {tools: full}    = await listTools(server),
+            moduleUrl        = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {listTools: listNeuralLinkTools} = await import(moduleUrl),
+            {tools: projected} = listNeuralLinkTools({toolProjection: {mode: 'harness-embedded'}}),
+            projectedNames   = projected.map(tool => tool.name).sort(),
+            expectedNames    = getHarnessEmbeddedOperationIds(server).sort(),
+            operations       = getOperationsById(server);
+
+        expect(projectedNames).toEqual(expectedNames);
+        expect(projected.length).toBeLessThan(full.length);
+
+        const nonReadProjected = projectedNames.filter(name => operations[name]['x-neo-tool-tier'] !== 'read');
+        expect(nonReadProjected, `Embedded projection leaked non-read tools:\n${nonReadProjected.join('\n')}`).toEqual([]);
+    });
+
+    test('neural-link maps MCP request metadata to the embedded-harness projection context (#13084)', async () => {
+        const
+            server    = servers.find(item => item.name === 'neural-link'),
+            moduleUrl = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href,
+            Server    = (await import(moduleUrl)).default;
+
+        expect(Server.prototype.buildToolProjectionContext({request: {params: {}}})).toBeNull();
+        expect(Server.prototype.buildToolProjectionContext({
+            request: {params: {_meta: {neoToolProjection: 'harness-embedded'}}}
+        })).toEqual({mode: 'harness-embedded'});
+        expect(server.name).toBe('neural-link');
+    });
+
+    test('ToolService refuses embedded-harness calls outside the projected tier (#13084)', async () => {
+        const
+            server        = servers.find(item => item.name === 'neural-link'),
+            toolService   = Neo.create(ToolService, {
+                openApiFilePath: path.join(repoRoot, server.openApiPath),
+                serviceMapping : {
+                    healthcheck: async () => ({status: 'ok'}),
+                    patch_code : async () => ({patched: true})
+                }
+            }),
+            toolProjection = {mode: 'harness-embedded'};
+
+        await expect(toolService.callTool('healthcheck', {}, {toolProjection})).resolves.toEqual({status: 'ok'});
+        await expect(toolService.callTool('patch_code', {}, {toolProjection})).rejects.toThrow(
+            /Tool "patch_code" is not visible in the harness-embedded projection/
+        );
+    });
 });

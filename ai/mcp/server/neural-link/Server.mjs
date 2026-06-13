@@ -64,11 +64,32 @@ class Server extends BaseServer {
     getToolService() {
         return {
             listTools,
-            callTool: async (name, args) => {
+            callTool: async (name, args, options) => {
                 _turnId++;
-                return callTool(name, args);
+                return callTool(name, args, options);
             }
         };
+    }
+
+    /**
+     * @summary Resolves the Neural Link harness projection context from MCP request metadata.
+     *
+     * Existing developer/operator sessions send no projection metadata and keep the full
+     * surface. Embedded harness clients opt into the fail-closed read projection by passing
+     * `_meta.neoToolProjection: 'harness-embedded'` on `tools/list` and `call_tool`.
+     *
+     * @param {Object} context
+     * @param {Object} context.request The raw MCP request.
+     * @returns {Object|null}
+     */
+    buildToolProjectionContext({request}) {
+        const projection = request?.params?._meta?.neoToolProjection;
+
+        if (projection === undefined) {
+            return null;
+        }
+
+        return {mode: projection};
     }
 
     /**

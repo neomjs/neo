@@ -24,6 +24,9 @@ import Base                                            from '../../../src/core/B
  *   Default `null` means "no health gate"; appropriate for file-system-style minimal servers.
  * - `wrapDispatch(dispatch)` — wrap each tool dispatch in a context (e.g. `RequestContextService.run(...)`
  *   for memory-core's stdio identity binding). Default returns `dispatch()` unchanged.
+ * - `buildToolProjectionContext({request, phase, toolName?, args?})` — return an explicit tool
+ *   projection context for embedded harness agents. Default `null` preserves the full
+ *   developer/operator surface.
  * - `logStartupStatus(health)` — per-server startup log formatting.
  * - `buildRequestContext(reqAuth)` — SSE-only hook called by `TransportService.setup()` for per-request
  *   context construction. Default returns `{}`.
@@ -150,6 +153,20 @@ class BaseServer extends Base {
      */
     async wrapDispatch(dispatch) {
         return dispatch();
+    }
+
+    /**
+     * @summary Override: resolve the tool-projection context for ListTools / CallTool.
+     * Returning `null` preserves the existing full developer/operator surface. Returning
+     * `{mode: 'harness-embedded'}` asks the underlying ToolService to apply its OpenAPI-root
+     * `x-neo-harness-tool-projection` policy before listing or dispatching tools.
+     * @param {Object} context
+     * @param {Object} context.request The raw MCP request.
+     * @param {String} context.phase   `listTools` or `callTool`.
+     * @returns {Object|String|null}
+     */
+    buildToolProjectionContext(context) {
+        return null;
     }
 
     /**
@@ -286,7 +303,8 @@ class BaseServer extends Base {
         mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             try {
                 const {cursor, limit}     = request.params || {};
-                const {tools, nextCursor} = toolService.listTools({cursor, limit});
+                const toolProjection      = await this.buildToolProjectionContext({request, phase: 'listTools'});
+                const {tools, nextCursor} = toolService.listTools({cursor, limit, toolProjection});
 
                 const mcpTools = tools.map(tool => ({
                     name        : tool.name,
@@ -316,6 +334,7 @@ class BaseServer extends Base {
 
             try {
                 this.logger?.debug?.(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
+                const toolProjection = await this.buildToolProjectionContext({request, phase: 'callTool', toolName: name, args});
 
                 // Pre-dispatch validation hook (e.g., memory-core's identity-spoof guard).
                 // Throws bubble to the outer catch and route to formatToolError.
@@ -338,7 +357,7 @@ class BaseServer extends Base {
                     }
                 }
 
-                const dispatch = () => toolService.callTool(name, args);
+                const dispatch = () => toolService.callTool(name, args, {toolProjection});
                 const result   = await this.wrapDispatch(dispatch);
 
                 return this.formatToolResult(result);

@@ -63,7 +63,7 @@ const toolService = Neo.create(ToolService, {
 
 const _callTool = toolService.callTool.bind(toolService);
 
-const callTool = async (name, args) => {
+const callTool = async (name, args, options={}) => {
     const t0        = Date.now();
     const seqId     = `${ConnectionService.agentId || 'unknown'}_${getCurrentTurnId()}`;
     const sessionId = args?.sessionId ?? ConnectionService.getDefaultSessionId();
@@ -71,7 +71,7 @@ const callTool = async (name, args) => {
 
     let result, success = 0;
     try {
-        result  = await _callTool(name, args);
+        result  = await _callTool(name, args, options);
         success = 1;
         return result;
     } catch (err) {
