@@ -76,9 +76,10 @@ Checks:
 - **Trigger:** Does the Epic body cite a Discussion origin, Signal Ledger, `[GRADUATED_TO_TICKET]`, or `[RESOLVED_TO_AC]`? If not, mark N/A and proceed to Stage 3.
 - **Extraction:** Fetch the source Discussion body and extract the Graduation Criteria.
 - **Mapping Presence:** Does the Epic body contain a `## Discussion Criteria Mapping` section (e.g., `Source Criterion` | `Epic AC/sub` | `Status`)?
+- **Decision Record Preservation:** If the source Discussion declared `Decision Record: REQUIRED / OPTIONAL / NOT_NEEDED`, does the Epic preserve the classification and linked ADR / PR / ticket authority?
 - **Mapping Completeness:** Does the mapping cover *all* criteria from the source Discussion? Unexplained deferrals or dropped criteria are failures.
 
-**Stop condition:** If Stage 2.5 fails (missing mapping, incomplete mapping, or unexplained deferrals), the comment requires **REVISIONS_REQUESTED**. Stages 3-5 skip. The agent does not pick up subs until the mapping is added/corrected in the Epic body. This prevents the "Map vs. World Atlas" failure mode where a local Epic silently drops terrain from its source Discussion.
+**Stop condition:** If Stage 2.5 fails (missing mapping, missing Decision Record preservation when the source Discussion declared one, incomplete mapping, or unexplained deferrals), the comment requires **REVISIONS_REQUESTED**. Stages 3-5 skip. The agent does not pick up subs until the mapping is added/corrected in the Epic body. This prevents the "Map vs. World Atlas" failure mode where a local Epic silently drops terrain from its source Discussion.
 
 ### Stage 3 — Sub-Structure Coherence
 
