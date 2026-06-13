@@ -404,7 +404,7 @@ Without these normalizations, `GraphService.linkNodes`' FK-style guard would sil
 - `ai/scripts/seedAgentIdentities.mjs` — AgentIdentity node seed script (#10144)
 - `learn/agentos/tooling/Authorization.md` — Server Authorization overview
 - `learn/agentos/tooling/MemoryCoreMcpApi.md` — Memory Core tool surface
-- `learn/agentos/tooling/MultiTenantMigrationGuide.md` — #10017 lazy-tag-on-read migration design; `memorySharing` flag semantics; `healthcheck.migration.untaggedCount` operator guidance
+- `learn/agentos/tooling/MultiTenantMigrationGuide.md` — #10017 lazy-tag-on-read migration design; `memorySharing` flag semantics; on-demand migration-census operator guidance (`ai:migration-census-report`)
 
 ## Related Tickets
 
