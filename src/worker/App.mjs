@@ -812,6 +812,7 @@ class App extends Base {
     onWindowPositionChange({data}) {
         // Only available in shared workers
         Neo.manager.Window?.onWindowPositionChange(data);
+        Neo.manager.DragCoordinator?.onWindowPositionChange(data);
 
         this.fireMainViewsEvent('windowPositionChange', data)
     }

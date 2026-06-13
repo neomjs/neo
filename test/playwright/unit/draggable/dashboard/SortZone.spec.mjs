@@ -17,7 +17,8 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
  * @summary Tests for Neo.draggable.dashboard.SortZone directional thresholds
  */
 test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () => {
-    let DashboardContainer, DashboardSortZone, Rectangle, realDragCoordinatorOnDragEnd, sortZone;
+    let DashboardContainer, DashboardSortZone, Rectangle, realDragCoordinatorOnDragEnd,
+        realDragCoordinatorOnWindowPositionChange, sortZone;
 
     test.beforeAll(async () => {
         const containerModule = await import('../../../../../src/dashboard/Container.mjs');
@@ -30,6 +31,7 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         Rectangle = rectModule.default;
 
         realDragCoordinatorOnDragEnd = Object.getPrototypeOf(Neo.manager.DragCoordinator).onDragEnd;
+        realDragCoordinatorOnWindowPositionChange = Object.getPrototypeOf(Neo.manager.DragCoordinator).onWindowPositionChange;
     });
 
     test.beforeEach(() => {
@@ -50,6 +52,25 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
     });
 
     test.afterEach(() => {
+        const DragCoordinator = Neo.manager?.DragCoordinator;
+
+        if (DragCoordinator?.nativeWindowDropCandidates) {
+            for (const candidate of DragCoordinator.nativeWindowDropCandidates.values()) {
+                clearTimeout(candidate.timeoutId)
+            }
+            DragCoordinator.nativeWindowDropCandidates.clear()
+        }
+        if (DragCoordinator) {
+            DragCoordinator.nativeWindowDropDwellMs  = 450;
+            DragCoordinator.nativeWindowDropSettleMs = 250;
+            DragCoordinator.sortZones = new Map();
+            delete DragCoordinator.onWindowPositionChange
+        }
+        if (Neo.manager?.Window) {
+            Neo.manager.Window.items = [];
+            Neo.manager.Window.map   = new Map()
+        }
+
         sortZone?.destroy();
     });
 
@@ -365,5 +386,175 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         expect(dragEndCalls).toHaveLength(1);
         expect(sortZone.dragEndActive).toBe(false)
+    });
+
+    test('exposes only terminal detached popups as native window drag sources (#13028)', () => {
+        const
+            item          = {id: 'item1', reference: 'item1'},
+            detachedItems = new Map([
+                ['item1', {index: 0, terminalDrop: true,  widget: item, windowId: 'popup-item1'}],
+                ['item2', {index: 1, terminalDrop: false, widget: {id: 'item2'}, windowId: 'popup-item2'}]
+            ]),
+            mockOwner     = {
+                detachedItems
+            },
+            nativeSortZone = Object.create(DashboardSortZone.prototype);
+
+        nativeSortZone.owner = mockOwner;
+
+        expect(nativeSortZone.getNativeWindowDrag('popup-item1')).toEqual({
+            draggedItem: item,
+            widgetName : 'item1'
+        });
+        expect(nativeSortZone.getNativeWindowDrag('popup-item2')).toBe(null);
+        expect(nativeSortZone.getNativeWindowDrag('unknown')).toBe(null)
+    });
+
+    test('reintegrates terminal popup after native titlebar dwell/settle (#13028)', async () => {
+        const
+            DragCoordinator = Neo.manager.DragCoordinator,
+            WindowManager   = Neo.manager.Window,
+            item            = {id: 'item1', reference: 'item1'},
+            calls           = [],
+            sourceSortZone  = {
+                getNativeWindowDrag: windowId => windowId === 'popup-item1' ? {
+                    draggedItem: item,
+                    widgetName : 'item1'
+                } : null,
+                onRemoteDropOut   : draggedItem => calls.push({draggedItem, type: 'dropOut'}),
+                sortGroup         : 'dashboards',
+                suspendWindowDrag : widgetName => {
+                    calls.push({type: 'suspend', widgetName});
+                    return Promise.resolve()
+                },
+                windowId: 'source-window'
+            },
+            targetSortZone  = {
+                acceptsRemoteDrag: (x, y) => x >= 0 && y >= 0 && x <= 300 && y <= 300,
+                onRemoteDragMove : data => {
+                    calls.push({data, type: 'move'});
+                    return Promise.resolve()
+                },
+                onRemoteDrop: draggedItem => {
+                    calls.push({draggedItem, type: 'drop'});
+                    return Promise.resolve()
+                },
+                sortGroup: 'dashboards',
+                windowId : 'target-window'
+            };
+
+        Object.assign(DragCoordinator, {
+            nativeWindowDropDwellMs : 0,
+            nativeWindowDropSettleMs: 0,
+            onWindowPositionChange  : data => realDragCoordinatorOnWindowPositionChange.call(DragCoordinator, data),
+            sortZones               : new Map([['dashboards', new Map([
+                ['source-window', sourceSortZone],
+                ['target-window', targetSortZone]
+            ])]])
+        });
+
+        WindowManager.items = [
+            {
+                id       : 'popup-item1',
+                innerRect: new Rectangle(150, 150, 100, 80),
+                outerRect: new Rectangle(150, 130, 100, 100)
+            },
+            {
+                id       : 'target-window',
+                innerRect: new Rectangle(100, 100, 300, 300),
+                outerRect: new Rectangle(100, 100, 300, 300)
+            },
+            {
+                id       : 'source-window',
+                innerRect: new Rectangle(600, 100, 300, 300),
+                outerRect: new Rectangle(600, 100, 300, 300)
+            }
+        ];
+        WindowManager.map = new Map(WindowManager.items.map(item => [item.id, item]));
+
+        DragCoordinator.onWindowPositionChange({windowId: 'popup-item1'});
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(calls.map(call => call.type)).toEqual(['suspend', 'move', 'drop', 'dropOut']);
+
+        const move = calls.find(call => call.type === 'move').data;
+
+        expect(move.draggedItem).toBe(item);
+        expect(move.localX).toBe(100);
+        expect(move.localY).toBe(90);
+        expect(move.proxyRect.width).toBe(100);
+        expect(move.proxyRect.height).toBe(80);
+        expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)
+    });
+
+    test('clears native titlebar candidate when popup leaves before settle (#13028)', async () => {
+        const
+            DragCoordinator = Neo.manager.DragCoordinator,
+            WindowManager   = Neo.manager.Window,
+            item            = {id: 'item1', reference: 'item1'},
+            calls           = [],
+            sourceSortZone  = {
+                getNativeWindowDrag: windowId => windowId === 'popup-item1' ? {
+                    draggedItem: item,
+                    widgetName : 'item1'
+                } : null,
+                sortGroup        : 'dashboards',
+                suspendWindowDrag: () => {
+                    calls.push('suspend');
+                    return Promise.resolve()
+                },
+                windowId: 'source-window'
+            },
+            targetSortZone  = {
+                acceptsRemoteDrag: () => true,
+                onRemoteDragMove : () => {
+                    calls.push('move');
+                    return Promise.resolve()
+                },
+                onRemoteDrop: () => {
+                    calls.push('drop');
+                    return Promise.resolve()
+                },
+                sortGroup: 'dashboards',
+                windowId : 'target-window'
+            };
+
+        Object.assign(DragCoordinator, {
+            nativeWindowDropDwellMs : 0,
+            nativeWindowDropSettleMs: 50,
+            onWindowPositionChange  : data => realDragCoordinatorOnWindowPositionChange.call(DragCoordinator, data),
+            sortZones               : new Map([['dashboards', new Map([
+                ['source-window', sourceSortZone],
+                ['target-window', targetSortZone]
+            ])]])
+        });
+
+        WindowManager.items = [
+            {
+                id       : 'popup-item1',
+                innerRect: new Rectangle(150, 150, 100, 80),
+                outerRect: new Rectangle(150, 130, 100, 100)
+            },
+            {
+                id       : 'target-window',
+                innerRect: new Rectangle(100, 100, 300, 300),
+                outerRect: new Rectangle(100, 100, 300, 300)
+            }
+        ];
+        WindowManager.map = new Map(WindowManager.items.map(item => [item.id, item]));
+
+        DragCoordinator.onWindowPositionChange({windowId: 'popup-item1'});
+        expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(1);
+
+        WindowManager.items[0].innerRect = new Rectangle(700, 700, 100, 80);
+        WindowManager.items[0].outerRect = new Rectangle(700, 680, 100, 100);
+
+        DragCoordinator.onWindowPositionChange({windowId: 'popup-item1'});
+
+        await new Promise(resolve => setTimeout(resolve, 70));
+
+        expect(calls).toEqual([]);
+        expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)
     });
 });
