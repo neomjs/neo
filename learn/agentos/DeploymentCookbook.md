@@ -327,7 +327,7 @@ Operator verification anchors:
 
 - `identity.source === "proxy-header"` confirms the reverse proxy is injecting
   trusted identity headers and the server is reading them.
-- `database.topology.mode === "unified"` confirms the shared Chroma topology.
+- `database.connection.connected === true` against the configured `engines.chroma` coordinate confirms the shared Chroma instance is reachable (the topology is permanently `unified` by config — there is no separate runtime topology field).
 - Provider fields confirm the selected embedding/summary provider profile.
 - The Memory Core healthcheck remains the schema authority for MC provider/auth
   details; see [Memory Core](MemoryCore.md).

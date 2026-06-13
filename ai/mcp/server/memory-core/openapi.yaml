@@ -1388,13 +1388,13 @@ paths:
                   description: Required for subscribe; specifies how wake events are delivered.
                 harnessTargetMetadata:
                   type: object
-                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon/osascript routing target; url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions.
+                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon routing target; url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions.
                   required: [appName]
                   properties:
                     url:              {type: string}
                     coalesceWindow:   {type: integer, minimum: 0, maximum: 300}
                     daemonSocketPath: {type: string}
-                    adapter:          {type: string, enum: [osascript, tmux]}
+                    adapter:          {type: string, enum: [osascript, tmux, codex-app-server]}
                     appName:          {type: string}
                     instanceAddress:  {type: string, nullable: true}
                     addressType:      {type: string, enum: [userDataDir, pid, tmuxSession, webhookUrl], nullable: true}
@@ -1762,44 +1762,6 @@ components:
                 sessions:
                   - title: "Implement MCP Server Configuration"
                     memoryCount: 15
-        mailboxPreview:
-          type: object
-          nullable: true
-          description: "A preview of the agent's mailbox, including unread count and recent messages."
-          properties:
-            unreadCount:
-              type: integer
-              example: 2
-            inbox:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  from:
-                    type: string
-                  subject:
-                    type: string
-                  createdAt:
-                    type: string
-                  priority:
-                    type: string
-            outboxRecent:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  from:
-                    type: string
-                  subject:
-                    type: string
-                  createdAt:
-                    type: string
-                  priority:
-                    type: string
         identity:
           type: object
           description: |

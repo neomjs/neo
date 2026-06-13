@@ -848,9 +848,10 @@ class WakeSubscriptionService extends Base {
      *
      * @param {Object} opts
      * @param {String} opts.targetIdentity AgentIdentity node id that should receive the pulse.
+     * @param {String} [opts.pulseId] Optional caller-owned pulse id payload.
      * @returns {Promise<Object>} Emission status and optional `logId`.
      */
-    async emitHeartbeatPulse({targetIdentity} = {}) {
+    async emitHeartbeatPulse({targetIdentity, pulseId} = {}) {
         if (!targetIdentity) throw new Error("Missing 'targetIdentity' parameter.");
 
         // Heartbeat pulses ride the existing bridge-daemon route; a dedicated
@@ -869,7 +870,7 @@ class WakeSubscriptionService extends Base {
             throw new Error('Cannot emit heartbeat pulse: GraphLog storage unavailable.');
         }
 
-        const entityId = this._createHeartbeatPulseEntityId(targetIdentity);
+        const entityId = this._createHeartbeatPulseEntityId(targetIdentity, pulseId);
         sqlite.prepare('INSERT INTO GraphLog(entity_id, entity_type) VALUES (?, ?)').run(entityId, this.heartbeatPulseEntityType);
 
         const logId = this._getEntityLogId(entityId);
@@ -1100,10 +1101,14 @@ class WakeSubscriptionService extends Base {
      * Creates the stable GraphLog entity id for a heartbeat pulse.
      * @protected
      * @param {String} targetIdentity AgentIdentity node id.
+     * @param {String} [pulseId] Optional caller-owned id payload. Must not contain `:`.
      * @returns {String} Encoded heartbeat pulse entity id.
      */
-    _createHeartbeatPulseEntityId(targetIdentity) {
-        return `${this.heartbeatPulseEntityPrefix}:${targetIdentity}:${crypto.randomUUID()}`;
+    _createHeartbeatPulseEntityId(targetIdentity, pulseId = crypto.randomUUID()) {
+        if (String(pulseId).includes(':')) {
+            throw new Error("Heartbeat pulse id must not contain ':'.")
+        }
+        return `${this.heartbeatPulseEntityPrefix}:${targetIdentity}:${pulseId}`;
     }
 
     /**

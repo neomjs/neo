@@ -150,46 +150,11 @@ export function buildTaskOutcomesBlock(taskOutcomes) {
 }
 
 /**
- * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
- *          observability block.
- *
- * Pure function: takes an `aiConfig`-shaped input and returns the three-field projection operators
- * need to verify ChromaDB coordinate resolution — `{mode, coordinates, resolvedVia}`.
- *
- * **Post-v13 topology:** The federated topology has been retired. The system operates
- * permanently in `unified` mode. Memory Core connects as a downstream client to the shared
- * ChromaDB instance via `cfg.engines.chroma`. The `mode` is statically `'unified'` and
- * `resolvedVia` is statically `'engines.chroma'`.
- *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.engines.chroma.{host, port}`.
- * @returns {{mode: String, coordinates: Object|null, resolvedVia: String, error: String|undefined}}
- *     `mode` is statically `'unified'`. `coordinates` is `{host, port}` on success or `null` on
- *     resolver throw. `resolvedVia` is statically `'engines.chroma'`.
- * @see learn/agentos/MemoryCore.md
- */
-export function buildTopologyBlock(cfg) {
-    try {
-        const coordinates = cfg.engines?.chroma || null;
-        if (!coordinates || !coordinates.host || !coordinates.port) {
-            throw new Error('engines.chroma.{host, port} is undefined or incomplete.');
-        }
-        return {
-            mode: 'unified',
-            coordinates,
-            resolvedVia: 'engines.chroma'
-        };
-    } catch (e) {
-        return {mode: 'unified', coordinates: null, resolvedVia: 'engines.chroma', error: e.message};
-    }
-}
-
-/**
  * @summary Projects the active embedding-provider configuration into the healthcheck `providers.embedding`
  *          observability block.
  *
  * Pure function: takes an `aiConfig`-shaped input and returns the active embedding provider with
- * their host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
- * for module-scope pure projections.
+ * their host, model, and configured vector dimension. Mirrors the module-scope pure-projection precedent.
  *
  * **Why this block exists:** Operators deploying the shared MC/KB topology against a local-model stack
  * (e.g., MLX-served Qwen3 embedding model) need an observable surface confirming WHICH Chroma-side
@@ -1117,14 +1082,15 @@ class HealthService extends Base {
     }
 
     /**
-     * Computes the untagged-legacy-node counts for the multi-tenant migration observability
-     * surface. Operators scrape `healthcheck.migration.untaggedCount.total` to track
+     * Computes the untagged-legacy-node counts for the multi-tenant migration census. Reached via
+     * the on-demand `getMigrationCensus()` (the `ai:migration-census-report` script) — NOT the
+     * healthcheck (the census was relocated off the hot path). Operators read `graph.total` to track
      * how much pre-tenant-aware-era data remains as natural query patterns move writes toward
      * 100% tagged coverage. A zero total is the signal that defaults can be flipped from
      * `'legacy'` to `'private'` for the deployment.
      *
      * Implementation is pure SQLite aggregation via `GraphService.db.storage.db`. Two
-     * `COUNT(*)` queries (one per tracked node label), negligible cost per healthcheck.
+     * `COUNT(*)` queries (one per tracked node label), negligible cost.
      * Filters for `userId` absent OR empty in the node's `properties` JSON.
      *
      * Returns `{available: false, ...zeros}` when the SQLite graph is not yet mounted
@@ -1271,6 +1237,33 @@ class HealthService extends Base {
     }
 
     /**
+     * @summary On-demand migration census: SQLite graph untagged-userId counts, plus the
+     *          ChromaDB-side actionable migration-debt scan when `includeChroma` is set.
+     *
+     * Relocated off the healthcheck payload: the Chroma count batch-reads the full memory + summary
+     * collections (`#scanChromaMetadata`), an `O(records)` cost that should not run on every liveness
+     * probe. Operators run `ai:migration-census-report` (or call this) when they want the census;
+     * nothing pays the scan cost otherwise. The cheap SQLite graph counts are always included;
+     * `includeChroma` opts into the batch scan.
+     *
+     * @param {Object} [options]
+     * @param {Boolean} [options.includeChroma=false] Run the `O(records)` ChromaDB metadata scan.
+     * @returns {Promise<{graph: Object, chromadb: Object|undefined, measuredAt: String}>}
+     */
+    async getMigrationCensus({includeChroma = false} = {}) {
+        const census = {
+            graph     : await this.#checkMigrationState(),
+            measuredAt: new Date().toISOString()
+        };
+
+        if (includeChroma) {
+            census.chromadb = await this.#checkChromaMigrationState();
+        }
+
+        return census;
+    }
+
+    /**
      * Resolves the live runtime freshness diagnostic for the attached Memory Core MCP process.
      *
      * A stale runtime is a warning, not a service outage: callers can still use healthy read
@@ -1384,9 +1377,6 @@ class HealthService extends Base {
      * @private
      */
     async #performHealthCheck() {
-        // Dynamic import to avoid circular dependencies
-        const { default: MailboxService } = await import('./MailboxService.mjs');
-
         const payload = {
             status          : 'healthy',
             timestamp       : new Date().toISOString(),
@@ -1399,8 +1389,7 @@ class HealthService extends Base {
                 connection: {
                     connected  : false,
                     collections: null
-                },
-                topology  : buildTopologyBlock(aiConfig)
+                }
             },
             features : {
                 summarization: false,
@@ -1414,9 +1403,7 @@ class HealthService extends Base {
             orchestrator: {
                 tasks: buildTaskOutcomesBlock(this.#taskOutcomes)
             },
-            mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
-            migration: await this.#checkMigrationState(),
             providers: {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
                 summary  : buildSummaryProviderBlock(aiConfig),
@@ -1438,14 +1425,6 @@ class HealthService extends Base {
             payload.details.push(connectionCheck.error);
             return payload;
         }
-
-        // Step 1.5: ChromaDB-side migration observability.
-        // MUST run AFTER #checkDatabaseConnections so `ChromaManager.connected` is established.
-        // Earlier ordering (initialized at payload-construction time) cached `available: false`
-        // on cold-process healthchecks even when the same payload reported `database.connected: true`.
-        // This ordering keeps the migration counters consistent with the connection status
-        // surfaced in the same payload.
-        payload.migration.chromadb = await this.#checkChromaMigrationState();
 
         // Step 2: Check collections
         const collectionsCheck = await this.#checkCollections();
