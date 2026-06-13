@@ -107,4 +107,60 @@ test.describe('core.Observable diff-based afterSetListeners (#7091)', () => {
 
         inst.destroy();
     });
+
+    test('object-valued listener specs are removed when the listeners config drops the event', () => {
+        let count = 0;
+
+        const
+            onA  = () => { count++ },
+            inst = makeInstance({listeners: {eventA: {fn: onA}}});
+
+        inst.fire('eventA');
+        expect(count).toBe(1);
+
+        inst.listeners = {};
+        inst.fire('eventA');
+        expect(count).toBe(1);
+
+        inst.destroy();
+    });
+
+    test('object-valued un() specs match their own scope', () => {
+        let count = 0;
+
+        const
+            onA        = () => { count++ },
+            rightScope = {id: 'right-scope'},
+            wrongScope = {id: 'wrong-scope'},
+            inst       = makeInstance({});
+
+        inst.on({eventA: {fn: onA, scope: rightScope}});
+        inst.un({eventA: {fn: onA, scope: wrongScope}});
+
+        inst.fire('eventA');
+        expect(count).toBe(1);
+
+        inst.un({eventA: {fn: onA, scope: rightScope}});
+        inst.fire('eventA');
+        expect(count).toBe(1);
+
+        inst.destroy();
+    });
+
+    test('string-valued listener specs still remove by handler name', () => {
+        let count = 0;
+
+        const inst = makeInstance({});
+        inst.onA = () => { count++ };
+
+        inst.listeners = {eventA: 'onA'};
+        inst.fire('eventA');
+        expect(count).toBe(1);
+
+        inst.listeners = {};
+        inst.fire('eventA');
+        expect(count).toBe(1);
+
+        inst.destroy();
+    });
 });
