@@ -49,6 +49,21 @@ test.describe('provisionAgentRepo (Fleet Manager repo-provisioning executor)', (
         expect(clone.calls).toHaveLength(0)
     });
 
+    test("'clone' rejects a whitespace-only cloneUrl (blank-check, never reaches the clone seam)", async () => {
+        const clone = makeCloneStub();
+        await expect(provisionAgentRepo({repoPath: REPO, cloneUrl: '   ', provisioningAction: 'clone', cloneRepo: clone}))
+            .rejects.toThrow(/cloneUrl/);
+        expect(clone.calls).toHaveLength(0)
+    });
+
+    test("'clone' trims surrounding whitespace from a valid cloneUrl before cloning", async () => {
+        const clone = makeCloneStub(),
+              r     = await provisionAgentRepo({repoPath: REPO, cloneUrl: `  ${URL}  `, provisioningAction: 'clone', cloneRepo: clone});
+
+        expect(clone.calls[0]).toEqual({cloneUrl: URL, repoPath: REPO});  // trimmed before the seam
+        expect(r).toEqual({repoPath: REPO, action: 'cloned', cloned: true})
+    });
+
     test('an unknown action fails closed (throws, never clones)', async () => {
         const clone = makeCloneStub();
         await expect(provisionAgentRepo({repoPath: REPO, provisioningAction: 'frobnicate', cloneRepo: clone}))

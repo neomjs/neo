@@ -66,12 +66,16 @@ export async function provisionAgentRepo({repoPath, provisioningAction, cloneUrl
             // An existing valid checkout: keep it as-is (re-cloning would fork the path-keyed memory).
             return {repoPath, action: 'reused', cloned: false};
 
-        case 'clone':
-            if (typeof cloneUrl !== 'string' || cloneUrl.length === 0) {
-                throw new Error("provisionAgentRepo: 'cloneUrl' is required for a 'clone' action.");
+        case 'clone': {
+            // Blank-check, not just empty-check: a whitespace-only cloneUrl must fail closed and never
+            // reach the clone seam. Pass the trimmed url so accidental padding doesn't break the clone.
+            const url = typeof cloneUrl === 'string' ? cloneUrl.trim() : '';
+            if (!url) {
+                throw new Error("provisionAgentRepo: 'cloneUrl' is required (a non-blank string) for a 'clone' action.");
             }
-            await cloneRepo(cloneUrl, repoPath);
+            await cloneRepo(url, repoPath);
             return {repoPath, action: 'cloned', cloned: true};
+        }
 
         default:
             throw new Error(`provisionAgentRepo: unknown provisioningAction '${provisioningAction}'.`);
