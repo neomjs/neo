@@ -371,4 +371,18 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(full.length).toBeGreaterThan(0);
         expect(emptyForced, 'empty configured forced-mode leaked tools (should fail closed)').toEqual([]);
     });
+
+    test('resolveToolProjectionMode: CLI wins → NEO_NL_TOOL_PROJECTION_MODE env fallback → null (#13121)', async () => {
+        const {resolveToolProjectionMode} = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href);
+
+        // CLI flag wins over the env fallback
+        expect(resolveToolProjectionMode('harness-embedded', {})).toBe('harness-embedded');
+        expect(resolveToolProjectionMode('full', {NEO_NL_TOOL_PROJECTION_MODE: 'harness-embedded'})).toBe('full');
+        // env fallback when the CLI flag is absent (the Fleet Manager spawn-injection channel)
+        expect(resolveToolProjectionMode(null,      {NEO_NL_TOOL_PROJECTION_MODE: 'harness-embedded'})).toBe('harness-embedded');
+        expect(resolveToolProjectionMode(undefined, {NEO_NL_TOOL_PROJECTION_MODE: 'harness-embedded'})).toBe('harness-embedded');
+        // neither set → null (unforced → full developer/operator surface)
+        expect(resolveToolProjectionMode(null,      {})).toBeNull();
+        expect(resolveToolProjectionMode(undefined, {})).toBeNull();
+    });
 });
