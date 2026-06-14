@@ -6,10 +6,11 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import DockSplitter   from '../../../../src/dashboard/DockSplitter.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockSplitter      from '../../../../src/dashboard/DockSplitter.mjs';
 
 const createDocument = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -70,40 +71,55 @@ test.describe('Neo.dashboard.DockSplitter', () => {
     });
 
     test('commits drag completion through resizeSplit without mutating sibling styles', async () => {
-        let parent   = createParent(),
-            document = createDocument(),
-            events   = [];
+        let parent     = createParent(),
+            document   = createDocument(),
+            events     = [],
+            original   = DockLayoutAdapter.createResizeSplitOperation,
+            operations = [];
 
-        splitter = Neo.create(DockSplitter, {
-            boundaryIndex   : 0,
-            dockZoneDocument: document,
-            id              : 'dock-splitter-commit',
-            orientation     : 'horizontal',
-            parentComponent : parent,
-            splitNodeId     : 'root'
-        });
+        DockLayoutAdapter.createResizeSplitOperation = function(splitterInstance, sizes) {
+            operations.push({sizes: sizes?.slice?.() || sizes, splitter: splitterInstance});
 
-        splitter.dragZone = {
-            dragEnd: () => {}
+            return original.call(this, splitterInstance, sizes)
         };
-        splitter.on('dockSplitterResize', data => events.push(data));
 
-        await splitter.captureDragStart({clientX: 100, clientY: 0});
-        const result = splitter.onDragEnd({clientX: 0, clientY: 0});
+        try {
+            splitter = Neo.create(DockSplitter, {
+                boundaryIndex   : 0,
+                dockZoneDocument: document,
+                id              : 'dock-splitter-commit',
+                orientation     : 'horizontal',
+                parentComponent : parent,
+                splitNodeId     : 'root'
+            });
 
-        expect(result.errors).toEqual([]);
-        expect(result.document.nodes.root.sizes).toEqual([0.6, 0.4]);
-        expect(splitter.dockZoneDocument.nodes.root.sizes).toEqual([0.6, 0.4]);
-        expect(document.nodes.root.sizes).toEqual([0.7, 0.3]);
-        expect(splitter.parent.items[0].style).toBeUndefined();
-        expect(splitter.parent.items[2].style).toBeUndefined();
-        expect(splitter.parent.disabled).toBe(false);
-        expect(events).toHaveLength(1);
-        expect(events[0].descriptor).toEqual({
-            operation  : 'resizeSplit',
-            sizes      : [600, 400],
-            splitNodeId: 'root'
-        })
+            splitter.dragZone = {
+                dragEnd: () => {}
+            };
+            splitter.on('dockSplitterResize', data => events.push(data));
+
+            await splitter.captureDragStart({clientX: 100, clientY: 0});
+            const result = splitter.onDragEnd({clientX: 0, clientY: 0});
+
+            expect(operations).toHaveLength(1);
+            expect(operations[0].splitter).toBe(splitter);
+            expect(operations[0].sizes).toEqual([600, 400]);
+            expect(result.errors).toEqual([]);
+            expect(result.document.nodes.root.sizes).toEqual([0.6, 0.4]);
+            expect(splitter.dockZoneDocument.nodes.root.sizes).toEqual([0.6, 0.4]);
+            expect(document.nodes.root.sizes).toEqual([0.7, 0.3]);
+            expect(splitter.parent.items[0].style).toBeUndefined();
+            expect(splitter.parent.items[2].style).toBeUndefined();
+            expect(splitter.parent.disabled).toBe(false);
+            expect(events).toHaveLength(1);
+            expect(events[0].descriptor).toEqual({
+                operation  : 'resizeSplit',
+                sizes      : [600, 400],
+                splitNodeId: 'root'
+            })
+        } finally {
+            DockLayoutAdapter.createResizeSplitOperation = original
+        }
     });
 
     test('leaves the document unchanged when the resolved size vector is rejected', async () => {

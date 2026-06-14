@@ -249,11 +249,7 @@ class DockSplitter extends Component {
      * @protected
      */
     createResizeSplitDescriptor(data={}) {
-        return {
-            operation  : 'resizeSplit',
-            sizes      : this.resolveSizeVector(data),
-            splitNodeId: this.splitNodeId || this.data?.splitNodeId || this.data?.dockNodeId
-        }
+        return Neo.dashboard.DockLayoutAdapter.createResizeSplitOperation(this, this.resolveSizeVector(data))
     }
 
     /**
