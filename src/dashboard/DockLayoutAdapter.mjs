@@ -44,6 +44,14 @@ class DockLayoutAdapter extends Base {
     ])
 
     /**
+     * Default visual extent for projected splitter affordances.
+     * @member {Number} splitterSize=6
+     * @protected
+     * @static
+     */
+    static splitterSize = 6
+
+    /**
      * Builds a recoverable placeholder config for a dock item whose live component and blueprint cannot be resolved.
      * @param {String} itemId
      * @param {Object|null} item
@@ -178,6 +186,57 @@ class DockLayoutAdapter extends Base {
         }
 
         return values
+    }
+
+    /**
+     * @summary Creates the semantic operation descriptor emitted after a splitter drag resolves.
+     *
+     * Pointer handlers own pixel math. This helper keeps the adapter/model seam semantic by converting
+     * projected splitter metadata plus resolved child sizes into the existing `resizeSplit` descriptor.
+     * @param {Object} splitter Projected splitter config, or its `data` payload.
+     * @param {Number[]} sizes Positive values mapped to the split node's child order.
+     * @returns {Object}
+     * @static
+     */
+    static createResizeSplitOperation(splitter, sizes) {
+        let metadata = splitter?.data || splitter || {};
+
+        return {
+            operation  : 'resizeSplit',
+            sizes      : Array.isArray(sizes) ? sizes.slice() : sizes,
+            splitNodeId: metadata.splitNodeId || metadata.dockNodeId || splitter?.dockNodeId
+        }
+    }
+
+    /**
+     * @summary Projects the stable resize affordance between two adjacent split children.
+     * @param {String} splitNodeId
+     * @param {String} orientation
+     * @param {Number} boundaryIndex
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static createSplitterAffordance(splitNodeId, orientation, boundaryIndex) {
+        let isVertical = orientation === 'vertical';
+
+        return {
+            cls                   : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
+            data                  : {
+                boundaryIndex,
+                dockNodeId : splitNodeId,
+                dockSplitter: true,
+                operation   : 'resizeSplit',
+                orientation,
+                splitNodeId
+            },
+            dockNodeId            : splitNodeId,
+            dockNodeType          : 'splitter',
+            dockSplitBoundaryIndex: boundaryIndex,
+            dockSplitOrientation  : orientation,
+            [isVertical ? 'height' : 'width']: this.splitterSize,
+            ntype                 : 'component'
+        }
     }
 
     /**
@@ -316,17 +375,26 @@ class DockLayoutAdapter extends Base {
     static projectSplitNode(nodeId, node, context) {
         let children    = Array.isArray(node.children) ? node.children : [],
             flexValues  = this.getFlexValues(node.sizes, children.length),
+            items       = [],
             orientation = node.orientation === 'vertical' ? 'vertical' : 'horizontal',
             layoutNtype = orientation === 'vertical' ? 'vbox' : 'hbox';
+
+        children.forEach((childId, index) => {
+            items.push({
+                ...this.projectNode(childId, context),
+                flex: flexValues[index]
+            });
+
+            if (index < children.length - 1) {
+                items.push(this.createSplitterAffordance(nodeId, orientation, index))
+            }
+        });
 
         return {
             cls         : ['neo-dashboard-dock-split', `neo-dashboard-dock-split-${orientation}`],
             dockNodeId  : nodeId,
             dockNodeType: 'split',
-            items       : children.map((childId, index) => ({
-                ...this.projectNode(childId, context),
-                flex: flexValues[index]
-            })),
+            items,
             layout      : {ntype: layoutNtype, align: 'stretch'},
             ntype       : 'container'
         }
