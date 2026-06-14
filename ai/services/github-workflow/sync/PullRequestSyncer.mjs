@@ -224,6 +224,88 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * @summary Reconcile closed/merged pull-request locations — archive any terminal PR still sitting in
+     * the active `pulls/` directory. The sibling of `IssueSyncer.reconcileClosedIssueLocations` that was
+     * missing: `SyncService` ran the issue reconcile every sync but had no pull equivalent, so
+     * closed/merged PRs accumulated in active `resources/content/pulls/` — the marooning this reconciles.
+     * `migrateArchiveBuckets`' own JSDoc named it — "pulls … are a sibling follow-up on their own
+     * syncers." Run every sync, it both archives the existing backlog and keeps pulls archived going
+     * forward; it mirrors the issue reconcile's relocate-only, archive-only, never-fetch contract.
+     *
+     * For each cached PR still in the active dir whose terminal state buckets it to a release version, it
+     * computes the correct archive path (via the same `#planBuckets` / `#getPullRequestPath` the live sync
+     * uses) and `fs.rename`s the file there, updating the metadata path. It NEVER moves a file back to
+     * active (an archive→active relocation would violate sealed-chunk semantics), NEVER deletes, and NEVER
+     * re-fetches from GitHub.
+     *
+     * @param {object} metadata Sync metadata; pull `path`s are updated in place (the caller persists).
+     * @returns {Promise<{count: number, pullRequests: number[]}>} Archived count + the PR numbers moved.
+     */
+    async reconcileClosedPullRequestLocations(metadata) {
+        logger.info('🔄 Reconciling closed pull request locations...');
+
+        const stats = { count: 0, pullRequests: [] };
+
+        // Buckets are derived from release history; without it the correct archive version is unknown.
+        if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
+            logger.warn('No releases available for pull-request reconciliation, skipping.');
+            return stats;
+        }
+
+        const planBuckets = this.#planBuckets(metadata);
+
+        for (const prNumber in metadata.pulls) {
+            const prData              = metadata.pulls[prNumber];
+            const currentAbsolutePath = this.#resolvePath(prData.path);
+
+            // Only process PRs still in the ACTIVE directory — already-archived ones are sealed.
+            if (!currentAbsolutePath || !currentAbsolutePath.startsWith(issueSyncConfig.pullsDir)) {
+                continue;
+            }
+
+            // Only terminal PRs (CLOSED or MERGED) are archive candidates; an open PR belongs in active.
+            if (prData.state !== 'CLOSED' && prData.state !== 'MERGED') {
+                continue;
+            }
+
+            // Where this terminal PR SHOULD live (archive tier iff its bucket carries a release version).
+            const correctPath = this.#getPullRequestPath({number: parseInt(prNumber, 10)}, planBuckets);
+
+            if (!correctPath) {
+                logger.warn(`PR #${prNumber} has null target path during reconciliation, skipping.`);
+                continue;
+            }
+
+            // Already correctly located, or the correct path is still active (no archive applies) → skip.
+            if (currentAbsolutePath === correctPath || correctPath.startsWith(issueSyncConfig.pullsDir)) {
+                continue;
+            }
+
+            logger.debug(`📦 Archiving closed PR #${prNumber}: ${currentAbsolutePath} → ${correctPath}`);
+
+            try {
+                await fs.mkdir(path.dirname(correctPath), { recursive: true });
+                await fs.rename(currentAbsolutePath, correctPath);
+
+                metadata.pulls[prNumber].path = this.#relativePath(correctPath);
+
+                stats.count++;
+                stats.pullRequests.push(parseInt(prNumber, 10));
+            } catch (e) {
+                logger.error(`❌ Failed to archive PR #${prNumber}: ${e.message}`);
+            }
+        }
+
+        await pruneEmptyDirs(issueSyncConfig.pullsDir);
+
+        logger.info(stats.count > 0
+            ? `📦 Archived ${stats.count} closed pull request(s)`
+            : '✓ No closed pull requests need archiving');
+
+        return stats;
+    }
+
+    /**
      * Fetches pull requests from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.
