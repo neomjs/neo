@@ -507,6 +507,55 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Validates and normalizes split-size ratios to sum to 1.
+     * @param {Array<Number>} sizes
+     * @param {Number} count
+     * @param {String} splitNodeId
+     * @returns {{sizes:Number[], errors:String[]}}
+     * @protected
+     * @static
+     */
+    static normalizeSplitSizes(sizes, count, splitNodeId) {
+        let errors = [];
+
+        if (!Array.isArray(sizes)) {
+            return {sizes: [], errors: ['sizes must be an array']}
+        }
+
+        if (sizes.length !== count) {
+            return {sizes: [], errors: [`split "${splitNodeId}" sizes length ${sizes.length} != children length ${count}`]}
+        }
+
+        for (let i = 0; i < sizes.length; i++) {
+            let value = sizes[i];
+
+            if (typeof value !== 'number' || !Number.isFinite(value)) {
+                errors.push(`split "${splitNodeId}" size ${i} must be a finite number`)
+            } else if (value <= 0) {
+                errors.push(`split "${splitNodeId}" size ${i} must be greater than 0`)
+            }
+        }
+
+        if (errors.length) {
+            return {sizes: [], errors}
+        }
+
+        let total = sizes.reduce((sum, value) => sum + value, 0);
+
+        if (!Number.isFinite(total) || total <= 0) {
+            return {sizes: [], errors: [`split "${splitNodeId}" sizes must sum to a finite positive value`]}
+        }
+
+        let normalized = sizes.map(value => value / total);
+
+        if (normalized.length > 1) {
+            normalized[normalized.length - 1] = 1 - normalized.slice(0, -1).reduce((sum, value) => sum + value, 0)
+        }
+
+        return {sizes: normalized, errors: []}
+    }
+
+    /**
      * @summary Wraps a valid committed dock-zone document in a JSON-only saved-layout envelope.
      *
      * The wrapper and dock-zone tree are finite-schema: unknown fields fail closed. The explicit
@@ -745,6 +794,41 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Updates an existing split node's normalized child sizes.
+     *
+     * Resizable splitter affordances can pass pixel-derived or ratio-derived positive values. This
+     * operation normalizes them to the persisted dock-zone ratio contract and commits through the
+     * same fail-closed path as the rest of the semantic model.
+     * @param {Object} document
+     * @param {Object} args {splitNodeId, sizes}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static resizeSplit(document, {splitNodeId, sizes} = {}) {
+        let split = document.nodes?.[splitNodeId];
+
+        if (!split) {
+            return {document, errors: [`unknown split node "${splitNodeId}"`]}
+        }
+
+        if (split.type !== 'split') {
+            return {document, errors: [`"${splitNodeId}" is not a split node`]}
+        }
+
+        let normalized = DockZoneModel.normalizeSplitSizes(sizes, (split.children || []).length, splitNodeId);
+
+        if (normalized.errors.length) {
+            return {document, errors: normalized.errors}
+        }
+
+        let doc = DockZoneModel.clone(document);
+
+        doc.nodes[splitNodeId].sizes = normalized.sizes;
+
+        return DockZoneModel.commit(document, doc)
+    }
+
+    /**
      * @summary Removes `itemId` from the tree but preserves its catalog record (for popup/window
      * ownership), per the contract's `detachItem`.
      * @param {Object} document
@@ -804,6 +888,8 @@ class DockZoneModel extends Base {
                 return DockZoneModel.moveItem(document, descriptor);
             case 'splitNode':
                 return DockZoneModel.splitNode(document, descriptor);
+            case 'resizeSplit':
+                return DockZoneModel.resizeSplit(document, descriptor);
             case 'detachItem':
                 return DockZoneModel.detachItem(document, descriptor);
             case 'closeItem':
