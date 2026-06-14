@@ -3,10 +3,14 @@
  *
  * Backward-compatible envelope handling for the multi-writer enforcement transport. The Bridge
  * forwards either a bare JSON-RPC message (legacy / non-agent) or — once the agent identity-transport
- * lands — a Bridge-stamped `{type:'agent_message', agentId, message}` sidecar, where `agentId` is the
- * Bridge-authenticated sender (never an agent-supplied field). This returns the inner JSON-RPC plus an
- * agent context so `Neo.ai.Client` can thread a verified `agentId` to the write services for
- * topological-lock enforcement, while a legacy bare frame is dispatched exactly as before.
+ * lands — a `{type:'agent_message', agentId, message}` sidecar. **This parser does not authenticate**:
+ * it routes the frame and surfaces the agent context, but the trustworthiness of `agentId` is
+ * established UPSTREAM by the Bridge connection-auth leaf (a token verification that retires the
+ * self-claimed connection id) — not here. On current `dev` the Bridge still forwards bare JSON-RPC
+ * (no sidecar), so the `agent_message` path is dormant until the auth + emit leaves land. This returns
+ * the inner JSON-RPC plus the agent context so `Neo.ai.Client` threads the Bridge-stamped `agentId` to
+ * the write services for topological-lock enforcement, while a legacy bare frame is dispatched exactly
+ * as before.
  *
  * It is deliberately pure (no Client, no socket): `Neo.ai.Client` is a connect-on-init singleton, so
  * keeping the parsing logic free of it makes the contract unit-testable — and it lets the Client learn
