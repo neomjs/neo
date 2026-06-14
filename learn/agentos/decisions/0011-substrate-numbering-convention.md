@@ -52,6 +52,8 @@ AGENTS.md §mailbox_check_protocol
 
 Use the semantic underscore-separated form when it reduces drift across heading movement or compaction. Preserve positional `§N` where it is historical, already source-readable, or cheaper than introducing a new semantic token. Do not add manual HTML anchor tags or markdown links merely to make the reference clickable in rendered Markdown.
 
+In this substrate we call the semantic underscore-separated form a **semantic anchor** (the phrase has other meanings elsewhere; this records ours): its reference identity is the named *concept*, not the source position, so it survives heading movement and compaction where a positional `§N` (anchored to position) drifts. The term names the concept, never the rejected `<a id>` markup — it is load-bearing across the substrate (e.g. `AGENTS.md`'s *"semantic anchor per … core value"*) and was inadvertently dropped by PR #11589 when it correctly removed the manual-HTML-anchor implementation.
+
 ### 2.2 Reference stability and rendered aliases
 
 Once a semantic `§<ref>` token is introduced, the token is treated as the live reference identity until explicitly retired or updated in the same PR as the referenced heading/content change.
