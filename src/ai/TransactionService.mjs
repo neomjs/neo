@@ -35,7 +35,9 @@ const cloneTx = tx => ({txId: tx.txId, status: tx.status, ops: tx.ops.map(cloneO
  * @returns {String|null}
  */
 const stackKey = ({agentId, sessionId} = {}) => {
-    if (!agentId || !sessionId) {
+    // Stricter than a truthy check, mirroring `LockRegistry.normalizeLock` — a non-string id fails closed too, so
+    // the undo-stack key and the write-lock key reject exactly the same way (fail-closed symmetry across both sides).
+    if (typeof agentId !== 'string' || agentId === '' || typeof sessionId !== 'string' || sessionId === '') {
         return null
     }
     return JSON.stringify([agentId, sessionId])

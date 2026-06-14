@@ -108,10 +108,11 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
     });
 
     // ── fail-closed branches ──────────────────────────────────────────────────────────────────────
-    test('begin fails closed on an incomplete session identity or empty txId', () => {
+    test('begin fails closed on an invalid/incomplete writer identity or empty txId', () => {
         const s = svc();
 
-        for (const badId of [{}, {agentId: 'a'}, {sessionId: 's'}]) {
+        // missing fields + non-string ids — the stricter typeof guard mirrors LockRegistry.normalizeLock
+        for (const badId of [{}, {agentId: 'a'}, {sessionId: 's'}, {agentId: 123, sessionId: 's'}, {agentId: 'a', sessionId: {}}]) {
             expect(s.begin({id: badId, txId: 'tx-1'}).ok).toBe(false)
         }
         expect(s.begin({id: ID, txId: ''}).ok).toBe(false);
