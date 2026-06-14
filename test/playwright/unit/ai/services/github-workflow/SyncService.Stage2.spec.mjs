@@ -14,6 +14,8 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import fs             from 'fs/promises';
+import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
@@ -36,6 +38,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     let originalSyncDiscussions;
     let originalSyncPullRequests;
     let originalGetViewerPermission;
+    let originalRebuildContentIndexesAndSeo;
 
     let originalIngestIssueStates;
     let originalIngestDiscussionStates;
@@ -76,6 +79,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         originalSyncDiscussions = DiscussionSyncer.syncDiscussions;
         originalSyncPullRequests = PullRequestSyncer.syncPullRequests;
         originalGetViewerPermission = RepositoryService.getViewerPermission;
+        originalRebuildContentIndexesAndSeo = SyncService.rebuildContentIndexesAndSeo;
         originalLoadMetadata = MetadataManager.load;
         originalSaveMetadata = MetadataManager.save;
 
@@ -87,6 +91,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         DiscussionSyncer.syncDiscussions = async () => ({ count: 0 });
         PullRequestSyncer.syncPullRequests = async () => ({ count: 0 });
         RepositoryService.getViewerPermission = async () => ({ permission: 'READ' }); // Skip git commands
+        SyncService.rebuildContentIndexesAndSeo = async () => ({});
         MetadataManager.load = async () => ({ issues: {}, releases: {}, discussions: {}, pullRequests: {} });
         MetadataManager.save = async () => {};
 
@@ -108,6 +113,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         DiscussionSyncer.syncDiscussions = originalSyncDiscussions;
         PullRequestSyncer.syncPullRequests = originalSyncPullRequests;
         RepositoryService.getViewerPermission = originalGetViewerPermission;
+        SyncService.rebuildContentIndexesAndSeo = originalRebuildContentIndexesAndSeo;
         MetadataManager.load = originalLoadMetadata;
         MetadataManager.save = originalSaveMetadata;
 
@@ -125,8 +131,55 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(stage2Calls.pullRequestFeedback).toBe(1);
     });
 
+    test('runFullSync rebuilds content indexes and SEO before the auto-push status check (#13260)', async () => {
+        const order = [];
+
+        MetadataManager.save = async () => { order.push('metadata-save'); };
+        SyncService.rebuildContentIndexesAndSeo = async () => { order.push('derive'); };
+        RepositoryService.getViewerPermission = async () => {
+            order.push('permission-check');
+            return {permission: 'READ'};
+        };
+
+        const result = await SyncService.runFullSync();
+
+        expect(result.success).toBe(true);
+        expect(order).toEqual(['metadata-save', 'derive', 'permission-check']);
+    });
+
+    test('runFullSync rejects before auto-push and Stage 2 when the post-sync derive fails (#13260)', async () => {
+        let permissionChecks = 0;
+
+        SyncService.rebuildContentIndexesAndSeo = async () => {
+            throw new Error('derive failed');
+        };
+        RepositoryService.getViewerPermission = async () => {
+            permissionChecks++;
+            return {permission: 'WRITE'};
+        };
+
+        await expect(SyncService.runFullSync()).rejects.toThrow('derive failed');
+
+        expect(permissionChecks).toBe(0);
+        expect(stage2Calls).toEqual({
+            issueStates        : 0,
+            discussionStates   : 0,
+            pullRequestFeedback: 0
+        });
+    });
+
+    test('auto-commit allowlist includes content-derived Portal index and SEO artifacts (#13260)', async () => {
+        const source = await fs.readFile(path.resolve(process.cwd(), 'ai/services/github-workflow/SyncService.mjs'), 'utf8');
+
+        expect(source).toContain("'apps/portal/resources/data/'");
+        expect(source).toContain("'apps/portal/sitemap.xml'");
+        expect(source).toContain("'apps/portal/llms.txt'");
+        expect(source).toContain('git status --porcelain ${generatedSyncStatusPaths}');
+        expect(source).toContain('git add ${generatedSyncStatusPaths}');
+    });
+
     /**
-     * #11573 regression coverage — metadata persistence carry-over.
+     * Regression coverage for metadata persistence carry-over.
      *
      * Empirical bug: `IssueSyncer.pullFromGitHub` returns a FRESH `newMetadata` object
      * carrying only `{issues, pushFailures, lastSync}`. Subsequent calls to
@@ -205,7 +258,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     });
 
     /**
-     * #11573 regression coverage — explicit empty-input safety.
+     * Regression coverage for explicit empty-input safety.
      *
      * Verifies that when DiscussionSyncer / PullRequestSyncer leave metadata.discussions
      * or metadata.pulls undefined (e.g., early-exit path), the carry-over still produces
