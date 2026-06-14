@@ -234,6 +234,53 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(rejected.errors.join(' ')).toContain('windowId')
         });
 
+        test('rejects secret-like saved-layout metadata keys on save or restore', () => {
+            for (const key of ['apiKey', 'sessionKey', 'authKey']) {
+                const metadata = {[key]: 'secret-value'},
+                      saved    = DockZoneModel.createSavedLayout(doc(), {
+                          layoutId: 'operator-default',
+                          title   : 'Operator Default',
+                          metadata
+                      });
+
+                expect(saved.layout).toBe(null);
+                expect(saved.errors.join(' ')).toContain(key);
+                expect(metadata[key]).toBe('secret-value')
+            }
+
+            const nested = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                metadata: {
+                    operatorNote: {
+                        apiToken: 'secret-value'
+                    }
+                }
+            });
+
+            expect(nested.layout).toBe(null);
+            expect(nested.errors.join(' ')).toContain('apiToken');
+
+            const {layout} = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                metadata: {
+                    operatorNote: 'non-secret annotation'
+                }
+            });
+
+            layout.metadata = {
+                recovery: {
+                    authKey: 'secret-value'
+                }
+            };
+
+            const restored = DockZoneModel.restoreSavedLayout(layout);
+
+            expect(restored.document).toBe(null);
+            expect(restored.errors.join(' ')).toContain('authKey')
+        });
+
         test('rejects non-JSON values in metadata and item blueprints', () => {
             const badMetadata = DockZoneModel.createSavedLayout(doc(), {
                 layoutId: 'operator-default',
