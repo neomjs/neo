@@ -1246,13 +1246,7 @@ paths:
       operationId: undo
       x-neo-tool-tier: write-locked
       x-pass-as-object: true
-      description: |
-        Reverts the requester's most-recent committed Neural Link mutation (single-level undo).
-
-        **When to Use:**
-        After a `set_instance_properties` (or other write-class) mutation, to cleanly revert it. The captured
-        reverse-op is re-dispatched under live enforcement as the current caller. No-op + recoverable error when
-        there is nothing to undo or the revert is denied.
+      description: Reverts the requester's most-recent committed mutation (single-level undo); no-op + recoverable error when there is nothing to undo or the revert is denied.
       tags: [Instance]
       requestBody:
         content:
