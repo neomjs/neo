@@ -131,6 +131,7 @@ Optional item fields:
 - `blueprint`: a serializable Neo component config when the item is created from saved state rather than a live instance.
 - `closable`, `pinnable`, `movable`: UI policy hints. Defaults are adapter-defined.
 - `pinned`: semantic pin state. `true` means pinned open; `false` means auto-hide eligible when an adapter supports that affordance. Omitted preserves the adapter-defined default. `pinnable === false` means `setItemPinned` must reject pin-state changes.
+- `autoHidden`: semantic collapsed/auto-hide state. `true` means the item is committed as collapsed into an auto-hide affordance; `false` means the item is visible when the owning layout renders it. A pinned-open item must not be serialized with `autoHidden: true`; `setItemPinned(..., true)` clears `autoHidden`.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, secrets, PATs, or live component objects.
 
 ### Stale Component References
@@ -150,11 +151,13 @@ Persist:
 - node ids, types, zone mapping, split orientation, split child order, normalized split sizes
 - tab item order and `activeItemId`
 - stable item ids, item pin state, and JSON-only item metadata
+- committed item auto-hide/collapsed state
 
 Do not persist:
 
 - `DOMRect`, screen coordinates, hover rectangles, and preview overlays
 - `dockPreview` payloads, preview ids, rejection reasons, and placement hints
+- runtime hover/open state for auto-hidden panes
 - `windowId`, `appName`, `sourceSortZone`, `targetSortZone`, `currentIndex`, `draggedItem`
 - live `Neo.component.Base` instances
 - functions, controllers, event listeners, PATs, or harness credentials
@@ -206,6 +209,7 @@ Future implementations should mutate the model through semantic operations inste
 | `detachItem` | `itemId` | Removes an item from the dock tree while preserving its item record for popup/window ownership. |
 | `closeItem` | `itemId` | Removes an item from both tree and catalog when policy permits. |
 | `setItemPinned` | `itemId`, `pinned` | Updates an item's semantic pin state when `pinnable` policy permits it. |
+| `setItemAutoHidden` | `itemId`, `autoHidden` | Updates an item's committed collapsed/auto-hide state when `pinnable` policy permits it. |
 | `normalizeTree` | full model | Removes empty tabs/splits and validates references after any operation. |
 | `createSavedLayoutCollection` | saved-layout wrappers, metadata | Creates a named perspective collection from valid saved-layout wrappers. |
 | `upsertSavedLayout` | collection, saved-layout wrapper, `activate` | Adds or replaces a named saved layout and optionally selects it. |
@@ -221,6 +225,7 @@ Every operation must maintain:
 - `tabs.activeItemId` is either null for empty tabs or one of `tabs.items`
 - empty structural nodes are collapsed before serialization
 - pin-state changes require a boolean `pinned` payload and must reject items with `pinnable === false`
+- auto-hide state changes require a boolean `autoHidden` payload, must reject items with `pinnable === false`, and must not leave a pinned-open item serialized as collapsed
 
 ## Drag Integration Boundary
 
@@ -358,7 +363,7 @@ Optional wrapper fields:
 - `revision`: monotonic revision, content version, or adapter-owned equivalent used for conflict/recovery messaging.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, live component instances, credentials, PATs, access tokens, or harness bridge tokens.
 
-Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
+Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
 
 Restore must validate the wrapper schema, the inner dock-zone schema, and the normalized model invariants before replacing an active layout. Unsupported wrapper versions, unsupported dock-zone versions, invalid references, or invalid split/tab invariants fail closed: keep the last-good active layout and surface validation or recovery state to the caller.
 
