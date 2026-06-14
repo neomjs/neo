@@ -62,6 +62,9 @@ class Bridge extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
+        // Skip the port bind under unitTestMode — tests instantiate the singleton (for handleConnection
+        // handshake-auth + verify coverage) without standing up a real WebSocket server.
+        if (Neo.config.unitTestMode) return;
         await this.startServer();
     }
 
