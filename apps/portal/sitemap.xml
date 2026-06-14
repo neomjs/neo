@@ -812,7 +812,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-06-14T20:01:29Z</lastmod>
+    <lastmod>2026-06-14T21:37:27Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -832,7 +832,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-06-14T20:01:33Z</lastmod>
+    <lastmod>2026-06-14T21:37:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -1021,6 +1021,9 @@
   <url>
     <loc>https://neomjs.com/examples/core/config/index.html</loc>
     <lastmod>2025-07-11T21:54:21+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/examples/dashboard/dock/index.html</loc>
   </url>
   <url>
     <loc>https://neomjs.com/examples/dashboard/index.html</loc>
@@ -2169,6 +2172,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13257</loc>
+    <lastmod>2026-06-07T21:02:51+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13254</loc>
@@ -2541,7 +2545,6 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12996</loc>
-    <lastmod>2026-06-07T21:02:51+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12995</loc>
@@ -39221,6 +39224,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/13256</loc>
+    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -39749,7 +39753,6 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/12998</loc>
-    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -57704,6 +57707,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/13232</loc>
+    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
@@ -57716,7 +57720,6 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/12984</loc>
-    <lastmod>2026-06-04T10:43:07+02:00</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
