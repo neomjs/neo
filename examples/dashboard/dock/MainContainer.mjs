@@ -42,9 +42,10 @@ const resolveComponentRef = componentRef => ({
  * @summary Standalone example for the dashboard dock-zone layout system.
  *
  * Builds a representative {@link Neo.dashboard.DockZoneModel} document, then projects it through
- * {@link Neo.dashboard.DockLayoutAdapter} into a live container of split / tab zones with interactive resize
- * splitters — the missing standalone showcase + first *runtime* exercise of `DockLayoutAdapter.project`, which until
- * now was only unit-tested and never run in a live app's render path.
+ * {@link Neo.dashboard.DockLayoutAdapter} into a live container of split / tab zones with splitter affordances — the
+ * missing standalone showcase + first *runtime* exercise of `DockLayoutAdapter.project`, which until now was only
+ * unit-tested and never run in a live app's render path. This is the **static** render slice: the splitters render, but
+ * the resize commit loop is not wired here (see the items config below); that stays in the interactive slice.
  * @class Neo.examples.dashboard.dock.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -60,8 +61,9 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'fit'},
         /**
-         * The dock layout: the model projected once into a live container — split + tab zones + interactive resize
-         * splitters (the splitter affordances the projection emits drive `DockZoneModel.applyOperation('resizeSplit')`).
+         * The dock layout: the model projected once into a live container — split + tab zones + splitter affordances.
+         * The splitters render, but the resize commit loop (`dockZoneDocument` / `applyDockZoneOperation` +
+         * `onDockZoneDocumentChange`) is not wired here — that stays in the interactive slice; this is the static render.
          * @member {Object[]} items
          */
         items: [
