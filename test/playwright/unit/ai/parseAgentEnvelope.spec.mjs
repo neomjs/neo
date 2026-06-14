@@ -6,10 +6,10 @@ import {parseAgentEnvelope} from '../../../../src/ai/parseAgentEnvelope.mjs';
 const RPC = {jsonrpc: '2.0', id: 1, method: 'set_instance_properties', params: {id: 'c-1', properties: {}}};
 
 test.describe('parseAgentEnvelope (Neural Link agent-context unwrap)', () => {
-    test('agent_message → inner JSON-RPC + the Bridge-stamped agentId context', () => {
-        const r = parseAgentEnvelope({type: 'agent_message', agentId: 'neo-opus-ada', message: RPC});
+    test('agent_message → inner JSON-RPC + the Bridge-stamped (agentId, sessionId) context', () => {
+        const r = parseAgentEnvelope({type: 'agent_message', agentId: 'neo-opus-ada', sessionId: 'sess-abc', message: RPC});
         expect(r.jsonrpc).toBe(RPC);
-        expect(r.context).toEqual({agentId: 'neo-opus-ada'})
+        expect(r.context).toEqual({agentId: 'neo-opus-ada', sessionId: 'sess-abc'})
     });
 
     test('a bare JSON-RPC frame → the frame itself, no agent context (legacy / non-agent, unenforced)', () => {
@@ -20,17 +20,25 @@ test.describe('parseAgentEnvelope (Neural Link agent-context unwrap)', () => {
 
     test('agent_message with a missing / empty / non-string agentId → fail-closed marker (context.agentId null)', () => {
         for (const bad of [undefined, '', null, 42, {}]) {
-            const r = parseAgentEnvelope({type: 'agent_message', agentId: bad, message: RPC});
-            expect(r.context).toEqual({agentId: null}); // the write service denies on this
-            expect(r.jsonrpc).toBe(RPC)                  // still dispatched, so it is denied — not silently dropped
+            const r = parseAgentEnvelope({type: 'agent_message', agentId: bad, sessionId: 'sess-1', message: RPC});
+            expect(r.context).toEqual({agentId: null, sessionId: 'sess-1'}); // the write service denies on a null agentId
+            expect(r.jsonrpc).toBe(RPC)                                       // still dispatched, so it is denied — not silently dropped
+        }
+    });
+
+    test('agent_message with a missing / empty / non-string sessionId → fail-closed marker (context.sessionId null)', () => {
+        for (const bad of [undefined, '', null, 42, {}]) {
+            const r = parseAgentEnvelope({type: 'agent_message', agentId: 'neo-opus-ada', sessionId: bad, message: RPC});
+            expect(r.context).toEqual({agentId: 'neo-opus-ada', sessionId: null}); // the (agentId, sessionId) pair is incomplete → write service denies
+            expect(r.jsonrpc).toBe(RPC)                                            // still dispatched, so it is denied — not silently dropped
         }
     });
 
     test('agent_message with no / non-object message → nothing to dispatch, context preserved', () => {
         for (const bad of [undefined, null, 'x', 42]) {
-            const r = parseAgentEnvelope({type: 'agent_message', agentId: 'a', message: bad});
+            const r = parseAgentEnvelope({type: 'agent_message', agentId: 'a', sessionId: 's', message: bad});
             expect(r.jsonrpc).toBe(null);
-            expect(r.context).toEqual({agentId: 'a'})
+            expect(r.context).toEqual({agentId: 'a', sessionId: 's'})
         }
     });
 
