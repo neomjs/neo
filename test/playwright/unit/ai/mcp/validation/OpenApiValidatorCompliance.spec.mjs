@@ -127,6 +127,7 @@ const expectedNeuralLinkToolTiers = {
     set_instance_properties      : 'write-locked',
     set_route                    : 'write-locked',
     simulate_event               : 'write-locked',
+    undo                         : 'write-locked',
     verify_component_consistency : 'read'
 };
 
@@ -142,7 +143,8 @@ const neuralLinkDangerousReadForbidden = [
     'remove_component',
     'set_instance_properties',
     'set_route',
-    'simulate_event'
+    'simulate_event',
+    'undo'
 ];
 
 /**

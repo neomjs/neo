@@ -55,6 +55,7 @@ const serviceMapping = {
     set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
     simulate_event               : InteractionService.simulateEvent             .bind(InteractionService),
+    undo                         : InstanceService   .undo                      .bind(InstanceService),
     verify_component_consistency : InteractionService.verifyComponentConsistency.bind(InteractionService)
 };
 

@@ -126,6 +126,7 @@ class Client extends Base {
             find_instances         : instance,
             get_instance_properties: instance,
             set_instance_properties: instance,
+            undo                   : instance,
 
             get_record            : data,
             inspect_state_provider: data,
