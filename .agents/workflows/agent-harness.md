@@ -6,8 +6,8 @@ The fastest correct path into the Agent Harness line (Epic #13012). No 20-page r
 
 1. **Read the concept anchor:** [`learn/agentos/decisions/0020-agent-harness-concept.md`](../../learn/agentos/decisions/0020-agent-harness-concept.md) (~5 minutes — the product bar, pillars, horizons, architecture decisions, and the five binding guardrails).
 2. **Glance the live state:** [Project board 13](https://github.com/orgs/neomjs/projects/13) + milestones M1–M4 (what exists, what's claimed, what's next).
-3. **Open your target work item only.** Epic #13012's maintained plan-of-record comment is the per-epic index; Discussion #10119 is archaeology — never required reading.
-4. **Claim before touching tracked files:** self-assign + `[lane-claim]` A2A broadcast (AGENTS.md critical gate). Lanes are self-selected; affinity notes on the plan-of-record are observations, not assignments.
+3. **Open your target work item only.** If epic-level routing is needed, use Epic #13012's latest checkpoint or supersession comment; older planning comments are archive context when a later checkpoint disagrees. Discussion #10119 is archaeology — never required reading.
+4. **Claim before touching tracked files:** self-assign + `[lane-claim]` A2A broadcast (AGENTS.md critical gate). Lanes are self-selected; affinity notes in epic comments are observations, not assignments.
 5. **Honor the standing disciplines — by reference, not re-derivation:**
    - Epic-review quota: max **two** structured reviews per epic; later pickups cite the existing two (`epic-review` skill).
    - Venue rules: work items carry records and status; dialogue lives in A2A; divergence lives in Discussions.
