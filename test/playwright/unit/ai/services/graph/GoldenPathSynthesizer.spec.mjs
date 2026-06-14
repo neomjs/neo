@@ -834,3 +834,59 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain(closedId);
     });
 });
+
+test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from canonical @identity', () => {
+    let Synthesizer;
+
+    // `@`-stripped login → modelFamily, matching getCoreSwarmAgentFamilies().
+    const agentFamilies = {
+        'neo-gpt'        : 'openai',
+        'neo-claude-opus': 'claude',
+        'neo-opus-ada'   : 'claude',
+        'neo-opus-vega'  : 'claude'
+    };
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs');
+        Synthesizer = mod.default.constructor;
+    });
+
+    test('parseSelfIdLogin extracts the @identity from the Authored-by line, or null when absent', () => {
+        expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop), @neo-gpt (Euclid). Session x.')).toBe('neo-gpt');
+        expect(Synthesizer.parseSelfIdLogin('Authored by Claude Opus 4.8 (Claude Code), @neo-claude-opus (Grace).')).toBe('neo-claude-opus');
+        expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop). Session x.')).toBe(null); // legacy, no @identity
+        expect(Synthesizer.parseSelfIdLogin(null)).toBe(null)
+    });
+
+    test('resolves author family from the body @identity, overriding a drifted GitHub login', () => {
+        // The drift shape: the GitHub opener mis-resolved to a Claude login, but the body self-id is GPT.
+        const pr = {
+            number : 13233,
+            author : {login: 'neo-opus-ada'}, // drifted (mis-resolved opener)
+            body   : 'Authored by GPT-5 (Codex Desktop), @neo-gpt (Euclid). Session x.',
+            reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
+        };
+        // Login-only reads author=claude, reviewer=claude -> false (the bug). The self-id reads author=openai -> cross-family true.
+        expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
+    });
+
+    test('falls back to the GitHub login when the body carries no @identity self-id (legacy)', () => {
+        const pr = {
+            number : 1,
+            author : {login: 'neo-gpt'},
+            body   : 'Authored by GPT-5 (Codex Desktop). Session x.', // no @identity → advisory login path
+            reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
+        };
+        expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
+    });
+
+    test('same-family author + reviewer (both Claude) is correctly NOT cross-family', () => {
+        const pr = {
+            number : 2,
+            author : {login: 'someone-unmapped'},
+            body   : 'Authored by Claude Opus 4.8 (Claude Code), @neo-claude-opus (Grace).',
+            reviews: [{author: {login: 'neo-opus-ada'}, state: 'APPROVED'}] // both claude
+        };
+        expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(false)
+    });
+});
