@@ -23,7 +23,7 @@ import path                    from 'path';
 const ENV_KEY = 'NEO_FLEET_MANAGED_ROOT';
 let savedEnv;
 
-/** Reset the singleton's injectable config between serial cases. */
+/** Reset the singleton's injectable plain fields between serial cases. */
 function reset() {
     FleetManager.managedRoot         = null;
     FleetManager.lifecycleService    = null;
@@ -31,7 +31,7 @@ function reset() {
     FleetManager.repoStatusFn        = null;
 }
 
-// Singleton-stateful service → serial, with env + injected-config reset per case.
+// Singleton-stateful service → serial, with env + injected-field reset per case.
 test.describe.configure({mode: 'serial'});
 
 test.describe('Neo.ai.services.fleet.FleetManager', () => {
@@ -52,7 +52,7 @@ test.describe('Neo.ai.services.fleet.FleetManager', () => {
         expect(FleetManager.getManagedRoot()).toBe('/env/root');
     });
 
-    test('getManagedRoot: a __dirname-relative default when neither config nor env is set (no hidden fallback)', () => {
+    test('getManagedRoot: a __dirname-relative default when neither the managedRoot field nor env is set (no hidden fallback)', () => {
         const root = FleetManager.getManagedRoot();
         expect(path.isAbsolute(root)).toBe(true);
         expect(root.endsWith(path.join('.neo-ai-data', 'fleet', 'repos'))).toBe(true);
