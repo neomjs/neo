@@ -98,6 +98,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo Containers](https://neomjs.com/examples/container/base/index.html)
 - [Neo Fragment Example](https://neomjs.com/examples/container/fragment/index.html)
 - [neo.mjs config system](https://neomjs.com/examples/core/config/index.html)
+- [Neo Dashboard — Dock Layout](https://neomjs.com/examples/dashboard/dock/index.html)
 - [Neo Dashboard](https://neomjs.com/examples/dashboard/index.html)
 - [Neo Data Pipeline](https://neomjs.com/examples/data/pipeline/index.html)
 - [Neo DateSelector](https://neomjs.com/examples/date/selectorContainer/index.html)
