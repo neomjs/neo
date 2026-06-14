@@ -106,7 +106,6 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
     "features": {
         "summarization": true
     },
-    "startup":   { "summarizationStatus": "not_attempted", "summarizationDetails": null },
     "identity":  { "source": "env-var", "bound": true, "nodeId": "@neo-opus-ada" },
     "migration": { "memory": 0, "session": 0, "total": 0, "available": true },
     "providers": {
@@ -120,13 +119,7 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
             "active": "openAiCompatible",
             "host": "http://127.0.0.1:11434",
             "model": "qwen3-8b",
-            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
-            "local": true,
-            "credential": {
-                "env": "NEO_OPENAI_COMPATIBLE_API_KEY",
-                "configured": false,
-                "required": false
-            }
+            "local": true
         }
     },
     "details":   ["Connected to an externally managed ChromaDB instance", "All features are operational"],
@@ -174,11 +167,7 @@ Introduced for local chat-API provider validation (#10724). The block sits besid
 | `active` | `'gemini' \| 'openAiCompatible' \| string` | The active `modelProvider` config value for summarization. |
 | `host` | `string \| null` | The chat provider host for OpenAI-compatible APIs; `null` for Gemini. |
 | `model` | `string \| null` | The configured generation model (`modelName` for Gemini, `openAiCompatible.model` for OpenAI-compatible chat APIs). |
-| `endpoint` | `string \| null` | Chat-completions endpoint for OpenAI-compatible providers; `null` for Gemini. |
-| `local` | `boolean` | `true` when the endpoint host is `localhost`, `127.0.0.1`, or `[::1]`. |
-| `credential.env` | `string \| null` | Environment variable name operators use for the provider credential. Secret values are never exposed. |
-| `credential.configured` | `boolean` | Whether the credential env/config value is present. |
-| `credential.required` | `boolean` | Whether Memory Core requires the credential to mark summarization available. |
+| `local` | `boolean` | `true` when the configured chat endpoint host is `localhost`, `127.0.0.1`, or `[::1]`. |
 
 For Qwen3-8b or another local OpenAI-compatible chat model, set `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_OPENAI_COMPATIBLE_HOST`, and `NEO_OPENAI_COMPATIBLE_MODEL`, then verify `providers.summary` before relying on disconnect-triggered summaries.
 

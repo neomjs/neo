@@ -1648,32 +1648,6 @@ components:
                 dimensions:
                   type: integer
                   example: 4096
-                writeCanary:
-                  type: object
-                  description: "Write-side embedding canary result used to detect add_memory embedding-path degradation."
-                  properties:
-                    status:
-                      type: string
-                      enum: ["healthy", "failed"]
-                      example: "healthy"
-                    provider:
-                      type: string
-                      example: "openAiCompatible"
-                    dimensions:
-                      type: integer
-                      nullable: true
-                      example: 4096
-                    expectedDimensions:
-                      type: integer
-                      nullable: true
-                      example: 4096
-                    durationMs:
-                      type: integer
-                      example: 42
-                    error:
-                      type: string
-                      nullable: true
-                      example: null
                 error:
                   type: string
                   nullable: true
@@ -1693,75 +1667,10 @@ components:
                   type: string
                   nullable: true
                   example: "qwen3-8b"
-                endpoint:
-                  type: string
-                  nullable: true
-                  example: "http://127.0.0.1:11434/v1/chat/completions"
                 local:
                   type: boolean
                   description: "True when the configured endpoint is localhost / loopback."
                   example: true
-                credential:
-                  type: object
-                  description: "Credential observability. Contains env var names and booleans only; never secret values."
-                  properties:
-                    env:
-                      type: string
-                      nullable: true
-                      example: "NEO_OPENAI_COMPATIBLE_API_KEY"
-                    configured:
-                      type: boolean
-                      example: false
-                    required:
-                      type: boolean
-                      example: false
-        startup:
-          type: object
-          description: "Provides status on asynchronous tasks performed at server startup."
-          properties:
-            summarizationStatus:
-              type: string
-              enum: [not_attempted, skipped, completed, failed]
-              description: "The status of the automatic session summarization attempt at startup."
-              example: "completed"
-            summarizationDetails:
-              nullable: true
-              description: "Details about the summarization result. The structure depends on the value of summarizationStatus."
-              anyOf:
-                - type: object
-                  description: "Present when status is 'completed'. Contains the number of sessions processed and details for each."
-                  properties:
-                    processed:
-                      type: integer
-                      example: 2
-                    sessions:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          title:
-                            type: string
-                            example: "Implement MCP Server Configuration"
-                          memoryCount:
-                            type: integer
-                            example: 15
-                - type: object
-                  description: "Present when status is 'failed'. Contains the error message."
-                  properties:
-                    error:
-                      type: string
-                      example: "Failed to connect to Gemini API."
-                - type: object
-                  description: "Present when status is 'skipped'. Contains the reason for skipping."
-                  properties:
-                    reason:
-                      type: string
-                      example: "GEMINI_API_KEY not set"
-              example:
-                processed: 2
-                sessions:
-                  - title: "Implement MCP Server Configuration"
-                    memoryCount: 15
         identity:
           type: object
           description: |

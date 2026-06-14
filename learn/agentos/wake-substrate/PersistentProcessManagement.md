@@ -101,7 +101,6 @@ For a single-call observability check, the Memory Core healthcheck surfaces the 
 "features": {
     "wake": {
         "gateState": "enabled",       // 'enabled' | 'disabled' | 'tripped' | 'unknown'
-        "gateReason": "",
         "gateTrippedAt": null,
         "gateTrippedBy": null,
         "daemonRunning": true,        // mtime of heartbeat-liveness file < 2× POLL_INTERVAL

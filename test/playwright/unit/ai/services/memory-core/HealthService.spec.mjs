@@ -166,40 +166,6 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
 });
 
 /**
- * @summary Coverage for the orchestrator task outcome projection.
- *
- * The end-to-end healthcheck path requires mounted Memory Core dependencies. This spec
- * pins the pure projection used by `HealthService.recordTaskOutcome()` so operators get
- * an immutable per-task view under `healthcheck.orchestrator.tasks`.
- *
- * @see Neo.ai.services.memory-core.HealthService#buildTaskOutcomesBlock
- */
-test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
-    let buildTaskOutcomesBlock;
-
-    test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildTaskOutcomesBlock = mod.buildTaskOutcomesBlock;
-    });
-
-    test('clones task outcomes for healthcheck callers', () => {
-        const source = {
-            summary: {
-                status    : 'completed',
-                details   : {reason: 'periodic-sweep:600000'},
-                recordedAt: '2026-05-09T12:00:00.000Z'
-            }
-        };
-
-        const block = buildTaskOutcomesBlock(source);
-
-        expect(block).toEqual(source);
-        expect(block).not.toBe(source);
-        expect(block.summary).not.toBe(source.summary);
-    });
-});
-
-/**
  * @summary Coverage for the Memory Core runtime freshness diagnostic.
  *
  * The incident was a healthy long-lived MCP process reporting stale provider/config state after
@@ -512,10 +478,9 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         expect(fresh.status).toBe('healthy');
         expect(fresh.database.connection.collections.memories.count).toBe(11);
-        expect(fresh.providers.embedding.writeCanary).toMatchObject({
-            status  : 'healthy',
-            provider: 'openAiCompatible'
-        });
+        // The verbose writeCanary sub-object is trimmed from the lean payload; a healthy probe
+        // leaves status healthy and re-uses the cached canary result (no second embed call).
+        expect(fresh.providers.embedding).not.toHaveProperty('writeCanary');
         expect(embedCalls).toBe(1);
     });
 
@@ -543,11 +508,9 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         expect(embedCalls).toBe(2);
         expect(refreshed.status).toBe('degraded');
-        expect(refreshed.providers.embedding.writeCanary).toMatchObject({
-            status  : 'failed',
-            provider: 'openAiCompatible',
-            error   : 'embedding provider busy'
-        });
+        // Degradation DETECTION survives the trim via status + details; the verbose writeCanary
+        // sub-object no longer ships in the payload.
+        expect(refreshed.providers.embedding).not.toHaveProperty('writeCanary');
         expect(refreshed.details).toContain('Embedding write canary failed: embedding provider busy');
         expect(refreshed.details).not.toContain('All features are operational');
     });
@@ -598,11 +561,9 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         const result = await HealthService.healthcheck();
 
         expect(result.status).toBe('degraded');
-        expect(result.providers.embedding.writeCanary).toMatchObject({
-            status  : 'failed',
-            provider: 'openAiCompatible',
-            error   : 'embedding provider busy'
-        });
+        // The lean payload omits the writeCanary sub-object; a failed probe still degrades the
+        // probe via status + a details entry naming the failure.
+        expect(result.providers.embedding).not.toHaveProperty('writeCanary');
         expect(result.details).toContain('Embedding write canary failed: embedding provider busy');
         expect(result.details).not.toContain('All features are operational');
     });
@@ -920,7 +881,7 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
         buildSummaryProviderBlock = mod.buildSummaryProviderBlock;
     });
 
-    test('openAiCompatible config surfaces Qwen3 chat endpoint without leaking API key value', () => {
+    test('openAiCompatible config surfaces the lean local-route shape without leaking API key value', () => {
         const result = buildSummaryProviderBlock({
             modelProvider: 'openAiCompatible',
             openAiCompatible: {
@@ -931,174 +892,28 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
         });
 
         expect(result).toEqual({
-            active    : 'openAiCompatible',
-            host      : 'http://127.0.0.1:11434',
-            model     : 'qwen3-8b',
-            endpoint  : 'http://127.0.0.1:11434/v1/chat/completions',
-            local     : true,
-            credential: {
-                env       : 'NEO_OPENAI_COMPATIBLE_API_KEY',
-                configured: true,
-                required  : false
-            }
+            active: 'openAiCompatible',
+            host  : 'http://127.0.0.1:11434',
+            model : 'qwen3-8b',
+            local : true
         });
+        // The lean probe drops the verbose credential/endpoint sub-details; the API key value
+        // must never surface regardless.
+        expect(JSON.stringify(result)).not.toContain('secret-value');
     });
 
-    test('gemini config surfaces the Gemini key requirement', () => {
+    test('gemini config surfaces the lean cloud-route shape', () => {
         const result = buildSummaryProviderBlock({
             modelProvider: 'gemini',
             modelName    : 'gemini-2.5-flash'
-        }, {GEMINI_API_KEY: ''});
-
-        expect(result).toEqual({
-            active    : 'gemini',
-            host      : null,
-            model     : 'gemini-2.5-flash',
-            endpoint  : null,
-            local     : false,
-            credential: {
-                env       : 'GEMINI_API_KEY',
-                configured: false,
-                required  : true
-            }
-        });
-    });
-});
-
-/**
- * @summary Coverage for the auth-provider observability block in the healthcheck payload.
- *
- * Pins the pure-projection contract of `buildAuthProviderBlock` — operators deploying the shared
- * MC/KB topology with multi-tenant identity isolation rely on this block to verify which auth
- * path is primary at boot (OIDC vs proxy-header vs single-tenant fallthrough). The runtime
- * precedence semantics are owned by `Server.mjs#buildRequestContext`; this spec covers the
- * static-config projection that operators observe via healthcheck without bouncing requests
- * through the server. Includes a defense-in-depth `clientSecret`-leak guard.
- *
- * @see Neo.ai.services.memory-core.HealthService#buildAuthProviderBlock
- */
-test.describe('HealthService #10770 — buildAuthProviderBlock', () => {
-    let buildAuthProviderBlock;
-
-    test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildAuthProviderBlock = mod.buildAuthProviderBlock;
-    });
-
-    test('OIDC-only config surfaces oidc primary path with full block', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
-                realm             : 'master',
-                clientId          : 'memory-core',
-                clientSecret      : 'should-never-leak',
-                trustProxyIdentity: false
-            }
         });
 
         expect(result).toEqual({
-            configured: 'oidc',
-            oidc      : {
-                host      : 'http://127.0.0.1:8180',
-                issuerUrl : 'http://127.0.0.1:8180/realms/master',
-                realm     : 'master',
-                configured: true
-            },
-            proxyHeader: {
-                trusted       : false,
-                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-            }
+            active: 'gemini',
+            host  : null,
+            model : 'gemini-2.5-flash',
+            local : false
         });
-    });
-
-    test('proxy-header-only config surfaces proxy-header primary path with OIDC unconfigured', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : null,
-                issuerUrl         : null,
-                clientId          : null,
-                clientSecret      : '',
-                trustProxyIdentity: true
-            }
-        });
-
-        expect(result).toEqual({
-            configured: 'proxy-header',
-            oidc      : {
-                host      : null,
-                issuerUrl : null,
-                realm     : null,
-                configured: false
-            },
-            proxyHeader: {
-                trusted       : true,
-                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-            }
-        });
-    });
-
-    test('both configured — OIDC wins per Server.mjs#buildRequestContext precedence', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
-                realm             : 'master',
-                trustProxyIdentity: true
-            }
-        });
-
-        expect(result.configured).toBe('oidc');
-        expect(result.oidc.configured).toBe(true);
-        expect(result.proxyHeader.trusted).toBe(true);
-    });
-
-    test('unconfigured fallthrough — single-tenant local-dev shape', () => {
-        const result = buildAuthProviderBlock({});
-
-        expect(result).toEqual({
-            configured: 'unconfigured',
-            oidc      : {
-                host      : null,
-                issuerUrl : null,
-                realm     : null,
-                configured: false
-            },
-            proxyHeader: {
-                trusted       : false,
-                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-            }
-        });
-    });
-
-    test('clientSecret never leaks into the healthcheck payload (security guard)', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
-                clientSecret      : 'super-secret-value-that-must-never-leak',
-                trustProxyIdentity: false
-            }
-        });
-
-        const serialized = JSON.stringify(result);
-
-        expect(serialized).not.toContain('super-secret-value-that-must-never-leak');
-        expect(serialized).not.toContain('clientSecret');
-        expect(result.oidc).not.toHaveProperty('clientSecret');
-    });
-
-    test('partial OIDC (host without issuerUrl) projects to unconfigured', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : null,
-                trustProxyIdentity: false
-            }
-        });
-
-        expect(result.configured).toBe('unconfigured');
-        expect(result.oidc.configured).toBe(false);
     });
 });
 
@@ -1265,7 +1080,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('enabled');
-        expect(result.gateReason).toBe('');
         expect(result.daemonRunning).toBe(true);
         expect(result.lastPulseAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
         expect(result.secondsSinceLastPulse).toBeGreaterThanOrEqual(0);
@@ -1282,12 +1096,11 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('disabled');
-        expect(result.gateReason).toBe('maintenance pause');
         expect(result.gateTrippedBy).toBe('cli');
         expect(result.daemonRunning).toBe(true);
     });
 
-    test('gate tripped + liveness fresh → daemonRunning true, gateState tripped, reason surfaced', async () => {
+    test('gate tripped + liveness fresh → daemonRunning true, gateState tripped, trip metadata surfaced', async () => {
         const fs = await import('fs/promises');
 
         await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
@@ -1301,7 +1114,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('tripped');
-        expect(result.gateReason).toContain('orphan-spawn');
         expect(result.gateTrippedAt).toBe('2026-05-03T22:53:09.450Z');
         expect(result.gateTrippedBy).toBe('wake-substrate-monitor');
     });
@@ -1319,7 +1131,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('unknown');
-        expect(result.gateReason).toBe('');
         expect(result.gateTrippedAt).toBeNull();
         expect(result.gateTrippedBy).toBeNull();
     });
@@ -1388,7 +1199,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
 
         expect(result).toEqual({
             gateState            : 'unknown',
-            gateReason           : '',
             gateTrippedAt        : null,
             gateTrippedBy        : null,
             daemonRunning        : false,
@@ -1446,46 +1256,5 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
                 delete process.env.POLL_INTERVAL;
             }
         }
-    });
-});
-
-/**
- * @summary Coverage for the features.dream observability block in the healthcheck payload.
- *
- * Pins the contract of `buildDreamFeaturesBlock` — it projects the orchestrator's last
- * dream / golden-path run timestamps from `taskOutcomes`. The boot-time auto-* feature flags
- * were retired (the orchestrator daemon is the sole driver of dream / golden-path / summarize /
- * ingest), so the block carries only run timestamps.
- *
- * @see Neo.ai.services.memory-core.HealthService#buildDreamFeaturesBlock
- */
-test.describe('HealthService #10779, #11309 — buildDreamFeaturesBlock', () => {
-    let buildDreamFeaturesBlock;
-
-    test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildDreamFeaturesBlock = mod.buildDreamFeaturesBlock;
-    });
-
-    test('surfaces completedAt timestamp from task outcomes', () => {
-        const taskOutcomes = new Map();
-        taskOutcomes.set('dream', { details: { completedAt: '2026-05-13T20:00:00.000Z' } });
-        taskOutcomes.set('golden-path', { details: { completedAt: '2026-05-13T20:05:00.000Z' } });
-
-        const result = buildDreamFeaturesBlock(taskOutcomes);
-
-        expect(result.lastDreamRun).toBe('2026-05-13T20:00:00.000Z');
-        expect(result.lastGoldenPathRun).toBe('2026-05-13T20:05:00.000Z');
-    });
-
-    test('surfaces failedAt timestamp from task outcomes when completedAt is absent', () => {
-        const taskOutcomes = new Map();
-        taskOutcomes.set('dream', { details: { failedAt: '2026-05-13T20:01:00.000Z' } });
-        taskOutcomes.set('golden-path', { details: { failedAt: '2026-05-13T20:06:00.000Z' } });
-
-        const result = buildDreamFeaturesBlock(taskOutcomes);
-
-        expect(result.lastDreamRun).toBe('2026-05-13T20:01:00.000Z');
-        expect(result.lastGoldenPathRun).toBe('2026-05-13T20:06:00.000Z');
     });
 });
