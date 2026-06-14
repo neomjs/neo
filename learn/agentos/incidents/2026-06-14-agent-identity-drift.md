@@ -66,9 +66,20 @@ done
 
 ## Fix Approach
 
-1. **Reset the session identity-config to the correct per-agent identity** — both the `GH_TOKEN` (to the agent's own PAT) and the Memory-Core session identity-source. The drift vector is `GH_TOKEN` *precedence*: ensure the agent's own PAT is exported and that nothing upstream leaks a different one into the env. (Team / operator-owned, per harness.)
-2. **Attribution stopgap** (already applied): a canonical `@identity` line in the PR / review *body* makes authorship readable to humans + the GoldenPath reporting layer. **But it does not restore the formal GitHub review gate** — GitHub's self-review check keys on the *opener login*, not the body, so a cross-family `reviewDecision: APPROVED` still has to come from a different-family identity (or a human merge) until the token is reset.
-3. **Re-attribution of already-opened PRs** is not cleanly possible (the opener is fixed at create-time); the body `@identity` + this record are the durable attribution trail.
+1. **The fix that resolved this incident: a harness restart.** Restarting the affected harness re-derived its identity from the correct source — empirically the fastest repair (`@neo-gpt` recovered this way). **Verify across surfaces afterward** — post-restart, every one must report the *true* agent, not the drifted one:
+
+   ```bash
+   gh api user --jq .login                  # == expected agent (the GitHub token identity)
+   ```
+   - Memory-Core healthcheck: `identity.bound=true`, `identity.nodeId=@<agent>`.
+   - Memory-Core self-DM probe: stamps `from @<agent>`, and `mark_read` works again (while drifted it rejected the agent's own messages "unauthorized for the recipient").
+   - github-workflow MCP `manage_issue_comment` — and a `manage_pr_review` **`COMMENT`** probe (`COMMENT` does not mutate review state, unlike `APPROVED`/`CHANGES_REQUESTED`) — stamp as `@<agent>`.
+
+2. **Root prevention (so the restart isn't needed again): per-agent `GH_TOKEN` isolation.** The drift vector is `GH_TOKEN` *precedence* — it overrides `gh auth login`, so a stray / inherited token silently wins. Ensure each harness exports only its own PAT and nothing upstream leaks a different one into its env. (Team / operator-owned, per harness.)
+
+3. **Attribution stopgap** (apply *while* drifted): a canonical `@identity` line in the PR / review *body* keeps authorship readable to humans + the GoldenPath reporting layer (the [#13237](https://github.com/neomjs/neo/pull/13237) gate-fix resolves cross-family *eligibility* from it). **But it does not restore GitHub's native formal review gate** — the self-review check keys on the *opener login*, not the body, so a cross-family `reviewDecision: APPROVED` still needs a different-family identity (or a human merge) until the token is reset.
+
+4. **Contamination is permanent for artifacts created while drifted.** A mis-attributed PR opener is fixed at create-time; an old review / A2A object stays stamped with the drifted identity even after the harness is repaired. Re-attribution is not cleanly possible — the body `@identity`, a shell-authored correction comment, and this record are the durable attribution markers for those artifacts.
 
 ## Prevention — make it loud, not silent
 
@@ -80,6 +91,12 @@ Recommended detection seam (code implementation rides [#13234](https://github.co
 - **Write-boundary guard (defense-in-depth)** — the MCP write tools already gate on `viewerPermission`; add the same identity-match as a fail-closed precondition. For the `gh pr create` path (not routed through the MCP), a one-line pre-flight assertion before create.
 
 One assertion covers GitHub + the MCP because they share the gh-token; the Memory-Core check is the second surface.
+
+**The complete defense is three-part; the detection above is the loud-failure net under it:**
+
+1. **`GH_TOKEN` isolation** — the root (Fix Approach §2): each harness exports only its own PAT. Stops the drift at the source.
+2. **Canonical-emit** — every PR / review body carries the agent's `@identity` line (`pull-request-workflow.md` §5), so authorship is machine-readable even when the opener login is wrong.
+3. **Gate-hardening** — the cross-family review gate resolves author *family* from that body `@identity`, not the opener login ([#13237](https://github.com/neomjs/neo/pull/13237)), with a **line-anchored** parser (`/^Authored by[^\n]*?@([\w-]+)/m`). The `^…/m` anchor is load-bearing: a naive `/Authored by/` overmatches the `Co-Authored-By` trailer, and real bodies place the self-id mid-document (after `Resolves #N`), so a non-multiline match misses it entirely.
 
 ## Related
 
