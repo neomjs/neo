@@ -171,10 +171,10 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(errors.join(' ')).toContain('missing-tabs')
         });
 
-        test('rejects forbidden runtime fields before save or restore', () => {
+        test('rejects fields outside the saved-layout schema before save or restore', () => {
             const input = doc();
 
-            input.items.strategy.metadata = {
+            input.items.strategy.dockPreview = {
                 dockPreview: {placement: 'split-after'}
             };
 
@@ -191,12 +191,47 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
                 title   : 'Operator Default'
             });
 
-            layout.metadata.windowId = 7;
+            layout.windowId = 7;
 
             const restored = DockZoneModel.restoreSavedLayout(layout);
 
             expect(restored.document).toBe(null);
             expect(restored.errors.join(' ')).toContain('windowId')
+        });
+
+        test('allows opaque JSON metadata and blueprints only through explicit extension fields', () => {
+            const input = doc();
+
+            input.items.strategy.metadata = {
+                ownerTag: 'operator-note'
+            };
+            input.items.strategy.blueprint = {
+                ntype: 'container',
+                text : 'Strategy'
+            };
+
+            const {layout, errors} = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                metadata: {
+                    operatorNote: 'non-secret annotation'
+                }
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.metadata.operatorNote).toBe('non-secret annotation');
+            expect(layout.dockZone.items.strategy.metadata.ownerTag).toBe('operator-note');
+            expect(layout.dockZone.items.strategy.blueprint.ntype).toBe('container');
+
+            input.items.strategy.windowId = 42;
+
+            const rejected = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            expect(rejected.layout).toBe(null);
+            expect(rejected.errors.join(' ')).toContain('windowId')
         });
 
         test('rejects non-JSON values in metadata and item blueprints', () => {
