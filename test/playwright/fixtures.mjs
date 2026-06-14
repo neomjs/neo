@@ -304,6 +304,16 @@ export const test = base.extend({
                         return NeuralLink_ComponentService.createComponent({ sessionId, parentId, config });
                     },
 
+                    /**
+                     * Removes (destroys) a live component by id (the `remove_component` write-locked tool).
+                     * Delegates to `component.destroy(true)` — detaches the DOM node, not just the instance.
+                     * @param {String} componentId The id of the component to destroy.
+                     * @returns {Promise<Object>}
+                     */
+                    async removeComponent(componentId) {
+                        return NeuralLink_ComponentService.removeComponent({ sessionId, componentId });
+                    },
+
 
                     // --- Interaction Methods ---
 
