@@ -303,7 +303,7 @@ async function getConversationRouter(options) {
     };
 }
 
-const rawServiceMapping = {
+const serviceMapping = {
     checkout_pull_request      : PullRequestService.checkoutPullRequest    .bind(PullRequestService),
     create_discussion          : DiscussionService .createDiscussion       .bind(DiscussionService),
     create_issue               : IssueService      .createIssue            .bind(IssueService),
@@ -329,7 +329,7 @@ const rawServiceMapping = {
     update_issue_relationship  : IssueService      .updateIssueRelationship.bind(IssueService)
 };
 
-const serviceMapping = guardGitHubWriteTools(rawServiceMapping);
+const guardedServiceMapping = guardGitHubWriteTools(serviceMapping);
 
 // Exported for unit-test access. `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
@@ -345,7 +345,7 @@ export {
 
 const toolService = Neo.create(ToolService, {
     openApiFilePath,
-    serviceMapping
+    serviceMapping: guardedServiceMapping
 });
 
 const callTool  = toolService.callTool .bind(toolService);
