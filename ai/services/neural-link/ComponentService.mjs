@@ -175,6 +175,32 @@ class ComponentService extends Base {
 
         return await ConnectionService.call(sessionId, 'call_method', {id: parentId, method: 'add', args: [config]});
     }
+
+    /**
+     * Removes (destroys) a live component by its ID — a first-class, `write-locked` alternative to the
+     * generic `admin`-tier `call_method(component.destroy(...))`. The symmetric counterpart to
+     * {@link #createComponent}.
+     *
+     * Validates `componentId` server-side (fail-fast with a semantic message, no dispatch on bad input),
+     * then delegates to the existing `call_method` dispatch — `component.destroy(true)` — reusing the
+     * worker-side handler (no new worker op). The pinned `true` is `destroy`'s `updateParentVdom` flag:
+     * it detaches the node from the parent's DOM so the component actually disappears from the live tree.
+     * The framework default `destroy(false)` unregisters the instance but ORPHANS its DOM node, so the
+     * flag is required for a correct removal. Pinning the method to `destroy` is exactly what keeps this
+     * a CONSTRAINED write tool (`write-locked`) rather than the arbitrary-method `admin` `call_method`:
+     * an agent can remove components without being granted admin method-call access.
+     * @param {Object} opts             The options object.
+     * @param {String} opts.componentId The id of the component to destroy.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The result of destroying the component.
+     */
+    async removeComponent({componentId, sessionId}) {
+        if (!componentId) {
+            throw new Error('remove_component: `componentId` (the component to destroy) is required.');
+        }
+
+        return await ConnectionService.call(sessionId, 'call_method', {id: componentId, method: 'destroy', args: [true]});
+    }
 }
 
 export default Neo.setupClass(ComponentService);

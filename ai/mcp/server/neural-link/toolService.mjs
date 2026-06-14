@@ -51,6 +51,7 @@ const serviceMapping = {
     query_component              : ComponentService  .queryComponent            .bind(ComponentService),
     query_vdom                   : ComponentService  .queryVdom                 .bind(ComponentService),
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
+    remove_component             : ComponentService  .removeComponent           .bind(ComponentService),
     set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
     simulate_event               : InteractionService.simulateEvent             .bind(InteractionService),
