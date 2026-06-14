@@ -840,7 +840,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
 
     // `@`-stripped login → modelFamily, matching getCoreSwarmAgentFamilies().
     const agentFamilies = {
-        'neo-gpt'        : 'openai',
+        'neo-gpt'        : 'gpt',
         'neo-claude-opus': 'claude',
         'neo-opus-ada'   : 'claude',
         'neo-opus-vega'  : 'claude'
@@ -866,7 +866,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             body   : 'Authored by GPT-5 (Codex Desktop), @neo-gpt (Euclid). Session x.',
             reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
         };
-        // Login-only reads author=claude, reviewer=claude -> false (the bug). The self-id reads author=openai -> cross-family true.
+        // Login-only reads author=claude, reviewer=claude -> false (the bug). The self-id reads author=gpt -> cross-family true.
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
     });
 
