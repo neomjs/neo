@@ -1,4 +1,3 @@
-import {program}      from 'commander';
 import {execSync, spawnSync} from 'node:child_process';
 import {readFileSync}  from 'node:fs';
 import path            from 'node:path';
@@ -196,17 +195,12 @@ function main() {
         process.exit(1);
     }
 
-    program
-        .name('check-aiconfig-test-mutation')
-        .description('Fail-build gate: bans Class-A DB-path AiConfig mutations in tests (ADR-0019 §4 B4, #12335 orphan-bleed).')
-        .argument('[files...]', 'Specific files to scan (lint-staged passes staged paths). When omitted, scans test/.')
-        .option('-q, --quiet', 'Suppress the per-violation listing; print summary only.', false)
-        .showHelpAfterError();
-
-    program.parse(process.argv);
-
-    const argvFiles = program.args,
-          options   = program.opts();
+    // Minimal argv parse — no external deps, so the standalone CI workflow runs without `npm install`
+    // (the dependency-free pattern the other lint workflows follow). lint-staged passes staged paths as
+    // positional args; `--quiet` suppresses the per-violation listing.
+    const rawArgv   = process.argv.slice(2),
+          quiet     = rawArgv.includes('-q') || rawArgv.includes('--quiet'),
+          argvFiles = rawArgv.filter(arg => !arg.startsWith('-'));
 
     function collectDefaultFiles() {
         const result = spawnSync('find', ['test', '-type', 'f', '-name', '*.mjs'], {cwd: gitRoot, encoding: 'utf-8'});
@@ -248,7 +242,7 @@ function main() {
 
     if (violations.length > 0) {
         console.error(`\x1b[31mcheck-aiconfig-test-mutation: ${violations.length} DB-path AiConfig mutation(s) in tests:\x1b[0m`);
-        if (!options.quiet) {
+        if (!quiet) {
             violations.forEach(v => console.error('  ' + v));
             console.error('\nA test must NEVER mutate the shared AiConfig DB paths — test data bleeds into live DBs (the');
             console.error('#12335 orphan incident; ADR-0019 §4 B4). Isolate by construction (UNIT_TEST_MODE resolves the');
