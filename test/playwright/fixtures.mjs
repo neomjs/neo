@@ -293,6 +293,17 @@ export const test = base.extend({
                         return NeuralLink_ComponentService.getComponentTree({ sessionId, rootId, depth, lean });
                     },
 
+                    /**
+                     * Creates a component inside a target container at runtime (the `create_component`
+                     * write-locked tool). Validates the config server-side, then delegates to `container.add()`.
+                     * @param {String} parentId The target container's component id.
+                     * @param {Object} config   A component config declaring `module`, `ntype`, or `className`.
+                     * @returns {Promise<Object>}
+                     */
+                    async createComponent(parentId, config) {
+                        return NeuralLink_ComponentService.createComponent({ sessionId, parentId, config });
+                    },
+
 
                     // --- Interaction Methods ---
 
