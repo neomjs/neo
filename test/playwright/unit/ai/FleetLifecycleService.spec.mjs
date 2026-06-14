@@ -99,6 +99,20 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         expect(status.pid).toBeGreaterThan(0);
     });
 
+    test('start passes opts.cwd through to the spawn options (the harness runs in its provisioned repo)', () => {
+        const spawn = install({agents: {a: agentDef('a')}});
+        FleetLifecycleService.start('a', {cwd: '/managed/a/neomjs-neo'});
+
+        expect(spawn.calls[0].opts.cwd).toBe('/managed/a/neomjs-neo');
+    });
+
+    test('start without opts.cwd spawns with no cwd (inherited — unchanged legacy behavior)', () => {
+        const spawn = install({agents: {a: agentDef('a')}});
+        FleetLifecycleService.start('a');
+
+        expect(spawn.calls[0].opts.cwd).toBeUndefined();
+    });
+
     test('SECURITY: PAT injected into the child env copy only — never argv / record / live parent env', () => {
         const pat    = 'ghp_SECRET_injected_value',
               spawn  = install({agents: {a: agentDef('a')}, creds: {a: pat}}),
