@@ -851,10 +851,16 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         Synthesizer = mod.default.constructor;
     });
 
-    test('parseSelfIdLogin extracts the @identity from the Authored-by line, or null when absent', () => {
+    test('parseSelfIdLogin extracts the @identity only from the canonical line-start self-id', () => {
         expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop), @neo-gpt (Euclid). Session x.')).toBe('neo-gpt');
         expect(Synthesizer.parseSelfIdLogin('Authored by Claude Opus 4.8 (Claude Code), @neo-claude-opus (Grace).')).toBe('neo-claude-opus');
+        // Real PR bodies open with `Resolves #N`, so the self-id is mid-body — the /m anchor must still match it.
+        expect(Synthesizer.parseSelfIdLogin('Resolves #1\n\nAuthored by GPT-5 (Codex Desktop), @neo-gpt (Euclid).')).toBe('neo-gpt');
         expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop). Session x.')).toBe(null); // legacy, no @identity
+        // Overmatch guards: a `Co-Authored by` trailer or prose merely containing `Authored by` mid-line must NOT match.
+        expect(Synthesizer.parseSelfIdLogin('Co-Authored by Claude Opus, @neo-claude-opus.')).toBe(null);
+        expect(Synthesizer.parseSelfIdLogin('Note: Authored by old session @neo-gpt in context.')).toBe(null);
+        expect(Synthesizer.parseSelfIdLogin('Body text\nCo-Authored by X, @neo-gpt\nmore')).toBe(null);
         expect(Synthesizer.parseSelfIdLogin(null)).toBe(null)
     });
 

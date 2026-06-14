@@ -658,15 +658,16 @@ class GoldenPathSynthesizer extends Base {
      * The body self-id is the drift-free author source: the GitHub PR opener can mis-resolve (an MCP
      * `@me` identity-resolution drift stamps a different agent's login on the opener), but the body
      * declares its own canonical `@identity`. Returns null when no self-id is present (legacy / external
-     * bodies), so the caller falls back to the advisory login. Matches only an `@handle` on the
-     * `Authored by` line itself, so an unrelated mention elsewhere in the body cannot be mistaken for it.
+     * bodies), so the caller falls back to the advisory login. The pattern is **line-anchored** (`^…/m`)
+     * to the canonical self-id line, so a `Co-Authored by` trailer or descriptive prose that merely
+     * contains `Authored by` mid-line does not match.
      * @param {String} body
      * @returns {(String|null)} The `@`-stripped identity login, or null.
      */
     static parseSelfIdLogin(body) {
         if (typeof body !== 'string') return null;
 
-        const match = body.match(/Authored by[^\n]*?@([A-Za-z0-9-]+)/);
+        const match = body.match(/^Authored by[^\n]*?@([A-Za-z0-9-]+)/m);
 
         return match ? match[1] : null
     }
