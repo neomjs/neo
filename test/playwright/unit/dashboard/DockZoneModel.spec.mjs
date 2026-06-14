@@ -316,10 +316,11 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(restored.errors.join(' ')).toContain('authKey')
         });
 
-        test('rejects non-boolean pinned state on save or restore', () => {
+        test('rejects non-boolean pinned or autoHidden state on save or restore', () => {
             const input = doc();
 
             input.items.strategy.pinned = 'yes';
+            input.items.terminal.autoHidden = 'yes';
 
             const saved = DockZoneModel.createSavedLayout(input, {
                 layoutId: 'operator-default',
@@ -328,6 +329,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
             expect(saved.layout).toBe(null);
             expect(saved.errors.join(' ')).toContain('pinned');
+            expect(saved.errors.join(' ')).toContain('autoHidden');
 
             const savedLayout = {
                 schema  : DockZoneModel.LAYOUT_SCHEMA,
@@ -338,11 +340,44 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             };
 
             savedLayout.dockZone.items.strategy.pinned = 'yes';
+            savedLayout.dockZone.items.terminal.autoHidden = 'yes';
 
             const restored = DockZoneModel.restoreSavedLayout(savedLayout);
 
             expect(restored.document).toBe(null);
-            expect(restored.errors.join(' ')).toContain('pinned')
+            expect(restored.errors.join(' ')).toContain('pinned');
+            expect(restored.errors.join(' ')).toContain('autoHidden')
+        });
+
+        test('rejects saved layouts that pin an auto-hidden item open', () => {
+            const input = doc();
+
+            input.items.terminal.pinned = true;
+            input.items.terminal.autoHidden = true;
+
+            const saved = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            expect(saved.layout).toBe(null);
+            expect(saved.errors.join(' ')).toContain('cannot be pinned and autoHidden');
+
+            const savedLayout = {
+                schema  : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                dockZone: doc(),
+                metadata: {}
+            };
+
+            savedLayout.dockZone.items.terminal.pinned = true;
+            savedLayout.dockZone.items.terminal.autoHidden = true;
+
+            const restored = DockZoneModel.restoreSavedLayout(savedLayout);
+
+            expect(restored.document).toBe(null);
+            expect(restored.errors.join(' ')).toContain('cannot be pinned and autoHidden')
         });
 
         test('rejects non-JSON values in metadata and item blueprints', () => {
@@ -756,6 +791,19 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(unpinned.document.items.terminal.pinned).toBe(false)
         });
 
+        test('pinning an item open clears persisted auto-hide state', () => {
+            const input = doc();
+
+            input.items.terminal.autoHidden = true;
+
+            const pinned = DockZoneModel.setItemPinned(input, {itemId: 'terminal', pinned: true});
+
+            expect(pinned.errors).toEqual([]);
+            expect(pinned.document.items.terminal.pinned).toBe(true);
+            expect(pinned.document.items.terminal.autoHidden).toBe(false);
+            expect(input.items.terminal.autoHidden).toBe(true)
+        });
+
         test('fails closed for unknown items, non-boolean state, and non-pinnable items', () => {
             const input = doc();
 
@@ -772,6 +820,56 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             const locked = DockZoneModel.setItemPinned(input, {itemId: 'terminal', pinned: true});
             expect(locked.document).toBe(input);
             expect(locked.errors.join(' ')).toContain('not pinnable')
+        })
+    });
+
+    test.describe('setItemAutoHidden', () => {
+        test('updates auto-hide state without mutating caller input', () => {
+            const input = doc();
+
+            input.items.terminal.pinnable = true;
+
+            const snapshot = JSON.stringify(input),
+                  hidden   = DockZoneModel.setItemAutoHidden(input, {itemId: 'terminal', autoHidden: true});
+
+            expect(hidden.errors).toEqual([]);
+            expect(hidden.document.items.terminal.autoHidden).toBe(true);
+            expect(JSON.stringify(input)).toBe(snapshot);
+            expect(input.items.terminal.autoHidden).toBeUndefined();
+
+            const visible = DockZoneModel.applyOperation(hidden.document, {
+                operation : 'setItemAutoHidden',
+                itemId    : 'terminal',
+                autoHidden: false
+            });
+
+            expect(visible.errors).toEqual([]);
+            expect(visible.document.items.terminal.autoHidden).toBe(false)
+        });
+
+        test('fails closed for unknown items, non-boolean state, non-pinnable items, and pinned-open items', () => {
+            const input = doc();
+
+            input.items.terminal.pinnable = false;
+
+            const unknown = DockZoneModel.setItemAutoHidden(input, {itemId: 'ghost', autoHidden: true});
+            expect(unknown.document).toBe(input);
+            expect(unknown.errors.join(' ')).toContain('ghost');
+
+            const invalid = DockZoneModel.setItemAutoHidden(input, {itemId: 'terminal', autoHidden: 'true'});
+            expect(invalid.document).toBe(input);
+            expect(invalid.errors.join(' ')).toContain('boolean');
+
+            const locked = DockZoneModel.setItemAutoHidden(input, {itemId: 'terminal', autoHidden: true});
+            expect(locked.document).toBe(input);
+            expect(locked.errors.join(' ')).toContain('not pinnable');
+
+            const pinnedInput = doc();
+            pinnedInput.items.terminal.pinned = true;
+
+            const pinned = DockZoneModel.setItemAutoHidden(pinnedInput, {itemId: 'terminal', autoHidden: true});
+            expect(pinned.document).toBe(pinnedInput);
+            expect(pinned.errors.join(' ')).toContain('pinned')
         })
     });
 
