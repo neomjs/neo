@@ -31,7 +31,7 @@ The subsystem is deliberately decomposed into small pure cores plus one stateful
 | Conflict math | `LockRegistry` | Stateless overlap/conflict decision over a *caller-held* lock table: `acquire` / `release` / `releaseAll`, `sameWriter` (`(agentId, sessionId)` match), `normalizeLock` (fail-closed on an incomplete pair). | Pure (static, no I/O) | merged (#13125) |
 | Heap authority | `WriteGuard` | The *stateful* truth for one App-Worker heap: owns the live held-lock table; `requestWrite(lock) → {granted, conflict, errors}` (acquire **and hold**), `releaseWrite(lock)`, `releaseAgent({agentId, sessionId})` (the disconnect/restart sweep), `heldLocks()`. Delegates the conflict decision to `LockRegistry`. | Stateful, but pure over its inputs (no socket) | merged (#13134) |
 | Path derivation | `deriveSubtreePath(componentId, parentOf)` | Turns a live component id into the absolute root→node `subtreePath`. `parentOf` is **injected** (`id => Neo.getComponent(id)?.parentId`). Cycle-guarded; fails closed to `null` on a malformed/cyclic id. | Pure (parentOf injected) | merged (#13138) |
-| Transport parse | `parseAgentEnvelope(frame)` | Unwraps an inbound frame → `{jsonrpc, context}`. An `agent_message` sidecar yields `context: {agentId, sessionId}` (both Bridge-stamped); a bare/legacy frame yields `context: null`. Fail-closed `null` per field on a malformed id. | Pure | merged (#13174) + `sessionId` (#13205) |
+| Transport parse | `parseAgentEnvelope(frame)` | Unwraps an inbound frame → `{jsonrpc, context}`. An `agent_message` sidecar yields `context: {agentId, sessionId}` (both Bridge-stamped); a bare/legacy frame yields `context: null`. Fail-closed `null` per field on a malformed id. | Pure | base merged (#13174); `sessionId` thread approved-pending (#13205) |
 | Decision core | `resolveWriteLock(context, componentId, parentOf)` | The decision between a parsed request and `WriteGuard`: `context` absent → `{enforced:false}` (legacy, unguarded); identity incomplete → deny `incomplete-identity`; target unresolvable → deny `unresolvable-target`; valid → `{enforced:true, lock:{agentId, sessionId, subtreePath}}`. Composes `deriveSubtreePath`. | Pure | approved (#13207 / PR #13208) |
 | Write-path wiring | `InstanceService` (`src/ai/client/`) | **Pending.** `setInstanceProperties` / `callMethod` call `resolveWriteLock` then `WriteGuard.requestWrite` **before** mutating; deny-no-mutate on a conflict; the `agent_disconnected` frame drives `WriteGuard.releaseAgent`. | Integration | **pending (#13167 Leaf B/C)** |
 
@@ -68,7 +68,8 @@ Every layer fails **closed** — only a fully-valid, identified, non-conflicting
 
 ## Status & Pending Work
 
-- **Merged / approved:** `LockRegistry`, `WriteGuard`, `deriveSubtreePath`, `parseAgentEnvelope` (+ its `sessionId` thread), `resolveWriteLock`.
+- **Merged on `dev`:** `LockRegistry`, `WriteGuard`, `deriveSubtreePath`, `parseAgentEnvelope` (base).
+- **Approved, pending merge:** the `parseAgentEnvelope` `sessionId` thread (#13205) and `resolveWriteLock` (#13208).
 - **Pending (#13167 Leaf B/C):** the `InstanceService` write-path wiring that consumes `resolveWriteLock` + `WriteGuard.requestWrite` before mutating, and the `agent_disconnected` → `WriteGuard.releaseAgent` sweep that frees a dropped writer's locks. The umbrella closes on those plus a live two-agent cross-write-denial integration proof.
 - **Out of scope here:** the Bridge auth + sidecar transport (the identity Leaf A, already merged) and cross-harness session-id canonicalization (#12984).
 
