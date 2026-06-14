@@ -658,7 +658,7 @@ async function flushSubscription(subId) {
     }
 
     const events = {messages, tasks, permissions, heartbeats};
-    const digest = buildWakeDigest(identity, subId, events);
+    const digest = buildWakeDigest(identity, events);
 
     // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a live
     // target) is re-queued for retry — carrying the EVENTS, not just this digest string, so a second
@@ -1124,11 +1124,10 @@ async function deliverDigest(subscription, digest) {
  * can rebuild a SINGLE digest over the UNION of events accumulated across same-subscription failures
  * (correct total count + max priority), rather than replaying one stale per-failure string.
  * @param {String} identity Recipient agent identity.
- * @param {String} subId Subscription id.
  * @param {Object} events `{messages, tasks, permissions, heartbeats}` arrays.
  * @returns {String}
  */
-function buildWakeDigest(identity, subId, {messages = [], tasks = [], permissions = [], heartbeats = []} = {}) {
+function buildWakeDigest(identity, {messages = [], tasks = [], permissions = [], heartbeats = []} = {}) {
     const N              = messages.length + tasks.length + permissions.length + heartbeats.length,
           digestPriority = getHighestWakePriority(messages);
 
@@ -1163,7 +1162,7 @@ function buildWakeDigest(identity, subId, {messages = [], tasks = [], permission
     const isPureHeartbeat = heartbeats.length > 0 && messages.length === 0 && tasks.length === 0 && permissions.length === 0,
           laneDirective   = isPureHeartbeat ? `\n\n${WAKE_LANE_DIRECTIVE}` : '';
 
-    return `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}${laneDirective}`;
+    return `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}${laneDirective}`;
 }
 
 /**
@@ -1215,7 +1214,7 @@ async function attemptDeliveryRetries() {
     for (const [subId, entry] of pendingDeliveryRetries) {
         if (entry.nextAttemptAt > now) continue;
 
-        const digest  = buildWakeDigest(entry.identity, subId, entry.events);
+        const digest  = buildWakeDigest(entry.identity, entry.events);
         const outcome = await deliverDigest(entry.subscription, digest);
 
         if (outcome === 'failed') {
