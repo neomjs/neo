@@ -483,6 +483,7 @@ Here you find the full history of Neo.mjs updates.
 - [Records](https://neomjs.com/raw/learn/guides/datahandling/Records.md)
 - [Grids](https://neomjs.com/raw/learn/guides/datahandling/Grids.md)
 - [Dynamic Grids & Virtualization](https://neomjs.com/raw/learn/guides/datahandling/DynamicGrids.md)
+- [Pooled Grid Animation Contract](https://neomjs.com/raw/learn/guides/datahandling/PooledGridAnimation.md)
 - [Streaming Data & Progressive Rendering](https://neomjs.com/raw/learn/guides/datahandling/Streaming.md)
 - [Tables (Stores)](https://neomjs.com/raw/learn/guides/datahandling/Tables.md)
 - [TreeStore & Hierarchical Data](https://neomjs.com/raw/learn/guides/datahandling/TreeStore.md)
