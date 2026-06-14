@@ -99,7 +99,7 @@ test.describe('Neo.ai.services.neural-link.ComponentService — createComponent 
         expect(calls[0]).toEqual({
             sessionId: 's1',
             op       : 'call_method',
-            payload  : {id: 'toolbar-1', method: 'add', args: [config]}
+            payload  : {id: 'toolbar-1', method: 'add', args: [config], undoKind: 'create_component'} // server-stamped undo-capture marker
         });
         expect(result).toEqual({success: true, id: 'neo-created-1'});
     });

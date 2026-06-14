@@ -180,7 +180,11 @@ class ComponentService extends Base {
             throw new Error('create_component: `config` must declare a `module`, `ntype`, or `className` to instantiate.');
         }
 
-        return await ConnectionService.call(sessionId, 'call_method', {id: parentId, method: 'add', args: [config]});
+        // `undoKind` is a server-only capture marker (deliberately NOT in CallMethodRequest's schema): the app-side
+        // write-path records create's inverse (destroy the new child) so the `undo` tool can revert a creation. The
+        // generic `call_method` service forwards only {id, method, args}, so this marker cannot be injected by a
+        // public caller — generic call_method stays non-undoable.
+        return await ConnectionService.call(sessionId, 'call_method', {id: parentId, method: 'add', args: [config], undoKind: 'create_component'});
     }
 
     /**

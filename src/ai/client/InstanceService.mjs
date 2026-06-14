@@ -168,6 +168,59 @@ class InstanceService extends Service {
     }
 
     /**
+     * Builds the reverse-op for a `create_component` write — `create⁻¹ = destroy(newId)`, capturing the id of the
+     * just-added child. **Server-stamped only:** the inverse is recorded ONLY when `undoKind === 'create_component'`
+     * (the server-side generic `call_method` strips any public-injected marker), the dispatch is the canonical
+     * `add(config)` shape, a writer identity is present, and it is not an undo replay. Returns `null` otherwise so
+     * {@link #recordUndo} no-ops — a generic `call_method` stays non-undoable. Data-not-code: the reverse is a
+     * re-dispatchable validated tool descriptor (the app-side `destroy(true)` form `remove_component` maps to).
+     * @param {Object} params
+     * @param {Object|null} params.context  The Bridge-stamped `{agentId, sessionId}` writer pair.
+     * @param {String} params.id  The parent container id (the `add` target).
+     * @param {String} params.method
+     * @param {Array} params.args
+     * @param {String} [params.undoKind]  The server-stamped capture marker.
+     * @param {*} params.result  The `add` return — the created component instance.
+     * @returns {Object|null} A reverse-record op, or `null` when the call is not a capturable create.
+     * @protected
+     */
+    buildCreateReverse({context, id, method, args, undoKind, result}) {
+        if (undoKind !== 'create_component' || context?.undoReplay) {
+            return null
+        }
+
+        if (!context?.agentId || !context?.sessionId) {
+            return null
+        }
+
+        // canonical create shape only — a marker on any other call_method shape is dropped (fail-closed)
+        if (method !== 'add' || args.length !== 1 || !args[0] || typeof args[0] !== 'object') {
+            return null
+        }
+
+        const newId = result?.id;
+
+        if (typeof newId !== 'string' || newId === '') {
+            return null
+        }
+
+        const targetSubtreePath = deriveSubtreePath(newId, cid => Neo.getComponent(cid)?.parentId);
+
+        if (!targetSubtreePath) {
+            return null
+        }
+
+        return {
+            sequenceId       : `${newId}:${++this.undoSequence}`,
+            originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+            targetSubtreePath,
+            forward          : {tool: 'create_component', args: {parentId: id, config: args[0]}},
+            reverse          : {tool: 'call_method', args: {id: newId, method: 'destroy', args: [true]}},
+            label            : `create ${args[0].ntype || args[0].className || 'component'} in ${id}`
+        }
+    }
+
+    /**
      * Records a captured reverse-op as a single-op committed transaction on this heap's undo stack
      * ({@link Neo.ai.Client#transactionService}) — `begin` → `record` → `commit`, keyed on the writer's
      * `(agentId, sessionId)`. Best-effort: a `null` op, an absent stack authority, or a stack rejection (a malformed /
@@ -266,7 +319,7 @@ class InstanceService extends Service {
      * @param {Object|null} [context] The Bridge-stamped agent writer pair (2nd dispatch arg); null/undefined = legacy.
      * @returns {Object}
      */
-    async callMethod({id, method, args=[]}, context) {
+    async callMethod({id, method, args=[], undoKind}, context) {
         const instance = Neo.get(id);
 
         if (!instance) {
@@ -285,6 +338,12 @@ class InstanceService extends Service {
         this.assertWritable(context, id);
 
         const result = await scope[methodName].call(scope, ...args);
+
+        // create_component reverse-capture: a server-stamped create (the canonical `add(config)` dispatch) records
+        // its inverse — destroy the new child — so an agent can undo a creation. The marker is server-only (the
+        // server-side generic call_method forwards just {id, method, args}, so a public-injected `undoKind` is
+        // stripped); a generic call_method + an undo replay are NOT captured. See {@link #buildCreateReverse}.
+        this.recordUndo(context, this.buildCreateReverse({context, id, method, args, undoKind, result}));
 
         return {result: this.safeSerialize(result)}
     }
