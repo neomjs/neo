@@ -214,6 +214,11 @@ class Bridge extends Base {
         logger.info(`Bridge: Agent connected [${id}]`);
         this.agents.set(id, ws);
 
+        // A stable, Bridge-authoritative per-connection id (minted here, lives for the connection's
+        // lifetime) stamped into the agent_message sidecar + the disconnect notice, so the app-side
+        // write-guard can key locks on the (agentId, sessionId) pair.
+        ws.sessionId = crypto.randomUUID();
+
         ws.on('message', (data) => this.handleAgentMessage(id, data));
         ws.on('close',   ()     => {
             logger.info(`Bridge: Agent disconnected [${id}]`);
@@ -221,6 +226,13 @@ class Bridge extends Base {
             this.broadcastToAgents({
                 type   : 'agent_disconnected',
                 agentId: id
+            });
+            // Lets the app-side write-guard release locks held by the now-dead writer; idempotent so a
+            // blanket app broadcast is safe.
+            this.broadcastToApps({
+                type     : 'agent_disconnected',
+                agentId  : id,
+                sessionId: ws.sessionId
             });
         });
         ws.on('error', (err) => logger.error(`Bridge: Agent error [${id}]`, err));
@@ -294,11 +306,17 @@ class Bridge extends Base {
                 return;
             }
 
-            const appWs = this.apps.get(payload.target);
+            const agentWs = this.agents.get(agentId);
+            const appWs   = this.apps.get(payload.target);
 
             if (appWs) {
-                // Forward transparently
-                appWs.send(JSON.stringify(payload.message));
+                // Forward, wrapping the message in the Bridge-stamped sidecar (the app-side Client unwraps it)
+                appWs.send(JSON.stringify({
+                    type     : 'agent_message',
+                    agentId,
+                    sessionId: agentWs?.sessionId,
+                    message  : payload.message
+                }));
             } else {
                 logger.warn(`Bridge: Target App [${payload.target}] not found for Agent [${agentId}]`);
 
@@ -352,6 +370,17 @@ class Bridge extends Base {
     broadcastToAgents(payload) {
         const data = JSON.stringify(payload);
         for (const ws of this.agents.values()) {
+            ws.send(data);
+        }
+    }
+
+    /**
+     * Sends a message to all connected Apps.
+     * @param {Object} payload
+     */
+    broadcastToApps(payload) {
+        const data = JSON.stringify(payload);
+        for (const ws of this.apps.values()) {
             ws.send(data);
         }
     }
