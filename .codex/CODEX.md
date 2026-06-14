@@ -27,6 +27,13 @@ and can drift independently of the Codex Desktop harness.
   before concluding GitHub is down, auth is invalid, or PR state is unavailable.
 - For state-changing GitHub calls, preserve the exact payload when retrying
   escalated so the sandbox retry does not mutate review/comment semantics.
+- Identity-sensitive worktrees must live under the Codex clone root, for example
+  `/Users/Shared/codex/neomjs/neo/tmp/` or another path below
+  `/Users/Shared/codex/neomjs/neo/`, so `.zshenv` resolves the Codex `.env`.
+  Avoid generic `/private/tmp/neo-*` worktrees for operations that may run `gh`,
+  MCP setup, PR review/comment tools, or commits. After a worktree/thread switch,
+  verify `NEO_AGENT_IDENTITY=@neo-gpt` and `gh api user --jq .login == neo-gpt`
+  before any state-changing GitHub action.
 - Mid-session harness restart: read `.codex/HARNESS_RESTART.md` before diagnosing MCP, Chroma, GitHub, or wake-state failures.
 - If Codex reports `[features].codex_hooks is deprecated. Use [features].hooks instead.`,
   the tracked `.codex/config.template.toml` is already current. Update the ignored
