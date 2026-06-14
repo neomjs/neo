@@ -652,6 +652,55 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Extracts the canonical `@identity` (login, `@`-stripped) from a PR body's
+     * `Authored by … @identity` self-id line.
+     *
+     * The body self-id is the drift-free author source: the GitHub PR opener can mis-resolve (an MCP
+     * `@me` identity-resolution drift stamps a different agent's login on the opener), but the body
+     * declares its own canonical `@identity`. Returns null when no self-id is present (legacy / external
+     * bodies), so the caller falls back to the advisory login. The pattern is **line-anchored** (`^…/m`)
+     * to the canonical self-id line, so a `Co-Authored by` trailer or descriptive prose that merely
+     * contains `Authored by` mid-line does not match.
+     * @param {String} body
+     * @returns {(String|null)} The `@`-stripped identity login, or null.
+     */
+    static parseSelfIdLogin(body) {
+        if (typeof body !== 'string') return null;
+
+        const match = body.match(/^Authored by[^\n]*?@([A-Za-z0-9-]+)/m);
+
+        return match ? match[1] : null
+    }
+
+    /**
+     * @summary Resolves a PR author's model family from the canonical body `@identity`, falling back
+     * to the drift-prone GitHub login as an advisory source.
+     *
+     * The body's self-declared `@identity` wins; the GitHub author login is advisory-only (used when the
+     * body carries no self-id), and a body-vs-login family disagreement is logged as drift rather than
+     * silently trusted. Model-name substring inference is deliberately NOT used — the self-id is the
+     * canonical source, the login is the legacy bridge until every agent PR body carries `@identity`.
+     * @param {Object} pr GitHub PR payload (`author`, `body`, `number`).
+     * @param {Object} agentFamilies Login-to-family map (`@`-stripped logins).
+     * @returns {(String|undefined)} The model family, or undefined when neither source resolves.
+     */
+    static resolveAuthorFamily(pr, agentFamilies) {
+        const selfIdLogin  = this.parseSelfIdLogin(pr?.body),
+              selfIdFamily = selfIdLogin ? agentFamilies[selfIdLogin] : undefined,
+              loginFamily  = agentFamilies[pr?.author?.login];
+
+        if (selfIdFamily) {
+            if (loginFamily && loginFamily !== selfIdFamily) {
+                logger.warn(`[GoldenPathSynthesizer] PR #${pr.number}: author identity drift — body self-id @${selfIdLogin} (${selfIdFamily}) != GitHub login @${pr.author?.login} (${loginFamily}); using the canonical self-id.`);
+            }
+
+            return selfIdFamily
+        }
+
+        return loginFamily
+    }
+
+    /**
      * @summary Determines whether a PR has cross-family review coverage.
      *
      * @param {Object} pr GitHub PR payload from `gh pr list`.
@@ -659,8 +708,7 @@ class GoldenPathSynthesizer extends Base {
      * @returns {Boolean}
      */
     static hasCrossFamilyReview(pr, agentFamilies = this.getCoreSwarmAgentFamilies()) {
-        const authorLogin  = pr.author?.login;
-        const authorFamily = agentFamilies[authorLogin];
+        const authorFamily = this.resolveAuthorFamily(pr, agentFamilies);
         const reviews      = Array.isArray(pr.reviews) ? pr.reviews : [];
 
         return reviews.some(review => {
