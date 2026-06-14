@@ -1240,6 +1240,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/undo:
+    post:
+      summary: Undo Last Mutation
+      operationId: undo
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Reverts the requester's most-recent committed Neural Link mutation (single-level undo).
+
+        **When to Use:**
+        After a `set_instance_properties` (or other write-class) mutation, to cleanly revert it. The captured
+        reverse-op is re-dispatched under live enforcement as the current caller. No-op + recoverable error when
+        there is nothing to undo or the revert is denied.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UndoRequest'
+      responses:
+        '200':
+          description: Undo result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/method/call:
     post:
       summary: Call Instance Method
@@ -1740,6 +1775,13 @@ components:
           description: Optional filter by log type.
 
     ReloadPageRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    UndoRequest:
       type: object
       properties:
         sessionId:

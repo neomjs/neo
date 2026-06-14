@@ -79,6 +79,18 @@ class InstanceService extends Base {
     }
 
     /**
+     * Reverts the requester's most-recent committed Neural Link mutation transaction — forwards the `undo` tool to
+     * the connected App Worker, which pops the requester's last committed transaction and re-dispatches its captured
+     * reverse-op(s) under live enforcement. See {@link Neo.ai.client.InstanceService#undo}.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @returns {Promise<Object>}
+     */
+    async undo({sessionId}) {
+        return await ConnectionService.call(sessionId, 'undo', {})
+    }
+
+    /**
      * Calls a method on a specific instance.
      * @param {Object} opts
      * @param {String} opts.sessionId
