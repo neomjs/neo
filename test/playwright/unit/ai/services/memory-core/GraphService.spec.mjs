@@ -138,8 +138,9 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(() => GraphService.removeNodes(['ValidNode', undefined])).toThrow(/invalid node id/);
     });
 
-    test('getOrphanedNodes preserves SYSTEM_ANCHOR nodes while returning ordinary orphans (#9945)', async () => {
+    test('getOrphanedNodes preserves SYSTEM_ANCHOR and ADR nodes while returning ordinary orphans (#9945, #11377)', async () => {
         await GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR'});
+        await GraphService.upsertNode({id: 'adr-0006', type: 'ADR'});
         await GraphService.upsertNode({id: 'DisposableConcept', type: 'CONCEPT'});
 
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -148,6 +149,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
         expect(orphaned).toContain('DisposableConcept');
         expect(orphaned).not.toContain('frontier');
+        expect(orphaned).not.toContain('adr-0006');
     });
 
     test('decayGlobalTopology updates cached _SYSTEM_STATE records without losing the node id (#12070)', async () => {

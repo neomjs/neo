@@ -10,6 +10,7 @@ import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../../se
 import { Memory_GraphService as GraphService } from '../../../services.mjs';
 import Json from '../../../../src/util/Json.mjs';
 import logger from '../../../mcp/server/memory-core/logger.mjs';
+import AdrIngestor from '../../../services/ingestion/AdrIngestor.mjs';
 import ConceptDiscoveryService from '../../../services/ingestion/ConceptDiscoveryService.mjs';
 import ConceptIngestor from '../../../services/ingestion/ConceptIngestor.mjs';
 import FileSystemIngestor from '../../../services/memory-core/FileSystemIngestor.mjs';
@@ -238,7 +239,20 @@ class DreamService extends Base {
             } else {
                 logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
 
-                // Phase 0: Ingest the version-controlled Concept Ontology (.neo-ai-data/concepts/*.jsonl)
+                // Phase 0a: Ingest local ADRs as deterministic graph nodes before any LLM
+                // extraction while keeping ADRs out of the Tri-Vector VALID_TYPES enum.
+                const adrIngestStart = Date.now();
+                try {
+                    await AdrIngestor.syncAdrsToGraph();
+                    perPhaseStates.push(finishPhase('adrIngest', adrIngestStart, 'completed'));
+                } catch (e) {
+                    perPhaseStates.push(finishPhase('adrIngest', adrIngestStart, 'failed', {
+                        error: toErrorMessage(e)
+                    }));
+                    throw e;
+                }
+
+                // Phase 0b: Ingest the version-controlled Concept Ontology (.neo-ai-data/concepts/*.jsonl)
                 // into the Native Edge Graph as first-class CONCEPT nodes + typed edges. Runs BEFORE
                 // FileSystemIngestor so downstream gap inference can traverse concept-graph relationships
                 // deterministically instead of regex-matching token lists against file paths.
