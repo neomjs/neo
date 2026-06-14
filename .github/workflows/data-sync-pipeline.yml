@@ -51,14 +51,7 @@ jobs:
       - name: Rebuild Indexes & SEO
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          node ./buildScripts/docs/index/labels.mjs
-          node ./buildScripts/docs/index/release.mjs
-          node ./buildScripts/docs/index/pulls.mjs
-          node ./buildScripts/docs/index/discussions.mjs
-          node ./buildScripts/docs/index/tickets.mjs
-          node ./buildScripts/docs/seo/generate.mjs --format xml --base-url https://neomjs.com -o apps/portal/sitemap.xml
-          node ./buildScripts/docs/seo/generate.mjs --format llms --base-url https://neomjs.com -o apps/portal/llms.txt
+        run: node ./buildScripts/docs/rebuildContentIndexesAndSeo.mjs --include-labels
 
       - name: Commit, Rebase and Push
         run: |
@@ -99,18 +92,18 @@ jobs:
 
           echo "Cloning pages repository..."
           git clone https://x-access-token:${PAGES_DEPLOY_PAT}@github.com/neomjs/pages.git temp_pages
-          
+
           # Ensure target directories exist
           mkdir -p temp_pages/node_modules/neo.mjs/apps/devindex/resources/data
           mkdir -p temp_pages/node_modules/neo.mjs/apps/portal/resources/data
           mkdir -p temp_pages/node_modules/neo.mjs/resources/content
-          
+
           # Copy the data files
           cp apps/devindex/resources/data/users.jsonl temp_pages/node_modules/neo.mjs/apps/devindex/resources/data/
           cp -f apps/portal/resources/data/*.json temp_pages/node_modules/neo.mjs/apps/portal/resources/data/ 2>/dev/null || true
           cp -f apps/portal/sitemap.xml temp_pages/ 2>/dev/null || true
           cp -f apps/portal/llms.txt temp_pages/ 2>/dev/null || true
-          
+
           # Copy resources content (syncing deletions natively via git).
           # Per Epic #11187 7-bucket fan-out: support both legacy paths (issue-archive/,
           # pr-archive/) and the new single-root archive/ umbrella during the migration
@@ -124,20 +117,20 @@ jobs:
               cp -r "resources/content/$dir" temp_pages/node_modules/neo.mjs/resources/content/
             fi
           done
-          
+
           cd temp_pages
-          
+
           # Check for changes and push
           if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl node_modules/neo.mjs/apps/portal/resources/data/*.json sitemap.xml llms.txt node_modules/neo.mjs/resources/content/) ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            
+
             git add node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl
             git add node_modules/neo.mjs/apps/portal/resources/data/*.json 2>/dev/null || true
             git add sitemap.xml 2>/dev/null || true
             git add llms.txt 2>/dev/null || true
             git add -A node_modules/neo.mjs/resources/content/
-            
+
             git commit --no-verify -m "chore(data): Sync data and content from neo repo [skip ci]"
             git push origin main
           else

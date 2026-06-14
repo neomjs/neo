@@ -1542,7 +1542,7 @@ paths:
         - DON'T: after `create_issue` or `create_comment` (already in context).
         - DON'T: for code changes (syncs only ticket metadata).
 
-        **How it works:** pulls remote data, creates `.md` files for new issues, pushes modified `.md` files to GitHub. Cached for fast no-ops.
+        **How it works:** pulls remote data, creates `.md` files for new issues, pushes modified `.md` files to GitHub, then rebuilds the derived Portal indexes, `sitemap.xml`, and `llms.txt`. Cached for fast no-ops; derive failures reject the sync instead of returning success with stale generated artifacts.
 
         **Rejection:** throws `sync_all REJECTED: working-tree is on branch '<name>', not 'dev'.` with remediation guidance pointing to switch-to-dev or daemon-driven sync.
       tags: [Issues]

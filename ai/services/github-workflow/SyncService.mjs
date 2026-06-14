@@ -20,12 +20,17 @@ const generatedSyncPaths = [
     'resources/content/release-notes/',
     'resources/content/archive/',
     'resources/content/_index.json',
-    'resources/content/.sync-metadata.json'
+    'resources/content/.sync-metadata.json',
+    'apps/portal/resources/data/',
+    'apps/portal/sitemap.xml',
+    'apps/portal/llms.txt'
 ];
 
 const isGeneratedSyncFile = file => generatedSyncPaths.some(item =>
     item.endsWith('/') ? file.startsWith(item) : file === item
 );
+
+const generatedSyncStatusPaths = generatedSyncPaths.join(' ');
 
 /**
  * @summary Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
@@ -81,6 +86,16 @@ class SyncService extends Base {
                 logger.error('[SyncService] Startup sync failed:', error.message);
             }
         }
+    }
+
+    /**
+     * @summary Rebuilds Portal indexes and SEO artifacts after GitHub Workflow content emission.
+     * @returns {Promise<Object>} Generated artifact paths.
+     */
+    async rebuildContentIndexesAndSeo() {
+        const {rebuildContentIndexesAndSeo} = await import('../../../buildScripts/docs/rebuildContentIndexesAndSeo.mjs');
+
+        return rebuildContentIndexesAndSeo({root: aiConfig.projectRoot});
     }
 
     /**
@@ -162,6 +177,8 @@ class SyncService extends Base {
         // 11. Save metadata.
         await MetadataManager.save(newMetadata);
 
+        await this.rebuildContentIndexesAndSeo();
+
         if (aiConfig.pushToRepoAfterSync) {
             const {permission} = await RepositoryService.getViewerPermission();
             const writePermissions = ['ADMIN', 'MAINTAIN', 'WRITE'];
@@ -169,7 +186,7 @@ class SyncService extends Base {
             if (writePermissions.includes(permission)) {
                 try {
                     const cwd = aiConfig.projectRoot;
-                    const {stdout} = await execAsync('git status --porcelain resources/content', {cwd});
+                    const {stdout} = await execAsync(`git status --porcelain ${generatedSyncStatusPaths}`, {cwd});
                     const lines = stdout.trim().split('\n').filter(Boolean);
 
                     if (lines.length > 0) {
@@ -180,7 +197,7 @@ class SyncService extends Base {
                             await execAsync('git restore resources/content/.sync-metadata.json', {cwd});
                         } else {
                             logger.info('[SyncService] Detected real content changes. Committing and pushing.');
-                            await execAsync('git add resources/content', {cwd});
+                            await execAsync(`git add ${generatedSyncStatusPaths}`, {cwd});
                             const {stdout: stagedStdout} = await execAsync('git diff --cached --name-only', {cwd});
                             const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
                                 !isGeneratedSyncFile(file)
