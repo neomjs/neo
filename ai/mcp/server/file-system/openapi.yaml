@@ -47,11 +47,59 @@ paths:
                     type: string
                     example: "OK"
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      description: Returns lazy-loaded usage detail for one file-system MCP tool.
+      tags: [Health]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /read_file:
     post:
       summary: Read a specific file safely.
       operationId: read_file
       description: Reads the complete text of a file from the workspace. Throws a 403 on directory escape attempts.
+      x-neo-tool-summary: Read a workspace file by absolute path.
+      x-neo-tool-handbook: |
+        Reads the complete text of a file from the workspace sandbox. Use this for source
+        inspection before editing or review. Pass an absolute path; directory traversal outside
+        the permitted workspace is rejected by the file-system service rather than silently
+        rewritten.
       tags: [IO]
       requestBody:
         required: true

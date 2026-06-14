@@ -22,7 +22,18 @@ class ToolService_tmp extends Base {
          * Path to the OpenAPI specification file.
          * @member {String|null} openApiFilePath=null
          */
-        openApiFilePath: null
+        openApiFilePath: null,
+        /**
+         * Enables compact `tools/list` descriptions while preserving full
+         * detail for `getToolHandbook()`.
+         * @member {Boolean} compactToolDescriptions=false
+         */
+        compactToolDescriptions: false,
+        /**
+         * Maximum description length emitted through compact `tools/list`.
+         * @member {Number} toolListDescriptionMaxLength=160
+         */
+        toolListDescriptionMaxLength: 160
     }
 
     /**
@@ -55,6 +66,12 @@ class ToolService_tmp extends Base {
      * @protected
      */
     toolMapping = null
+    /**
+     * Internal cache for lazy-loaded tool handbook entries.
+     * @member {Object|null} toolHandbookMapping=null
+     * @protected
+     */
+    toolHandbookMapping = null
 
     /**
      * Executes a specific tool with the given arguments.
@@ -65,10 +82,7 @@ class ToolService_tmp extends Base {
     async callTool(toolName, args, options={}) {
         this.initializeToolMapping();
 
-        const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
-        const effectiveToolName = lastDoubleUnderscoreIndex !== -1
-            ? toolName.substring(lastDoubleUnderscoreIndex + 2)
-            : toolName;
+        const effectiveToolName = this.resolveEffectiveToolName(toolName);
 
         const tool = this.toolMapping[effectiveToolName];
 
@@ -106,8 +120,9 @@ class ToolService_tmp extends Base {
             return;
         }
 
-        me.toolMapping        = {};
-        me.allToolsForListing = [];
+        me.toolMapping         = {};
+        me.allToolsForListing  = [];
+        me.toolHandbookMapping = {};
         me.toolProjectionTiers = {};
 
         const openApiDocument = yaml.load(fs.readFileSync(me.openApiFilePath, 'utf8'));
@@ -142,10 +157,15 @@ class ToolService_tmp extends Base {
                         }
                     }
 
+                    const fullDescription = operation.description || operation.summary || toolName;
+                    const listDescription = me.compactToolDescriptions
+                        ? me.buildToolListDescription(operation, fullDescription)
+                        : fullDescription;
+
                     const tool = {
                         name        : toolName,
                         title       : operation.summary || toolName,
-                        description : operation.description || operation.summary,
+                        description : listDescription,
                         zodSchema   : inputZodSchema,
                         toolTier,
                         argNames,
@@ -154,6 +174,7 @@ class ToolService_tmp extends Base {
                     };
                     me.toolMapping[toolName] = tool;
                     me.toolProjectionTiers[toolName] = toolTier;
+                    me.toolHandbookMapping[toolName] = me.buildToolHandbookEntry(toolName, operation, fullDescription);
 
                     const toolForListing = {
                         name       : tool.name,
@@ -171,6 +192,74 @@ class ToolService_tmp extends Base {
                 }
             }
         }
+    }
+
+    /**
+     * @summary Builds the compact description emitted through `tools/list`.
+     * @param {Object} operation       Parsed OpenAPI operation.
+     * @param {String} fullDescription Full operation description fallback.
+     * @returns {String}
+     * @protected
+     */
+    buildToolListDescription(operation, fullDescription) {
+        const
+            source = operation['x-neo-tool-summary'] || operation.summary || fullDescription || '',
+            singleLine = String(source).replace(/\s+/g, ' ').trim(),
+            maxLength  = this.toolListDescriptionMaxLength;
+
+        if (!maxLength || singleLine.length <= maxLength) {
+            return singleLine;
+        }
+
+        return `${singleLine.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+    }
+
+    /**
+     * @summary Builds one lazy-loaded handbook entry from OpenAPI metadata.
+     * @param {String} toolName        The operation id.
+     * @param {Object} operation       Parsed OpenAPI operation.
+     * @param {String} fullDescription Full operation description fallback.
+     * @returns {Object}
+     * @protected
+     */
+    buildToolHandbookEntry(toolName, operation, fullDescription) {
+        const
+            dedicated = operation['x-neo-tool-handbook'],
+            handbook  = dedicated || fullDescription || operation.summary || toolName;
+
+        return {
+            toolId     : toolName,
+            found      : true,
+            title      : operation.summary || toolName,
+            description: operation.description || operation.summary || '',
+            handbook,
+            source     : dedicated ? 'x-neo-tool-handbook' : (operation.description ? 'description' : 'summary')
+        };
+    }
+
+    /**
+     * @summary Returns the lazy-loaded handbook entry for one tool id/name.
+     * @param {String} toolId The OpenAPI operation id or namespaced MCP tool id.
+     * @returns {Object}
+     */
+    getToolHandbook(toolId) {
+        this.initializeToolMapping();
+
+        const
+            requestedToolId = String(toolId || ''),
+            effectiveToolId = this.resolveEffectiveToolName(requestedToolId),
+            entry           = this.toolHandbookMapping[effectiveToolId];
+
+        if (!entry) {
+            return {
+                toolId: requestedToolId,
+                found : false,
+                code  : 'TOOL_NOT_FOUND',
+                message: `Tool "${requestedToolId}" does not exist in this MCP server.`
+            };
+        }
+
+        return entry;
     }
 
     /**
@@ -375,10 +464,7 @@ class ToolService_tmp extends Base {
 
         // 1. Try Server-side validation using internal Zod schemas
         if (me.toolMapping) {
-            const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
-            const effectiveToolName = lastDoubleUnderscoreIndex !== -1
-                ? toolName.substring(lastDoubleUnderscoreIndex + 2)
-                : toolName;
+            const effectiveToolName = this.resolveEffectiveToolName(toolName);
 
             const tool = me.toolMapping[effectiveToolName];
             if (tool) {
@@ -393,6 +479,20 @@ class ToolService_tmp extends Base {
         }
 
         return true;
+    }
+
+    /**
+     * @summary Resolves namespaced MCP tool ids back to OpenAPI operation ids.
+     * @param {String} toolName
+     * @returns {String}
+     * @protected
+     */
+    resolveEffectiveToolName(toolName) {
+        const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
+
+        return lastDoubleUnderscoreIndex !== -1
+            ? toolName.substring(lastDoubleUnderscoreIndex + 2)
+            : toolName;
     }
 }
 
