@@ -371,7 +371,8 @@ class SummaryService extends Base {
             const queryArgs = {
                 queryTexts: [query],
                 nResults,
-                include   : ['metadatas', 'documents']
+                // 'distances' is load-bearing — the Dual-Pass re-ranker's semantic score needs it (else topology-only).
+                include   : ['metadatas', 'documents', 'distances']
             };
 
             // Tenant-scoped where clause with additive shared-commons access.

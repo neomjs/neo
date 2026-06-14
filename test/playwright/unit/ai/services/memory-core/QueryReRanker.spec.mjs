@@ -148,6 +148,58 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
         expect(result.results[0].relevanceScore).toBeGreaterThan(0);
     });
 
+    test('#13222: queryMemories requests distances in the chroma include (re-ranker semantic-score input)', async () => {
+        // Regression guard for the include that omitted 'distances'. The Dual-Pass re-ranker reads the
+        // vector distance as its Pass-1 semantic score; without 'distances' in the include, chroma
+        // returns none, the score collapses to a constant 1, and ranking silently degrades to
+        // topology-only (the pre-existing `relevanceScore > 0` assertion cannot catch a constant 1).
+        // Substrate-free: stub the collection to capture the include the service actually sends, so the
+        // guard runs without the seeded chroma data the behavioral path needs.
+        const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+        await StorageRouter.ready();
+
+        const originalGetCollection = StorageRouter.getMemoryCollection;
+        let capturedInclude;
+
+        StorageRouter.getMemoryCollection = async () => ({
+            query: async (args) => {
+                capturedInclude = args.include;
+                return {ids: [[]], distances: [[]], metadatas: [[]]};
+            }
+        });
+
+        try {
+            await SDK.Memory_Service.queryMemories({query: 'include probe', nResults: 3, sessionId: 'include-probe'});
+            expect(capturedInclude).toContain('distances');
+        } finally {
+            StorageRouter.getMemoryCollection = originalGetCollection;
+        }
+    });
+
+    test('#13222: querySummaries requests distances in the chroma include (summary-path parity)', async () => {
+        const SummaryService = (await import('../../../../../../ai/services/memory-core/SummaryService.mjs')).default;
+        await SummaryService.ready();
+        const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+        await StorageRouter.ready();
+
+        const originalGetCollection = StorageRouter.getSummaryCollection;
+        let capturedInclude;
+
+        StorageRouter.getSummaryCollection = async () => ({
+            query: async (args) => {
+                capturedInclude = args.include;
+                return {ids: [[]], distances: [[]], metadatas: [[]], documents: [[]]};
+            }
+        });
+
+        try {
+            await SummaryService.querySummaries({query: 'include probe', nResults: 3});
+            expect(capturedInclude).toContain('distances');
+        } finally {
+            StorageRouter.getSummaryCollection = originalGetCollection;
+        }
+    });
+
     test('SummaryService.querySummaries should not crash on empty collections', async () => {
         // The summary collection is empty (no summarization run)
         // This should return gracefully, not crash
