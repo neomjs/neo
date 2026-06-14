@@ -4,7 +4,7 @@ title: Keep Memory Core lightweight ops alive during heavy Chroma operations
 author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-20T10:12:57Z'
-updatedAt: '2026-05-20T14:29:46Z'
+updatedAt: '2026-06-13T01:13:59Z'
 closed: false
 closedAt: null
 ---

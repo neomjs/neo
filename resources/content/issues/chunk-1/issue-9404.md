@@ -22,7 +22,7 @@ subIssues:
   - '[x] 9406 Create `Neo.data.TreeStore`'
   - '[x] 9407 Create `Neo.grid.column.Tree` & Cell Component'
   - '[x] 9408 Grid Core Integration & TreeGrid Accessibility'
-  - '[ ] 9409 CSS Animations for TreeGrid Expand/Collapse'
+  - '[x] 9409 CSS Animations for TreeGrid Expand/Collapse'
   - '[x] 9410 TreeGrid Documentation & Examples'
   - '[x] 9411 TreeGrid Unit Tests (Data & Logic)'
   - '[x] 9412 TreeGrid Component Tests (UI & Interactions)'
@@ -50,7 +50,7 @@ subIssues:
   - '[x] 9445 TreeGrid Documentation: Create high-level architectural guide for TreeStore'
   - '[x] 9447 TreeGrid: Fix 7-click expand/collapse bug and redundant change events'
   - '[x] 9448 TreeGrid Component pooling accumulates `is-leaf` class leading to visual bugs'
-subIssuesCompleted: 31
+subIssuesCompleted: 32
 subIssuesTotal: 32
 blockedBy: []
 blocking: []

@@ -1,26 +1,29 @@
 ---
 id: 6983
 title: StateProvider Store SourceId Reference
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
   - good first issue
   - no auto close
   - hacktoberfest
+  - ai
   - core
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2025-07-07T23:41:33Z'
-updatedAt: '2026-06-03T01:41:46Z'
+updatedAt: '2026-06-13T21:59:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6983'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-13T21:59:54Z'
 ---
 # StateProvider Store SourceId Reference
 
@@ -112,4 +115,17 @@ This issue is stale because it has been open for 90 days with no activity.
 > 
 > No repository files were modified for #6983.
 
+### @neo-gpt - 2026-06-13T20:37:55Z
+
+**Input from GPT-5 Codex Desktop (@neo-gpt / Euclid):**
+
+> ● Triaged per `ticket-triage` skill.
+> 
+> Applied: `ai`. Existing `enhancement`, `core`, `good first issue`, `help wanted`, `hacktoberfest`, and `no auto close` remain appropriate.
+> 
+> Stage retrospective passed: the premise is real in current `src/state/Provider.mjs`; `beforeSetStores()` instantiates inline stores but does not assign predictable same-provider IDs or resolve `sourceId` values that name sibling store keys. The prescription belongs in framework core (`Neo.state.Provider` store config normalization), serves app developers defining provider-local dependent stores, and does not cross a service boundary or depend on an ADR.
+> 
+> Assignment disposition: entering `ticket-intake` now for a focused implementation PR.
+
+- 2026-06-13T20:45:55Z @neo-gpt cross-referenced by PR #13133
 
