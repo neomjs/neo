@@ -25,6 +25,20 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         expect(findDbPathMutations('aiConfig.storagePaths.graph = originalGraphPath;').map(h => h.line)).toEqual([1])
     });
 
+    test('flags string-literal bracket access to a dangerous leaf (closes the bypass)', () => {
+        expect(findDbPathMutations('aiConfig["storagePaths"].graph = testPath;').map(h => h.line)).toEqual([1]);
+        expect(findDbPathMutations("aiConfig['engines']['chroma']['database'] = name;").map(h => h.line)).toEqual([1]);
+        expect(findDbPathMutations('Memory_Config.data["collections"] = {};').map(h => h.line)).toEqual([1]);
+        expect(findDbPathMutations('aiConfig.storagePaths["graph"] = testPath;').map(h => h.line)).toEqual([1])
+    });
+
+    test('does NOT flag a computed (non-literal) key — out of a static lint reach, by design', () => {
+        expect(findDbPathMutations('aiConfig[dbKey] = fakeDb;')).toEqual([]);
+        expect(findDbPathMutations('aiConfig[leafName].graph = p;')).toEqual([]);
+        // a Class-B leaf via bracket stays out of scope too (transport is not a DB-path leaf)
+        expect(findDbPathMutations('aiConfig["transport"] = "sse";')).toEqual([])
+    });
+
     test('does NOT flag a comparison (=== / ==)', () => {
         expect(findDbPathMutations('if (aiConfig.storagePaths.graph === testPath) doThing();')).toEqual([]);
         expect(findDbPathMutations('expect(aiConfig.collections.memory == name).toBe(true);')).toEqual([])

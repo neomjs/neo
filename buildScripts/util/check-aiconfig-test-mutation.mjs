@@ -23,10 +23,18 @@ export const ESCAPE_MARKER = 'aiconfig-mutation-ok';
  * The pattern requires an `aiConfig` / `Memory_Config` root before a dangerous leaf, so a non-config
  * `x.database = y` does not trip it; the trailing `=(?![=>])` excludes comparisons (`==` / `===`) and
  * arrows (`=>`), and a capture-read (`const x = aiConfig.storagePaths.graph`) has no `=` after the
- * leaf, so only true assignments match. Config-VARYING leaves (retry / transport) are deliberately
- * out of scope here — that class has no by-construction story yet.
+ * leaf, so only true assignments match. A dangerous leaf is caught whether dot-accessed
+ * (`.storagePaths`) or string-literal-bracket-accessed (`['storagePaths']`); a computed key
+ * (`aiConfig[varName]`) is out of a static lint's reach — the escape marker + the by-construction
+ * migration cover that residue. Config-VARYING leaves (retry / transport) are deliberately out of
+ * scope here — that class has no by-construction story yet.
  */
-export const DB_PATH_MUTATION = /\b(?:aiConfig|Memory_Config)\b[\w.$[\]'"`-]*\.(?:storagePaths|database|collections|logPath)\b[\w.$[\]'"`]*\s*=(?![=>])/;
+const DB_PATH_LEAVES = '(?:storagePaths|database|collections|logPath)';
+export const DB_PATH_MUTATION = new RegExp(
+    `\\b(?:aiConfig|Memory_Config)\\b[\\w.$[\\]'"\`-]*` +                       // a config root, then any path chars
+    `(?:\\.${DB_PATH_LEAVES}\\b|\\[\\s*['"\`]${DB_PATH_LEAVES}['"\`]\\s*\\])` + // a dangerous leaf: dot OR string-literal bracket
+    `[\\w.$[\\]'"\`]*\\s*=(?![=>])`                                             // optional trailing path, then assignment (not == / =>)
+);
 
 /*
  * Files that already mutate Class-A DB paths, grandfathered while the cleanup migrates them to
@@ -59,27 +67,30 @@ export const ALLOWLIST = new Set([
 ]);
 
 /**
- * @summary Returns the code portion of a line with string contents and comments removed.
+ * @summary Builds a per-character "is this code?" mask for a line — false inside string literals and
+ * comments, true in executable code.
  *
- * A string-aware scan: string literals collapse to a single space (so a config path inside a string —
- * a log message, a `describe(...)` title — never reads as a mutation), and line/block comments are
- * dropped. Block-comment state is carried across lines via `state.inBlock`. The dual of
- * `check-ticket-archaeology.mjs`'s `extractComment`, which keeps the comment and drops the code.
+ * Block-comment state is carried across lines via `state.inBlock`. Unlike a strip-to-text pass the mask
+ * preserves positions, so a regex match found on the RAW line can be classified by whether its root
+ * token sits in code. That is what lets a string-literal *bracket key* (`['storagePaths']` — real code
+ * that merely contains a string) be detected, while a mutation pattern living entirely inside a string
+ * (a log message, a `describe(...)` title) is excluded. The structural complement of
+ * `check-ticket-archaeology.mjs`'s `extractComment`.
  * @param {String} line
  * @param {{inBlock: Boolean}} state Mutated in place as block comments open and close across lines.
- * @returns {String} The code text on this line (comments + string contents stripped).
+ * @returns {Boolean[]} `mask[i]` is true when raw character `i` is executable code.
  */
-export function stripStringsAndComments(line, state) {
-    let code = '',
-        i    = 0;
+export function codeMask(line, state) {
+    const n    = line.length,
+          mask = new Array(n).fill(false);
 
-    const n = line.length;
+    let i = 0;
 
     if (state.inBlock) {
         const end = line.indexOf('*/');
 
         if (end === -1) {
-            return ''
+            return mask
         }
 
         i             = end + 2;
@@ -106,7 +117,6 @@ export function stripStringsAndComments(line, state) {
 
         if (ch === '"' || ch === "'" || ch === '`') {
             inString = ch;
-            code    += ' ';
             i++;
             continue
         }
@@ -127,15 +137,17 @@ export function stripStringsAndComments(line, state) {
             continue
         }
 
-        code += ch;
+        mask[i] = true;
         i++
     }
 
-    return code
+    return mask
 }
 
+const DB_PATH_MUTATION_GLOBAL = new RegExp(DB_PATH_MUTATION.source, 'g');
+
 /**
- * @summary Scans file content for Class-A DB-path `AiConfig` mutations in executable code.
+ * @summary Scans file content for Class-A DB-path `AiConfig` mutations whose root token sits in code.
  * @param {String} content
  * @returns {Object[]} `[{line, text}]` — one entry per offending line (1-based line numbers).
  */
@@ -149,10 +161,16 @@ export function findDbPathMutations(content) {
             return
         }
 
-        const code = stripStringsAndComments(line, state);
+        const mask = codeMask(line, state);
 
-        if (DB_PATH_MUTATION.test(code)) {
-            hits.push({line: index + 1, text: line.trim()})
+        for (const match of line.matchAll(DB_PATH_MUTATION_GLOBAL)) {
+            // The match starts at the aiConfig / Memory_Config root; flag it only when that root is real
+            // code, not a string that merely quotes a mutation-looking pattern (a bracket key like
+            // `['storagePaths']` is fine — its root token is still in code).
+            if (mask[match.index]) {
+                hits.push({line: index + 1, text: line.trim()});
+                break
+            }
         }
     });
 
