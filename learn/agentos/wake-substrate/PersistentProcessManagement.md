@@ -112,7 +112,7 @@ For a single-call observability check, the Memory Core healthcheck surfaces the 
 
 The `daemonRunning` heuristic reads the dedicated liveness file `.neo-ai-data/wake-daemon/heartbeat.alive` — touched by `SwarmHeartbeatService.touchLivenessFile()` at the top of every `pulse()` (the producer is the Orchestrator's swarm-heartbeat lane since #11766), NOT the producer-side concurrency lock above. `gateState` is read via `wakeSafetyGate.readGateState`. Field semantics + defensive defaults are documented inline at `HealthService.buildWakeFeaturesBlock`.
 
-**Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting heartbeat-running invariants; operator dashboards consuming the healthcheck JSON. The Orchestrator's per-lane outcomes are additionally surfaced in the healthcheck `orchestrator.tasks` block.
+**Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting heartbeat-running invariants; operator dashboards consuming the healthcheck JSON. (The Orchestrator's per-lane outcomes are recorded via `recordTaskOutcome`, but no longer surfaced as a healthcheck block — the verbose `orchestrator.tasks` block was trimmed to keep the probe lean.)
 
 ## 4. Disabling the heartbeat lane
 

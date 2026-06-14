@@ -79,13 +79,13 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 
 ### Health & Data Management
 
-*   **`healthcheck`**: Diagnostics tool. Checks ChromaDB status, collection health, API key configuration, identity binding, and effective ChromaDB topology. See **Healthcheck Response Shape** below for the full payload contract.
+*   **`healthcheck`**: Diagnostics tool. Checks ChromaDB status, collection health, API key configuration, and identity binding. See **Healthcheck Response Shape** below for the full payload contract.
 *   **`export_database`**: Exports memories and summaries to JSONL files for backup.
 *   **`import_database`**: Imports data from JSONL backups.
 
 ## Healthcheck Response Shape
 
-Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint when the server is exposed over HTTP) receive a structured payload covering connectivity, identity, and multi-tenant migration state. The shape is stable — new observability blocks are additive, existing blocks are not renamed or reshaped.
+Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint when the server is exposed over HTTP) receive a structured payload covering connectivity and identity. The payload is a lean liveness/readiness probe — verbose observability (the former `migration` / `startup` / `orchestrator.tasks` / `auth` blocks) has been trimmed off the hot path to keep the per-agent schema lean; the core liveness blocks below stay stable.
 
 ```json readonly
 {
@@ -107,7 +107,6 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
         "summarization": true
     },
     "identity":  { "source": "env-var", "bound": true, "nodeId": "@neo-opus-ada" },
-    "migration": { "memory": 0, "session": 0, "total": 0, "available": true },
     "providers": {
         "embedding": {
             "active": "openAiCompatible",
@@ -135,14 +134,9 @@ Introduced in #10176. Surfaces whether the MCP server resolved a concrete AgentI
 - `bound`: `true` when the resolved userId matched a seeded AgentIdentity graph node. `false` is a seed-state failure signal — agent needs `ai/scripts/seedAgentIdentities.mjs` or the #10232 boot-time self-seed did not fire.
 - `nodeId`: The canonical `@login` AgentIdentity node when bound, `null` otherwise.
 
-### `migration` — Multi-Tenant Migration Progress
+### Multi-Tenant Migration Progress
 
-Introduced in #10017 (see `learn/agentos/tooling/MultiTenantMigrationGuide.md`). Tracks how many pre-tenant-aware-era nodes remain untagged as natural query patterns lazy-tag data:
-- `memory` / `session`: Count of `MEMORY` / `SESSION` label nodes lacking a `userId` property.
-- `total`: Sum of the two.
-- `available`: `false` if the SQLite graph is not yet mounted (substrate-readiness signal, not a migration error).
-
-A zero `total` is the signal operators watch for to flip the `memorySharing` default from `'legacy'` to `'private'`.
+The migration census (untagged pre-tenant-era node counts) is **no longer carried in the healthcheck payload** — it moved to a dedicated on-demand surface so the probe stops batch-scanning collections per call. See `learn/agentos/tooling/MultiTenantMigrationGuide.md` for the migration model and the on-demand census.
 
 ### `providers.embedding` — Active Embedding Model Route
 
