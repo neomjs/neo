@@ -245,6 +245,7 @@ test.describe('Wake Daemon', () => {
         expect(output).toContain('Test Wake Event');
         expect(output).not.toContain('priority: normal');
         expect(output).not.toContain('\nWindow:');
+        expect(output).not.toContain('Subscription:'); // the redundant per-wake subscription id is dropped from the digest
 
         // Verify the diagnostic log file was persisted to disk and contains
         // structured entries (ISO timestamp + PID + INFO/ERROR level prefix). Persistence
