@@ -10,6 +10,7 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockZoneModel     from '../../../../src/dashboard/DockZoneModel.mjs';
 
 const createModel = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -124,6 +125,10 @@ const createEdgeZoneModel = () => ({
     }
 });
 
+const getProjectedChildren = splitConfig => splitConfig.items.filter(item => item.dockNodeType !== 'splitter');
+
+const getProjectedSplitters = splitConfig => splitConfig.items.filter(item => item.dockNodeType === 'splitter');
+
 test.describe('Neo.dashboard.DockLayoutAdapter', () => {
     test('projects split nodes to existing hbox and vbox layout primitives', () => {
         let model  = createModel(),
@@ -132,14 +137,87 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
                     ntype    : 'dashboard-panel',
                     reference: componentRef
                 }
-            });
+            }),
+            rootChildren = getProjectedChildren(result),
+            sideSplit    = rootChildren[1],
+            sideChildren = getProjectedChildren(sideSplit);
 
         expect(result.ntype).toBe('container');
         expect(result.layout).toEqual({ntype: 'hbox', align: 'stretch'});
-        expect(result.items.map(item => item.flex)).toEqual([0.7, 0.3]);
+        expect(rootChildren.map(item => item.flex)).toEqual([0.7, 0.3]);
 
-        expect(result.items[1].layout).toEqual({ntype: 'vbox', align: 'stretch'});
-        expect(result.items[1].items.map(item => item.flex)).toEqual([0.55, 0.45]);
+        expect(sideSplit.layout).toEqual({ntype: 'vbox', align: 'stretch'});
+        expect(sideChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
+    });
+
+    test('projects resize splitter affordances between adjacent split children', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({
+                    ntype    : 'dashboard-panel',
+                    reference: componentRef
+                })
+            }),
+            rootSplitter = getProjectedSplitters(result)[0],
+            sideSplit    = getProjectedChildren(result)[1],
+            sideSplitter = getProjectedSplitters(sideSplit)[0];
+
+        expect(result.items.map(item => item.dockNodeType)).toEqual(['tabs', 'splitter', 'split']);
+        expect(rootSplitter).toMatchObject({
+            dockNodeId            : 'root',
+            dockNodeType          : 'splitter',
+            dockSplitBoundaryIndex: 0,
+            dockSplitOrientation  : 'horizontal',
+            ntype                 : 'component',
+            width                 : DockLayoutAdapter.splitterSize
+        });
+        expect(rootSplitter.height).toBeUndefined();
+        expect(rootSplitter.data).toMatchObject({
+            boundaryIndex: 0,
+            dockSplitter: true,
+            operation   : 'resizeSplit',
+            orientation : 'horizontal',
+            splitNodeId : 'root'
+        });
+
+        expect(sideSplit.items.map(item => item.dockNodeType)).toEqual(['tabs', 'splitter', 'tabs']);
+        expect(sideSplitter).toMatchObject({
+            dockNodeId            : 'side-split',
+            dockNodeType          : 'splitter',
+            dockSplitBoundaryIndex: 0,
+            dockSplitOrientation  : 'vertical',
+            height                : DockLayoutAdapter.splitterSize,
+            ntype                 : 'component'
+        });
+        expect(sideSplitter.width).toBeUndefined();
+    });
+
+    test('creates resizeSplit operation descriptors from splitter affordance metadata', () => {
+        let model    = createModel(),
+            result   = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({
+                    ntype    : 'dashboard-panel',
+                    reference: componentRef
+                })
+            }),
+            sizes    = [3, 1],
+            splitter = getProjectedSplitters(result)[0],
+            descriptor,
+            resized;
+
+        descriptor = DockLayoutAdapter.createResizeSplitOperation(splitter, sizes);
+        sizes[0]   = 1;
+
+        expect(descriptor).toEqual({
+            operation  : 'resizeSplit',
+            sizes      : [3, 1],
+            splitNodeId: 'root'
+        });
+
+        resized = DockZoneModel.applyOperation(model, descriptor);
+
+        expect(resized.errors).toEqual([]);
+        expect(resized.document.nodes.root.sizes).toEqual([0.75, 0.25]);
+        expect(model.nodes.root.sizes).toEqual([0.7, 0.3]);
     });
 
     test('projects tab nodes to tab.Container-compatible configs', () => {
@@ -165,7 +243,8 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             }),
             row    = result.items[0],
             center = row.items[0],
-            right  = row.items[1];
+            right  = row.items[1],
+            rightChildren = getProjectedChildren(right);
 
         expect(result.dockNodeType).toBe('edge-zone');
         expect(result.layout).toEqual({ntype: 'vbox', align: 'stretch'});
@@ -177,8 +256,8 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(center.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
 
         expect(right.layout).toEqual({ntype: 'vbox', align: 'stretch'});
-        expect(right.items.map(item => item.flex)).toEqual([0.55, 0.45]);
-        expect(right.items.map(item => item.items[0].data.dockItemId)).toEqual(['terminal', 'inspector']);
+        expect(rightChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
+        expect(rightChildren.map(item => item.items[0].data.dockItemId)).toEqual(['terminal', 'inspector']);
     });
 
     test('falls back to recoverable placeholders without mutating the source model', () => {
@@ -190,7 +269,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
                     reference: componentRef
                 }
             }),
-            placeholder = result.items[1].items[1].items[0];
+            placeholder = getProjectedChildren(getProjectedChildren(result)[1])[1].items[0];
 
         expect(placeholder.ntype).toBe('dashboard-panel');
         expect(placeholder.data).toEqual({
@@ -214,7 +293,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             })
         });
 
-        expect(result.items.map(item => item.flex)).toEqual([1, 1]);
+        expect(getProjectedChildren(result).map(item => item.flex)).toEqual([1, 1]);
         expect(model.nodes.root.sizes.length).toBe(2);
     });
 
