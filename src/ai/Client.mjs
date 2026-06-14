@@ -7,6 +7,7 @@ import InteractionService from './client/InteractionService.mjs';
 import RuntimeService     from './client/RuntimeService.mjs';
 import Socket             from '../data/connection/WebSocket.mjs';
 import WindowManager      from '../manager/Window.mjs';
+import {parseAgentEnvelope} from './parseAgentEnvelope.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -181,9 +182,11 @@ class Client extends Base {
      * This method acts as the central dispatcher for all AI-driven commands.
      * @param {String} method The JSON-RPC method name
      * @param {Object} params The parameters associated with the method
+     * @param {Object} [context] Optional request context (e.g. `{agentId}`) threaded from the
+     * agent-message envelope; the write services key topological-lock enforcement on it.
      * @returns {Promise<*>} The result of the operation
      */
-    async handleRequest(method, params) {
+    async handleRequest(method, params, context) {
         let me      = this,
             service = null,
             prefix;
@@ -203,14 +206,14 @@ class Client extends Base {
             const fn = service[fnName];
 
             if (Neo.isFunction(fn)) {
-                return fn.call(service, params)
+                return fn.call(service, params, context)
             } else if (Neo.isPromise(fn)) {
-                return await fn.call(service, params)
+                return await fn.call(service, params, context)
             }
         }
 
         if (service && typeof service[fnName] === 'function') {
-            return service[fnName](params)
+            return service[fnName](params, context)
         }
 
         throw new Error(`Unknown method: ${method}`);
@@ -251,13 +254,15 @@ class Client extends Base {
      * @param {Object} data
      */
     async onSocketMessage({data}) {
-        if (data.method) {
+        const {jsonrpc, context} = parseAgentEnvelope(data);
+
+        if (jsonrpc?.method) {
             try {
-                const result = await this.handleRequest(data.method, data.params);
-                this.sendResponse(data.id, result)
+                const result = await this.handleRequest(jsonrpc.method, jsonrpc.params, context);
+                this.sendResponse(jsonrpc.id, result)
             } catch (e) {
                 console.error('Neo.ai.Client: Failed to handle message', e);
-                this.sendError(data.id, e.message, e.stack)
+                this.sendError(jsonrpc.id, e.message, e.stack)
             }
         }
     }
