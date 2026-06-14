@@ -48,6 +48,7 @@
         {"name": "Deployment Cookbook",                                "parentId": "AgentOS",                                             "id": "agentos/DeploymentCookbook"},
         {"name": "The aiConfig Configuration Model",                   "parentId": "AgentOS",                                             "id": "agentos/AiConfigModel"},
         {"name": "Agent Harness Dock-Zone Model",                      "parentId": "AgentOS",                                             "id": "agentos/HarnessDockZoneModel"},
+        {"name": "Multi-Writer Write Enforcement",                     "parentId": "AgentOS",                                             "id": "agentos/MultiWriterEnforcement"},
         {"name": "Deploying the Agent OS",                             "parentId": "AgentOS",                            "isLeaf": false, "id": "AgentOS/CloudDeployment", "collapsed": true},
             {"name": "Why Deploy the Agent OS",                        "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/WhyDeploy"},
             {"name": "Cloud-Native KB Ingestion Overview",             "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Overview"},
