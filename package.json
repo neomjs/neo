@@ -231,6 +231,9 @@
         "*.mjs": [
             "node ./buildScripts/util/check-shorthand.mjs",
             "node ./buildScripts/util/check-ticket-archaeology.mjs"
+        ],
+        "test/**/*.mjs": [
+            "node ./buildScripts/util/check-aiconfig-test-mutation.mjs"
         ]
     }
 }

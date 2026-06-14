@@ -30,9 +30,9 @@ test.describe('Heartbeat Propagation Integration (#10896 Lane B)', () => {
                 }
             }
 
-            // Credential persistence
-            if (sample.providers?.summary?.credential) {
-                expect(sample.providers.summary.credential.configured).toBe(true);
+            // Summary-route persistence
+            if (sample.providers?.summary) {
+                expect(sample.providers.summary.active).toBeTruthy();
             }
 
             // Connection persistence

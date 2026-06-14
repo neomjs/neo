@@ -1,3 +1,16 @@
 .neo-dashboard {
 
 }
+
+.neo-dashboard-dock-splitter {
+    flex-shrink: 0;
+    touch-action: none;
+
+    &-horizontal {
+        cursor: ew-resize;
+    }
+
+    &-vertical {
+        cursor: ns-resize;
+    }
+}

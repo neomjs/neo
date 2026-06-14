@@ -8,7 +8,7 @@ import WAKE_LANE_DIRECTIVE, {WAKE_LANE_DIRECTIVE as named} from '../../../../../
  * Pins the lifecycle-first ordering so the discussion / ticket / source wording cannot silently drift
  * back to backlog-first. Asserts the three routing examples (own red/unstable PR · requested
  * review/re-review · peer-green scarce cross-family reviewer) appear and precede fresh-backlog pickup,
- * the legitimate idle terminals are named, and the prose is harness-agnostic.
+ * the hard never-idle invariant holds (no escape-hatch enumeration), and the prose is harness-agnostic.
  */
 test.describe('ai/daemons/wake/wakeLaneDirective (#13118)', () => {
     test('default export equals the named export', () => {
@@ -44,10 +44,14 @@ test.describe('ai/daemons/wake/wakeLaneDirective (#13118)', () => {
         expect(freshIdx).toBeGreaterThan(scarceIdx);
     });
 
-    test('names the legitimate idle terminals (verified-empty / human merge-gate / blocked-state)', () => {
-        expect(WAKE_LANE_DIRECTIVE).toContain('verified-empty');
-        expect(WAKE_LANE_DIRECTIVE).toContain('human merge-gate');
-        expect(WAKE_LANE_DIRECTIVE).toContain('blocked-state');
+    test('asserts a hard never-idle invariant — no "legitimate idle terminals" escape-hatch (#13195)', () => {
+        // The prior escape-hatch enumeration WAS the idle-loophole (agents steered toward the labelled
+        // exits by defining their work to zero); it is intentionally removed in favour of a hard invariant.
+        expect(WAKE_LANE_DIRECTIVE).toContain('never idle out');
+        expect(WAKE_LANE_DIRECTIVE).toContain('ALWAYS more to do');
+        expect(WAKE_LANE_DIRECTIVE).not.toContain('legitimate idle terminal');
+        expect(WAKE_LANE_DIRECTIVE).not.toContain('verified-empty');
+        expect(WAKE_LANE_DIRECTIVE).not.toContain('blocked-state');
     });
 
     test('is harness-agnostic prose — no harness-specific names (AC6)', () => {

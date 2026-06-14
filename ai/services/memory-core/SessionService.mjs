@@ -9,7 +9,6 @@ import GraphService from './GraphService.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
 
 import StorageRouter from './managers/StorageRouter.mjs';
-import HealthService from './HealthService.mjs';
 import Json from '../../../src/util/Json.mjs';
 import fs from 'fs';
 import path from 'path';
@@ -154,7 +153,6 @@ class SessionService extends Base {
             const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
             if (!GEMINI_API_KEY) {
                 logger.warn('⚠️  [Startup] GEMINI_API_KEY not set for generation model.');
-                HealthService.recordStartupSummarization('skipped', { reason: 'GEMINI_API_KEY not set' });
                 return;
             }
         }

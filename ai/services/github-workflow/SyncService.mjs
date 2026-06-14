@@ -114,6 +114,12 @@ class SyncService extends Base {
         // 2. Reconcile closed issue locations - archive stale closed issues before pull
         const reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
 
+        // 2b. Reconcile closed PULL locations — the sibling reconcile that was missing. The
+        //     delta-only pull sync skips PRs untouched since the last cutoff, so old merged PRs marooned
+        //     in active pulls/ are never re-bucketed; this per-sync reconcile (mirroring the issue one)
+        //     archives them and keeps pulls archived going forward.
+        const pullReconcileStats = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata);
+
         // 3. Push local changes
         const pushStats = await IssueSyncer.pushToGitHub(metadata);
 
@@ -218,8 +224,9 @@ class SyncService extends Base {
         const durationMs = endTime - startTime;
 
         const finalStats = {
-            reconciled  : reconcileStats,
-            pushed      : pushStats,
+            reconciled     : reconcileStats,
+            reconciledPulls: pullReconcileStats,
+            pushed         : pushStats,
             pulled      : pullStats.pulled,
             dropped     : pullStats.dropped,
             releases    : releaseStats,
@@ -235,6 +242,7 @@ class SyncService extends Base {
 
         logger.info('✨ Sync Complete');
         logger.info(`   Reconciled:  ${finalStats.reconciled.count} issues archived`);
+        logger.info(`   Reconciled:  ${finalStats.reconciledPulls.count} pull requests archived`);
         logger.info(`   Pushed:      ${finalStats.pushed.count} issues`);
         logger.info(`   Pulled:      ${finalStats.pulled.count} issues (${finalStats.pulled.created} new, ${finalStats.pulled.updated} updated, ${finalStats.pulled.moved} moved)`);
         logger.info(`   Dropped:     ${finalStats.dropped.count} issues`);
@@ -284,7 +292,7 @@ class SyncService extends Base {
     }
 
     /**
-     * Facade for the one-time archive re-bucket migration (#12194). Loads metadata, delegates to
+     * Facade for the one-time archive re-bucket migration. Loads metadata, delegates to
      * `IssueSyncer.migrateArchiveBuckets`, then persists the updated metadata (unless `dryRun`).
      * Invoked out-of-band by `ai/scripts/migrations/rebucketArchive.mjs` — never the regular sync loop.
      * @param {object} [opts]

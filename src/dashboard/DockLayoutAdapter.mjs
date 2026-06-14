@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base         from '../core/Base.mjs';
+import DockSplitter from './DockSplitter.mjs';
 
 /**
  * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
@@ -42,6 +43,14 @@ class DockLayoutAdapter extends Base {
         'targetSortZone',
         'windowId'
     ])
+
+    /**
+     * Default visual extent for projected splitter affordances.
+     * @member {Number} splitterSize=6
+     * @protected
+     * @static
+     */
+    static splitterSize = 6
 
     /**
      * Builds a recoverable placeholder config for a dock item whose live component and blueprint cannot be resolved.
@@ -181,6 +190,65 @@ class DockLayoutAdapter extends Base {
     }
 
     /**
+     * @summary Creates the semantic operation descriptor emitted after a splitter drag resolves.
+     *
+     * Pointer handlers own pixel math. This helper keeps the adapter/model seam semantic by converting
+     * projected splitter metadata plus resolved child sizes into the existing `resizeSplit` descriptor.
+     * @param {Object} splitter Projected splitter config, or its `data` payload.
+     * @param {Number[]} sizes Positive values mapped to the split node's child order.
+     * @returns {Object}
+     * @static
+     */
+    static createResizeSplitOperation(splitter, sizes) {
+        let metadata = splitter?.data || splitter || {};
+
+        return {
+            operation  : 'resizeSplit',
+            sizes      : Array.isArray(sizes) ? sizes.slice() : sizes,
+            splitNodeId: metadata.splitNodeId || metadata.dockNodeId || splitter?.dockNodeId
+        }
+    }
+
+    /**
+     * @summary Projects the stable resize affordance between two adjacent split children.
+     * @param {String} splitNodeId
+     * @param {String} orientation
+     * @param {Number} boundaryIndex
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static createSplitterAffordance(splitNodeId, orientation, boundaryIndex, context={}) {
+        let isVertical = orientation === 'vertical';
+
+        return {
+            applyDockZoneOperation    : context.applyDockZoneOperation,
+            boundaryIndex,
+            cls                       : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
+            data                      : {
+                boundaryIndex,
+                dockNodeId : splitNodeId,
+                dockSplitter: true,
+                operation   : 'resizeSplit',
+                orientation,
+                splitNodeId
+            },
+            dockNodeId                : splitNodeId,
+            dockZoneDocument          : context.dockZoneDocument,
+            dockNodeType              : 'splitter',
+            dockSplitBoundaryIndex    : boundaryIndex,
+            dockSplitOrientation      : orientation,
+            module                    : DockSplitter,
+            ntype                     : 'dashboard-dock-splitter',
+            onDockZoneDocumentChange  : context.onDockZoneDocumentChange,
+            orientation,
+            size                      : this.splitterSize,
+            splitNodeId,
+            [isVertical ? 'height' : 'width']: this.splitterSize
+        }
+    }
+
+    /**
      * Projects the model root into a Neo-compatible config tree.
      * @param {Object} model
      * @param {Object} [options={}]
@@ -200,9 +268,12 @@ class DockLayoutAdapter extends Base {
         }
 
         return this.projectNode(model.root, {
-            items              : model.items || {},
-            nodes              : model.nodes,
-            resolveComponentRef: options.resolveComponentRef || (() => null)
+            applyDockZoneOperation    : options.applyDockZoneOperation,
+            dockZoneDocument          : options.dockZoneDocument || model,
+            items                     : model.items || {},
+            nodes                     : model.nodes,
+            onDockZoneDocumentChange  : options.onDockZoneDocumentChange,
+            resolveComponentRef       : options.resolveComponentRef || (() => null)
         })
     }
 
@@ -316,17 +387,26 @@ class DockLayoutAdapter extends Base {
     static projectSplitNode(nodeId, node, context) {
         let children    = Array.isArray(node.children) ? node.children : [],
             flexValues  = this.getFlexValues(node.sizes, children.length),
+            items       = [],
             orientation = node.orientation === 'vertical' ? 'vertical' : 'horizontal',
             layoutNtype = orientation === 'vertical' ? 'vbox' : 'hbox';
+
+        children.forEach((childId, index) => {
+            items.push({
+                ...this.projectNode(childId, context),
+                flex: flexValues[index]
+            });
+
+            if (index < children.length - 1) {
+                items.push(this.createSplitterAffordance(nodeId, orientation, index, context))
+            }
+        });
 
         return {
             cls         : ['neo-dashboard-dock-split', `neo-dashboard-dock-split-${orientation}`],
             dockNodeId  : nodeId,
             dockNodeType: 'split',
-            items       : children.map((childId, index) => ({
-                ...this.projectNode(childId, context),
-                flex: flexValues[index]
-            })),
+            items,
             layout      : {ntype: layoutNtype, align: 'stretch'},
             ntype       : 'container'
         }

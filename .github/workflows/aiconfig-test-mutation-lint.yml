@@ -1,0 +1,34 @@
+name: AiConfig Test-Mutation Lint
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'test/**/*.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
+      - '.github/workflows/aiconfig-test-mutation-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'test/**/*.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
+      - '.github/workflows/aiconfig-test-mutation-lint.yml'
+
+concurrency:
+  group: aiconfig-test-mutation-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Ban Class-A DB-path AiConfig mutations in tests
+        run: node ./buildScripts/util/check-aiconfig-test-mutation.mjs
