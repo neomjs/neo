@@ -437,11 +437,12 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
             callCount++;
             if (callCount === 1) {
                 expect(variables.issueNumber).toBe(10077);
+                expect(query).toContain('issue(number: $issueNumber)');
+                expect(query).not.toContain('pullRequest(number: $issueNumber)');
                 return {
                     repository: {
-                        issue      : {id: ISSUE_NODE_ID},
-                        pullRequest: null,
-                        labels     : {nodes: repoLabels}
+                        issue : {id: ISSUE_NODE_ID},
+                        labels: {nodes: repoLabels}
                     }
                 };
             }
@@ -473,15 +474,21 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
             callCount++;
             if (callCount === 1) {
                 expect(variables.issueNumber).toBe(11695);
+                expect(query).toContain('issue(number: $issueNumber)');
+                expect(query).not.toContain('pullRequest(number: $issueNumber)');
+                throw new Error('GitHub API error: Could not resolve to an Issue with the number of 11695.');
+            }
+            if (callCount === 2) {
+                expect(query).toContain('pullRequest(number: $issueNumber)');
+                expect(query).not.toContain('issue(number: $issueNumber)');
                 return {
                     repository: {
-                        issue      : null,
                         pullRequest: {id: PR_NODE_ID},
                         labels     : {nodes: repoLabels}
                     }
                 };
             }
-            if (callCount === 2) {
+            if (callCount === 3) {
                 expect(variables).toEqual({
                     labelableId: PR_NODE_ID,
                     labelIds   : ['LA_ai']
@@ -498,7 +505,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         });
 
         expect(result.message).toContain('Successfully added labels');
-        expect(callCount).toBe(2);
+        expect(callCount).toBe(3);
     });
 
     test('removes labels from a Pull Request using the pullRequest Labelable id', async () => {
@@ -508,15 +515,19 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         GraphqlService.query = async (query, variables) => {
             callCount++;
             if (callCount === 1) {
+                expect(query).toContain('issue(number: $issueNumber)');
+                throw new Error('GitHub API error: Could not resolve to an Issue with the number of 11695.');
+            }
+            if (callCount === 2) {
+                expect(query).toContain('pullRequest(number: $issueNumber)');
                 return {
                     repository: {
-                        issue      : null,
                         pullRequest: {id: PR_NODE_ID},
                         labels     : {nodes: repoLabels}
                     }
                 };
             }
-            if (callCount === 2) {
+            if (callCount === 3) {
                 expect(variables).toEqual({
                     labelableId: PR_NODE_ID,
                     labelIds   : ['LA_bug']
@@ -533,21 +544,21 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         });
 
         expect(result.message).toContain('Successfully removed labels');
-        expect(callCount).toBe(2);
+        expect(callCount).toBe(3);
     });
 
     test('returns a structured GraphQL error when neither issue nor Pull Request exists', async () => {
         let callCount = 0;
 
-        GraphqlService.query = async () => {
+        GraphqlService.query = async query => {
             callCount++;
-            return {
-                repository: {
-                    issue      : null,
-                    pullRequest: null,
-                    labels     : {nodes: repoLabels}
-                }
-            };
+            if (query.includes('issue(number: $issueNumber)')) {
+                throw new Error('GitHub API error: Could not resolve to an Issue with the number of 999999.');
+            }
+            if (query.includes('pullRequest(number: $issueNumber)')) {
+                throw new Error('GitHub API error: Could not resolve to a PullRequest with the number of 999999.');
+            }
+            throw new Error(`Unexpected query: ${query}`);
         };
 
         const result = await IssueService.manageIssueLabels({
@@ -559,7 +570,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         expect(result.error).toBe('GraphQL API request failed');
         expect(result.code).toBe('GRAPHQL_API_ERROR');
         expect(result.message).toContain('issue or pull request #999999');
-        expect(callCount).toBe(1);
+        expect(callCount).toBe(2);
     });
 
     test('returns a structured GraphQL error when a requested label is missing', async () => {
@@ -569,9 +580,8 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
             callCount++;
             return {
                 repository: {
-                    issue      : {id: 'I_kwDOABcD_issue10077'},
-                    pullRequest: null,
-                    labels     : {nodes: repoLabels}
+                    issue : {id: 'I_kwDOABcD_issue10077'},
+                    labels: {nodes: repoLabels}
                 }
             };
         };
@@ -585,6 +595,27 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         expect(result.error).toBe('GraphQL API request failed');
         expect(result.code).toBe('GRAPHQL_API_ERROR');
         expect(result.message).toContain('missing-label');
+        expect(callCount).toBe(1);
+    });
+
+    test('does not fall through to PR lookup on unrelated issue lookup errors', async () => {
+        let callCount = 0;
+
+        GraphqlService.query = async query => {
+            callCount++;
+            expect(query).toContain('issue(number: $issueNumber)');
+            throw new Error('GitHub API error: rate limit exceeded');
+        };
+
+        const result = await IssueService.manageIssueLabels({
+            issue_number: 10077,
+            action      : 'add',
+            labels      : ['bug']
+        });
+
+        expect(result.error).toBe('GraphQL API request failed');
+        expect(result.code).toBe('GRAPHQL_API_ERROR');
+        expect(result.message).toContain('rate limit exceeded');
         expect(callCount).toBe(1);
     });
 });
