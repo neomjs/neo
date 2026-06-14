@@ -184,7 +184,7 @@ Every authenticated request carries a `source` tag through `Server.mjs#buildRequ
 
 The source tag is graph-ingested into agent-identity memory writes; an audit query against memories can verify the proportion of `'oidc'` vs `'proxy-header'` writes against operator expectations.
 
-A symmetric healthcheck `providers.auth` block is shipped under [#10770](https://github.com/neomjs/neo/issues/10770) — see [Healthcheck Verification](#healthcheck-verification) below. The block provides static-config observability of the active auth path (OIDC vs proxy-header vs unconfigured) at boot; per-request source-tag observability remains via memory-write audit.
+The active auth path (OIDC vs proxy-header vs unconfigured) is asserted at runtime by `Server.mjs#buildRequestContext`; per-request source-tag observability is available via the memory-write audit described above, rather than as a static healthcheck field.
 
 ## Healthcheck Verification
 
@@ -211,7 +211,7 @@ The Knowledge Base's healthcheck mirrors the connectivity assertion (collection 
 
 The local staged-stack fixture verifies this deployed shape with `npm run test-integration-unified`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp` (see [HeartbeatPropagation.integration.spec.mjs](../../test/playwright/integration/HeartbeatPropagation.integration.spec.mjs)). This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation. It also writes and queries same-session memories as different proxy identities in `test/playwright/integration/CrossTenantIsolation.integration.spec.mjs`, proving tenant-scoped memory reads do not leak across the trusted proxy-identity boundary.
 
-The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724, #10770):
+The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724):
 
 ```json
 "providers": {
@@ -225,26 +225,7 @@ The Memory Core's healthcheck additionally surfaces active provider observabilit
         "active": "openAiCompatible",
         "host": "http://127.0.0.1:11434",
         "model": "qwen3-8b",
-        "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
-        "local": true,
-        "credential": {
-            "env": "NEO_OPENAI_COMPATIBLE_API_KEY",
-            "configured": false,
-            "required": false
-        }
-    },
-    "auth": {
-        "configured": "oidc",
-        "oidc": {
-            "host": "http://127.0.0.1:8180",
-            "issuerUrl": "http://127.0.0.1:8180/realms/master",
-            "realm": "master",
-            "configured": true
-        },
-        "proxyHeader": {
-            "trusted": false,
-            "headersChecked": ["x-preferred-username", "x-auth-request-preferred-username"]
-        }
+        "local": true
     }
 }
 ```
@@ -261,28 +242,11 @@ Summary diagnostic fields:
 - `active`: the provider key currently selected for session summarization (`'gemini'` | `'openAiCompatible'` | string).
 - `host`: chat provider host when applicable (`null` for cloud `gemini`).
 - `model`: resolved summary-generation model. Operators verify this matches the model running on the local server.
-- `endpoint`: chat-completions endpoint for OpenAI-compatible providers.
-- `local`: whether the endpoint is loopback / localhost.
-- `credential`: env var name plus `configured` / `required` booleans; secret values are never exposed.
+- `local`: whether the configured chat endpoint is loopback / localhost.
 
 For disconnect-triggered summarization, keep `NEO_AUTO_SUMMARIZE=true` only after the local model is reachable and healthcheck shows the intended provider/model. If the local chat API is unavailable, Memory Core logs the summarization failure and keeps raw memories intact so the operator can retry.
 
-Auth diagnostic fields:
-- `configured`: which auth path is primary at boot — `'oidc'`, `'proxy-header'`, or `'unconfigured'`. OIDC takes precedence when both are configured (matches `Server.mjs#buildRequestContext` runtime semantics — `req.auth` wins over the proxy header by design).
-- `oidc.{host, issuerUrl, realm}`: introspection-relevant config visibility (never the `clientSecret`).
-- `oidc.configured`: `true` only when both `host` AND `issuerUrl` are populated.
-- `proxyHeader.trusted`: whether `auth.trustProxyIdentity` is enabled in config.
-- `proxyHeader.headersChecked`: the canonical (`x-preferred-username`) and `oauth2-proxy`-specific (`x-auth-request-preferred-username`) header keys the server reads in proxy-header mode.
-
-Use `configured` as the at-a-glance indicator. A misconfigured `NEO_AUTH_TRUST_PROXY_IDENTITY=true` without OIDC and without a fronting proxy actually deployed will surface here as `'proxy-header'`; if requests then fail with `401`, that's the runtime gate ([PR #10785](https://github.com/neomjs/neo/pull/10785)) rejecting missing proxy headers per the [Authentication](#authentication) threat model. The healthcheck shows the *configured* posture; the 401 confirms the gate fires when the prerequisite is absent.
-
-Dream background daemon diagnostic fields (`features.dream`):
-- `autoDream`: whether the background Dream daemon is permitted to run.
-- `autoGoldenPath`: whether the background Golden Path pipeline is enabled.
-- `realTimeMemoryParsing`: whether the real-time continuous memory parsing worker is enabled.
-- `autoIngestFileSystem`: whether the file-system ingest watcher is enabled.
-- `lastDreamRun`: placeholder for the timestamp of the last Dream pipeline execution.
-- `lastGoldenPathRun`: placeholder for the timestamp of the last Golden Path pipeline execution.
+The active auth path is asserted at runtime and surfaced per-request via the memory-write source tag (see [Authentication](#authentication)); a misconfigured `NEO_AUTH_TRUST_PROXY_IDENTITY=true` without a fronting proxy actually deployed surfaces when requests fail with `401` at the runtime gate ([PR #10785](https://github.com/neomjs/neo/pull/10785)) rejecting missing proxy headers per the threat model.
 
 ## Asynchronous Session Summarization (Disconnect Trigger)
 

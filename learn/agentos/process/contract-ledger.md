@@ -76,10 +76,10 @@ names must match current substrate reality instead of semantic memory.
 - Helper-default drift: reusing `resolveDeploymentEnabled()` for a
   cloud-deployable lane without verifying that the helper is local-only shaped
   and defaults `cloud` off.
-- Downstream-vs-substrate naming drift: naming an MCP healthcheck command when
-  the owning substrate anchor is the health payload, such as
-  `healthcheck.orchestrator.tasks` recorded through
-  `HealthService.recordTaskOutcome()`.
+- Downstream-vs-substrate naming drift: naming a derived projection or MCP
+  surface when the owning substrate anchor is the service method, such as
+  citing a healthcheck field for orchestrator task outcomes when the live
+  anchor is `HealthService.recordTaskOutcome()` writing service-internal state.
 - Existence drift: asserting a `setTenantConfig` MCP tool when the live surface
   is `KnowledgeBaseIngestionService.setTenantConfig()`.
 - Stale scope inheritance: carrying an old backup/redeploy boundary after ADR
