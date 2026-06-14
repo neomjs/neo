@@ -21,20 +21,101 @@ const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
-const PUBLIC_GITHUB_WRITE_TOOLS = Object.freeze(new Set([
-    'create_discussion',
-    'create_issue',
-    'manage_discussion',
-    'manage_discussion_comment',
-    'manage_issue_assignees',
-    'manage_issue_comment',
-    'manage_issue_labels',
-    'manage_issue_projects',
-    'manage_pr_review',
-    'manage_pr_reviewers',
-    'signal_state_transition',
-    'update_issue_relationship'
+const PUBLIC_GITHUB_WRITE_ACCESS     = 'public-write';
+const NON_PUBLIC_GITHUB_WRITE_ACCESS = 'non-public-write';
+const GITHUB_TOOL_ACCESS_TYPES       = Object.freeze(new Set([
+    PUBLIC_GITHUB_WRITE_ACCESS,
+    NON_PUBLIC_GITHUB_WRITE_ACCESS
 ]));
+
+/**
+ * @summary Canonical access classification for every GitHub Workflow MCP tool.
+ *
+ * `public-write` tools can mutate github.com state and therefore must pass the
+ * GitHub write identity guard. `non-public-write` tools may read remote state or
+ * mutate only the caller-local workspace. Keeping every `serviceMapping` key in
+ * this policy turns future tool additions into an explicit classification step.
+ */
+const GITHUB_TOOL_ACCESS = Object.freeze({
+    checkout_pull_request      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    create_discussion          : PUBLIC_GITHUB_WRITE_ACCESS,
+    create_issue               : PUBLIC_GITHUB_WRITE_ACCESS,
+    get_conversation           : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_discussion_conversation: NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_local_issue_by_id      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_pull_request_diff      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_viewer_permission      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    healthcheck                : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    list_issues                : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    list_labels                : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    list_pull_requests         : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_discussion          : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_discussion_comment  : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_assignees     : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_comment       : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_labels        : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_projects      : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_pr_review           : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_pr_reviewers        : PUBLIC_GITHUB_WRITE_ACCESS,
+    signal_state_transition    : PUBLIC_GITHUB_WRITE_ACCESS,
+    sync_all                   : PUBLIC_GITHUB_WRITE_ACCESS,
+    update_issue_relationship  : PUBLIC_GITHUB_WRITE_ACCESS
+});
+
+const PUBLIC_GITHUB_WRITE_TOOLS = Object.freeze(new Set(
+    Object.entries(GITHUB_TOOL_ACCESS)
+        .filter(([, access]) => access === PUBLIC_GITHUB_WRITE_ACCESS)
+        .map(([toolName]) => toolName)
+));
+
+function getMissingGitHubToolAccessClassifications(mapping, accessPolicy = GITHUB_TOOL_ACCESS) {
+    return Object.keys(mapping).filter(toolName => !Object.hasOwn(accessPolicy, toolName));
+}
+
+function getInvalidGitHubToolAccessClassifications(accessPolicy = GITHUB_TOOL_ACCESS) {
+    return Object.entries(accessPolicy)
+        .filter(([, access]) => !GITHUB_TOOL_ACCESS_TYPES.has(access))
+        .map(([toolName]) => toolName);
+}
+
+/**
+ * @summary Fails closed when a service-mapped tool lacks an access classification.
+ * @param {Object} mapping Operation id to handler function.
+ * @param {Object} [accessPolicy] Tool access policy keyed by operation id.
+ * @returns {Boolean} True when every mapped tool is classified.
+ */
+function assertNoUnclassifiedGitHubTools(mapping, accessPolicy = GITHUB_TOOL_ACCESS) {
+    const missing = getMissingGitHubToolAccessClassifications(mapping, accessPolicy);
+    const invalid = getInvalidGitHubToolAccessClassifications(accessPolicy);
+
+    if (missing.length || invalid.length) {
+        throw new Error([
+            'GitHub tool access policy incomplete.',
+            missing.length ? `Missing classification: ${missing.sort().join(', ')}` : null,
+            invalid.length ? `Invalid classification: ${invalid.sort().join(', ')}` : null
+        ].filter(Boolean).join(' '));
+    }
+
+    return true;
+}
+
+/**
+ * @summary Verifies the canonical policy and runtime service mapping stay in lockstep.
+ * @param {Object} mapping Operation id to handler function.
+ * @param {Object} [accessPolicy] Tool access policy keyed by operation id.
+ * @returns {Boolean} True when mapping and policy cover the same operation ids.
+ */
+function assertCompleteGitHubToolAccessPolicy(mapping, accessPolicy = GITHUB_TOOL_ACCESS) {
+    assertNoUnclassifiedGitHubTools(mapping, accessPolicy);
+
+    const stale = Object.keys(accessPolicy).filter(toolName => !Object.hasOwn(mapping, toolName));
+
+    if (stale.length) {
+        throw new Error(`GitHub tool access policy has stale classification: ${stale.sort().join(', ')}`);
+    }
+
+    return true;
+}
 
 /**
  * @summary Normalizes AgentIdentity-style and GitHub-login-style strings to a GitHub login.
@@ -177,6 +258,8 @@ function isPublicGitHubWriteTool(toolName) {
  * @returns {Object} A mapping where public write handlers are guarded.
  */
 function guardGitHubWriteTools(mapping, guardOptions) {
+    assertNoUnclassifiedGitHubTools(mapping);
+
     return Object.fromEntries(
         Object.entries(mapping).map(([toolName, handler]) => [
             toolName,
@@ -329,11 +412,16 @@ const serviceMapping = {
     update_issue_relationship  : IssueService      .updateIssueRelationship.bind(IssueService)
 };
 
+assertCompleteGitHubToolAccessPolicy(serviceMapping);
+
 const guardedServiceMapping = guardGitHubWriteTools(serviceMapping);
 
 // Exported for unit-test access. `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
 export {
+    GITHUB_TOOL_ACCESS,
+    assertCompleteGitHubToolAccessPolicy,
+    assertNoUnclassifiedGitHubTools,
     buildDevBranchGuard,
     buildGitHubWriteIdentityGuard,
     getConversationRouter,
