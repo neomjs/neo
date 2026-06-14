@@ -196,6 +196,16 @@ class HealthService extends Base {
     agentLoginReader = null;
 
     /**
+     * Injectable reader for the Memory-Core self-identity — the second surface that shares the
+     * agent's token. Its source (the MCP request context) lives above this service layer, so the
+     * github-workflow server injects it at wire-up; left null elsewhere, where the GitHub-login leg
+     * still asserts. A null or unresolvable read skips the Memory-Core leg rather than failing the
+     * healthcheck on a missing supplementary signal. Mirrors {@link agentLoginReader}.
+     * @member {Function|null} memoryCoreIdentityReader
+     */
+    memoryCoreIdentityReader = null;
+
+    /**
      * ISO timestamp captured when this server module was loaded.
      * @member {String} runtimeStartedAt
      */
@@ -451,13 +461,16 @@ class HealthService extends Base {
     }
 
     /**
-     * @summary Asserts the live authenticated GitHub identity is the EXPECTED agent (`NEO_AGENT_IDENTITY`).
+     * @summary Asserts the live authenticated identity is the EXPECTED agent (`NEO_AGENT_IDENTITY`).
      *
      * A drifted `GH_TOKEN` authenticates cleanly yet acts as the wrong identity — the silent failure
      * class that mis-attributes PRs and reviews. This resolves the live login (via {@link agentLoginReader},
-     * defaulting to `gh api user --jq .login`) and delegates the fail-closed comparison to the pure
-     * `assertExpectedIdentity` core. Returns `{ok:true}` (a no-op) when no expected identity is
-     * configured, and fails closed when the login cannot be resolved.
+     * defaulting to `gh api user --jq .login`) and, when a {@link memoryCoreIdentityReader} is injected,
+     * the Memory-Core self-identity (the second surface sharing the token), then delegates the
+     * fail-closed comparison to the pure `assertExpectedIdentity` core — so a drift on EITHER surface
+     * degrades the healthcheck. Returns `{ok:true}` (a no-op) when no expected identity is configured,
+     * fails closed when the login cannot be resolved, and skips the Memory-Core leg when its reader is
+     * absent or yields nothing.
      *
      * @returns {Promise<{ok: Boolean, reason: (String|null)}>}
      */
@@ -479,7 +492,21 @@ class HealthService extends Base {
             return {ok: false, reason: `identity drift: could not resolve the authed GitHub login (${e.message})`};
         }
 
-        return assertExpectedIdentity({expected: expectedIdentity, actualLogin});
+        // Second surface that shares the drifted token: the Memory-Core self-identity. Sourced via the
+        // injected reader (its MCP request context lives above this layer); absent or unresolvable ->
+        // left null so the core asserts the GitHub surface alone rather than failing the healthcheck on
+        // a missing supplementary signal.
+        let memoryCoreIdentity = null;
+
+        if (this.memoryCoreIdentityReader) {
+            try {
+                memoryCoreIdentity = await this.memoryCoreIdentityReader();
+            } catch (e) {
+                memoryCoreIdentity = null;
+            }
+        }
+
+        return assertExpectedIdentity({expected: expectedIdentity, actualLogin, memoryCoreIdentity});
     }
 
     /**

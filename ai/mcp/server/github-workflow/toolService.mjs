@@ -303,6 +303,13 @@ async function getConversationRouter(options) {
     };
 }
 
+// The github-workflow healthcheck degrades on identity drift, including the Memory-Core self-identity
+// leg. That identity resolves from this MCP request context, which sits above HealthService's service
+// layer — so inject the reader here rather than have the service import the context upward. Mirrors the
+// write-guard's defaultGitHubIdentityAssertion sourcing.
+HealthService.memoryCoreIdentityReader = () =>
+    RequestContextService.getAgentIdentityNodeId() || RequestContextService.getUserId();
+
 const serviceMapping = {
     checkout_pull_request      : PullRequestService.checkoutPullRequest    .bind(PullRequestService),
     create_discussion          : DiscussionService .createDiscussion       .bind(DiscussionService),

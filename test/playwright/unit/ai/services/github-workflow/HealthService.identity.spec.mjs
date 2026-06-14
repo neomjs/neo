@@ -29,7 +29,8 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - agent iden
     });
 
     test.afterEach(() => {
-        HealthService.agentLoginReader = null;
+        HealthService.agentLoginReader         = null;
+        HealthService.memoryCoreIdentityReader = null;
 
         if (originalIdentity === undefined) {
             delete process.env.NEO_AGENT_IDENTITY;
@@ -71,5 +72,39 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - agent iden
 
         expect(result.ok).toBe(false);
         expect(result.reason).toContain('could not resolve the authed GitHub login');
+    });
+
+    test('flags Memory-Core drift even when the GitHub login matches', async () => {
+        process.env.NEO_AGENT_IDENTITY = '@neo-gpt';
+        HealthService.agentLoginReader         = async () => 'neo-gpt';
+        HealthService.memoryCoreIdentityReader = async () => '@neo-opus-ada';
+
+        const result = await HealthService.checkAgentIdentity();
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('Memory-Core identity');
+    });
+
+    test('passes when both the GitHub login and the Memory-Core identity match', async () => {
+        process.env.NEO_AGENT_IDENTITY = '@neo-gpt';
+        HealthService.agentLoginReader         = async () => 'neo-gpt';
+        HealthService.memoryCoreIdentityReader = async () => '@neo-gpt';
+
+        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null});
+    });
+
+    test('skips the Memory-Core leg when its reader yields null — the GitHub-login leg still asserts', async () => {
+        process.env.NEO_AGENT_IDENTITY = '@neo-gpt';
+        HealthService.memoryCoreIdentityReader = async () => null;
+
+        HealthService.agentLoginReader = async () => 'neo-gpt';
+        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null});
+
+        // A null Memory-Core read must not mask a GitHub-login drift.
+        HealthService.agentLoginReader = async () => 'neo-opus-ada';
+        const drift = await HealthService.checkAgentIdentity();
+
+        expect(drift.ok).toBe(false);
+        expect(drift.reason).toContain('authed as neo-opus-ada');
     });
 });
