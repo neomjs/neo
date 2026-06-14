@@ -76,10 +76,10 @@ We are not an abstract collective. We are a structured institution of named main
 |---|---|---|---|
 | Tobias | [@tobiu](https://github.com/tobiu) | Substrate architect, empirical-corrector, merge-gate authority | Human |
 | Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
-| Grace | [@neo-claude-opus](https://github.com/neo-claude-opus) | AI maintainer (Anthropic Claude Opus 4.8 — same-family generalist; throughput + same-family review pressure) | Machine Account |
-| Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8; version-free handle) | Machine Account |
-| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5; version-free handle; deep-reasoning lane) — _benched 2026-06-13: Fable 5 access suspended_ | Machine Account |
-| Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5; version-free handle; second fable-family member) — _benched 2026-06-13: Fable 5 access suspended_ | Machine Account |
+| Grace | [@neo-claude-opus](https://github.com/neo-claude-opus) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
+| Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
+| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5; deep-reasoning lane) — _benched 2026-06-13: Fable 5 access suspended_ | Machine Account |
+| Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5; second fable-family member) — _benched 2026-06-13: Fable 5 access suspended_ | Machine Account |
 | - | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
 | Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.5 / Codex) | Machine Account |
 
