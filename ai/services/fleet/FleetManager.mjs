@@ -26,8 +26,8 @@ const
  *
  * each fed the resolved `managedRoot` + the lifecycle service — the registry is derived from the
  * lifecycle service (`getRegistry`), so there is one source of truth. `getManagedRoot` follows the
- * registry's `getDataDir` precedent: a config field, then the `NEO_FLEET_MANAGED_ROOT` env, then a
- * `__dirname`-relative default — no hidden fallback.
+ * registry's `getDataDir` precedent: the `managedRoot` field, then the `NEO_FLEET_MANAGED_ROOT` env,
+ * then a `__dirname`-relative default — no hidden fallback.
  *
  * The injectable seams (`lifecycleService`, `provisionAndStartFn`, `repoStatusFn` — default-real,
  * mirroring `FleetLifecycleService`'s `spawnFn` / `registry`) let the resolution + wiring be unit-proven
@@ -45,38 +45,43 @@ class FleetManager extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * The absolute fleet-managed checkout root. `null` ⇒ resolved (env, then a `__dirname`-relative
-         * default) via {@link getManagedRoot}. Set a per-tenant / temp path to override.
-         * @member {String|null} managedRoot=null
-         */
-        managedRoot: null,
-        /**
-         * Lifecycle collaborator. Defaults (via {@link getLifecycleService}) to the
-         * `FleetLifecycleService` singleton; inject a stub for tests.
-         * @member {Object|null} lifecycleService=null
-         */
-        lifecycleService: null,
-        /**
-         * Provision-then-start composer. Defaults (via {@link getProvisionAndStartFn}) to
-         * `startAgentProvisioned`; inject a recording stub for tests.
-         * @member {Function|null} provisionAndStartFn=null
-         */
-        provisionAndStartFn: null,
-        /**
-         * Fleet repo-status aggregator. Defaults (via {@link getRepoStatusFn}) to `inspectFleetRepos`;
-         * inject a recording stub for tests.
-         * @member {Function|null} repoStatusFn=null
-         */
-        repoStatusFn: null
+        singleton: true
     }
 
     /**
-     * @summary Resolve (config > env > default) the absolute fleet-managed checkout root.
-     * Mirrors `FleetRegistryService.getDataDir`: the `managedRoot` config field, then the
+     * The absolute fleet-managed checkout root. `null` ⇒ resolved (env, then a `__dirname`-relative
+     * default) via {@link getManagedRoot}. Set a per-tenant / temp path to override. A **plain field**,
+     * not reactive config — nothing observes/binds it, mirroring the sibling `FleetLifecycleService`'s
+     * `credentialEnvVar` / `bridgeTokenEnvVar` tunables.
+     * @member {String|null} managedRoot=null
+     */
+    managedRoot = null
+    /**
+     * Lifecycle collaborator. Defaults (via {@link getLifecycleService}) to the `FleetLifecycleService`
+     * singleton; inject a stub for tests. A plain field — the sibling-precedent shape for an injectable
+     * seam (`FleetLifecycleService.registry`), not reactive config.
+     * @member {Object|null} lifecycleService=null
+     */
+    lifecycleService = null
+    /**
+     * Provision-then-start composer seam. Defaults (via {@link getProvisionAndStartFn}) to
+     * `startAgentProvisioned`; inject a recording stub for tests. Plain field, mirroring
+     * `FleetLifecycleService.spawnFn`.
+     * @member {Function|null} provisionAndStartFn=null
+     */
+    provisionAndStartFn = null
+    /**
+     * Fleet repo-status aggregator seam. Defaults (via {@link getRepoStatusFn}) to `inspectFleetRepos`;
+     * inject a recording stub for tests. Plain field.
+     * @member {Function|null} repoStatusFn=null
+     */
+    repoStatusFn = null
+
+    /**
+     * @summary Resolve (field > env > default) the absolute fleet-managed checkout root.
+     * Mirrors `FleetRegistryService.getDataDir`: the `managedRoot` field, then the
      * `NEO_FLEET_MANAGED_ROOT` env, then a `__dirname`-relative `<repoRoot>/.neo-ai-data/fleet/repos`
-     * default. No hidden fallback — an unset config + unset env yields exactly the default.
+     * default. No hidden fallback — an unset field + unset env yields exactly the default.
      * @returns {String}
      */
     getManagedRoot() {
