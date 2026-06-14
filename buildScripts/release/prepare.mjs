@@ -10,12 +10,7 @@
 import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
-import createLabelIndex            from '../docs/index/labels.mjs';
-import createReleaseIndex          from '../docs/index/release.mjs';
-import createDiscussionIndex       from '../docs/index/discussions.mjs';
-import createPullRequestIndex      from '../docs/index/pulls.mjs';
-import createTicketIndex           from '../docs/index/tickets.mjs';
-import {getLlmsTxt, getSitemapXml} from '../docs/seo/generate.mjs';
+import rebuildContentIndexesAndSeo from '../docs/rebuildContentIndexesAndSeo.mjs';
 
 const
     root        = path.resolve(),
@@ -134,25 +129,8 @@ if (insideNeo) {
     }
 }
 
-// Generate the release content JSON before SEO files
-await createLabelIndex();
-await createReleaseIndex();
-await createPullRequestIndex();
-await createDiscussionIndex();
-await createTicketIndex();
-
-// Generate sitemap.xml and llms.txt to ensure SEO files are up-to-date with the latest content and routes.
-// This is crucial for search engine discoverability and AI model consumption.
-const baseUrl = 'https://neomjs.com'; // Hardcode canonical base URL
-const sitemapPath = path.join(root, 'apps/portal/sitemap.xml');
-
-const sitemapXml = await getSitemapXml({baseUrl, existingSitemapPath: sitemapPath});
-fs.writeFileSync(sitemapPath, sitemapXml);
-console.log('Generated apps/portal/sitemap.xml');
-
-const llmsTxt = await getLlmsTxt({baseUrl});
-fs.writeFileSync(path.join(root, 'apps/portal/llms.txt'), llmsTxt);
-console.log('Generated apps/portal/llms.txt');
+// Generate the Portal indexes and SEO files from the shared bundle used by sync paths.
+await rebuildContentIndexesAndSeo({root, includeLabelIndex: true});
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`\nTotal time for ${programName}: ${processTime}s`);
