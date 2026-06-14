@@ -123,6 +123,7 @@ const expectedNeuralLinkToolTiers = {
     query_component              : 'read',
     query_vdom                   : 'read',
     reload_page                  : 'admin',
+    remove_component             : 'write-locked',
     set_instance_properties      : 'write-locked',
     set_route                    : 'write-locked',
     simulate_event               : 'write-locked',
@@ -138,6 +139,7 @@ const neuralLinkDangerousReadForbidden = [
     'modify_state_provider',
     'patch_code',
     'reload_page',
+    'remove_component',
     'set_instance_properties',
     'set_route',
     'simulate_event'
