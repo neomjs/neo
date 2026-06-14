@@ -158,7 +158,7 @@ class ComponentService extends Base {
      * an agent can create components without being granted admin method-call access.
      * @param {Object} opts             The options object.
      * @param {String} opts.parentId    The target container's component ID.
-     * @param {Object} opts.config      The component configuration; must declare a `module`, `ntype`, or `className`.
+     * @param {Object} opts.config      The component configuration; declare an `ntype` (e.g. `button`) or `className` (e.g. `Neo.button.Base`). A `module` is a class reference that cannot cross the wire — use `ntype`/`className`.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The result of adding the component to the container.
      */
@@ -168,6 +168,13 @@ class ComponentService extends Base {
         }
         if (!config || typeof config !== 'object' || Array.isArray(config)) {
             throw new Error('create_component: `config` must be a component configuration object.');
+        }
+        // A `module` is a CLASS reference (the imported class, not its name-string). It cannot cross the
+        // Neural Link wire (JSON carries no class), and a string/non-class `module` would crash the
+        // worker-side `container.add` at `createItem` (`module.prototype.className` on a non-class). Fail
+        // fast with a pointer to the wire-usable forms instead of surfacing that cryptic downstream error.
+        if (config.module && typeof config.module !== 'function') {
+            throw new Error('create_component: `module` must be a class reference, which cannot cross the Neural Link wire — declare `ntype` (e.g. "button") or `className` (e.g. "Neo.button.Base") instead.');
         }
         if (!config.module && !config.ntype && !config.className) {
             throw new Error('create_component: `config` must declare a `module`, `ntype`, or `className` to instantiate.');
