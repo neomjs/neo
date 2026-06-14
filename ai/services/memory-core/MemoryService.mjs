@@ -1102,7 +1102,8 @@ class MemoryService extends Base {
             const queryArgs = {
                 queryTexts: [query],
                 nResults,
-                include   : ['metadatas']
+                // 'distances' is load-bearing — the Dual-Pass re-ranker's semantic score needs it (else topology-only).
+                include   : ['metadatas', 'distances']
             };
 
             // Tenant-scoped where clause with additive shared-commons access.
