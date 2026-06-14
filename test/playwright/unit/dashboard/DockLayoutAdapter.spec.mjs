@@ -10,6 +10,7 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockSplitter      from '../../../../src/dashboard/DockSplitter.mjs';
 import DockZoneModel     from '../../../../src/dashboard/DockZoneModel.mjs';
 
 const createModel = () => ({
@@ -167,7 +168,11 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             dockNodeType          : 'splitter',
             dockSplitBoundaryIndex: 0,
             dockSplitOrientation  : 'horizontal',
-            ntype                 : 'component',
+            module                : DockSplitter,
+            ntype                 : 'dashboard-dock-splitter',
+            orientation           : 'horizontal',
+            size                  : DockLayoutAdapter.splitterSize,
+            splitNodeId           : 'root',
             width                 : DockLayoutAdapter.splitterSize
         });
         expect(rootSplitter.height).toBeUndefined();
@@ -186,7 +191,11 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             dockSplitBoundaryIndex: 0,
             dockSplitOrientation  : 'vertical',
             height                : DockLayoutAdapter.splitterSize,
-            ntype                 : 'component'
+            module                : DockSplitter,
+            ntype                 : 'dashboard-dock-splitter',
+            orientation           : 'vertical',
+            size                  : DockLayoutAdapter.splitterSize,
+            splitNodeId           : 'side-split'
         });
         expect(sideSplitter.width).toBeUndefined();
     });

@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base         from '../core/Base.mjs';
+import DockSplitter from './DockSplitter.mjs';
 
 /**
  * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
@@ -217,12 +218,14 @@ class DockLayoutAdapter extends Base {
      * @protected
      * @static
      */
-    static createSplitterAffordance(splitNodeId, orientation, boundaryIndex) {
+    static createSplitterAffordance(splitNodeId, orientation, boundaryIndex, context={}) {
         let isVertical = orientation === 'vertical';
 
         return {
-            cls                   : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
-            data                  : {
+            applyDockZoneOperation    : context.applyDockZoneOperation,
+            boundaryIndex,
+            cls                       : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
+            data                      : {
                 boundaryIndex,
                 dockNodeId : splitNodeId,
                 dockSplitter: true,
@@ -230,12 +233,18 @@ class DockLayoutAdapter extends Base {
                 orientation,
                 splitNodeId
             },
-            dockNodeId            : splitNodeId,
-            dockNodeType          : 'splitter',
-            dockSplitBoundaryIndex: boundaryIndex,
-            dockSplitOrientation  : orientation,
-            [isVertical ? 'height' : 'width']: this.splitterSize,
-            ntype                 : 'component'
+            dockNodeId                : splitNodeId,
+            dockZoneDocument          : context.dockZoneDocument,
+            dockNodeType              : 'splitter',
+            dockSplitBoundaryIndex    : boundaryIndex,
+            dockSplitOrientation      : orientation,
+            module                    : DockSplitter,
+            ntype                     : 'dashboard-dock-splitter',
+            onDockZoneDocumentChange  : context.onDockZoneDocumentChange,
+            orientation,
+            size                      : this.splitterSize,
+            splitNodeId,
+            [isVertical ? 'height' : 'width']: this.splitterSize
         }
     }
 
@@ -259,9 +268,12 @@ class DockLayoutAdapter extends Base {
         }
 
         return this.projectNode(model.root, {
-            items              : model.items || {},
-            nodes              : model.nodes,
-            resolveComponentRef: options.resolveComponentRef || (() => null)
+            applyDockZoneOperation    : options.applyDockZoneOperation,
+            dockZoneDocument          : options.dockZoneDocument || model,
+            items                     : model.items || {},
+            nodes                     : model.nodes,
+            onDockZoneDocumentChange  : options.onDockZoneDocumentChange,
+            resolveComponentRef       : options.resolveComponentRef || (() => null)
         })
     }
 
@@ -386,7 +398,7 @@ class DockLayoutAdapter extends Base {
             });
 
             if (index < children.length - 1) {
-                items.push(this.createSplitterAffordance(nodeId, orientation, index))
+                items.push(this.createSplitterAffordance(nodeId, orientation, index, context))
             }
         });
 
