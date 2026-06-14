@@ -120,4 +120,68 @@ test.describe('Harness Endurance Benchmark', () => {
         expect(neo.lags.length).toBeGreaterThan(50);
         expect(comparator.lags.length).toBeGreaterThan(50);
     });
+
+    test('worker-topology at marathon scale — both subjects DOM-windowed (fair isolation)', async ({page, neuralLink}) => {
+        test.setTimeout(180000);
+
+        // Fast/big deterministic load → drive each transcript toward marathon scale (multi-MB) within the test.
+        // durationMs stays long so the stream is STILL appending when we sample (on-append lag, not at-rest).
+        // BOTH subjects window their DOM at scale (Neo via MarkdownVdom virtualize:true; the comparator via
+        // RENDER_WINDOW), so the on-append event-loop lag isolates the worker-topology variable (WHERE parse/
+        // render runs) rather than a virtualization asymmetry — the comparator's worker-topology contract.
+        const loadCfg  = {seed: 1, appendCadenceMs: 4, maxTokensPerAppend: 600, durationMs: 90000},
+              growMs   = 30000,   // let the transcript accumulate to scale
+              sampleMs = 6000;
+
+        // --- Subject A (Neo: MarkdownVdom, virtualize:true + off-thread parse) ---
+        await page.goto('/ai/examples/harnessEndurance/neo/index.html');
+        const app     = await neuralLink.connectToApp('Neo.examples.harnessEndurance.neo'),
+              matches = await app.queryComponent({ntype: 'viewport'}, ['id']),
+              mainId  = matches?.components?.[0]?.id ?? matches?.[0]?.id ?? matches?.id;
+
+        expect(mainId, `could not resolve the MainContainer id (got ${JSON.stringify(matches)})`).toBeTruthy();
+
+        await app.callMethod(mainId, 'startLoad', [loadCfg]); // fire-and-forget → resolves immediately
+        await page.waitForTimeout(growMs);
+
+        const neoLag = await sampleEventLoopLag(page, {windowMs: sampleMs}); // sampled WHILE appending at scale
+        const neo    = await page.evaluate(() => ({
+            chars   : document.querySelector('.neo-markdown-vdom')?.innerText.length ?? -1,
+            domNodes: document.querySelector('.neo-markdown-vdom')?.querySelectorAll('*').length ?? -1,
+            heapMB  : performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null
+        }));
+
+        // Full accumulated transcript length (App-Worker value), NOT the rendered window — the two
+        // diverge under virtualization, proving the DOM stays windowed while the value reaches scale.
+        const neoTotalRaw = await app.callMethod(mainId, 'getTranscriptLength'),
+              neoTotal    = typeof neoTotalRaw === 'number' ? neoTotalRaw : (neoTotalRaw?.result ?? neoTotalRaw?.value ?? 0);
+
+        // --- Subject B (best-practice main-thread comparator: incremental parse/render + DOM-windowed) ---
+        await page.goto('/ai/examples/harnessEndurance/comparator/index.html');
+        await page.waitForFunction(() => globalThis.__enduranceComparator?.start);
+        await page.evaluate(cfg => { globalThis.__enduranceComparator.start(cfg) }, loadCfg);
+        await page.waitForTimeout(growMs);
+
+        const cmpLag   = await sampleEventLoopLag(page, {windowMs: sampleMs});
+        const cmp      = await page.evaluate(() => ({
+            chars   : document.querySelector('.endurance-transcript')?.innerText.length ?? -1,
+            domNodes: document.querySelector('.endurance-transcript')?.querySelectorAll('*').length ?? -1,
+            heapMB  : performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null
+        }));
+        const cmpTotal = await page.evaluate(() => globalThis.__enduranceComparator.getTotalChars());
+
+        console.log(`[endurance:marathon] Neo: totalChars=${neoTotal} renderedChars=${neo.chars} DOM=${neo.domNodes} heap=${neo.heapMB}MB onAppendLag med/p95=${median(neoLag.lags).toFixed(2)}/${percentile(neoLag.lags, 0.95).toFixed(2)}ms`);
+        console.log(`[endurance:marathon] cmp: totalChars=${cmpTotal} renderedChars=${cmp.chars} DOM=${cmp.domNodes} heap=${cmp.heapMB}MB onAppendLag med/p95=${median(cmpLag.lags).toFixed(2)}/${percentile(cmpLag.lags, 0.95).toFixed(2)}ms`);
+
+        // Both subjects reached marathon scale (the full transcript) while WINDOWING the rendered DOM
+        // (rendered << total). With virtualization matched on both sides, the on-append event-loop lag
+        // (logged above; low = good) isolates the worker-topology variable — it is NOT asserted to a
+        // threshold (the honest delta is the finding, published in the benchmark README).
+        expect(neoTotal, 'Neo transcript should reach marathon scale').toBeGreaterThan(1_000_000);
+        expect(cmpTotal, 'comparator transcript should reach marathon scale').toBeGreaterThan(1_000_000);
+        expect(neo.chars, 'Neo rendered window << full value (virtualization)').toBeLessThan(neoTotal / 10);
+        expect(cmp.chars, 'comparator rendered window << full value (windowing)').toBeLessThan(cmpTotal / 10);
+        expect(neo.domNodes).toBeGreaterThan(0);
+        expect(cmp.domNodes).toBeGreaterThan(0);
+    });
 });
