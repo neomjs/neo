@@ -719,6 +719,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // into the session loop and silently reintroduces N×M traversal cost at ontology scale.
 
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
@@ -745,6 +746,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             synthesizeGolden   : DreamService.synthesizeGoldenPath,
             triVector          : SemanticGraphExtractor.executeTriVectorExtraction,
             syncSession        : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs           : AdrIngestor.syncAdrsToGraph,
             syncConcepts       : ConceptIngestor.syncConceptsToGraph,
             syncFs             : FileSystemIngestor.syncWorkspaceToGraph,
             extractTopo        : TopologyInferenceEngine.extractTopology,
@@ -775,6 +777,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 memoriesSkipped : 0,
                 memoriesUpserted: 0
             });
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph     = async () => ({});
             FileSystemIngestor.syncWorkspaceToGraph = async () => {};
             TopologyInferenceEngine.extractTopology = async () => {};
@@ -794,6 +797,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
             SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
             MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
             ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
             FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
             TopologyInferenceEngine.extractTopology           = orig.extractTopo;
@@ -808,6 +812,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // rows instead of permanently masking them behind `graphDigested: true`.
 
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
@@ -834,6 +839,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             synthesizeGolden   : DreamService.synthesizeGoldenPath,
             triVector          : SemanticGraphExtractor.executeTriVectorExtraction,
             syncSession        : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs           : AdrIngestor.syncAdrsToGraph,
             syncConcepts       : ConceptIngestor.syncConceptsToGraph,
             syncFs             : FileSystemIngestor.syncWorkspaceToGraph,
             extractTopo        : TopologyInferenceEngine.extractTopology,
@@ -864,6 +870,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 memoriesSkipped : 1,
                 memoriesUpserted: 2
             });
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph     = async () => ({});
             FileSystemIngestor.syncWorkspaceToGraph = async () => {};
             TopologyInferenceEngine.extractTopology = async () => {};
@@ -889,6 +896,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
             SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
             MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
             ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
             FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
             TopologyInferenceEngine.extractTopology           = orig.extractTopo;
@@ -910,6 +918,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // SemanticGraphExtractor choreography under test runs real. Hypothesis 9 (PRIMARY),
         // Discussion silent-failure enumeration §2.4.
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
@@ -933,6 +942,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             runGarbageCol     : DreamService.runGarbageCollection,
             synthesizeGolden  : DreamService.synthesizeGoldenPath,
             syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
             syncConcepts      : ConceptIngestor.syncConceptsToGraph,
             syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
             extractTopo       : TopologyInferenceEngine.extractTopology,
@@ -961,6 +971,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.runGarbageCollection        = async () => {};
             DreamService.synthesizeGoldenPath        = async () => {};
             MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesUpserted: 0, memoriesSkipped: 0});
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph      = async () => ({});
             FileSystemIngestor.syncWorkspaceToGraph  = async () => {};
             TopologyInferenceEngine.extractTopology  = async () => {};
@@ -997,6 +1008,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.runGarbageCollection                = orig.runGarbageCol;
             DreamService.synthesizeGoldenPath                = orig.synthesizeGolden;
             MemorySessionIngestor.syncSessionToGraph         = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                      = orig.syncAdrs;
             ConceptIngestor.syncConceptsToGraph              = orig.syncConcepts;
             FileSystemIngestor.syncWorkspaceToGraph          = orig.syncFs;
             TopologyInferenceEngine.extractTopology          = orig.extractTopo;
@@ -1017,6 +1029,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Only peripheral phases + storage + the LLM boundary are neutralized. Hypothesis 11,
         // Discussion silent-failure enumeration §2.4.
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
@@ -1039,6 +1052,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             runGarbageCol     : DreamService.runGarbageCollection,
             synthesizeGolden  : DreamService.synthesizeGoldenPath,
             syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
             syncConcepts      : ConceptIngestor.syncConceptsToGraph,
             syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
             extractTopo       : TopologyInferenceEngine.extractTopology,
@@ -1065,6 +1079,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.runGarbageCollection        = async () => {};
             DreamService.synthesizeGoldenPath        = async () => {};
             MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesUpserted: 0, memoriesSkipped: 0});
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph      = async () => ({});
             FileSystemIngestor.syncWorkspaceToGraph  = async () => {};
             TopologyInferenceEngine.extractTopology  = async () => {};
@@ -1101,6 +1116,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.runGarbageCollection                = orig.runGarbageCol;
             DreamService.synthesizeGoldenPath                = orig.synthesizeGolden;
             MemorySessionIngestor.syncSessionToGraph         = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                      = orig.syncAdrs;
             ConceptIngestor.syncConceptsToGraph              = orig.syncConcepts;
             FileSystemIngestor.syncWorkspaceToGraph          = orig.syncFs;
             TopologyInferenceEngine.extractTopology          = orig.extractTopo;
