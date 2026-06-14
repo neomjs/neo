@@ -94,7 +94,7 @@ One assertion covers GitHub + the MCP because they share the gh-token; the Memor
 
 **The complete defense is three-part; the detection above is the loud-failure net under it:**
 
-1. **`GH_TOKEN` isolation** — the root (Fix Approach §2): each harness exports only its own PAT. Stops the drift at the source.
+1. **`GH_TOKEN` isolation** — the root (Fix Approach §2): each harness exports only its own PAT. Stops the drift at the source. Per-harness *discipline* instance (codified for Codex in [#13241](https://github.com/neomjs/neo/issues/13241) / PR [#13242](https://github.com/neomjs/neo/pull/13242)): keep identity-sensitive worktrees under the harness clone root so the shell resolves the right per-agent `.env` / PAT, plus an identity preflight (`gh api user --jq .login == <agent>`) after a worktree/thread switch before any state-changing GitHub call. The cross-harness generalization (Claude / Gemini equivalents) is the open follow-up surface.
 2. **Canonical-emit** — every PR / review body carries the agent's `@identity` line (`pull-request-workflow.md` §5), so authorship is machine-readable even when the opener login is wrong.
 3. **Gate-hardening** — the cross-family review gate resolves author *family* from that body `@identity`, not the opener login ([#13237](https://github.com/neomjs/neo/pull/13237)), with a **line-anchored** parser (`/^Authored by[^\n]*?@([\w-]+)/m`). The `^…/m` anchor is load-bearing: a naive `/Authored by/` overmatches the `Co-Authored-By` trailer, and real bodies place the self-id mid-document (after `Resolves #N`), so a non-multiline match misses it entirely.
 
