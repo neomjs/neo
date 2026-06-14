@@ -130,26 +130,6 @@ export function buildIdentityBlock(stdioIdentityState) {
 }
 
 /**
- * @summary Projects orchestrator task outcomes into the healthcheck `orchestrator.tasks`
- *          observability block.
- *
- * The task outcome map is updated by `Neo.ai.daemons.Orchestrator` after each child-task
- * lifecycle event. Returning a shallow clone prevents healthcheck callers from mutating
- * the cached singleton state while keeping the payload direct enough for operators to
- * inspect `summary` and `kbSync` independently.
- *
- * @param {Object} taskOutcomes Last-known outcome by task name.
- * @returns {Object}
- * @see Neo.ai.daemons.Orchestrator#recordTaskOutcome
- */
-export function buildTaskOutcomesBlock(taskOutcomes) {
-    return Object.entries(taskOutcomes || {}).reduce((out, [taskName, outcome]) => {
-        out[taskName] = {...outcome};
-        return out;
-    }, {});
-}
-
-/**
  * @summary Projects the active embedding-provider configuration into the healthcheck `providers.embedding`
  *          observability block.
  *
@@ -306,16 +286,15 @@ function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
  *
  * The shared-deployment local-model validation path needs operators to confirm that session
  * summaries are routed to the intended chat API before waiting for a disconnect-triggered
- * summarization run. This pure projection names the active provider, host, model, endpoint,
- * local status, and credential env var without exposing secret values, mirroring the sibling
+ * summarization run. This pure projection names the active provider, host, model, and local
+ * status, mirroring the sibling
  * {@link buildEmbeddingProviderBlock} operator-facing `providers.*` observability strategy.
  *
  * @param {Object} cfg aiConfig-shaped input containing `modelProvider`, `modelName`, and
- *     `openAiCompatible.{host, model, apiKey}`.
- * @param {Object} [env=process.env] Environment source used to test Gemini key presence in unit tests.
- * @returns {{active: String, host: String|null, model: String|null, endpoint: String|null, local: Boolean, credential: Object}}
+ *     `openAiCompatible.{host, model}`.
+ * @returns {{active: String, host: String|null, model: String|null, local: Boolean}}
  */
-export function buildSummaryProviderBlock(cfg, env = process.env) {
+export function buildSummaryProviderBlock(cfg) {
     const active = cfg.modelProvider || 'gemini';
 
     if (active === 'openAiCompatible') {
@@ -324,89 +303,16 @@ export function buildSummaryProviderBlock(cfg, env = process.env) {
         return {
             active,
             host,
-            model     : cfg.openAiCompatible?.model || null,
-            endpoint  : host ? `${host}/v1/chat/completions` : null,
-            local     : !!host && /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(host),
-            credential: {
-                env       : 'NEO_OPENAI_COMPATIBLE_API_KEY',
-                configured: !!cfg.openAiCompatible?.apiKey,
-                required  : false
-            }
+            model: cfg.openAiCompatible?.model || null,
+            local: !!host && /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(host)
         };
     }
 
     return {
         active,
-        host      : null,
-        model     : active === 'gemini' ? cfg.modelName || null : null,
-        endpoint  : null,
-        local     : false,
-        credential: {
-            env       : active === 'gemini' ? 'GEMINI_API_KEY' : null,
-            configured: active === 'gemini' ? !!env.GEMINI_API_KEY : true,
-            required  : active === 'gemini'
-        }
-    };
-}
-
-/**
- * @summary Projects the active authentication-provider configuration into the healthcheck
- *          `providers.auth` observability block.
- *
- * Operators deploying the shared MC/KB topology with multi-tenant identity isolation need an
- * observable surface confirming WHICH auth path is currently primary at boot — OIDC introspection
- * vs proxy-header injection vs single-tenant fallthrough. Without this, a misconfigured
- * `NEO_AUTH_TRUST_PROXY_IDENTITY=true` set without a fronting proxy actually being deployed is
- * undetectable until requests start failing in non-obvious ways. Mirrors the
- * {@link buildEmbeddingProviderBlock} + {@link buildSummaryProviderBlock} precedents for
- * module-scope pure projections of provider state.
- *
- * **Path precedence (matches `Server.mjs#buildRequestContext` runtime semantics):**
- * - `'oidc'` — `aiConfig.auth.host` AND `aiConfig.auth.issuerUrl` are both populated. The MC
- *   server runs its own OIDC introspection. Takes precedence over proxy-header even when
- *   `trustProxyIdentity` is also true (req.auth wins by design — see SharedDeployment.md).
- * - `'proxy-header'` — OIDC unconfigured AND `trustProxyIdentity=true`. The MC server reads
- *   `X-PREFERRED-USERNAME` (or the `oauth2-proxy`-specific `X-Auth-Request-Preferred-Username`)
- *   from the upstream request and trusts the fronting proxy's identity assertion. Requests
- *   missing the proxy header in this mode are actively rejected with 401.
- * - `'unconfigured'` — neither path active. Single-tenant fallthrough (local development).
- *
- * **Security: clientSecret never leaks.** This block intentionally omits the OAuth `clientSecret`
- * field even when OIDC is configured. Healthcheck output is operator-readable and may surface in
- * logs / monitoring dashboards; the secret value belongs only in the gitignored `config.mjs`.
- *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.auth.{host, issuerUrl, realm, trustProxyIdentity}`.
- * @returns {{configured: String, oidc: Object, proxyHeader: Object}}
- * @see learn/agentos/SharedDeployment.md
- * @see Neo.ai.mcp.server.memory-core.Server#buildRequestContext
- */
-export function buildAuthProviderBlock(cfg) {
-    const auth           = cfg.auth || {};
-    const oidcConfigured = !!(auth.host && auth.issuerUrl);
-    const proxyTrusted   = auth.trustProxyIdentity === true;
-
-    let configured;
-
-    if (oidcConfigured) {
-        configured = 'oidc';
-    } else if (proxyTrusted) {
-        configured = 'proxy-header';
-    } else {
-        configured = 'unconfigured';
-    }
-
-    return {
-        configured,
-        oidc: {
-            host      : auth.host || null,
-            issuerUrl : auth.issuerUrl || null,
-            realm     : auth.realm || null,
-            configured: oidcConfigured
-        },
-        proxyHeader: {
-            trusted       : proxyTrusted,
-            headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-        }
+        host : null,
+        model: active === 'gemini' ? cfg.modelName || null : null,
+        local: false
     };
 }
 
@@ -417,7 +323,7 @@ export function buildAuthProviderBlock(cfg) {
  * and the heartbeat-liveness file mtime (touched once per pulse by
  * `SwarmHeartbeatService.touchLivenessFile()`), returning the operator/agent-facing
  * observability shape. Mirrors the
- * {@link buildAuthProviderBlock} + {@link buildSummaryProviderBlock} sibling-block precedent
+ * {@link buildSummaryProviderBlock} sibling-block precedent
  * for module-scope projection functions.
  *
  * **Why this block exists:** the wake substrate (gate-state + daemon-liveness + polling-activity)
@@ -431,8 +337,8 @@ export function buildAuthProviderBlock(cfg) {
  *   `wakeSafetyGate.readGateState`. The deny-by-default sentinel (`trippedBy === 'default-on-missing-file'`)
  *   is mapped to `'unknown'` here — observability semantics differ from gate-enforcement semantics
  *   (we surface "I don't know" instead of conflating it with operator-tripped state).
- * - `gateReason` / `gateTrippedAt` / `gateTrippedBy`: pass-through from the gate state file when
- *   present (empty string / null otherwise).
+ * - `gateTrippedAt` / `gateTrippedBy`: pass-through from the gate state file when
+ *   present (null otherwise).
  * - `daemonRunning`: boolean. `true` when the heartbeat-liveness file mtime is within
  *   `heartbeatLivenessStaleMs()` (2× POLL_INTERVAL). `false` when missing or stale.
  * - `lastPulseAt`: ISO timestamp of the liveness file mtime, or `null` if absent.
@@ -452,7 +358,7 @@ export function buildAuthProviderBlock(cfg) {
  * Aligns with the "surface, don't obscure" principle.
  *
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
- * @returns {Promise<{gateState: String, gateReason: String, gateTrippedAt: String|null,
+ * @returns {Promise<{gateState: String, gateTrippedAt: String|null,
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
  *     secondsSinceLastPulse: Number|null}>}
  * @see ai/scripts/lifecycle/wakeSafetyGate.mjs
@@ -464,7 +370,6 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
 
     let gateBlock = {
         gateState    : 'unknown',
-        gateReason   : '',
         gateTrippedAt: null,
         gateTrippedBy: null
     };
@@ -474,7 +379,6 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         if (gate.trippedBy !== 'default-on-missing-file') {
             gateBlock = {
                 gateState    : gate.state,
-                gateReason   : gate.reason || '',
                 gateTrippedAt: gate.trippedAt || null,
                 gateTrippedBy: gate.trippedBy || null
             };
@@ -507,28 +411,6 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
     return {...gateBlock, ...livenessBlock};
 }
 
-/**
- * @summary Projects the orchestrator's last dream / golden-path run timestamps into the
- *          healthcheck `features.dream` observability block.
- *
- * Timestamps (`lastDreamRun`, `lastGoldenPathRun`) are `null` until the orchestrator records
- * run history. Boot-time auto-* feature flags were retired — the orchestrator daemon is the
- * sole driver of dream / golden-path / summarize / ingest, so there are no server-side flags
- * left to project.
- *
- * @param {Object|Map<String, Object>} [taskOutcomes={}] The orchestrator task outcomes map or object.
- * @returns {{lastDreamRun: String|null, lastGoldenPathRun: String|null}}
- */
-export function buildDreamFeaturesBlock(taskOutcomes = {}) {
-    const isMap = taskOutcomes instanceof Map;
-    const dreamState = isMap ? taskOutcomes.get('dream') : taskOutcomes['dream'];
-    const goldenPathState = isMap ? taskOutcomes.get('golden-path') : taskOutcomes['golden-path'];
-
-    return {
-        lastDreamRun     : dreamState?.details?.completedAt || dreamState?.details?.failedAt || null,
-        lastGoldenPathRun: goldenPathState?.details?.completedAt || goldenPathState?.details?.failedAt || null
-    };
-}
 /**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
@@ -852,22 +734,6 @@ class HealthService extends Base {
      * @private
      */
     #previousStatus = null;
-
-    /**
-     * Tracks whether startup summarization has been attempted.
-     * This helps agents understand if they need to manually trigger summarization.
-     * Values: 'pending', 'completed', 'failed', 'skipped', null (if not yet attempted).
-     * @member {string|null} #startupSummarizationStatus
-     * @private
-     */
-    #startupSummarizationStatus = null;
-
-    /**
-     * Details about the startup summarization attempt
-     * @member {Object|null} #startupSummarizationDetails
-     * @private
-     */
-    #startupSummarizationDetails = null;
 
     /**
      * Last-known outcomes for orchestrator-owned maintenance tasks.
@@ -1297,18 +1163,19 @@ class HealthService extends Base {
     }
 
     /**
-     * @summary Adds the embedding write canary to a healthcheck payload and degrades on failure.
+     * @summary Runs the embedding write canary and degrades the payload on failure.
+     *
+     * The canary probes the write-side embedding call that `add_memory` depends on. Its purpose
+     * is degradation DETECTION, not verbose reporting: on failure the payload `status` drops to
+     * `degraded` and a `details[]` entry names the failure, so the lean liveness probe still
+     * surfaces a starved embedding write path without shipping the full per-call canary sub-object.
+     *
      * @param {Object} payload Mutable healthcheck payload under construction.
      * @returns {Promise<Object>}
      * @private
      */
     async #applyEmbeddingWriteCanary(payload) {
         const canary = await this.#getEmbeddingWriteCanary();
-
-        payload.providers.embedding = {
-            ...payload.providers.embedding,
-            writeCanary: canary
-        };
 
         if (canary.status !== 'healthy') {
             payload.status = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
@@ -1393,21 +1260,12 @@ class HealthService extends Base {
             },
             features : {
                 summarization: false,
-                wake         : await buildWakeFeaturesBlock(),
-                dream        : buildDreamFeaturesBlock(this.#taskOutcomes)
-            },
-            startup  : {
-                summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
-                summarizationDetails: this.#startupSummarizationDetails
-            },
-            orchestrator: {
-                tasks: buildTaskOutcomesBlock(this.#taskOutcomes)
+                wake         : await buildWakeFeaturesBlock()
             },
             identity : buildIdentityBlock(this.#stdioIdentityState),
             providers: {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
-                summary  : buildSummaryProviderBlock(aiConfig),
-                auth     : buildAuthProviderBlock(aiConfig)
+                summary  : buildSummaryProviderBlock(aiConfig)
             },
             backup   : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
             details  : [],
@@ -1620,20 +1478,6 @@ class HealthService extends Base {
             const statusMsg = health.status === 'unhealthy' ? 'not available' : 'not fully operational';
             throw new Error(`Memory Core is ${statusMsg}:\n  - ${details}`);
         }
-    }
-
-    /**
-     * Records the result of startup summarization attempt.
-     * Called by the startup sequence in mcp-server.mjs
-     * @param {string} status  One of: 'completed', 'failed', 'skipped'.
-     * @param {Object} details Additional information about the summarization
-     */
-    recordStartupSummarization(status, details=null) {
-        this.#startupSummarizationStatus  = status;
-        this.#startupSummarizationDetails = details;
-
-        // Clear the cache to ensure next healthcheck returns updated info
-        this.clearCache();
     }
 
     /**
