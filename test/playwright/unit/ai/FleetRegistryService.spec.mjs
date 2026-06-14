@@ -15,6 +15,7 @@ import {test, expect}  from '@playwright/test';
 import fs              from 'fs';
 import os              from 'os';
 import path            from 'path';
+import crypto          from 'crypto';
 
 import Neo                  from '../../../../src/Neo.mjs';
 import * as core            from '../../../../src/core/_export.mjs';
@@ -165,110 +166,108 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService', () => {
     });
 
     // ---- Bridge session token credential class -----------------------------
-    // A second, distinct credential class for agent<->Neural-Link-Bridge transport auth:
-    // registry-minted, short-lived, hash-stored, verify-only. A token authenticates a CURRENT fleet
-    // member, so verify is gated on registry membership — tests register the agent first (the real
-    // register -> mint -> verify flow). Inherits the freshDataDir hooks above.
-    test.describe('Bridge session token credential class (#13065)', () => {
-        const register = id => FleetRegistryService.defineAgent({githubUsername: id, harnessType: 'codex'});
+    // The agent<->Neural-Link-Bridge transport credential: registry-minted, short-lived, and
+    // **asymmetrically signed**. The token is a stateless `payload.sig` — an
+    // Ed25519 signature over `{agentId, expiresAt}`. The network-facing Bridge verifies with only the
+    // PUBLIC key (getBridgePublicKey), holding no secret + no store. Inherits the freshDataDir hooks.
+    test.describe('Bridge session token credential class (#13172 — asymmetric-signed)', () => {
+        // Verify a minted token the way the Bridge does: Ed25519 over the exact signed payload bytes
+        // with the public key, then decode the claims. Returns `{agentId, expiresAt}` or null.
+        const verifyWithPublicKey = token => {
+            const pub = crypto.createPublicKey(FleetRegistryService.getBridgePublicKey()),
+                  dot = token.indexOf('.');
+            if (dot < 1) return null;
+            const payload   = Buffer.from(token.slice(0, dot), 'base64url'),
+                  signature = Buffer.from(token.slice(dot + 1), 'base64url');
+            if (!crypto.verify(null, payload, pub, signature)) return null;
+            return JSON.parse(payload.toString('utf8'));
+        };
 
-        test('mint -> verify round-trip; wrong / unknown token fails closed', () => {
-            register('round-trip-agent');
+        test('mint -> verify round-trip: the public key recovers the SIGNED agentId + expiry', () => {
             const {token, expiresAt} = FleetRegistryService.mintBridgeToken('round-trip-agent');
 
             expect(typeof token).toBe('string');
-            expect(token.length).toBeGreaterThan(0);
+            expect(token).toContain('.');
             expect(expiresAt).toBeGreaterThan(Date.now());
 
-            expect(FleetRegistryService.verifyBridgeToken('round-trip-agent', token)).toBe(true);
-            expect(FleetRegistryService.verifyBridgeToken('round-trip-agent', 'wrong-token')).toBe(false);
-            expect(FleetRegistryService.verifyBridgeToken('unknown-agent', token)).toBe(false);
+            const claims = verifyWithPublicKey(token);
+            expect(claims).not.toBeNull();
+            expect(claims.agentId).toBe('round-trip-agent'); // identity rides INSIDE the signature
+            expect(claims.expiresAt).toBe(expiresAt);
         });
 
-        test('a re-mint rotates the token — the prior token no longer verifies', () => {
-            register('rotating-agent');
-            const first = FleetRegistryService.mintBridgeToken('rotating-agent').token;
-            const next  = FleetRegistryService.mintBridgeToken('rotating-agent').token;
+        test('SECURITY: a forged / tampered / foreign-signed token fails verification', () => {
+            const {token}              = FleetRegistryService.mintBridgeToken('victim-agent'),
+                  [payloadB64, sigB64] = token.split('.');
 
-            expect(next).not.toBe(first);
-            expect(FleetRegistryService.verifyBridgeToken('rotating-agent', next)).toBe(true);
-            expect(FleetRegistryService.verifyBridgeToken('rotating-agent', first)).toBe(false);
+            // (a) tamper the payload to claim a different agentId — the signature no longer matches
+            const forged = Buffer.from(JSON.stringify({agentId: 'attacker', expiresAt: Date.now() + 1e6})).toString('base64url');
+            expect(verifyWithPublicKey(`${forged}.${sigB64}`)).toBeNull();
+
+            // (b) tamper the signature bytes
+            expect(verifyWithPublicKey(`${payloadB64}.${sigB64.slice(0, -4)}AAAA`)).toBeNull();
+
+            // (c) a token signed by a DIFFERENT key never verifies against ours (can't forge w/o the private key)
+            const other   = crypto.generateKeyPairSync('ed25519'),
+                  p       = Buffer.from(JSON.stringify({agentId: 'victim-agent', expiresAt: Date.now() + 1e6})),
+                  foreign = `${p.toString('base64url')}.${crypto.sign(null, p, other.privateKey).toString('base64url')}`;
+            expect(verifyWithPublicKey(foreign)).toBeNull();
         });
 
-        test('verifyBridgeToken rejects an expired token', () => {
-            register('expiring-agent');
-            const {token} = FleetRegistryService.mintBridgeToken('expiring-agent', {ttlMs: -1});
-            expect(FleetRegistryService.verifyBridgeToken('expiring-agent', token)).toBe(false);
+        test('an expired token is signed with a past expiry (the verifier rejects on expiresAt separately)', () => {
+            const {token, expiresAt} = FleetRegistryService.mintBridgeToken('expiring-agent', {ttlMs: -1});
+            expect(expiresAt).toBeLessThanOrEqual(Date.now());
+            // the signature is still valid — expiry is a SEPARATE check the Bridge enforces on the claims
+            expect(verifyWithPublicKey(token).expiresAt).toBe(expiresAt);
         });
 
-        test('SECURITY: removeAgent invalidates the Bridge token (#13108 cross-family review)', () => {
-            register('edge-agent');
-            const {token} = FleetRegistryService.mintBridgeToken('edge-agent');
-            expect(FleetRegistryService.verifyBridgeToken('edge-agent', token)).toBe(true);
-
-            FleetRegistryService.removeAgent('edge-agent');
-
-            // a removed agent's transport credential must no longer authenticate ...
-            expect(FleetRegistryService.verifyBridgeToken('edge-agent', token)).toBe(false);
-            // ... and its record is cleared from the store, not merely gated at verify
-            expect(FleetRegistryService.readBridgeTokens()['edge-agent']).toBeUndefined();
+        test('the public verify key carries no private material + is stable across calls', () => {
+            const pub = FleetRegistryService.getBridgePublicKey();
+            expect(pub).toContain('BEGIN PUBLIC KEY');
+            expect(pub).not.toContain('PRIVATE');
+            expect(FleetRegistryService.getBridgePublicKey()).toBe(pub); // same generated keypair
         });
 
-        test('SECURITY: a token minted for an unregistered id never verifies (verify gates on membership)', () => {
-            // mint is permissive (it only produces + stores a hash); the boundary is verify, which
-            // fails closed until the id is a registered fleet member.
-            const {token} = FleetRegistryService.mintBridgeToken('ghost-agent');
-            expect(FleetRegistryService.verifyBridgeToken('ghost-agent', token)).toBe(false);
+        test('SECURITY: stateless — the signing key is 0600, no per-token store, no raw secret in the token', () => {
+            const {token} = FleetRegistryService.mintBridgeToken('at-rest-agent'),
+                  dir     = FleetRegistryService.dataDir;
 
-            // registering the agent flips verify to true with the SAME token — proving membership is the gate
-            register('ghost-agent');
-            expect(FleetRegistryService.verifyBridgeToken('ghost-agent', token)).toBe(true);
+            // stateless: the prior hash-store file is gone
+            expect(fs.existsSync(path.join(dir, 'bridgeTokens.enc'))).toBe(false);
+
+            // the generated signing key is a 0600 PKCS8 PEM private key, distinct from the AES master
+            const keyFile = path.join(dir, 'signing.key');
+            expect(fs.existsSync(keyFile)).toBe(true);
+            expect(fs.statSync(keyFile).mode & 0o777).toBe(0o600);
+            // the token itself carries no private key material
+            expect(token).not.toContain('PRIVATE');
         });
 
-        test('SECURITY: mint returns the token once; only its hash persists (no raw token at rest)', () => {
-            register('bridge-agent');
-            const {token} = FleetRegistryService.mintBridgeToken('bridge-agent');
-
-            // (a) the at-rest file is ciphertext — the raw token must not appear
-            const raw = fs.readFileSync(path.join(FleetRegistryService.dataDir, 'bridgeTokens.enc'), 'utf8');
-            expect(raw).not.toContain(token);
-
-            // (b) inspect the decrypted store payload — only {hash, expiresAt, createdAt}, never the raw token
-            const record = FleetRegistryService.readBridgeTokens()['bridge-agent'];
-            expect(record.hash).toMatch(/^[0-9a-f]{64}$/);
-            expect(record.token).toBeUndefined();
-            expect(JSON.stringify(record)).not.toContain(token);
-        });
-
-        test('SECURITY: the Bridge store is separate from the PAT store; the PAT class is unaffected', () => {
+        test('SECURITY: the PAT class is unaffected; a Bridge token never decodes a PAT', () => {
             const pat = 'ghp_CoexistToken_99887766';
             FleetRegistryService.defineAgent({githubUsername: 'dual-agent', harnessType: 'codex', credential: pat});
-            const {token} = FleetRegistryService.mintBridgeToken('dual-agent');
+            const {token} = FleetRegistryService.mintBridgeToken('dual-agent'),
+                  dir     = FleetRegistryService.dataDir;
 
-            const dir = FleetRegistryService.dataDir;
-            // two distinct files; the Bridge token never routes through credentials.enc
-            expect(fs.existsSync(path.join(dir, 'credentials.enc'))).toBe(true);
-            expect(fs.existsSync(path.join(dir, 'bridgeTokens.enc'))).toBe(true);
+            // distinct key files: the AES master (fleet.key, encrypts the PAT store) + the Ed25519 signer (signing.key)
+            expect(fs.existsSync(path.join(dir, 'fleet.key'))).toBe(true);
+            expect(fs.existsSync(path.join(dir, 'signing.key'))).toBe(true);
 
-            // the PAT still round-trips through its own accessor, unchanged by the Bridge token
-            expect(FleetRegistryService.resolveCredential('dual-agent')).toBe(pat);
-            // the Bridge token verifies through its own path; the two classes never cross-validate
-            expect(FleetRegistryService.verifyBridgeToken('dual-agent', token)).toBe(true);
-            expect(FleetRegistryService.verifyBridgeToken('dual-agent', pat)).toBe(false);
+            expect(FleetRegistryService.resolveCredential('dual-agent')).toBe(pat);     // PAT round-trips, unchanged
+            expect(verifyWithPublicKey(token).agentId).toBe('dual-agent');              // token decodes an agentId, not a PAT
         });
 
-        test('FAIL-CLOSED: a corrupt Bridge store yields false, never throws', () => {
-            register('corrupt-agent');
-            const {token} = FleetRegistryService.mintBridgeToken('corrupt-agent');
-            fs.writeFileSync(path.join(FleetRegistryService.dataDir, 'bridgeTokens.enc'), 'not-valid-ciphertext', 'utf8');
-            expect(FleetRegistryService.verifyBridgeToken('corrupt-agent', token)).toBe(false);
-        });
+        test('removeAgent does NOT revoke the stateless signed token (≤TTL lag, accepted — #13172)', () => {
+            FleetRegistryService.defineAgent({githubUsername: 'gone-agent', harnessType: 'codex'});
+            const {token} = FleetRegistryService.mintBridgeToken('gone-agent');
+            expect(verifyWithPublicKey(token).agentId).toBe('gone-agent');
 
-        test('FAIL-CLOSED: unregistered / prototype-chain ids never verify', () => {
-            // none of these are registered agents — the membership gate fails them closed
-            for (const key of ['toString', 'constructor', 'hasOwnProperty', 'valueOf', '__proto__']) {
-                expect(FleetRegistryService.verifyBridgeToken(key, 'anything')).toBe(false);
-            }
+            FleetRegistryService.removeAgent('gone-agent');
+
+            // the signature stays valid post-removal — the token self-expires within bridgeTokenTtlMs.
+            // Immediate eviction of a compromised agent is a later additive Bridge revocation-denylist;
+            // WriteGuard's no-clobber invariant denies an overlapping cross-agent write in the interim.
+            expect(verifyWithPublicKey(token).agentId).toBe('gone-agent');
         });
     });
 });

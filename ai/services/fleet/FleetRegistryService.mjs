@@ -31,21 +31,21 @@ const
  * **Two credential classes, deliberately separated at the store + method level:** (1) the
  * GitHub **PAT** above — *reversibly* encrypted, because the spawner must inject the real token into
  * a harness env; served only by {@link resolveCredential}. (2) the **Bridge session token**
- * ({@link mintBridgeToken} / {@link verifyBridgeToken}) — a registry-minted, short-lived,
- * **hash-stored, verify-only** credential for agent↔Neural-Link-Bridge transport auth. It
- * lives in its own store (`bridgeTokens.enc`) with its own read/write methods and **never** routes
- * through the PAT helpers — so "encrypted at rest" can never quietly become a second *reversible*
- * secret store. The raw Bridge token is absent from storage the instant {@link mintBridgeToken}
- * returns; only its SHA-256 hash + expiry persist.
+ * ({@link mintBridgeToken}) — a registry-minted, short-lived, **asymmetrically-signed** credential
+ * for agent↔Neural-Link-Bridge transport auth. It is stateless (nothing persisted): an Ed25519
+ * signature over `{agentId, expiresAt}` that the network-facing Bridge verifies with only the
+ * **public** key ({@link getBridgePublicKey}) — so a Bridge compromise can neither read the PAT
+ * store nor forge a token. The private signing key ({@link getSigningKey}) never decrypts the PAT
+ * store; the two credential classes stay key-separated.
  *
  * **Storage** lives under `dataDir` (default `<repoRoot>/.neo-ai-data/fleet/`, overridable — the
  * per-tenant data root is the multi-tenant isolation seam):
  * - `registry.json`    — agent definitions (no secrets), human-readable JSON.
  * - `credentials.enc`  — the encrypted `{agentId: pat}` map (AES-256-GCM, `0600`).
- * - `bridgeTokens.enc` — the encrypted `{agentId: {hash, expiresAt, createdAt}}` Bridge-token map
- *                        (AES-256-GCM, `0600`) — the second, distinct credential class; no raw token.
- * - `fleet.key`        — dev-only generated `0600` key file, used when `NEO_FLEET_SECRET_KEY` is
- *                        not set. Production deployments SHOULD provide the env key.
+ * - `fleet.key`        — dev-only generated `0600` AES key file, used when `NEO_FLEET_SECRET_KEY`
+ *                        is not set. Production deployments SHOULD provide the env key.
+ * - `signing.key`      — dev-only generated `0600` Ed25519 signing key (PKCS8 PEM), used when
+ *                        `NEO_FLEET_SIGNING_KEY` is not set. Only its PUBLIC half goes to the Bridge.
  *
  * **Fail-closed:** an absent / locked / corrupt credential store never throws into the define/list
  * path and never surfaces plaintext — {@link resolveCredential} returns `null`.
@@ -175,10 +175,12 @@ class FleetRegistryService extends Base {
         this.ensureLoaded();
         const existed = this.agents.delete(id);
         if (existed) this.writeRegistry();
-        // Both credential classes die with the agent — the PAT AND the Bridge token. Leaving a live
-        // Bridge token for a removed agent would let it keep authenticating to the Bridge.
+        // The PAT dies with the agent. The Bridge token is a stateless *signed* credential (no
+        // store), so it can't be revoked at remove-time — it self-expires within bridgeTokenTtlMs
+        // (the accepted ≤1h lag; immediate eviction of a compromised agent is a later additive
+        // Bridge revocation-denylist). WriteGuard's no-clobber invariant denies
+        // an overlapping cross-agent write on the agentId regardless of token age in the interim.
         this.removeCredential(id);
-        this.removeBridgeToken(id);
         return {success: existed, id};
     }
 
@@ -196,77 +198,38 @@ class FleetRegistryService extends Base {
     }
 
     /**
-     * @summary Mint a short-lived, hash-stored Bridge session token for agent↔Neural-Link-Bridge
-     * transport auth. The raw token is returned **once** to the caller and is **never**
-     * persisted — only its SHA-256 hash + expiry land in `bridgeTokens.enc`, a store distinct from
-     * the reversibly-encrypted PAT (the Bridge token can never route through the PAT helpers). A
-     * re-mint for the same id replaces the prior record.
+     * @summary Mint a short-lived, **asymmetrically-signed** Bridge session token for
+     * agent↔Neural-Link-Bridge transport auth. The token is a self-contained, stateless credential:
+     * a compact `<base64url(payload)>.<base64url(signature)>` where `payload` is
+     * `{agentId, expiresAt}` and the signature is Ed25519 over those exact payload bytes
+     * ({@link getSigningKey}). Nothing is persisted — there is no per-token store.
      *
-     * Minting does **not** require `id` to be a registered agent (it only produces + stores a hash) —
-     * the validity boundary is {@link verifyBridgeToken}, which fails closed unless `id` is a current
-     * fleet member. So a token minted for a non-member never authenticates; binding the check at
-     * verify (not mint) keeps the gate in one place and tolerates a register-after-mint ordering.
-     * @param {String}  id          The agent id the token is minted for.
+     * **Why signed, not hash-stored (the recorded ticket decision):** the Bridge runs as a separate,
+     * network-facing process. A store-read verifier would have to hold the registry's master key
+     * (the same `getKey()` that decrypts `credentials.enc` = every PAT), so a Bridge compromise would
+     * leak all PATs. An asymmetric signature lets the Bridge verify statelessly with only the
+     * **public** key ({@link getBridgePublicKey}) — zero secret material + zero store access on the
+     * exposed surface, and it cannot forge tokens. The cost is a ≤`bridgeTokenTtlMs` revocation lag
+     * (a removed agent's token stays valid until expiry); accepted because WriteGuard's no-clobber
+     * invariant denies an overlapping cross-agent write on the `agentId` regardless of token age.
+     * Immediate eviction of a *compromised* agent is a later additive Bridge revocation-denylist.
+     *
+     * The verified `agentId` rides **inside** the signed payload — so the Bridge trusts identity from
+     * the signature, never the connection's `?id=` query claim (the spoofing hole this closes).
+     * @param {String}  id          The agent id the token is minted for (signed into the payload).
      * @param {Object} [opts]
      * @param {Number} [opts.ttlMs] Token lifetime in ms; defaults to {@link bridgeTokenTtlMs}.
-     * @returns {Object} `{token, expiresAt}` — the raw token (caller keeps it; absent from storage) + its epoch-ms expiry.
+     * @returns {Object} `{token, expiresAt}` — the signed token (caller keeps it; nothing persisted) + its epoch-ms expiry.
      */
     mintBridgeToken(id, {ttlMs}={}) {
         const
-            token     = crypto.randomBytes(32).toString('base64url'),
-            hash      = crypto.createHash('sha256').update(token).digest('hex'),
             now       = Date.now(),
             expiresAt = now + (ttlMs ?? this.bridgeTokenTtlMs),
-            tokens    = this.readBridgeTokens();
-
-        tokens[id] = {hash, expiresAt, createdAt: now};
-        this.writeBridgeTokens(tokens);
+            payload   = Buffer.from(JSON.stringify({agentId: id, expiresAt})),
+            signature = crypto.sign(null, payload, this.getSigningKey()),
+            token     = `${payload.toString('base64url')}.${signature.toString('base64url')}`;
 
         return {token, expiresAt};
-    }
-
-    /**
-     * @summary Verify a presented Bridge token against the hash-stored record for `id`. This is the
-     * untrusted-input path: a **constant-time** hash compare ({@link crypto.timingSafeEqual}) that
-     * rejects expired tokens and **fails closed** — returns `false` (never throws) on an id that is
-     * not a currently-registered agent (never registered, or removed via {@link removeAgent}), an
-     * unknown / absent / unreadable / malformed store, a bad hash encoding, or a missing / expired
-     * `expiresAt`. Mirrors {@link resolveCredential}'s fail-closed posture; no secret ever surfaces.
-     *
-     * **The Bridge token authenticates a *current fleet member*** — validity is bound to registry
-     * membership, so a removed agent's token can never authenticate (the security invariant the
-     * `removeAgent` → `removeBridgeToken` cleanup and this gate jointly guarantee).
-     * @param {String} id        The agent id presenting the token.
-     * @param {String} presented The raw token to check.
-     * @returns {Boolean} `true` only for a live, matching token owned by a registered agent; `false` otherwise.
-     */
-    verifyBridgeToken(id, presented) {
-        try {
-            // Bind validity to fleet membership: a never-registered or removed id fails closed even
-            // if a token record lingers (defense-in-depth over the removeAgent cleanup). `Map.has`
-            // is prototype-safe for untrusted ids.
-            this.ensureLoaded();
-            if (!this.agents.has(id)) return false;
-
-            const tokens = this.readBridgeTokens();
-            // own-property only: an untrusted id like `toString` must fail closed, never alias a proto member.
-            if (!Object.hasOwn(tokens, id)) return false;
-
-            const record = tokens[id];
-            if (!record || typeof record.expiresAt !== 'number' || Date.now() >= record.expiresAt) {
-                return false;
-            }
-
-            const
-                presentedHash = crypto.createHash('sha256').update(presented).digest(),
-                storedHash    = Buffer.from(String(record.hash), 'hex');
-
-            // timingSafeEqual throws on a length mismatch; a malformed/short stored hash fails closed.
-            return storedHash.length === presentedHash.length && crypto.timingSafeEqual(presentedHash, storedHash);
-        } catch (error) {
-            console.warn('[FleetRegistryService] Bridge-token verify failed closed.', error.message);
-            return false;
-        }
     }
 
     // ---- internals ----------------------------------------------------------
@@ -371,51 +334,6 @@ class FleetRegistryService extends Base {
         fs.writeFileSync(this.credentialsPath(), this.encrypt(JSON.stringify(map)), {mode: 0o600});
     }
 
-    /**
-     * @returns {Object} The decrypted Bridge-token store as a **null-prototype** map
-     * `{agentId: {hash, expiresAt, createdAt}}` (empty + warned on absent/corrupt — fail-closed).
-     * A distinct file + shape from {@link readCredentials}; the two stores never mix. Null-proto is
-     * the same untrusted-key invariant — an absent id can never alias an `Object.prototype` member.
-     * @private
-     */
-    readBridgeTokens() {
-        const file = this.bridgeTokensPath();
-        if (!fs.existsSync(file)) return Object.create(null);
-        try {
-            return Object.assign(Object.create(null), JSON.parse(this.decrypt(fs.readFileSync(file, 'utf8'))));
-        } catch (error) {
-            console.warn('[FleetRegistryService] Bridge-token store unreadable; failing closed.', error.message);
-            return Object.create(null);
-        }
-    }
-
-    /**
-     * Encrypt + write the full Bridge-token map to `bridgeTokens.enc` (`0600`). Encryption is
-     * defense-in-depth *over* the stored SHA-256 hashes — the records carry no reversible secret;
-     * it is never a license to persist a raw token. Distinct file/method from {@link writeCredentials}.
-     * @param {Object} map
-     * @private
-     */
-    writeBridgeTokens(map) {
-        this.ensureDataDir();
-        fs.writeFileSync(this.bridgeTokensPath(), this.encrypt(JSON.stringify(map)), {mode: 0o600});
-    }
-
-    /**
-     * Remove a single Bridge-token record from the store (no-op if absent). Invoked by
-     * {@link removeAgent} so the Bridge credential dies with the agent — the analog of
-     * {@link removeCredential} for the second credential class.
-     * @param {String} id
-     * @private
-     */
-    removeBridgeToken(id) {
-        const tokens = this.readBridgeTokens();
-        if (Object.hasOwn(tokens, id)) {
-            delete tokens[id];
-            this.writeBridgeTokens(tokens);
-        }
-    }
-
     // ---- crypto (AES-256-GCM) ----------------------------------------------
 
     /**
@@ -471,6 +389,39 @@ class FleetRegistryService extends Base {
         return key;
     }
 
+    /**
+     * Resolve the Ed25519 **private** signing key for Bridge session tokens: `NEO_FLEET_SIGNING_KEY`
+     * (a PKCS8 PEM) if set, else a generated `0600` `signing.key` file under `dataDir`. Distinct from
+     * {@link getKey} (the AES master key) — this private key never decrypts the PAT/token stores, and
+     * only its PUBLIC half ({@link getBridgePublicKey}) is provisioned to the network-facing Bridge.
+     * Production SHOULD set the env key. Returns a {@link crypto.KeyObject}.
+     * @returns {Object}
+     * @private
+     */
+    getSigningKey() {
+        const envKey = process.env.NEO_FLEET_SIGNING_KEY;
+        if (envKey) return crypto.createPrivateKey(envKey);
+
+        const file = this.signingKeyPath();
+        if (fs.existsSync(file)) return crypto.createPrivateKey(fs.readFileSync(file, 'utf8'));
+
+        this.ensureDataDir();
+        const {privateKey} = crypto.generateKeyPairSync('ed25519');
+        fs.writeFileSync(file, privateKey.export({type: 'pkcs8', format: 'pem'}), {mode: 0o600});
+        return privateKey;
+    }
+
+    /**
+     * @returns {String} The Ed25519 **public** verify key (SPKI PEM) matching {@link getSigningKey}.
+     * Non-secret — this is the only key material the network-facing Bridge needs to verify token
+     * signatures statelessly. Provisioned to the Bridge at startup via `NEO_FLEET_BRIDGE_PUBLIC_KEY`,
+     * a trusted harness/operator-set value — **never** supplied by a connecting agent.
+     * @private
+     */
+    getBridgePublicKey() {
+        return crypto.createPublicKey(this.getSigningKey()).export({type: 'spki', format: 'pem'});
+    }
+
     // ---- paths --------------------------------------------------------------
 
     /**
@@ -487,8 +438,9 @@ class FleetRegistryService extends Base {
     /** @returns {String} @private */
     credentialsPath() { return path.join(this.getDataDir(), 'credentials.enc'); }
 
-    /** @returns {String} A store distinct from {@link credentialsPath}; the two never share a file. @private */
-    bridgeTokensPath() { return path.join(this.getDataDir(), 'bridgeTokens.enc'); }
+    /** @returns {String} The Ed25519 signing-key file (PKCS8 PEM) — a generated `0600` dev key when
+     * `NEO_FLEET_SIGNING_KEY` is unset. Distinct from {@link keyPath} (the AES master key). @private */
+    signingKeyPath() { return path.join(this.getDataDir(), 'signing.key'); }
 
     /** @returns {String} @private */
     keyPath() { return path.join(this.getDataDir(), 'fleet.key'); }

@@ -141,8 +141,13 @@ class ConnectionService extends Base {
      */
     async connectToBridge() {
         return new Promise((resolve, reject) => {
-            const url = `ws://127.0.0.1:${this.port}?role=agent&id=${this.agentId}`;
-            const ws  = new WebSocket(url);
+            // Present the FM-minted, asymmetrically-signed Bridge token (injected at spawn under
+            // NEO_FLEET_BRIDGE_TOKEN) so the Bridge authenticates this agent from the signature, not
+            // the `?id=` claim. Absent in no-FM dev → the Bridge's legacy unauthenticated path.
+            const token = process.env.NEO_FLEET_BRIDGE_TOKEN;
+            const url   = `ws://127.0.0.1:${this.port}?role=agent&id=${this.agentId}` +
+                          (token ? `&token=${encodeURIComponent(token)}` : '');
+            const ws    = new WebSocket(url);
 
             ws.on('open', () => {
                 logger.info(`Connected to Neural Link Bridge as ${this.agentId}`);
