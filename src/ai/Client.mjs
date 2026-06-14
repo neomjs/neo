@@ -8,6 +8,7 @@ import RuntimeService     from './client/RuntimeService.mjs';
 import Socket             from '../data/connection/WebSocket.mjs';
 import WindowManager      from '../manager/Window.mjs';
 import WriteGuard         from './WriteGuard.mjs';
+import TransactionService from './TransactionService.mjs';
 import {parseAgentEnvelope} from './parseAgentEnvelope.mjs';
 
 /**
@@ -77,6 +78,15 @@ class Client extends Base {
      * @protected
      */
     writeGuard = null
+    /**
+     * The per-heap undo authority — the in-heap per-session transaction stack ({@link Neo.ai.TransactionService})
+     * that records the *reverse* of each enforcement-granted Neural Link write so an agent can undo it. Sibling to
+     * {@link Neo.ai.Client#writeGuard}: one Client ⇒ one stack authority, keyed on the same `(agentId, sessionId)`
+     * writer pair, so the lock + undo lifecycles align.
+     * @member {Neo.ai.TransactionService|null} transactionService=null
+     * @protected
+     */
+    transactionService = null
 
     /**
      * @param {Object} config
@@ -86,7 +96,8 @@ class Client extends Base {
 
         let me = this;
 
-        me.writeGuard = Neo.create(WriteGuard);
+        me.writeGuard         = Neo.create(WriteGuard);
+        me.transactionService = Neo.create(TransactionService);
 
         me.services = {
             component  : Neo.create(ComponentService,   {client: me}),
