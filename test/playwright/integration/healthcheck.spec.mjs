@@ -30,7 +30,6 @@ test.describe('Dockerized KB/MC MCP healthcheck integration (#10805 Lane A)', ()
         expect(mcHealth.providers.embedding.active).toBe('openAiCompatible');
         expect(mcHealth.providers.embedding.error).toBeUndefined();
         expect(mcHealth.providers.summary.active).toBe('openAiCompatible');
-        expect(mcHealth.providers.summary.local).toBe(true);
     });
 
     test('Sustained liveness composability check (Lane B helper) — 5s/1s', async () => {

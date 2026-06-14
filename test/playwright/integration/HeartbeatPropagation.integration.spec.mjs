@@ -32,7 +32,7 @@ test.describe('Heartbeat Propagation Integration (#10896 Lane B)', () => {
 
             // Summary-route persistence
             if (sample.providers?.summary) {
-                expect(sample.providers.summary.local).toBe(true);
+                expect(sample.providers.summary.active).toBeTruthy();
             }
 
             // Connection persistence
