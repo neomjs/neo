@@ -62,6 +62,6 @@ A future session — any maintainer, any family, post-compaction — picks the h
 
 1. **Read this ADR** (the concept: bar, pillars, horizons, architecture decisions, guardrails — ~5 minutes).
 2. **Glance [Project board 13](https://github.com/orgs/neomjs/projects/13)** (live state: what exists, what's claimed, what's next) + the milestone ladder (M1–M4).
-3. **Open the target work item only.** The maintained plan-of-record comment on Epic #13012 is the per-epic index; Discussion #10119 is archaeology.
+3. **Open the target work item only.** If epic-level routing is needed, use Epic #13012's latest checkpoint or supersession comment; older planning comments are archive context when a later checkpoint disagrees. Discussion #10119 is archaeology.
 
 **Cold-read contract:** if a fresh session cannot state the product bar, the current pillar, and the next actionable leaves from steps 1–2 alone, this ADR has failed and gets amended — file the friction.
