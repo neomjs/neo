@@ -85,28 +85,41 @@ class MainContainer extends Viewport {
      * Runner entry point and the "Start load" handler. Drives the deterministic `LoadProfile`
      * append stream into the transcript — each tick re-assigns the GROWING full source (the
      * parser's incremental-append path), exactly the producer shape of a streamed model response.
+     *
+     * Fire-and-forget: returns immediately after scheduling the first tick, so an NL
+     * `call_method('startLoad')` RPC resolves NOW instead of hanging for the whole run. The stream
+     * continues off the call stack via self-scheduled ticks, yielding to a newer run / reset through
+     * the `loadRun` token. (Button-driven runs are unaffected — the handler never awaited it.)
      * @param {Object} [config] forwarded to {@link LoadProfile} (seed, durationMs, cadences).
-     * @returns {Promise<void>}
      */
-    async startLoad(config = {}) {
+    startLoad(config = {}) {
         let me          = this,
             transcript  = me.getReference('transcript'),
             profile     = new LoadProfile(config),
             token       = ++me.loadRun,
+            iterator    = profile.appendEvents(),
             accumulated = '';
 
         transcript.value = null;
 
-        for (const {text} of profile.appendEvents()) {
+        const tick = () => {
             if (me.loadRun !== token) {
-                break
+                return
             }
 
-            accumulated     += text;
+            const next = iterator.next();
+
+            if (next.done) {
+                return
+            }
+
+            accumulated     += next.value.text;
             transcript.value = accumulated;
 
-            await me.timeout(profile.appendCadenceMs)
-        }
+            me.timeout(profile.appendCadenceMs).then(tick)
+        };
+
+        tick()
     }
 
     /**
@@ -124,6 +137,16 @@ class MainContainer extends Viewport {
 
         me.loadRun++;
         me.getReference('transcript').value = null
+    }
+
+    /**
+     * Runner/test helper: the full accumulated transcript length (the App-Worker `value`), as opposed
+     * to the RENDERED DOM. Under virtualization the two diverge sharply — the value reaches marathon
+     * scale while only a viewport window mounts — which is exactly the property the benchmark proves.
+     * @returns {Number}
+     */
+    getTranscriptLength() {
+        return this.getReference('transcript').value?.length ?? 0
     }
 }
 
