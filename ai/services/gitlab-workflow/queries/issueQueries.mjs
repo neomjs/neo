@@ -11,7 +11,7 @@
  * Lookup queries (`GET_ISSUE_GID`, `GET_PROJECT_LABEL_IDS`) resolve the opaque global ids
  * (`gid://gitlab/Issue/...`, `gid://gitlab/ProjectLabel/...`) that GitLab mutations require but
  * the MCP tool contract only carries as `iid` / label-name — the GitLab twin of the
- * github-workflow `GET_ISSUE_ID` / `GET_ISSUE_AND_LABEL_IDS` two-step pattern.
+ * github-workflow `GET_ISSUE_ID` / `GET_ISSUE_LABEL_IDS` two-step pattern.
  */
 
 /**
