@@ -224,6 +224,114 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * @summary Reconcile closed/merged pull-request locations — archive any terminal PR still sitting in
+     * the active `pulls/` directory. The sibling of `IssueSyncer.reconcileClosedIssueLocations` that was
+     * missing: `SyncService` ran the issue reconcile every sync but had no pull equivalent, so
+     * closed/merged PRs accumulated in active `resources/content/pulls/` — the marooning this reconciles.
+     * `migrateArchiveBuckets`' own JSDoc named it — "pulls … are a sibling follow-up on their own
+     * syncers." Run every sync, it both archives the existing backlog and keeps pulls archived going
+     * forward; it mirrors the issue reconcile's relocate-only, archive-only, never-fetch contract.
+     *
+     * It scans the active **corpus** (the `pr-*.md` files on disk), NOT the sync metadata: the delta-sync
+     * rebuilds `metadata.pulls` from each run's delta fetch, so it is not a full index — the marooned
+     * backlog exists only as files. For each terminal (`CLOSED`/`MERGED`) PR file it reads the frontmatter
+     * bucketing inputs (`state` / `closedAt` / `mergedAt`), buckets via the same `#planBuckets` the live
+     * sync uses, and `fs.rename`s a mis-located file to its archive path (updating the metadata path when
+     * an entry exists). It NEVER moves a file back to active (sealed-chunk semantics), NEVER deletes, and
+     * NEVER re-fetches from GitHub.
+     *
+     * @param {object} metadata Sync metadata; a moved PR's `path` is updated in place when cached.
+     * @returns {Promise<{count: number, pullRequests: number[]}>} Archived count + the PR numbers moved.
+     */
+    async reconcileClosedPullRequestLocations(metadata) {
+        logger.info('🔄 Reconciling closed pull request locations...');
+
+        const stats = { count: 0, pullRequests: [] };
+
+        // Buckets are derived from release history; without it the correct archive version is unknown.
+        if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
+            logger.warn('No releases available for pull-request reconciliation, skipping.');
+            return stats;
+        }
+
+        const pullsDir = issueSyncConfig.pullsDir;
+
+        // Nothing to reconcile if the active pulls dir does not exist yet.
+        if (!existsSync(pullsDir)) {
+            return stats;
+        }
+
+        // Scan the active CORPUS (files on disk), NOT metadata.pulls — the delta-sync rebuilds that cache
+        // from each run's delta fetch, so it is not a full index; the marooned backlog lives only as
+        // files. Read each file's frontmatter for the bucketing inputs.
+        const relFiles = (await fs.readdir(pullsDir, {recursive: true}))
+            .filter(rel => /(?:^|[\\/])pr-\d+\.md$/.test(rel));
+
+        const scanned = [];
+        for (const rel of relFiles) {
+            const absPath = path.join(pullsDir, rel);
+            try {
+                const {data} = matter(await fs.readFile(absPath, 'utf-8'));
+                if (data?.number == null) continue;
+                scanned.push({
+                    absPath,
+                    number   : data.number,
+                    state    : data.state,
+                    closedAt : data.closedAt,
+                    mergedAt : data.mergedAt,
+                    milestone: data.milestone ? {title: data.milestone} : null
+                });
+            } catch (e) {
+                logger.warn(`Skipping unreadable pull file ${rel}: ${e.message}`);
+            }
+        }
+
+        // Bucket the scanned corpus (+ any cached metadata) by release date, exactly as the live sync does.
+        const planBuckets = this.#planBuckets(metadata, scanned);
+
+        for (const pr of scanned) {
+            // Only terminal PRs (CLOSED or MERGED) are archive candidates; an open PR belongs in active.
+            if (pr.state !== 'CLOSED' && pr.state !== 'MERGED') {
+                continue;
+            }
+
+            const correctPath = this.#getPullRequestPath({number: pr.number}, planBuckets);
+
+            // No target, already correctly located, or the correct path is still active (no archive
+            // applies) → skip. Never relocate INTO active.
+            if (!correctPath || pr.absPath === correctPath || correctPath.startsWith(pullsDir)) {
+                continue;
+            }
+
+            logger.debug(`📦 Archiving closed PR #${pr.number}: ${pr.absPath} → ${correctPath}`);
+
+            try {
+                await fs.mkdir(path.dirname(correctPath), { recursive: true });
+                await fs.rename(pr.absPath, correctPath);
+
+                // Update the metadata path when this PR is tracked; marooned files outside the delta-only
+                // cache simply move (the next sync rebuilds metadata against the new location).
+                if (metadata.pulls?.[pr.number]) {
+                    metadata.pulls[pr.number].path = this.#relativePath(correctPath);
+                }
+
+                stats.count++;
+                stats.pullRequests.push(pr.number);
+            } catch (e) {
+                logger.error(`❌ Failed to archive PR #${pr.number}: ${e.message}`);
+            }
+        }
+
+        await pruneEmptyDirs(pullsDir);
+
+        logger.info(stats.count > 0
+            ? `📦 Archived ${stats.count} closed pull request(s)`
+            : '✓ No closed pull requests need archiving');
+
+        return stats;
+    }
+
+    /**
      * Fetches pull requests from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.

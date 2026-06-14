@@ -275,6 +275,73 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         // Pre-fix (full-corpus scan) this would be 3.
         expect(queryCalls).toBe(2);
     });
+
+    // --- the missing pull reconcile (IssueSyncer had reconcileClosedIssueLocations; pulls had none,
+    //     so the delta-only sync left merged PRs marooned in active pulls/). ---
+
+    test('archives a marooned merged PR FILE with NO metadata entry — the production corpus case (#13001)', async () => {
+        const prNumber   = 11530,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        // The reconcile reads the FILE's frontmatter (number/state/closedAt), not metadata.
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\nbody`, 'utf-8');
+
+        // NO metadata entry for this PR — exactly the marooned corpus the delta-only cache misses.
+        const metadata = {pulls: {}};
+        // A release published AFTER the merge → the closedAt→release resolution buckets it to v13.0.0.
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats       = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata),
+              archivePath = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.count).toBe(1);
+        expect(stats.pullRequests).toEqual([prNumber]);
+        await expect(fs.pathExists(activePath)).resolves.toBe(false);   // moved out of active
+        await expect(fs.pathExists(archivePath)).resolves.toBe(true);   // archived under v13.0.0
+    });
+
+    test('also updates metadata.path when the moved PR IS tracked in the delta cache', async () => {
+        const prNumber   = 12000,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\n`, 'utf-8');
+
+        const metadata = {pulls: {[prNumber]: {number: prNumber, state: 'MERGED', closedAt: '2026-05-01T00:00:00Z', path: path.relative(aiConfig.projectRoot, activePath)}}};
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats       = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata),
+              archivePath = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.count).toBe(1);
+        await expect(fs.pathExists(archivePath)).resolves.toBe(true);
+        expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, archivePath));
+    });
+
+    test('leaves an OPEN PR file in active (never archives a non-terminal PR)', async () => {
+        const prNumber   = 22222,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: OPEN\n---\n`, 'utf-8');
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+
+        expect(stats.count).toBe(0);
+        await expect(fs.pathExists(activePath)).resolves.toBe(true);    // untouched
+    });
+
+    test('is a no-op when no releases are loaded (fail-safe)', async () => {
+        const prNumber   = 44444,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\n`, 'utf-8');
+        ReleaseNotesSyncer.sortedReleases = [];                          // no releases → cannot resolve buckets
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+
+        expect(stats.count).toBe(0);
+        await expect(fs.pathExists(activePath)).resolves.toBe(true);    // untouched (fail-safe skip)
+    });
 });
 
 function buildPullRequest(number) {
