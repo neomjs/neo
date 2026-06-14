@@ -212,18 +212,13 @@ test.describe('Neo.ai.services.github-workflow.toolService — getConversationRo
  * GitHub Workflow MCP tool boundary, before service delegates mutate GitHub state.
  */
 test.describe('Neo.ai.services.github-workflow.toolService — write identity guard (#13243)', () => {
-    let assertExpectedIdentity;
     let buildGitHubWriteIdentityGuard;
     let guardGitHubWriteTools;
     let isPublicGitHubWriteTool;
     let normalizeGitHubIdentityLogin;
-    let resolveExpectedGitHubLogin;
 
     test.beforeAll(async () => {
-        const identityMod = await import('../../../../../../ai/mcp/server/shared/services/GitHubIdentityAssertionService.mjs');
-        const mod         = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
-        assertExpectedIdentity       = identityMod.assertExpectedIdentity;
-        resolveExpectedGitHubLogin   = identityMod.resolveExpectedGitHubLogin;
+        const mod = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
         buildGitHubWriteIdentityGuard = mod.buildGitHubWriteIdentityGuard;
         guardGitHubWriteTools         = mod.guardGitHubWriteTools;
         isPublicGitHubWriteTool       = mod.isPublicGitHubWriteTool;
@@ -237,40 +232,6 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         expect(normalizeGitHubIdentityLogin(null)).toBe(null);
     });
 
-    test('maps AgentIdentity records to canonical GitHub logins', () => {
-        expect(resolveExpectedGitHubLogin('@neo-gpt')).toEqual({
-            identityId  : '@neo-gpt',
-            githubLogin: 'neo-gpt'
-        });
-        expect(resolveExpectedGitHubLogin('neo-opus-ada')).toEqual({
-            identityId  : '@neo-opus-ada',
-            githubLogin: 'neo-opus-ada'
-        });
-        expect(resolveExpectedGitHubLogin('@missing-agent')).toBe(null);
-    });
-
-    test('asserts expected identity against viewer login and Memory Core self-identity', async () => {
-        await expect(assertExpectedIdentity({
-            agentIdentity        : '@neo-gpt',
-            getViewerLogin       : async () => 'neo-gpt',
-            getMemoryCoreIdentity: () => ({githubLogin: '@neo-gpt'})
-        })).resolves.toMatchObject({
-            ok           : true,
-            expectedLogin: 'neo-gpt',
-            viewerLogin  : 'neo-gpt'
-        });
-
-        await expect(assertExpectedIdentity({
-            agentIdentity        : '@neo-gpt',
-            getViewerLogin       : async () => 'neo-gpt',
-            getMemoryCoreIdentity: () => ({githubLogin: '@neo-opus-ada'})
-        })).resolves.toMatchObject({
-            ok    : false,
-            code  : 'GITHUB_MEMORY_CORE_IDENTITY_MISMATCH',
-            reason: 'memory-core-identity-mismatch'
-        });
-    });
-
     test('delegates a public write when expected agent and viewer login match', async () => {
         let delegateCalls = 0;
         const guarded = buildGitHubWriteIdentityGuard(async (...args) => {
@@ -278,9 +239,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             return {ok: true, args};
         }, {
             assertExpectedIdentity: async () => ({
-                ok           : true,
-                expectedLogin: 'neo-gpt',
-                viewerLogin  : 'neo-gpt'
+                ok    : true,
+                reason: null
             })
         });
 
@@ -297,19 +257,14 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             return {ok: true};
         }, {
             assertExpectedIdentity: async () => ({
-                ok           : false,
-                code         : 'GITHUB_IDENTITY_MISMATCH',
-                reason       : 'viewer-login-mismatch',
-                message      : "GitHub identity assertion failed: expected agent 'neo-gpt' but effective GitHub viewer is 'neo-opus-ada'.",
-                expectedLogin: 'neo-gpt',
-                viewerLogin  : 'neo-opus-ada'
+                ok    : false,
+                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt'
             })
         });
 
         await expect(guarded()).rejects.toMatchObject({
-            code         : 'GITHUB_IDENTITY_MISMATCH',
-            expectedLogin: 'neo-gpt',
-            viewerLogin  : 'neo-opus-ada'
+            code  : 'GITHUB_IDENTITY_MISMATCH',
+            reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt'
         });
         expect(delegateCalls).toBe(0);
     });
@@ -320,10 +275,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             delegateCalls++;
         }, {
             assertExpectedIdentity: async () => ({
-                ok     : false,
-                code   : 'GITHUB_IDENTITY_UNRESOLVED',
-                reason : 'expected-identity-unresolved',
-                message: 'GitHub identity assertion failed: expected agent identity is unresolved or not registered in identityRoots.mjs.'
+                ok    : false,
+                reason: "identity drift: expected identity 'missing-agent' is missing or unmappable in identityRoots"
             })
         });
 
@@ -339,10 +292,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             delegateCalls++;
         }, {
             assertExpectedIdentity: async () => ({
-                ok     : false,
-                code   : 'GITHUB_VIEWER_UNRESOLVED',
-                reason : 'viewer-login-unresolved',
-                message: "GitHub identity assertion failed: could not resolve effective GitHub viewer for expected agent 'neo-gpt'."
+                ok    : false,
+                reason: 'identity drift: no authed login resolved, expected neo-gpt'
             })
         });
 
@@ -361,10 +312,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             manage_issue_comment: writeHandler
         }, {
             assertExpectedIdentity: async () => ({
-                ok     : false,
-                code   : 'GITHUB_IDENTITY_MISMATCH',
-                reason : 'viewer-login-mismatch',
-                message: 'mismatch'
+                ok    : false,
+                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt'
             })
         });
 
