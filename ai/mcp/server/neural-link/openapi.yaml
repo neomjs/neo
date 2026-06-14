@@ -837,6 +837,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/remove:
+    post:
+      summary: Remove Component
+      operationId: remove_component
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Removes (destroys) a live component by its id — a schema-validated, CONSTRAINED alternative to
+        the admin-tier `call_method(component.destroy(...))`. The symmetric counterpart to `create_component`.
+
+        **When to Use:**
+        To remove a component from the live tree at runtime (e.g. dispose a transient dialog, or a
+        no-longer-needed toolbar button) without granting admin method-call access. The component is
+        resolved by `componentId`; the removal also detaches the node from the parent's DOM, not just the
+        instance.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveComponentRequest'
+      responses:
+        '200':
+          description: Component destroyed and detached from its parent
+        '400':
+          description: Invalid request body (componentId missing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/vdom/query:
     post:
       summary: Query VDOM
@@ -1780,6 +1818,18 @@ components:
         config:
           type: object
           description: The component configuration; must declare a `module`, `ntype`, or `className`
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    RemoveComponentRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
+          description: The id of the component to destroy (also detached from the parent DOM)
         sessionId:
           type: string
           description: The target App Worker Session ID
