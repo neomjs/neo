@@ -7,6 +7,7 @@ import InteractionService from './client/InteractionService.mjs';
 import RuntimeService     from './client/RuntimeService.mjs';
 import Socket             from '../data/connection/WebSocket.mjs';
 import WindowManager      from '../manager/Window.mjs';
+import WriteGuard         from './WriteGuard.mjs';
 import {parseAgentEnvelope} from './parseAgentEnvelope.mjs';
 
 /**
@@ -68,6 +69,14 @@ class Client extends Base {
      * @protected
      */
     socket = null
+    /**
+     * The per-heap multi-writer write-lock authority — owns the live held-lock table for this App-Worker heap.
+     * One {@link Neo.ai.Client} (a singleton) ⇒ one {@link Neo.ai.WriteGuard} ⇒ the heap's shared write truth, so a
+     * write-class service can deny a *different* writer's overlapping subtree write. See {@link Neo.ai.admitWrite}.
+     * @member {Neo.ai.WriteGuard|null} writeGuard=null
+     * @protected
+     */
+    writeGuard = null
 
     /**
      * @param {Object} config
@@ -76,6 +85,8 @@ class Client extends Base {
         super.construct(config);
 
         let me = this;
+
+        me.writeGuard = Neo.create(WriteGuard);
 
         me.services = {
             component  : Neo.create(ComponentService,   {client: me}),
