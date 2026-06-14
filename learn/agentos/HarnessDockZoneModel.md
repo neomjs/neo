@@ -130,6 +130,7 @@ Optional item fields:
 
 - `blueprint`: a serializable Neo component config when the item is created from saved state rather than a live instance.
 - `closable`, `pinnable`, `movable`: UI policy hints. Defaults are adapter-defined.
+- `pinned`: semantic pin state. `true` means pinned open; `false` means auto-hide eligible when an adapter supports that affordance. Omitted preserves the adapter-defined default. `pinnable === false` means `setItemPinned` must reject pin-state changes.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, secrets, PATs, or live component objects.
 
 ### Stale Component References
@@ -148,7 +149,7 @@ Persist:
 - root node id
 - node ids, types, zone mapping, split orientation, split child order, normalized split sizes
 - tab item order and `activeItemId`
-- stable item ids and JSON-only item metadata
+- stable item ids, item pin state, and JSON-only item metadata
 
 Do not persist:
 
@@ -173,6 +174,7 @@ Future implementations should mutate the model through semantic operations inste
 | `addTab` | `itemId`, `tabsNodeId`, `index` | Inserts an item into a tab slot and may set `activeItemId`. |
 | `detachItem` | `itemId` | Removes an item from the dock tree while preserving its item record for popup/window ownership. |
 | `closeItem` | `itemId` | Removes an item from both tree and catalog when policy permits. |
+| `setItemPinned` | `itemId`, `pinned` | Updates an item's semantic pin state when `pinnable` policy permits it. |
 | `normalizeTree` | full model | Removes empty tabs/splits and validates references after any operation. |
 
 Every operation must maintain:
@@ -182,6 +184,7 @@ Every operation must maintain:
 - split sizes match child count and normalize to `1`
 - `tabs.activeItemId` is either null for empty tabs or one of `tabs.items`
 - empty structural nodes are collapsed before serialization
+- pin-state changes require a boolean `pinned` payload and must reject items with `pinnable === false`
 
 ## Drag Integration Boundary
 
