@@ -20,6 +20,8 @@ import Base from '../core/Base.mjs';
  *
  * Saved-layout helpers wrap the same committed model in `neo.harness.dockLayout.v1` after enforcing
  * the finite saved-layout schema and JSON-only values. They deliberately do not choose a storage backend.
+ * Named-layout collection helpers wrap multiple saved-layout envelopes in
+ * `neo.harness.dockLayoutCollection.v1` while keeping the active-layout choice pure and storage-free.
  *
  * Return shape for every operation: `{document, errors}` — `errors` empty means the operation
  * committed; non-empty means it was rejected and `document` is the untouched input.
@@ -40,12 +42,27 @@ class DockZoneModel extends Base {
     static LAYOUT_SCHEMA = 'neo.harness.dockLayout.v1'
 
     /**
+     * The saved layout collection schema for named layout perspectives.
+     * @member {String} LAYOUT_COLLECTION_SCHEMA='neo.harness.dockLayoutCollection.v1'
+     * @static
+     */
+    static LAYOUT_COLLECTION_SCHEMA = 'neo.harness.dockLayoutCollection.v1'
+
+    /**
      * Top-level fields allowed in a saved-layout wrapper.
      * @member {Set<String>} savedLayoutKeys
      * @protected
      * @static
      */
     static savedLayoutKeys = new Set(['schema', 'layoutId', 'title', 'dockZone', 'metadata', 'revision'])
+
+    /**
+     * Top-level fields allowed in a named saved-layout collection.
+     * @member {Set<String>} savedLayoutCollectionKeys
+     * @protected
+     * @static
+     */
+    static savedLayoutCollectionKeys = new Set(['schema', 'activeLayoutId', 'layouts', 'metadata', 'revision'])
 
     /**
      * Top-level fields allowed in a persisted dock-zone document.
@@ -771,6 +788,278 @@ class DockZoneModel extends Base {
         return normalizedErrors.length
             ? {document: null, errors: normalizedErrors}
             : {document: DockZoneModel.clone(normalized), errors: []}
+    }
+
+    /**
+     * @summary Validates a named saved-layout collection and each contained saved-layout wrapper.
+     * @param {Object} collection
+     * @returns {String[]} the (possibly empty) list of invariant violations
+     * @static
+     */
+    static validateSavedLayoutCollection(collection) {
+        let errors = [];
+
+        if (!DockZoneModel.isJsonRecord(collection)) {
+            return ['saved layout collection must be a JSON object']
+        }
+
+        if (collection.schema !== DockZoneModel.LAYOUT_COLLECTION_SCHEMA) {
+            errors.push(`schema must be ${DockZoneModel.LAYOUT_COLLECTION_SCHEMA}`)
+        }
+
+        if (!Object.hasOwn(collection, 'activeLayoutId')) {
+            errors.push('activeLayoutId is required')
+        } else if (collection.activeLayoutId !== null && (typeof collection.activeLayoutId !== 'string' || !collection.activeLayoutId.trim())) {
+            errors.push('activeLayoutId must be a non-empty string or null')
+        }
+
+        if (!DockZoneModel.isJsonRecord(collection.layouts)) {
+            errors.push('layouts must be a JSON object')
+        }
+
+        if (Object.hasOwn(collection, 'metadata') && !DockZoneModel.isJsonRecord(collection.metadata)) {
+            errors.push('metadata must be a JSON object')
+        }
+
+        let secretKey = Object.hasOwn(collection, 'metadata')
+            ? DockZoneModel.findSecretMetadataKey(collection.metadata, 'layoutCollection.metadata')
+            : null;
+
+        if (secretKey) {
+            errors.push(`layout collection metadata contains secret-like field "${secretKey.key}" at ${secretKey.path}: ${secretKey.reason}`)
+        }
+
+        let unexpectedKey = DockZoneModel.findUnexpectedKey(collection, DockZoneModel.savedLayoutCollectionKeys, 'layoutCollection');
+
+        if (unexpectedKey) {
+            errors.push(`layout collection contains unexpected field "${unexpectedKey.key}" at ${unexpectedKey.path}: ${unexpectedKey.reason}`)
+        }
+
+        let nonJson = DockZoneModel.findNonJsonValue(collection, 'layoutCollection');
+
+        if (nonJson) {
+            errors.push(`layout collection ${nonJson.path} is not JSON-only: ${nonJson.reason}`)
+        }
+
+        if (DockZoneModel.isJsonRecord(collection.layouts)) {
+            for (const [layoutId, savedLayout] of Object.entries(collection.layouts)) {
+                if (!layoutId.trim()) {
+                    errors.push('layout keys must be non-empty strings');
+                    continue
+                }
+
+                if (!DockZoneModel.isJsonRecord(savedLayout)) {
+                    errors.push(`layout "${layoutId}" must be a JSON object`);
+                    continue
+                }
+
+                if (savedLayout.layoutId !== layoutId) {
+                    errors.push(`layout key "${layoutId}" must match saved layout id "${savedLayout.layoutId}"`)
+                }
+
+                let restored = DockZoneModel.restoreSavedLayout(savedLayout);
+
+                if (restored.errors.length) {
+                    errors.push(...restored.errors.map(error => `layout "${layoutId}": ${error}`))
+                }
+            }
+        }
+
+        let layoutCount = DockZoneModel.isJsonRecord(collection.layouts) ? Object.keys(collection.layouts).length : 0;
+
+        if (collection.activeLayoutId === null && layoutCount > 0) {
+            errors.push('activeLayoutId must name an existing layout when layouts are present')
+        } else if (typeof collection.activeLayoutId === 'string' && DockZoneModel.isJsonRecord(collection.layouts) && !Object.hasOwn(collection.layouts, collection.activeLayoutId)) {
+            errors.push(`activeLayoutId "${collection.activeLayoutId}" does not exist`)
+        }
+
+        return errors
+    }
+
+    /**
+     * @summary Creates a storage-free collection of named saved-layout wrappers.
+     * @param {Array<Object>|Object<String,Object>} [layouts=[]]
+     * @param {Object} [options={}] {activeLayoutId, metadata, revision}
+     * @returns {{collection:Object|null, errors:String[]}}
+     * @static
+     */
+    static createSavedLayoutCollection(layouts=[], options={}) {
+        if (!Array.isArray(layouts) && !DockZoneModel.isJsonRecord(layouts)) {
+            return {collection: null, errors: ['layouts must be an array or JSON object']}
+        }
+
+        if (!DockZoneModel.isJsonRecord(options)) {
+            return {collection: null, errors: ['options must be a JSON object']}
+        }
+
+        let collection = {
+                schema        : DockZoneModel.LAYOUT_COLLECTION_SCHEMA,
+                activeLayoutId: Object.hasOwn(options, 'activeLayoutId') ? options.activeLayoutId : null,
+                layouts       : {},
+                metadata      : Object.hasOwn(options, 'metadata') ? options.metadata : {}
+            },
+            entries    = Array.isArray(layouts)
+                ? layouts.map((layout, index) => [DockZoneModel.isJsonRecord(layout) ? layout.layoutId : `index-${index}`, layout])
+                : Object.entries(layouts),
+            errors     = [];
+
+        for (const [layoutId, savedLayout] of entries) {
+            if (typeof layoutId !== 'string' || !layoutId.trim()) {
+                errors.push('layoutId must be a non-empty string');
+                continue
+            }
+
+            collection.layouts[layoutId] = DockZoneModel.clone(savedLayout)
+        }
+
+        if (!Object.hasOwn(options, 'activeLayoutId')) {
+            collection.activeLayoutId = Object.keys(collection.layouts)[0] ?? null
+        }
+
+        if (Object.hasOwn(options, 'revision')) {
+            collection.revision = options.revision
+        }
+
+        errors.push(...DockZoneModel.validateSavedLayoutCollection(collection));
+
+        return errors.length
+            ? {collection: null, errors}
+            : {collection: DockZoneModel.clone(collection), errors: []}
+    }
+
+    /**
+     * @summary Adds or replaces a saved-layout wrapper in a collection.
+     * @param {Object} collection
+     * @param {Object} savedLayout
+     * @param {Object} [options={}] {activate}
+     * @returns {{collection:Object, errors:String[]}}
+     * @static
+     */
+    static upsertSavedLayout(collection, savedLayout, options={}) {
+        let errors = DockZoneModel.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {collection, errors}
+        }
+
+        let restored = DockZoneModel.restoreSavedLayout(savedLayout);
+
+        if (restored.errors.length) {
+            return {collection, errors: restored.errors}
+        }
+
+        let doc      = DockZoneModel.clone(collection),
+            layoutId = savedLayout.layoutId;
+
+        doc.layouts[layoutId] = DockZoneModel.clone(savedLayout);
+
+        if (options?.activate === true || doc.activeLayoutId === null) {
+            doc.activeLayoutId = layoutId
+        }
+
+        errors = DockZoneModel.validateSavedLayoutCollection(doc);
+
+        return errors.length ? {collection, errors} : {collection: DockZoneModel.clone(doc), errors: []}
+    }
+
+    /**
+     * @summary Selects the active saved layout by id without restoring it.
+     * @param {Object} collection
+     * @param {String} layoutId
+     * @returns {{collection:Object, errors:String[]}}
+     * @static
+     */
+    static selectSavedLayout(collection, layoutId) {
+        let errors = DockZoneModel.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {collection, errors}
+        }
+
+        if (typeof layoutId !== 'string' || !layoutId.trim()) {
+            return {collection, errors: ['layoutId must be a non-empty string']}
+        }
+
+        if (!Object.hasOwn(collection.layouts, layoutId)) {
+            return {collection, errors: [`layoutId "${layoutId}" does not exist`]}
+        }
+
+        let doc = DockZoneModel.clone(collection);
+
+        doc.activeLayoutId = layoutId;
+
+        return {collection: DockZoneModel.clone(doc), errors: []}
+    }
+
+    /**
+     * @summary Removes a saved layout and requires an explicit replacement when removing the active one.
+     * @param {Object} collection
+     * @param {Object} args {layoutId, replacementLayoutId}
+     * @returns {{collection:Object, errors:String[]}}
+     * @static
+     */
+    static removeSavedLayout(collection, {layoutId, replacementLayoutId} = {}) {
+        let errors = DockZoneModel.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {collection, errors}
+        }
+
+        if (typeof layoutId !== 'string' || !layoutId.trim()) {
+            return {collection, errors: ['layoutId must be a non-empty string']}
+        }
+
+        if (!Object.hasOwn(collection.layouts, layoutId)) {
+            return {collection, errors: [`layoutId "${layoutId}" does not exist`]}
+        }
+
+        let removingActive = collection.activeLayoutId === layoutId;
+
+        if (removingActive) {
+            if (typeof replacementLayoutId !== 'string' || !replacementLayoutId.trim()) {
+                return {collection, errors: ['removing the active layout requires replacementLayoutId']}
+            }
+
+            if (replacementLayoutId === layoutId) {
+                return {collection, errors: ['replacementLayoutId must differ from the removed layoutId']}
+            }
+
+            if (!Object.hasOwn(collection.layouts, replacementLayoutId)) {
+                return {collection, errors: [`replacementLayoutId "${replacementLayoutId}" does not exist`]}
+            }
+        }
+
+        let doc = DockZoneModel.clone(collection);
+
+        delete doc.layouts[layoutId];
+
+        if (removingActive) {
+            doc.activeLayoutId = replacementLayoutId
+        }
+
+        errors = DockZoneModel.validateSavedLayoutCollection(doc);
+
+        return errors.length ? {collection, errors} : {collection: DockZoneModel.clone(doc), errors: []}
+    }
+
+    /**
+     * @summary Restores the active saved-layout wrapper from a named layout collection.
+     * @param {Object} collection
+     * @returns {{document:Object|null, errors:String[]}}
+     * @static
+     */
+    static restoreActiveSavedLayout(collection) {
+        let errors = DockZoneModel.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {document: null, errors}
+        }
+
+        if (typeof collection.activeLayoutId !== 'string' || !Object.hasOwn(collection.layouts, collection.activeLayoutId)) {
+            return {document: null, errors: ['activeLayoutId must name an existing layout']}
+        }
+
+        return DockZoneModel.restoreSavedLayout(collection.layouts[collection.activeLayoutId])
     }
 
     /**

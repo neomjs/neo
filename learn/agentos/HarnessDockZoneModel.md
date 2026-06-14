@@ -162,6 +162,37 @@ Do not persist:
 
 If a future slice needs to restore detached windows, it should persist semantic placement plus an optional window placement hint separately. The dock-zone model remains the component-layout authority, not an OS-window session dump.
 
+## Named Layout Collections / Perspectives
+
+Named perspectives collect multiple saved layouts without choosing a storage backend or rendering a switcher. The model shape is pure JSON:
+
+```json
+{
+  "schema": "neo.harness.dockLayoutCollection.v1",
+  "activeLayoutId": "operator-default",
+  "layouts": {
+    "operator-default": {
+      "schema": "neo.harness.dockLayout.v1",
+      "layoutId": "operator-default",
+      "title": "Operator Default",
+      "dockZone": {}
+    }
+  },
+  "metadata": {},
+  "revision": 1
+}
+```
+
+Rules:
+
+- `layouts` is keyed by each saved layout's `layoutId`; the key and wrapper id must match.
+- `activeLayoutId` must name an existing layout whenever the collection contains layouts.
+- Collection and saved-layout metadata are JSON-only and must not contain secrets, PATs, credentials, functions, DOM nodes, or live components.
+- Restoring a perspective must go through `restoreSavedLayout()` so the saved-layout schema, dock-zone schema, and JSON-only checks stay shared.
+- Removing the active layout requires an explicit replacement id. Do not silently pick a different active layout.
+
+Storage remains out of scope for this layer. Browser preferences, Memory Core persistence, import/export, and rendered layout switchers consume this collection contract later; they must not fork their own collection shape.
+
 ## Operations
 
 Future implementations should mutate the model through semantic operations instead of direct tree surgery in UI handlers:
@@ -176,6 +207,11 @@ Future implementations should mutate the model through semantic operations inste
 | `closeItem` | `itemId` | Removes an item from both tree and catalog when policy permits. |
 | `setItemPinned` | `itemId`, `pinned` | Updates an item's semantic pin state when `pinnable` policy permits it. |
 | `normalizeTree` | full model | Removes empty tabs/splits and validates references after any operation. |
+| `createSavedLayoutCollection` | saved-layout wrappers, metadata | Creates a named perspective collection from valid saved-layout wrappers. |
+| `upsertSavedLayout` | collection, saved-layout wrapper, `activate` | Adds or replaces a named saved layout and optionally selects it. |
+| `selectSavedLayout` | collection, `layoutId` | Selects an existing saved layout id as active. |
+| `removeSavedLayout` | collection, `layoutId`, `replacementLayoutId` | Removes a named saved layout; active removals require an explicit replacement. |
+| `restoreActiveSavedLayout` | collection | Restores the active saved layout through `restoreSavedLayout()`. |
 
 Every operation must maintain:
 
