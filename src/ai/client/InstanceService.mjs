@@ -221,6 +221,70 @@ class InstanceService extends Service {
     }
 
     /**
+     * Builds the reverse-op for a `remove_component` write — `remove⁻¹ = insert(index, config)` on the parent,
+     * snapshotting the destroyed component's parent + tree index + a JSON-safe config BEFORE the destroy runs.
+     * **Server-stamped only** (`undoKind === 'remove_component'`), canonical `destroy(true)` shape, writer identity
+     * present, not an undo replay — else `null`, so {@link #recordUndo} no-ops (a generic `call_method` stays
+     * non-undoable). Position-preserving: the reverse re-inserts at the original `index` (not an appending re-create),
+     * so undo restores tree order. The config is a documented JSON-safe `toJSON` snapshot (serializable-config bound,
+     * not full live-state fidelity); the data-not-code + payload-cap guards in {@link Neo.ai.TransactionService} bound it.
+     * @param {Object} params
+     * @param {Object|null} params.context  The Bridge-stamped `{agentId, sessionId}` writer pair.
+     * @param {String} params.id  The component id being destroyed.
+     * @param {String} params.method
+     * @param {Array} params.args
+     * @param {String} [params.undoKind]  The server-stamped capture marker.
+     * @param {Neo.component.Base} params.instance  The live component, read BEFORE destroy.
+     * @returns {Object|null} A reverse-record op, or `null` when the call is not a capturable remove.
+     * @protected
+     */
+    buildRemoveReverse({context, id, method, args, undoKind, instance}) {
+        if (undoKind !== 'remove_component' || context?.undoReplay) {
+            return null
+        }
+
+        if (!context?.agentId || !context?.sessionId) {
+            return null
+        }
+
+        // canonical remove shape only — the server stamps destroy(true); any other shape is dropped (fail-closed)
+        if (method !== 'destroy' || args.length !== 1 || args[0] !== true) {
+            return null
+        }
+
+        const
+            parentId = instance.parentId,
+            parent   = parentId ? Neo.getComponent(parentId) : null;
+
+        if (!parent || typeof parent.indexOf !== 'function') {
+            return null // a parentless / unresolvable target cannot be re-inserted — fail-closed
+        }
+
+        const
+            index  = parent.indexOf(id),
+            config = this.safeSerialize(typeof instance.toJSON === 'function' ? instance.toJSON() : null);
+
+        if (index < 0 || !config || typeof config !== 'object') {
+            return null
+        }
+
+        const targetSubtreePath = deriveSubtreePath(parentId, cid => Neo.getComponent(cid)?.parentId);
+
+        if (!targetSubtreePath) {
+            return null
+        }
+
+        return {
+            sequenceId       : `${id}:${++this.undoSequence}`,
+            originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+            targetSubtreePath,
+            forward          : {tool: 'remove_component', args: {componentId: id}},
+            reverse          : {tool: 'call_method', args: {id: parentId, method: 'insert', args: [index, config]}},
+            label            : `remove ${id} from ${parentId}`
+        }
+    }
+
+    /**
      * Records a captured reverse-op as a single-op committed transaction on this heap's undo stack
      * ({@link Neo.ai.Client#transactionService}) — `begin` → `record` → `commit`, keyed on the writer's
      * `(agentId, sessionId)`. Best-effort: a `null` op, an absent stack authority, or a stack rejection (a malformed /
@@ -337,13 +401,15 @@ class InstanceService extends Service {
 
         this.assertWritable(context, id);
 
+        // remove_component reverse-capture must snapshot the component's re-creatable state BEFORE destroy runs (the
+        // instance is gone afterwards); create_component's capture is post-call (the new child's id is the `add`
+        // return). A server-stamped marker + the canonical shape gate each; a generic call_method + an undo replay
+        // capture nothing. See {@link #buildRemoveReverse} / {@link #buildCreateReverse}.
+        const removeOp = this.buildRemoveReverse({context, id, method, args, undoKind, instance});
+
         const result = await scope[methodName].call(scope, ...args);
 
-        // create_component reverse-capture: a server-stamped create (the canonical `add(config)` dispatch) records
-        // its inverse — destroy the new child — so an agent can undo a creation. The marker is server-only (the
-        // server-side generic call_method forwards just {id, method, args}, so a public-injected `undoKind` is
-        // stripped); a generic call_method + an undo replay are NOT captured. See {@link #buildCreateReverse}.
-        this.recordUndo(context, this.buildCreateReverse({context, id, method, args, undoKind, result}));
+        this.recordUndo(context, removeOp || this.buildCreateReverse({context, id, method, args, undoKind, result}));
 
         return {result: this.safeSerialize(result)}
     }
