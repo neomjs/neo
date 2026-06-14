@@ -72,12 +72,14 @@
  *                                                    # independent-clone topology: explicit
  *                                                    # canonical-root override
  * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale
- *                                                    # remove every non-current .claude/worktrees
- *                                                    # checkout via git, then hydrate current
+ *                                                    # remove clean non-current .claude/worktrees
+ *                                                    # checkouts via git, then hydrate current
  * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --dry-run
  *                                                    # report the same keep/remove plan
  *                                                    # without mutating disk
- * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --interval-ms 21600000
+ * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --include-dirty
+ *                                                    # also remove dirty non-current checkouts
+ * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --include-dirty --interval-ms 21600000
  *                                                    # local operator scheduler (6h example);
  *                                                    # force-removes all non-current worktrees
  *                                                    # on every tick; intentionally not an
@@ -660,14 +662,16 @@ export async function listClaudeWorktrees({
  * @summary Classifies one Claude Code worktree for keep-current/delete-rest pruning.
  *
  * Worktrees are disposable checkouts; committed work lives in branches/remotes. The only
- * local filesystem state protected by this cleaner is the current active checkout. Every
- * other Claude worktree is removable via `git worktree remove --force`, which keeps git's
- * worktree admin records coherent while deleting any dirty or unmerged non-current checkout.
+ * local filesystem state protected by default is the current active checkout plus dirty
+ * sibling worktrees. Clean non-current Claude worktrees remain removable via
+ * `git worktree remove --force`; dirty or indeterminate sibling state is skipped unless
+ * the operator passes the explicit `includeDirty` override.
  *
  * @param {object}   options
  * @param {object}   options.worktree Parsed worktree record.
  * @param {string}   options.currentPath Absolute current checkout path that must be preserved.
  * @param {string}   options.mainCheckout Absolute primary checkout path that must be preserved.
+ * @param {boolean}  [options.includeDirty=false] True removes dirty non-current worktrees.
  * @param {Function} [options.getSize] Optional size resolver.
  * @returns {Promise<object>}
  */
@@ -675,25 +679,48 @@ export async function classifyWorktree({
     worktree,
     currentPath,
     mainCheckout,
-    exec    = execFileAsync,
-    getSize = getPathSizeBytes
+    includeDirty = false,
+    exec         = execFileAsync,
+    getSize      = getPathSizeBytes
 }) {
     const sizeBytes             = await getSize(worktree.path, {exec});
     const current               = isSamePath(worktree.path, currentPath);
     const primaryMainCheckout   = isSamePath(worktree.path, mainCheckout);
     const protectedCheckoutPath = current || primaryMainCheckout;
+    const classification = {
+        remove: !protectedCheckoutPath,
+        status: current ? 'current' : (primaryMainCheckout ? 'main-checkout' : 'remove'),
+        reason: current
+            ? 'current active worktree'
+            : (primaryMainCheckout ? 'primary checkout' : 'clean non-current Claude worktree')
+    };
+
+    if (classification.remove && !includeDirty) {
+        const dirtyState = await getWorktreeDirtyState({worktreePath: worktree.path, exec});
+
+        if (dirtyState.error) {
+            classification.remove = false;
+            classification.status = 'skipped-status-error';
+            classification.reason = `dirty status could not be determined: ${dirtyState.error.message}`;
+        } else if (dirtyState.dirty) {
+            classification.remove = false;
+            classification.status = 'skipped-dirty';
+            classification.reason = 'dirty non-current Claude worktree';
+        }
+
+        classification.dirtyStatus = dirtyState;
+    }
 
     return {
         ...worktree,
         sizeBytes,
         current,
         mainCheckout: primaryMainCheckout,
-        remove      : !protectedCheckoutPath,
+        remove      : classification.remove,
         removeArgs: ['worktree', 'remove', '--force', worktree.path],
-        status    : current ? 'current' : (primaryMainCheckout ? 'main-checkout' : 'remove'),
-        reason    : current
-            ? 'current active worktree'
-            : (primaryMainCheckout ? 'primary checkout' : 'non-current Claude worktree')
+        status    : classification.status,
+        reason    : classification.reason,
+        dirtyStatus: classification.dirtyStatus || null
     };
 }
 
@@ -708,6 +735,7 @@ export async function classifyWorktree({
  * @param {string}   options.projectRoot Primary checkout path.
  * @param {string}   [options.currentPath=projectRoot] Active checkout path that must not be removed.
  * @param {boolean}  [options.dryRun=false] Whether to only report the keep/remove plan.
+ * @param {boolean}  [options.includeDirty=false] True removes dirty non-current worktrees.
  * @param {string}   [options.worktreesRoot] Worktree parent path.
  * @param {Function} [options.exec] Dependency-injected execFile wrapper.
  * @param {Function} [options.getSize] Optional size resolver.
@@ -719,6 +747,7 @@ export async function pruneStaleWorktrees({
     projectRoot,
     currentPath   = projectRoot,
     dryRun        = false,
+    includeDirty  = false,
     worktreesRoot = DEFAULT_CLAUDE_WORKTREES_ROOT,
     exec          = execFileAsync,
     getSize       = getPathSizeBytes,
@@ -729,7 +758,7 @@ export async function pruneStaleWorktrees({
     const classified = [];
 
     for (const worktree of worktrees) {
-        classified.push(await classifyWorktree({worktree, currentPath, mainCheckout: projectRoot, exec, getSize}));
+        classified.push(await classifyWorktree({worktree, currentPath, mainCheckout: projectRoot, includeDirty, exec, getSize}));
     }
 
     const removable = classified.filter(item => item.remove);
@@ -743,7 +772,9 @@ export async function pruneStaleWorktrees({
     log(`Found ${classified.length} worktree(s), ${formatBytes(totalBytes)} total, ${formatBytes(reclaimableBytes)} reclaimable.`);
 
     for (const item of classified) {
-        const marker = item.remove ? (dryRun ? 'would-remove' : 'remove') : 'keep';
+        const marker = item.remove
+            ? (dryRun ? 'would-remove' : 'remove')
+            : (item.status.startsWith('skipped') ? 'skip' : 'keep');
         log(`${marker}: ${item.status} ${formatBytes(item.sizeBytes)} ${item.path}`);
         log(`  ${item.reason}`);
     }
@@ -795,9 +826,9 @@ export async function hydrateCurrentWorktree({mainCheckout, projectRoot, log = c
  *
  * This is intentionally a CLI/local scheduler, not an Orchestrator task. The Orchestrator
  * has cloud-deployable lanes; worktree deletion is a desktop-harness hygiene action.
- * Warning: each tick force-removes all non-current worktrees, including concurrently-active
- * sibling sessions. Use only on operator-managed hosts where that disposable-worktree policy
- * is acceptable.
+ * Warning: with `includeDirty`, each tick force-removes all non-current worktrees, including
+ * concurrently-active sibling sessions. Use only on operator-managed hosts where that
+ * disposable-worktree policy is acceptable.
  *
  * @param {object}   options
  * @param {number}   options.intervalMs Interval between runs.
@@ -808,7 +839,11 @@ export async function runLocalPruneWorktreeSchedule({intervalMs, log = console.l
         throw new Error(`--interval-ms must be a positive number`);
     }
 
-    log(`WARNING: --schedule-local force-removes all non-current worktrees on every tick, including concurrently-active sibling sessions.`);
+    const dirtyPolicy = pruneOptions.includeDirty
+        ? 'including dirty sibling state'
+        : 'skipping dirty or indeterminate sibling state';
+
+    log(`WARNING: --schedule-local repeatedly prunes non-current worktrees on every tick, ${dirtyPolicy}.`);
 
     let running = false;
     const runOnce = async () => {
@@ -845,6 +880,35 @@ async function getPathSizeBytes(targetPath, {exec = execFileAsync} = {}) {
         return Number.isFinite(kb) ? kb * 1024 : 0;
     } catch {
         return 0;
+    }
+}
+
+/**
+ * @summary Detects uncommitted worktree state for destructive prune decisions.
+ *
+ * Fails closed: if `git status --porcelain` cannot be read, the caller receives a dirty
+ * result with the captured error so the worktree can be skipped instead of force-removed.
+ *
+ * @param {object}   options
+ * @param {string}   options.worktreePath Absolute path to the candidate worktree.
+ * @param {Function} [options.exec] Dependency-injected execFile wrapper.
+ * @returns {Promise<{dirty: boolean, stdout: string, error: Error|null}>}
+ */
+async function getWorktreeDirtyState({worktreePath, exec = execFileAsync}) {
+    try {
+        const {stdout} = await exec('git', ['-C', worktreePath, 'status', '--porcelain']);
+
+        return {
+            dirty: stdout.trim().length > 0,
+            stdout,
+            error: null
+        };
+    } catch (error) {
+        return {
+            dirty: true,
+            stdout: '',
+            error
+        };
     }
 }
 
@@ -900,6 +964,7 @@ if (isMain) {
     const pruneStale = args.has('--prune-stale') || argv.includes('--mode=prune-stale') ||
         (argv.includes('--mode') && argv[argv.indexOf('--mode') + 1] === 'prune-stale');
     const dryRun        = args.has('--dry-run');
+    const includeDirty  = args.has('--include-dirty');
     const scheduleLocal = args.has('--schedule-local');
     const intervalMs    = getNumberFlag(argv, '--interval-ms', 6 * 60 * 60 * 1000);
 
@@ -927,11 +992,12 @@ if (isMain) {
                     projectRoot: mainCheckout,
                     currentPath: projectRoot,
                     dryRun,
+                    includeDirty,
                     intervalMs
                 });
                 await new Promise(() => {});
             } else {
-                await pruneStaleWorktrees({projectRoot: mainCheckout, currentPath: projectRoot, dryRun});
+                await pruneStaleWorktrees({projectRoot: mainCheckout, currentPath: projectRoot, dryRun, includeDirty});
                 process.exit(0);
             }
         }
