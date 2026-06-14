@@ -557,6 +557,9 @@ const myGrid = Neo.create(GridContainer, {
 ### Animated Row Sorting
 
 To animate row sorting, set the `animatedRowSorting` config to `true` on the `Neo.grid.Body` (via `body`).
+The current `AnimateRows` plugin is a flat-store row sorting/filtering affordance. Do not use it as a
+TreeGrid expand/collapse animation path; TreeGrid structural animation must follow the
+[pooled row contract](./PooledGridAnimation.md).
 
 ```javascript readonly
 const myGrid = Neo.create(GridContainer, {
