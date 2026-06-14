@@ -83,4 +83,21 @@ test.describe('Neo.ai.client.InstanceService — set_instance_properties undo ca
         expect(component.width).toBe(300);                                       // the write still applies
         expect(transactionService.stackOf({id: ID}).committed).toHaveLength(0)   // but nothing is captured
     });
+
+    // ── AC4: capture-drop is best-effort + fail-closed — never breaks the forward write, never commits a bad undo ──
+    test('a stack rejection (an unserializable reverse) is dropped — the write applies, nothing is committed, nothing thrown', () => {
+        // Force the stack to reject the reverse (the malformed / unserializable-reverse path); the capture must drop it.
+        transactionService.record = () => ({ok: false, reason: 'op-not-serializable'});
+
+        expect(() => service.setInstanceProperties({id: 'undo-capture-cmp', properties: {width: 200}}, ID)).not.toThrow();
+        expect(component.width).toBe(200);                                       // the forward write still applied
+        expect(transactionService.stackOf({id: ID}).committed).toHaveLength(0)   // the rejected tx was aborted, not committed
+    });
+
+    test('an absent transactionService is a no-op — the write applies, nothing thrown (no per-heap undo authority)', () => {
+        const service2 = Neo.create(InstanceService, {client: {writeGuard: Neo.create(WriteGuard)}});
+
+        expect(() => service2.setInstanceProperties({id: 'undo-capture-cmp', properties: {width: 250}}, ID)).not.toThrow();
+        expect(component.width).toBe(250) // the forward write still applied — capture is additive, never a precondition
+    });
 });
