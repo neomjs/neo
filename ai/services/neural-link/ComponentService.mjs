@@ -146,6 +146,35 @@ class ComponentService extends Base {
     async setComponentProperty({id, property, value, sessionId}) {
         return await ConnectionService.call(sessionId, 'set_component_property', {id, property, value});
     }
+
+    /**
+     * Creates a component inside a target container at runtime — a first-class, schema-validated,
+     * `write-locked` alternative to the generic `admin`-tier `call_method(container.add(...))`.
+     *
+     * Validates the config server-side (fail-fast with a semantic message, no dispatch on bad input),
+     * then delegates to the existing `call_method` dispatch — `container.add(config)` — reusing the
+     * worker-side handler (no new worker op). Pinning the method to `add` is exactly what keeps this
+     * a CONSTRAINED write tool (`write-locked`) rather than the arbitrary-method `admin` `call_method`:
+     * an agent can create components without being granted admin method-call access.
+     * @param {Object} opts             The options object.
+     * @param {String} opts.parentId    The target container's component ID.
+     * @param {Object} opts.config      The component configuration; must declare a `module`, `ntype`, or `className`.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The result of adding the component to the container.
+     */
+    async createComponent({parentId, config, sessionId}) {
+        if (!parentId) {
+            throw new Error('create_component: `parentId` (the target container id) is required.');
+        }
+        if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            throw new Error('create_component: `config` must be a component configuration object.');
+        }
+        if (!config.module && !config.ntype && !config.className) {
+            throw new Error('create_component: `config` must declare a `module`, `ntype`, or `className` to instantiate.');
+        }
+
+        return await ConnectionService.call(sessionId, 'call_method', {id: parentId, method: 'add', args: [config]});
+    }
 }
 
 export default Neo.setupClass(ComponentService);

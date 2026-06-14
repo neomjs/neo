@@ -19,6 +19,7 @@ import RecorderService    from '../../../services/neural-link/RecorderService.mj
 const serviceMapping = {
     call_method                 : InstanceService   .callMethod              .bind(InstanceService),
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),
+    create_component             : ComponentService  .createComponent           .bind(ComponentService),
     find_instances               : InstanceService   .findInstances             .bind(InstanceService),
     get_component_tree           : ComponentService  .getComponentTree          .bind(ComponentService),
     get_computed_styles          : ComponentService  .getComputedStyles         .bind(ComponentService),

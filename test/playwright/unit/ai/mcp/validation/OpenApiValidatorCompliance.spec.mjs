@@ -36,7 +36,7 @@ function findArraysWithoutItems(node, pathLabel = '') {
 
 /**
  * Walks a JSON Schema node and returns every dotted path where a `type: "object"` node
- * sets `additionalProperties: false`. For OUTPUT schemas this is the #9837 drift bug —
+ * sets `additionalProperties: false`. For OUTPUT schemas this is the additional-properties drift bug —
  * server implementations return fields the OpenAPI contract forgot to declare, and
  * strict MCP clients (GitHub Copilot) reject the payload with
  * "data/result/0 must NOT have additional properties". OUTPUT schemas should stay
@@ -61,7 +61,7 @@ function findStrictObjects(node, pathLabel = '') {
 
 /**
  * Walks a JSON Schema node looking for INPUT "open-bag" objects that would silently
- * strip their payload to `{}` — the #10070 regression. An open-bag is a `type: "object"`
+ * strip their payload to `{}` — the open-bag-stripping regression. An open-bag is a `type: "object"`
  * node that declares NO child `properties` (the author signaled "caller decides the
  * shape") AND strict `additionalProperties: false` (Zod then drops every unknown key).
  * The root of an input schema is excluded — top-level inputs with declared fields
@@ -91,6 +91,7 @@ const neuralLinkToolTiers = ['read', 'write-locked', 'admin'];
 const expectedNeuralLinkToolTiers = {
     call_method                 : 'admin',
     check_namespace              : 'read',
+    create_component             : 'write-locked',
     find_instances               : 'read',
     get_component_tree           : 'read',
     get_computed_styles          : 'read',
@@ -130,6 +131,7 @@ const expectedNeuralLinkToolTiers = {
 
 const neuralLinkDangerousReadForbidden = [
     'call_method',
+    'create_component',
     'highlight_component',
     'manage_connection',
     'manage_neo_config',
