@@ -197,6 +197,64 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Returns true when a metadata key name is likely to carry credential material.
+     * @param {String} key
+     * @returns {Boolean}
+     * @protected
+     * @static
+     */
+    static isSecretMetadataKey(key) {
+        let normalized = key
+            .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+            .replace(/[^a-z0-9]+/gi, '_')
+            .replace(/^_+|_+$/g, '')
+            .toLowerCase();
+
+        return /(^|_)(secret|secrets|token|tokens|credential|credentials|password|passwords|pat|pats)$/.test(normalized) ||
+            /(^|_)(api|auth|session|access|refresh|bridge|github|private|personal_access)_?(key|token|secret|credential|password)$/.test(normalized)
+    }
+
+    /**
+     * @summary Returns the first metadata key that looks like credential material.
+     * @param {*} value
+     * @param {String} [path='metadata']
+     * @returns {{key:String, path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findSecretMetadataKey(value, path='metadata') {
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = DockZoneModel.findSecretMetadataKey(value[i], `${path}[${i}]`);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        if (!DockZoneModel.isJsonRecord(value)) {
+            return null
+        }
+
+        for (const [key, child] of Object.entries(value)) {
+            if (DockZoneModel.isSecretMetadataKey(key)) {
+                return {key, path: `${path}.${key}`, reason: 'metadata must not contain credentials or secrets'}
+            }
+
+            let match = DockZoneModel.findSecretMetadataKey(child, `${path}.${key}`);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
+    }
+
+    /**
      * @summary Returns the first field in a dock-zone document that is outside the persisted schema.
      *
      * `metadata` and `blueprint` are explicit opaque JSON-only extension points. They are caller-owned
@@ -613,6 +671,12 @@ class DockZoneModel extends Base {
             errors.push('metadata must be a JSON object')
         }
 
+        let secretKey = DockZoneModel.findSecretMetadataKey(layout.metadata, 'savedLayout.metadata');
+
+        if (secretKey) {
+            errors.push(`saved layout metadata contains secret-like field "${secretKey.key}" at ${secretKey.path}: ${secretKey.reason}`)
+        }
+
         unexpectedKey = DockZoneModel.findUnexpectedKey(layout, DockZoneModel.savedLayoutKeys, 'savedLayout') ||
             DockZoneModel.findUnexpectedDockZoneKey(layout.dockZone, 'savedLayout.dockZone');
 
@@ -664,6 +728,14 @@ class DockZoneModel extends Base {
 
         if (Object.hasOwn(savedLayout, 'metadata') && !DockZoneModel.isJsonRecord(savedLayout.metadata)) {
             errors.push('metadata must be a JSON object')
+        }
+
+        let secretKey = Object.hasOwn(savedLayout, 'metadata')
+            ? DockZoneModel.findSecretMetadataKey(savedLayout.metadata, 'savedLayout.metadata')
+            : null;
+
+        if (secretKey) {
+            errors.push(`saved layout metadata contains secret-like field "${secretKey.key}" at ${secretKey.path}: ${secretKey.reason}`)
         }
 
         let unexpectedKey = DockZoneModel.findUnexpectedKey(savedLayout, DockZoneModel.savedLayoutKeys, 'savedLayout') ||
