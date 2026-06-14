@@ -210,7 +210,11 @@ class ComponentService extends Base {
             throw new Error('remove_component: `componentId` (the component to destroy) is required.');
         }
 
-        return await ConnectionService.call(sessionId, 'call_method', {id: componentId, method: 'destroy', args: [true]});
+        // `undoKind` is a server-only capture marker (NOT in CallMethodRequest's schema): the app-side write-path
+        // snapshots the component's parent + index + config BEFORE destroy so the `undo` tool can re-insert it at its
+        // original position. The generic call_method service forwards only {id, method, args}, so a public caller
+        // cannot inject this marker — generic call_method stays non-undoable.
+        return await ConnectionService.call(sessionId, 'call_method', {id: componentId, method: 'destroy', args: [true], undoKind: 'remove_component'});
     }
 }
 

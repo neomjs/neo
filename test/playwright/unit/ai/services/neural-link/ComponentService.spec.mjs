@@ -126,7 +126,7 @@ test.describe('Neo.ai.services.neural-link.ComponentService — createComponent 
         expect(calls[0]).toEqual({
             sessionId: 's1',
             op       : 'call_method',
-            payload  : {id: 'dialog-1', method: 'destroy', args: [true]}
+            payload  : {id: 'dialog-1', method: 'destroy', args: [true], undoKind: 'remove_component'} // server-stamped undo-capture marker
         });
     });
 });
