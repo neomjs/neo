@@ -12,12 +12,105 @@ import PullRequestService from '../../../services/github-workflow/PullRequestSer
 import RepositoryService  from '../../../services/github-workflow/RepositoryService.mjs';
 import ToolService        from '../../ToolService.mjs';
 import SyncService        from '../../../services/github-workflow/SyncService.mjs';
+import GitHubIdentityAssertionService, {
+    normalizeGitHubLogin as normalizeGitHubIdentityLogin
+} from '../shared/services/GitHubIdentityAssertionService.mjs';
 import config             from './config.mjs';
 
 const execFileAsync   = promisify(execFile);
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, 'openapi.yaml');
+
+const PUBLIC_GITHUB_WRITE_TOOLS = Object.freeze(new Set([
+    'create_discussion',
+    'create_issue',
+    'manage_discussion',
+    'manage_discussion_comment',
+    'manage_issue_assignees',
+    'manage_issue_comment',
+    'manage_issue_labels',
+    'manage_issue_projects',
+    'manage_pr_review',
+    'manage_pr_reviewers',
+    'signal_state_transition',
+    'update_issue_relationship'
+]));
+
+/**
+ * @summary Builds a structured identity guard error for GitHub write-boundary failures.
+ * @param {Object} assertion Shared identity assertion failure payload.
+ * @returns {Error}
+ */
+function createGitHubIdentityError(assertion) {
+    const error = new Error(assertion.message);
+
+    Object.assign(error, assertion);
+
+    return error;
+}
+
+/**
+ * @summary Runs the shared GitHub identity assertion from this server's project root.
+ * @returns {Promise<Object>}
+ */
+function defaultGitHubIdentityAssertion() {
+    return GitHubIdentityAssertionService.assertExpectedIdentity({
+        cwd: config.projectRoot
+    });
+}
+
+/**
+ * @summary Wraps a public GitHub write with fail-closed identity-drift validation.
+ *
+ * The delegate is never invoked unless the expected agent identity and effective
+ * GitHub API viewer login match. The assertion seam is injectable so tests do
+ * not perform live GitHub calls.
+ *
+ * @param {Function} delegate The mutating GitHub tool handler.
+ * @param {Object} [options]
+ * @param {Function} [options.assertExpectedIdentity] Shared identity assertion seam.
+ * @returns {Function} Guarded async tool handler.
+ */
+function buildGitHubWriteIdentityGuard(delegate, {
+    assertExpectedIdentity = defaultGitHubIdentityAssertion
+} = {}) {
+    return async function githubWriteIdentityGuard(...args) {
+        const assertion = await assertExpectedIdentity();
+
+        if (!assertion.ok) {
+            throw createGitHubIdentityError(assertion);
+        }
+
+        return delegate(...args);
+    };
+}
+
+/**
+ * @summary Returns true for MCP tools that mutate public GitHub state.
+ * @param {String} toolName MCP operation id.
+ * @returns {Boolean}
+ */
+function isPublicGitHubWriteTool(toolName) {
+    return PUBLIC_GITHUB_WRITE_TOOLS.has(toolName);
+}
+
+/**
+ * @summary Applies the GitHub write-boundary identity guard to mutating tool handlers only.
+ * @param {Object} mapping Operation id to handler function.
+ * @param {Object} [guardOptions] Resolver injection for tests.
+ * @returns {Object} A mapping where public write handlers are guarded.
+ */
+function guardGitHubWriteTools(mapping, guardOptions) {
+    return Object.fromEntries(
+        Object.entries(mapping).map(([toolName, handler]) => [
+            toolName,
+            isPublicGitHubWriteTool(toolName)
+                ? buildGitHubWriteIdentityGuard(handler, guardOptions)
+                : handler
+        ])
+    );
+}
 
 /**
  * Default branch detector. Exec's `git branch --show-current` against the MCP
@@ -135,7 +228,7 @@ async function getConversationRouter(options) {
     };
 }
 
-const serviceMapping = {
+const rawServiceMapping = {
     checkout_pull_request      : PullRequestService.checkoutPullRequest    .bind(PullRequestService),
     create_discussion          : DiscussionService .createDiscussion       .bind(DiscussionService),
     create_issue               : IssueService      .createIssue            .bind(IssueService),
@@ -161,9 +254,19 @@ const serviceMapping = {
     update_issue_relationship  : IssueService      .updateIssueRelationship.bind(IssueService)
 };
 
+const serviceMapping = guardGitHubWriteTools(rawServiceMapping);
+
 // Exported for unit-test access. `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
-export {buildDevBranchGuard, getConversationRouter, syncAllOnDevOnly};
+export {
+    buildDevBranchGuard,
+    buildGitHubWriteIdentityGuard,
+    getConversationRouter,
+    guardGitHubWriteTools,
+    isPublicGitHubWriteTool,
+    normalizeGitHubIdentityLogin,
+    syncAllOnDevOnly
+};
 
 const toolService = Neo.create(ToolService, {
     openApiFilePath,
