@@ -66,6 +66,18 @@ function tabsOf(document, itemId) {
     return DockZoneModel.findContainingTabsId(document, itemId)
 }
 
+/** Creates a valid saved-layout wrapper for collection tests. */
+function savedLayout(layoutId, title=layoutId, mutate=()=>{}) {
+    const d = doc();
+
+    mutate(d);
+
+    return DockZoneModel.createSavedLayout(d, {
+        layoutId,
+        title
+    }).layout
+}
+
 test.describe('Neo.dashboard.DockZoneModel', () => {
     test.describe('validate (invariants)', () => {
         test('accepts the canonical document', () => {
@@ -402,6 +414,168 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
             expect(freshLayout.metadata.workspace).toBe('mutated-by-caller');
             expect(freshLayout.dockZone.items.strategy.title).toBe('Caller Mutated Strategy')
+        })
+    });
+
+    test.describe('named saved-layout collections', () => {
+        test('creates and validates a versioned collection from valid saved layouts', () => {
+            const operator = savedLayout('operator-default', 'Operator Default'),
+                  review   = savedLayout('review-layout', 'Review Layout', d => {
+                      d.nodes['main-tabs'].activeItemId = 'strategy'
+                  }),
+                  {collection, errors} = DockZoneModel.createSavedLayoutCollection([operator, review], {
+                      activeLayoutId: 'review-layout',
+                      revision      : 2,
+                      metadata      : {
+                          workspace: 'agent-harness'
+                      }
+                  });
+
+            expect(errors).toEqual([]);
+            expect(collection.schema).toBe(DockZoneModel.LAYOUT_COLLECTION_SCHEMA);
+            expect(collection.activeLayoutId).toBe('review-layout');
+            expect(collection.revision).toBe(2);
+            expect(collection.metadata.workspace).toBe('agent-harness');
+            expect(Object.keys(collection.layouts)).toEqual(['operator-default', 'review-layout']);
+            expect(DockZoneModel.validateSavedLayoutCollection(collection)).toEqual([]);
+
+            operator.title = 'Mutated By Caller';
+            expect(collection.layouts['operator-default'].title).toBe('Operator Default');
+            expect(collection.layouts['operator-default']).not.toBe(operator)
+        });
+
+        test('rejects wrong collection schema and mismatched layout keys', () => {
+            const operator = savedLayout('operator-default', 'Operator Default'),
+                  created  = DockZoneModel.createSavedLayoutCollection([operator]);
+
+            expect(created.errors).toEqual([]);
+
+            const wrongSchema = DockZoneModel.clone(created.collection);
+
+            wrongSchema.schema = 'neo.harness.dockLayoutCollection.v2';
+
+            expect(DockZoneModel.validateSavedLayoutCollection(wrongSchema).join(' ')).toContain(DockZoneModel.LAYOUT_COLLECTION_SCHEMA);
+            expect(DockZoneModel.restoreActiveSavedLayout(wrongSchema).document).toBe(null);
+
+            const mismatched = DockZoneModel.clone(created.collection);
+
+            mismatched.layouts.alias = mismatched.layouts['operator-default'];
+            delete mismatched.layouts['operator-default'];
+            mismatched.activeLayoutId = 'alias';
+
+            expect(DockZoneModel.validateSavedLayoutCollection(mismatched).join(' ')).toContain('must match')
+        });
+
+        test('upserts layouts by layoutId, clones replacements, and optionally activates them', () => {
+            const operator = savedLayout('operator-default', 'Operator Default'),
+                  review   = savedLayout('review-layout', 'Review Layout'),
+                  {collection} = DockZoneModel.createSavedLayoutCollection([operator]),
+                  updated = DockZoneModel.upsertSavedLayout(collection, review, {activate: true});
+
+            expect(updated.errors).toEqual([]);
+            expect(updated.collection.activeLayoutId).toBe('review-layout');
+            expect(updated.collection.layouts['review-layout'].title).toBe('Review Layout');
+            expect(collection.layouts['review-layout']).toBeUndefined();
+
+            review.title = 'Mutated Review';
+            expect(updated.collection.layouts['review-layout'].title).toBe('Review Layout');
+
+            const invalid = DockZoneModel.clone(review);
+
+            invalid.dockZone.nodes.root.zones.center = 'missing-tabs';
+
+            const rejected = DockZoneModel.upsertSavedLayout(collection, invalid, {activate: true});
+
+            expect(rejected.collection).toBe(collection);
+            expect(rejected.errors.join(' ')).toContain('missing-tabs')
+        });
+
+        test('selects an existing active layout and fails closed for missing ids', () => {
+            const operator = savedLayout('operator-default', 'Operator Default'),
+                  review   = savedLayout('review-layout', 'Review Layout'),
+                  {collection} = DockZoneModel.createSavedLayoutCollection([operator, review]),
+                  selected = DockZoneModel.selectSavedLayout(collection, 'review-layout');
+
+            expect(selected.errors).toEqual([]);
+            expect(selected.collection.activeLayoutId).toBe('review-layout');
+            expect(collection.activeLayoutId).toBe('operator-default');
+
+            const missing = DockZoneModel.selectSavedLayout(collection, 'ghost-layout');
+
+            expect(missing.collection).toBe(collection);
+            expect(missing.errors.join(' ')).toContain('ghost-layout')
+        });
+
+        test('removes layouts and requires an explicit replacement for the active layout', () => {
+            const operator = savedLayout('operator-default', 'Operator Default'),
+                  review   = savedLayout('review-layout', 'Review Layout'),
+                  {collection} = DockZoneModel.createSavedLayoutCollection([operator, review]),
+                  denied = DockZoneModel.removeSavedLayout(collection, {layoutId: 'operator-default'});
+
+            expect(denied.collection).toBe(collection);
+            expect(denied.errors.join(' ')).toContain('replacementLayoutId');
+
+            const removedActive = DockZoneModel.removeSavedLayout(collection, {
+                layoutId            : 'operator-default',
+                replacementLayoutId : 'review-layout'
+            });
+
+            expect(removedActive.errors).toEqual([]);
+            expect(removedActive.collection.activeLayoutId).toBe('review-layout');
+            expect(removedActive.collection.layouts['operator-default']).toBeUndefined();
+
+            const removedInactive = DockZoneModel.removeSavedLayout(collection, {layoutId: 'review-layout'});
+
+            expect(removedInactive.errors).toEqual([]);
+            expect(removedInactive.collection.activeLayoutId).toBe('operator-default');
+            expect(removedInactive.collection.layouts['review-layout']).toBeUndefined()
+        });
+
+        test('restores the selected saved layout through the existing restore path', () => {
+            const operator = savedLayout('operator-default', 'Operator Default'),
+                  review   = savedLayout('review-layout', 'Review Layout', d => {
+                      d.nodes['main-tabs'].activeItemId = 'strategy'
+                  }),
+                  {collection} = DockZoneModel.createSavedLayoutCollection([operator, review], {
+                      activeLayoutId: 'review-layout'
+                  }),
+                  restored = DockZoneModel.restoreActiveSavedLayout(collection);
+
+            expect(restored.errors).toEqual([]);
+            expect(restored.document).toEqual(review.dockZone);
+            expect(restored.document).not.toBe(review.dockZone);
+
+            const invalid = DockZoneModel.clone(collection);
+
+            invalid.activeLayoutId = 'ghost-layout';
+
+            const rejected = DockZoneModel.restoreActiveSavedLayout(invalid);
+
+            expect(rejected.document).toBe(null);
+            expect(rejected.errors.join(' ')).toContain('ghost-layout')
+        });
+
+        test('rejects invalid saved layouts and secret-like collection metadata', () => {
+            const operator = savedLayout('operator-default', 'Operator Default'),
+                  invalid  = DockZoneModel.clone(operator);
+
+            invalid.metadata = {
+                authKey: 'secret-value'
+            };
+
+            const rejectedLayout = DockZoneModel.createSavedLayoutCollection([invalid]);
+
+            expect(rejectedLayout.collection).toBe(null);
+            expect(rejectedLayout.errors.join(' ')).toContain('authKey');
+
+            const rejectedCollection = DockZoneModel.createSavedLayoutCollection([operator], {
+                metadata: {
+                    apiToken: 'secret-value'
+                }
+            });
+
+            expect(rejectedCollection.collection).toBe(null);
+            expect(rejectedCollection.errors.join(' ')).toContain('apiToken')
         })
     });
 
