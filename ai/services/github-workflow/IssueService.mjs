@@ -7,7 +7,7 @@ import {projectConversationTrust} from './shared/conversationTrust.mjs';
 import {exec}            from 'child_process';
 import {promisify}       from 'util';
 import {spawn}           from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
+import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
 import {
     ADD_LABELS,
@@ -1148,13 +1148,26 @@ class IssueService extends Base {
     }
 
     /**
-     * Fetches the GraphQL node IDs for an issue or pull request and a set of labels.
-     * @param {number}   issueNumber The number of the issue or PR.
-     * @param {string[]} labelNames  An array of label names.
-     * @returns {Promise<{labelableId: string, labelIds: string[]}>} The node IDs.
+     * @summary Detects GitHub's missing-number GraphQL error for one labelable branch.
+     * @param {Error}  error       GraphQL failure.
+     * @param {String} type        GitHub type name (`Issue` or `PullRequest`).
+     * @param {Number} issueNumber Repository issue/PR number.
+     * @returns {Boolean}
      * @private
      */
-    async #getIds(issueNumber, labelNames) {
+    #isMissingLabelableError(error, type, issueNumber) {
+        return new RegExp(`Could not resolve to an? ${type} with the number of ${issueNumber}`).test(error?.message || '');
+    }
+
+    /**
+     * @summary Fetches one labelable branch while converting "missing target" to null.
+     * @param {String} query       GraphQL query to execute.
+     * @param {Number} issueNumber Repository issue/PR number.
+     * @param {String} type        GitHub type name (`Issue` or `PullRequest`).
+     * @returns {Promise<Object|null>}
+     * @private
+     */
+    async #queryLabelableIds(query, issueNumber, type) {
         const variables = {
             owner      : aiConfig.owner,
             repo       : aiConfig.repo,
@@ -1162,19 +1175,61 @@ class IssueService extends Base {
             maxLabels  : aiConfig.issueSync.maxRepoLabels
         };
 
-        const data = await GraphqlService.query(GET_ISSUE_AND_LABEL_IDS, variables);
+        try {
+            return await GraphqlService.query(query, variables);
+        } catch (error) {
+            if (this.#isMissingLabelableError(error, type, issueNumber)) {
+                return null;
+            }
+            throw error;
+        }
+    }
 
+    /**
+     * @summary Resolves repository label names into GraphQL IDs.
+     * @param {Object}   data        GraphQL repository payload.
+     * @param {String[]} labelNames  Requested labels.
+     * @param {Number}   issueNumber Repository issue/PR number.
+     * @returns {String[]}
+     * @private
+     */
+    #resolveLabelIds(data, labelNames, issueNumber) {
         const
-            labelableId = data.repository.issue?.id || data.repository.pullRequest?.id,
-            repoLabels   = data.repository.labels.nodes,
-            labelIds     = labelNames.map(name => {
+            repoLabels = data?.repository?.labels?.nodes || [],
+            labelIds   = labelNames.map(name => {
                 const label = repoLabels.find(l => l.name === name);
                 return label ? label.id : null;
             }).filter(Boolean);
 
-        if (!labelableId || labelIds.length !== labelNames.length) {
+        if (labelIds.length !== labelNames.length) {
             throw new Error(`Could not find issue or pull request #${issueNumber} or one of the labels: ${labelNames.join(', ')}`);
         }
+
+        return labelIds;
+    }
+
+    /**
+     * Fetches the GraphQL node IDs for an issue or pull request and a set of labels.
+     * @param {number}   issueNumber The number of the issue or PR.
+     * @param {string[]} labelNames  An array of label names.
+     * @returns {Promise<{labelableId: string, labelIds: string[]}>} The node IDs.
+     * @private
+     */
+    async #getIds(issueNumber, labelNames) {
+        let
+            data        = await this.#queryLabelableIds(GET_ISSUE_LABEL_IDS, issueNumber, 'Issue'),
+            labelableId = data?.repository?.issue?.id;
+
+        if (!labelableId) {
+            data        = await this.#queryLabelableIds(GET_PULL_REQUEST_LABEL_IDS, issueNumber, 'PullRequest');
+            labelableId = data?.repository?.pullRequest?.id;
+        }
+
+        if (!labelableId) {
+            throw new Error(`Could not find issue or pull request #${issueNumber} or one of the labels: ${labelNames.join(', ')}`);
+        }
+
+        const labelIds = this.#resolveLabelIds(data, labelNames, issueNumber);
 
         return { labelableId, labelIds };
     }
