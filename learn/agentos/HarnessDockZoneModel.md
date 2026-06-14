@@ -169,6 +169,7 @@ Future implementations should mutate the model through semantic operations inste
 |---|---|---|
 | `moveItem` | `itemId`, `targetNodeId`, `index` | Reorders an item within a tab slot or split-derived target. |
 | `splitNode` | `targetNodeId`, `orientation`, `beforeNodeId`, `afterNodeId`, `sizes` | Replaces a node with a split containing the old and new nodes. |
+| `resizeSplit` | `splitNodeId`, `sizes` | Updates an existing split node's normalized child sizes after a splitter affordance. |
 | `addTab` | `itemId`, `tabsNodeId`, `index` | Inserts an item into a tab slot and may set `activeItemId`. |
 | `detachItem` | `itemId` | Removes an item from the dock tree while preserving its item record for popup/window ownership. |
 | `closeItem` | `itemId` | Removes an item from both tree and catalog when policy permits. |
@@ -363,7 +364,7 @@ The adapter must not read `DOMRect`, `windowId`, pointer coordinates, preview pl
 | `children` | projected child configs in listed order | Ordering is model-owned and serializable. |
 | `sizes` | child `flex` values when present | Normalize or ignore invalid ratios before projection. |
 
-Resizable splitters are a later rendering affordance. When added, they should sit between projected children and write back semantic size changes through an operation, not mutate persisted `sizes` directly from pointer handlers.
+Resizable splitters are a later rendering affordance. When added, they should sit between projected children and write back semantic size changes through `resizeSplit`, not mutate persisted `sizes` directly from pointer handlers.
 
 ### Tab Projection
 

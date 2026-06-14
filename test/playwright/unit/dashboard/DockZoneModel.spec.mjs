@@ -40,6 +40,27 @@ function doc() {
     }
 }
 
+/**
+ * A canonical split document with `main-tabs` and `side-tabs` under one split, so size operations
+ * do not have to build a split through drag/drop descriptors first.
+ * @param {Array<Number>} [sizes=[0.5, 0.5]]
+ * @returns {Object}
+ */
+function splitDoc(sizes=[0.5, 0.5]) {
+    const d = doc();
+
+    d.nodes['main-split'] = {
+        type       : 'split',
+        orientation: 'horizontal',
+        children   : ['main-tabs', 'side-tabs'],
+        sizes
+    };
+    d.nodes.root.zones.center = 'main-split';
+    delete d.nodes.root.zones.right;
+
+    return d
+}
+
 /** Collects the tabs node id holding an item, across a document. */
 function tabsOf(document, itemId) {
     return DockZoneModel.findContainingTabsId(document, itemId)
@@ -404,6 +425,50 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         })
     });
 
+    test.describe('resizeSplit', () => {
+        test('updates split sizes with normalized finite positive values', () => {
+            const input    = splitDoc(),
+                  snapshot = JSON.stringify(input),
+                  ratios   = [3, 1],
+                  {document, errors} = DockZoneModel.resizeSplit(input, {
+                      splitNodeId: 'main-split',
+                      sizes      : ratios
+                  });
+
+            expect(errors).toEqual([]);
+            expect(document).not.toBe(input);
+            expect(document.nodes['main-split'].sizes).toEqual([0.75, 0.25]);
+            expect(DockZoneModel.validate(document)).toEqual([]);
+            expect(JSON.stringify(input)).toBe(snapshot);
+
+            ratios[0] = 1;
+            expect(document.nodes['main-split'].sizes).toEqual([0.75, 0.25])
+        });
+
+        test('fails closed for invalid targets and invalid size payloads', () => {
+            const input    = splitDoc(),
+                  snapshot = JSON.stringify(input),
+                  cases    = [
+                      {splitNodeId: 'ghost', sizes: [1, 1]},
+                      {splitNodeId: 'root', sizes: [1, 1]},
+                      {splitNodeId: 'main-split'},
+                      {splitNodeId: 'main-split', sizes: [1]},
+                      {splitNodeId: 'main-split', sizes: [1, 0]},
+                      {splitNodeId: 'main-split', sizes: [1, -1]},
+                      {splitNodeId: 'main-split', sizes: [1, Infinity]},
+                      {splitNodeId: 'main-split', sizes: [1, '1']}
+                  ];
+
+            for (const args of cases) {
+                const {document, errors} = DockZoneModel.resizeSplit(input, args);
+
+                expect(errors.length).toBeGreaterThan(0);
+                expect(document).toBe(input);
+                expect(JSON.stringify(input)).toBe(snapshot)
+            }
+        })
+    });
+
     test.describe('detachItem / closeItem', () => {
         test('detachItem removes from the tree but keeps the catalog record', () => {
             const {document, errors} = DockZoneModel.detachItem(doc(), {itemId: 'terminal'});
@@ -458,6 +523,17 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             const {document, errors} = DockZoneModel.applyOperation(doc(), descriptor);
             expect(errors).toEqual([]);
             expect(document.nodes[document.nodes.root.zones.center].type).toBe('split')
+        });
+
+        test('dispatches resizeSplit descriptors', () => {
+            const {document, errors} = DockZoneModel.applyOperation(splitDoc(), {
+                operation  : 'resizeSplit',
+                splitNodeId: 'main-split',
+                sizes      : [1, 3]
+            });
+
+            expect(errors).toEqual([]);
+            expect(document.nodes['main-split'].sizes).toEqual([0.25, 0.75])
         });
 
         test('rejects an unknown operation', () => {
