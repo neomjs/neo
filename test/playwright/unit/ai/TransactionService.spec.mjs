@@ -19,7 +19,8 @@ import TransactionService from '../../../../src/ai/TransactionService.mjs';
 // Neo.ai.TransactionService is the in-heap per-session undo stack. It is pure over its inputs (reverse-capture,
 // the enforcement grant, and the live tree all live in the caller) — so these tests drive event sequences against
 // a real instance with no live-heap or socket dependency, and assert the lifecycle (open→committed→undone +
-// aborted), the single-level undo + reverse ordering, per-session isolation, the fail-closed branches, and the caps.
+// aborted / timedOut), the single-level undo + reverse ordering, per-session isolation, the fail-closed branches
+// (every required reverse-record field + both-descriptor serializability), and the caps.
 
 const
     ID  = {neuralLinkSessionId: 'nl-1', requesterAgentId: 'agent-a', requesterSessionId: 'sess-a'},
@@ -127,27 +128,36 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
         expect(s.commit({id: ID, txId: 'WRONG'}).reason).toBe('no-open-transaction');
     });
 
-    test('record fails closed on a malformed op (missing originWriter / path / reverse)', () => {
+    test('record fails closed on a malformed op (ANY required field missing or mistyped)', () => {
         const s = svc();
         s.begin({id: ID, txId: 'tx-1'});
 
         const base = op(1);
         for (const bad of [
+            {...base, sequenceId: undefined},                 // missing sequenceId
+            {...base, sequenceId: ''},                        // empty sequenceId
+            {...base, originWriter: undefined},               // missing originWriter (no throw on the access)
             {...base, originWriter: {agentId: 'a'}},          // missing sessionId
             {...base, targetSubtreePath: 'not-an-array'},
-            {...base, reverse: undefined}
+            {...base, targetSubtreePath: []},                 // empty path
+            {...base, targetSubtreePath: ['root', '']},       // empty path segment
+            {...base, forward: undefined},                    // missing forward
+            {...base, reverse: undefined},                    // missing reverse
+            {...base, label: undefined},                      // missing label
+            {...base, label: ''}                              // empty label
         ]) {
             expect(s.record({id: ID, txId: 'tx-1', op: bad}).reason).toBe('malformed-op')
         }
     });
 
-    test('record fails closed on a non-serializable (cyclic) reverse — data-not-code guard', () => {
+    test('record fails closed on a non-serializable (cyclic) forward OR reverse — data-not-code guard', () => {
         const s = svc();
         s.begin({id: ID, txId: 'tx-1'});
 
         const cyclic = {}; cyclic.self = cyclic;
-        expect(s.record({id: ID, txId: 'tx-1', op: {...op(1), reverse: cyclic}}).reason)
-            .toBe('reverse-not-serializable');
+        // both descriptors are stored, so both must be JSON-guarded — neither may throw inside cloneOp downstream
+        expect(s.record({id: ID, txId: 'tx-1', op: {...op(1),      reverse: cyclic}}).reason).toBe('op-not-serializable');
+        expect(s.record({id: ID, txId: 'tx-1', op: {...op(2, 'b'), forward: cyclic}}).reason).toBe('op-not-serializable');
     });
 
     test('commit drops an empty transaction (nothing captured → not undoable)', () => {
@@ -168,12 +178,23 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
         expect(s.record({id: ID, txId: 'tx-1', op: op(3, 'c')})).toEqual({ok: false, reason: 'max-ops-per-transaction'});
     });
 
-    test('maxReversePayloadBytes rejects an oversized reverse', () => {
-        const s   = svc({maxReversePayloadBytes: 40});
+    test('maxOpPayloadBytes rejects an oversized forward OR reverse', () => {
+        const s = svc({maxOpPayloadBytes: 40});
         s.begin({id: ID, txId: 'tx-1'});
 
-        const big = {...op(1), reverse: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 'y'.repeat(200)}}}};
-        expect(s.record({id: ID, txId: 'tx-1', op: big})).toEqual({ok: false, reason: 'max-reverse-payload-bytes'});
+        const bigReverse = {...op(1),      reverse: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 'y'.repeat(200)}}}};
+        const bigForward = {...op(2, 'b'), forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 'y'.repeat(200)}}}};
+        expect(s.record({id: ID, txId: 'tx-1', op: bigReverse})).toEqual({ok: false, reason: 'max-op-payload-bytes'});
+        expect(s.record({id: ID, txId: 'tx-1', op: bigForward})).toEqual({ok: false, reason: 'max-op-payload-bytes'});
+    });
+
+    test('maxLabelChars rejects an over-long label (at the bound is accepted)', () => {
+        const s = svc({maxLabelChars: 8});
+        s.begin({id: ID, txId: 'tx-1'});
+
+        expect(s.record({id: ID, txId: 'tx-1', op: {...op(1), label: 'x'.repeat(9)}}))
+            .toEqual({ok: false, reason: 'max-label-length'});
+        expect(s.record({id: ID, txId: 'tx-1', op: {...op(2, 'b'), label: 'x'.repeat(8)}}).ok).toBe(true);
     });
 
     test('maxStackDepth evicts the oldest committed transaction', () => {
@@ -198,6 +219,17 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
         expect(s.abort({id: ID, txId: 'tx-1'})).toEqual({aborted: true});
         expect(s.stackOf({id: ID}).open).toBeNull();
         expect(s.abort({id: ID, txId: 'tx-1'})).toEqual({aborted: false}); // already gone
+    });
+
+    test('timeout drops the open transaction as its own terminal (idempotent on mismatch)', () => {
+        const s = svc();
+        s.begin({id: ID, txId: 'tx-1'});
+
+        expect(s.timeout({id: ID, txId: 'WRONG'})).toEqual({timedOut: false}); // mismatch → no-op
+        expect(s.timeout({id: ID, txId: 'tx-1'})).toEqual({timedOut: true});
+        expect(s.stackOf({id: ID}).open).toBeNull();
+        expect(s.timeout({id: ID, txId: 'tx-1'})).toEqual({timedOut: false}); // already gone
+        expect(s.undo({id: ID}).reverseOps).toBeNull();                       // a timed-out tx is never undoable
     });
 
     test('sweep retires a writer session entirely; fails closed on incomplete identity', () => {

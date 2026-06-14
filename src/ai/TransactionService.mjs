@@ -87,11 +87,16 @@ class TransactionService extends Base {
          */
         maxOpsPerTransaction: 100,
         /**
-         * Max serialized byte size of a single reverse-op descriptor — a captured reverse larger than this is
-         * rejected (fail-closed: better to drop reversibility for one giant op than blow the heap budget).
-         * @member {Number} maxReversePayloadBytes=65536
+         * Max serialized byte size of a single op descriptor (each of `forward` / `reverse`) — a descriptor larger
+         * than this is rejected (fail-closed: better to drop reversibility for one giant op than blow the heap budget).
+         * @member {Number} maxOpPayloadBytes=65536
          */
-        maxReversePayloadBytes: 65536
+        maxOpPayloadBytes: 65536,
+        /**
+         * Max length of an op's user-facing display `label` — a bound on the label/source string.
+         * @member {Number} maxLabelChars=200
+         */
+        maxLabelChars: 200
     }
 
     /**
@@ -139,8 +144,10 @@ class TransactionService extends Base {
     /**
      * @summary Record a reverse-op into the session's open transaction — the capture step.
      * The caller invokes this only **after** the forward write is enforcement-granted (so a denied write leaves no
-     * reverse record). Fails closed on: no open transaction, a `txId` mismatch, a malformed op (missing
-     * `originWriter` / `targetSubtreePath` / `reverse`), the per-transaction op cap, or an oversized reverse payload.
+     * reverse record). Fails closed (returns `{ok:false}`, never throws) on: no open transaction; a `txId` mismatch;
+     * a malformed op (any of `sequenceId` / `originWriter.{agentId,sessionId}` / `targetSubtreePath` / `forward` /
+     * `reverse` / `label` missing or mistyped); a non-serializable `forward` or `reverse` (the data-not-code guard);
+     * the per-transaction op cap; an over-long `label`; or an oversized op payload.
      * @param {Object} params
      * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
      * @param {String} params.txId
@@ -154,9 +161,22 @@ class TransactionService extends Base {
             return {ok: false, reason: 'no-open-transaction'}
         }
 
-        if (!op || typeof op !== 'object' ||
-            !op.originWriter?.agentId || !op.originWriter?.sessionId ||
-            !Array.isArray(op.targetSubtreePath) || op.reverse === undefined) {
+        if (!op || typeof op !== 'object') {
+            return {ok: false, reason: 'malformed-op'}
+        }
+
+        const {sequenceId, originWriter, targetSubtreePath, forward, reverse, label} = op;
+
+        // Every required reverse-record field must be present + well-typed — a malformed descriptor fails closed
+        // here, never stored half-formed and never reached by cloneOp / undo downstream.
+        if (typeof sequenceId !== 'string' || sequenceId === ''                               ||
+            !originWriter ||
+            typeof originWriter.agentId   !== 'string' || originWriter.agentId   === ''        ||
+            typeof originWriter.sessionId !== 'string' || originWriter.sessionId === ''        ||
+            !Array.isArray(targetSubtreePath) || targetSubtreePath.length === 0                ||
+            !targetSubtreePath.every(segment => typeof segment === 'string' && segment !== '') ||
+            forward === undefined || reverse === undefined                                     ||
+            typeof label !== 'string' || label === '') {
             return {ok: false, reason: 'malformed-op'}
         }
 
@@ -164,16 +184,24 @@ class TransactionService extends Base {
             return {ok: false, reason: 'max-ops-per-transaction'}
         }
 
-        let serialized;
-
-        try {
-            serialized = JSON.stringify(op.reverse)
-        } catch (e) {
-            return {ok: false, reason: 'reverse-not-serializable'} // a non-JSON reverse (function/cycle) — data-not-code guard
+        if (label.length > this.maxLabelChars) {
+            return {ok: false, reason: 'max-label-length'}
         }
 
-        if (serialized.length > this.maxReversePayloadBytes) {
-            return {ok: false, reason: 'max-reverse-payload-bytes'}
+        // BOTH `forward` and `reverse` must be JSON-serializable (the data-not-code guard) + within the payload
+        // bound. A function / cycle / oversized descriptor fails closed — it must never enter the stack OR escape as
+        // an uncaught exception from a downstream `cloneOp`.
+        let forwardJson, reverseJson;
+
+        try {
+            forwardJson = JSON.stringify(forward);
+            reverseJson = JSON.stringify(reverse)
+        } catch (e) {
+            return {ok: false, reason: 'op-not-serializable'}
+        }
+
+        if (forwardJson.length > this.maxOpPayloadBytes || reverseJson.length > this.maxOpPayloadBytes) {
+            return {ok: false, reason: 'max-op-payload-bytes'}
         }
 
         entry.open.ops.push(cloneOp(op));
@@ -261,6 +289,30 @@ class TransactionService extends Base {
         entry.open        = null;
 
         return {aborted: true}
+    }
+
+    /**
+     * @summary Time out the session's open transaction (`open → timedOut`) — the lease-expiry path, distinct from a
+     * caller-driven `abort`. A no-op when no transaction is open or the `txId` does not match (idempotent). A
+     * timed-out transaction is dropped, never undoable, and leaves no reverse record (a partial capture is not a
+     * coherent undo unit). The terminal is recorded separately from `aborted` so a lease expiry stays auditable as
+     * its own cause rather than masquerading as a deliberate abort.
+     * @param {Object} params
+     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {String} params.txId
+     * @returns {{timedOut: Boolean}}
+     */
+    timeout({id, txId}) {
+        const entry = this.sessions.get(stackKey(id) ?? '');
+
+        if (!entry?.open || entry.open.txId !== txId) {
+            return {timedOut: false}
+        }
+
+        entry.open.status = 'timedOut';
+        entry.open        = null;
+
+        return {timedOut: true}
     }
 
     /**
