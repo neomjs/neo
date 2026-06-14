@@ -115,8 +115,10 @@ class InstanceService extends Service {
 
         // Capture the reverse (the pre-set values) BEFORE mutating, so an agent can undo this write. Best-effort +
         // fail-closed: only an enforcement-granted *agent* write (a writer identity in `context`) is captured, and a
-        // malformed / unserializable reverse is dropped, never thrown into the write path.
-        const undoOp = this.buildSetReverse({context, id, instance, properties});
+        // malformed / unserializable reverse is dropped, never thrown into the write path. An undo-replay
+        // (`context.undoReplay`, set by {@link #undo}) is NOT captured — re-applying a reverse must never enqueue a
+        // new undoable transaction (single-level undo; redo is a later slice).
+        const undoOp = context?.undoReplay ? null : this.buildSetReverse({context, id, instance, properties});
 
         instance.set(properties);
 
@@ -193,6 +195,66 @@ class InstanceService extends Service {
         } else {
             transactionService.abort({id: stackId, txId})
         }
+    }
+
+    /**
+     * Reverts the requester's most-recent committed transaction — the `undo` Neural Link tool.
+     *
+     * Peeks the writer's last committed transaction (non-consuming, via {@link Neo.ai.TransactionService#stackOf}) and
+     * re-dispatches each captured reverse-op through the **enforced** dispatch path
+     * ({@link Neo.ai.Client#handleRequest}), so the revert re-enters {@link Neo.ai.admitWrite} as the **current**
+     * caller with its `subtreePath` re-derived on the live tree (provenance ≠ enforcement identity). The transaction
+     * is consumed ({@link Neo.ai.TransactionService#undo}, `committed → undone`) **only on full success**. Each
+     * re-dispatch carries an `undoReplay` marker so the replayed writes are not themselves captured — undo never
+     * enqueues a new undoable transaction (single-level; redo is a later slice).
+     *
+     * Recoverable + fail-closed (never throws for an expected outcome): no writer identity, no stack authority,
+     * nothing to undo, or a denied / unresolvable-target re-dispatch → `{undone: false, reason}` with the transaction
+     * **preserved** (no-op). Capture is suppressed during replay and the App Worker is single-threaded, so the peeked
+     * last-committed transaction is stable through the consume.
+     * @param {Object} [params] No parameters — undo targets the requester's own stack.
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
+     * @returns {Promise<Object>} `{undone: Boolean, txId?: String, reverted?: Number, reason?: String}`
+     */
+    async undo(params, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId) {
+            return {undone: false, reason: 'no-writer-identity'}
+        }
+
+        if (!transactionService) {
+            return {undone: false, reason: 'no-transaction-service'}
+        }
+
+        const
+            stackId     = {agentId: context.agentId, sessionId: context.sessionId},
+            {committed} = transactionService.stackOf({id: stackId});
+
+        if (committed.length === 0) {
+            return {undone: false, reason: 'nothing-to-undo'}
+        }
+
+        const
+            tx         = committed[committed.length - 1],
+            reverseOps = tx.ops.slice().reverse(), // last mutation undone first
+            replayCtx  = {...context, undoReplay: true};
+
+        // Re-dispatch each reverse as a validated tool, enforced as the CURRENT caller. Capture is suppressed
+        // (replayCtx.undoReplay), so a successful replay enqueues no new undoable transaction.
+        try {
+            for (const op of reverseOps) {
+                await this.client.handleRequest(op.reverse.tool, op.reverse.args, replayCtx)
+            }
+        } catch (error) {
+            // Preserve-on-fail: a denied / unresolvable re-dispatch leaves the transaction committed (no-op).
+            return {undone: false, reason: `undo-denied: ${error.message}`}
+        }
+
+        // All reverses applied — consume the transaction (committed → undone).
+        const {txId} = transactionService.undo({id: stackId});
+
+        return {undone: true, txId, reverted: reverseOps.length}
     }
 
     /**
