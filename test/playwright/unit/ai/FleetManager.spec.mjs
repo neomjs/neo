@@ -41,13 +41,13 @@ test.describe('Neo.ai.services.fleet.FleetManager', () => {
         reset();
     });
 
-    test('getManagedRoot: the config field wins over env + default', () => {
+    test('getManagedRoot: the managedRoot field wins over env + default', () => {
         FleetManager.managedRoot = '/explicit/root';
         process.env[ENV_KEY]     = '/env/root';
         expect(FleetManager.getManagedRoot()).toBe('/explicit/root');
     });
 
-    test('getManagedRoot: env wins when no config field is set', () => {
+    test('getManagedRoot: env wins when no managedRoot field is set', () => {
         process.env[ENV_KEY] = '/env/root';
         expect(FleetManager.getManagedRoot()).toBe('/env/root');
     });
