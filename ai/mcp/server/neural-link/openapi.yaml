@@ -812,8 +812,9 @@ paths:
 
         **When to Use:**
         To add a new component to a live container (e.g. add a `Button` to a `Toolbar`) without granting
-        admin method-call access. The `config` must declare a `module`, `ntype`, or `className`; the
-        target container is resolved by `parentId`.
+        admin method-call access. The `config` must declare an `ntype` (e.g. `button`) or `className`
+        (e.g. `Neo.button.Base`) — a `module` is a class reference and cannot cross the wire. The target
+        container is resolved by `parentId`.
       tags: [Component]
       requestBody:
         required: true
@@ -1779,7 +1780,7 @@ components:
           description: The target container's component ID (the parent to add into)
         config:
           type: object
-          description: The component configuration; must declare a `module`, `ntype`, or `className`
+          description: The component configuration; declare an `ntype` (e.g. `button`) or `className` (e.g. `Neo.button.Base`). A `module` (class reference) cannot cross the wire — use `ntype`/`className`.
         sessionId:
           type: string
           description: The target App Worker Session ID

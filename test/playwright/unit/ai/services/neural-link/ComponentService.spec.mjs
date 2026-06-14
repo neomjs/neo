@@ -81,8 +81,16 @@ test.describe('Neo.ai.services.neural-link.ComponentService — createComponent'
         expect(calls.length).toBe(0);
     });
 
+    test('rejects a non-class `module` (a class reference cannot cross the wire) — guides to ntype/className', async () => {
+        // The footgun: an agent naturally tries `module: 'Neo.button.Base'` (a string); over the wire a
+        // class can't serialize, and the string would crash the worker-side container.add at createItem.
+        await expect(ComponentService.createComponent({parentId: 'p1', config: {module: 'Neo.button.Base'}, sessionId: 's1'}))
+            .rejects.toThrow(/class reference|ntype/);
+        expect(calls.length).toBe(0);
+    });
+
     test('delegates a valid config to call_method as parent.add(config)', async () => {
-        const config = {module: 'Neo.button.Base', text: 'Save'};
+        const config = {className: 'Neo.button.Base', text: 'Save'};
         const result = await ComponentService.createComponent({parentId: 'toolbar-1', config, sessionId: 's1'});
 
         expect(calls.length).toBe(1);
