@@ -120,10 +120,17 @@ class FleetLifecycleService extends Base {
 
     /**
      * Start an agent's harness process. Idempotent while running (returns current status).
-     * @param {String} id Registry agent id.
+     * @param {String}  id          Registry agent id.
+     * @param {Object} [opts={}]    Spawn options.
+     * @param {String} [opts.cwd]   The child's working directory — the agent's provisioned repo
+     *                              checkout. Omitted ⇒ the child inherits this process's cwd (the
+     *                              unchanged legacy behavior). The Fleet Manager turnkey path
+     *                              ({@link Neo.ai.services.fleet.startAgentProvisioned}) supplies the
+     *                              `ensureAgentRepo`-derived `repoPath` here, so an FM-spawned harness
+     *                              runs inside ITS repo rather than the Fleet Manager's own directory.
      * @returns {Object} status (see {@link status}).
      */
-    start(id) {
+    start(id, opts = {}) {
         if (this.isRunning(id)) return this.status(id);
 
         const agent = this.getRegistry().getAgent(id);
@@ -161,9 +168,15 @@ class FleetLifecycleService extends Base {
         // --tool-projection-mode flag.
         env[TOOL_PROJECTION_MODE_ENV_VAR] = this.toolProjectionMode;
 
+        // The child's working directory: the agent's provisioned repo checkout when the caller supplies
+        // it (the Fleet Manager turnkey path via startAgentProvisioned). Omitted ⇒ inherit this process's
+        // cwd — but an FM-spawned harness is meant to operate on ITS repo, not the Fleet Manager's dir.
+        const spawnOptions = {stdio: ['ignore', 'ignore', 'pipe'], env};
+        if (opts.cwd != null) spawnOptions.cwd = opts.cwd;
+
         let child;
         try {
-            child = this.getSpawnFn()(command, args, {stdio: ['ignore', 'ignore', 'pipe'], env});
+            child = this.getSpawnFn()(command, args, spawnOptions);
         } catch (error) {
             this.processes.set(id, {id, state: 'failed', pid: null, startedAt: null, exitCode: null, exitedAt: new Date().toISOString(), error: error.message});
             throw error;
