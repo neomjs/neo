@@ -1,6 +1,8 @@
-import {WebSocketServer} from 'ws';
-import Base              from '../../../../src/core/Base.mjs';
-import logger            from './logger.mjs';
+import {WebSocketServer}  from 'ws';
+import crypto             from 'crypto';
+import Base               from '../../../../src/core/Base.mjs';
+import logger             from './logger.mjs';
+import {verifyBridgeToken} from './verifyBridgeToken.mjs';
 
 /**
  * @summary The central WebSocket Hub (Bridge) for Neural Link.
@@ -60,6 +62,9 @@ class Bridge extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
+        // Skip the port bind under unitTestMode — tests instantiate the singleton (for handleConnection
+        // handshake-auth + verify coverage) without standing up a real WebSocket server.
+        if (Neo.config.unitTestMode) return;
         await this.startServer();
     }
 
@@ -117,6 +122,42 @@ class Bridge extends Base {
     }
 
     /**
+     * Lazily-resolved Ed25519 **public** verify key from `NEO_FLEET_BRIDGE_PUBLIC_KEY` (a trusted,
+     * harness/operator-set SPKI PEM — never agent-supplied). `undefined` = not yet resolved, `null` =
+     * no key configured (legacy unauthenticated dev mode), else the `crypto.KeyObject`.
+     * @member {Object|null} bridgePublicKey
+     * @protected
+     */
+    bridgePublicKey = undefined
+
+    /**
+     * @summary Resolve (once, cached) the Bridge's token-verify public key, or null when unset.
+     * @returns {Object|null}
+     * @protected
+     */
+    getBridgePublicKey() {
+        if (this.bridgePublicKey === undefined) {
+            const pem = process.env.NEO_FLEET_BRIDGE_PUBLIC_KEY;
+            this.bridgePublicKey = pem ? crypto.createPublicKey(pem) : null;
+        }
+        return this.bridgePublicKey;
+    }
+
+    /**
+     * @summary Verify a presented signed Bridge token; return the **signed** agentId or null.
+     *
+     * Thin wrapper over the pure {@link verifyBridgeToken} (kept Bridge-free so the security gate is
+     * unit-testable without the WebSocket singleton — mirrors `src/ai/parseAgentEnvelope.mjs`). The
+     * returned identity is the FM-signed `agentId`, trusted from the signature, never the `?id=` claim.
+     * @param {String} token `<base64url(payload)>.<base64url(signature)>`.
+     * @returns {String|null}
+     * @protected
+     */
+    verifyAgentToken(token) {
+        return verifyBridgeToken(token, this.getBridgePublicKey());
+    }
+
+    /**
      * Handles new connections.
      * @param {WebSocket} ws
      * @param {IncomingMessage} req
@@ -127,6 +168,7 @@ class Bridge extends Base {
             const role    = url.searchParams.get('role'); // 'app' or 'agent'
             const id      = url.searchParams.get('id') || url.searchParams.get('appWorkerId'); // Support legacy param
             const appName = url.searchParams.get('appName');
+            const token   = url.searchParams.get('token');
 
             if (!id) {
                 logger.warn('Bridge: Connection rejected. No ID provided.');
@@ -135,7 +177,21 @@ class Bridge extends Base {
             }
 
             if (role === 'agent') {
-                this.registerAgent(id, ws);
+                // Authenticate the agent when a verify key is provisioned (fleet mode): the identity
+                // is the agentId SIGNED into the token, never the untrusted `?id=` query claim (the
+                // spoofing hole this closes). With no key configured (no-FM dev), fall back to the
+                // legacy unauthenticated path — auth and multi-writer enforcement are a matched pair.
+                if (this.getBridgePublicKey()) {
+                    const verifiedId = this.verifyAgentToken(token);
+                    if (!verifiedId) {
+                        logger.warn('Bridge: Agent connection rejected — invalid or missing token.');
+                        ws.close(1008, 'Authentication required');
+                        return;
+                    }
+                    this.registerAgent(verifiedId, ws);
+                } else {
+                    this.registerAgent(id, ws);
+                }
             } else if (role === 'test') {
                 logger.info(`Bridge: Test client connected [${id}]`);
                 this.registerAgent(id, ws);
