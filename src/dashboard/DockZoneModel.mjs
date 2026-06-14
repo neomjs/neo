@@ -61,7 +61,7 @@ class DockZoneModel extends Base {
      * @protected
      * @static
      */
-    static dockZoneItemKeys = new Set(['componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'movable', 'metadata'])
+    static dockZoneItemKeys = new Set(['componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned', 'movable', 'metadata'])
 
     /**
      * Fields allowed on persisted dock-zone nodes, keyed by node type.
@@ -452,6 +452,12 @@ class DockZoneModel extends Base {
         let items   = document.items || {},
             nodes   = document.nodes || {},
             itemUse = {};
+
+        for (const [itemId, item] of Object.entries(items)) {
+            if (DockZoneModel.isJsonRecord(item) && Object.hasOwn(item, 'pinned') && typeof item.pinned !== 'boolean') {
+                errors.push(`item "${itemId}" pinned must be a boolean`)
+            }
+        }
 
         for (const [nodeId, node] of Object.entries(nodes)) {
             if (node.type === 'split') {
@@ -940,6 +946,27 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Updates an item's persisted pin state when its policy permits pinning.
+     * @param {Object} document
+     * @param {Object} args {itemId, pinned}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static setItemPinned(document, {itemId, pinned} = {}) {
+        let item = document.items?.[itemId];
+
+        if (!item) return {document, errors: [`unknown item "${itemId}"`]};
+        if (typeof pinned !== 'boolean') return {document, errors: ['pinned must be a boolean']};
+        if (item.pinnable === false) return {document, errors: [`item "${itemId}" is not pinnable`]};
+
+        let doc = DockZoneModel.clone(document);
+
+        doc.items[itemId].pinned = pinned;
+
+        return DockZoneModel.commit(document, doc)
+    }
+
+    /**
      * @summary Applies an operation descriptor (the shape `DockPreview.previewToOperation()` emits)
      * to the document, dispatching to the matching semantic operation.
      *
@@ -966,6 +993,8 @@ class DockZoneModel extends Base {
                 return DockZoneModel.detachItem(document, descriptor);
             case 'closeItem':
                 return DockZoneModel.closeItem(document, descriptor);
+            case 'setItemPinned':
+                return DockZoneModel.setItemPinned(document, descriptor);
             default:
                 return {document, errors: [`unknown operation "${descriptor.operation}"`]}
         }

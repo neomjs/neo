@@ -230,6 +230,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
                 ntype: 'container',
                 text : 'Strategy'
             };
+            input.items.strategy.pinned = true;
 
             const {layout, errors} = DockZoneModel.createSavedLayout(input, {
                 layoutId: 'operator-default',
@@ -243,6 +244,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(layout.metadata.operatorNote).toBe('non-secret annotation');
             expect(layout.dockZone.items.strategy.metadata.ownerTag).toBe('operator-note');
             expect(layout.dockZone.items.strategy.blueprint.ntype).toBe('container');
+            expect(layout.dockZone.items.strategy.pinned).toBe(true);
 
             input.items.strategy.windowId = 42;
 
@@ -300,6 +302,35 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
             expect(restored.document).toBe(null);
             expect(restored.errors.join(' ')).toContain('authKey')
+        });
+
+        test('rejects non-boolean pinned state on save or restore', () => {
+            const input = doc();
+
+            input.items.strategy.pinned = 'yes';
+
+            const saved = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            expect(saved.layout).toBe(null);
+            expect(saved.errors.join(' ')).toContain('pinned');
+
+            const savedLayout = {
+                schema  : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                dockZone: doc(),
+                metadata: {}
+            };
+
+            savedLayout.dockZone.items.strategy.pinned = 'yes';
+
+            const restored = DockZoneModel.restoreSavedLayout(savedLayout);
+
+            expect(restored.document).toBe(null);
+            expect(restored.errors.join(' ')).toContain('pinned')
         });
 
         test('rejects non-JSON values in metadata and item blueprints', () => {
@@ -531,6 +562,45 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         })
     });
 
+    test.describe('setItemPinned', () => {
+        test('updates pin state without mutating caller input', () => {
+            const input = doc();
+
+            input.items.terminal.pinnable = true;
+
+            const snapshot = JSON.stringify(input),
+                  pinned   = DockZoneModel.setItemPinned(input, {itemId: 'terminal', pinned: true});
+
+            expect(pinned.errors).toEqual([]);
+            expect(pinned.document.items.terminal.pinned).toBe(true);
+            expect(JSON.stringify(input)).toBe(snapshot);
+            expect(input.items.terminal.pinned).toBeUndefined();
+
+            const unpinned = DockZoneModel.setItemPinned(pinned.document, {itemId: 'terminal', pinned: false});
+
+            expect(unpinned.errors).toEqual([]);
+            expect(unpinned.document.items.terminal.pinned).toBe(false)
+        });
+
+        test('fails closed for unknown items, non-boolean state, and non-pinnable items', () => {
+            const input = doc();
+
+            input.items.terminal.pinnable = false;
+
+            const unknown = DockZoneModel.setItemPinned(input, {itemId: 'ghost', pinned: true});
+            expect(unknown.document).toBe(input);
+            expect(unknown.errors.join(' ')).toContain('ghost');
+
+            const invalid = DockZoneModel.setItemPinned(input, {itemId: 'terminal', pinned: 'true'});
+            expect(invalid.document).toBe(input);
+            expect(invalid.errors.join(' ')).toContain('boolean');
+
+            const locked = DockZoneModel.setItemPinned(input, {itemId: 'terminal', pinned: true});
+            expect(locked.document).toBe(input);
+            expect(locked.errors.join(' ')).toContain('not pinnable')
+        })
+    });
+
     test.describe('normalizeTree', () => {
         test('collapses an emptied tabs node and prunes its edge zone', () => {
             const d = doc();
@@ -581,6 +651,21 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
             expect(errors).toEqual([]);
             expect(document.nodes['main-split'].sizes).toEqual([0.25, 0.75])
+        });
+
+        test('dispatches setItemPinned descriptors', () => {
+            const input = doc();
+
+            input.items.terminal.pinnable = true;
+
+            const {document, errors} = DockZoneModel.applyOperation(input, {
+                operation: 'setItemPinned',
+                itemId   : 'terminal',
+                pinned   : true
+            });
+
+            expect(errors).toEqual([]);
+            expect(document.items.terminal.pinned).toBe(true)
         });
 
         test('rejects an unknown operation', () => {
