@@ -18,6 +18,9 @@ import Base from '../core/Base.mjs';
  * unchanged plus a non-empty `errors` array, never a partially-mutated tree. The model persists
  * semantic splits/tabs/order only; runtime pixels, DOMRects and preview state never enter it.
  *
+ * Saved-layout helpers wrap the same committed model in `neo.harness.dockLayout.v1` after enforcing
+ * the finite saved-layout schema and JSON-only values. They deliberately do not choose a storage backend.
+ *
  * Return shape for every operation: `{document, errors}` — `errors` empty means the operation
  * committed; non-empty means it was rejected and `document` is the untouched input.
  */
@@ -28,6 +31,57 @@ class DockZoneModel extends Base {
      * @static
      */
     static SCHEMA = 'neo.harness.dockZone.v1'
+
+    /**
+     * The saved layout wrapper schema around a normalized dock-zone document.
+     * @member {String} LAYOUT_SCHEMA='neo.harness.dockLayout.v1'
+     * @static
+     */
+    static LAYOUT_SCHEMA = 'neo.harness.dockLayout.v1'
+
+    /**
+     * Top-level fields allowed in a saved-layout wrapper.
+     * @member {Set<String>} savedLayoutKeys
+     * @protected
+     * @static
+     */
+    static savedLayoutKeys = new Set(['schema', 'layoutId', 'title', 'dockZone', 'metadata', 'revision'])
+
+    /**
+     * Top-level fields allowed in a persisted dock-zone document.
+     * @member {Set<String>} dockZoneDocumentKeys
+     * @protected
+     * @static
+     */
+    static dockZoneDocumentKeys = new Set(['schema', 'root', 'items', 'nodes'])
+
+    /**
+     * Fields allowed on persisted dock-zone item records.
+     * @member {Set<String>} dockZoneItemKeys
+     * @protected
+     * @static
+     */
+    static dockZoneItemKeys = new Set(['componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'movable', 'metadata'])
+
+    /**
+     * Fields allowed on persisted dock-zone nodes, keyed by node type.
+     * @member {Object<String, Set<String>>} dockZoneNodeKeys
+     * @protected
+     * @static
+     */
+    static dockZoneNodeKeys = {
+        'edge-zone': new Set(['type', 'zones']),
+        split      : new Set(['type', 'orientation', 'children', 'sizes']),
+        tabs       : new Set(['type', 'items', 'activeItemId'])
+    }
+
+    /**
+     * Zone names allowed in an `edge-zone` node.
+     * @member {Set<String>} dockZoneEdgeKeys
+     * @protected
+     * @static
+     */
+    static dockZoneEdgeKeys = new Set(['top', 'right', 'bottom', 'left', 'center'])
 
     static config = {
         /**
@@ -49,6 +103,165 @@ class DockZoneModel extends Base {
      */
     static clone(document) {
         return Neo.clone(document, true, true)
+    }
+
+    /**
+     * @summary Returns true for JSON object records only.
+     * @param {*} value
+     * @returns {Boolean}
+     * @protected
+     * @static
+     */
+    static isJsonRecord(value) {
+        return value !== null &&
+            typeof value === 'object' &&
+            (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
+    }
+
+    /**
+     * @summary Returns the first value that cannot round-trip as JSON.
+     * @param {*} value
+     * @param {String} [path='value']
+     * @param {WeakSet<Object>} [seen=new WeakSet()]
+     * @returns {{path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findNonJsonValue(value, path='value', seen=new WeakSet()) {
+        if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+            return null
+        }
+
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? null : {path, reason: 'number must be finite'}
+        }
+
+        if (typeof value !== 'object') {
+            return {path, reason: `${typeof value} is not JSON-serializable`}
+        }
+
+        if (seen.has(value)) {
+            return {path, reason: 'cyclic object graph is not JSON-serializable'}
+        }
+
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = DockZoneModel.findNonJsonValue(value[i], `${path}[${i}]`, seen);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        if (!DockZoneModel.isJsonRecord(value)) {
+            return {path, reason: `${value.constructor?.name || 'object'} is not a JSON record`}
+        }
+
+        for (const key of Reflect.ownKeys(value)) {
+            if (typeof key === 'symbol') {
+                return {path: `${path}.${String(key)}`, reason: 'symbol keys are not JSON-serializable'}
+            }
+
+            let match = DockZoneModel.findNonJsonValue(value[key], `${path}.${key}`, seen);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Returns the first own string key outside a finite schema allowlist.
+     * @param {Object} record
+     * @param {Set<String>} allowedKeys
+     * @param {String} path
+     * @returns {{key:String, path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findUnexpectedKey(record, allowedKeys, path) {
+        for (const key of Object.keys(record)) {
+            if (!allowedKeys.has(key)) {
+                return {key, path: `${path}.${key}`, reason: 'field is outside the saved-layout schema'}
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Returns the first field in a dock-zone document that is outside the persisted schema.
+     *
+     * `metadata` and `blueprint` are explicit opaque JSON-only extension points. They are caller-owned
+     * descriptive/config payloads and must not carry secrets or runtime authority; the helper enforces
+     * their JSON value shape, while this allowlist rejects runtime fields added beside the known model.
+     * @param {Object} document
+     * @param {String} [path='dockZone']
+     * @returns {{key:String, path:String, reason:String}|null}
+     * @protected
+     * @static
+     */
+    static findUnexpectedDockZoneKey(document, path='dockZone') {
+        if (!DockZoneModel.isJsonRecord(document)) {
+            return null
+        }
+
+        let unexpected = DockZoneModel.findUnexpectedKey(document, DockZoneModel.dockZoneDocumentKeys, path);
+
+        if (unexpected) {
+            return unexpected
+        }
+
+        if (DockZoneModel.isJsonRecord(document.items)) {
+            for (const [itemId, item] of Object.entries(document.items)) {
+                if (!DockZoneModel.isJsonRecord(item)) {
+                    return {key: itemId, path: `${path}.items.${itemId}`, reason: 'item record must be a JSON object'}
+                }
+
+                unexpected = DockZoneModel.findUnexpectedKey(item, DockZoneModel.dockZoneItemKeys, `${path}.items.${itemId}`);
+
+                if (unexpected) {
+                    return unexpected
+                }
+            }
+        }
+
+        if (DockZoneModel.isJsonRecord(document.nodes)) {
+            for (const [nodeId, node] of Object.entries(document.nodes)) {
+                if (!DockZoneModel.isJsonRecord(node)) {
+                    return {key: nodeId, path: `${path}.nodes.${nodeId}`, reason: 'node record must be a JSON object'}
+                }
+
+                let allowedNodeKeys = DockZoneModel.dockZoneNodeKeys[node.type];
+
+                if (!allowedNodeKeys) {
+                    return {key: 'type', path: `${path}.nodes.${nodeId}.type`, reason: `unsupported dock-zone node type "${node.type}"`}
+                }
+
+                unexpected = DockZoneModel.findUnexpectedKey(node, allowedNodeKeys, `${path}.nodes.${nodeId}`);
+
+                if (unexpected) {
+                    return unexpected
+                }
+
+                if (node.type === 'edge-zone' && DockZoneModel.isJsonRecord(node.zones)) {
+                    unexpected = DockZoneModel.findUnexpectedKey(node.zones, DockZoneModel.dockZoneEdgeKeys, `${path}.nodes.${nodeId}.zones`);
+
+                    if (unexpected) {
+                        return unexpected
+                    }
+                }
+            }
+        }
+
+        return null
     }
 
     /**
@@ -291,6 +504,146 @@ class DockZoneModel extends Base {
             errors     = DockZoneModel.validate(normalized);
 
         return errors.length ? {document: original, errors} : {document: normalized, errors: []}
+    }
+
+    /**
+     * @summary Wraps a valid committed dock-zone document in a JSON-only saved-layout envelope.
+     *
+     * The wrapper and dock-zone tree are finite-schema: unknown fields fail closed. The explicit
+     * `metadata` field is an opaque JSON-only non-secret annotation channel; callers must not place
+     * credentials or runtime authority inside it.
+     * @param {Object} document The committed dock-zone document to normalize and wrap.
+     * @param {Object} [metadata={}] {layoutId, title, revision, metadata}
+     * @returns {{layout:Object|null, errors:String[]}}
+     * @static
+     */
+    static createSavedLayout(document, metadata={}) {
+        if (!DockZoneModel.isJsonRecord(metadata)) {
+            return {layout: null, errors: ['metadata must be a JSON object']}
+        }
+
+        let errors = DockZoneModel.validate(document);
+
+        if (errors.length) {
+            return {layout: null, errors}
+        }
+
+        let unexpectedKey = DockZoneModel.findUnexpectedDockZoneKey(document, 'document');
+
+        if (unexpectedKey) {
+            return {
+                layout: null,
+                errors: [`saved layout contains unexpected field "${unexpectedKey.key}" at ${unexpectedKey.path}: ${unexpectedKey.reason}`]
+            }
+        }
+
+        let normalized = DockZoneModel.normalizeTree(document),
+            layoutId   = Object.hasOwn(metadata, 'layoutId') ? metadata.layoutId : 'default',
+            title      = Object.hasOwn(metadata, 'title') ? metadata.title : layoutId,
+            layout     = {
+                schema  : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId,
+                title,
+                dockZone: normalized,
+                metadata: Object.hasOwn(metadata, 'metadata') ? metadata.metadata : {}
+            };
+
+        if (Object.hasOwn(metadata, 'revision')) {
+            layout.revision = metadata.revision
+        }
+
+        if (typeof layout.layoutId !== 'string' || !layout.layoutId.trim()) {
+            errors.push('layoutId must be a non-empty string')
+        }
+
+        if (typeof layout.title !== 'string' || !layout.title.trim()) {
+            errors.push('title must be a non-empty string')
+        }
+
+        if (!DockZoneModel.isJsonRecord(layout.metadata)) {
+            errors.push('metadata must be a JSON object')
+        }
+
+        unexpectedKey = DockZoneModel.findUnexpectedKey(layout, DockZoneModel.savedLayoutKeys, 'savedLayout') ||
+            DockZoneModel.findUnexpectedDockZoneKey(layout.dockZone, 'savedLayout.dockZone');
+
+        if (unexpectedKey) {
+            errors.push(`saved layout contains unexpected field "${unexpectedKey.key}" at ${unexpectedKey.path}: ${unexpectedKey.reason}`)
+        }
+
+        let nonJson = DockZoneModel.findNonJsonValue(layout);
+
+        if (nonJson) {
+            errors.push(`saved layout ${nonJson.path} is not JSON-only: ${nonJson.reason}`)
+        }
+
+        return errors.length ? {layout: null, errors} : {layout: DockZoneModel.clone(layout), errors: []}
+    }
+
+    /**
+     * @summary Restores a saved-layout wrapper into a validated dock-zone document.
+     *
+     * The wrapper and dock-zone tree must match the finite persisted schema. The explicit `metadata`
+     * and item `blueprint` fields are opaque JSON-only non-secret payloads; runtime fields beside the
+     * known model are rejected rather than filtered or repaired.
+     * @param {Object} savedLayout
+     * @returns {{document:Object|null, errors:String[]}}
+     * @static
+     */
+    static restoreSavedLayout(savedLayout) {
+        let errors = [];
+
+        if (!DockZoneModel.isJsonRecord(savedLayout)) {
+            return {document: null, errors: ['saved layout must be a JSON object']}
+        }
+
+        if (savedLayout.schema !== DockZoneModel.LAYOUT_SCHEMA) {
+            errors.push(`schema must be ${DockZoneModel.LAYOUT_SCHEMA}`)
+        }
+
+        if (typeof savedLayout.layoutId !== 'string' || !savedLayout.layoutId.trim()) {
+            errors.push('layoutId must be a non-empty string')
+        }
+
+        if (typeof savedLayout.title !== 'string' || !savedLayout.title.trim()) {
+            errors.push('title must be a non-empty string')
+        }
+
+        if (!DockZoneModel.isJsonRecord(savedLayout.dockZone)) {
+            errors.push('dockZone must be a JSON object')
+        }
+
+        if (Object.hasOwn(savedLayout, 'metadata') && !DockZoneModel.isJsonRecord(savedLayout.metadata)) {
+            errors.push('metadata must be a JSON object')
+        }
+
+        let unexpectedKey = DockZoneModel.findUnexpectedKey(savedLayout, DockZoneModel.savedLayoutKeys, 'savedLayout') ||
+            DockZoneModel.findUnexpectedDockZoneKey(savedLayout.dockZone, 'savedLayout.dockZone');
+
+        if (unexpectedKey) {
+            errors.push(`saved layout contains unexpected field "${unexpectedKey.key}" at ${unexpectedKey.path}: ${unexpectedKey.reason}`)
+        }
+
+        let nonJson = DockZoneModel.findNonJsonValue(savedLayout);
+
+        if (nonJson) {
+            errors.push(`saved layout ${nonJson.path} is not JSON-only: ${nonJson.reason}`)
+        }
+
+        if (!errors.length) {
+            errors.push(...DockZoneModel.validate(savedLayout.dockZone));
+        }
+
+        if (errors.length) {
+            return {document: null, errors}
+        }
+
+        let normalized = DockZoneModel.normalizeTree(savedLayout.dockZone),
+            normalizedErrors = DockZoneModel.validate(normalized);
+
+        return normalizedErrors.length
+            ? {document: null, errors: normalizedErrors}
+            : {document: DockZoneModel.clone(normalized), errors: []}
     }
 
     /**

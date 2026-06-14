@@ -94,6 +94,218 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         })
     });
 
+    test.describe('saved layout persistence', () => {
+        test('creates and restores a versioned saved-layout wrapper', () => {
+            const {layout, errors} = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                revision: 3,
+                metadata: {
+                    workspace: 'agent-harness'
+                }
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.schema).toBe(DockZoneModel.LAYOUT_SCHEMA);
+            expect(layout.layoutId).toBe('operator-default');
+            expect(layout.title).toBe('Operator Default');
+            expect(layout.revision).toBe(3);
+            expect(layout.metadata.workspace).toBe('agent-harness');
+            expect(layout.dockZone.schema).toBe(DockZoneModel.SCHEMA);
+            expect(DockZoneModel.validate(layout.dockZone)).toEqual([]);
+
+            const restored = DockZoneModel.restoreSavedLayout(layout);
+
+            expect(restored.errors).toEqual([]);
+            expect(restored.document).toEqual(layout.dockZone);
+            expect(restored.document).not.toBe(layout.dockZone)
+        });
+
+        test('fails closed for unsupported wrapper schema', () => {
+            const {layout} = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            layout.schema = 'neo.harness.dockLayout.v2';
+
+            const {document, errors} = DockZoneModel.restoreSavedLayout(layout);
+
+            expect(document).toBe(null);
+            expect(errors.join(' ')).toContain(DockZoneModel.LAYOUT_SCHEMA)
+        });
+
+        test('fails closed for malformed wrapper identity fields', () => {
+            const created = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: '',
+                title   : 'Operator Default'
+            });
+
+            expect(created.layout).toBe(null);
+            expect(created.errors.join(' ')).toContain('layoutId');
+
+            const restored = DockZoneModel.restoreSavedLayout({
+                schema  : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId: 'operator-default',
+                title   : '',
+                dockZone: doc(),
+                metadata: []
+            });
+
+            expect(restored.document).toBe(null);
+            expect(restored.errors.join(' ')).toContain('title');
+            expect(restored.errors.join(' ')).toContain('metadata')
+        });
+
+        test('fails closed for an invalid dock-zone document', () => {
+            const {layout} = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            layout.dockZone.nodes.root.zones.center = 'missing-tabs';
+
+            const {document, errors} = DockZoneModel.restoreSavedLayout(layout);
+
+            expect(document).toBe(null);
+            expect(errors.join(' ')).toContain('missing-tabs')
+        });
+
+        test('rejects fields outside the saved-layout schema before save or restore', () => {
+            const input = doc();
+
+            input.items.strategy.dockPreview = {
+                dockPreview: {placement: 'split-after'}
+            };
+
+            const saved = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            expect(saved.layout).toBe(null);
+            expect(saved.errors.join(' ')).toContain('dockPreview');
+
+            const {layout} = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            layout.windowId = 7;
+
+            const restored = DockZoneModel.restoreSavedLayout(layout);
+
+            expect(restored.document).toBe(null);
+            expect(restored.errors.join(' ')).toContain('windowId')
+        });
+
+        test('allows opaque JSON metadata and blueprints only through explicit extension fields', () => {
+            const input = doc();
+
+            input.items.strategy.metadata = {
+                ownerTag: 'operator-note'
+            };
+            input.items.strategy.blueprint = {
+                ntype: 'container',
+                text : 'Strategy'
+            };
+
+            const {layout, errors} = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                metadata: {
+                    operatorNote: 'non-secret annotation'
+                }
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.metadata.operatorNote).toBe('non-secret annotation');
+            expect(layout.dockZone.items.strategy.metadata.ownerTag).toBe('operator-note');
+            expect(layout.dockZone.items.strategy.blueprint.ntype).toBe('container');
+
+            input.items.strategy.windowId = 42;
+
+            const rejected = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            expect(rejected.layout).toBe(null);
+            expect(rejected.errors.join(' ')).toContain('windowId')
+        });
+
+        test('rejects non-JSON values in metadata and item blueprints', () => {
+            const badMetadata = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                metadata: {
+                    onRestore: () => {}
+                }
+            });
+
+            expect(badMetadata.layout).toBe(null);
+            expect(badMetadata.errors.join(' ')).toContain('JSON-only');
+
+            const input = doc();
+
+            input.items.strategy.blueprint = {
+                ntype    : 'container',
+                listeners: {
+                    click: () => {}
+                }
+            };
+
+            const badBlueprint = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default'
+            });
+
+            expect(badBlueprint.layout).toBe(null);
+            expect(badBlueprint.errors.join(' ')).toContain('listeners')
+        });
+
+        test('does not mutate caller input or expose caller-owned nested objects', () => {
+            const input = doc(),
+                  meta  = {workspace: 'agent-harness'};
+
+            input.nodes.split = {
+                type       : 'split',
+                orientation: 'horizontal',
+                children   : ['main-tabs', 'side-tabs'],
+                sizes      : [0.2, 0.8]
+            };
+            input.nodes.root.zones.center = 'split';
+            delete input.nodes.root.zones.right;
+
+            const snapshot = JSON.stringify(input),
+                  {layout, errors} = DockZoneModel.createSavedLayout(input, {
+                      layoutId: 'operator-default',
+                      title   : 'Operator Default',
+                      metadata: meta
+                  });
+
+            expect(errors).toEqual([]);
+            expect(JSON.stringify(input)).toBe(snapshot);
+
+            meta.workspace = 'mutated-by-caller';
+            input.items.strategy.title = 'Caller Mutated Strategy';
+            layout.metadata.workspace = 'mutated-layout';
+            layout.dockZone.nodes.split.sizes[0] = 0.4;
+
+            expect(layout.metadata.workspace).toBe('mutated-layout');
+            expect(layout.dockZone.nodes.split.sizes[0]).toBe(0.4);
+
+            const {layout: freshLayout} = DockZoneModel.createSavedLayout(input, {
+                layoutId: 'operator-default',
+                title   : 'Operator Default',
+                metadata: meta
+            });
+
+            expect(freshLayout.metadata.workspace).toBe('mutated-by-caller');
+            expect(freshLayout.dockZone.items.strategy.title).toBe('Caller Mutated Strategy')
+        })
+    });
+
     test.describe('addTab', () => {
         test('inserts a catalog-only item at index and makes it active', () => {
             const {document, errors} = DockZoneModel.addTab(doc(), {itemId: 'inspector', tabsNodeId: 'main-tabs', index: 1});
