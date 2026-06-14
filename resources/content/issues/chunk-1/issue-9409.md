@@ -1,24 +1,26 @@
 ---
 id: 9409
 title: CSS Animations for TreeGrid Expand/Collapse
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - design
   - ai
   - grid
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2026-03-09T11:01:21Z'
-updatedAt: '2026-06-11T01:18:00Z'
+updatedAt: '2026-06-14T10:57:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9409'
 author: tobiu
-commentsCount: 4
+commentsCount: 6
 parentIssue: 9404
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-14T10:57:06Z'
 ---
 # CSS Animations for TreeGrid Expand/Collapse
 
@@ -166,4 +168,56 @@ Provide smooth, CSS-based visual transitions when expanding or collapsing nodes 
 > — Ada (@neo-opus-ada)
 
 - 2026-06-11T01:18:00Z @neo-opus-ada unassigned from @neo-opus-ada
+### @neo-gpt - 2026-06-14T03:42:40Z
+
+**Input from GPT-5 (Codex Desktop):**
+
+> ● ## V-B-A update — `animatedRowSorting:true` is not safe for #9409
+> 
+> I picked this up after draining the direct review queue and re-tested the lowest-churn close path: enable the existing `AnimateRows` plugin on the TreeGrid examples via `animatedRowSorting:true`.
+> 
+> ### Evidence
+> 
+> Temporary experiment only; reverted after the run:
+> - Added `animatedRowSorting: true` to `examples/grid/tree/GridContainer.mjs` and `examples/grid/treeBigData/GridContainer.mjs`.
+> - `node --check examples/grid/tree/GridContainer.mjs` passed.
+> - `node --check examples/grid/treeBigData/GridContainer.mjs` passed.
+> - `npm run test-e2e -- test/playwright/e2e/GridTree.spec.mjs test/playwright/e2e/GridTreeBigData.spec.mjs` finished **6 passed / 2 failed**.
+> 
+> Failures were both in `GridTreeBigData.spec.mjs`:
+> - `Bulk Expand All / Collapse All and mixed interactions (BUG REPRODUCTION)` timed out waiting for the first `.neo-tree-toggle` to become `is-expanded`; it remained `neo-tree-toggle is-collapsed`.
+> - `Selection persists correctly after structural changes (BUG REPRODUCTION)` failed the same way.
+> 
+> So the current plugin survives simple expand/collapse and sort cases, but destabilizes the big-data structural flows. That is enough to reject the “just enable `animatedRowSorting` and close” path.
+> 
+> ### Source reason
+> 
+> The current `GridBody` renderer explicitly uses fixed DOM order and row pooling:
+> - `src/grid/Body.mjs:722-724` says the VDOM children must match the full pool and must not be removed or reordered.
+> - `src/grid/Body.mjs:799-807` maps logical rows onto pool items with modulo indexing.
+> - `src/grid/Body.mjs:1175-1179` makes row ids depend on `rowIndex % poolSize`.
+> 
+> `AnimateRows` still operates on the older row-identity model:
+> - `src/grid/plugin/AnimateRows.mjs:146-156` maps existing VDOM rows by id.
+> - `src/grid/plugin/AnimateRows.mjs:170-177` creates and pushes inserted row VDOM nodes.
+> - `src/grid/plugin/AnimateRows.mjs:184-188` fades rows left in the old map.
+> - `src/grid/plugin/AnimateRows.mjs:205-207` eventually forces `owner.createViewData()` after the transition.
+> 
+> Those assumptions conflict with the fixed-DOM-order pool under non-trivial TreeGrid structural changes.
+> 
+> ### Recommendation
+> 
+> Do not close #9409 as delivered-by-`AnimateRows`, and do not add a parallel `animateTreeNodes` shim on top of the current plugin.
+> 
+> This needs a deliberate animation architecture, probably one of the already-discussed shapes:
+> - delayed permutation with TreeStore mutation intent and explicit commit timing, or
+> - snapshot/overlay rendering that keeps the virtual row pool stable while animation is visible.
+> 
+> Either way, the next ticket shape should include scroll/rapid-click behavior and should decide whether `AnimateRows` is repaired/replaced as the common grid-animation substrate rather than layering TreeGrid-only behavior over it.
+
+- 2026-06-14T10:56:51Z @neo-gpt cross-referenced by #13219
+### @neo-gpt - 2026-06-14T10:57:06Z
+
+Superseded by #13219. The user-facing TreeGrid animation intent remains valid, but the original CSS / TreeGrid-only prescription is stale after the 2026-06-14 V-B-A pass. A simple `animatedRowSorting:true` enablement destabilized `GridTreeBigData` structural flows, and the source review shows the current `AnimateRows` assumptions conflict with fixed pooled-row identity. #13219 now owns the deliberate pooled-grid animation contract and the decision on whether `AnimateRows` is repaired, replaced, or narrowed.
+
 
