@@ -206,12 +206,14 @@ test.describe('Neo.ai.services.github-workflow.toolService — getConversationRo
 /**
  * Public GitHub write-boundary identity guard.
  *
- * #13243 protects agent-authored public GitHub mutations from the GH_TOKEN drift
+ * Protects agent-authored public GitHub mutations from the GH_TOKEN drift
  * class demonstrated on 2026-06-14: the harness can believe it is one agent while
  * GitHub's effective viewer login is another account. The guard is injected at the
  * GitHub Workflow MCP tool boundary, before service delegates mutate GitHub state.
  */
 test.describe('Neo.ai.services.github-workflow.toolService — write identity guard (#13243)', () => {
+    let GITHUB_TOOL_ACCESS;
+    let assertCompleteGitHubToolAccessPolicy;
     let buildGitHubWriteIdentityGuard;
     let guardGitHubWriteTools;
     let isPublicGitHubWriteTool;
@@ -219,10 +221,12 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
-        buildGitHubWriteIdentityGuard = mod.buildGitHubWriteIdentityGuard;
-        guardGitHubWriteTools         = mod.guardGitHubWriteTools;
-        isPublicGitHubWriteTool       = mod.isPublicGitHubWriteTool;
-        normalizeGitHubIdentityLogin  = mod.normalizeGitHubIdentityLogin;
+        GITHUB_TOOL_ACCESS                    = mod.GITHUB_TOOL_ACCESS;
+        assertCompleteGitHubToolAccessPolicy = mod.assertCompleteGitHubToolAccessPolicy;
+        buildGitHubWriteIdentityGuard         = mod.buildGitHubWriteIdentityGuard;
+        guardGitHubWriteTools                 = mod.guardGitHubWriteTools;
+        isPublicGitHubWriteTool               = mod.isPublicGitHubWriteTool;
+        normalizeGitHubIdentityLogin          = mod.normalizeGitHubIdentityLogin;
     });
 
     test('normalizes AgentIdentity node ids to GitHub logins', () => {
@@ -309,7 +313,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         const mapping = guardGitHubWriteTools({
             get_conversation    : readHandler,
             healthcheck         : readHandler,
-            manage_issue_comment: writeHandler
+            manage_issue_comment: writeHandler,
+            sync_all            : writeHandler
         }, {
             assertExpectedIdentity: async () => ({
                 ok    : false,
@@ -318,6 +323,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         });
 
         expect(isPublicGitHubWriteTool('manage_issue_comment')).toBe(true);
+        expect(isPublicGitHubWriteTool('sync_all')).toBe(true);
         expect(isPublicGitHubWriteTool('get_conversation')).toBe(false);
         expect(isPublicGitHubWriteTool('healthcheck')).toBe(false);
         expect(mapping.get_conversation).toBe(readHandler);
@@ -328,6 +334,28 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         await expect(mapping.manage_issue_comment()).rejects.toMatchObject({
             code: 'GITHUB_IDENTITY_MISMATCH'
         });
+        await expect(mapping.sync_all()).rejects.toMatchObject({
+            code: 'GITHUB_IDENTITY_MISMATCH'
+        });
+    });
+
+    test('rejects service mappings with unclassified future tools (#13252)', () => {
+        expect(() => guardGitHubWriteTools({
+            get_conversation       : async () => {},
+            future_public_mutation : async () => {}
+        })).toThrow(/Missing classification: future_public_mutation/);
+    });
+
+    test('canonical access policy covers every registered GitHub Workflow tool (#13252)', async () => {
+        const {listTools} = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+
+        const registeredTools = listTools().tools.map(tool => tool.name).sort();
+        const policyTools     = Object.keys(GITHUB_TOOL_ACCESS).sort();
+
+        expect(policyTools).toEqual(registeredTools);
+        expect(assertCompleteGitHubToolAccessPolicy(
+            Object.fromEntries(registeredTools.map(toolName => [toolName, async () => {}]))
+        )).toBe(true);
     });
 
     test('classifies the public GitHub write boundary explicitly', () => {
@@ -343,6 +371,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             'manage_pr_review',
             'manage_pr_reviewers',
             'signal_state_transition',
+            'sync_all',
             'update_issue_relationship'
         ].forEach(toolName => {
             expect(isPublicGitHubWriteTool(toolName), `${toolName} is a public write`).toBe(true);
@@ -358,8 +387,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             'healthcheck',
             'list_issues',
             'list_labels',
-            'list_pull_requests',
-            'sync_all'
+            'list_pull_requests'
         ].forEach(toolName => {
             expect(isPublicGitHubWriteTool(toolName), `${toolName} is not a public write`).toBe(false);
         });
