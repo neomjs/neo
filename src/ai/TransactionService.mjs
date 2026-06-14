@@ -26,16 +26,19 @@ const cloneOp = op => ({
 const cloneTx = tx => ({txId: tx.txId, status: tx.status, ops: tx.ops.map(cloneOp)});
 
 /**
- * The stable string key for a writer's undo stack — the **full session identity**, so two Neural Link sessions
- * or two writers never share a stack. Fails closed (`null`) when any field is missing: no shared / wildcard stack.
- * @param {Object} [id={}] `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+ * The stable string key for a writer's undo stack — the `(agentId, sessionId)` writer pair, so two writers never
+ * share a stack. This is the **same writer identity `Neo.ai.WriteGuard` keys locks on** — the Bridge stamps the
+ * pair per agent connection (the `agent_message` sidecar) — so the lock + undo lifecycles key identically and a
+ * disconnect sweep maps straight from the `agent_disconnected` frame. Fails closed (`null`) when either field is
+ * missing: no shared / wildcard stack.
+ * @param {Object} [id={}] `{agentId, sessionId}` — the Bridge-stamped writer pair
  * @returns {String|null}
  */
-const stackKey = ({neuralLinkSessionId, requesterAgentId, requesterSessionId} = {}) => {
-    if (!neuralLinkSessionId || !requesterAgentId || !requesterSessionId) {
+const stackKey = ({agentId, sessionId} = {}) => {
+    if (!agentId || !sessionId) {
         return null
     }
-    return JSON.stringify([neuralLinkSessionId, requesterAgentId, requesterSessionId])
+    return JSON.stringify([agentId, sessionId])
 };
 
 /**
@@ -114,7 +117,7 @@ class TransactionService extends Base {
      * marks the stale one `aborted` (a write that never committed / a teardown gap) so a leaked open transaction
      * can't accumulate ops forever. Fails closed on an incomplete session identity or missing `txId`.
      * @param {Object} params
-     * @param {Object} params.id   `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id   `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @param {String} params.txId
      * @returns {{ok: Boolean, reason: (String|null)}}
      */
@@ -149,7 +152,7 @@ class TransactionService extends Base {
      * `reverse` / `label` missing or mistyped); a non-serializable `forward` or `reverse` (the data-not-code guard);
      * the per-transaction op cap; an over-long `label`; or an oversized op payload.
      * @param {Object} params
-     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @param {String} params.txId
      * @param {Object} params.op  `{sequenceId, originWriter:{agentId,sessionId}, targetSubtreePath:String[], forward, reverse, label}`
      * @returns {{ok: Boolean, reason: (String|null)}}
@@ -215,7 +218,7 @@ class TransactionService extends Base {
      * {@link maxStackDepth}, the **oldest** committed transaction is evicted (no longer undoable). A commit with no
      * ops is dropped rather than committed (nothing to undo). Fails closed on no-open / `txId` mismatch.
      * @param {Object} params
-     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @param {String} params.txId
      * @returns {{ok: Boolean, reason: (String|null)}}
      */
@@ -252,7 +255,7 @@ class TransactionService extends Base {
      * requester, with the enforcement `subtreePath` re-derived on the live tree (NOT the stored audit path). Does
      * not itself mutate the tree or the lock table. Returns `reverseOps: null` when there is nothing to undo.
      * @param {Object} params
-     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @returns {{txId: (String|null), reverseOps: (Object[]|null)}}
      */
     undo({id}) {
@@ -274,7 +277,7 @@ class TransactionService extends Base {
      * A no-op when no transaction is open or the `txId` does not match (idempotent). An aborted transaction is
      * dropped, never undoable, and leaves no reverse record.
      * @param {Object} params
-     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @param {String} params.txId
      * @returns {{aborted: Boolean}}
      */
@@ -298,7 +301,7 @@ class TransactionService extends Base {
      * coherent undo unit). The terminal is recorded separately from `aborted` so a lease expiry stays auditable as
      * its own cause rather than masquerading as a deliberate abort.
      * @param {Object} params
-     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @param {String} params.txId
      * @returns {{timedOut: Boolean}}
      */
@@ -321,7 +324,7 @@ class TransactionService extends Base {
      * both on an `agent_disconnected` frame, so the lock + transaction lifecycles cannot diverge silently). Fails
      * closed on an incomplete identity (sweeps nothing — never clears the whole table).
      * @param {Object} params
-     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @returns {{swept: Boolean}}
      */
     sweep({id}) {
@@ -340,7 +343,7 @@ class TransactionService extends Base {
      * @summary A deep snapshot of a session's undo state (introspection / testing).
      * Every returned transaction + op is a copy, so a caller cannot mutate the live stack through the result.
      * @param {Object} params
-     * @param {Object} params.id  `{neuralLinkSessionId, requesterAgentId, requesterSessionId}`
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @returns {{open: (Object|null), committed: Object[]}}
      */
     stackOf({id}) {

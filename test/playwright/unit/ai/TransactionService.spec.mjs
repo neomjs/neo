@@ -23,8 +23,8 @@ import TransactionService from '../../../../src/ai/TransactionService.mjs';
 // (every required reverse-record field + both-descriptor serializability), and the caps.
 
 const
-    ID  = {neuralLinkSessionId: 'nl-1', requesterAgentId: 'agent-a', requesterSessionId: 'sess-a'},
-    ID2 = {neuralLinkSessionId: 'nl-1', requesterAgentId: 'agent-b', requesterSessionId: 'sess-b'},
+    ID  = {agentId: 'agent-a', sessionId: 'sess-a'},
+    ID2 = {agentId: 'agent-b', sessionId: 'sess-b'},
 
     // a minimal valid reverse-op (WHO + WHAT + audit path); set⁻¹ is set(old values)
     op = (n = 1, seq = `seq-${n}`) => ({
@@ -111,7 +111,7 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
     test('begin fails closed on an incomplete session identity or empty txId', () => {
         const s = svc();
 
-        for (const badId of [{}, {requesterAgentId: 'a', requesterSessionId: 's'}, {neuralLinkSessionId: 'nl-1'}]) {
+        for (const badId of [{}, {agentId: 'a'}, {sessionId: 's'}]) {
             expect(s.begin({id: badId, txId: 'tx-1'}).ok).toBe(false)
         }
         expect(s.begin({id: ID, txId: ''}).ok).toBe(false);
