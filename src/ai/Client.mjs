@@ -260,11 +260,40 @@ class Client extends Base {
     }
 
     /**
+     * @summary Release held write locks for one Bridge-stamped disconnected agent session.
+     * App-side `agent_disconnected` frames are lifecycle notifications, not JSON-RPC. Require the full
+     * `(agentId, sessionId)` writer key before calling {@link Neo.ai.WriteGuard#releaseAgent}; a half-stamped
+     * frame is dropped so it cannot sweep every session for an agent or every agent sharing a session id.
+     * @param {Object} [frame={}]
+     * @param {String} [frame.agentId]
+     * @param {String} [frame.sessionId]
+     * @returns {{released: Number}}
+     */
+    handleAgentDisconnected(frame = {}) {
+        const
+            {agentId, sessionId} = frame,
+            {writeGuard}         = this;
+
+        if (typeof agentId !== 'string' || agentId === '' ||
+            typeof sessionId !== 'string' || sessionId === '' ||
+            !writeGuard) {
+            return {released: 0}
+        }
+
+        return writeGuard.releaseAgent({agentId, sessionId})
+    }
+
+    /**
      * Handles incoming messages from the WebSocket.
      * Parses the JSON-RPC payload and delegates valid requests to `handleRequest`.
      * @param {Object} data
      */
     async onSocketMessage({data}) {
+        if (data?.type === 'agent_disconnected') {
+            this.handleAgentDisconnected(data);
+            return
+        }
+
         const {jsonrpc, context} = parseAgentEnvelope(data);
 
         if (jsonrpc?.method) {
