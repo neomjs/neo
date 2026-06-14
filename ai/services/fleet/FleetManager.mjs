@@ -45,32 +45,37 @@ class FleetManager extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * The absolute fleet-managed checkout root. `null` ⇒ resolved (env, then a `__dirname`-relative
-         * default) via {@link getManagedRoot}. Set a per-tenant / temp path to override.
-         * @member {String|null} managedRoot=null
-         */
-        managedRoot: null,
-        /**
-         * Lifecycle collaborator. Defaults (via {@link getLifecycleService}) to the
-         * `FleetLifecycleService` singleton; inject a stub for tests.
-         * @member {Object|null} lifecycleService=null
-         */
-        lifecycleService: null,
-        /**
-         * Provision-then-start composer. Defaults (via {@link getProvisionAndStartFn}) to
-         * `startAgentProvisioned`; inject a recording stub for tests.
-         * @member {Function|null} provisionAndStartFn=null
-         */
-        provisionAndStartFn: null,
-        /**
-         * Fleet repo-status aggregator. Defaults (via {@link getRepoStatusFn}) to `inspectFleetRepos`;
-         * inject a recording stub for tests.
-         * @member {Function|null} repoStatusFn=null
-         */
-        repoStatusFn: null
+        singleton: true
     }
+
+    /**
+     * The absolute fleet-managed checkout root. `null` ⇒ resolved (env, then a `__dirname`-relative
+     * default) via {@link getManagedRoot}. Set a per-tenant / temp path to override. A **plain field**,
+     * not reactive config — nothing observes/binds it, mirroring the sibling `FleetLifecycleService`'s
+     * `credentialEnvVar` / `bridgeTokenEnvVar` tunables.
+     * @member {String|null} managedRoot=null
+     */
+    managedRoot = null
+    /**
+     * Lifecycle collaborator. Defaults (via {@link getLifecycleService}) to the `FleetLifecycleService`
+     * singleton; inject a stub for tests. A plain field — the sibling-precedent shape for an injectable
+     * seam (`FleetLifecycleService.registry`), not reactive config.
+     * @member {Object|null} lifecycleService=null
+     */
+    lifecycleService = null
+    /**
+     * Provision-then-start composer seam. Defaults (via {@link getProvisionAndStartFn}) to
+     * `startAgentProvisioned`; inject a recording stub for tests. Plain field, mirroring
+     * `FleetLifecycleService.spawnFn`.
+     * @member {Function|null} provisionAndStartFn=null
+     */
+    provisionAndStartFn = null
+    /**
+     * Fleet repo-status aggregator seam. Defaults (via {@link getRepoStatusFn}) to `inspectFleetRepos`;
+     * inject a recording stub for tests. Plain field.
+     * @member {Function|null} repoStatusFn=null
+     */
+    repoStatusFn = null
 
     /**
      * @summary Resolve (config > env > default) the absolute fleet-managed checkout root.
