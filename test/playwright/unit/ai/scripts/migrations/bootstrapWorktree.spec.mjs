@@ -808,13 +808,17 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     });
 
     test.describe('#12677 pruneStaleWorktrees', () => {
-        function makePruneExec({removed}) {
+        function makePruneExec({removed, dirtyStatus = ' M ai/config.mjs\n', statusByPath} = {}) {
             const worktreesRoot = path.join(fakeMainCheckout, '.claude', 'worktrees');
             const paths = {
                 current : path.join(worktreesRoot, 'current'),
                 stale   : path.join(worktreesRoot, 'stale'),
                 unmerged: path.join(worktreesRoot, 'unmerged'),
                 dirty   : path.join(worktreesRoot, 'dirty')
+            };
+            const statuses = {
+                [paths.dirty]: dirtyStatus,
+                ...statusByPath
             };
 
             const porcelain = [
@@ -848,6 +852,16 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 if (cmd === 'git' && args[0] === 'worktree' && args[1] === 'remove') {
                     removed.push(args);
                     return {stdout: '', stderr: ''};
+                }
+
+                if (cmd === 'git' && args[0] === '-C' && args[2] === 'status' && args[3] === '--porcelain') {
+                    const status = statuses[args[1]] || '';
+
+                    if (status instanceof Error) {
+                        throw status;
+                    }
+
+                    return {stdout: status, stderr: ''};
                 }
 
                 throw new Error(`Unexpected command: ${cmd} ${args.join(' ')}`);
@@ -886,7 +900,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             ]);
         });
 
-        test('dry-runs the keep-current/delete-rest plan only when requested', async () => {
+        test('dry-runs the keep-current/delete-clean-rest plan only when requested', async () => {
             const removed = [];
             const {exec, paths} = makePruneExec({removed});
 
@@ -911,15 +925,16 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(byPath[paths.stale].status).toBe('remove');
             expect(byPath[paths.stale].remove).toBe(true);
             expect(byPath[paths.unmerged].remove).toBe(true);
-            expect(byPath[paths.dirty].remove).toBe(true);
+            expect(byPath[paths.dirty].status).toBe('skipped-dirty');
+            expect(byPath[paths.dirty].remove).toBe(false);
 
-            expect(result.reclaimableBytes).toBe(9216);
+            expect(result.reclaimableBytes).toBe(5120);
             expect(result.reclaimedBytes).toBe(0);
             expect(result.hydrated).toBe(null);
             expect(removed).toHaveLength(0);
         });
 
-        test('deletes all non-current worktrees by default and hydrates the current checkout', async () => {
+        test('deletes clean non-current worktrees by default and hydrates the current checkout', async () => {
             const removed = [];
             const hydrated = [];
             const {exec, paths} = makePruneExec({removed});
@@ -944,18 +959,80 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
 
             expect(byPath[paths.current].remove).toBe(false);
-            expect(result.skipped.map(item => item.path)).toEqual([paths.current]);
+            expect(byPath[paths.dirty].status).toBe('skipped-dirty');
+            expect(result.skipped.map(item => item.path)).toEqual([paths.current, paths.dirty]);
+            expect(removed).toEqual([
+                ['worktree', 'remove', '--force', paths.stale],
+                ['worktree', 'remove', '--force', paths.unmerged]
+            ]);
+            expect(result.removed.map(item => item.path)).toEqual([paths.stale, paths.unmerged]);
+            expect(result.reclaimedBytes).toBe(5120);
+            expect(result.hydrated).toEqual({ok: true});
+            expect(hydrated).toHaveLength(1);
+            expect(hydrated[0].mainCheckout).toBe(fakeMainCheckout);
+            expect(hydrated[0].projectRoot).toBe(paths.current);
+        });
+
+        test('includeDirty removes dirty non-current worktrees explicitly', async () => {
+            const removed = [];
+            const hydrated = [];
+            const {exec, paths} = makePruneExec({removed});
+
+            const result = await pruneStaleWorktrees({
+                projectRoot : fakeMainCheckout,
+                currentPath : paths.current,
+                includeDirty: true,
+                exec,
+                getSize: async p => ({
+                    [paths.current] : 1024,
+                    [paths.stale]   : 2048,
+                    [paths.unmerged]: 3072,
+                    [paths.dirty]   : 4096
+                })[p] || 0,
+                hydrate: async args => {
+                    hydrated.push(args);
+                    return {ok: true};
+                },
+                log: () => {}
+            });
+
             expect(removed).toEqual([
                 ['worktree', 'remove', '--force', paths.stale],
                 ['worktree', 'remove', '--force', paths.unmerged],
                 ['worktree', 'remove', '--force', paths.dirty]
             ]);
             expect(result.removed.map(item => item.path)).toEqual([paths.stale, paths.unmerged, paths.dirty]);
+            expect(result.skipped.map(item => item.path)).toEqual([paths.current]);
             expect(result.reclaimedBytes).toBe(9216);
-            expect(result.hydrated).toEqual({ok: true});
-            expect(hydrated).toHaveLength(1);
-            expect(hydrated[0].mainCheckout).toBe(fakeMainCheckout);
             expect(hydrated[0].projectRoot).toBe(paths.current);
+        });
+
+        test('skips non-current worktrees when dirty status cannot be determined', async () => {
+            const removed = [];
+            const statusError = new Error('status failed');
+            const {exec, paths} = makePruneExec({
+                removed,
+                dirtyStatus: statusError
+            });
+
+            const result = await pruneStaleWorktrees({
+                projectRoot: fakeMainCheckout,
+                currentPath: paths.current,
+                exec,
+                getSize: async () => 1,
+                hydrate: async () => ({ok: true}),
+                log: () => {}
+            });
+
+            const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
+
+            expect(byPath[paths.dirty].remove).toBe(false);
+            expect(byPath[paths.dirty].status).toBe('skipped-status-error');
+            expect(byPath[paths.dirty].dirtyStatus.error).toBe(statusError);
+            expect(removed).toEqual([
+                ['worktree', 'remove', '--force', paths.stale],
+                ['worktree', 'remove', '--force', paths.unmerged]
+            ]);
         });
 
         test('never removes the primary checkout even when the worktree root includes it', async () => {
@@ -980,12 +1057,11 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(byPath[paths.current].remove).toBe(false);
             expect(removed).toEqual([
                 ['worktree', 'remove', '--force', paths.stale],
-                ['worktree', 'remove', '--force', paths.unmerged],
-                ['worktree', 'remove', '--force', paths.dirty]
+                ['worktree', 'remove', '--force', paths.unmerged]
             ]);
         });
 
-        test('main-checkout invocation removes every Claude worktree and hydrates main checkout', async () => {
+        test('main-checkout invocation removes clean Claude worktrees and hydrates main checkout', async () => {
             const removed = [];
             const {exec, paths} = makePruneExec({removed});
             const hydrated = [];
@@ -1004,8 +1080,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(removed).toEqual([
                 ['worktree', 'remove', '--force', paths.current],
                 ['worktree', 'remove', '--force', paths.stale],
-                ['worktree', 'remove', '--force', paths.unmerged],
-                ['worktree', 'remove', '--force', paths.dirty]
+                ['worktree', 'remove', '--force', paths.unmerged]
             ]);
             expect(hydrated[0].projectRoot).toBe(fakeMainCheckout);
         });

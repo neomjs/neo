@@ -49,7 +49,7 @@
         "ai:probe-keep-alive"          : "node ./ai/scripts/benchmark/keep-alive-probe.mjs",
         "ai:prune-worktrees"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
         "ai:prune-worktrees:dry-run"   : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --dry-run",
-        "ai:prune-worktrees:schedule-dangerous": "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --interval-ms 21600000",
+        "ai:prune-worktrees:schedule-dangerous": "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --include-dirty --interval-ms 21600000",
         "ai:purge-test-collections"    : "node ./ai/scripts/maintenance/purgeTestCollections.mjs",
         "ai:lint-agents"               : "node ./ai/scripts/lint/lint-agents.mjs",
         "ai:lint-config-template-ssot" : "node ./ai/scripts/lint/lint-config-template-ssot.mjs",
