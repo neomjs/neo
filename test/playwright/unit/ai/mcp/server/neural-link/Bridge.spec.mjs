@@ -27,7 +27,8 @@ const sign = (agentId, expiresAt = Date.now() + 3_600_000) => {
 };
 
 // A minimal WebSocket stand-in — handleConnection / registerAgent only touch close / on / send / readyState.
-const makeWs  = () => ({readyState: 1, closed: null, sent: [], on() {}, send(d) {this.sent.push(d)}, close(code, reason) {this.closed = {code, reason}}, terminate() {}});
+// `on` records each handler under `this.handlers` so a test can synthetically fire e.g. the 'close' handler.
+const makeWs  = () => ({readyState: 1, closed: null, sent: [], handlers: {}, on(event, handler) {this.handlers[event] = handler}, send(d) {this.sent.push(d)}, close(code, reason) {this.closed = {code, reason}}, terminate() {}});
 const makeReq = query => ({url: `/?${query}`, headers: {host: '127.0.0.1:8081'}});
 
 test.describe('Bridge.handleConnection — agent handshake auth (#13172)', () => {
@@ -76,5 +77,58 @@ test.describe('Bridge.handleConnection — agent handshake auth (#13172)', () =>
         Bridge.handleConnection(ws, makeReq('role=agent&id=legacy-agent'));
         expect(Bridge.agents.has('legacy-agent')).toBe(true);
         expect(ws.closed).toBe(null);
+    });
+});
+
+test.describe('Bridge.handleAgentMessage — agent-message sidecar emit', () => {
+    test.beforeEach(() => {
+        Bridge.agents = new Map();
+        Bridge.apps   = new Map();
+    });
+
+    test('registerAgent stamps a non-empty string sessionId on the agent socket', () => {
+        const ws = makeWs();
+        Bridge.registerAgent('agent-a', ws);
+
+        expect(typeof ws.sessionId).toBe('string');
+        expect(ws.sessionId.length).toBeGreaterThan(0);
+    });
+
+    test('handleAgentMessage forwards the message wrapped in the Bridge-stamped sidecar', () => {
+        const appWs   = makeWs();
+        const agentWs = makeWs();
+
+        Bridge.apps.set('app-1', appWs);
+        Bridge.registerAgent('agent-a', agentWs); // stamps agentWs.sessionId
+
+        Bridge.handleAgentMessage('agent-a', Buffer.from(JSON.stringify({
+            target : 'app-1',
+            message: {id: 1, method: 'x'}
+        })));
+
+        const frame = JSON.parse(appWs.sent.at(-1));
+
+        expect(frame.type).toBe('agent_message');
+        expect(frame.agentId).toBe('agent-a');
+        expect(frame.sessionId).toBe(agentWs.sessionId);
+        expect(frame.message).toEqual({id: 1, method: 'x'});
+    });
+
+    test('agent disconnect broadcasts an agent_disconnected frame (with sessionId) to apps', () => {
+        const appWs   = makeWs();
+        const agentWs = makeWs();
+
+        Bridge.apps.set('app-1', appWs);
+        Bridge.registerAgent('agent-a', agentWs);
+
+        const sessionId = agentWs.sessionId;
+
+        agentWs.handlers.close(); // synthetically fire the recorded 'close' handler
+
+        const frame = appWs.sent.map(JSON.parse).find(f => f.type === 'agent_disconnected');
+
+        expect(frame).toBeTruthy();
+        expect(frame.agentId).toBe('agent-a');
+        expect(frame.sessionId).toBe(sessionId);
     });
 });
