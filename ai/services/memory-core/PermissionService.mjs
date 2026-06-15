@@ -68,7 +68,8 @@ class PermissionService extends Base {
         // implicit side-effect of a permission grant. Stubbing with type 'AGENT' + stripped
         // metadata destroys seed data and creates type-inconsistent nodes. Use the same
         // foreign-key style existence guard as graph-link writes.
-        const verifyStmt = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id = ?');
+        const db         = GraphService.requireDb('PermissionService.grantPermission');
+        const verifyStmt = db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id = ?');
         if (verifyStmt.get(to).count === 0) {
             throw new Error(`Cannot grant ${scope} to ${to}: target does not exist. Identity nodes must be pre-seeded via ai/scripts/setup/seedAgentIdentities.mjs.`);
         }
@@ -91,7 +92,7 @@ class PermissionService extends Base {
         const owner = RequestContextService.getAgentIdentityNodeId();
         if (!owner) throw new Error("Cannot revoke permission: no agent identity context bound.");
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('PermissionService.revokePermission');
         const edgesToRemove = [];
         for (const edge of db.edges.items) {
             if (edge.source === to && edge.target === owner && edge.type === scope) {
@@ -124,7 +125,7 @@ class PermissionService extends Base {
             throw new Error(`Unauthorized: Cannot enumerate permissions for ${targetId}`);
         }
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('PermissionService.listPermissions');
         const capabilities = [];     // Things targetId can do to others
         const grantedToOthers = [];  // Things others can do to targetId
 
@@ -165,7 +166,7 @@ class PermissionService extends Base {
         // Identity always has permission to their own resources
         if (caller === target) return true;
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('PermissionService.hasPermission');
         for (const edge of db.edges.items) {
             if (edge.source === caller && edge.target === target && edge.type === scope) {
                 return true;

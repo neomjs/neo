@@ -289,6 +289,8 @@ class WakeSubscriptionService extends Base {
      * @returns {Promise<Object>}
      */
     async manage(opts = {}) {
+        GraphService.requireDb('WakeSubscriptionService.manage');
+
         const {action, ...rest} = opts;
         switch (action) {
             case 'bootstrap'  : return this.bootstrap  (rest);
