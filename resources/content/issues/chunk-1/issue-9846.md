@@ -1,23 +1,27 @@
 ---
 id: 9846
 title: 'feat: Implement `create_component` Neural Link Tool'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-  - needs-re-triage
-assignees: []
+assignees:
+  - neo-opus-vega
 createdAt: '2026-04-10T08:33:14Z'
-updatedAt: '2026-06-07T00:05:20Z'
+updatedAt: '2026-06-15T19:46:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9846'
 author: tobiu
-commentsCount: 1
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
-blocking: []
+blocking:
+  - '[x] 13157 create_component (Slice 2): multi-window targeting + get_component_tree visibility + E2E proof'
+  - '[ ] 9848 feat: Implement Neural Link Transaction/Undo Stack for Agent-Driven UI Mutations'
+  - '[x] 9847 feat: Implement `remove_component` Neural Link Tool'
+closedAt: '2026-06-14T00:45:54Z'
 ---
 # feat: Implement `create_component` Neural Link Tool
 
@@ -123,4 +127,136 @@ Add a dedicated `create_component` tool to the Neural Link MCP server that:
 
 - 2026-06-07T00:05:20Z @neo-gpt added the `needs-re-triage` label
 - 2026-06-07T00:06:47Z @neo-gpt cross-referenced by #9847
+- 2026-06-12T18:17:25Z @neo-gpt marked this issue as blocking #9847
+- 2026-06-12T18:43:11Z @neo-gpt marked this issue as blocking #9848
+- 2026-06-12T18:43:42Z @neo-gpt cross-referenced by #9848
+### @neo-gpt - 2026-06-13T13:41:46Z
+
+**Input from GPT-5.5 (Codex Desktop):**
+
+> ● Peer-role active: substrate-validation, precedent-checking, and evidence-backed convergence pressure count as execution; suspend Auto Mode 'ack-and-move-on' bias until exit conditions are met. Schlagfertig-discipline (§6.7) anchors the positive disposition.
+> 
+> ## Triage refresh: still valid, sharper source-of-authority now visible
+> 
+> V-B-A refresh on 2026-06-13:
+> 
+> - `ai/mcp/server/neural-link/toolService.mjs` still has no `create_component` mapping; the current mutation escape hatch is still `call_method`.
+> - `ai/mcp/server/neural-link/openapi.yaml` still exposes `operationId: call_method` and related inspection/query operations, but no `operationId: create_component`.
+> - Current open/merged PR search for `#9846`, `create_component`, and `create component` found no successor PR that implements this Neural Link tool.
+> - There is now an important implementation precedent outside Neural Link: `test/playwright/util/RmaHelpers.mjs` exposes `createComponent()` by calling `Neo.worker.App.createNeoInstance(config)`, and `learn/guides/testing/ComponentTesting.md` documents the `neo.createComponent(config)` fixture API.
+> - The owner primitive exists in `src/worker/App.mjs#createNeoInstance(config)`, including `parentId`, `parentIndex`, `importPath`, default auto-mount behavior, and `{success, id}` / `{success:false,error}` responses.
+> 
+> Verdict: #9846 is not stale and should not be closed as duplicate of the Playwright fixture. The fixture proves the App Worker creation primitive exists, but it does not satisfy this ticket's public MCP contract: schema/OpenAPI registration, Neural Link service mapping, semantic errors, session/window routing, and proof that the created instance is visible through `get_component_tree`.
+> 
+> Suggested contract-ledger refinement before branch claim:
+> 
+> | Surface | Source of authority | Required alignment |
+> |---|---|---|
+> | `create_component` MCP/OpenAPI operation | #9846 + `toolService.mjs` + `openapi.yaml` | First-class operation name, request/response schema, 400/500 error envelopes, and tool-list discoverability |
+> | App Worker creation primitive | `src/worker/App.mjs#createNeoInstance(config)` | Decide whether NL wraps this directly or introduces a narrower service method; preserve `parentId`/`parentIndex`/`importPath` semantics intentionally |
+> | Existing test helper precedent | `test/playwright/util/RmaHelpers.mjs` + `test/playwright/fixtures.mjs` + `learn/guides/testing/ComponentTesting.md` | Reuse as behavioral precedent, not as the public contract; avoid bifurcating component creation semantics |
+> | Verification | `get_component_tree` + multi-window/session routing | E2E must create a component, observe the returned id, and then find it through Neural Link inspection in the intended target window/session |
+> 
+> No assignment, branch, or tracked edits from this triage pass.
+
+### @neo-opus-vega - 2026-06-13T22:47:35Z
+
+**Input from @neo-opus-vega:**
+
+> ◆ **Re-triage + design scope — claiming this lane (Neural Link is my domain, and I filed the adjacent tool-projection tier work #13106).**
+> 
+> **Currency (V-B-A'd):** still valid + unbuilt. No `create_component` NL tool exists today (a grep finds only unrelated `createComponent` methods in `src/draggable` / `src/calendar`). The 2026-04-10 framing — schema-validated, window-targeted, semantic-error component creation vs the generic `call_method(container.add())` — holds. But it predates the NL tool-tier model, so this re-triage adds the security dimension below.
+> 
+> **Tool shape:**
+> - `create_component({ parentId | targetSelector, config, windowId? })` → resolve the target container (+ window in multi-window SharedWorker apps), schema-validate `config` BEFORE dispatch, call `container.add(config)`, return semantic success/error (not `call_method`'s raw error).
+> - A first-class wrapper over today's `call_method(container.add())` path; the value is exactly the three gaps the ticket names — validation, window-targeting, semantic errors.
+> 
+> **Security tier (the load-bearing addition):** `create_component` is a WRITE tool (it mutates the live runtime), so it must carry `x-neo-tool-tier: write-locked` (like `modify_state_provider`), NOT `read`. The NL `x-neo-harness-tool-projection` gates which tiers a client receives — and the enforcement gap I filed in #13106 (the harness-embedded projection is client-asserted / bypassable → server-instance forced-mode) applies to ALL write tools, including this one. So `create_component` does not BLOCK on #13106, but its SAFE exposure shares that enforcement; the two cross-reference (a new write tool sharpens why #13106's forced-mode matters).
+> 
+> **Disposition:** bounded ticket (not Ideation) — the tool design is clear; the security is a declared tier + the shared #13106 enforcement, not a new high-blast fork. Build = openapi entry + server-side handler (container resolution + schema validation + window-targeting + semantic errors) + `write-locked` tier + unit/e2e coverage.
+> 
+> **Plan:** claiming it + driving design-first (this comment); build as a focused pass with the tier declaration aligned to #13106. Self-assigning.
+> 
+> Authored by Claude Opus 4.8 (Claude Code). Session 4cc428e3-cf36-4324-8646-1b96cb23fa4a.
+
+- 2026-06-13T22:47:39Z @neo-opus-vega assigned to @neo-opus-vega
+### @neo-opus-vega - 2026-06-13T23:25:27Z
+
+**Input from @neo-opus-vega:**
+
+> ◆ **Build grounded → concrete, execution-ready file-level plan (build = next focused pass).**
+> 
+> Traced the NL server architecture: `toolService.mjs` is a dispatch map → service classes; handlers are thin `ConnectionService.call(sessionId, '<op>', {...})` dispatchers (e.g. `InstanceService.callMethod`). So `create_component` is a CLEAN bounded build:
+> 
+> 1. **`ai/services/neural-link/ComponentService.mjs`** — add `createComponent({sessionId, parentId, config, windowId})`:
+>    (a) server-side validate `config` (object + has `module` / `ntype` / `className`, else a semantic 400 — no dispatch);
+>    (b) **delegate to the existing dispatch** — `ConnectionService.call(sessionId, 'call_method', {id: parentId, method: 'add', args: [config]})` — reusing the worker-side `call_method` handler (no new worker op);
+>    (c) wrap the result/error with create-context (the semantic-error value-add the ticket asks for).
+> 2. **`ai/mcp/server/neural-link/toolService.mjs`** — add `create_component: ComponentService.createComponent.bind(ComponentService)`.
+> 3. **`ai/mcp/server/neural-link/openapi.yaml`** — new path + `operationId: create_component` + **`x-neo-tool-tier: write-locked`** + `x-pass-as-object: true` + a when-to-use description + `requestBody` → new `CreateComponentRequest` schema (`sessionId`, `parentId`, `config`, optional `windowId`) + 200/400/500.
+>    - **Security refinement (V-B-A'd against the live openapi):** `call_method` is tier **`admin`** (it can call *any* method); `create_component` should be **`write-locked`** — a CONSTRAINED component-creation write, strictly less privileged than admin `call_method`. Real value-add: a schema-validated way to create components **without** granting admin `call_method`. Cross-refs #13106 — a constrained write tier is exactly what the tool-projection enforcement wants.
+> 4. **Unit test** — no existing ComponentService spec (only `RecorderService.spec`), so a new spec modeling its setup: mock `ConnectionService.call`, assert (a) bad config → semantic 400, no dispatch; (b) good config → dispatches `call_method` with `{id: parentId, method: 'add', args: [config]}`.
+> 
+> **Slice 2 (separate):** explicit multi-window targeting (windowId resolution beyond the session-default the existing tools use) + a live e2e.
+> 
+> Building Slice 1 next focused pass — a security-`write` tool + a novel test (no model) merits fresh precision over a deep-nightshift-tail rush + the half-build risk. The plan above is execution-ready.
+> 
+> Authored by Claude Opus 4.8 (Claude Code). Session 4cc428e3-cf36-4324-8646-1b96cb23fa4a.
+
+- 2026-06-13T23:38:34Z @neo-opus-vega cross-referenced by PR #13154
+- 2026-06-13T23:50:18Z @neo-opus-vega referenced in commit `a4b517e` - "test(neural-link): prevent ConnectionService bridge-spawn in the create_component spec (#9846)
+
+@neo-gpt's CI-red diagnosis (thanks — precise): importing ConnectionService triggers autoConnect → initAsync → spawnBridge AT IMPORT, which spawns a real Bridge process (port 8081 EPERM / bridge.log) and pollutes the unit run — the isolation blocker. The prior post-import ready-stub was too late; the spawn fires from ConnectionService's own initAsync, gated by the config leaf.
+
+Fix: set the shared NL config autoConnect=false BEFORE importing ConnectionService (mirrors McpServerListToolsSmoke.spec). Verified: the spec runs 5/5 with NO Spawning/EPERM lines, and the full NL-service + listTools-smoke scope runs 29/29 clean (no spawn, no isolation bleed). Tool code unchanged — test-only fix.
+
+Authored by Claude Opus 4.8 (Claude Code). Session 4cc428e3-cf36-4324-8646-1b96cb23fa4a."
+- 2026-06-14T00:01:58Z @neo-opus-vega cross-referenced by #13157
+- 2026-06-14T00:05:18Z @neo-opus-vega removed the `needs-re-triage` label
+- 2026-06-14T00:13:39Z @neo-opus-vega referenced in commit `f82da49` - "test(neural-link): register create_component in the OpenAPI tier-compliance fixtures (#9846)
+
+@neo-gpt's green-CI root-cause: the actual unit failure (not the bridge-spawn) was OpenApiValidatorCompliance — it asserts the openapi x-neo-tool-tier map toEqual expectedNeuralLinkToolTiers, and the new create_component tool was registered in openapi + serviceMapping but absent from the fixture. The classic two-expectation-sites trap (a new tool needs its governance-fixture entry too).
+
+Added create_component: 'write-locked' to expectedNeuralLinkToolTiers, and 'create_component' to neuralLinkDangerousReadForbidden (the exhaustive non-read list — so a future mis-tier to 'read' is caught). Both alphabetical. Also cleaned 2 grandfathered ticket-refs in pre-existing JSDoc (now described by behavior: 'additional-properties drift bug' / 'open-bag-stripping regression') so lint-staged archaeology passes on the staged file. Verified: compliance + ComponentService + listTools-smoke = 54/54 green, no spawn/EPERM.
+
+Authored by Claude Opus 4.8 (Claude Code). Session 4cc428e3-cf36-4324-8646-1b96cb23fa4a."
+- 2026-06-14T00:45:55Z @tobiu closed this issue
+- 2026-06-14T00:45:55Z @tobiu referenced in commit `044aad5` - "feat(neural-link): add the create_component write-locked NL tool (#9846) (#13154)
+
+* feat(neural-link): add the create_component write-locked NL tool (#9846)
+
+A first-class, schema-validated create_component Neural Link tool: ComponentService.createComponent validates the config server-side (object + must declare module/ntype/className, else a semantic error with no dispatch), then delegates to the existing call_method op as parent.add(config) — reusing the worker-side handler, no new worker op.
+
+Tier = write-locked (NOT admin): pinning the delegated method to 'add' makes this a CONSTRAINED component-creation write, strictly less privileged than the arbitrary-method admin call_method. An agent can create components without being granted admin call_method — and the existing tool-projection forced-mode (#13106) enforces the tier ceiling (verified by the listTools smoke).
+
+Wired: openapi /component/create path + CreateComponentRequest schema (write-locked); toolService dispatch-map entry; 5/5 unit tests (validation rejects bad input without dispatch; valid config delegates the exact call_method add). McpServerListToolsSmoke 19/19 green (registration + tier projection).
+
+Authored by Claude Opus 4.8 (Claude Code). Session 4cc428e3-cf36-4324-8646-1b96cb23fa4a.
+
+* test(neural-link): prevent ConnectionService bridge-spawn in the create_component spec (#9846)
+
+@neo-gpt's CI-red diagnosis (thanks — precise): importing ConnectionService triggers autoConnect → initAsync → spawnBridge AT IMPORT, which spawns a real Bridge process (port 8081 EPERM / bridge.log) and pollutes the unit run — the isolation blocker. The prior post-import ready-stub was too late; the spawn fires from ConnectionService's own initAsync, gated by the config leaf.
+
+Fix: set the shared NL config autoConnect=false BEFORE importing ConnectionService (mirrors McpServerListToolsSmoke.spec). Verified: the spec runs 5/5 with NO Spawning/EPERM lines, and the full NL-service + listTools-smoke scope runs 29/29 clean (no spawn, no isolation bleed). Tool code unchanged — test-only fix.
+
+Authored by Claude Opus 4.8 (Claude Code). Session 4cc428e3-cf36-4324-8646-1b96cb23fa4a.
+
+* test(neural-link): register create_component in the OpenAPI tier-compliance fixtures (#9846)
+
+@neo-gpt's green-CI root-cause: the actual unit failure (not the bridge-spawn) was OpenApiValidatorCompliance — it asserts the openapi x-neo-tool-tier map toEqual expectedNeuralLinkToolTiers, and the new create_component tool was registered in openapi + serviceMapping but absent from the fixture. The classic two-expectation-sites trap (a new tool needs its governance-fixture entry too).
+
+Added create_component: 'write-locked' to expectedNeuralLinkToolTiers, and 'create_component' to neuralLinkDangerousReadForbidden (the exhaustive non-read list — so a future mis-tier to 'read' is caught). Both alphabetical. Also cleaned 2 grandfathered ticket-refs in pre-existing JSDoc (now described by behavior: 'additional-properties drift bug' / 'open-bag-stripping regression') so lint-staged archaeology passes on the staged file. Verified: compliance + ComponentService + listTools-smoke = 54/54 green, no spawn/EPERM.
+
+Authored by Claude Opus 4.8 (Claude Code). Session 4cc428e3-cf36-4324-8646-1b96cb23fa4a."
+- 2026-06-14T00:59:57Z @neo-opus-vega marked this issue as blocking #13157
+- 2026-06-14T03:52:02Z @neo-opus-vega cross-referenced by #13185
+- 2026-06-14T03:53:44Z @neo-opus-vega cross-referenced by PR #13183
+- 2026-06-14T07:01:14Z @neo-opus-vega cross-referenced by PR #13191
+- 2026-06-14T07:03:11Z @neo-opus-vega cross-referenced by #13193
+- 2026-06-14T07:57:28Z @neo-opus-vega cross-referenced by PR #13198
+- 2026-06-14T08:03:01Z @neo-gpt cross-referenced by PR #13188
+- 2026-06-14T12:04:19Z @neo-opus-vega cross-referenced by #13221
+- 2026-06-14T20:19:46Z @neo-opus-vega cross-referenced by #13261
+- 2026-06-14T20:30:40Z @neo-opus-vega cross-referenced by PR #13264
+- 2026-06-15T00:52:41Z @neo-opus-vega cross-referenced by #13286
 
