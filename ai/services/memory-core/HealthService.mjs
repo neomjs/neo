@@ -295,7 +295,7 @@ function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
  * @returns {{active: String, host: String|null, model: String|null, local: Boolean}}
  */
 export function buildSummaryProviderBlock(cfg) {
-    const active = cfg.modelProvider || 'gemini';
+    const active = cfg.modelProvider || 'openAiCompatible';
 
     if (active === 'openAiCompatible') {
         const host = cfg.openAiCompatible?.host || null;
@@ -308,11 +308,89 @@ export function buildSummaryProviderBlock(cfg) {
         };
     }
 
+    if (active === 'ollama') {
+        const host = cfg.ollama?.host || null;
+
+        return {
+            active,
+            host,
+            model: cfg.ollama?.model || null,
+            local: !!host && /^(https?:\/\/)?(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(host)
+        };
+    }
+
     return {
         active,
         host : null,
         model: active === 'gemini' ? cfg.modelName || null : null,
         local: false
+    };
+}
+
+/**
+ * @summary Resolves whether the configured Memory Core model providers have their
+ *          required credentials available.
+ *
+ * Local providers (`openAiCompatible`, `ollama`) are valid without `GEMINI_API_KEY`;
+ * Gemini requires `GEMINI_API_KEY` only for the exact summary or embedding surface that
+ * selects Gemini. This keeps health diagnostics aligned with the provider SSOT instead
+ * of treating a missing Gemini key as a universal Memory Core outage.
+ *
+ * @param {Object} cfg aiConfig-shaped input containing `modelProvider`, `embeddingProvider`,
+ *     and `engine`.
+ * @param {Object} [env=process.env] Environment object used for deterministic tests.
+ * @returns {{ready: Boolean, summary: Object, embedding: Object, details: String[]}}
+ */
+export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
+    const supportedProviders = ['gemini', 'openAiCompatible', 'ollama'],
+          engine             = cfg.engine,
+          summaryProvider    = cfg.modelProvider || 'openAiCompatible',
+          embeddingProvider  = cfg.embeddingProvider || 'openAiCompatible',
+          checkProvider      = (provider, surface, unavailableDetail) => {
+              if (!supportedProviders.includes(provider)) {
+                  return {
+                      ready : false,
+                      detail: `Unsupported ${surface} provider '${provider}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
+                  };
+              }
+
+              if (provider === 'gemini' && !env.GEMINI_API_KEY) {
+                  return {
+                      ready : false,
+                      detail: unavailableDetail
+                  };
+              }
+
+              return {
+                  ready : true,
+                  detail: null
+              };
+          },
+          summary = checkProvider(
+              summaryProvider,
+              'summary',
+              "Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
+          ),
+          embedding = (engine === 'chroma' || engine === 'hybrid')
+              ? checkProvider(
+                  embeddingProvider,
+                  'embedding',
+                  "Embedding provider 'gemini' requires GEMINI_API_KEY - semantic memory features unavailable"
+              )
+              : {ready: true, detail: null},
+          details = [summary.detail, embedding.detail].filter(Boolean);
+
+    return {
+        ready: summary.ready && embedding.ready,
+        summary: {
+            provider: summaryProvider,
+            ready   : summary.ready
+        },
+        embedding: {
+            provider: embeddingProvider,
+            ready   : embedding.ready
+        },
+        details
     };
 }
 
@@ -1146,20 +1224,8 @@ class HealthService extends Base {
 
 
 
-    #checkApiKeyConfigured() {
-        const providers = [aiConfig.modelProvider];
-        const engine = aiConfig.engine;
-
-        if (engine === 'chroma' || engine === 'hybrid') {
-            providers.push(aiConfig.embeddingProvider);
-        }
-
-        const needsGemini = providers.some(p => p === 'gemini');
-
-        if (!needsGemini) {
-            return true; // Local generation and embedding does not require Gemini key
-        }
-        return !!process.env.GEMINI_API_KEY;
+    #checkProviderPrerequisites() {
+        return buildProviderPrerequisiteBlock(aiConfig);
     }
 
     /**
@@ -1233,11 +1299,11 @@ class HealthService extends Base {
      * The checks are performed in order of criticality:
      * 1. ChromaDB connectivity (if it's not running, nothing else matters)
      * 2. Collection accessibility (ensures data structures are ready)
-     * 3. API key presence (optional, but needed for summarization)
+     * 3. Provider prerequisites (only the configured provider surfaces require credentials)
      *
      * Status levels:
-     * - healthy: ChromaDB running, collections accessible, API key present
-     * - degraded: ChromaDB running, collections accessible, but API key missing
+     * - healthy: ChromaDB running, collections accessible, configured providers ready
+     * - degraded: ChromaDB running, collections accessible, but a configured provider is missing credentials
      * - unhealthy: ChromaDB not running or collections not accessible
      *
      * @returns {Promise<object>} A comprehensive health status payload
@@ -1305,13 +1371,13 @@ class HealthService extends Base {
 
         await this.#applyEmbeddingWriteCanary(payload);
 
-        // Step 3: Check API key for summarization feature
-        const apiKeyConfigured = this.#checkApiKeyConfigured();
-        payload.features.summarization = apiKeyConfigured;
+        // Step 3: Check configured provider prerequisites.
+        const providerPrerequisites = this.#checkProviderPrerequisites();
+        payload.features.summarization = providerPrerequisites.summary.ready;
 
-        if (!apiKeyConfigured) {
+        if (!providerPrerequisites.ready) {
             payload.status = 'degraded';
-            payload.details.push('GEMINI_API_KEY not set - summarization features unavailable');
+            payload.details.push(...providerPrerequisites.details);
         }
 
         if (payload.identity.warning) {
@@ -1455,16 +1521,17 @@ class HealthService extends Base {
      * with a clear error message if dependencies are not available.
      *
      * By throwing an exception, we ensure that:
-     * 1. The operation doesn't attempt to use ChromaDB/Gemini and get cryptic errors
+     * 1. The operation doesn't attempt to use unavailable storage/provider dependencies and get cryptic errors
      * 2. The agent receives a clear, actionable error message via the MCP protocol
      * 3. Users understand exactly what needs to be fixed
      *
      * This method leverages the cached health check, so calling it frequently
      * (e.g., before each tool invocation) has minimal performance impact.
      *
-     * Note: Both ChromaDB and GEMINI_API_KEY are required for all memory operations,
-     * since adding/querying memories requires text embeddings via the Gemini API.
-     * Only database lifecycle operations (start/stop) can work in degraded state.
+     * Note: Embedding-dependent reads require ChromaDB and the configured embedding
+     * provider to be available. Local providers do not require `GEMINI_API_KEY`, and
+     * the server exempts mailbox, WAL-backed `add_memory`, and non-embedding recency
+     * reads from this gate when a model-provider surface is degraded.
      *
      * @throws {Error} If the Memory Core is not fully healthy, with a detailed message
      * @returns {Promise<void>}
