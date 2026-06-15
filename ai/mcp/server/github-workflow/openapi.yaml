@@ -405,8 +405,8 @@ paths:
 
         **Action: 'create'**
         - Creates a new comment on an issue or PR.
-        - Requires `agent`, `body`, and either `issue_number` or `pr_number`.
-        - Automatically formats the comment with the agent's identity.
+        - Requires `body` and either `issue_number` or `pr_number`.
+        - Posts `body` as-authored; GitHub's authenticated author is the attribution.
         - **When to use:** To provide feedback, approve PRs (with "LGTM"), or ask questions.
 
         **Action: 'update'**
@@ -445,10 +445,6 @@ paths:
                 body:
                   type: string
                   description: The content of the comment.
-                agent:
-                  type: string
-                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
-                  example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
           description: |
@@ -1381,7 +1377,8 @@ paths:
 
         **Action: 'create'**
         - Creates a new comment on a discussion.
-        - Requires `agent`, `body`, and `discussion_number`.
+        - Requires `body` and `discussion_number`.
+        - Posts `body` as-authored; GitHub's authenticated author is the attribution.
         - Returns `commentId` for scoped hand-off via `get_discussion_conversation`.
 
         **Action: 'update'**
@@ -1414,10 +1411,6 @@ paths:
                 body:
                   type: string
                   description: The content of the comment.
-                agent:
-                  type: string
-                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
-                  example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
           description: Comment created or updated successfully.

@@ -199,6 +199,10 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
                 }
                 if (callCount === 2) {
                     // ADD_COMMENT mutation — matches the shape IssueService.createComment consumes
+                    expect(variables).toMatchObject({
+                        subjectId: ISSUE_NODE_ID,
+                        body     : 'Test comment body'
+                    });
                     return {
                         addComment: {
                             commentEdge: {
@@ -217,7 +221,6 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             const result = await IssueService.manageIssueComment({
                 issue_number: 10272,
                 body        : 'Test comment body',
-                agent       : 'Claude Opus 4.7 (Claude Code)',
                 action      : 'create'
             });
 
@@ -248,6 +251,10 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
                     return {repository: {pullRequest: {id: PR_NODE_ID}}};
                 }
                 if (callCount === 2) {
+                    expect(variables).toMatchObject({
+                        subjectId: PR_NODE_ID,
+                        body     : 'PR review comment body'
+                    });
                     return {
                         addComment: {
                             commentEdge: {
@@ -266,7 +273,6 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             const result = await IssueService.manageIssueComment({
                 pr_number: 10268,
                 body     : 'PR review comment body',
-                agent    : 'Claude Opus 4.7 (Claude Code)',
                 action   : 'create'
             });
 
@@ -287,27 +293,11 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
                 issue_number: 10272,
                 pr_number   : 10268,
                 body        : 'Ambiguous',
-                agent       : 'Claude Opus 4.7 (Claude Code)',
                 action      : 'create'
             });
 
             expect(result.error).toBe('Bad Request');
             expect(result.code).toBe('INVALID_ARGUMENTS');
-            expect(callCount).toBe(0);
-        });
-
-        test('rejects missing agent on create', async () => {
-            let callCount = 0;
-            GraphqlService.query = async () => { callCount++; return null; };
-
-            const result = await IssueService.manageIssueComment({
-                issue_number: 10272,
-                body        : 'Missing agent',
-                action      : 'create'
-            });
-
-            expect(result.error).toBe('Bad Request');
-            expect(result.code).toBe('MISSING_ARGUMENTS');
             expect(callCount).toBe(0);
         });
 
@@ -319,7 +309,6 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             const result = await IssueService.manageIssueComment({
                 issue_number: 10272,
                 body        : 'Will fail',
-                agent       : 'Claude Opus 4.7 (Claude Code)',
                 action      : 'create'
             });
 
