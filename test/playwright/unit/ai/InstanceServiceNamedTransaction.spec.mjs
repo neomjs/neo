@@ -171,4 +171,25 @@ test.describe('Neo.ai.client.InstanceService — named-transaction batching', ()
         // the batch folded 2 mutations into one auditable unit — labels in capture order, raw ops excluded
         expect(committed[0]).toEqual({txId: 'batch:add-grid', status: 'committed', opCount: 2, labels: ['set width', 'set height']})
     });
+
+    test('abort_transaction discards the open batch — committed stack + redo branch untouched', async () => {
+        await service.beginTransaction({name: 'keep'}, ID);
+        service.recordUndo(ID, op('kept', 'k1'));
+        await service.commitTransaction({}, ID);            // committed[0] = batch:keep
+
+        await service.beginTransaction({name: 'discard'}, ID);
+        service.recordUndo(ID, op('throwaway', 'd1'));      // open batch:discard, 1 op
+
+        expect(await service.abortTransaction({}, ID)).toEqual({aborted: true, txId: 'batch:discard'});
+
+        const {open, committed, redo} = transactionService.stackOf({id: ID});
+        expect(open).toBeNull();                            // the open batch dropped (never undoable)
+        expect(committed.map(t => t.txId)).toEqual(['batch:keep']); // the prior committed batch untouched
+        expect(redo).toEqual([])                            // redo branch untouched
+    });
+
+    test('abort_transaction fail-closed → no identity / no open batch', async () => {
+        expect(await service.abortTransaction({}, null)).toEqual({aborted: false, reason: 'no-writer-identity'});
+        expect(await service.abortTransaction({}, ID)).toEqual({aborted: false, reason: 'no-open-transaction'}) // nothing open (idempotent)
+    });
 });
