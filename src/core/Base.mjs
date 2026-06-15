@@ -187,7 +187,7 @@ class Base {
 
     /**
      * Internal cache for all async reject functions (timeouts, remote calls, promises).
-     * @member {Map<Number|Symbol, Function>} #asyncRejects=new Map()
+     * @member {Map<Number|Object|Symbol, Function>} #asyncRejects=new Map()
      * @private
      */
     #asyncRejects = new Map()
@@ -509,7 +509,7 @@ class Base {
         let me = this;
 
         me.#asyncRejects.forEach((reject, id) => {
-            if (Neo.isNumber(id)) {
+            if (typeof id !== 'symbol') {
                 clearTimeout(id)
             }
 
@@ -1189,7 +1189,7 @@ class Base {
 
     /**
      * Unregisters an async operation.
-     * @param {Number|Symbol} id - The unique ID for the async operation.
+     * @param {Number|Object|Symbol} id - The unique ID for the async operation.
      */
     unregisterAsync(id) {
         this.#asyncRejects.delete(id)
@@ -1198,7 +1198,7 @@ class Base {
     /**
      * Registers an async operation (via its reject function) to be cancelled (rejected)
      * when the component is destroyed.
-     * @param {Number|Symbol} id - The unique ID for the async operation.
+     * @param {Number|Object|Symbol} id - The unique ID for the async operation.
      * @param {Function} reject - The reject function of the promise.
      */
     registerAsync(id, reject) {
