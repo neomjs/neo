@@ -141,14 +141,14 @@ gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "Comprehen
 
 To ensure symmetric discipline across the PR lifecycle and enable accurate cross-model convergence tracking, you MUST explicitly self-identify within the PR body you generate. This mirrors the authorship requirements in the `pr-review` skill.
 
-Your PR body MUST include a self-identification block near the top, formatted exactly as follows (`@<identity>` is canonical — the cross-family gate keys off it; §6.1):
-`Authored by [Model Name] ([Agent Wrapper]), @<identity> ([Social Name]). Session <Origin Session ID>.`
+Your PR body MUST include a self-identification block at the **bottom**, formatted exactly as follows (the **Social Name** is canonical — the cross-family gate keys off it; §6.1; the gh comment author already shows the routing handle, so the in-body `@handle` is omitted):
+`Authored by [Social Name] ([Model Name], [Agent Wrapper]). Session <Origin Session ID>.`
 
 **Cross-Harness Authorship Convention:**
 When you author a PR based on a handoff, ticket, or artifact synthesized by a *different* model in a *different* session (e.g., executing an implementation plan created by another agent), you MUST attribute the full provenance:
-`Authored by [Model-B] ([Harness-B]), @<identity-B> consuming [Model-A]'s handoff — session A <id>, session B <id>.`
+`Authored by [Social Name-B] ([Model-B], [Harness-B]) consuming [Social Name-A]'s handoff — session A <id>, session B <id>.`
 
-This ensures A2A provenance remains graph-extractable even if you do not have a dedicated GitHub service account.
+This keeps provenance graph-extractable in the cross-harness case, where the gh account does NOT reflect the true author.
 
 ## 6. Definition of Done & The Handoff State
 
@@ -170,7 +170,7 @@ You MUST follow this exact handoff protocol:
 
 ### 6.1 The Cross-Family Mandate
 
-**No PR may be merged without at least one cross-family Approved review** (Claude-family ↔ Gemini-family, identified by the `agent` field in the Approved review comment). See `pr-review §7.2` for the empirical rationale. Note: To satisfy this gate, reviewers MUST chain a formal GitHub PR Review state (`reviewDecision: APPROVED`) via `manage_pr_review` (state `APPROVED`) per `pr-review-guide.md §2`. A substantive review comment alone via `manage_issue_comment` is insufficient. **Author family** is resolved from the §5 `@identity` self-id, not the drift-prone GitHub login (advisory only).
+**No PR may be merged without at least one cross-family Approved review** (Claude-family ↔ Gemini-family, identified by the `agent` field in the Approved review comment). See `pr-review §7.2` for the empirical rationale. Note: To satisfy this gate, reviewers MUST chain a formal GitHub PR Review state (`reviewDecision: APPROVED`) via `manage_pr_review` (state `APPROVED`) per `pr-review-guide.md §2`. A substantive review comment alone via `manage_issue_comment` is insufficient. **Author family** is resolved from the §5 **Social Name** (roster-resolvable via `identityRoots`), with the gh `author.login` as fallback.
 
 **Exceptions Matrix:**
 - **Micro-change exemption**: Commit type `chore` AND `< 20 lines` changed, OR pure documentation with no runtime impact.
