@@ -7,6 +7,19 @@ import WakeSubscriptionService from './WakeSubscriptionService.mjs';
 import crypto from 'crypto';
 import SemanticGraphExtractor from '../../services/graph/SemanticGraphExtractor.mjs';
 
+const
+    WAKE_SUPPRESSION_ALLOWED_TAGS = new Set(['sunset-protocol-handover', 'lead-role-baton']),
+    WAKE_SUPPRESSION_ACTIONABLE_SUBJECTS = [
+        /^\[re-review/i,
+        /^\[review/i,
+        /^\[review-response/i,
+        /\bre-?review\b/i,
+        /\breview-?request\b/i,
+        /\bREQUEST_CHANGES\b/i,
+        /\bCHANGES_REQUESTED\b/i,
+        /\blane-override\b/i
+    ];
+
 /**
  * Normalizes a raw addressing target into its canonical Graph Node ID format.
  * Enforces the unified identity substrate where `@<login>` is canonical for all identities.
@@ -122,6 +135,63 @@ function setRecordProperties(record, properties) {
     } else if (record) {
         record.properties = properties;
     }
+}
+
+/**
+ * @summary True for intentionally mailbox-only wake suppression cases whose recipients should
+ * pick the message up through `list_messages`, not through an interrupt wake.
+ * @param {Object} args
+ * @param {String} args.subject
+ * @param {String[]} args.taggedConcepts
+ * @param {String} args.to
+ * @returns {Boolean}
+ * @private
+ */
+function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
+    if (to === 'AGENT:*') return true;
+
+    if (taggedConcepts.some(tag => WAKE_SUPPRESSION_ALLOWED_TAGS.has(tag))) {
+        return true;
+    }
+
+    return /^\[alert\]/i.test(subject);
+}
+
+/**
+ * @summary Returns the actionable-suppression reason for a direct A2A message, or `null` when
+ * `wakeSuppressed` is safe. `wakeSuppressed` is honored downstream by the wake substrate; this
+ * guard sits at message acceptance so known-actionable direct lifecycle messages cannot silently
+ * become mailbox-only.
+ * @param {Object} args
+ * @param {Boolean} args.wakeSuppressed
+ * @param {String} args.to
+ * @param {String} args.subject
+ * @param {String} args.priority
+ * @param {String[]} args.taggedConcepts
+ * @param {Object} [args.task]
+ * @returns {String|null}
+ * @private
+ */
+function getWakeSuppressionRisk({wakeSuppressed, to, subject = '', priority = 'normal', taggedConcepts = [], task}) {
+    if (!wakeSuppressed || isAllowedWakeSuppression({subject, taggedConcepts, to})) {
+        return null;
+    }
+
+    if (!to?.startsWith('@')) {
+        return null;
+    }
+
+    if (priority === 'high') {
+        return 'high-priority direct message';
+    }
+
+    if (task) {
+        return 'direct task message';
+    }
+
+    const pattern = WAKE_SUPPRESSION_ACTIONABLE_SUBJECTS.find(item => item.test(subject));
+
+    return pattern ? 'actionable direct lifecycle subject' : null;
 }
 
 /**
@@ -371,7 +441,8 @@ class MailboxService extends Base {
      * @param {String[]} [args.taggedConcepts] Array of concept IDs tagged
      * @param {Boolean} [args.wakeSuppressed=false] Persist the message without emitting `SENT_TO_ME`
      *   wake events. Intended for mailbox-only handovers such as session-sunset self-DMs that must be
-     *   consumed by the next boot, not injected back into the active sender harness.
+     *   consumed by the next boot, not injected back into the active sender harness. Known-actionable
+     *   direct lifecycle messages reject wake suppression before persistence.
      * @param {Object} [args.task] Optional A2A Task envelope payload. When present,
      *   stored verbatim as a property on the MESSAGE node and surfaced by get_message + list_messages
      *   for programmatic agent coordination. This write primitive treats `task` as opaque JSON;
@@ -483,6 +554,16 @@ class MailboxService extends Base {
             }
         }
 
+        if (task?.state && !MailboxService.VALID_TASK_STATES.includes(task.state)) {
+            throw new Error(`Invalid task state: ${task.state}. Must be one of: ${MailboxService.VALID_TASK_STATES.join(', ')}`);
+        }
+
+        const wakeSuppressionRisk = getWakeSuppressionRisk({wakeSuppressed, to, subject, priority, taggedConcepts, task});
+
+        if (wakeSuppressionRisk) {
+            throw new Error(`Cannot suppress wake for ${wakeSuppressionRisk}. Omit wakeSuppressed or set it to false; mailbox-only suppression is reserved for awareness/FYI, session-sunset handover, lead-role baton, and audit-alert messages.`);
+        }
+
         // 1. Create the Message Node
         // The optional `task` property carries an A2A-Task-object-shaped JSON payload. When
         // present, downstream consumers surface it for programmatic agent coordination. The
@@ -506,9 +587,6 @@ class MailboxService extends Base {
         };
 
         if (task !== undefined) {
-            if (task.state && !MailboxService.VALID_TASK_STATES.includes(task.state)) {
-                throw new Error(`Invalid task state: ${task.state}. Must be one of: ${MailboxService.VALID_TASK_STATES.join(', ')}`);
-            }
             messageProperties.task = task;
         }
 
