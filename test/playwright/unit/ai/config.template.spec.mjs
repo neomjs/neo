@@ -140,14 +140,16 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(resolveLocalModelChatContextBand(80 * GB)).toEqual({contextLimitTokens: 131072, safeProcessingLimitTokens: 100000});
         expect(resolveLocalModelChatContextBand(64 * GB)).toEqual({contextLimitTokens: 65536,  safeProcessingLimitTokens: 50000});
         expect(resolveLocalModelChatContextBand(48 * GB)).toEqual({contextLimitTokens: 32768,  safeProcessingLimitTokens: 25000});
-        expect(resolveLocalModelChatContextBand(32 * GB)).toEqual({contextLimitTokens: 16384,  safeProcessingLimitTokens: 12000});
-        expect(resolveLocalModelChatContextBand(16 * GB)).toEqual({contextLimitTokens: 8192,   safeProcessingLimitTokens: 6000});
+        expect(resolveLocalModelChatContextBand(32 * GB)).toEqual({contextLimitTokens: 16384,  safeProcessingLimitTokens: 12500});
+        expect(resolveLocalModelChatContextBand(16 * GB)).toEqual({contextLimitTokens: 8192,   safeProcessingLimitTokens: 6250});
 
-        // safeProcessingLimitTokens is the ~76% headroom band of the resolved context limit (every tier).
+        // safeProcessingLimitTokens is the ~76% headroom band of the resolved context limit — EVERY tier.
         for (const ramGb of [16, 32, 48, 64, 80, 128]) {
-            const band = resolveLocalModelChatContextBand(ramGb * GB);
+            const band  = resolveLocalModelChatContextBand(ramGb * GB),
+                  ratio = band.safeProcessingLimitTokens / band.contextLimitTokens;
             expect(band.safeProcessingLimitTokens).toBeLessThan(band.contextLimitTokens);
-            expect(band.safeProcessingLimitTokens / band.contextLimitTokens).toBeGreaterThan(0.7);
+            expect(ratio).toBeGreaterThan(0.75);
+            expect(ratio).toBeLessThan(0.77);
         }
     });
 

@@ -38,8 +38,8 @@ export function resolveLocalModelChatContextBand(totalMemBytes) {
     if (ramGb >= 72) return {contextLimitTokens: 131072, safeProcessingLimitTokens: 100000}; // 128K
     if (ramGb >= 56) return {contextLimitTokens: 65536,  safeProcessingLimitTokens: 50000};  // 64K
     if (ramGb >= 40) return {contextLimitTokens: 32768,  safeProcessingLimitTokens: 25000};  // 32K
-    if (ramGb >= 24) return {contextLimitTokens: 16384,  safeProcessingLimitTokens: 12000};  // 16K
-    return {contextLimitTokens: 8192, safeProcessingLimitTokens: 6000};                       // 8K floor
+    if (ramGb >= 24) return {contextLimitTokens: 16384,  safeProcessingLimitTokens: 12500};  // 16K
+    return {contextLimitTokens: 8192, safeProcessingLimitTokens: 6250};                       // 8K floor
 }
 
 /**
