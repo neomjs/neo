@@ -77,11 +77,10 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
-        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'handoffFilePath']);
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'handoffFilePath']);
 
-        aiConfig.storagePaths.graph   = testDbPath;
-        aiConfig.autoIngestFileSystem = false;
-        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
+        aiConfig.storagePaths.graph = testDbPath;
+        aiConfig.handoffFilePath    = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MemorySessionIngestor  = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;

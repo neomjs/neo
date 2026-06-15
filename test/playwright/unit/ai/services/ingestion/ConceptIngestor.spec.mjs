@@ -45,11 +45,10 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
-        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'autoIngestFileSystem', 'handoffFilePath']);
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'handoffFilePath']);
 
-        aiConfig.storagePaths.graph   = testDbPath;
-        aiConfig.autoIngestFileSystem = false;
-        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
+        aiConfig.storagePaths.graph = testDbPath;
+        aiConfig.handoffFilePath    = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         ConceptIngestor        = (await import('../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;

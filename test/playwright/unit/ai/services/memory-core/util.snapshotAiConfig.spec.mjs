@@ -19,41 +19,71 @@ import {snapshotAiConfig} from './util.mjs';
 /**
  * @summary Unit coverage for the snapshotAiConfig test-isolation helper.
  *
- * The helper captures aiConfig leaves and returns a restore() thunk; it is pure, so these tests
- * exercise it against a plain fixture object — never the real aiConfig Provider singleton.
+ * Two layers: pure-fixture tests pin the restore-existing / throw-on-absent contract against a plain
+ * object, and a Provider-backed block proves the same contract on the real aiConfig Provider
+ * singleton — whose proxy has no delete API, the surface the helper actually guards.
  */
 test.describe('Neo.ai test-isolation — snapshotAiConfig (#12435)', () => {
     test('restores mutated leaves to their captured values', () => {
-        const cfg = {storagePaths: {graph: '/orig/graph.sqlite'}, autoIngestFileSystem: true};
+        const cfg = {storagePaths: {graph: '/orig/graph.sqlite'}, handoffFilePath: '/orig/handoff.md'};
 
-        const restore = snapshotAiConfig(cfg, ['storagePaths.graph', 'autoIngestFileSystem']);
+        const restore = snapshotAiConfig(cfg, ['storagePaths.graph', 'handoffFilePath']);
 
-        cfg.storagePaths.graph   = '/tmp/test.sqlite';
-        cfg.autoIngestFileSystem = false;
+        cfg.storagePaths.graph = '/tmp/test.sqlite';
+        cfg.handoffFilePath    = '/tmp/handoff.md';
 
         restore();
 
         expect(cfg.storagePaths.graph).toBe('/orig/graph.sqlite');
-        expect(cfg.autoIngestFileSystem).toBe(true);
+        expect(cfg.handoffFilePath).toBe('/orig/handoff.md');
     });
 
-    test('deletes a leaf that did not exist at capture time', () => {
+    test('throws on a leaf that does not exist at capture time', () => {
         const cfg = {storagePaths: {graph: '/orig/graph.sqlite'}};
 
-        const restore = snapshotAiConfig(cfg, ['handoffFilePath']);
-
-        cfg.handoffFilePath = '/tmp/handoff.md';
-        restore();
-
-        expect(Object.prototype.hasOwnProperty.call(cfg, 'handoffFilePath')).toBe(false);
+        // No delete API on the real target, so the helper refuses a path it cannot undo rather than
+        // hand back a restore() that silently leaks the test-written value.
+        expect(() => snapshotAiConfig(cfg, ['handoffFilePath'])).toThrow(/does not resolve to a value/);
     });
 
-    test('tolerates a missing parent without throwing', () => {
+    test('throws when a snapshotted path has no parent', () => {
         const cfg = {};
 
-        const restore = snapshotAiConfig(cfg, ['engines.chroma.database']);
+        expect(() => snapshotAiConfig(cfg, ['engines.chroma.database'])).toThrow(/does not resolve to a value/);
+    });
+});
 
-        expect(() => restore()).not.toThrow();
-        expect(cfg.engines).toBeUndefined();
+test.describe('Neo.ai test-isolation — snapshotAiConfig on the real aiConfig Provider', () => {
+    let aiConfig;
+
+    test.beforeAll(async () => {
+        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+    });
+
+    test('restores an existing leaf on the real Provider singleton via the set trap', () => {
+        // handoffFilePath is a declared scalar leaf, not a storage/DB path, so this
+        // snapshot→mutate→restore round-trip cannot bleed test state into a live DB (B4). restore()
+        // runs in `finally`, so the shared singleton returns to its captured value even if the
+        // mid-flight assertion throws.
+        const original = aiConfig.handoffFilePath,
+              restore  = snapshotAiConfig(aiConfig, ['handoffFilePath']);
+
+        try {
+            aiConfig.handoffFilePath = '/tmp/__neo_probe_handoff__.md';
+            expect(aiConfig.handoffFilePath).toBe('/tmp/__neo_probe_handoff__.md') // set trap wrote through
+        } finally {
+            restore()
+        }
+
+        expect(aiConfig.handoffFilePath).toBe(original) // get trap reads the restored value
+    });
+
+    test('refuses an absent leaf it cannot undo, instead of returning a leaky restore', () => {
+        // Closes the delete-added falsifier at its source: the proxy cannot remove a path a test
+        // adds, so the helper throws at capture rather than hand back a restore() that leaks.
+        const probe = '__neoAbsentLeafProbe__';
+
+        expect(aiConfig[probe]).toBeUndefined(); // absent on the real Provider
+        expect(() => snapshotAiConfig(aiConfig, [probe])).toThrow(/does not resolve to a value/)
     });
 });
