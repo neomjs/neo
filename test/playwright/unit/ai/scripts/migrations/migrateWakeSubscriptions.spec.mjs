@@ -96,7 +96,7 @@ test.describe('ai/scripts/migrations/migrateWakeSubscriptions', () => {
 
         expect(stats.subscriptionsPatched).toBe(1);
         expect(migrated.properties.harnessTargetMetadata).toMatchObject({
-            adapter: 'codex-app-server',
+            adapter: 'osascript',
             appName: 'Codex',
             tabShortcut: null,
             focusSeedKey: 'r'
