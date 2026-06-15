@@ -367,6 +367,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "update-roadmap": {
+      "name": "update-roadmap",
+      "description": "Repeatable post-release beat — celebrate the shipped release, then plan the next roadmap as cornerstones + rationale (NOT an exhaustive list) + an explicit deferred set, scoped into a GitHub milestone with a named steward per epic. Triggers: a release ships (vX.Y merged to main); a maintainer says \"scope the next release / plan the roadmap / what's in vNext\"; or the post-release planning beat is neglected. Sibling to #10321 (release-cut: notes + publish).",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "whitebox-e2e": {
       "name": "whitebox-e2e",
       "description": "Standardized guide and protocol for authoring robust Whitebox End-to-End tests using the Neural Link Playwright fixture. CRITICAL: Neo.mjs uses Playwright in a highly custom way. Standard Playwright patterns will fail. Triggers: Use this skill before writing, modifying, or executing Playwright End-to-End tests, or if the user asks you to write an E2E test, add end-to-end coverage, or test a component holistically.",
