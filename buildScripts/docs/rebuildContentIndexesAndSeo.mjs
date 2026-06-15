@@ -7,6 +7,7 @@ import createReleaseIndex          from './index/release.mjs';
 import createDiscussionIndex       from './index/discussions.mjs';
 import createPullRequestIndex      from './index/pulls.mjs';
 import createTicketIndex           from './index/tickets.mjs';
+import reconcileActiveChunks       from '../../ai/services/github-workflow/shared/reconcileActiveChunks.mjs';
 import {getLlmsTxt, getSitemapXml} from './seo/generate.mjs';
 
 const DEFAULT_BASE_URL = 'https://neomjs.com';
@@ -55,6 +56,7 @@ async function rebuildContentIndexesAndSeo({
     createDiscussionIndexFn  = createDiscussionIndex,
     createPullRequestIndexFn = createPullRequestIndex,
     createTicketIndexFn      = createTicketIndex,
+    reconcileActiveChunksFn  = reconcileActiveChunks,
     getSitemapXmlFn          = getSitemapXml,
     getLlmsTxtFn             = getLlmsTxt,
     writeFileSync            = fs.writeFileSync,
@@ -64,6 +66,14 @@ async function rebuildContentIndexesAndSeo({
         const labelIndexFn = createLabelIndexFn || (await import('./index/labels.mjs')).default;
         await labelIndexFn();
     }
+
+    // Ordinal-100 enforcement: re-chunk the active content tiers BEFORE indexing so the generators
+    // mirror exact-100 folders. Position-dependent chunking drifts when the delta-sync only re-places
+    // the items it touched; this idempotent pass re-ranks the full active corpus on disk. Archive is sealed.
+    const reChunkConfig = {contentRoot: path.join(root, 'resources/content')};
+    await reconcileActiveChunksFn(reChunkConfig, {type: 'pulls',       filePrefix: 'pr-'});
+    await reconcileActiveChunksFn(reChunkConfig, {type: 'issues',      filePrefix: 'issue-'});
+    await reconcileActiveChunksFn(reChunkConfig, {type: 'discussions', filePrefix: 'discussion-'});
 
     await createReleaseIndexFn();
     await createPullRequestIndexFn();
