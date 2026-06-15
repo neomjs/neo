@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
  * @summary One-shot migration script that patches legacy bridge-daemon wake subscriptions
- * to eliminate hardcoded fallbacks and adopt the identity template-based metadata.
+ * to eliminate hardcoded fallbacks and adopt identity-template-based route metadata.
  *
- * Legacy `bridge-daemon` wake subscriptions can contain hardcoded `appName`
- * fallbacks when their metadata was not seeded from the owning identity. This
+ * Legacy `bridge-daemon` wake subscriptions can contain hardcoded or stale
+ * route metadata when they were not seeded from the owning identity. This
  * script updates existing `WAKE_SUBSCRIPTION` nodes by pulling the canonical
- * `appName` from their owner's `AgentIdentity` template.
+ * explicit metadata from `identityRoots.mjs`, with the durable `AgentIdentity`
+ * row as a fallback for out-of-tree identities.
  *
  * **Usage**:
  *   node ai/scripts/migrations/migrateWakeSubscriptions.mjs             # dry-run (default)
@@ -17,6 +18,7 @@
 
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {IDENTITIES} from '../../graph/identityRoots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -49,7 +51,24 @@ Options:
 `);
 }
 
-function runMigration(db, apply) {
+/**
+ * @summary Resolves the canonical wake route template for an AgentIdentity.
+ *
+ * `identityRoots.mjs` is the source of truth for first-party Neo identities; the durable graph row
+ * remains a fallback for local or out-of-tree identities that are not part of the committed roster.
+ *
+ * @param {String} agentId AgentIdentity node id.
+ * @param {Object} agentData Parsed durable AgentIdentity graph node.
+ * @returns {Object|undefined} Subscription template.
+ */
+function resolveSubscriptionTemplate(agentId, agentData) {
+    const sourceIdentity = IDENTITIES.find(identity => identity.id === agentId),
+          sourceTemplate = sourceIdentity?.properties?.subscriptionTemplate;
+
+    return sourceTemplate || agentData.properties?.subscriptionTemplate;
+}
+
+export function runMigration(db, apply) {
     const stats = {
         subscriptionsPatched: 0,
         subscriptionsSkipped: 0
@@ -97,24 +116,33 @@ function runMigration(db, apply) {
                 continue;
             }
 
-            const template = agentData.properties?.subscriptionTemplate;
+            const template = resolveSubscriptionTemplate(agentId, agentData);
             if (!template || !template.harnessTargetMetadata || !template.harnessTargetMetadata.appName) {
                 stats.subscriptionsSkipped++;
                 continue;
             }
 
-            const expectedAppName = template.harnessTargetMetadata.appName;
-            const expectedTabShortcut = template.harnessTargetMetadata.tabShortcut;
-            const currentMetadata = props.harnessTargetMetadata || {};
+            const expectedMetadata = template.harnessTargetMetadata,
+                  currentMetadata  = props.harnessTargetMetadata || {},
+                  metadataPatch    = {};
 
-            if (currentMetadata.appName !== expectedAppName || currentMetadata.tabShortcut !== expectedTabShortcut) {
-                console.log(`  [PATCH] Subscription ${sub.id} (Owner: ${agentId}) | appName: ${currentMetadata.appName || 'none'} → ${expectedAppName}, tabShortcut: ${currentMetadata.tabShortcut !== undefined ? currentMetadata.tabShortcut : 'none'} → ${expectedTabShortcut !== undefined ? expectedTabShortcut : 'none'}`);
+            for (const [key, value] of Object.entries(expectedMetadata)) {
+                if (currentMetadata[key] !== value) {
+                    metadataPatch[key] = value;
+                }
+            }
+
+            if (Object.keys(metadataPatch).length > 0) {
+                const delta = Object.entries(metadataPatch)
+                    .map(([key, value]) => `${key}: ${currentMetadata[key] !== undefined ? currentMetadata[key] : 'none'} → ${value !== undefined ? value : 'none'}`)
+                    .join(', ');
+
+                console.log(`  [PATCH] Subscription ${sub.id} (Owner: ${agentId}) | ${delta}`);
 
                 if (apply) {
                     props.harnessTargetMetadata = {
                         ...currentMetadata,
-                        appName: expectedAppName,
-                        tabShortcut: expectedTabShortcut
+                        ...metadataPatch
                     };
                     data.properties = props;
 
@@ -173,7 +201,9 @@ async function main() {
     }
 }
 
-main().catch(err => {
-    console.error('[migrateWakeSubscriptions] FATAL:', err);
-    process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+    main().catch(err => {
+        console.error('[migrateWakeSubscriptions] FATAL:', err);
+        process.exit(1);
+    });
+}
