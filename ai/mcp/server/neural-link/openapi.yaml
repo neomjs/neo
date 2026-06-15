@@ -1327,6 +1327,64 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/begin_transaction:
+    post:
+      summary: Begin Named Transaction
+      operationId: begin_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Opens a named transaction for the requester so subsequent mutations are captured into one batch (undone/redone as a single unit); recoverable error when a batch is already open or the name is empty. Close it with commit_transaction.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BeginTransactionRequest'
+      responses:
+        '200':
+          description: Begin-transaction result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/commit_transaction:
+    post:
+      summary: Commit Named Transaction
+      operationId: commit_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Commits the requester's open named transaction so its accumulated mutations become a single undoable unit; recoverable error when no batch is open or it captured no mutations.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitTransactionRequest'
+      responses:
+        '200':
+          description: Commit-transaction result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/method/call:
     post:
       summary: Call Instance Method
@@ -1848,6 +1906,23 @@ components:
           description: The target App Worker Session ID
 
     ListTransactionsRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    BeginTransactionRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        name:
+          type: string
+          description: A non-empty human-facing name for the batch (the user intent it groups); becomes the transaction's audit identity. An empty name is a recoverable error.
+
+    CommitTransactionRequest:
       type: object
       properties:
         sessionId:

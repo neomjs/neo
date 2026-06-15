@@ -89,8 +89,10 @@ function findSilentlyStrippingOpenBags(node, pathLabel = '') {
 const neuralLinkToolTiers = ['read', 'write-locked', 'admin'];
 
 const expectedNeuralLinkToolTiers = {
+    begin_transaction            : 'write-locked',
     call_method                 : 'admin',
     check_namespace              : 'read',
+    commit_transaction           : 'write-locked',
     create_component             : 'write-locked',
     find_instances               : 'read',
     get_component_tree           : 'read',
@@ -134,7 +136,9 @@ const expectedNeuralLinkToolTiers = {
 };
 
 const neuralLinkDangerousReadForbidden = [
+    'begin_transaction',
     'call_method',
+    'commit_transaction',
     'create_component',
     'highlight_component',
     'manage_connection',
