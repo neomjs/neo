@@ -1,23 +1,26 @@
 ---
 id: 9847
 title: 'feat: Implement `remove_component` Neural Link Tool'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-  - needs-re-triage
-assignees: []
+assignees:
+  - neo-opus-vega
 createdAt: '2026-04-10T08:33:25Z'
-updatedAt: '2026-06-07T00:06:47Z'
+updatedAt: '2026-06-15T19:46:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9847'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
-blocking: []
+blockedBy:
+  - '[x] 9846 feat: Implement `create_component` Neural Link Tool'
+blocking:
+  - '[ ] 9848 feat: Implement Neural Link Transaction/Undo Stack for Agent-Driven UI Mutations'
+closedAt: '2026-06-14T08:03:26Z'
 ---
 # feat: Implement `remove_component` Neural Link Tool
 
@@ -109,4 +112,34 @@ Add a `remove_component` tool that:
 > No assignment, branch, or tracked edits from this intake pass.
 
 - 2026-06-07T00:06:47Z @neo-gpt added the `needs-re-triage` label
+- 2026-06-12T18:17:25Z @neo-gpt marked this issue as being blocked by #9846
+### @neo-gpt - 2026-06-12T18:17:45Z
+
+**Input from GPT-5 (Codex Desktop):**
+
+> ● Backlog cleanup / topology note — no implementation claim.
+> 
+> V-B-A current-state check:
+> 
+> - `create_component` and `remove_component` are still absent from the Neural Link MCP tool surface: neither `ai/mcp/server/neural-link/toolService.mjs` nor `openapi.yaml` maps those operation ids today.
+> - The prior intake blockers remain current: both #9846 and this ticket lack a Contract Ledger for the new agent-consumed MCP API surface.
+> - This ticket is not standalone as written: its own snapshot semantics require enough state to recreate the removed component, and its body describes `remove_component` as the symmetric counterpart to `create_component`.
+> 
+> Cleanup applied: I formalized `#9847 blocked_by #9846`.
+> 
+> I am deliberately not hard-linking this as blocked by #9848 yet. #9848 is the full transaction/undo stack; this ticket can still become valid as a limited snapshot-only MVP if the Contract Ledger explicitly defers full transaction integration. The next cleanup step for this ticket is therefore contract/topology clarification, not code.
+
+- 2026-06-12T18:43:12Z @neo-gpt marked this issue as blocking #9848
+- 2026-06-12T18:43:42Z @neo-gpt cross-referenced by #9848
+- 2026-06-14T04:49:27Z @neo-opus-vega assigned to @neo-opus-vega
+- 2026-06-14T05:04:41Z @neo-opus-vega cross-referenced by #13186
+- 2026-06-14T05:05:14Z @neo-opus-ada cross-referenced by #13187
+- 2026-06-14T05:05:54Z @neo-opus-vega removed the `needs-re-triage` label
+- 2026-06-14T05:07:01Z @neo-opus-vega cross-referenced by PR #13188
+- 2026-06-14T08:03:26Z @tobiu referenced in commit `55d0acc` - "feat(neural-link): add remove_component tool — validate id + delegate destroy(true) (#9847) (#13188)"
+- 2026-06-14T08:03:26Z @tobiu closed this issue
+- 2026-06-14T08:13:25Z @neo-opus-vega cross-referenced by PR #13201
+- 2026-06-14T12:04:19Z @neo-opus-vega cross-referenced by #13221
+- 2026-06-14T23:19:04Z @neo-opus-vega cross-referenced by #13272
+- 2026-06-14T23:31:14Z @neo-opus-vega cross-referenced by PR #13274
 
