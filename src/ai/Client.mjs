@@ -272,27 +272,36 @@ class Client extends Base {
     }
 
     /**
-     * @summary Release held write locks for one Bridge-stamped disconnected agent session.
+     * @summary Release held write locks AND sweep the open transaction for one Bridge-stamped disconnected
+     * agent session — both on the same frame, so the lock and transaction lifecycles cannot diverge silently.
      * App-side `agent_disconnected` frames are lifecycle notifications, not JSON-RPC. Require the full
-     * `(agentId, sessionId)` writer key before calling {@link Neo.ai.WriteGuard#releaseAgent}; a half-stamped
-     * frame is dropped so it cannot sweep every session for an agent or every agent sharing a session id.
+     * `(agentId, sessionId)` writer key before calling {@link Neo.ai.WriteGuard#releaseAgent} +
+     * {@link Neo.ai.TransactionService#sweep}; a half-stamped frame is dropped so it can neither release a
+     * whole agent (or every agent sharing a session id) nor sweep a transaction stack it cannot key.
      * @param {Object} [frame={}]
      * @param {String} [frame.agentId]
      * @param {String} [frame.sessionId]
-     * @returns {{released: Number}}
+     * @returns {{released: Number, swept: Boolean}}
      */
     handleAgentDisconnected(frame = {}) {
         const
-            {agentId, sessionId} = frame,
-            {writeGuard}         = this;
+            {agentId, sessionId}             = frame,
+            {transactionService, writeGuard} = this;
 
         if (typeof agentId !== 'string' || agentId === '' ||
             typeof sessionId !== 'string' || sessionId === '' ||
             !writeGuard) {
-            return {released: 0}
+            return {released: 0, swept: false}
         }
 
-        return writeGuard.releaseAgent({agentId, sessionId})
+        // The transaction lifecycle must not outlive the lock lifecycle: release the agent's held write-locks
+        // AND sweep its open transaction + undo stack on the same `agent_disconnected` frame — otherwise a
+        // disconnect (or worker restart) leaks an open transaction. `sweep` is the transaction-side counterpart
+        // to `releaseAgent`; both key on the same `(agentId, sessionId)` pair validated above.
+        const {released}      = writeGuard.releaseAgent({agentId, sessionId}),
+              {swept = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
+
+        return {released, swept}
     }
 
     /**
