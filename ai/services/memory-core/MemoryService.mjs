@@ -314,7 +314,36 @@ class MemoryService extends Base {
     async initAsync() {
         await super.initAsync();
         await StorageRouter.ready();
-        this._startGraphProjectionDrainLoop();
+    }
+
+    /**
+     * Triggered once this singleton reaches its ready state (after `initAsync` resolves).
+     *
+     * The hosted graph-projection drain loop is a perpetual background process, NOT mandatory
+     * startup work, so it is started here rather than inside `initAsync` (which `Neo.core.Base`
+     * reserves for awaited startup that gates `isReady`). It is skipped under `unitTestMode` so
+     * unit specs importing this singleton stay hermetic — no live drain interval and no
+     * real-WAL-dir startup drain.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsReady(value, oldValue) {
+        super.afterSetIsReady(value, oldValue);
+
+        if (value && !Neo.config.unitTestMode) {
+            this._startGraphProjectionDrainLoop()
+        }
+    }
+
+    /**
+     * Clears the hosted graph-projection drain interval and any in-flight projection retry timers
+     * on teardown, so neither fires against a torn-down singleton.
+     * @override
+     */
+    destroy() {
+        this._clearGraphProjectionTimers();
+        super.destroy()
     }
 
     /**
@@ -538,23 +567,34 @@ class MemoryService extends Base {
      * @private
      */
     _scheduleMemoryGraphProjection(options, attempt = 1) {
-        const delayMs = attempt === 1
-            ? 0
-            : Math.min(GRAPH_PROJECTION_RETRY_BASE_MS * 2 ** (attempt - 2), GRAPH_PROJECTION_RETRY_MAX_MS);
+        const me      = this,
+              delayMs = attempt === 1
+                  ? 0
+                  : Math.min(GRAPH_PROJECTION_RETRY_BASE_MS * 2 ** (attempt - 2), GRAPH_PROJECTION_RETRY_MAX_MS);
 
-        setTimeout(async () => {
+        me.graphProjectionRetryTimers ??= new Set();
+
+        const timer = setTimeout(async () => {
+            me.graphProjectionRetryTimers.delete(timer);
+
             try {
-                await this._projectMemoryToGraph(options);
+                await me._projectMemoryToGraph(options);
             } catch (error) {
                 if (attempt < GRAPH_PROJECTION_MAX_ATTEMPTS) {
                     logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} (attempt ${attempt}/${GRAPH_PROJECTION_MAX_ATTEMPTS}); retrying: ${error.message}`);
-                    this._scheduleMemoryGraphProjection(options, attempt + 1);
+                    me._scheduleMemoryGraphProjection(options, attempt + 1);
                     return;
                 }
 
                 logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} after ${GRAPH_PROJECTION_MAX_ATTEMPTS} attempts; WAL row remains projection-pending: ${error.message}`);
             }
         }, delayMs);
+
+        // Track + unref the retry timer: destroy() must cancel in-flight retries (they would
+        // otherwise fire against a torn-down singleton), and a one-shot CLI add_memory must be able
+        // to exit without the backoff chain holding the event loop open.
+        timer.unref?.();
+        me.graphProjectionRetryTimers.add(timer)
     }
 
     /**
@@ -620,6 +660,26 @@ class MemoryService extends Base {
             });
         }, GRAPH_PROJECTION_DRAIN_INTERVAL_MS);
         this.graphProjectionDrainTimer.unref?.();
+    }
+
+    /**
+     * @summary Stops the drain interval and cancels in-flight projection retry timers.
+     *
+     * Invoked by `destroy()`; kept as its own method so the teardown is unit-testable without
+     * tearing down the shared singleton.
+     * @returns {void}
+     * @private
+     */
+    _clearGraphProjectionTimers() {
+        const me = this;
+
+        if (me.graphProjectionDrainTimer) {
+            clearInterval(me.graphProjectionDrainTimer);
+            me.graphProjectionDrainTimer = null;
+        }
+
+        me.graphProjectionRetryTimers?.forEach(timer => clearTimeout(timer));
+        me.graphProjectionRetryTimers?.clear()
     }
 
     /**
@@ -740,9 +800,14 @@ class MemoryService extends Base {
      * @returns {Promise<Object[]>} Row-shaped pending turns.
      * @private
      */
-    async _readPendingWalRecencyRows({identity, userId, before, excludeIds = new Set()} = {}) {
+    async _readPendingWalRecencyRows({identity, userId, before, limit, excludeIds = new Set()} = {}) {
         try {
-            const records = await readPendingWalRecords({dir: aiConfig.memoryWal.dir, markerType: 'graph'});
+            // Bound the WAL scan: graph projection normally keeps the pending set tiny, but under a
+            // projection-lag/outage the set grows — an unbounded read would turn every recency query
+            // into an O(pending) disk scan. readPendingWalRecords reads newest-segment-first, so a
+            // page-sized cap protects the recency-critical newest page; deeper pages under heavy lag
+            // fill in once projection catches up.
+            const records = await readPendingWalRecords({dir: aiConfig.memoryWal.dir, limit, markerType: 'graph'});
             const rows    = [];
 
             for (const record of records) {
@@ -964,7 +1029,7 @@ class MemoryService extends Base {
             // this method, the row is either present in this pending snapshot or visible in the
             // graph query below; querying graph first creates a race where the graph marker can
             // land between the two reads and hide the row from both surfaces.
-            const pendingRows = await this._readPendingWalRecencyRows({identity, userId, before});
+            const pendingRows = await this._readPendingWalRecencyRows({identity, userId, before, limit: boundedLimit});
 
             const graphRows = sqlite.prepare(`
                 SELECT memory.id                                            AS id,
