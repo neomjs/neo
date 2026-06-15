@@ -68,6 +68,7 @@
         "ai:summarize-sessions"        : "node ./ai/scripts/lifecycle/summarize-sessions.mjs",
         "ai:sync-github-workflow"      : "node ./ai/scripts/maintenance/syncGithubWorkflow.mjs",
         "ai:sync-kb"                   : "node ./ai/scripts/maintenance/syncKnowledgeBase.mjs",
+        "ai:validate-codex-wake"       : "node ./ai/scripts/lifecycle/validateCodexWakeMatrix.mjs",
         "build-all"                    : "node ./buildScripts/build/all.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/build/all.mjs -f",
         "build-dist-esm"               : "node ./buildScripts/build/esmodules.mjs",

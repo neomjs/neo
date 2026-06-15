@@ -15,6 +15,8 @@ Before running *any* controlled wake-delivery validation test, you MUST perform 
 3. **Neutralize Backlog**: Decide explicitly how the backlog is neutralized before wake-daemon start. This could be disabling non-target wake subscriptions, advancing/recording `lastSyncId` only after a durable-mailbox audit, or using a targeted wake-daemon/test harness path that ignores backlog.
 4. **Isolate Test**: Only after neutralizing the backlog, create the unique matrix payload and start exactly ONE controlled delivery attempt.
 
+For Codex Desktop, `npm run ai:validate-codex-wake -- --scenario <pure-heartbeat|direct-message|mixed-message-heartbeat> --subscription-id <WAKE_SUB_ID> --artifact <path>` provides the targeted harness path: it copies the active Codex subscription into a temporary Memory Core graph, injects exactly one scenario, and starts a wake-daemon subprocess against that temporary graph. Add `--live` only when intentionally sending to Codex Desktop; without `--live`, the script uses the daemon's `test` adapter to prove isolation without touching the UI.
+
 ## The Validation Matrix
 
 The following criteria must be satisfied for each supported harness.

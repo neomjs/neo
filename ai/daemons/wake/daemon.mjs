@@ -1165,7 +1165,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
 
             await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName, evidenceLabel);
         } else if (adapter === 'test') {
-            writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+            writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}${evidenceLabel}: ${digest}`);
         } else if (adapter === 'test-fail') {
             // Deterministic delivery-failure hook for retry-path testing (no live target needed).
             // Log the attempted digest first so the coalesced retry content is observable, then throw.
