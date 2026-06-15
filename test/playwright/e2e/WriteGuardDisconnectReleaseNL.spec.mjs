@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures.mjs';
-import WebSocket        from 'ws';
+import { openRawAgent } from '../util/rawAgent.mjs';
 
 /**
  * @summary Live e2e proof that a writer's disconnect RELEASES its held WriteGuard lock, re-admitting an
@@ -37,15 +37,16 @@ test.describe('WriteGuard disconnect-release (live e2e)', () => {
 
         // writer-1 is established + HOLDING before writer-2 exists — the deterministic ordering (a back-to-back
         // open races the lock acquisition). The Bridge mints writer-1 a distinct sessionId for the connection.
-        const writer1 = await openRawAgent(BRIDGE_PORT, 'wg-disc-writer-1');
-        const acquired = await writer1.call(app.sessionId, 'set_instance_properties',
-            { id: componentA, properties: { text: 'writer-1-holds-A' } });
-        expect(acquired.error, 'writer-1 acquires + holds the lock on A').toBeFalsy();
-
-        // writer-2 — a distinct raw agent — only now connects and writes the SAME subtree.
-        const writer2 = await openRawAgent(BRIDGE_PORT, 'wg-disc-writer-2');
-
+        let writer1, writer2;
         try {
+            writer1 = await openRawAgent(neuralLink.bridgePort, 'wg-disc-writer-1');
+            const acquired = await writer1.call(app.sessionId, 'set_instance_properties',
+                { id: componentA, properties: { text: 'writer-1-holds-A' } });
+            expect(acquired.error, 'writer-1 acquires + holds the lock on A').toBeFalsy();
+
+            // writer-2 — a distinct raw agent — only now connects and writes the SAME subtree.
+            writer2 = await openRawAgent(neuralLink.bridgePort, 'wg-disc-writer-2');
+
             // (1) Overlapping write while writer-1 holds the lock → DENIED (conflict).
             const denied = await writer2.call(app.sessionId, 'set_instance_properties',
                 { id: componentA, properties: { text: 'writer-2-blocked' } });
@@ -54,79 +55,21 @@ test.describe('WriteGuard disconnect-release (live e2e)', () => {
             // writer-1 disconnects → Bridge agent_disconnected (sessionId-stamped to the app) → releaseAgent.
             writer1.close();
 
-            // (2) Once the lock is swept, writer-2's retry of the same subtree is ADMITTED.
+            // (2) Once the lock is swept, writer-2's retry of the same subtree is ADMITTED. The polled value
+            // carries the deny reason, so an admit-poll timeout names WHY it stayed denied in the diff.
             await expect.poll(async () => {
                 const res = await writer2.call(app.sessionId, 'set_instance_properties',
                     { id: componentA, properties: { text: 'writer-2-after-release' } });
-                return res.error ? 'denied' : 'admitted';
+                return res.error ? `denied: ${res.error.message ?? JSON.stringify(res.error)}` : 'admitted';
             }, {
                 message: 'writer-2 must be admitted once writer-1 disconnects and its lock is released',
                 timeout: 15000
             }).toBe('admitted');
         } finally {
-            writer2.close();
+            // Guard BOTH raw-ws writers: writer-1's close() above is the release trigger, but if an assertion
+            // throws before it, this prevents a leaked socket — a double close() is a safe no-op.
+            writer1?.close();
+            writer2?.close();
         }
     });
 });
-
-/** Bridge default port — see `ai/mcp/server/neural-link/Bridge.mjs`. */
-const BRIDGE_PORT = 8081;
-
-/**
- * Opens a raw agent connection to the live Neural Link Bridge — a distinct writer identity. The Bridge
- * accepts a `role=agent&id=` connection (no token = dev path), mints a per-connection `sessionId`, and
- * stamps the `agent_message` sidecar on every forward, so writes from this socket carry the
- * `(agentId, sessionId)` the WriteGuard keys locks on.
- *
- * @param {Number} port
- * @param {String} agentId A distinct agent id for this writer.
- * @returns {Promise<{call: Function, close: Function}>}
- */
-async function openRawAgent(port, agentId) {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}?role=agent&id=${encodeURIComponent(agentId)}`);
-
-    await new Promise((resolve, reject) => {
-        ws.on('open',  resolve);
-        ws.on('error', reject);
-    });
-
-    let nextId = 1;
-
-    return {
-        /**
-         * Sends a JSON-RPC method to the target App Worker over this raw agent socket and resolves with the
-         * App Worker's response (success or jsonrpc error), matched by request id, tolerating a bare frame
-         * or a `{message: <response>}` envelope.
-         */
-        call(targetSessionId, method, params) {
-            const id = nextId++;
-            return new Promise((resolve, reject) => {
-                const timer = setTimeout(() => {
-                    ws.off('message', onMessage);
-                    reject(new Error(`raw-agent call ${method} (#${id}) timed out`));
-                }, 15000);
-
-                const onMessage = data => {
-                    let frame;
-                    try { frame = JSON.parse(data.toString()); } catch { return; }
-                    const msg = frame?.message ?? frame;
-                    if (msg && msg.id === id) {
-                        clearTimeout(timer);
-                        ws.off('message', onMessage);
-                        resolve(msg);
-                    }
-                };
-
-                ws.on('message', onMessage);
-                ws.send(JSON.stringify({
-                    target : targetSessionId,
-                    message: { jsonrpc: '2.0', method, params, id }
-                }));
-            });
-        },
-
-        close() {
-            ws.close();
-        }
-    };
-}
