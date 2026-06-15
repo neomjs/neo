@@ -11,6 +11,8 @@ export const BRIDGE_INFO_TYPE = 'bridge_info';
 
 /**
  * @summary Monotonic Bridge protocol version for agent-side freshness checks.
+ * Bump this or `BRIDGE_PROTOCOL_FEATURES` whenever the Bridge's agent-facing
+ * behavior changes in a way clients must not accept from stale long-lived processes.
  * @type {Number}
  */
 export const BRIDGE_PROTOCOL_VERSION = 1;
