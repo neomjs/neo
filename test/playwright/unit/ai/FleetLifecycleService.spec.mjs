@@ -238,6 +238,25 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         expect(after.pid).not.toBe(first.pid);
     });
 
+    test('restart re-spawns at the cwd the agent was started with (provisioned restart preserves the checkout)', async () => {
+        const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.start('a', {cwd: '/managed/a/neomjs-neo'});
+        await FleetLifecycleService.restart('a');
+
+        expect(spawn.calls).toHaveLength(2);
+        // The re-spawn re-uses the recorded cwd → it lands in the agent's checkout, not the FM dir
+        // (otherwise the checkout-path-keyed auto-memory would silently fork).
+        expect(spawn.calls[1].opts.cwd).toBe('/managed/a/neomjs-neo');
+    });
+
+    test('restart of a cwd-less agent re-spawns with no cwd (unchanged legacy behavior)', async () => {
+        const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.start('a');
+        await FleetLifecycleService.restart('a');
+
+        expect(spawn.calls[1].opts.cwd).toBeUndefined();
+    });
+
     test('listRunning reflects the running set', () => {
         install({agents: {a: agentDef('a'), b: agentDef('b')}, creds: {a: 'x', b: 'y'}});
         FleetLifecycleService.start('a');
