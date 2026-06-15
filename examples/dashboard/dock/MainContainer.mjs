@@ -1,14 +1,16 @@
 import DockLayoutAdapter from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockZoneModel     from '../../../src/dashboard/DockZoneModel.mjs';
 import Viewport          from '../../../src/container/Viewport.mjs';
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 
 /**
  * A representative dock-zone document (`neo.harness.dockZone.v1`): a horizontal split of a two-tab main zone and a
  * vertical side-split of two single-tab zones, over four items. The shape `Neo.dashboard.DockLayoutAdapter.project`
- * consumes — see its spec for the full contract.
+ * consumes — see its spec for the full contract. Used as the example's INITIAL committed document; the live document
+ * advances on each splitter resize (see `MainContainer#dockModel`).
  * @type {Object}
  */
-const dockModel = {
+const initialDockModel = {
     schema: 'neo.harness.dockZone.v1',
     root  : 'root',
     items : {
@@ -39,13 +41,20 @@ const resolveComponentRef = componentRef => ({
 });
 
 /**
- * @summary Standalone example for the dashboard dock-zone layout system.
+ * @summary Standalone, interactive example for the dashboard dock-zone layout system.
  *
- * Builds a representative {@link Neo.dashboard.DockZoneModel} document, then projects it through
- * {@link Neo.dashboard.DockLayoutAdapter} into a live container of split / tab zones with splitter affordances — the
- * missing standalone showcase + first *runtime* exercise of `DockLayoutAdapter.project`, which until now was only
- * unit-tested and never run in a live app's render path. This is the **static** render slice: the splitters render, but
- * the resize commit loop is not wired here (see the items config below); that stays in the interactive slice.
+ * Builds a representative {@link Neo.dashboard.DockZoneModel} document, projects it through
+ * {@link Neo.dashboard.DockLayoutAdapter} into a live container of split / tab zones with splitter affordances, and
+ * wires the **resize commit loop** end-to-end: dragging a splitter commits a `resizeSplit` operation through
+ * `DockZoneModel`, and the layout re-projects from the new committed document.
+ *
+ * The example owns the committed document ({@link #dockModel}) as the single source of truth and drives the loop with
+ * the two callbacks `DockSplitter` calls — a clean reducer / view-sync split:
+ * - {@link #applyDockZoneOperation} is the **reducer**: a pure `DockZoneModel.applyOperation` over the current document.
+ * - {@link #onDockZoneDocumentChange} is the **view-sync**: it stores the committed document and re-projects from it.
+ *
+ * This is the first *runtime* exercise of the full model → operation → re-projection cycle in a standalone app; Slice 1
+ * delivered the static render. See `learn/agentos/HarnessDockZoneModel.md` for the model/projection contract.
  * @class Neo.examples.dashboard.dock.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -59,16 +68,76 @@ class MainContainer extends Viewport {
         /**
          * @member {Object} layout={ntype:'fit'}
          */
-        layout: {ntype: 'fit'},
-        /**
-         * The dock layout: the model projected once into a live container — split + tab zones + splitter affordances.
-         * The splitters render, but the resize commit loop (`dockZoneDocument` / `applyDockZoneOperation` +
-         * `onDockZoneDocumentChange`) is not wired here — that stays in the interactive slice; this is the static render.
-         * @member {Object[]} items
-         */
-        items: [
-            DockLayoutAdapter.project(dockModel, {resolveComponentRef})
-        ]
+        layout: {ntype: 'fit'}
+        // `items` is built in construct() — not here — so each projection can carry the instance-bound
+        // applyDockZoneOperation + onDockZoneDocumentChange callbacks the resize commit loop needs.
+    }
+
+    /**
+     * The live committed dock-zone document — the single source of truth the view projects from. Initialized to
+     * `initialDockModel`; advanced by {@link #onDockZoneDocumentChange} on each committed splitter resize.
+     * @member {Object|null} dockModel=null
+     */
+    dockModel = null
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.dockModel = initialDockModel;
+        me.add(me.projectDockModel())
+    }
+
+    /**
+     * The owning reducer `DockSplitter.commitResizeSplit` calls: applies a splitter-emitted operation descriptor
+     * against the live committed document and returns `DockZoneModel`'s fail-closed `{document, errors}` result.
+     * Pure — the view sync happens in {@link #onDockZoneDocumentChange}, which the splitter calls on success.
+     * @param {Object} descriptor The `resizeSplit` operation descriptor.
+     * @returns {{document: Object, errors: String[]}}
+     */
+    applyDockZoneOperation(descriptor) {
+        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+    }
+
+    /**
+     * The view-sync `DockSplitter` calls after a successful commit: stores the new committed document and re-projects
+     * the layout from it.
+     *
+     * Deferred one tick: this fires synchronously from inside the committing splitter's `onDragEnd` (via
+     * `commitResizeSplit`). Re-projecting immediately would `removeAll()` — destroying that splitter mid-handler, a
+     * use-after-destroy on the rest of `onDragEnd`. The `isDestroyed` guard covers teardown before the tick fires.
+     * @param {Object} document The committed dock-zone document.
+     */
+    onDockZoneDocumentChange(document) {
+        let me = this;
+
+        me.dockModel = document;
+
+        me.timeout(0).then(() => {
+            if (!me.isDestroyed) {
+                me.removeAll();
+                me.add(me.projectDockModel())
+            }
+        })
+    }
+
+    /**
+     * Projects the live committed {@link #dockModel} into a dock-zone container config, threading the instance-bound
+     * resize-commit-loop callbacks onto every projected splitter affordance.
+     * @returns {Object}
+     */
+    projectDockModel() {
+        let me = this;
+
+        return DockLayoutAdapter.project(me.dockModel, {
+            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
+            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
+            resolveComponentRef
+        })
     }
 }
 
