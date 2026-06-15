@@ -245,6 +245,55 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     }
 
+    test('file-system exposes compact list descriptions plus lazy-loaded handbook detail (#13268)', async () => {
+        const
+            server        = servers.find(item => item.name === 'file-system'),
+            {tools}       = await listTools(server),
+            byName        = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl     = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}    = await import(moduleUrl),
+            handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'read_file'}),
+            missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            healthcheck   = byName.healthcheck,
+            readFile      = byName.read_file,
+            handbookTool  = byName.get_mcp_tool_handbook;
+
+        expect(handbookTool.description.length).toBeLessThanOrEqual(120);
+        expect(readFile.description).toBe('Read a workspace file by absolute path.');
+        expect(readFile.description).not.toContain('directory traversal outside');
+        expect(readFile.inputSchema.properties.absolutePath.type).toBe('string');
+        expect(healthcheck.annotations.readOnlyHint).toBe(true);
+
+        for (const tool of tools) {
+            expect(tool.description.length, `file-system.${tool.name} description is not compact`).toBeLessThanOrEqual(120);
+        }
+
+        expect(handbook).toMatchObject({
+            toolId: 'read_file',
+            found : true,
+            source: 'x-neo-tool-handbook'
+        });
+        expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('directory traversal outside the permitted workspace');
+
+        expect(missing).toEqual({
+            toolId: 'missing_tool',
+            found : false,
+            code  : 'TOOL_NOT_FOUND',
+            message: 'Tool "missing_tool" does not exist in this MCP server.'
+        });
+    });
+
+    test('unmigrated servers keep their existing list description behavior (#13268)', async () => {
+        const
+            server     = servers.find(item => item.name === 'github-workflow'),
+            {tools}    = await listTools(server),
+            tool       = tools.find(item => item.name === 'update_issue_relationship'),
+            operations = getOperationsById(server);
+
+        expect(tool.description).toBe(operations.update_issue_relationship.description);
+        expect(tool.description.length).toBeGreaterThan(120);
+    });
+
     test('neural-link embedded-harness projection lists only default-visible tier tools (#13084)', async () => {
         const
             server           = servers.find(item => item.name === 'neural-link'),
