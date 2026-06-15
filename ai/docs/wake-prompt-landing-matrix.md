@@ -29,11 +29,12 @@ The following criteria must be satisfied for each supported harness.
 | **6. Prompt Payload Lands** | Payload lands natively in Claude's prompt field. | Payload lands directly in the Antigravity Agent Composer. | Payload lands in Codex Desktop's prompt surface. |
 | **7. No File Modification (Negative Assertion)** | N/A (or no stray pasting in other apps). | **MUST NOT** land in any active editor/file content (`git status` remains clean). | N/A (or no stray pasting). |
 | **8. No Fresh Session Spawns (Negative Assertion)** | Must resume existing session unless explicit sunset state authorizes spawn. | Must resume existing session unless explicit sunset state authorizes spawn. | Must resume existing session unless explicit sunset state authorizes spawn. |
-| **9. Actionable Receipt** | Recipient can act on prompt or emit clear blocked signal. | Recipient can act on prompt or emit clear blocked signal. | Recipient can act on prompt or emit clear blocked signal. |
-| **10. Evidence Artifact** | Manual or test log evidence captured in PR/comment. | Manual or test log evidence captured in PR/comment. | Manual or test log evidence captured in PR/comment. |
+| **9. Prompt Submitted / Turn Starts** | Wake payload is submitted and starts/steers the agent turn without a human pressing Enter. | Wake payload is submitted and starts/steers the agent turn without a human pressing Enter. | Wake payload is submitted and starts/steers the agent turn without a human pressing Enter. |
+| **10. Actionable Receipt** | Recipient can act on prompt or emit clear blocked signal. | Recipient can act on prompt or emit clear blocked signal. | Recipient can act on prompt or emit clear blocked signal. |
+| **11. Evidence Artifact** | Manual or test log evidence captured in PR/comment. | Manual or test log evidence captured in PR/comment. | Manual or test log evidence captured in PR/comment. |
 
 ## Evidence Requirements
 
-Due to the brittle nature of native UI automation across multiple different IDEs and proprietary desktop apps, **live/manual evidence is acceptable** for UI-only assertions (requirements 6-9).
+Due to the brittle nature of native UI automation across multiple different IDEs and proprietary desktop apps, **live/manual evidence is acceptable** for UI-only assertions (requirements 6-10).
 
 However, deterministic headless unit/integration tests **MUST** be used to validate the backend and wake-daemon adapter intent (requirements 1-5).

@@ -713,12 +713,17 @@ function resolveCodexCliPath() {
 }
 
 /**
- * @summary Delivers a Codex wake digest through the native Codex app-server control plane.
+ * @summary Dispatches a Codex wake digest through the native Codex app-server control plane.
  *
  * This is the normal wake-daemon equivalent of the existing resume-harness
  * `codex debug app-server send-message-v2 <payload>` route. It intentionally does
  * not fall back to `osascript`; a route explicitly configured as `codex-app-server`
  * must fail visibly instead of recreating the GUI-focus delivery path.
+ *
+ * `send-message-v2` command success proves app-server acceptance/injection only.
+ * The Codex prompt-submission / turn-start boundary remains a wake-prompt landing
+ * matrix requirement and needs live app evidence until a submit-capable app-server
+ * command is available.
  *
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
@@ -733,7 +738,7 @@ async function deliverViaCodexAppServer(subscription, digest) {
     }
 
     await spawnAsync(resolveCodexCliPath(), ['debug', 'app-server', 'send-message-v2', digest]);
-    writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via codex-app-server`);
+    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via codex-app-server send-message-v2`);
 }
 
 /**
