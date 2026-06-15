@@ -115,6 +115,7 @@ const expectedNeuralLinkToolTiers = {
     inspect_state_provider       : 'read',
     inspect_store                : 'read',
     list_stores                  : 'read',
+    list_transactions            : 'read',
     manage_connection            : 'admin',
     manage_neo_config            : 'admin',
     modify_state_provider        : 'write-locked',

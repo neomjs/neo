@@ -437,6 +437,32 @@ class InstanceService extends Service {
     }
 
     /**
+     * Lists the requester's transaction history — the `list_transactions` Neural Link tool (read-only audit view).
+     *
+     * A non-consuming projection of the writer's undo state ({@link Neo.ai.TransactionService#stackOf}): the
+     * `committed` stack (undoable, newest last) + the `redo` branch (redoable). Each entry is summarized to
+     * `{txId, status, opCount, labels}` — the user-facing op labels, NOT the raw forward/reverse descriptors (those
+     * are internal). Read-only: no enforcement, no replay, never mutates the stack. Returns empty lists (never
+     * throws) for a legacy / no-writer-identity caller or an absent stack authority.
+     * @param {Object} [params] No parameters — lists the requester's own stack.
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
+     * @returns {Promise<Object>} `{committed: Object[], redo: Object[]}` — each entry `{txId, status, opCount, labels}`.
+     */
+    async listTransactions(params, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId || !transactionService) {
+            return {committed: [], redo: []}
+        }
+
+        const
+            {committed, redo} = transactionService.stackOf({id: {agentId: context.agentId, sessionId: context.sessionId}}),
+            summarize         = tx => ({txId: tx.txId, status: tx.status, opCount: tx.ops.length, labels: tx.ops.map(op => op.label)});
+
+        return {committed: committed.map(summarize), redo: redo.map(summarize)}
+    }
+
+    /**
      * Calls a method on a specific instance.
      * @param {Object} params
      * @param {String} params.id
