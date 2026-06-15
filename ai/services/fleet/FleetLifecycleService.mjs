@@ -178,11 +178,11 @@ class FleetLifecycleService extends Base {
         try {
             child = this.getSpawnFn()(command, args, spawnOptions);
         } catch (error) {
-            this.processes.set(id, {id, state: 'failed', pid: null, startedAt: null, exitCode: null, exitedAt: new Date().toISOString(), error: error.message});
+            this.processes.set(id, {id, cwd: opts.cwd ?? null, state: 'failed', pid: null, startedAt: null, exitCode: null, exitedAt: new Date().toISOString(), error: error.message});
             throw error;
         }
 
-        const record = {id, child, pid: child.pid ?? null, state: 'running', startedAt: new Date().toISOString(), exitCode: null, signal: null, exitedAt: null, stderrBytes: 0};
+        const record = {id, child, cwd: opts.cwd ?? null, pid: child.pid ?? null, state: 'running', startedAt: new Date().toISOString(), exitCode: null, signal: null, exitedAt: null, stderrBytes: 0};
         this.processes.set(id, record);
 
         // Drain stderr so a noisy harness can't block on a full pipe buffer. Retain only a byte
@@ -249,13 +249,17 @@ class FleetLifecycleService extends Base {
     }
 
     /**
-     * Stop (settling the pending stop) then start. `restart` of a non-running agent is just `start`.
+     * Stop (settling the pending stop) then start, **re-using the spawn `cwd`** the agent was started with
+     * (read from the persisted process record) — so a provisioned agent restarts inside its own checkout,
+     * not this process's directory, and its checkout-path-keyed auto-memory does not fork. `restart` of a
+     * non-running agent is just `start` (at the recorded `cwd` when one exists).
      * @param {String} id
      * @returns {Promise<Object>} status
      */
     async restart(id) {
+        const priorCwd = this.processes.get(id)?.cwd ?? null;
         await this.stop(id);
-        return this.start(id);
+        return this.start(id, priorCwd != null ? {cwd: priorCwd} : {});
     }
 
     /**
