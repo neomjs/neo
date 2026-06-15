@@ -12,7 +12,7 @@ import PullRequestService from '../../../services/github-workflow/PullRequestSer
 import RepositoryService  from '../../../services/github-workflow/RepositoryService.mjs';
 import ToolService        from '../../ToolService.mjs';
 import SyncService        from '../../../services/github-workflow/SyncService.mjs';
-import {assertExpectedIdentity as assertExpectedGitHubIdentity} from '../../../graph/assertExpectedIdentity.mjs';
+import {assertExpectedIdentity as assertExpectedGitHubIdentity, IdentityAssertionCode} from '../../../graph/assertExpectedIdentity.mjs';
 import RequestContextService from '../shared/services/RequestContextService.mjs';
 import config             from './config.mjs';
 
@@ -137,32 +137,25 @@ function normalizeGitHubIdentityLogin(identity) {
 }
 
 /**
- * @summary Maps the shared assertion reason into a stable write-boundary error code.
- * @param {String|null} reason Shared assertion reason.
+ * @summary Maps the shared assertion's stable {@link IdentityAssertionCode} into a write-boundary
+ * error code. Keys on the machine `code`, not the human-readable `reason` prose (which is free to
+ * reword); an unknown or absent code falls back to the generic assertion-failed code.
+ * @param {String} code The shared assertion's `code`.
  * @returns {String}
  */
-function getGitHubIdentityErrorCode(reason) {
-    if (!reason) {
-        return 'GITHUB_IDENTITY_ASSERTION_FAILED';
+function getGitHubIdentityErrorCode(code) {
+    switch (code) {
+        case IdentityAssertionCode.EXPECTED_UNMAPPABLE:
+            return 'GITHUB_IDENTITY_UNRESOLVED';
+        case IdentityAssertionCode.NO_AUTHED_LOGIN:
+            return 'GITHUB_VIEWER_UNRESOLVED';
+        case IdentityAssertionCode.MEMORY_CORE_MISMATCH:
+            return 'GITHUB_MEMORY_CORE_IDENTITY_MISMATCH';
+        case IdentityAssertionCode.LOGIN_MISMATCH:
+            return 'GITHUB_IDENTITY_MISMATCH';
+        default:
+            return 'GITHUB_IDENTITY_ASSERTION_FAILED';
     }
-
-    if (reason.includes('missing or unmappable')) {
-        return 'GITHUB_IDENTITY_UNRESOLVED';
-    }
-
-    if (reason.includes('no authed login')) {
-        return 'GITHUB_VIEWER_UNRESOLVED';
-    }
-
-    if (reason.includes('Memory-Core identity')) {
-        return 'GITHUB_MEMORY_CORE_IDENTITY_MISMATCH';
-    }
-
-    if (reason.includes('authed as')) {
-        return 'GITHUB_IDENTITY_MISMATCH';
-    }
-
-    return 'GITHUB_IDENTITY_ASSERTION_FAILED';
 }
 
 /**
@@ -176,7 +169,7 @@ function createGitHubIdentityError(assertion) {
 
     Object.assign(error, {
         ...assertion,
-        code: getGitHubIdentityErrorCode(assertion.reason)
+        code: getGitHubIdentityErrorCode(assertion.code)
     });
 
     return error;
