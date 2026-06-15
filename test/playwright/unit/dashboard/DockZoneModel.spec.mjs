@@ -10,6 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import DockZoneModel  from '../../../../src/dashboard/DockZoneModel.mjs';
+import MainContainer  from '../../../../examples/dashboard/dock/MainContainer.mjs';
 
 /**
  * @summary Tests for Neo.dashboard.DockZoneModel — the dock-zone semantic operations executor.
@@ -611,6 +612,136 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
             expect(rejectedCollection.collection).toBe(null);
             expect(rejectedCollection.errors.join(' ')).toContain('apiToken')
+        })
+    });
+
+    test.describe('standalone dock example perspectives', () => {
+        let originalLocalStorage;
+
+        function createExampleHarness() {
+            const example = {
+                createDefaultLayoutCollection: MainContainer.prototype.createDefaultLayoutCollection,
+                createPerspectiveToolbar    : MainContainer.prototype.createPerspectiveToolbar,
+                loadLayoutCollectionFromStorage: MainContainer.prototype.loadLayoutCollectionFromStorage,
+                nextSavedPerspectiveId      : MainContainer.prototype.nextSavedPerspectiveId,
+                persistLayoutCollection     : MainContainer.prototype.persistLayoutCollection,
+                removeActivePerspective     : MainContainer.prototype.removeActivePerspective,
+                restorePerspective          : MainContainer.prototype.restorePerspective,
+                saveCurrentPerspective      : MainContainer.prototype.saveCurrentPerspective,
+
+                layoutCollectionStorageKey: 'test.dashboard.dock.layoutCollection',
+                refreshCount              : 0,
+                savedPerspectiveCount     : 0,
+                windowId                  : 1,
+
+                refreshDockWorkspace() {
+                    this.refreshCount++
+                }
+            };
+
+            example.layoutCollection = example.createDefaultLayoutCollection();
+            example.dockModel        = DockZoneModel.restoreActiveSavedLayout(example.layoutCollection).document;
+
+            return example
+        }
+
+        test.beforeEach(() => {
+            originalLocalStorage = {...Neo.main.addon.LocalStorage}
+        });
+
+        test.afterEach(() => {
+            Neo.main.addon.LocalStorage = originalLocalStorage
+        });
+
+        test('saves, restores, deletes, and persists named perspectives through collection helpers', async () => {
+            let writes = [];
+
+            Neo.main.addon.LocalStorage.readLocalStorageItem = async ({key}) => ({key, value: null});
+            Neo.main.addon.LocalStorage.updateLocalStorageItem = async payload => {
+                writes.push(payload)
+            };
+
+            const example = createExampleHarness(),
+                toolbar = example.createPerspectiveToolbar();
+
+            expect(Object.keys(example.layoutCollection.layouts)).toEqual(['operator-default', 'review-focus']);
+            expect(example.layoutCollection.activeLayoutId).toBe('operator-default');
+            expect(toolbar.items.map(item => item.text || item.html)).toEqual([
+                'Perspectives',
+                'Operator',
+                'Review',
+                'Save Current',
+                'Delete Active'
+            ]);
+            expect(toolbar.items[1].pressed).toBe(true);
+            expect(toolbar.items[2].pressed).toBe(false);
+
+            const resized = DockZoneModel.applyOperation(example.dockModel, {
+                operation  : 'resizeSplit',
+                sizes      : [0.4, 0.6],
+                splitNodeId: 'root'
+            });
+
+            expect(resized.errors).toEqual([]);
+            example.dockModel = resized.document;
+
+            const saved = example.saveCurrentPerspective();
+
+            expect(saved.errors).toEqual([]);
+            expect(saved.layout.layoutId).toBe('saved-perspective-1');
+            expect(example.layoutCollection.activeLayoutId).toBe('saved-perspective-1');
+            expect(example.layoutCollection.layouts['saved-perspective-1'].dockZone.nodes.root.sizes).toEqual([0.4, 0.6]);
+
+            const restored = example.restorePerspective('review-focus');
+
+            expect(restored.errors).toEqual([]);
+            expect(example.layoutCollection.activeLayoutId).toBe('review-focus');
+            expect(example.dockModel.nodes.root.sizes).toEqual([0.48, 0.52]);
+            expect(example.dockModel.nodes['main-tabs'].activeItemId).toBe('swarm');
+
+            const deleted = example.removeActivePerspective();
+
+            expect(deleted.errors).toEqual([]);
+            expect(example.layoutCollection.layouts['review-focus']).toBeUndefined();
+            expect(example.layoutCollection.activeLayoutId).toBe('operator-default');
+            expect(example.dockModel).toEqual(example.layoutCollection.layouts['operator-default'].dockZone);
+            expect(example.refreshCount).toBe(3);
+            expect(writes.length).toBeGreaterThanOrEqual(3);
+            expect(JSON.parse(writes.at(-1).value).activeLayoutId).toBe('operator-default')
+        });
+
+        test('rehydrates a valid persisted collection and fails closed for invalid storage payloads', async () => {
+            const persistedReview = savedLayout('persisted-review', 'Persisted Review', d => {
+                    d.nodes['main-tabs'].activeItemId = 'strategy'
+                }),
+                persistedDefault = savedLayout('persisted-default', 'Persisted Default'),
+                {collection} = DockZoneModel.createSavedLayoutCollection([persistedDefault, persistedReview], {
+                    activeLayoutId: 'persisted-review'
+                });
+
+            let readValue = JSON.stringify(collection);
+
+            Neo.main.addon.LocalStorage.readLocalStorageItem = async ({key}) => ({key, value: readValue});
+            Neo.main.addon.LocalStorage.updateLocalStorageItem = async () => {};
+
+            const hydrated = createExampleHarness(),
+                loaded = await hydrated.loadLayoutCollectionFromStorage();
+
+            expect(loaded.loaded).toBe(true);
+            expect(hydrated.layoutCollection.activeLayoutId).toBe('persisted-review');
+            expect(hydrated.dockModel).toEqual(persistedReview.dockZone);
+            expect(hydrated.refreshCount).toBe(1);
+
+            readValue = JSON.stringify({schema: 'neo.harness.dockLayoutCollection.v0'});
+
+            const invalid = createExampleHarness(),
+                invalidLoad = await invalid.loadLayoutCollectionFromStorage();
+
+            expect(invalidLoad.loaded).toBe(false);
+            expect(invalidLoad.errors.length).toBeGreaterThan(0);
+            expect(invalid.layoutCollection.activeLayoutId).toBe('operator-default');
+            expect(invalid.dockModel).toEqual(invalid.layoutCollection.layouts['operator-default'].dockZone);
+            expect(invalid.refreshCount).toBe(0)
         })
     });
 
