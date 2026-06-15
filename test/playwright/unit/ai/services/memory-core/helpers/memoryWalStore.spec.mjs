@@ -8,8 +8,10 @@ import path            from 'path';
 
 import {
     appendWalEmbedMarker,
+    appendWalGraphProjectionMarker,
     appendWalMemory,
     getMissingMemoryWalLeaves,
+    getWalGraphMarkersFileName,
     getWalMarkersFileName,
     getWalRecordsFileName,
     getWalSegmentKey,
@@ -22,6 +24,7 @@ import {
  * `add_memory` write path. Falsifier coverage for the store contract:
  *
  *   - append → pending; embed-marker → reconciled (no longer pending)
+ *   - graph-projection marker is separate from embed reconciliation
  *   - reads tolerate corrupt/torn lines and a missing directory
  *   - pruning removes ONLY fully-reconciled, non-active segments beyond the retention bound —
  *     a pending payload is never lost to retention
@@ -52,6 +55,7 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
         expect(getWalSegmentKey(DAY1)).toBe('2026-06-01');
         expect(getWalRecordsFileName('2026-06-01')).toBe('wal-2026-06-01.jsonl');
         expect(getWalMarkersFileName('2026-06-01')).toBe('wal-2026-06-01.embedded.jsonl');
+        expect(getWalGraphMarkersFileName('2026-06-01')).toBe('wal-2026-06-01.graph.jsonl');
     });
 
     test('appendWalMemory writes the full payload into its day segment and reports the key', async () => {
@@ -74,6 +78,7 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
         await expect(appendWalMemory(record('m1', DAY1), {})).rejects.toThrow('dir is required');
         await expect(appendWalMemory({timestamp: DAY1}, {dir: tmpDir})).rejects.toThrow('record.id is required');
         await expect(appendWalEmbedMarker({id: 'm1'}, {dir: tmpDir})).rejects.toThrow('id and segmentKey are required');
+        await expect(appendWalGraphProjectionMarker({id: 'm1'}, {dir: tmpDir})).rejects.toThrow('id and segmentKey are required');
     });
 
     test('readPendingWalRecords returns appended records until their embed marker lands', async () => {
@@ -85,6 +90,20 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
         await appendWalEmbedMarker({id: 'm1', segmentKey: '2026-06-01'}, {dir: tmpDir});
 
         expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['m2']);
+    });
+
+    test('graph-projection pending state is tracked independently from embed reconciliation', async () => {
+        await appendWalMemory(record('legacy', DAY1), {dir: tmpDir});
+        await appendWalMemory({...record('m1', DAY1), graphProjectionVersion: 1}, {dir: tmpDir});
+
+        await appendWalEmbedMarker({id: 'm1', segmentKey: '2026-06-01'}, {dir: tmpDir});
+
+        expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['legacy']);
+        expect((await readPendingWalRecords({dir: tmpDir, markerType: 'graph'})).map(r => r.id)).toEqual(['m1']);
+
+        await appendWalGraphProjectionMarker({id: 'm1', segmentKey: '2026-06-01'}, {dir: tmpDir});
+
+        expect((await readPendingWalRecords({dir: tmpDir, markerType: 'graph'})).map(r => r.id)).toEqual([]);
     });
 
     test('readPendingWalRecords filters by ids, bounds by limit, and reads newest segments first', async () => {
@@ -109,8 +128,9 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     test('pruning removes only fully-reconciled, non-active segments beyond the retention bound', async () => {
         // Three reconciled segments + one with a pending record.
         for (const [id, ms, key] of [['a', DAY1, '2026-06-01'], ['b', DAY2, '2026-06-02'], ['c', DAY3, '2026-06-03']]) {
-            await appendWalMemory(record(id, ms), {dir: tmpDir});
+            await appendWalMemory({...record(id, ms), graphProjectionVersion: 1}, {dir: tmpDir});
             await appendWalEmbedMarker({id, segmentKey: key}, {dir: tmpDir});
+            await appendWalGraphProjectionMarker({id, segmentKey: key}, {dir: tmpDir});
         }
         await appendWalMemory(record('pending', Date.UTC(2026, 4, 30, 12)), {dir: tmpDir}); // 2026-05-30
 
@@ -127,6 +147,24 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
 
         // A pending record survives any retention pressure.
         expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['pending']);
+    });
+
+    test('pruning preserves graph-projection-pending records even after embed reconciliation', async () => {
+        await appendWalMemory({...record('graph-pending', DAY1), graphProjectionVersion: 1}, {dir: tmpDir});
+        await appendWalEmbedMarker({id: 'graph-pending', segmentKey: '2026-06-01'}, {dir: tmpDir});
+
+        await appendWalMemory(record('old-style-reconciled-a', DAY2), {dir: tmpDir});
+        await appendWalEmbedMarker({id: 'old-style-reconciled-a', segmentKey: '2026-06-02'}, {dir: tmpDir});
+        await appendWalMemory(record('old-style-reconciled-b', DAY3), {dir: tmpDir});
+        await appendWalEmbedMarker({id: 'old-style-reconciled-b', segmentKey: '2026-06-03'}, {dir: tmpDir});
+
+        const removed = await pruneReconciledWalSegments({dir: tmpDir, retentionLimit: 1, activeSegmentKey: '2026-06-04'});
+        expect(removed).toBe(1);
+
+        const names = await fs.readdir(tmpDir);
+        expect(names).toContain('wal-2026-06-01.jsonl');
+        expect(names).not.toContain('wal-2026-06-02.jsonl');
+        expect(names).toContain('wal-2026-06-03.jsonl');
     });
 
     test('pruning is a no-op without a positive retention bound or with a missing directory', async () => {

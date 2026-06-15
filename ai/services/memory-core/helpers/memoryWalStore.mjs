@@ -87,6 +87,15 @@ export function getWalMarkersFileName(segmentKey) {
 }
 
 /**
+ * @summary Builds the graph-projection markers file name for a segment key.
+ * @param {String} segmentKey `YYYY-MM-DD` day key.
+ * @returns {String} JSONL graph-projection markers file name.
+ */
+export function getWalGraphMarkersFileName(segmentKey) {
+    return `wal-${segmentKey}.graph.jsonl`;
+}
+
+/**
  * @summary Appends one memory record to its UTC-day WAL segment. The durable write `addMemory`
  * awaits BEFORE any model-dependent work — this returning is what makes the turn save crash-safe.
  *
@@ -143,6 +152,38 @@ export async function appendWalEmbedMarker({id, segmentKey, embeddedAt}, {dir} =
     const filePath = path.join(dir, getWalMarkersFileName(segmentKey));
 
     await fs.appendFile(filePath, `${JSON.stringify({id, embeddedAt: embeddedAt ?? Date.now()})}\n`, 'utf8');
+
+    return filePath;
+}
+
+/**
+ * @summary Appends a graph-projection success marker for one WAL record.
+ *
+ * Separate from the embed marker by design: Chroma reconciliation and graph projection are two
+ * different derived states. A record may be embedded while graph projection is still pending, so
+ * recency overlays and retention must not rely on the embed marker as graph evidence.
+ *
+ * @param {Object} marker
+ * @param {String} marker.id          Memory UUID the graph projection succeeded for.
+ * @param {String} marker.segmentKey  Segment key the record was written under.
+ * @param {Number} [marker.projectedAt] Epoch-ms projection completion time.
+ * @param {Object} options
+ * @param {String} options.dir Directory for WAL segment files.
+ * @returns {Promise<String>} Written markers file path.
+ */
+export async function appendWalGraphProjectionMarker({id, segmentKey, projectedAt}, {dir} = {}) {
+    if (!dir) {
+        throw new TypeError('appendWalGraphProjectionMarker: dir is required');
+    }
+    if (typeof id !== 'string' || id.length === 0 || typeof segmentKey !== 'string' || segmentKey.length === 0) {
+        throw new TypeError('appendWalGraphProjectionMarker: id and segmentKey are required');
+    }
+
+    await fs.mkdir(dir, {recursive: true});
+
+    const filePath = path.join(dir, getWalGraphMarkersFileName(segmentKey));
+
+    await fs.appendFile(filePath, `${JSON.stringify({id, projectedAt: projectedAt ?? Date.now()})}\n`, 'utf8');
 
     return filePath;
 }
@@ -212,14 +253,17 @@ async function listWalSegmentKeys(dir) {
  * @param {String} options.dir Directory for WAL segment files.
  * @param {String[]} [options.ids] When given, only records with these ids are returned.
  * @param {Number} [options.limit] Maximum records to return (applied after the ids filter).
+ * @param {String} [options.markerType='embed'] Reconciliation marker stream: `'embed'` or `'graph'`;
+ *   graph-marker reads only treat versioned graph-projection records as pending work.
  * @returns {Promise<Object[]>} Pending records (each carries its `segmentKey`), newest segment first.
  */
-export async function readPendingWalRecords({dir, ids, limit} = {}) {
+export async function readPendingWalRecords({dir, ids, limit, markerType = 'embed'} = {}) {
     if (!dir) return [];
 
     const idFilter = Array.isArray(ids) ? new Set(ids) : null;
     const bounded  = Number.isFinite(limit) && limit > 0 ? limit : Infinity;
     const pending  = [];
+    const markerFileName = markerType === 'graph' ? getWalGraphMarkersFileName : getWalMarkersFileName;
 
     for (const segmentKey of await listWalSegmentKeys(dir)) {
         if (pending.length >= bounded) break;
@@ -228,12 +272,13 @@ export async function readPendingWalRecords({dir, ids, limit} = {}) {
         if (records.length === 0) continue;
 
         const markedIds = new Set(
-            (await readJsonlEntries(path.join(dir, getWalMarkersFileName(segmentKey)))).map(entry => entry.id)
+            (await readJsonlEntries(path.join(dir, markerFileName(segmentKey)))).map(entry => entry.id)
         );
 
         for (const record of records) {
             if (pending.length >= bounded) break;
             if (!record?.id || markedIds.has(record.id)) continue;
+            if (markerType === 'graph' && record.graphProjectionVersion !== 1) continue;
             if (idFilter && !idFilter.has(record.id)) continue;
             pending.push(record);
         }
@@ -272,8 +317,15 @@ export async function pruneReconciledWalSegments({dir, retentionLimit, activeSeg
         const marked  = new Set(
             (await readJsonlEntries(path.join(dir, getWalMarkersFileName(segmentKey)))).map(entry => entry.id)
         );
+        const graphMarked = new Set(
+            (await readJsonlEntries(path.join(dir, getWalGraphMarkersFileName(segmentKey)))).map(entry => entry.id)
+        );
 
-        if (records.every(record => record?.id && marked.has(record.id))) {
+        if (records.every(record =>
+            record?.id &&
+            marked.has(record.id) &&
+            (record.graphProjectionVersion !== 1 || graphMarked.has(record.id))
+        )) {
             reconciled.push(segmentKey);
         }
     }
@@ -283,7 +335,8 @@ export async function pruneReconciledWalSegments({dir, retentionLimit, activeSeg
 
     await Promise.all(toRemove.flatMap(segmentKey => [
         fs.rm(path.join(dir, getWalRecordsFileName(segmentKey)), {force: true}),
-        fs.rm(path.join(dir, getWalMarkersFileName(segmentKey)), {force: true})
+        fs.rm(path.join(dir, getWalMarkersFileName(segmentKey)), {force: true}),
+        fs.rm(path.join(dir, getWalGraphMarkersFileName(segmentKey)), {force: true})
     ]));
 
     return toRemove.length;
