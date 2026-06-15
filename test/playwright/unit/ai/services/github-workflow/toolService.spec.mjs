@@ -244,7 +244,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         }, {
             assertExpectedIdentity: async () => ({
                 ok    : true,
-                reason: null
+                reason: null,
+                code  : 'OK'
             })
         });
 
@@ -262,7 +263,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         }, {
             assertExpectedIdentity: async () => ({
                 ok    : false,
-                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt'
+                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt',
+                code  : 'LOGIN_MISMATCH'
             })
         });
 
@@ -280,7 +282,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         }, {
             assertExpectedIdentity: async () => ({
                 ok    : false,
-                reason: "identity drift: expected identity 'missing-agent' is missing or unmappable in identityRoots"
+                reason: "identity drift: expected identity 'missing-agent' is missing or unmappable in identityRoots",
+                code  : 'EXPECTED_UNMAPPABLE'
             })
         });
 
@@ -297,7 +300,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         }, {
             assertExpectedIdentity: async () => ({
                 ok    : false,
-                reason: 'identity drift: no authed login resolved, expected neo-gpt'
+                reason: 'identity drift: no authed login resolved, expected neo-gpt',
+                code  : 'NO_AUTHED_LOGIN'
             })
         });
 
@@ -318,7 +322,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         }, {
             assertExpectedIdentity: async () => ({
                 ok    : false,
-                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt'
+                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt',
+                code  : 'LOGIN_MISMATCH'
             })
         });
 

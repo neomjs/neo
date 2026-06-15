@@ -54,7 +54,7 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - agent iden
         process.env.NEO_AGENT_IDENTITY = '@neo-gpt';
         HealthService.agentLoginReader = async () => 'neo-gpt';
 
-        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null});
+        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null, code: 'OK'});
     });
 
     test('is a no-op when no expected identity is configured', async () => {
@@ -90,7 +90,7 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - agent iden
         HealthService.agentLoginReader         = async () => 'neo-gpt';
         HealthService.memoryCoreIdentityReader = async () => '@neo-gpt';
 
-        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null});
+        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null, code: 'OK'});
     });
 
     test('skips the Memory-Core leg when its reader yields null — the GitHub-login leg still asserts', async () => {
@@ -98,7 +98,7 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - agent iden
         HealthService.memoryCoreIdentityReader = async () => null;
 
         HealthService.agentLoginReader = async () => 'neo-gpt';
-        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null});
+        expect(await HealthService.checkAgentIdentity()).toEqual({ok: true, reason: null, code: 'OK'});
 
         // A null Memory-Core read must not mask a GitHub-login drift.
         HealthService.agentLoginReader = async () => 'neo-opus-ada';
