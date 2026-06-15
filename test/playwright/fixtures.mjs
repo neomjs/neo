@@ -8,6 +8,7 @@ import {
     NeuralLink_RuntimeService,
     NeuralLink_InteractionService
 } from '../../ai/services.mjs';
+import aiConfig from '../../ai/mcp/server/neural-link/config.mjs';
 
 export const test = base.extend({
     /**
@@ -82,6 +83,14 @@ export const test = base.extend({
 
         // 2. Define the Neural Link Fixture object
         const nl = {
+            /**
+             * The live Neural Link Bridge port the fixture's `ConnectionService` connected (or spawned) on —
+             * the canonical `aiConfig.port`, NOT the hardcoded `:8081` literal the WriteGuard e2es used to
+             * carry. Raw-agent writers (`openRawAgent`) target the SAME Bridge the fixture uses via this.
+             * @member {Number} bridgePort
+             */
+            bridgePort: aiConfig.port,
+
             /**
              * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.
              *
