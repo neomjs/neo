@@ -192,4 +192,12 @@ test.describe('Neo.ai.client.InstanceService — named-transaction batching', ()
         expect(await service.abortTransaction({}, null)).toEqual({aborted: false, reason: 'no-writer-identity'});
         expect(await service.abortTransaction({}, ID)).toEqual({aborted: false, reason: 'no-open-transaction'}) // nothing open (idempotent)
     });
+
+    test('the batch tools fail closed without a stack authority → no-transaction-service', async () => {
+        const bare = Neo.create(InstanceService, {client: {}}); // a client with no transactionService
+
+        expect(await bare.beginTransaction({name: 'x'}, ID)).toEqual({opened: false, reason: 'no-transaction-service'});
+        expect(await bare.commitTransaction({}, ID)).toEqual({committed: false, reason: 'no-transaction-service'});
+        expect(await bare.abortTransaction({}, ID)).toEqual({aborted: false, reason: 'no-transaction-service'})
+    });
 });
