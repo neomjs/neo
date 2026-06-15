@@ -123,9 +123,10 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         requireParallelModels   : Number(process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS) || 2
     },
     localModels: {
-        // chat.* context defaults are host-RAM-tiered at runtime via
-        // resolveLocalModelChatContextBand (ai/config.template.mjs) — not a fixed static default, so
-        // not mirrored here; config.template.spec.mjs asserts the per-tier values + env-override precedence.
+        chat: {
+            contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
+            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000
+        },
         embedding: {
             contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
             safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672

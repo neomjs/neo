@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs/promises';
-import os from 'os';
 import Neo from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import ConfigProvider from '../../../../ai/ConfigProvider.mjs';
@@ -9,7 +8,6 @@ import {CHROMA_TEST_DATABASE} from '../../../../ai/services/shared/vector/chroma
 
 test.describe('Tier 1 Config Immutability', () => {
     let Config;
-    let resolveLocalModelChatContextBand;
     let originalConfig;
     let originalClassHierarchy;
 
@@ -24,9 +22,7 @@ test.describe('Tier 1 Config Immutability', () => {
             delete Neo.classHierarchyMap['Neo.ai.Config'];
         }
 
-        const configModule = await import('../../../../ai/config.template.mjs');
-        Config                           = configModule.default;
-        resolveLocalModelChatContextBand = configModule.resolveLocalModelChatContextBand;
+        Config = (await import('../../../../ai/config.template.mjs')).default;
     });
 
     test.afterAll(() => {
@@ -95,8 +91,8 @@ test.describe('Tier 1 Config Immutability', () => {
         });
         expect(Config.localModels).toMatchObject({
             chat: {
-                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || resolveLocalModelChatContextBand(os.totalmem()).contextLimitTokens,
-                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || resolveLocalModelChatContextBand(os.totalmem()).safeProcessingLimitTokens
+                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
+                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000
             },
             embedding: {
                 contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
@@ -124,42 +120,10 @@ test.describe('Tier 1 Config Immutability', () => {
             contextLimitTokens      : 12345,
             safeProcessingLimitTokens: 11111
         });
-        expect(Config.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || resolveLocalModelChatContextBand(os.totalmem()).contextLimitTokens);
+        expect(Config.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072);
 
         Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', originalContext);
         Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', originalSafe);
-    });
-
-    test('resolveLocalModelChatContextBand tiers the chat context default by host RAM (#13390)', () => {
-        const GB = 1024 ** 3;
-
-        // High-RAM hosts keep the full native gemma-4-31b-it 256K context.
-        expect(resolveLocalModelChatContextBand(128 * GB)).toEqual({contextLimitTokens: 262144, safeProcessingLimitTokens: 200000});
-        expect(resolveLocalModelChatContextBand(96  * GB)).toEqual({contextLimitTokens: 262144, safeProcessingLimitTokens: 200000});
-        // Sub-90GB hosts tier down so the model loads instead of OOMing on a 256K KV cache.
-        expect(resolveLocalModelChatContextBand(80 * GB)).toEqual({contextLimitTokens: 131072, safeProcessingLimitTokens: 100000});
-        expect(resolveLocalModelChatContextBand(64 * GB)).toEqual({contextLimitTokens: 65536,  safeProcessingLimitTokens: 50000});
-        expect(resolveLocalModelChatContextBand(48 * GB)).toEqual({contextLimitTokens: 32768,  safeProcessingLimitTokens: 25000});
-        expect(resolveLocalModelChatContextBand(32 * GB)).toEqual({contextLimitTokens: 16384,  safeProcessingLimitTokens: 12500});
-        expect(resolveLocalModelChatContextBand(16 * GB)).toEqual({contextLimitTokens: 8192,   safeProcessingLimitTokens: 6250});
-
-        // safeProcessingLimitTokens is the ~76% headroom band of the resolved context limit — EVERY tier.
-        for (const ramGb of [16, 32, 48, 64, 80, 128]) {
-            const band  = resolveLocalModelChatContextBand(ramGb * GB),
-                  ratio = band.safeProcessingLimitTokens / band.contextLimitTokens;
-            expect(band.safeProcessingLimitTokens).toBeLessThan(band.contextLimitTokens);
-            expect(ratio).toBeGreaterThan(0.75);
-            expect(ratio).toBeLessThan(0.77);
-        }
-    });
-
-    test('explicit chat-context env override wins over the RAM-tiered default (#13390)', () => {
-        const original = Config.localModels.chat.contextLimitTokens;
-
-        Config.setEnvOverride('NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 54321);
-        expect(Config.localModels.chat.contextLimitTokens).toBe(54321);
-
-        Config.setEnvOverride('NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', original);
     });
 
     test('ships top-level deployment and maintenance policy defaults', async () => {
