@@ -488,7 +488,9 @@ paths:
                   count:
                     type: integer
                   model:
-                    type: string
+                    oneOf:
+                      - type: string
+                      - type: object
                   filters:
                     type: array
                     items:
@@ -532,7 +534,9 @@ paths:
                     id:
                       type: string
                     model:
-                      type: string
+                      oneOf:
+                        - type: string
+                        - type: object
                     count:
                       type: integer
 
