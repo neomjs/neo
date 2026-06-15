@@ -122,4 +122,47 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
             lock('neo-opus-vega', 'sess-1', ['root', 'c'])
         ])
     });
+
+    // The lock + transaction lifecycles must not diverge: a disconnect frame that releases locks must ALSO
+    // sweep the writer's open transaction. (sweep's own behavior is covered by TransactionService.spec; these
+    // assert the Client WIRING — that handleAgentDisconnected calls it with the same validated writer pair.)
+    test('handleAgentDisconnected sweeps the disconnected writer\'s transaction stack alongside releasing locks', () => {
+        client.writeGuard.requestWrite(lock('neo-opus-ada', 'sess-1', ['root', 'panel']));
+
+        const sweptIds      = [],
+              realTxService = client.transactionService;
+
+        client.transactionService = {sweep: ({id}) => { sweptIds.push(id); return {swept: true} }};
+
+        try {
+            const result = client.handleAgentDisconnected({agentId: 'neo-opus-ada', sessionId: 'sess-1'});
+
+            expect(result.released).toBe(1);                                            // lock released
+            expect(result.swept).toBe(true);                                            // tx stack swept (the wiring)
+            expect(sweptIds).toEqual([{agentId: 'neo-opus-ada', sessionId: 'sess-1'}]); // keyed on the same writer pair
+            expect(client.writeGuard.heldLocks()).toHaveLength(0)
+        } finally {
+            client.transactionService = realTxService
+        }
+    });
+
+    test('a half-stamped disconnect frame never sweeps the transaction stack (fail-closed)', () => {
+        const sweptIds      = [],
+              realTxService = client.transactionService;
+
+        client.transactionService = {sweep: ({id}) => { sweptIds.push(id); return {swept: true} }};
+
+        try {
+            for (const frame of [{agentId: 'neo-opus-ada'}, {sessionId: 'sess-1'}, {agentId: 'neo-opus-ada', sessionId: ''}]) {
+                const result = client.handleAgentDisconnected(frame);
+
+                expect(result.released).toBe(0);
+                expect(result.swept).toBe(false)
+            }
+
+            expect(sweptIds).toHaveLength(0) // incomplete identity → neither release nor sweep
+        } finally {
+            client.transactionService = realTxService
+        }
+    });
 });
