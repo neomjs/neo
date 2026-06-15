@@ -568,6 +568,43 @@ class InstanceService extends Service {
     }
 
     /**
+     * Aborts the requester's open named transaction — the `abort_transaction` Neural Link tool. Discards the batch
+     * {@link #beginTransaction} opened (`open → aborted`, dropped, never undoable) WITHOUT committing it. The forward
+     * mutations **remain applied** to the UI (they were enforcement-granted when made); only the undo-record is
+     * discarded — this is NOT a rollback. Reverting the UI is composable ({@link #undo} the changes before aborting) or
+     * a future dedicated rollback tool. The third arm of the batch lifecycle alongside {@link #commitTransaction}.
+     *
+     * Fail-closed (never throws for an expected outcome): no writer identity, no stack authority, or no open batch
+     * (idempotent — nothing to abort) → `{aborted: false, reason}`.
+     * @param {Object} [params] No parameters — aborts the requester's own open batch.
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
+     * @returns {Promise<Object>} `{aborted: Boolean, txId?: String, reason?: String}`
+     */
+    async abortTransaction(params, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId) {
+            return {aborted: false, reason: 'no-writer-identity'}
+        }
+
+        if (!transactionService) {
+            return {aborted: false, reason: 'no-transaction-service'}
+        }
+
+        const
+            stackId  = {agentId: context.agentId, sessionId: context.sessionId},
+            openTxId = transactionService.openTxId({id: stackId});
+
+        if (!openTxId) {
+            return {aborted: false, reason: 'no-open-transaction'}
+        }
+
+        transactionService.abort({id: stackId, txId: openTxId});
+
+        return {aborted: true, txId: openTxId}
+    }
+
+    /**
      * Calls a method on a specific instance.
      * @param {Object} params
      * @param {String} params.id

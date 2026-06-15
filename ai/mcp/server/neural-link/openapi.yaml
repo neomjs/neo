@@ -1327,6 +1327,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/abort_transaction:
+    post:
+      summary: Abort Named Transaction
+      operationId: abort_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Discards the requester's open named transaction without committing (the open batch is dropped, never undoable); recoverable error when no batch is open. The applied UI mutations remain; only the undo record is discarded.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AbortTransactionRequest'
+      responses:
+        '200':
+          description: Abort-transaction result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/begin_transaction:
     post:
       summary: Begin Named Transaction
@@ -1906,6 +1935,13 @@ components:
           description: The target App Worker Session ID
 
     ListTransactionsRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    AbortTransactionRequest:
       type: object
       properties:
         sessionId:
