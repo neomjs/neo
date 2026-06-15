@@ -179,7 +179,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         const toolCalls = [];
         const degradedError = new Error([
             'Memory Core is not fully operational:',
-            '  - GEMINI_API_KEY not set - summarization features unavailable'
+            "  - Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
         ].join('\n'));
 
         const mcpServer = {
@@ -258,7 +258,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
             expect(queryResult.isError).toBe(true);
             expect(queryResult.content[0].text).toContain('Cannot execute query_raw_memories: Memory Core is not fully operational');
-            expect(queryResult.content[0].text).toContain('GEMINI_API_KEY not set - summarization features unavailable');
+            expect(queryResult.content[0].text).toContain("Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable");
             expect(healthCalls).toEqual(['ensureHealthy']);
             expect(toolCalls).toHaveLength(2);
         } finally {
@@ -273,7 +273,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         const toolCalls = [];
         const degradedError = new Error([
             'Memory Core is not fully operational:',
-            '  - GEMINI_API_KEY not set - summarization features unavailable'
+            "  - Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
         ].join('\n'));
 
         const mcpServer = {

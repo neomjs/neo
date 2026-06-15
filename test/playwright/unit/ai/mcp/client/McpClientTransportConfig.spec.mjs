@@ -67,6 +67,18 @@ test.describe('Neo.ai.mcp.client.Client transport config', () => {
         client.destroy();
     });
 
+    test('#13300: memory-core client boot is not hard-gated on GEMINI_API_KEY', () => {
+        const client = Neo.create(TransportConfigClient, {
+            serverName: 'memory-core'
+        });
+
+        client.loadServerConfig('memory-core');
+
+        expect(client.requiredEnv).toEqual([]);
+
+        client.destroy();
+    });
+
     test('creates streamable HTTP transports from remote endpoint config', () => {
         const serverName = addServerConfig({
             transportType   : 'streamable-http',

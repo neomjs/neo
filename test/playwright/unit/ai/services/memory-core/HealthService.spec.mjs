@@ -874,10 +874,11 @@ test.describe('EmbeddingProviderConfig #11596 — resolveEmbeddingProvider', () 
  * @see Neo.ai.services.memory-core.HealthService#buildSummaryProviderBlock
  */
 test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
-    let buildSummaryProviderBlock;
+    let buildProviderPrerequisiteBlock, buildSummaryProviderBlock;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildProviderPrerequisiteBlock = mod.buildProviderPrerequisiteBlock;
         buildSummaryProviderBlock = mod.buildSummaryProviderBlock;
     });
 
@@ -914,6 +915,74 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
             model : 'gemini-2.5-flash',
             local : false
         });
+    });
+
+    test('#13300: missing summary provider defaults to local openAiCompatible, not Gemini', () => {
+        const result = buildSummaryProviderBlock({
+            openAiCompatible: {
+                host : 'http://localhost:1234',
+                model: 'local-summary'
+            }
+        });
+
+        expect(result).toEqual({
+            active: 'openAiCompatible',
+            host  : 'http://localhost:1234',
+            model : 'local-summary',
+            local : true
+        });
+    });
+
+    test('#13300: local summary and embedding providers do not require GEMINI_API_KEY', () => {
+        const result = buildProviderPrerequisiteBlock({
+            engine           : 'chroma',
+            modelProvider    : 'openAiCompatible',
+            embeddingProvider: 'openAiCompatible'
+        }, {});
+
+        expect(result).toEqual({
+            ready  : true,
+            summary: {
+                provider: 'openAiCompatible',
+                ready   : true
+            },
+            embedding: {
+                provider: 'openAiCompatible',
+                ready   : true
+            },
+            details: []
+        });
+        expect(JSON.stringify(result)).not.toContain('GEMINI_API_KEY');
+    });
+
+    test('#13300: Gemini summary provider gets a summary-specific missing-key diagnostic', () => {
+        const result = buildProviderPrerequisiteBlock({
+            engine           : 'chroma',
+            modelProvider    : 'gemini',
+            embeddingProvider: 'openAiCompatible'
+        }, {});
+
+        expect(result.ready).toBe(false);
+        expect(result.summary.ready).toBe(false);
+        expect(result.embedding.ready).toBe(true);
+        expect(result.details).toEqual([
+            "Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
+        ]);
+    });
+
+    test('#13300: Gemini embedding provider gets an embedding-specific missing-key diagnostic', () => {
+        const result = buildProviderPrerequisiteBlock({
+            engine           : 'chroma',
+            modelProvider    : 'openAiCompatible',
+            embeddingProvider: 'gemini'
+        }, {});
+
+        expect(result.ready).toBe(false);
+        expect(result.summary.ready).toBe(true);
+        expect(result.embedding.ready).toBe(false);
+        expect(result.details).toEqual([
+            "Embedding provider 'gemini' requires GEMINI_API_KEY - semantic memory features unavailable"
+        ]);
     });
 });
 

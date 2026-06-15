@@ -40,8 +40,7 @@ const defaultConfig = {
         "memory-core": {
             transportType: "stdio",
             command      : "npm",
-            args         : ["run", "ai:mcp-server-memory-core"],
-            requiredEnv  : ["GEMINI_API_KEY"]
+            args         : ["run", "ai:mcp-server-memory-core"]
         },
         "neural-link": {
             transportType: "stdio",
