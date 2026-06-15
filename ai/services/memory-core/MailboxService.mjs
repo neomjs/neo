@@ -70,7 +70,7 @@ function normalizeMailboxTarget(to, sentBy) {
  *   resolves unambiguously via known alias patterns.
  * @private
  */
-function validateMailboxTarget(normalizedTo, originalTo) {
+function validateMailboxTarget(normalizedTo, originalTo, db = GraphService.requireDb('MailboxService.validateMailboxTarget')) {
     if (!normalizedTo || typeof normalizedTo !== 'string') {
         throw new Error(`Cannot send message: 'to' is required and must be a non-empty string. Received: ${JSON.stringify(originalTo)}.`);
     }
@@ -79,8 +79,6 @@ function validateMailboxTarget(normalizedTo, originalTo) {
     // target turns out to be orphan, the FK guard will surface that separately — this
     // validator focuses on the @<identity> + AGENT:<family>/<model> failure surface.
     if (normalizedTo.startsWith('role:') || normalizedTo.startsWith('human:')) return normalizedTo;
-
-    const db = GraphService.db;
 
     // Warm cache once before declaring "not found" so we don't reject legitimate targets
     // that exist in WAL but have not reached this connection's in-memory cache yet.
@@ -453,6 +451,7 @@ class MailboxService extends Base {
      * @returns {Promise<Object>}
      */
     async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task }) {
+        const db = GraphService.requireDb('MailboxService.addMessage');
         const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
@@ -470,7 +469,7 @@ class MailboxService extends Base {
         // Reject or resolve invalid `to:` values BEFORE handing them to `GraphService.linkNodes`.
         // Alias-format mistakes must fail loudly instead of producing orphan messages invisible
         // to their intended recipient.
-        to = validateMailboxTarget(to, preNormalizeTo);
+        to = validateMailboxTarget(to, preNormalizeTo, db);
 
         const messageId = `MESSAGE:${crypto.randomUUID()}`;
         const timestamp = new Date().toISOString();
@@ -522,20 +521,20 @@ class MailboxService extends Base {
                 // invisible to this process, blocking first-message bootstrap even when SQLite
                 // has them. Bare `syncCache()` alone would invalidate without re-hydrating;
                 // `getAdjacentNodes` handles both steps. See listMessages for the full rationale.
-                GraphService.db.getAdjacentNodes(sentBy, 'inbound');
-                GraphService.db.getAdjacentNodes('AGENT:*', 'inbound');
+                db.getAdjacentNodes(sentBy, 'inbound');
+                db.getAdjacentNodes('AGENT:*', 'inbound');
 
-                for (const edge of GraphService.db.edges.items) {
+                for (const edge of db.edges.items) {
                     if (edge.type === 'SENT_TO' && (edge.target === sentBy || edge.target === 'AGENT:*')) {
                         // Per-message outbound vicinity lazy-load, symmetric with listMessages'
                         // inner loop. Without this, the SENT_BY edge scan below comes up empty
                         // for peer-process messages because the SENT_BY edge targets the author
                         // node, not sentBy or AGENT:*. That would cause priorSender to stay null
                         // and the trust-lift to falsely fail under cross-process writes.
-                        GraphService.db.getAdjacentNodes(edge.source, 'outbound');
+                        db.getAdjacentNodes(edge.source, 'outbound');
 
                         let priorSender = null;
-                        for (const srcEdge of GraphService.db.edges.items) {
+                        for (const srcEdge of db.edges.items) {
                             if (srcEdge.source === edge.source && srcEdge.type === 'SENT_BY') {
                                 priorSender = srcEdge.target;
                                 break;
@@ -630,7 +629,7 @@ class MailboxService extends Base {
             if (concepts && concepts.length > 0) {
                 for (const c of concepts) {
                     // Ensure the concept node exists before linking
-                    if (!GraphService.db.nodes.has(c)) {
+                    if (!db.nodes.has(c)) {
                         let type = c.split(':')[0];
                         let name = c.split(':').slice(1).join(':');
                         GraphService.upsertNode({
@@ -688,7 +687,7 @@ class MailboxService extends Base {
             }
         }
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('MailboxService.listMessages');
 
         // Consume WAL delta AND re-populate vicinity from SQLite before iterating
         // in-memory edges. A bare `syncCache()` call invalidates cached
@@ -848,7 +847,7 @@ class MailboxService extends Base {
             throw new Error("Cannot get message: no agent identity context bound.");
         }
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('MailboxService.getMessage');
 
         // Trigger syncCache + lazy-reload vicinity for this message node.
         // Ensures peer-process writes to this message's edges (e.g. late PART_OF_THREAD
@@ -927,7 +926,7 @@ class MailboxService extends Base {
             throw new Error("Cannot mark message read: no agent identity context bound.");
         }
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('MailboxService.markRead');
 
         // Trigger syncCache + lazy-reload vicinity. Ensures the SENT_TO edge
         // iteration sees peer-process writes. See listMessages for the full rationale.
@@ -1007,7 +1006,7 @@ class MailboxService extends Base {
             throw new Error("Cannot archive message: no agent identity context bound.");
         }
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('MailboxService.archiveMessage');
 
         // Trigger syncCache + lazy-reload vicinity — same pattern as markRead.
         db.getAdjacentNodes(messageId, 'both');
@@ -1086,7 +1085,7 @@ class MailboxService extends Base {
             throw new Error("Cannot delete message: no agent identity context bound.");
         }
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('MailboxService.deleteMessage');
 
         // Trigger syncCache + lazy-reload vicinity — same pattern as markRead.
         db.getAdjacentNodes(messageId, 'both');
@@ -1147,7 +1146,7 @@ class MailboxService extends Base {
             throw new Error("Cannot transition task: no agent identity context bound.");
         }
 
-        const db = GraphService.db;
+        const db = GraphService.requireDb('MailboxService.transitionTask');
 
         // Trigger syncCache to ensure we have latest vicinity
         db.getAdjacentNodes(taskId, 'both');
@@ -1270,6 +1269,10 @@ class MailboxService extends Base {
         const
             db        = GraphService.db,
             timestamp = new Date().toISOString();
+
+        if (!db?.storage?.db) {
+            return { success: true, sweptCount: 0 }
+        }
 
         const stmt = db.storage.db.prepare(`
             UPDATE Nodes
