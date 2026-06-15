@@ -30,6 +30,9 @@ import {drainMemoryWal}      from './util.mjs';
  *                         visible to query_recent_turns through the WAL pending-overlay even when
  *                         graph projection has not caught up, and that overlay serves content for
  *                         BOTH detail levels.
+ *   Graph backstop      — graph-pending WAL records have a hosted re-drive path after process
+ *                         restart or exhausted in-process retries; embed reconciliation alone does
+ *                         not hide graph-pending work.
  *   Drain reconcile     — the daemon drain path (`drainWalOnce` via the `drainMemoryWal` spec
  *                         helper) embeds pending records and marks them reconciled, and never
  *                         re-embeds a purge-tombstoned record.
@@ -191,6 +194,67 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         } finally {
             GraphService.upsertNode        = originalUpsertNode;
             MemoryService.buildMiniSummary = originalBuildSummary;
+        }
+    });
+
+    test('graph-pending WAL records are re-driven by the hosted graph projection drain', async () => {
+        const originalSchedule     = MemoryService._scheduleMemoryGraphProjection;
+        const originalBuildSummary = MemoryService.buildMiniSummary;
+
+        MemoryService._scheduleMemoryGraphProjection = () => {};
+        MemoryService.buildMiniSummary               = async () => null;
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt: 'graph-drain prompt', thought: 'graph-drain thought', response: 'graph-drain response'
+            }));
+
+            expect(result.id).toBeTruthy();
+
+            const graphPendingBefore = await readPendingWalRecords({
+                dir       : testWalDir,
+                ids       : [result.id],
+                markerType: 'graph'
+            });
+            expect(graphPendingBefore).toHaveLength(1);
+
+            const embedSummary = await drainMemoryWal({ids: [result.id]});
+            expect(embedSummary.embedded).toBe(1);
+            expect((await readPendingWalRecords({dir: testWalDir, ids: [result.id]}))).toHaveLength(0);
+
+            // Embed reconciliation is deliberately separate from graph reconciliation: an
+            // embedded-but-unprojected record must stay visible to the graph drain.
+            expect((await readPendingWalRecords({
+                dir       : testWalDir,
+                ids       : [result.id],
+                markerType: 'graph'
+            }))).toHaveLength(1);
+
+            const graphSummary = await MemoryService.drainPendingGraphProjections({ids: [result.id]});
+
+            expect(graphSummary).toEqual({pending: 1, projected: 1, failed: 0});
+            expect((await readPendingWalRecords({
+                dir       : testWalDir,
+                ids       : [result.id],
+                markerType: 'graph'
+            }))).toHaveLength(0);
+
+            const recent = await asTenant(() => MemoryService.queryRecentTurns({
+                agentIdentity: '@me',
+                limit        : 20,
+                detail       : 'full',
+                projection   : 'private'
+            }));
+            const turn = recent.turns.find(item => item.id === result.id);
+
+            expect(turn).toBeTruthy();
+            expect(turn.projectionPending).toBe(false);
+            expect(turn.prompt).toBe('graph-drain prompt');
+            expect(turn.response).toBe('graph-drain response');
+            expect(turn.thought).toBe('graph-drain thought');
+        } finally {
+            MemoryService._scheduleMemoryGraphProjection = originalSchedule;
+            MemoryService.buildMiniSummary               = originalBuildSummary;
         }
     });
 

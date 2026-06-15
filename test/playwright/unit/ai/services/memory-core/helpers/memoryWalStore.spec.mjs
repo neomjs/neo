@@ -93,11 +93,12 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     });
 
     test('graph-projection pending state is tracked independently from embed reconciliation', async () => {
+        await appendWalMemory(record('legacy', DAY1), {dir: tmpDir});
         await appendWalMemory({...record('m1', DAY1), graphProjectionVersion: 1}, {dir: tmpDir});
 
         await appendWalEmbedMarker({id: 'm1', segmentKey: '2026-06-01'}, {dir: tmpDir});
 
-        expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual([]);
+        expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['legacy']);
         expect((await readPendingWalRecords({dir: tmpDir, markerType: 'graph'})).map(r => r.id)).toEqual(['m1']);
 
         await appendWalGraphProjectionMarker({id: 'm1', segmentKey: '2026-06-01'}, {dir: tmpDir});

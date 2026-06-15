@@ -56,6 +56,13 @@ const GRAPH_PROJECTION_RETRY_BASE_MS = 250;
 const GRAPH_PROJECTION_RETRY_MAX_MS = 5000;
 
 /**
+ * Hosted graph-projection drain cadence. This is intentionally independent of the Chroma embed
+ * daemon: graph projection and embedding are separate derived states.
+ * @type {Number}
+ */
+const GRAPH_PROJECTION_DRAIN_INTERVAL_MS = 60000;
+
+/**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
  * a `MemoryService` ⇄ `SessionService` import cycle). Kept exported here for back-compat with
  * existing importers.
@@ -307,6 +314,7 @@ class MemoryService extends Base {
     async initAsync() {
         await super.initAsync();
         await StorageRouter.ready();
+        this._startGraphProjectionDrainLoop();
     }
 
     /**
@@ -422,11 +430,7 @@ class MemoryService extends Base {
             //    model-dependent work. This is the never-fail anchor — once this returns, the turn
             //    survives a crash, an embed failure, or a Chroma outage. The embed used to be
             //    awaited here, which also lost the graph node below whenever it threw.
-            const walDir       = aiConfig.memoryWal.dir;
-            const {segmentKey} = await appendWalMemory(
-                {id: memoryId, timestamp: now, metadata, document: combinedText, graphProjectionVersion: 1},
-                {dir: walDir}
-            );
+            const walDir = aiConfig.memoryWal.dir;
 
             // 2. Schedule the Native Edge Graph projection from the accepted WAL record. This is
             //    derived work: graph contention/unavailability must not reject the mandatory
@@ -438,6 +442,20 @@ class MemoryService extends Base {
                 sessionId,
                 timestamp
             };
+            const {segmentKey} = await appendWalMemory(
+                {
+                    id: memoryId,
+                    timestamp: now,
+                    metadata,
+                    document: combinedText,
+                    graphProjectionVersion: 1,
+                    graphProjection: {
+                        requestIdentity,
+                        memoryProperties
+                    }
+                },
+                {dir: walDir}
+            );
 
             this._scheduleMemoryGraphProjection({
                 memoryId,
@@ -577,6 +595,90 @@ class MemoryService extends Base {
         GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
 
         await appendWalGraphProjectionMarker({id: memoryId, segmentKey}, {dir: walDir});
+    }
+
+    /**
+     * @summary Starts the hosted graph-projection drain loop.
+     *
+     * This is the cloud-safe backstop for WAL-accepted rows whose immediate bounded retry exhausted
+     * or whose process restarted before projection completed. It mirrors the embed daemon's durable
+     * WAL-reconcile shape without requiring a separate local orchestrator process.
+     *
+     * @returns {void}
+     * @private
+     */
+    _startGraphProjectionDrainLoop() {
+        if (this.graphProjectionDrainTimer) return;
+
+        this.drainPendingGraphProjections().catch(error => {
+            logger.warn(`[MemoryService] graph projection startup drain failed: ${error.message}`);
+        });
+
+        this.graphProjectionDrainTimer = setInterval(() => {
+            this.drainPendingGraphProjections().catch(error => {
+                logger.warn(`[MemoryService] graph projection drain failed: ${error.message}`);
+            });
+        }, GRAPH_PROJECTION_DRAIN_INTERVAL_MS);
+        this.graphProjectionDrainTimer.unref?.();
+    }
+
+    /**
+     * @summary Reconciles graph-pending WAL records into the Native Edge Graph.
+     * @param {Object} [options]
+     * @param {String[]} [options.ids] Optional targeted records.
+     * @param {Number} [options.limit] Maximum pending records to process.
+     * @returns {Promise<{pending: Number, projected: Number, failed: Number}>}
+     */
+    async drainPendingGraphProjections({ids, limit = aiConfig.memoryWal.batchSize} = {}) {
+        const records = await readPendingWalRecords({
+            dir       : aiConfig.memoryWal.dir,
+            ids,
+            limit,
+            markerType: 'graph'
+        });
+        const summary = {pending: records.length, projected: 0, failed: 0};
+
+        for (const record of records) {
+            if (record.graphProjectionVersion !== 1) continue;
+
+            try {
+                await this._projectMemoryToGraph(this._graphProjectionOptionsFromWalRecord(record));
+                summary.projected++;
+            } catch (error) {
+                summary.failed++;
+                logger.warn(`[MemoryService] graph projection drain failed for ${record.id}: ${error.message}`);
+            }
+        }
+
+        return summary;
+    }
+
+    /**
+     * @summary Rebuilds graph-projection inputs from a WAL record.
+     * @param {Object} record WAL memory record.
+     * @returns {Object} Options for {@link _projectMemoryToGraph}.
+     * @private
+     */
+    _graphProjectionOptionsFromWalRecord(record) {
+        const meta          = record.metadata || {},
+              timestampMs   = Number(meta.timestamp ?? record.timestamp),
+              timestamp     = Number.isFinite(timestampMs) ? new Date(timestampMs).toISOString() : new Date().toISOString(),
+              storedOptions = record.graphProjection || {};
+
+        return {
+            memoryId        : record.id,
+            timestamp,
+            sessionId       : meta.sessionId,
+            segmentKey      : record.segmentKey,
+            walDir          : aiConfig.memoryWal.dir,
+            requestIdentity : storedOptions.requestIdentity,
+            memoryProperties: storedOptions.memoryProperties || {
+                ...(meta.agentIdentity ? { agentIdentity: meta.agentIdentity } : {}),
+                ...(meta.userId ? { userId: normalizeUserId(meta.userId) } : {}),
+                sessionId: meta.sessionId,
+                timestamp
+            }
+        };
     }
 
     /**

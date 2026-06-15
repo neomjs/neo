@@ -253,7 +253,8 @@ async function listWalSegmentKeys(dir) {
  * @param {String} options.dir Directory for WAL segment files.
  * @param {String[]} [options.ids] When given, only records with these ids are returned.
  * @param {Number} [options.limit] Maximum records to return (applied after the ids filter).
- * @param {String} [options.markerType='embed'] Reconciliation marker stream: `'embed'` or `'graph'`.
+ * @param {String} [options.markerType='embed'] Reconciliation marker stream: `'embed'` or `'graph'`;
+ *   graph-marker reads only treat versioned graph-projection records as pending work.
  * @returns {Promise<Object[]>} Pending records (each carries its `segmentKey`), newest segment first.
  */
 export async function readPendingWalRecords({dir, ids, limit, markerType = 'embed'} = {}) {
@@ -277,6 +278,7 @@ export async function readPendingWalRecords({dir, ids, limit, markerType = 'embe
         for (const record of records) {
             if (pending.length >= bounded) break;
             if (!record?.id || markedIds.has(record.id)) continue;
+            if (markerType === 'graph' && record.graphProjectionVersion !== 1) continue;
             if (idFilter && !idFilter.has(record.id)) continue;
             pending.push(record);
         }
@@ -333,7 +335,8 @@ export async function pruneReconciledWalSegments({dir, retentionLimit, activeSeg
 
     await Promise.all(toRemove.flatMap(segmentKey => [
         fs.rm(path.join(dir, getWalRecordsFileName(segmentKey)), {force: true}),
-        fs.rm(path.join(dir, getWalMarkersFileName(segmentKey)), {force: true})
+        fs.rm(path.join(dir, getWalMarkersFileName(segmentKey)), {force: true}),
+        fs.rm(path.join(dir, getWalGraphMarkersFileName(segmentKey)), {force: true})
     ]));
 
     return toRemove.length;
