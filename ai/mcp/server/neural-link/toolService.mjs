@@ -50,6 +50,7 @@ const serviceMapping = {
     patch_code                   : RuntimeService    .patchCode                 .bind(RuntimeService),
     query_component              : ComponentService  .queryComponent            .bind(ComponentService),
     query_vdom                   : ComponentService  .queryVdom                 .bind(ComponentService),
+    redo                         : InstanceService   .redo                      .bind(InstanceService),
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
     remove_component             : ComponentService  .removeComponent           .bind(ComponentService),
     set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),

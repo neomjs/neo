@@ -115,9 +115,9 @@ class InstanceService extends Service {
 
         // Capture the reverse (the pre-set values) BEFORE mutating, so an agent can undo this write. Best-effort +
         // fail-closed: only an enforcement-granted *agent* write (a writer identity in `context`) is captured, and a
-        // malformed / unserializable reverse is dropped, never thrown into the write path. An undo-replay
-        // (`context.undoReplay`, set by {@link #undo}) is NOT captured — re-applying a reverse must never enqueue a
-        // new undoable transaction (single-level undo; redo is a later slice).
+        // malformed / unserializable reverse is dropped, never thrown into the write path. A replay
+        // (`context.undoReplay`, set by {@link #undo} / {@link #redo}) is NOT captured — re-applying a captured op
+        // must never enqueue a new transaction.
         const undoOp = context?.undoReplay ? null : this.buildSetReverse({context, id, instance, properties});
 
         instance.set(properties);
@@ -323,7 +323,7 @@ class InstanceService extends Service {
      * caller with its `subtreePath` re-derived on the live tree (provenance ≠ enforcement identity). The transaction
      * is consumed ({@link Neo.ai.TransactionService#undo}, `committed → undone`) **only on full success**. Each
      * re-dispatch carries an `undoReplay` marker so the replayed writes are not themselves captured — undo never
-     * enqueues a new undoable transaction (single-level; redo is a later slice).
+     * enqueues a new undoable transaction (single-level; {@link #redo} re-applies the forwards symmetrically).
      *
      * Recoverable + fail-closed (never throws for an expected outcome): no writer identity, no stack authority,
      * nothing to undo, or a denied / unresolvable-target re-dispatch → `{undone: false, reason}` with the transaction
@@ -372,6 +372,68 @@ class InstanceService extends Service {
         const {txId} = transactionService.undo({id: stackId});
 
         return {undone: true, txId, reverted: reverseOps.length}
+    }
+
+    /**
+     * Re-applies the requester's most-recently undone transaction — the `redo` Neural Link tool. The symmetric
+     * counterpart to {@link #undo}: peeks the writer's redo branch (non-consuming, via
+     * {@link Neo.ai.TransactionService#stackOf}) and re-dispatches each captured **forward**-op through the
+     * **enforced** dispatch path ({@link Neo.ai.Client#handleRequest}) in capture order, so the re-apply re-enters
+     * {@link Neo.ai.admitWrite} as the **current** caller with its `subtreePath` re-derived on the live tree. The
+     * transaction is consumed ({@link Neo.ai.TransactionService#redo}, `undone → committed`) **only on full success**;
+     * each re-dispatch carries the `undoReplay` marker so a replayed write is not itself captured (re-applying must
+     * never enqueue a new transaction). The redo branch is cleared by any intervening committed mutation.
+     *
+     * Recoverable + fail-closed (never throws for an expected outcome): no writer identity, no stack authority,
+     * nothing to redo, or a denied / unresolvable-target re-dispatch → `{redone: false, reason}` with the redo branch
+     * **preserved** (no-op).
+     *
+     * Single-level Slice-2 boundary: a `create_component` re-apply mints a fresh id, so a subsequent undo of a redone
+     * create can fail-closed on the now-stale captured reverse — id-stable cyclic create / remove redo is a later
+     * slice; `set_instance_properties` redo is fully cyclic.
+     * @param {Object} [params] No parameters — redo targets the requester's own stack.
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
+     * @returns {Promise<Object>} `{redone: Boolean, txId?: String, reapplied?: Number, reason?: String}`
+     */
+    async redo(params, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId) {
+            return {redone: false, reason: 'no-writer-identity'}
+        }
+
+        if (!transactionService) {
+            return {redone: false, reason: 'no-transaction-service'}
+        }
+
+        const
+            stackId = {agentId: context.agentId, sessionId: context.sessionId},
+            {redo}  = transactionService.stackOf({id: stackId});
+
+        if (redo.length === 0) {
+            return {redone: false, reason: 'nothing-to-redo'}
+        }
+
+        const
+            tx         = redo[redo.length - 1],
+            forwardOps = tx.ops.slice(), // first mutation re-applied first (capture order)
+            replayCtx  = {...context, undoReplay: true};
+
+        // Re-dispatch each forward as a validated tool, enforced as the CURRENT caller. Capture is suppressed
+        // (replayCtx.undoReplay), so a successful re-apply enqueues no new transaction.
+        try {
+            for (const op of forwardOps) {
+                await this.client.handleRequest(op.forward.tool, op.forward.args, replayCtx)
+            }
+        } catch (error) {
+            // Preserve-on-fail: a denied / unresolvable re-dispatch leaves the transaction on the redo branch (no-op).
+            return {redone: false, reason: `redo-denied: ${error.message}`}
+        }
+
+        // All forwards applied — consume the redo entry (undone → committed).
+        const {txId} = transactionService.redo({id: stackId});
+
+        return {redone: true, txId, reapplied: forwardOps.length}
     }
 
     /**

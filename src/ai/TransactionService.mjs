@@ -56,20 +56,23 @@ const stackKey = ({agentId, sessionId} = {}) => {
  * inputs** — reverse-capture, the enforcement grant, and the live tree all live in the caller; this class only
  * owns the stack lifecycle, so it is unit-testable via event sequences with no live-heap or socket dependency.
  *
- * **Lifecycle / state machine**: `open → committed → undone`, with `aborted` / `timedOut`
- * as failure / teardown terminals. A reverse-op is captured ({@link record}) only after the forward write is
- * enforcement-granted — the caller (the `InstanceService` write-path, behind `Neo.ai.admitWrite`) guarantees that
- * ordering, so a denied write never reaches {@link record} and leaves no reverse record. Slice-1 is **single-level**
- * undo: {@link undo} reverts the most-recent committed transaction for the writer.
+ * **Lifecycle / state machine**: `open → committed → undone`, plus the redo re-entry `undone → committed`
+ * ({@link redo}), with `aborted` / `timedOut` as failure / teardown terminals. A reverse-op is captured
+ * ({@link record}) only after the forward write is enforcement-granted — the caller (the `InstanceService`
+ * write-path, behind `Neo.ai.admitWrite`) guarantees that ordering, so a denied write never reaches {@link record}
+ * and leaves no reverse record. Undo + redo are **single-level**: {@link undo} reverts the most-recent committed
+ * transaction for the writer; {@link redo} re-applies the most-recently undone one (the undo↔redo cycle), and a new
+ * {@link commit} clears the redo branch (a fresh mutation diverges history).
  *
  * **Identity / provenance**: each op stores `originWriter:{agentId, sessionId}` as
  * provenance / authorization evidence **only**; the stack never enforces with it — undo is re-dispatched and
  * re-enforced as the *current* requester by the caller, and the enforcement `subtreePath` is re-derived at undo
  * time on the live tree (the stored `targetSubtreePath` is audit metadata, never the enforcement path).
  *
- * Scope boundary (Slice-1): this is the stack authority + its lifecycle API. The `InstanceService`
- * capture-hook, the `undo` Neural Link tool, `redo` + named batching (Slice-2), Memory-Core persistence (Slice-3),
- * and any privileged `systemRollback` are named follow-up slices, not this module.
+ * Scope boundary: this is the stack authority + its lifecycle API (`begin`/`record`/`commit`/`undo`/`redo`/
+ * `abort`/`timeout`/`sweep`). The `InstanceService` capture-hook + the `undo` / `redo` Neural Link tools are the
+ * wiring (not this module); named transaction batching (the Slice-2 remainder), Memory-Core persistence (Slice-3),
+ * and any privileged `systemRollback` are named follow-up slices.
  * @class Neo.ai.TransactionService
  * @extends Neo.core.Base
  */
@@ -105,9 +108,10 @@ class TransactionService extends Base {
     }
 
     /**
-     * Per-session undo state, keyed by {@link stackKey}. Each value is `{open: Object|null, committed: Object[]}`:
-     * at most one `open` transaction at a time, plus the depth-capped `committed` stack (newest last). In-memory
-     * + same-live-session only (the converged design); a disconnect {@link sweep}s the session away.
+     * Per-session undo state, keyed by {@link stackKey}. Each value is `{open: Object|null, committed: Object[],
+     * redo: Object[]}`: at most one `open` transaction at a time, the depth-capped `committed` undo stack (newest
+     * last), and the `redo` branch ({@link undo} pushes here, {@link redo} pops, a new {@link commit} clears it).
+     * In-memory + same-live-session only (the converged design); a disconnect {@link sweep}s the session away.
      * @member {Map<String,Object>} sessions
      * @protected
      */
@@ -133,7 +137,7 @@ class TransactionService extends Base {
         let entry = this.sessions.get(key);
 
         if (!entry) {
-            entry = {open: null, committed: []};
+            entry = {open: null, committed: [], redo: []};
             this.sessions.set(key, entry)
         }
 
@@ -242,6 +246,7 @@ class TransactionService extends Base {
 
         tx.status = 'committed';
         entry.committed.push(tx);
+        entry.redo.length = 0; // a new committed mutation diverges history — the redo branch is no longer valid
 
         if (entry.committed.length > this.maxStackDepth) {
             entry.committed.shift() // evict the oldest — past the depth bound it is no longer undoable
@@ -270,8 +275,37 @@ class TransactionService extends Base {
         const tx = entry.committed.pop();
 
         tx.status = 'undone';
+        entry.redo.push(tx); // retain the undone transaction so `redo` can re-apply it (Slice-2)
 
         return {txId: tx.txId, reverseOps: tx.ops.map(cloneOp).reverse()}
+    }
+
+    /**
+     * @summary Redo the most-recently undone transaction for the writer — `undone → committed` (single-level).
+     * The symmetric counterpart to {@link undo}: pops the writer's redo branch (the transactions {@link undo}
+     * retained), restores the transaction to the committed stack (`status: 'committed'`, undoable again), and returns
+     * its **forward-ops in capture order** (first mutation re-applied first) for the caller to re-dispatch as validated
+     * tool calls — re-enforced as the *current* requester, with the enforcement `subtreePath` re-derived on the live
+     * tree (NOT the stored audit path), exactly as undo does for the reverses. Does not itself mutate the tree or the
+     * lock table. Returns `forwardOps: null` when there is nothing to redo. The redo branch is invalidated by any new
+     * {@link commit} — a fresh mutation diverges history (standard editor semantics).
+     * @param {Object} params
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
+     * @returns {{txId: (String|null), forwardOps: (Object[]|null)}}
+     */
+    redo({id}) {
+        const entry = this.sessions.get(stackKey(id) ?? '');
+
+        if (!entry || entry.redo.length === 0) {
+            return {txId: null, forwardOps: null}
+        }
+
+        const tx = entry.redo.pop();
+
+        tx.status = 'committed';
+        entry.committed.push(tx); // restored to the undo stack — undoable again (the undo↔redo cycle)
+
+        return {txId: tx.txId, forwardOps: tx.ops.map(cloneOp)}
     }
 
     /**
@@ -352,12 +386,13 @@ class TransactionService extends Base {
         const entry = this.sessions.get(stackKey(id) ?? '');
 
         if (!entry) {
-            return {open: null, committed: []}
+            return {open: null, committed: [], redo: []}
         }
 
         return {
             open     : entry.open ? cloneTx(entry.open) : null,
-            committed: entry.committed.map(cloneTx)
+            committed: entry.committed.map(cloneTx),
+            redo     : entry.redo.map(cloneTx)
         }
     }
 }
