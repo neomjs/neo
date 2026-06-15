@@ -397,6 +397,96 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toContain('2 new messages');          // coalesced breakdown
     });
 
+    test('#13281: a retry drops a message read between the failed delivery and the re-attempt', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-retry-readfilter';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId, label: 'AGENT', properties: { name: 'Test Agent Retry ReadFilter' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                // test-fail throws on the first attempt → the wake is queued for retry. We mark the
+                // message read before the retry fires, so the retry's read-reconcile must drop it.
+                harnessTargetMetadata: { adapter: 'test-fail', coalesceWindow: 1 }
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        // The wake fires on SENT_TO; DELIVERED_TO carries the per-recipient readAt the daemon reconciles
+        // against live at flush/retry time. Updating that edge (no GraphLog row) simulates the recipient
+        // reading the message between the failed delivery and the retry, without firing a new wake.
+        const msgId = 'msg_' + crypto.randomUUID();
+        const delId = 'edge_' + crypto.randomUUID();
+
+        const markMessageRead = () => {
+            db.prepare('UPDATE Edges SET data = ? WHERE id = ?').run(JSON.stringify({
+                id: delId, source: msgId, target: agentId, type: 'DELIVERED_TO',
+                properties: { readAt: '2026-06-15T00:00:00.000Z' }
+            }), delId);
+        };
+
+        let markedRead = false;
+        const dropPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Retry was not dropped after the message was read within timeout')), 25000);
+            const onData = (data) => {
+                const out = data.toString();
+                // First delivery failure → the wake is now queued for retry. Mark the message read so the
+                // retry's read-reconcile must drop it rather than re-deliver the stale digest.
+                if (!markedRead && out.includes('Failed to deliver via test-fail')) {
+                    markedRead = true;
+                    markMessageRead();
+                }
+                if (out.includes(`Retry for ${subId} dropped: all queued messages were read before re-delivery`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId, label: 'MESSAGE', properties: { from: '@sender', subject: 'Read Before Retry', priority: 'normal' }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const sentId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(
+            sentId, JSON.stringify({ id: sentId, source: msgId, target: agentId, type: 'SENT_TO' }),
+            msgId, agentId, 'SENT_TO'
+        );
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(sentId, 'edges');
+
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(
+            delId, JSON.stringify({ id: delId, source: msgId, target: agentId, type: 'DELIVERED_TO', properties: { readAt: null } }),
+            msgId, agentId, 'DELIVERED_TO'
+        );
+
+        await dropPromise;
+
+        // The retry was dropped (read-reconciled), not re-attempted or capped: without the fix the retry
+        // would rebuild the stale digest and throw again, eventually hitting the "Giving up" cap.
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain(`Retry for ${subId} dropped`);
+        expect(logContents).not.toContain('Giving up wake delivery');
+    });
+
     test('a message-wake digest omits the lane directive — it is heartbeat-only (#13118, #13137)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-directive';
