@@ -1019,11 +1019,14 @@ test.describe('Wake Daemon', () => {
             }
         });
 
+        let stdoutLog = '';
+
         const deliveryPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver Codex app-server digest within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
+                stdoutLog += out;
                 if (out.includes(`[Wake Daemon] Dispatched ${subId} via codex-app-server send-message-v2`)) {
                     clearTimeout(timeout);
                     resolve();
@@ -1051,6 +1054,10 @@ test.describe('Wake Daemon', () => {
         expect(args[3]).toContain('[WAKE][priority:normal]');
         expect(args[3]).toContain('Codex App Server Wake');
         expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+        expect(stdoutLog).toContain(
+            'scenario=direct-message; route=codex-app-server; adapterSource=metadata; app=Codex; ' +
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+        );
     });
 
     test('uses the highest coalesced message priority in the wake digest header and preserves divergent latest priority', async () => {
@@ -1947,11 +1954,14 @@ test.describe('Wake Daemon', () => {
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
+        let stdoutLog = '';
+
         const deliveryPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon did not deliver Codex wake within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
+                stdoutLog += out;
                 if (out.includes(`Delivered ${subId}`)) {
                     clearTimeout(timeout);
                     resolve();
@@ -2005,6 +2015,88 @@ test.describe('Wake Daemon', () => {
         expect(rawArgs.at(-1)).toContain('[WAKE][priority:normal]');
         expect(rawArgs.at(-1)).toContain('Test Codex Cleanup');
         expect(rawArgs.at(-1)).not.toContain('lifecycle-first');
+        expect(stdoutLog).toContain(
+            'scenario=direct-message; route=osascript; adapterSource=metadata; app=Codex; ' +
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+        );
+    });
+
+    test('Codex UI wake logs pure-heartbeat scenario and route evidence (#13320)', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-pure-heartbeat';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Codex Pure Heartbeat' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'osascript',
+                    appName: 'Codex',
+                    coalesceWindow: 1,
+                    focusSeedKey: 'r'
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_pure_heartbeat_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        let stdoutLog = '';
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not deliver pure-heartbeat Codex wake within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes(`Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const pulseId = `HEARTBEAT_PULSE:${agentId}:${crypto.randomUUID()}`;
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
+
+        await deliveryPromise;
+
+        const rawArgs = JSON.parse(fs.readFileSync(mockOutPath, 'utf-8'));
+        const digest  = rawArgs.at(-1);
+
+        expect(digest).toContain('heartbeat pulses');
+        expect(digest).toContain('lifecycle-first');
+        expect(digest).not.toContain('new messages');
+        expect(stdoutLog).toContain(
+            'scenario=pure-heartbeat; route=osascript; adapterSource=metadata; app=Codex; ' +
+            'counts=messages:0,tasks:0,permissions:0,heartbeats:1'
+        );
     });
 
     test('Codex UI wake submits a mixed message + heartbeat digest with Enter and omits the heartbeat-only directive (#13287)', async () => {
@@ -2049,11 +2141,14 @@ test.describe('Wake Daemon', () => {
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
+        let stdoutLog = '';
+
         const deliveryPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon did not deliver mixed Codex wake within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
+                stdoutLog += out;
                 if (out.includes(`Delivered ${subId}`)) {
                     clearTimeout(timeout);
                     resolve();
@@ -2083,6 +2178,10 @@ test.describe('Wake Daemon', () => {
         expect(digest).toContain('new messages');
         expect(digest).toContain('heartbeat pulses');
         expect(digest).not.toContain('lifecycle-first');
+        expect(stdoutLog).toContain(
+            'scenario=mixed-message-heartbeat; route=osascript; adapterSource=metadata; app=Codex; ' +
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:1'
+        );
     });
 
     test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {

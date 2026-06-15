@@ -657,14 +657,15 @@ async function flushSubscription(subId) {
         return;
     }
 
-    const events = {messages, tasks, permissions, heartbeats};
-    const digest = buildWakeDigest(identity, events);
+    const events           = {messages, tasks, permissions, heartbeats};
+    const deliveryEvidence = buildWakeDeliveryEvidence(events);
+    const digest           = buildWakeDigest(identity, events);
 
     // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a live
     // target) is re-queued for retry — carrying the EVENTS, not just this digest string, so a second
     // failure for the same subscription coalesces them without loss. Intentional skips and successful
     // deliveries are not re-queued.
-    const deliveryOutcome = await deliverDigest(subscription, digest);
+    const deliveryOutcome = await deliverDigest(subscription, digest, deliveryEvidence);
     if (deliveryOutcome === 'failed') {
         enqueueDeliveryRetry(subscription, identity, events);
     }
@@ -727,9 +728,10 @@ function resolveCodexCliPath() {
  *
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
+ * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
  * @returns {Promise<void>}
  */
-async function deliverViaCodexAppServer(subscription, digest) {
+async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = '') {
     const meta    = subscription.properties?.harnessTargetMetadata || {};
     const appName = meta.appName;
 
@@ -738,7 +740,7 @@ async function deliverViaCodexAppServer(subscription, digest) {
     }
 
     await spawnAsync(resolveCodexCliPath(), ['debug', 'app-server', 'send-message-v2', digest]);
-    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via codex-app-server send-message-v2`);
+    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via codex-app-server send-message-v2${evidenceLabel}`);
 }
 
 /**
@@ -758,18 +760,19 @@ async function deliverViaCodexAppServer(subscription, digest) {
  * @param {String[]} osascriptArgs The fully-built `osascript -e …` argument list.
  * @param {String} subscriptionId For log attribution.
  * @param {String} appName For log attribution.
+ * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
  * @returns {Promise<void>}
  */
-async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appName) {
+async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appName, evidenceLabel = '') {
     const maxAttempts = 4,
           backoffMs   = 800;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
             await spawnAsync('osascript', osascriptArgs);
+            const attemptLabel = attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : '';
             writeLog('INFO',
-                `[Wake Daemon] Delivered ${subscriptionId} via osascript to ${appName}` +
-                (attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ''));
+                `[Wake Daemon] Delivered ${subscriptionId} via osascript to ${appName}${attemptLabel}${evidenceLabel}`);
             return
         } catch (err) {
             const message         = err.message || '',
@@ -780,7 +783,7 @@ async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appNa
             if (isFrontmostRace && afterSubmit) {
                 writeLog('WARN',
                     `[Wake Daemon] ${subscriptionId} wake landed but draft-restore lost frontmost; ` +
-                    `not retrying (avoids double-send). ${message}`);
+                    `not retrying (avoids double-send)${evidenceLabel}. ${message}`);
                 return
             }
 
@@ -796,6 +799,55 @@ async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appNa
             throw err
         }
     }
+}
+
+/**
+ * @summary Classifies a queued wake digest into the scenario observed by the delivery adapter.
+ * @param {Object} events Wake event arrays.
+ * @returns {{scenario: String, counts: Object}}
+ */
+function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [], heartbeats = []} = {}) {
+    const counts = {
+        messages   : messages.length,
+        tasks      : tasks.length,
+        permissions: permissions.length,
+        heartbeats : heartbeats.length
+    };
+
+    const actionableCount = counts.messages + counts.tasks + counts.permissions;
+
+    let scenario = 'empty';
+    if (counts.heartbeats > 0 && actionableCount === 0) {
+        scenario = 'pure-heartbeat';
+    } else if (counts.messages > 0 && counts.tasks === 0 && counts.permissions === 0 && counts.heartbeats === 0) {
+        scenario = 'direct-message';
+    } else if (counts.messages > 0 && counts.tasks === 0 && counts.permissions === 0 && counts.heartbeats > 0) {
+        scenario = 'mixed-message-heartbeat';
+    } else if (counts.heartbeats > 0 && actionableCount > 0) {
+        scenario = 'mixed-actionable-heartbeat';
+    } else if (actionableCount > 0) {
+        scenario = 'actionable';
+    }
+
+    return {scenario, counts};
+}
+
+/**
+ * @summary Formats Codex wake-delivery evidence for live route validation logs.
+ * @param {Object} evidence Scenario/count evidence from buildWakeDeliveryEvidence().
+ * @param {Object} options Adapter metadata.
+ * @returns {String}
+ */
+function formatWakeDeliveryEvidence(evidence, {adapter, adapterSource, appName}) {
+    if (!evidence) return '';
+
+    const counts = evidence.counts || {};
+
+    const scenario = evidence.scenario || 'unknown';
+
+    return ` (scenario=${scenario}; route=${adapter}; adapterSource=${adapterSource}; app=${appName || ''}; ` +
+        `counts=messages:${counts.messages || 0},tasks:${counts.tasks || 0},` +
+        `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0})`;
 }
 
 /**
@@ -823,14 +875,22 @@ const MAX_DELIVERY_RETRIES   = Number(process.env.WAKE_MAX_DELIVERY_RETRIES) || 
 const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, identity, events, attempts, nextAttemptAt}
 
 /**
- * Delivers the digest to the configured harness adapter.
+ * @summary Delivers the digest to the configured harness adapter.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @param {Object} [deliveryEvidence={}] Scenario/count evidence for Codex validation logs.
+ * @returns {Promise<String|undefined>}
  */
-async function deliverDigest(subscription, digest) {
+async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
     const meta = subscription.properties?.harnessTargetMetadata || {};
     const {instanceAddress, addressType} = resolveInstanceAddress(meta);
     // Fall back to osascript on macOS by default, tmux otherwise
     const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
-    const adapter = meta.adapter || defaultAdapter;
+    const adapter       = meta.adapter || defaultAdapter;
+    const adapterSource = meta.adapter ? 'metadata' : 'platform-default';
+    const evidenceLabel = meta.appName === 'Codex' || adapter === CODEX_APP_SERVER_ADAPTER
+        ? formatWakeDeliveryEvidence(deliveryEvidence, {adapter, adapterSource, appName: meta.appName})
+        : '';
 
     // Serialize execution to prevent focus collisions (Electron-Paradox defense)
     deliveryPromise = deliveryPromise.then(async () => {
@@ -854,7 +914,7 @@ async function deliverDigest(subscription, digest) {
         }
 
         if (adapter === CODEX_APP_SERVER_ADAPTER) {
-            await deliverViaCodexAppServer(subscription, digest);
+            await deliverViaCodexAppServer(subscription, digest, evidenceLabel);
             return;
         }
 
@@ -1103,7 +1163,7 @@ async function deliverDigest(subscription, digest) {
                 digest
             );
 
-            await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName);
+            await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName, evidenceLabel);
         } else if (adapter === 'test') {
             writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
         } else if (adapter === 'test-fail') {
@@ -1236,8 +1296,10 @@ async function attemptDeliveryRetries() {
             continue;
         }
 
-        const digest  = buildWakeDigest(entry.identity, {...entry.events, messages: liveMessages});
-        const outcome = await deliverDigest(entry.subscription, digest);
+        const retryEvents      = {...entry.events, messages: liveMessages};
+        const deliveryEvidence = buildWakeDeliveryEvidence(retryEvents);
+        const digest           = buildWakeDigest(entry.identity, retryEvents);
+        const outcome          = await deliverDigest(entry.subscription, digest, deliveryEvidence);
 
         if (outcome === 'failed') {
             entry.attempts += 1;
