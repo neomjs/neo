@@ -7,13 +7,6 @@ import {projectConversationTrust} from './shared/conversationTrust.mjs';
 import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
 import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
 
-const AGENT_ICONS = {
-    gemini : '✦',
-    claude : '❋',
-    gpt    : '●',
-    default: '◆'
-};
-
 /**
  * @summary Service for interacting with GitHub Discussions via the GraphQL API.
  *
@@ -196,45 +189,13 @@ class DiscussionService extends Base {
     }
 
     /**
-     * Extracts the agent type from the agent string for icon selection.
-     * @param {string} agent The full agent identifier
-     * @returns {string} The agent type key for AGENT_ICONS lookup
-     */
-    getAgentType(agent) {
-        const agentLower = agent.toLowerCase();
-
-        if (agentLower.includes('gemini')) return 'gemini';
-        if (agentLower.includes('claude')) return 'claude';
-        if (agentLower.includes('gpt'))    return 'gpt';
-
-        return 'default';
-    }
-
-    /**
      * Creates a comment on a specific discussion.
      * @param {object} options                      The options object
      * @param {number} options.discussion_number    The number of the discussion.
      * @param {string} options.body                 The raw content of the comment.
-     * @param {string} options.agent                The identity of the calling agent.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async createComment({discussion_number, body, agent}) {
-        // Agent Header Formatting
-        const header       = `**Input from ${agent}:**\n\n`;
-        const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
-        const headingMatch = body.match(/^(#+\s*)(.*)$/);
-        let processedBody;
-
-        if (headingMatch) {
-            const headingMarkers = headingMatch[1];
-            const headingContent = headingMatch[2];
-            processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
-        } else {
-            processedBody = `${agentIcon} ${body}`;
-        }
-
-        const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
-
+    async createComment({discussion_number, body}) {
         try {
             // Get Discussion subjectId
             const idData = await GraphqlService.query(GET_DISCUSSION_ID, {
@@ -254,7 +215,7 @@ class DiscussionService extends Base {
             const discussionId = idData.repository.discussion.id;
 
             // Use ADD_DISCUSSION_COMMENT mutation
-            const result = await GraphqlService.query(ADD_DISCUSSION_COMMENT, { discussionId, body: finalBody });
+            const result = await GraphqlService.query(ADD_DISCUSSION_COMMENT, { discussionId, body });
             const comment = result.addDiscussionComment.comment;
 
             return {
@@ -309,11 +270,11 @@ class DiscussionService extends Base {
      * @param {number} [options.discussion_number]    The number of the discussion (required for create).
      * @param {string} [options.comment_id]           The global node ID of the comment (required for update).
      * @param {string} options.body                   The content of the comment.
-     * @param {string} [options.agent]                The identity of the calling agent (required for create).
+     * @param {string} [options.agent]                Deprecated no-op retained for backward compatibility.
      * @param {string} options.action                 The action to perform: 'create' or 'update'.
      * @returns {Promise<object>}
      */
-    async manageDiscussionComment({discussion_number, comment_id, body, agent, action}) {
+    async manageDiscussionComment({discussion_number, comment_id, body, action}) {
         if (!['create', 'update'].includes(action)) {
             return {
                 error: 'Bad Request',
@@ -323,14 +284,14 @@ class DiscussionService extends Base {
         }
 
         if (action === 'create') {
-            if (!agent || !discussion_number) {
+            if (!discussion_number) {
                 return {
                     error: 'Bad Request',
-                    message: "Missing required argument: 'agent' and 'discussion_number' are required for creating comments.",
+                    message: "Missing required argument: 'discussion_number' is required for creating comments.",
                     code: 'MISSING_ARGUMENTS'
                 };
             }
-            return this.createComment({discussion_number, body, agent});
+            return this.createComment({discussion_number, body});
         } else {
             if (!comment_id) {
                 return {
