@@ -16,6 +16,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const DAY_MS     = 24 * 60 * 60 * 1000;
 
+/**
+ * Social Name → `@`-stripped GitHub login, derived from the canonical identity roster. The PR-body
+ * self-id leads with the Social Name (`Authored by <Social Name> (…)`); this resolves it to the login
+ * the family map keys on. The legacy `@identity` form is still parsed for transitional / pre-trim bodies.
+ */
+const SOCIAL_NAME_TO_LOGIN = Object.freeze(Object.fromEntries(
+    IDENTITIES
+        .filter(identity => identity.name && identity.properties?.githubLogin)
+        .map(identity => [identity.name, identity.properties.githubLogin.replace(/^@/, '')])
+));
+
 const MAINTAINER_PROGRESS_PATTERN = /\b(?:in[-\s]?progress|picking up|taking|claim(?:ed|ing)?|lane-claim|lane-state:\s*next-lane|working|implement(?:ing)?|opened\s+(?:PR|pull request)|PR\s*#\d+)\b/i;
 
 /**
@@ -652,29 +663,35 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Extracts the canonical `@identity` (login, `@`-stripped) from a PR body's
-     * `Authored by … @identity` self-id line.
+     * @summary Extracts the canonical author login (`@`-stripped) from a PR body's `Authored by …`
+     * self-id line, resolving both the Social-Name-led form and the legacy `@identity` form.
      *
      * The body self-id is the drift-free author source: the GitHub PR opener can mis-resolve (an MCP
      * `@me` identity-resolution drift stamps a different agent's login on the opener), but the body
-     * declares its own canonical `@identity`. Returns null when no self-id is present (legacy / external
-     * bodies), so the caller falls back to the advisory login. The pattern is **line-anchored** (`^…/m`)
-     * to the canonical self-id line, so a `Co-Authored by` trailer or descriptive prose that merely
-     * contains `Authored by` mid-line does not match.
+     * declares its own canonical author. The current convention leads with the **Social Name**
+     * (`Authored by <Social Name> (<Model>, <Wrapper>).`), resolved to a login via the identity roster;
+     * the legacy `Authored by … @identity` form is still parsed for transitional / pre-trim bodies.
+     * Returns null when no self-id is present (external bodies) or the Social Name is unregistered, so the
+     * caller falls back to the advisory login. The pattern is **line-anchored** (`^…/m`) to the self-id
+     * line, so a `Co-Authored by` trailer or prose that merely contains `Authored by` mid-line does not match.
      * @param {String} body
-     * @returns {(String|null)} The `@`-stripped identity login, or null.
+     * @returns {(String|null)} The `@`-stripped author login, or null.
      */
     static parseSelfIdLogin(body) {
         if (typeof body !== 'string') return null;
 
-        const match = body.match(/^Authored by[^\n]*?@([A-Za-z0-9-]+)/m);
+        // Legacy form first: `Authored by … @identity` (transitional / pre-trim bodies).
+        const legacyMatch = body.match(/^Authored by[^\n]*?@([A-Za-z0-9-]+)/m);
+        if (legacyMatch) return legacyMatch[1];
 
-        return match ? match[1] : null
+        // Current form: `Authored by <Social Name> (…)` — resolve the Social Name to a login via the roster.
+        const socialMatch = body.match(/^Authored by (.+?) \(/m);
+        return socialMatch ? (SOCIAL_NAME_TO_LOGIN[socialMatch[1].trim()] ?? null) : null
     }
 
     /**
-     * @summary Resolves a PR author's model family from the canonical body `@identity`, falling back
-     * to the drift-prone GitHub login as an advisory source.
+     * @summary Resolves a PR author's model family from the canonical body self-id (Social-Name-led, or
+     * legacy `@identity`), falling back to the drift-prone GitHub login as an advisory source.
      *
      * The body's self-declared `@identity` wins; the GitHub author login is advisory-only (used when the
      * body carries no self-id), and a body-vs-login family disagreement is logged as drift rather than

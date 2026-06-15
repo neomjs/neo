@@ -851,12 +851,18 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         Synthesizer = mod.default.constructor;
     });
 
-    test('parseSelfIdLogin extracts the @identity only from the canonical line-start self-id', () => {
+    test('parseSelfIdLogin resolves the Social-Name-led form and the legacy @identity form', () => {
+        // Legacy @identity form (transitional / pre-trim bodies).
         expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop), @neo-gpt (Euclid). Session x.')).toBe('neo-gpt');
         expect(Synthesizer.parseSelfIdLogin('Authored by Claude Opus 4.8 (Claude Code), @neo-claude-opus (Grace).')).toBe('neo-claude-opus');
         // Real PR bodies open with `Resolves #N`, so the self-id is mid-body — the /m anchor must still match it.
         expect(Synthesizer.parseSelfIdLogin('Resolves #1\n\nAuthored by GPT-5 (Codex Desktop), @neo-gpt (Euclid).')).toBe('neo-gpt');
-        expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop). Session x.')).toBe(null); // legacy, no @identity
+        // Current Social-Name-led form (post-trim): resolve the Social Name to a login via the roster.
+        expect(Synthesizer.parseSelfIdLogin('Authored by Euclid (GPT-5, Codex Desktop). Session x.')).toBe('neo-gpt');
+        expect(Synthesizer.parseSelfIdLogin('Authored by Ada (Claude Opus 4.8, Claude Code).')).toBe('neo-opus-ada');
+        expect(Synthesizer.parseSelfIdLogin('Resolves #1\n\nAuthored by Grace (Claude Opus 4.8, Claude Code).')).toBe('neo-claude-opus');
+        expect(Synthesizer.parseSelfIdLogin('Authored by Unregistered Name (Some Model). Session x.')).toBe(null); // social name not in roster
+        expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop). Session x.')).toBe(null); // model-led, no @identity; "GPT-5" not a social name
         // Overmatch guards: a `Co-Authored by` trailer or prose merely containing `Authored by` mid-line must NOT match.
         expect(Synthesizer.parseSelfIdLogin('Co-Authored by Claude Opus, @neo-claude-opus.')).toBe(null);
         expect(Synthesizer.parseSelfIdLogin('Note: Authored by old session @neo-gpt in context.')).toBe(null);
@@ -873,6 +879,18 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
         };
         // Login-only reads author=claude, reviewer=claude -> false (the bug). The self-id reads author=gpt -> cross-family true.
+        expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
+    });
+
+    test('resolves author family from the Social-Name self-id, overriding a drifted GitHub login', () => {
+        // Drift shape with the current trimmed format: opener mis-resolves to a Claude login; the body self-id is Euclid (GPT).
+        const pr = {
+            number : 13367,
+            author : {login: 'neo-opus-ada'}, // drifted (mis-resolved opener)
+            body   : 'Authored by Euclid (GPT-5, Codex Desktop). Session x.',
+            reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
+        };
+        // The Social-Name self-id resolves author=gpt via the roster, so the claude reviewer makes it cross-family.
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
     });
 
