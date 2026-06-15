@@ -1,4 +1,5 @@
 import path                                  from 'path';
+import os                                    from 'os';
 import {fileURLToPath}                       from 'url';
 import ConfigProvider, {createConfigProxy, leaf} from './ConfigProvider.mjs';
 
@@ -10,6 +11,36 @@ const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
+
+/**
+ * @summary Resolves host-RAM-appropriate defaults for the local chat model's context-window
+ * limits, so the bundled model loads out-of-the-box instead of assuming a ~90GB host.
+ *
+ * The `gemma-4-31b-it` native 256K context needs ~90GB RAM for its KV cache; on smaller hosts the
+ * model fails to load (or the inference server OOMs). This tiers the DEFAULT context limit by total
+ * system memory so it loads, while a ~96GB+ host still gets the full native context. The explicit
+ * `NEO_LOCAL_MODELS_CHAT_*` env overrides always win — the leaf owns env-resolution, this only
+ * supplies the host-appropriate base default.
+ *
+ * Bands are conservative (err toward loading), anchored on the 256K ≈ 90GB figure; the per-tier
+ * `safeProcessingLimitTokens` is the explicit ~76% headroom band (avoids `0.75 × cap` derivation
+ * drift). Operators should validate the actual load on their host and tune via the env override or
+ * these constants — exact headroom depends on model quant + other RAM users. Pure function of
+ * `totalMemBytes` for host-agnostic unit testing.
+ *
+ * @param {Number} totalMemBytes Total system memory in bytes (e.g. `os.totalmem()`).
+ * @returns {{contextLimitTokens:Number, safeProcessingLimitTokens:Number}}
+ */
+export function resolveLocalModelChatContextBand(totalMemBytes) {
+    const ramGb = totalMemBytes / (1024 ** 3);
+
+    if (ramGb >= 96) return {contextLimitTokens: 262144, safeProcessingLimitTokens: 200000}; // native 256K
+    if (ramGb >= 72) return {contextLimitTokens: 131072, safeProcessingLimitTokens: 100000}; // 128K
+    if (ramGb >= 56) return {contextLimitTokens: 65536,  safeProcessingLimitTokens: 50000};  // 64K
+    if (ramGb >= 40) return {contextLimitTokens: 32768,  safeProcessingLimitTokens: 25000};  // 32K
+    if (ramGb >= 24) return {contextLimitTokens: 16384,  safeProcessingLimitTokens: 12000};  // 16K
+    return {contextLimitTokens: 8192, safeProcessingLimitTokens: 6000};                       // 8K floor
+}
 
 /**
  * @class Neo.ai.Config
@@ -210,8 +241,11 @@ class Config extends ConfigProvider {
                 /**
                  * @summary Chat-model context limits in tokens.
                  *
-                 * Tuned for `gemma-4-31b-it` (native 256K context). Operators serving
-                 * smaller chat models should pin this to the actual loaded-model capacity;
+                 * Tuned for `gemma-4-31b-it` (native 256K context, ~90GB RAM). The DEFAULT is
+                 * host-RAM-tiered via `resolveLocalModelChatContextBand(os.totalmem())` so
+                 * the model loads on sub-90GB hosts; a ~96GB+ host gets the full native context.
+                 * Operators serving a different model/quant should pin the actual capacity via the
+                 * env overrides below (which always win — the leaf owns env-resolution);
                  * `ConsumerFrictionHelper.invokeWithGuardrail` uses these values to fire
                  * the upstream pre-check skip (emits `'context-overflow'` /
                  * `'size-precheck-skip'` friction) when composed input exceeds the safe
@@ -227,8 +261,8 @@ class Config extends ConfigProvider {
                  * @type {Object}
                  */
                 chat: {
-                    contextLimitTokens       : leaf(262144, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(200000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
+                    contextLimitTokens       : leaf(resolveLocalModelChatContextBand(os.totalmem()).contextLimitTokens,        'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(resolveLocalModelChatContextBand(os.totalmem()).safeProcessingLimitTokens, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 },
                 /**
                  * @summary Embedding-model context limits in tokens.
