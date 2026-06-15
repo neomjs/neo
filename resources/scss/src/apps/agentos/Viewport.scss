@@ -90,6 +90,54 @@
             color : var(--agent-accent-swarm);
         }
     }
+
+    .agent-first-widget-panel.neo-panel {
+        background-color : var(--agent-surface-grid);
+        border           : 1px solid var(--agent-border);
+        min-height       : 360px;
+
+        .neo-panel-header {
+            background-color : var(--agent-bg-panel);
+            border-bottom    : 2px solid var(--agent-accent-grid);
+        }
+
+        .neo-panel-header-text {
+            color : var(--agent-accent-grid);
+        }
+    }
+
+    .agent-first-widget-blueprint-meta {
+        align-items      : center;
+        background-color : var(--agent-bg-panel);
+        border-bottom    : 1px solid var(--agent-border);
+        color            : var(--agent-text-secondary);
+        display          : flex;
+        flex             : none;
+        gap              : 12px;
+        min-height       : 44px;
+        padding          : 0 16px;
+    }
+
+    .agent-first-widget-state {
+        color          : var(--agent-state-live);
+        font-family    : var(--agent-font-mono);
+        font-weight    : 700;
+        text-transform : uppercase;
+    }
+
+    .agent-first-widget-grid {
+        background-color : var(--agent-surface-grid);
+        min-height       : 300px;
+    }
+
+    .agent-first-widget-empty {
+        align-items      : center;
+        background-color : var(--agent-surface-grid);
+        color            : var(--agent-state-muted);
+        display          : flex;
+        justify-content  : center;
+        min-height       : 300px;
+    }
 }
 
 @media (max-width: 560px) {
