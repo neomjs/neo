@@ -5,6 +5,12 @@ import fs        from 'fs';
 import WebSocket from 'ws';
 import Base              from '../../../src/core/Base.mjs';
 import logger            from '../../mcp/server/neural-link/logger.mjs';
+import {
+    BRIDGE_INFO_TYPE,
+    STALE_BRIDGE_ERROR_CODE,
+    createStaleBridgeError,
+    isBridgeInfoPayloadFresh
+} from '../../mcp/server/neural-link/BridgeProtocol.mjs';
 import {resolveCallTarget} from './resolveCallTarget.mjs';
 
 /**
@@ -37,9 +43,15 @@ class ConnectionService extends Base {
         cwd: null,
         /**
          * @member {Number} port=8081
+         * Legacy prototype default; connection/spawn reads `aiConfig.port` at the use site.
          * @protected
          */
         port: 8081,
+        /**
+         * @member {Number} bridgeInfoTimeout=1000
+         * @protected
+         */
+        bridgeInfoTimeout: 1000,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -87,9 +99,30 @@ class ConnectionService extends Base {
         // Skip the Bridge auto-connect under unitTestMode: unit specs that import this singleton (e.g. via
         // HealthService) must stay hermetic and must not reach or spawn the live Bridge. The e2e harness
         // connects explicitly via manageConnection(); production (non-unitTestMode) auto-connects as before.
-        if (aiConfig.autoConnect && !Neo.config.unitTestMode) {
+        if (!Neo.config.unitTestMode && aiConfig.autoConnect) {
             await this.ensureBridgeAndConnect();
         }
+    }
+
+    /**
+     * @summary Builds the agent-side Bridge WebSocket URL from the resolved config leaf.
+     * @param {Object} [options={}]
+     * @param {String} [options.agentId=this.agentId]
+     * @param {Number} [options.port=aiConfig.port]
+     * @param {String} [options.token=process.env.NEO_FLEET_BRIDGE_TOKEN]
+     * @returns {String}
+     */
+    createBridgeUrl({agentId = this.agentId, port = aiConfig.port, token = process.env.NEO_FLEET_BRIDGE_TOKEN} = {}) {
+        const url = new URL(`ws://127.0.0.1:${port}`);
+
+        url.searchParams.set('role', 'agent');
+        url.searchParams.set('id', agentId);
+
+        if (token) {
+            url.searchParams.set('token', token)
+        }
+
+        return url.toString()
     }
 
     /**
@@ -147,28 +180,86 @@ class ConnectionService extends Base {
             // Present the FM-minted, asymmetrically-signed Bridge token (injected at spawn under
             // NEO_FLEET_BRIDGE_TOKEN) so the Bridge authenticates this agent from the signature, not
             // the `?id=` claim. Absent in no-FM dev → the Bridge's legacy unauthenticated path.
-            const token = process.env.NEO_FLEET_BRIDGE_TOKEN;
-            const url   = `ws://127.0.0.1:${this.port}?role=agent&id=${this.agentId}` +
-                          (token ? `&token=${encodeURIComponent(token)}` : '');
-            const ws    = new WebSocket(url);
+            const port = aiConfig.port,
+                  url  = this.createBridgeUrl({port}),
+                  ws   = new WebSocket(url);
 
-            ws.on('open', () => {
-                logger.info(`Connected to Neural Link Bridge as ${this.agentId}`);
+            let settled = false;
+
+            const rejectOnce = (error, closeSocket = true) => {
+                if (settled) return;
+
+                settled = true;
+                clearTimeout(handshakeTimeout);
+
+                if (closeSocket && ws.readyState === WebSocket.OPEN) {
+                    ws.close()
+                }
+
+                reject(error);
+            };
+
+            const resolveOnce = () => {
+                if (settled) return;
+
+                settled = true;
+                clearTimeout(handshakeTimeout);
+
                 this.bridgeSocket = ws;
                 resolve();
+            };
+
+            const handshakeTimeout = setTimeout(() => {
+                rejectOnce(createStaleBridgeError(
+                    `Stale Neural Link Bridge on port ${port}: missing ${BRIDGE_INFO_TYPE} freshness handshake. ` +
+                    'Stop or refresh the existing bridge, or run against a dedicated fresh Bridge port.'
+                ));
+            }, this.bridgeInfoTimeout);
+
+            ws.on('open', () => {
+                logger.info(`Connected to Neural Link Bridge as ${this.agentId}; awaiting ${BRIDGE_INFO_TYPE}`);
             });
 
-            ws.on('message', (data) => this.handleBridgeMessage(data));
+            ws.on('message', (data) => {
+                if (!settled) {
+                    let payload;
+
+                    try {
+                        payload = JSON.parse(data.toString())
+                    } catch {
+                        return
+                    }
+
+                    if (payload?.type !== BRIDGE_INFO_TYPE) {
+                        return
+                    }
+
+                    if (!isBridgeInfoPayloadFresh(payload)) {
+                        rejectOnce(createStaleBridgeError(
+                            `Stale Neural Link Bridge on port ${port}: incompatible ${BRIDGE_INFO_TYPE} ` +
+                            `payload ${JSON.stringify(payload)}.`
+                        ));
+                        return
+                    }
+
+                    logger.info(`Verified Neural Link Bridge freshness on port ${port}`);
+                    resolveOnce();
+                    return
+                }
+
+                this.handleBridgeMessage(data)
+            });
 
             ws.on('close', () => {
                 logger.warn('Disconnected from Neural Link Bridge');
                 this.bridgeSocket = null;
+                rejectOnce(new Error('Neural Link Bridge closed before freshness handshake completed.'), false);
                 // Optional: Auto-reconnect logic could go here
             });
 
             ws.on('error', (err) => {
-                if (!this.bridgeSocket) {
-                    reject(err); // Reject if error happens during initial connect
+                if (!settled) {
+                    rejectOnce(err, false); // Reject if error happens during initial connect
                 } else {
                     logger.error('Bridge Socket Error:', err);
                 }
@@ -187,6 +278,11 @@ class ConnectionService extends Base {
             await this.connectToBridge();
             connected = true;
         } catch (e) {
+            if (e.code === STALE_BRIDGE_ERROR_CODE) {
+                logger.error(e.message);
+                throw e
+            }
+
             logger.info('Failed to connect to existing bridge:', e.message);
             logger.info('Assuming Bridge not running. Spawning new Bridge process...');
         }
@@ -498,10 +594,12 @@ class ConnectionService extends Base {
         return new Promise((resolve, reject) => {
             const args    = ['run', 'ai:server-neural-link'];
             const logFile = fs.openSync('./bridge.log', 'a');
+            const port    = aiConfig.port;
 
             this.bridgeProcess = spawn('npm', args, {
                 cwd     : this.cwd || process.cwd(),
                 detached: true,
+                env     : {...process.env, NEO_NL_PORT: String(port)},
                 stdio   : ['ignore', logFile, logFile]
             });
 

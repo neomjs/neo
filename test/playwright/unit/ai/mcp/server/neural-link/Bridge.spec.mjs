@@ -17,6 +17,13 @@ import crypto         from 'crypto';
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 import Bridge    from '../../../../../../../ai/mcp/server/neural-link/Bridge.mjs';
+import {
+    BRIDGE_INFO_TYPE,
+    BRIDGE_PROTOCOL_FEATURES,
+    BRIDGE_PROTOCOL_VERSION,
+    createBridgeInfoPayload,
+    isBridgeInfoPayloadFresh
+} from '../../../../../../../ai/mcp/server/neural-link/BridgeProtocol.mjs';
 
 const {privateKey, publicKey} = crypto.generateKeyPairSync('ed25519');
 
@@ -77,6 +84,36 @@ test.describe('Bridge.handleConnection — agent handshake auth (#13172)', () =>
         Bridge.handleConnection(ws, makeReq('role=agent&id=legacy-agent'));
         expect(Bridge.agents.has('legacy-agent')).toBe(true);
         expect(ws.closed).toBe(null);
+    });
+});
+
+test.describe('Bridge protocol freshness stamp (#13299)', () => {
+    test.beforeEach(() => {
+        Bridge.agents = new Map();
+        Bridge.apps   = new Map();
+    });
+
+    test('createBridgeInfoPayload exposes the current Bridge protocol contract', () => {
+        const payload = createBridgeInfoPayload();
+
+        expect(payload).toEqual({
+            type           : BRIDGE_INFO_TYPE,
+            protocolVersion: BRIDGE_PROTOCOL_VERSION,
+            features       : [...BRIDGE_PROTOCOL_FEATURES]
+        });
+        expect(isBridgeInfoPayloadFresh(payload)).toBe(true);
+        expect(isBridgeInfoPayloadFresh({...payload, protocolVersion: 0})).toBe(false);
+        expect(isBridgeInfoPayloadFresh({...payload, features: []})).toBe(false);
+    });
+
+    test('registerAgent sends bridge_info before ordinary agent notifications', () => {
+        const ws = makeWs();
+        Bridge.registerAgent('agent-a', ws);
+
+        const firstFrame = JSON.parse(ws.sent[0]);
+
+        expect(isBridgeInfoPayloadFresh(firstFrame)).toBe(true);
+        expect(JSON.parse(ws.sent[1]).type).toBe('agent_connected');
     });
 });
 
