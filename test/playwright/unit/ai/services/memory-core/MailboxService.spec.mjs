@@ -443,6 +443,69 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(node.properties.readAt).toBeNull();
     });
 
+    test('addMessage rejects wakeSuppressed known-actionable direct lifecycle messages', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await expect(MailboxService.addMessage({
+                to             : '@bob',
+                subject        : '[review][REQUEST_CHANGES] #13290 — close-target gate',
+                body           : 'This must wake the PR author.',
+                wakeSuppressed : true
+            })).rejects.toThrow(/Cannot suppress wake for actionable direct lifecycle subject/);
+
+            await expect(MailboxService.addMessage({
+                to             : '@bob',
+                subject        : 'urgent direct escalation',
+                body           : 'High-priority direct messages must wake.',
+                priority       : 'high',
+                wakeSuppressed : true
+            })).rejects.toThrow(/Cannot suppress wake for high-priority direct message/);
+        });
+
+        expect(GraphService.db.nodes.items.filter(node =>
+            node.label === 'MESSAGE' &&
+            node.properties?.wakeSuppressed === true
+        )).toHaveLength(0);
+    });
+
+    test('addMessage preserves explicit mailbox-only wakeSuppressed exceptions', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const baton = await MailboxService.addMessage({
+                to             : '@bob',
+                subject        : '[handoff] Lead Role Baton',
+                body           : 'fromLead: @alice\ntoLead: @bob',
+                taggedConcepts : ['lead-role-baton'],
+                wakeSuppressed : true
+            });
+
+            const audit = await MailboxService.addMessage({
+                to             : '@bob',
+                subject        : '[alert] critical: errorRate 0.9 over threshold 0.1 (tenant tenant-x)',
+                body           : 'KB audit alert.',
+                priority       : 'high',
+                wakeSuppressed : true
+            });
+
+            const awareness = await MailboxService.addMessage({
+                to             : 'AGENT:*',
+                subject        : '[lane-claim] #13295 — non-overlapping awareness',
+                body           : 'Broadcast awareness only.',
+                wakeSuppressed : true
+            });
+
+            expect((await MailboxService.getMessage({ messageId: baton.messageId })).wakeSuppressed).toBe(true);
+            expect((await MailboxService.getMessage({ messageId: audit.messageId })).wakeSuppressed).toBe(true);
+            expect((await MailboxService.getMessage({ messageId: awareness.messageId })).wakeSuppressed).toBe(true);
+        });
+    });
+
     test('Reachable Counterparty exception permits replies without explicit grant', async () => {
         // Alice sends to Bob (alice can send to broadcast or we need to ensure alice can send)
         // Actually, to send initially, we need permission unless it is broadcast.
