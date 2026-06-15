@@ -84,7 +84,10 @@ class ConnectionService extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
-        if (aiConfig.autoConnect) {
+        // Skip the Bridge auto-connect under unitTestMode: unit specs that import this singleton (e.g. via
+        // HealthService) must stay hermetic and must not reach or spawn the live Bridge. The e2e harness
+        // connects explicitly via manageConnection(); production (non-unitTestMode) auto-connects as before.
+        if (aiConfig.autoConnect && !Neo.config.unitTestMode) {
             await this.ensureBridgeAndConnect();
         }
     }
