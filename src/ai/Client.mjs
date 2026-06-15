@@ -128,6 +128,7 @@ class Client extends Base {
             set_instance_properties: instance,
             undo                   : instance,
             redo                   : instance,
+            list_transactions      : instance,
 
             get_record            : data,
             inspect_state_provider: data,

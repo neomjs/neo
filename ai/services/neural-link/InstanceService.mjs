@@ -103,6 +103,18 @@ class InstanceService extends Base {
     }
 
     /**
+     * Lists the requester's Neural Link transaction history — forwards the `list_transactions` tool to the
+     * connected App Worker, which returns a read-only audit summary of the writer's undo stack + redo branch.
+     * See {@link Neo.ai.client.InstanceService#listTransactions}.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @returns {Promise<Object>}
+     */
+    async listTransactions({sessionId}) {
+        return await ConnectionService.call(sessionId, 'list_transactions', {})
+    }
+
+    /**
      * Calls a method on a specific instance.
      * @param {Object} opts
      * @param {String} opts.sessionId

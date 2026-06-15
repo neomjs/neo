@@ -1298,6 +1298,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/transactions:
+    post:
+      summary: List Transactions
+      operationId: list_transactions
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      description: Returns a read-only audit summary of the requester's undo-stack history — the committed (undoable) transactions plus the redo branch, each as {txId, status, opCount, labels}. No mutation.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListTransactionsRequest'
+      responses:
+        '200':
+          description: Transaction history
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/method/call:
     post:
       summary: Call Instance Method
@@ -1812,6 +1841,13 @@ components:
           description: The target App Worker Session ID
 
     RedoRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    ListTransactionsRequest:
       type: object
       properties:
         sessionId:
