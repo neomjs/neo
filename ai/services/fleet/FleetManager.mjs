@@ -166,6 +166,23 @@ class FleetManager extends Base {
         await this.stopAgent(agentId);
         return this.startAgent(agentId);
     }
+
+    /**
+     * @summary Turnkey remove: take an agent out of the fleet — stop its process first (so removal never
+     * leaves an orphaned, unmanageable live harness), then deregister its definition + stored PAT via the
+     * registry. **Deliberately non-destructive to disk:** the agent's on-disk checkout and its
+     * checkout-path-keyed auto-memory are left intact, because deleting the checkout would orphan that
+     * auto-memory — the reconciliation (delete / archive / tombstone) is a Memory-Core policy that must
+     * land WITH the deletion, not after it. So the destructive checkout cleanup stays coupled with that
+     * reconciliation rather than orphaning here. Stopping a non-running agent is a safe no-op.
+     * @param {String} agentId Registry agent id.
+     * @returns {Promise<Object>} `{success, id}` from the registry's `removeAgent` (`success` ⇒ the agent
+     * existed and was deregistered).
+     */
+    async removeAgent(agentId) {
+        await this.stopAgent(agentId);
+        return this.getLifecycleService().getRegistry().removeAgent(agentId);
+    }
 }
 
 export default Neo.setupClass(FleetManager);
