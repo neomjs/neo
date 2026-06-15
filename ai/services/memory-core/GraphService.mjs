@@ -72,6 +72,10 @@ class GraphService extends Base {
          */
         db: null,
         /**
+         * @member {Object|null} graphInitError=null
+         */
+        graphInitError: null,
+        /**
          * @member {Boolean} singleton=true
          */
         singleton: true
@@ -91,86 +95,96 @@ class GraphService extends Base {
         }
 
         this._initPromise = (async () => {
-            const dbPath              = aiConfig.storagePaths.graph;
-            let storage               = Neo.create(SQLite, {dbPath: dbPath});
-            await storage.ready();
-
-            let memoryCoreGraph = Neo.get ? Neo.get('memory-core-graph') : Neo.idMap?.['memory-core-graph'];
-            if (memoryCoreGraph) {
-                this.db         = memoryCoreGraph;
-                this.db.storage = storage;
-            } else {
-                this.db = Neo.create(CoreDatabase, {
-                    id     : 'memory-core-graph',
-                    storage: storage
-                });
-            }
-
-            await storage.load();
-
-            // Ensure the frontier node exists to prevent context frontier errors
             try {
-                this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
-                if (!this.db.nodes.has('frontier')) {
-                    this.upsertGlobalNode({
-                        id         : 'frontier',
-                        type       : 'SYSTEM_ANCHOR',
-                        name       : 'Active Context Frontier',
-                        description: 'The shifting focal point of the active Neo OS agent session.'
+                const dbPath              = aiConfig.storagePaths.graph;
+                let storage               = Neo.create(SQLite, {dbPath: dbPath});
+                await storage.ready();
+
+                let memoryCoreGraph = Neo.get ? Neo.get('memory-core-graph') : Neo.idMap?.['memory-core-graph'];
+                if (memoryCoreGraph) {
+                    this.db         = memoryCoreGraph;
+                    this.db.storage = storage;
+                } else {
+                    this.db = Neo.create(CoreDatabase, {
+                        id     : 'memory-core-graph',
+                        storage: storage
                     });
                 }
-            } catch (error) {
-                logger.warn(`[GraphService] Non-fatal DB contention during 'frontier' seed: ${error.message}`);
-            }
 
-            // --- 1. THE GLOBAL SYSTEM PRIMER ---
-            // Inject the Master Architecture Tenets directly into the Native Graph at boot.
-            // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
-            // it acts as a deterministic onboarding payload for every agent session.
-            try {
-                this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
-                if (!this.db.nodes.has('Neo-Master-Architecture')) {
-                    this.upsertGlobalNode({
-                        id         : 'Neo-Master-Architecture',
-                        type       : 'System',
-                        name       : 'Global System Primer',
-                        description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agents/skills for reusable agent workflows.'
-                    });
-                }
-                this.linkGlobalNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
-            } catch (error) {
-                logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
-            }
+                await storage.load();
+                this.graphInitError = null;
 
-            // --- 2. AGENT IDENTITY SUBSTRATE SEEDING ---
-            // Eliminates the "seed → restart-again" recovery loop for fresh local setups.
-            // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
-            try {
-                for (const identity of IDENTITIES) {
-                    // We use getAdjacentNodes as a trigger for lazy-loading into the cache
-                    this.db.getAdjacentNodes(identity.id, 'both');
-
-                    if (!this.db.nodes.has(identity.id)) {
-                        this.upsertGlobalNode(identity);
-                    } else {
-                        // Defensive createdAt retention: Peek SQLite to preserve original timestamp
-                        const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
-                        if (row) {
-                            const rawData = JSON.parse(row.data);
-                            if (rawData.properties?.createdAt) {
-                                const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
-                                this.upsertGlobalNode(preserved);
-                                continue;
-                            }
-                        }
-                        this.upsertGlobalNode(identity);
+                // Ensure the frontier node exists to prevent context frontier errors
+                try {
+                    this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
+                    if (!this.db.nodes.has('frontier')) {
+                        this.upsertGlobalNode({
+                            id         : 'frontier',
+                            type       : 'SYSTEM_ANCHOR',
+                            name       : 'Active Context Frontier',
+                            description: 'The shifting focal point of the active Neo OS agent session.'
+                        });
                     }
+                } catch (error) {
+                    logger.warn(`[GraphService] Non-fatal DB contention during 'frontier' seed: ${error.message}`);
                 }
-            } catch (error) {
-                logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
-            }
 
-            logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
+                // --- 1. THE GLOBAL SYSTEM PRIMER ---
+                // Inject the Master Architecture Tenets directly into the Native Graph at boot.
+                // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
+                // it acts as a deterministic onboarding payload for every agent session.
+                try {
+                    this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
+                    if (!this.db.nodes.has('Neo-Master-Architecture')) {
+                        this.upsertGlobalNode({
+                            id         : 'Neo-Master-Architecture',
+                            type       : 'System',
+                            name       : 'Global System Primer',
+                            description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agents/skills for reusable agent workflows.'
+                        });
+                    }
+                    this.linkGlobalNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
+                } catch (error) {
+                    logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
+                }
+
+                // --- 2. AGENT IDENTITY SUBSTRATE SEEDING ---
+                // Eliminates the "seed → restart-again" recovery loop for fresh local setups.
+                // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
+                try {
+                    for (const identity of IDENTITIES) {
+                        // We use getAdjacentNodes as a trigger for lazy-loading into the cache
+                        this.db.getAdjacentNodes(identity.id, 'both');
+
+                        if (!this.db.nodes.has(identity.id)) {
+                            this.upsertGlobalNode(identity);
+                        } else {
+                            // Defensive createdAt retention: Peek SQLite to preserve original timestamp
+                            const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
+                            if (row) {
+                                const rawData = JSON.parse(row.data);
+                                if (rawData.properties?.createdAt) {
+                                    const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
+                                    this.upsertGlobalNode(preserved);
+                                    continue;
+                                }
+                            }
+                            this.upsertGlobalNode(identity);
+                        }
+                    }
+                } catch (error) {
+                    logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
+                }
+
+                logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
+            } catch (error) {
+                this.db = null;
+                this.graphInitError = {
+                    message: error.message,
+                    name   : error.name
+                };
+                logger.warn(`[GraphService] SQLite graph unavailable during init (degraded, graph-backed tools may fail): ${error.message}`);
+            }
         })();
 
         await this._initPromise;

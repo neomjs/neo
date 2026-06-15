@@ -174,8 +174,9 @@ class Server extends BaseServer {
      * @summary Custom boot order (override of `BaseServer.boot`). Memory Core's bootstrap
      * has three constraints that the canonical sequence doesn't satisfy:
      *
-     * 1. `WakeSubscriptionService.init()` must complete BEFORE `createMcpServer()` so the
-     *    experimental wake-substrate capability has its substrate ready when clients connect.
+     * 1. The MCP server/tool registry must come up before graph/vector startup tiers are awaited,
+     *    so WAL-local tools (`add_memory`) remain callable during graph SQLite or Chroma startup
+     *    faults.
      * 2. Stdio identity resolution must complete BEFORE healthcheck, so the boot-time
      *    healthcheck snapshot reflects the bound identity state.
      * 3. The wake-subscription auto-bootstrap is fire-and-forget within an async IIFE for
@@ -186,14 +187,28 @@ class Server extends BaseServer {
     async boot() {
         await this.loadCustomConfig();
 
-        // Pre-mcpServer init: WakeSubscriptionService substrate ready.
-        await WakeSubscriptionService.init();
-
         this.mcpServer = this.createMcpServer();
 
-        // Wait for dependent services.
-        await InferenceLifecycleService.ready();
-        await SessionService.ready();
+        await this.prepareStartupDependency({
+            name      : 'wake-subscription',
+            dependency: WakeSubscriptionService,
+            start     : () => WakeSubscriptionService.init(),
+            degraded  : 'wake subscriptions are degraded; WAL-local tools remain available'
+        });
+
+        await this.prepareStartupDependency({
+            name      : 'inference-lifecycle',
+            dependency: InferenceLifecycleService,
+            start     : () => InferenceLifecycleService.ready(),
+            degraded  : 'inference readiness is degraded; WAL-local tools remain available'
+        });
+
+        await this.prepareStartupDependency({
+            name      : 'session-service',
+            dependency: SessionService,
+            start     : () => SessionService.ready(),
+            degraded  : 'session/vector reads are degraded; add_memory remains WAL-available'
+        });
 
         // In-process WAL drain (containerized / single-process deployments): hosts the embed
         // daemon's exact drain loop inside this server when no orchestrator-supervised daemon
@@ -268,6 +283,37 @@ class Server extends BaseServer {
 
         if (aiConfig.transport !== 'sse') {
             this.logIdentityStatus();
+        }
+    }
+
+    /**
+     * @summary Initializes a non-WAL startup dependency as best-effort readiness.
+     *
+     * Memory Core's minimum availability tier is the local `memoryWal` append surface. Graph,
+     * wake-subscription, inference, and vector/session readiness must be observable but must not
+     * veto MCP server startup; otherwise the mandatory `add_memory` final-turn save disappears
+     * exactly when a degraded deployment most needs lossless WAL capture.
+     *
+     * @param {Object} options
+     * @param {String} options.name Stable healthcheck key.
+     * @param {Object} options.dependency Dependency object for diagnostic naming.
+     * @param {Function} options.start Async startup callback.
+     * @param {String} options.degraded Operator-facing degraded-mode summary.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async prepareStartupDependency({name, dependency, start, degraded}) {
+        try {
+            await start();
+            HealthService.recordStartupDependency(name, 'ready', {
+                className: dependency?.className || dependency?.constructor?.name || name
+            });
+        } catch (error) {
+            logger.warn(`[neo-memory-core MCP] ${name} startup degraded: ${error.message}. ${degraded}.`);
+            HealthService.recordStartupDependency(name, 'degraded', {
+                className: dependency?.className || dependency?.constructor?.name || name,
+                error    : error.message
+            });
         }
     }
 

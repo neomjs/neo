@@ -25,17 +25,41 @@ import '../../../../../../../src/manager/Instance.mjs';
 test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     let Server;
     let GraphService;
+    let aiConfig;
+    let hadGraphStoragePath;
+    let hadStoragePaths;
+    let originalGraphStoragePath;
     const testDbName = `memory-core-server-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
 
+    async function createServerWithoutBoot() {
+        const originalBoot = Server.prototype.boot;
+
+        Server.prototype.boot = async () => {};
+
+        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+
+        try {
+            await serverInstance.ready();
+        } finally {
+            Server.prototype.boot = originalBoot;
+        }
+
+        return serverInstance;
+    }
+
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
         }
         testDbPath = path.join(tmpDir, testDbName);
+
+        hadStoragePaths       = Boolean(aiConfig.storagePaths);
+        hadGraphStoragePath  = Object.prototype.hasOwnProperty.call(aiConfig.storagePaths || {}, 'graph');
+        originalGraphStoragePath = aiConfig.storagePaths?.graph;
 
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         aiConfig.storagePaths.graph = testDbPath;
@@ -58,6 +82,14 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     test.afterAll(async () => {
         const { TestLifecycleHelper } = await import('../../../../ai/services/memory-core/util.mjs');
         await TestLifecycleHelper.cleanupGraphService(GraphService, null, testDbPath, fs, 'clear');
+
+        if (!hadStoragePaths) {
+            delete aiConfig.storagePaths;
+        } else if (hadGraphStoragePath) {
+            aiConfig.storagePaths.graph = originalGraphStoragePath;
+        } else {
+            delete aiConfig.storagePaths.graph;
+        }
     });
 
     test('bindAgentIdentity should correctly retrieve identity without cache manipulation', async () => {
@@ -69,7 +101,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         // Let the identity node stay in the natural cache (which is the case right after init/upsert)
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const serverInstance = await createServerWithoutBoot();
 
         const boundId = await serverInstance.bindAgentIdentity('neo-opus-4-7');
         expect(boundId).toBe('@neo-opus-4-7');
@@ -88,7 +120,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         await GraphService.initAsync();
 
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const serverInstance = await createServerWithoutBoot();
 
         const originalGetNode = GraphService.getNode.bind(GraphService);
         GraphService.getNode = function({id}) {
@@ -133,7 +165,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             GraphService.db.autoSave = wasAutoSave;
         }
 
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const serverInstance = await createServerWithoutBoot();
 
         const boundId = await serverInstance.bindAgentIdentity('neo-opus-4-7');
 
@@ -144,7 +176,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('#12199: onSessionClosed writes a pending summarization marker without summarizing inline', async () => {
         const SDK = await import('../../../../../../../ai/services.mjs');
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const serverInstance = await createServerWithoutBoot();
         const mcpServerInstance = {id: 'mcp-session-server'};
         const calls = [];
         const removed = [];
@@ -173,7 +205,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('#12838: mailbox + add_memory bypass the summary-degraded health gate (never-fail WAL); embed-dependent reads do not', async () => {
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const serverInstance = await createServerWithoutBoot();
         const handlers = new Map();
         const healthCalls = [];
         const toolCalls = [];
@@ -189,6 +221,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 }
             }
         };
+        const originalGetToolService   = serverInstance.getToolService;
+        const originalGetHealthService = serverInstance.getHealthService;
 
         serverInstance.getToolService = () => ({
             listTools: () => ({tools: [], nextCursor: undefined}),
@@ -262,12 +296,14 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(healthCalls).toEqual(['ensureHealthy']);
             expect(toolCalls).toHaveLength(2);
         } finally {
+            serverInstance.getToolService   = originalGetToolService;
+            serverInstance.getHealthService = originalGetHealthService;
             serverInstance.destroy();
         }
     });
 
     test('#12978: non-embedding reads (get_session_memories, query_recent_turns) bypass the embedder-degraded health gate; embed-dependent reads do not', async () => {
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const serverInstance = await createServerWithoutBoot();
         const handlers = new Map();
         const healthCalls = [];
         const toolCalls = [];
@@ -283,6 +319,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 }
             }
         };
+        const originalGetToolService   = serverInstance.getToolService;
+        const originalGetHealthService = serverInstance.getHealthService;
 
         serverInstance.getToolService = () => ({
             listTools: () => ({tools: [], nextCursor: undefined}),
@@ -348,12 +386,14 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(healthCalls).toEqual(['ensureHealthy']);
             expect(toolCalls).toHaveLength(2);
         } finally {
+            serverInstance.getToolService   = originalGetToolService;
+            serverInstance.getHealthService = originalGetHealthService;
             serverInstance.destroy();
         }
     });
 
-    test('#12978: logStartupStatus tolerates a null health result (BaseServer passes null when the health service has no healthcheck)', () => {
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+    test('#12978: logStartupStatus tolerates a null health result (BaseServer passes null when the health service has no healthcheck)', async () => {
+        const serverInstance = await createServerWithoutBoot();
 
         try {
             // Regression pin: BaseServer.runHealthcheckAndLogStatus calls logStartupStatus(null)
@@ -365,8 +405,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
-    test('#12752: health exemptions do not expose retired database lifecycle tools', () => {
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+    test('#12752: health exemptions do not expose retired database lifecycle tools', async () => {
+        const serverInstance = await createServerWithoutBoot();
 
         try {
             const exemptTools = serverInstance.getHealthExemptTools();
@@ -374,6 +414,92 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(exemptTools).not.toContain('start_database');
             expect(exemptTools).not.toContain('stop_database');
         } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#13312: boot keeps MCP handlers available when graph startup tiers degrade', async () => {
+        const SDK = await import('../../../../../../../ai/services.mjs');
+        const HealthService = (await import('../../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const calls = [];
+        const startupStates = [];
+        const wakeFailure = new Error('attempt to write a readonly database');
+        const originalServerMethods = new Map([
+            'loadCustomConfig',
+            'createMcpServer',
+            'runHealthcheckAndLogStatus',
+            'connectTransport',
+            'resolveStdioIdentity',
+            'logIdentityStatus',
+            'logSiblingConcurrency'
+        ].map(name => [name, serverInstance[name]]));
+
+        serverInstance.loadCustomConfig = async () => calls.push('loadCustomConfig');
+        serverInstance.createMcpServer = () => {
+            calls.push('createMcpServer');
+            return {server: {setRequestHandler() {}}};
+        };
+        serverInstance.runHealthcheckAndLogStatus = async () => {
+            calls.push('runHealthcheckAndLogStatus');
+            return {status: 'degraded'};
+        };
+        serverInstance.connectTransport = async () => calls.push('connectTransport');
+        serverInstance.resolveStdioIdentity = async () => null;
+        serverInstance.logIdentityStatus = () => calls.push('logIdentityStatus');
+        serverInstance.logSiblingConcurrency = () => calls.push('logSiblingConcurrency');
+
+        const originalWakeInit = SDK.Memory_WakeSubscriptionService.init;
+        const originalInferenceReady = SDK.Memory_InferenceLifecycleService.ready;
+        const originalSessionReady = SDK.Memory_SessionService.ready;
+        const originalRecordStartupDependency = HealthService.recordStartupDependency;
+        const originalSetStdioIdentityState = HealthService.setStdioIdentityState;
+
+        SDK.Memory_WakeSubscriptionService.init = async () => {
+            calls.push('wakeInit');
+            throw wakeFailure;
+        };
+        SDK.Memory_InferenceLifecycleService.ready = async () => calls.push('inferenceReady');
+        SDK.Memory_SessionService.ready = async () => calls.push('sessionReady');
+        HealthService.recordStartupDependency = (name, status, details) => {
+            startupStates.push({name, status, error: details?.error});
+        };
+        HealthService.setStdioIdentityState = (identity) => {
+            calls.push(['setStdioIdentityState', identity]);
+        };
+
+        try {
+            await expect(serverInstance.ready()).resolves.toBeUndefined();
+
+            expect(calls).toEqual([
+                'loadCustomConfig',
+                'createMcpServer',
+                'wakeInit',
+                'inferenceReady',
+                'sessionReady',
+                ['setStdioIdentityState', null],
+                'runHealthcheckAndLogStatus',
+                'logSiblingConcurrency',
+                'connectTransport',
+                'logIdentityStatus'
+            ]);
+            expect(startupStates).toEqual([
+                {name: 'wake-subscription', status: 'degraded', error: 'attempt to write a readonly database'},
+                {name: 'inference-lifecycle', status: 'ready', error: undefined},
+                {name: 'session-service', status: 'ready', error: undefined}
+            ]);
+        } finally {
+            SDK.Memory_WakeSubscriptionService.init = originalWakeInit;
+            SDK.Memory_InferenceLifecycleService.ready = originalInferenceReady;
+            SDK.Memory_SessionService.ready = originalSessionReady;
+            HealthService.recordStartupDependency = originalRecordStartupDependency;
+            HealthService.setStdioIdentityState = originalSetStdioIdentityState;
+            HealthService.clearStartupDependencyState();
+            HealthService.setStdioIdentityState(null);
+            HealthService.clearCache();
+            for (const [name, method] of originalServerMethods) {
+                serverInstance[name] = method;
+            }
             serverInstance.destroy();
         }
     });
