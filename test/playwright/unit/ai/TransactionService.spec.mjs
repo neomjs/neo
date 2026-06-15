@@ -240,7 +240,7 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
 
         expect(s.sweep({id: {}})).toEqual({swept: false});      // incomplete → sweeps nothing
         expect(s.sweep({id: ID})).toEqual({swept: true});
-        expect(s.stackOf({id: ID})).toEqual({open: null, committed: []});
+        expect(s.stackOf({id: ID})).toEqual({open: null, committed: [], redo: []});
         expect(s.undo({id: ID}).reverseOps).toBeNull();
         expect(s.sweep({id: ID})).toEqual({swept: false});      // already swept
     });
@@ -254,5 +254,76 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
         snap.committed.push({txId: 'injected'});
 
         expect(s.undo({id: ID}).reverseOps[0].reverse.args.properties.x).toBe(0); // live stack unchanged
+    });
+
+    // --- redo (Slice-2): the symmetric counterpart — undo retains the popped tx on a redo branch that redo re-applies,
+    // and a new commit clears it (divergence). Pure in-heap, no live tree; the caller re-dispatches the forward-ops.
+    test('redo re-applies the most-recently undone transaction (undone → committed)', () => {
+        const s = svc();
+        commitOne(s, ID, 'tx-1', op(1));
+
+        expect(s.undo({id: ID}).txId).toBe('tx-1');
+        expect(s.stackOf({id: ID}).committed).toHaveLength(0); // popped off the undo stack
+        expect(s.stackOf({id: ID}).redo).toHaveLength(1);      // retained on the redo branch
+
+        const r = s.redo({id: ID});
+
+        expect(r.txId).toBe('tx-1');
+        expect(r.forwardOps).toHaveLength(1);
+        expect(r.forwardOps[0].forward).toEqual({tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}});
+        expect(s.stackOf({id: ID}).committed.map(t => t.txId)).toEqual(['tx-1']); // restored — undoable again
+        expect(s.stackOf({id: ID}).redo).toHaveLength(0);
+    });
+
+    test('redo with nothing undone is a fail-closed no-op', () => {
+        const s = svc();
+        expect(s.redo({id: ID})).toEqual({txId: null, forwardOps: null}); // never undone
+
+        commitOne(s, ID, 'tx-1', op(1));
+        expect(s.redo({id: ID})).toEqual({txId: null, forwardOps: null}); // committed but not undone
+    });
+
+    test('a new committed transaction clears the redo branch (divergence invalidation)', () => {
+        const s = svc();
+        commitOne(s, ID, 'tx-1', op(1));
+        s.undo({id: ID});
+        expect(s.stackOf({id: ID}).redo).toHaveLength(1);
+
+        commitOne(s, ID, 'tx-2', op(2)); // a fresh mutation diverges history
+        expect(s.stackOf({id: ID}).redo).toHaveLength(0);
+        expect(s.redo({id: ID})).toEqual({txId: null, forwardOps: null});
+    });
+
+    test('the undo → redo → undo cycle re-uses the retained transaction', () => {
+        const s = svc();
+        commitOne(s, ID, 'tx-1', op(1));
+
+        expect(s.undo({id: ID}).txId).toBe('tx-1'); // committed → undone (redo branch)
+        expect(s.redo({id: ID}).txId).toBe('tx-1'); // undone → committed (undoable again)
+        expect(s.undo({id: ID}).txId).toBe('tx-1'); // and undoable once more
+        expect(s.stackOf({id: ID}).committed).toHaveLength(0);
+        expect(s.stackOf({id: ID}).redo).toHaveLength(1);
+    });
+
+    test('sweep clears the redo branch with the rest of the session', () => {
+        const s = svc();
+        commitOne(s, ID, 'tx-1', op(1));
+        s.undo({id: ID});
+        expect(s.stackOf({id: ID}).redo).toHaveLength(1);
+
+        s.sweep({id: ID});
+        expect(s.stackOf({id: ID})).toEqual({open: null, committed: [], redo: []});
+    });
+
+    test('redo returns forward-ops in capture order (first mutation re-applied first)', () => {
+        const s = svc();
+        s.begin ({id: ID, txId: 'tx-1'});
+        s.record({id: ID, txId: 'tx-1', op: op(1, 'a')});
+        s.record({id: ID, txId: 'tx-1', op: op(2, 'b')});
+        s.commit({id: ID, txId: 'tx-1'});
+
+        s.undo({id: ID});
+        // undo returns reverses last-first (['b','a']); redo returns forwards first-first
+        expect(s.redo({id: ID}).forwardOps.map(o => o.sequenceId)).toEqual(['a', 'b']);
     });
 });

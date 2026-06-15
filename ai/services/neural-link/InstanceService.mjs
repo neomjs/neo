@@ -91,6 +91,18 @@ class InstanceService extends Base {
     }
 
     /**
+     * Re-applies the requester's most-recently undone Neural Link mutation transaction — forwards the `redo` tool to
+     * the connected App Worker, which pops the requester's redo branch and re-dispatches its captured forward-op(s)
+     * under live enforcement. See {@link Neo.ai.client.InstanceService#redo}.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @returns {Promise<Object>}
+     */
+    async redo({sessionId}) {
+        return await ConnectionService.call(sessionId, 'redo', {})
+    }
+
+    /**
      * Calls a method on a specific instance.
      * @param {Object} opts
      * @param {String} opts.sessionId

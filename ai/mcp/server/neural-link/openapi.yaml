@@ -1269,6 +1269,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/redo:
+    post:
+      summary: Redo Last Undone Mutation
+      operationId: redo
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Re-applies the requester's most-recently undone mutation (single-level redo); no-op + recoverable error when there is nothing to redo or the re-apply is denied.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedoRequest'
+      responses:
+        '200':
+          description: Redo result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/method/call:
     post:
       summary: Call Instance Method
@@ -1776,6 +1805,13 @@ components:
           description: The target App Worker Session ID
 
     UndoRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    RedoRequest:
       type: object
       properties:
         sessionId:
