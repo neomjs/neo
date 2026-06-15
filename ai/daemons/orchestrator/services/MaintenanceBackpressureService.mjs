@@ -26,6 +26,18 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
 ]);
 
 /**
+ * Heavy-maintenance pairs whose resource envelopes are compatible enough to run
+ * concurrently. This is intentionally narrow: Memory Core miniSummary backfill
+ * must not wait behind local-only KB embedding work, while every other heavy task
+ * pair keeps the historical single-heavy invariant.
+ *
+ * @type {ReadonlyArray<ReadonlyArray<String>>}
+ */
+export const DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS = Object.freeze([
+    Object.freeze(['kbSync', 'memory-summary-backfill'])
+]);
+
+/**
  * Tasks whose graph writes must complete before Golden Path frontier refresh runs.
  *
  * @type {ReadonlyArray<String>}
@@ -63,21 +75,51 @@ export function isGoldenPathDependencyTask({taskName, goldenPathDependencyTaskNa
 }
 
 /**
- * @summary Finds the first running heavy-maintenance task other than the excluded one.
+ * @summary Checks whether two heavy-maintenance tasks are a documented compatible pair.
+ *
+ * @param {Object} options
+ * @param {String|null|undefined} options.taskName Stable orchestrator task name.
+ * @param {String|null|undefined} options.otherTaskName Stable orchestrator task name.
+ * @param {ReadonlyArray<ReadonlyArray<String>>} options.compatibleHeavyMaintenanceTaskPairs Pair allow-list.
+ * @returns {Boolean}
+ */
+export function areHeavyMaintenanceTasksCompatible({
+    taskName,
+    otherTaskName,
+    compatibleHeavyMaintenanceTaskPairs = []
+}) {
+    if (!taskName || !otherTaskName || taskName === otherTaskName) return false;
+
+    return compatibleHeavyMaintenanceTaskPairs.some(pair => (
+        pair.includes(taskName) && pair.includes(otherTaskName)
+    ));
+}
+
+/**
+ * @summary Finds the first running heavy-maintenance task that conflicts with a candidate.
  *
  * @param {Object} options
  * @param {ReadonlyArray<String>} options.heavyMaintenanceTaskNames Heavy-classification set.
  * @param {Object} options.taskStateService Service exposing `getTaskState(name)`.
  * @param {String|null} [options.excludeTaskName=null] Task name to ignore.
+ * @param {String|null} [options.candidateTaskName=null] Candidate task whose compatibility is checked.
+ * @param {ReadonlyArray<ReadonlyArray<String>>} [options.compatibleHeavyMaintenanceTaskPairs=[]] Pair allow-list.
  * @returns {String|null}
  */
 export function getActiveHeavyMaintenanceTask({
     heavyMaintenanceTaskNames,
     taskStateService,
-    excludeTaskName = null
+    excludeTaskName = null,
+    candidateTaskName = null,
+    compatibleHeavyMaintenanceTaskPairs = []
 }) {
     for (const taskName of heavyMaintenanceTaskNames) {
         if (taskName === excludeTaskName) continue;
+        if (areHeavyMaintenanceTasksCompatible({
+            taskName: candidateTaskName,
+            otherTaskName: taskName,
+            compatibleHeavyMaintenanceTaskPairs
+        })) continue;
         if (taskStateService.getTaskState(taskName)?.running) return taskName;
     }
     return null;
@@ -230,6 +272,11 @@ export function recordDeferral({
  * replace them. Lease IO (acquire / release / inspect) remains in that service; this
  * service owns the policy of WHEN to acquire, defer, or record.
  *
+ * `DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS` is the only compatibility
+ * allow-list. It exists so local-only `kbSync` embedding work cannot starve Memory
+ * Core miniSummary backfill. Any future pair must be justified explicitly at this
+ * policy surface instead of weakening the whole heavy-maintenance mutex.
+ *
  * @class Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService
  * @extends Neo.core.Base
  */
@@ -245,6 +292,11 @@ export class MaintenanceBackpressureService extends Base {
          * @reactive
          */
         heavyMaintenanceTaskNames_: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+        /**
+         * @member {ReadonlyArray<ReadonlyArray<String>>} compatibleHeavyMaintenanceTaskPairs_=DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+         * @reactive
+         */
+        compatibleHeavyMaintenanceTaskPairs_: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS,
         /**
          * @member {ReadonlyArray<String>} goldenPathDependencyTaskNames_=DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
          * @reactive
@@ -317,15 +369,43 @@ export class MaintenanceBackpressureService extends Base {
     }
 
     /**
+     * @param {String} taskName Stable orchestrator task name.
+     * @param {String|null|undefined} otherTaskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    areHeavyMaintenanceTasksCompatible(taskName, otherTaskName) {
+        return areHeavyMaintenanceTasksCompatible({
+            taskName,
+            otherTaskName,
+            compatibleHeavyMaintenanceTaskPairs: this.compatibleHeavyMaintenanceTaskPairs
+        });
+    }
+
+    /**
+     * @param {String} taskName Candidate heavy-maintenance task name.
+     * @param {String|null|undefined} otherTaskName Running or lease-holding task name.
+     * @returns {Boolean}
+     */
+    isHeavyMaintenanceConflict(taskName, otherTaskName) {
+        if (!taskName || !otherTaskName || taskName === otherTaskName) return false;
+        return this.isHeavyMaintenanceTask(taskName)
+            && this.isHeavyMaintenanceTask(otherTaskName)
+            && !this.areHeavyMaintenanceTasksCompatible(taskName, otherTaskName);
+    }
+
+    /**
      * @param {Object} [options]
      * @param {String|null} [options.excludeTaskName=null]
+     * @param {String|null} [options.candidateTaskName=null]
      * @returns {String|null}
      */
-    getActiveHeavyMaintenanceTask({excludeTaskName = null} = {}) {
+    getActiveHeavyMaintenanceTask({excludeTaskName = null, candidateTaskName = null} = {}) {
         return getActiveHeavyMaintenanceTask({
             heavyMaintenanceTaskNames: this.heavyMaintenanceTaskNames,
             taskStateService         : this.taskStateService,
-            excludeTaskName
+            excludeTaskName,
+            candidateTaskName,
+            compatibleHeavyMaintenanceTaskPairs: this.compatibleHeavyMaintenanceTaskPairs
         });
     }
 
@@ -419,9 +499,16 @@ export class MaintenanceBackpressureService extends Base {
             return executeFn(taskName, reason, onSuccess);
         }
 
-        const blockingTaskName = activeHeavyTask?.name && activeHeavyTask.name !== taskName
+        let blockingTaskName = activeHeavyTask?.name && this.isHeavyMaintenanceConflict(taskName, activeHeavyTask.name)
             ? activeHeavyTask.name
-            : this.getActiveHeavyMaintenanceTask({excludeTaskName: taskName});
+            : null;
+
+        if (!blockingTaskName) {
+            blockingTaskName = this.getActiveHeavyMaintenanceTask({
+                excludeTaskName : taskName,
+                candidateTaskName: taskName
+            });
+        }
 
         if (blockingTaskName) {
             this.recordDeferral({
@@ -452,7 +539,12 @@ export class MaintenanceBackpressureService extends Base {
             return false;
         }
 
-        if (!acquisition.acquired) {
+        // Compatible-pair bypass: the incumbent keeps the global lease token; the
+        // candidate runs without inheriting it so every non-compatible heavy task
+        // remains serialized by the existing cross-daemon lease.
+        const leaseToken = acquisition.acquired ? acquisition.lease.token : null;
+
+        if (!acquisition.acquired && !this.areHeavyMaintenanceTasksCompatible(taskName, acquisition.lease?.owner)) {
             this.recordDeferral({
                 taskName,
                 reasonCode  : 'heavy-maintenance-lease-held',
@@ -465,9 +557,10 @@ export class MaintenanceBackpressureService extends Base {
         this.clearDeferralLogState(taskName);
 
         const releaseLease = () => {
+            if (!leaseToken) return;
             try {
                 this.releaseLeaseFn({
-                    token    : acquisition.lease.token,
+                    token    : leaseToken,
                     leasePath: this.resolveHeavyMaintenanceLeasePath()
                 });
             } catch (e) {
@@ -476,7 +569,7 @@ export class MaintenanceBackpressureService extends Base {
         };
 
         const taskOptions = {
-            env       : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: acquisition.lease.token},
+            env       : leaseToken ? {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: leaseToken} : {},
             onComplete: releaseLease
         };
 

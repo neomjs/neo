@@ -7,7 +7,7 @@
  *
  * Stage order (matters — earlier stages narrow the candidate set before later stages):
  *   1. `filterAlreadyRunning`           — drop candidates whose task is already in `runningTasks`
- *   2. `filterExclusiveHeavyConflict`   — drop heavy candidates if another heavy is running
+ *   2. `filterExclusiveHeavyConflict`   — drop heavy candidates if a conflicting heavy is running
  *   3. `filterUnmetDependencies`        — drop candidates whose `dependencies` are in `runningTasks`
  *   4. `selectFirstCandidate`           — pick the first remaining (registry-order priority)
  *
@@ -23,8 +23,7 @@
  * @param {Array<Object>} options.candidates Due candidates from `collectDueCandidates`.
  * @param {Set<String>|Array<String>} options.runningTasks Task names currently running
  *   (derived from the current task-state snapshot).
- * @param {Object} options.policyContext Additional policy state (currently unused;
- *   reserved for future deployment-profile + cross-daemon-lease integration).
+ * @param {Object} options.policyContext Additional policy state.
  * @returns {Object|null} The winning candidate, or null if no candidate survives the pipeline.
  */
 export function pickNextCandidate({candidates, runningTasks, policyContext = {}}) {
@@ -56,14 +55,16 @@ function filterAlreadyRunning(candidates, runningSet) {
 }
 
 /**
- * Heavy-class candidates (`maintenanceClass: 'heavy'`) require exclusive heavy access.
- * If ANY task with `maintenanceClass: 'heavy'` is already running, drop all heavy
- * candidates from this poll cycle.
+ * Heavy-class candidates (`maintenanceClass: 'heavy'`) require exclusive heavy access
+ * unless the policy service declares the running/candidate pair compatible.
  *
  * The caller must pre-compute `runningHeavyTasks` (a Set of currently-running task names
  * whose descriptors carry `maintenanceClass: 'heavy'`) and pass it via `policyContext`.
  * The picker cannot derive this from `runningSet` alone because running tasks are just
  * names — they have no descriptor metadata. The caller owns the registry lookup.
+ *
+ * When `policyContext.isHeavyMaintenanceConflict` is absent, this preserves the legacy
+ * conservative behavior: any other running heavy task blocks the heavy candidate.
  *
  * Lightweight, continuous, and graph-dependent candidates are unaffected by this filter.
  */
@@ -71,7 +72,19 @@ function filterExclusiveHeavyConflict(candidates, policyContext) {
     const runningHeavy = policyContext.runningHeavyTasks;
     if (!runningHeavy || runningHeavy.size === 0) return candidates;
 
-    return candidates.filter(candidate => candidate.descriptor.maintenanceClass !== 'heavy');
+    return candidates.filter(candidate => {
+        if (candidate.descriptor.maintenanceClass !== 'heavy') return true;
+
+        for (const runningTaskName of runningHeavy) {
+            if (runningTaskName === candidate.taskName) continue;
+            const isConflict = typeof policyContext.isHeavyMaintenanceConflict === 'function'
+                ? policyContext.isHeavyMaintenanceConflict(candidate.taskName, runningTaskName)
+                : true;
+            if (isConflict) return false;
+        }
+
+        return true;
+    });
 }
 
 /**

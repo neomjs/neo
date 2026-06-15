@@ -171,6 +171,54 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         }]);
     });
 
+    test('does not record picker deferral for miniSummary backfill while compatible kbSync runs (#13358)', () => {
+        const deferrals = [];
+        const started   = [];
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({taskName: 'memory-summary-backfill', maintenanceClass: 'heavy'})
+            ],
+            context : makeContext({
+                state: {
+                    kbSync: {running: true},
+                    ['memory-summary-backfill']: {running: false}
+                }
+            }),
+            services: makeServices({
+                maintenanceBackpressureService: {
+                    acquireLeaseAndExecute({executeFn, taskName, reason, onSuccess, activeHeavyTask}) {
+                        return executeFn(taskName, reason, onSuccess, {activeHeavyTask});
+                    },
+                    getActiveHeavyMaintenanceTask() { return null; },
+                    isHeavyMaintenanceTask(taskName) {
+                        return taskName === 'kbSync' || taskName === 'memory-summary-backfill';
+                    },
+                    isHeavyMaintenanceConflict(taskName, otherTaskName) {
+                        return !(taskName === 'memory-summary-backfill' && otherTaskName === 'kbSync');
+                    },
+                    recordDeferral(deferral) {
+                        deferrals.push(deferral);
+                    }
+                },
+                processSupervisorService: {
+                    runTask(taskName, reason) {
+                        started.push({taskName, reason});
+                        return true;
+                    }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        expect(result.winner.taskName).toBe('memory-summary-backfill');
+        expect(deferrals).toEqual([]);
+        expect(started).toEqual([{
+            taskName: 'memory-summary-backfill',
+            reason  : 'memory-summary-backfill-reason'
+        }]);
+    });
+
     test('dispatches service-runner candidates through runtime-provided collaborators', () => {
         const calls = [];
 
