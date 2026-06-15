@@ -258,6 +258,43 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         }
     });
 
+    test('RA1: the newest graph-pending turn stays recency-visible when the segment exceeds the page size', async () => {
+        const originalSchedule     = MemoryService._scheduleMemoryGraphProjection;
+        const originalBuildSummary = MemoryService.buildMiniSummary;
+
+        // Leave every write graph-pending (never projected), and silence summarization noise.
+        MemoryService._scheduleMemoryGraphProjection = () => {};
+        MemoryService.buildMiniSummary               = async () => null;
+
+        try {
+            const writes = [];
+
+            // Write more turns than the recency page size below, all graph-pending in the same
+            // UTC-day segment. A 2ms gap gives each a strictly-increasing timestamp so "newest" is
+            // unambiguous under the (timestamp, id) ordering.
+            for (let i = 0; i < 5; i++) {
+                writes.push(await asTenant(() => MemoryService.addMemory({
+                    prompt: `ra1 prompt ${i}`, thought: `ra1 thought ${i}`, response: `ra1 response ${i}`
+                })));
+                await new Promise(resolve => setTimeout(resolve, 2));
+            }
+
+            const newest = writes[writes.length - 1];
+
+            // Page size 3 < 5 pending. A raw read-limit would walk the append-ordered segment and
+            // return the OLDEST 3, dropping the newest just-written turn; the recency-eligible bound
+            // (sort + slice in queryRecentTurns) must keep it visible and first.
+            const recent = await asTenant(() => MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 3}));
+
+            expect(recent.turns.map(turn => turn.id)).toContain(newest.id);
+            expect(recent.turns[0].id).toBe(newest.id);
+            expect(recent.turns[0].projectionPending).toBe(true);
+        } finally {
+            MemoryService._scheduleMemoryGraphProjection = originalSchedule;
+            MemoryService.buildMiniSummary               = originalBuildSummary;
+        }
+    });
+
     test('AC3: with the embed down, a just-written turn is immediately recency-visible and the WAL overlay serves BOTH detail levels', async () => {
         collectionMode = 'throw';
 
