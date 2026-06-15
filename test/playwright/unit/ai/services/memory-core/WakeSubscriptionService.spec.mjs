@@ -362,6 +362,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                         trigger: 'SENT_TO_ME',
                         harnessTarget: 'bridge-daemon',
                         harnessTargetMetadata: {
+                            adapter: 'codex-app-server',
                             appName: 'Codex',
                             tabShortcut: null
                         }
@@ -381,9 +382,11 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
                 const subscriptionNode = GraphService.db.nodes.get(res.subscriptionId);
                 expect(subscriptionNode.properties.trigger).toBe('SENT_TO_ME');
+                expect(subscriptionNode.properties.harnessTargetMetadata.adapter).toBe('codex-app-server');
                 expect(subscriptionNode.properties.harnessTargetMetadata.appName).toBe('Codex');
 
                 const hydratedIdentity = GraphService.db.nodes.get('@neo-gpt');
+                expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.adapter).toBe('codex-app-server');
                 expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.appName).toBe('Codex');
             });
         });
