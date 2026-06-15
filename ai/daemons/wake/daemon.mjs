@@ -1214,7 +1214,24 @@ async function attemptDeliveryRetries() {
     for (const [subId, entry] of pendingDeliveryRetries) {
         if (entry.nextAttemptAt > now) continue;
 
-        const digest  = buildWakeDigest(entry.identity, entry.events);
+        // Re-apply the read-state reconcile the initial digest used (see `flushSubscription`): a message
+        // the recipient read between the failed delivery and this retry must NOT be re-delivered. The
+        // watermark filter is deliberately NOT re-applied — it advanced past these events on the first
+        // attempt, and the retry's whole job is to re-deliver those below-watermark events; only the
+        // read-state axis is reconciled here.
+        const liveMessages = entry.events.messages.filter(ev => !isMessageReadFor(db, ev.messageId, entry.identity));
+
+        if (liveMessages.length === 0 && entry.events.tasks.length === 0 &&
+            entry.events.permissions.length === 0 && entry.events.heartbeats.length === 0
+        ) {
+            pendingDeliveryRetries.delete(subId);
+            writeLog('INFO',
+                `[Wake Daemon] Retry for ${subId} dropped: all queued messages were read before re-delivery.`
+            );
+            continue;
+        }
+
+        const digest  = buildWakeDigest(entry.identity, {...entry.events, messages: liveMessages});
         const outcome = await deliverDigest(entry.subscription, digest);
 
         if (outcome === 'failed') {
