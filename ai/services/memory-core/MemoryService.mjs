@@ -913,6 +913,9 @@ class MemoryService extends Base {
             let records = result.ids.map((id, index) => {
                 const metadata = result.metadatas[index] || {};
 
+                // Tombstone exclusion: archived rows are dropped from recall.
+                if (metadata.archivedAt) return null;
+
                 return {
                     id,
                     sessionId: metadata.sessionId,
@@ -927,7 +930,7 @@ class MemoryService extends Base {
                     toolsUsed: metadata.toolsUsed || null,
                     _userId  : metadata.userId
                 };
-            });
+            }).filter(Boolean); // Tombstone exclusion (archived rows returned null above)
 
             if (userId && policy === 'legacy') {
                 records = records.filter(r => !r._userId || r._userId === userId || r._userId === SHARED_USER_ID);
@@ -955,6 +958,160 @@ class MemoryService extends Base {
                 message: error.message,
                 code   : 'MEMORY_LIST_ERROR'
             };
+        }
+    }
+
+    /**
+     * @summary Tombstones every memory stamped with `agentIdentity` so it stops surfacing in recall,
+     * while RETAINING the rows (forensics) and staying operator-reversible — the Memory-Core
+     * primitive the Fleet agent-removal reconciliation consumes via the `archiveMemoriesFn` seam.
+     *
+     * Sets `archivedAt` (+ `archivedReason`) across BOTH stores — the Chroma row metadata (read by
+     * `queryMemories` / `listMemories`) and the graph `AGENT_MEMORY` node (read by `queryRecentTurns`
+     * and the topology frontier) — so the recall paths that exclude `archivedAt` stop returning the
+     * rows. Idempotent: already-tombstoned rows are skipped. Keys on the STAMPED write-identity
+     * (`@<github-username>` for FM stdio+PAT agents, per the `add_memory` stamping) — NOT a registry id.
+     *
+     * @param {Object}  options
+     * @param {String}  options.agentIdentity The stamped `metadata.agentIdentity` value to sweep.
+     * @param {String}  [options.reason] Tombstone provenance, stored per row as `archivedReason`.
+     * @param {Boolean} [options.dryRun=false] Preview `matchedCount` without tombstoning.
+     * @returns {Promise<Object>} `{agentIdentity, matchedCount, archivedCount, dryRun}`.
+     */
+    async archiveMemoriesByAgentIdentity({agentIdentity, reason, dryRun = false} = {}) {
+        if (!agentIdentity) {
+            return {error: 'Bad Request', message: "'agentIdentity' is required.", code: 'MISSING_AGENT_IDENTITY'};
+        }
+
+        try {
+            const collection  = await StorageRouter.getMemoryCollection(),
+                  matched     = await collection.get({where: {agentIdentity}, include: ['metadatas']}),
+                  matchedIds  = matched.ids       || [],
+                  matchedMeta = matched.metadatas || [],
+                  live        = []; // not-already-tombstoned rows (idempotent: a re-run archives 0 new)
+
+            for (let i = 0; i < matchedIds.length; i++) {
+                if (!(matchedMeta[i] && matchedMeta[i].archivedAt)) {
+                    live.push({id: matchedIds[i], meta: matchedMeta[i] || {}});
+                }
+            }
+
+            if (dryRun) {
+                return {agentIdentity, matchedCount: matchedIds.length, archivedCount: 0, dryRun: true};
+            }
+
+            const archivedAt     = new Date().toISOString(),
+                  archivedReason = reason || '';
+
+            // Chroma side: stamp archivedAt onto the live rows' metadata (full-metadata-preserving).
+            if (live.length > 0) {
+                await collection.update({
+                    ids      : live.map(r => r.id),
+                    metadatas: live.map(r => ({...r.meta, archivedAt, archivedReason}))
+                });
+            }
+
+            // Graph side: stamp the projected AGENT_MEMORY nodes. The `archivedAt IS NULL` guard keeps
+            // it idempotent + scoped to the live rows. Mirrors the MailboxService `archivedAt` model.
+            const sqlite = GraphService.db?.storage?.db;
+            if (sqlite) {
+                sqlite.prepare(`
+                    UPDATE Nodes
+                    SET data = json_set(json_set(data, '$.properties.archivedAt', ?), '$.properties.archivedReason', ?)
+                    WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
+                      AND json_extract(data, '$.properties.agentIdentity') = ?
+                      AND json_extract(data, '$.properties.archivedAt') IS NULL
+                `).run(archivedAt, archivedReason, agentIdentity);
+            }
+
+            // In-memory node-cache coherence: getContextFrontier reads GraphService.db.nodes (the
+            // cache), which the SQL UPDATE above does NOT touch. The graph node id === the memory id
+            // (_projectMemoryToGraph), so mirror archivedAt onto any cached node so the topology
+            // frontier excludes it too.
+            const nodeCache = GraphService.db?.nodes;
+            if (nodeCache) {
+                for (const {id} of live) {
+                    const cached = nodeCache.get(id);
+                    if (cached && cached.properties) {
+                        cached.properties.archivedAt     = archivedAt;
+                        cached.properties.archivedReason = archivedReason;
+                    }
+                }
+            }
+
+            logger.info(`[MemoryService] archiveMemoriesByAgentIdentity('${agentIdentity}'): matched ${matchedIds.length}, archived ${live.length}`);
+            return {agentIdentity, matchedCount: matchedIds.length, archivedCount: live.length, dryRun: false};
+        } catch (error) {
+            logger.error('[MemoryService] Error archiving memories by agentIdentity:', error);
+            return {error: 'Failed to archive memories', message: error.message, code: 'MEMORY_ARCHIVE_ERROR'};
+        }
+    }
+
+    /**
+     * @summary Reverses {@link archiveMemoriesByAgentIdentity} — clears `archivedAt` for `agentIdentity`
+     * so the rows recall again (operator re-provisioning). A hard purge is a separate
+     * explicit op, never the tombstone default.
+     *
+     * Chroma metadata cannot hold `null`, so the cleared marker is the empty string `''` (falsy → the
+     * recall-exclusions re-admit the row); the graph node's marker is removed via `json_remove`.
+     *
+     * @param {Object} options
+     * @param {String} options.agentIdentity The stamped identity to restore.
+     * @returns {Promise<Object>} `{agentIdentity, restoredCount}`.
+     */
+    async unarchiveMemoriesByAgentIdentity({agentIdentity} = {}) {
+        if (!agentIdentity) {
+            return {error: 'Bad Request', message: "'agentIdentity' is required.", code: 'MISSING_AGENT_IDENTITY'};
+        }
+
+        try {
+            const collection  = await StorageRouter.getMemoryCollection(),
+                  matched     = await collection.get({where: {agentIdentity}, include: ['metadatas']}),
+                  matchedIds  = matched.ids       || [],
+                  matchedMeta = matched.metadatas || [],
+                  restore     = [];
+
+            for (let i = 0; i < matchedIds.length; i++) {
+                if (matchedMeta[i] && matchedMeta[i].archivedAt) {
+                    restore.push({id: matchedIds[i], meta: matchedMeta[i]});
+                }
+            }
+
+            if (restore.length > 0) {
+                await collection.update({
+                    ids      : restore.map(r => r.id),
+                    metadatas: restore.map(r => ({...r.meta, archivedAt: '', archivedReason: ''}))
+                });
+            }
+
+            const sqlite = GraphService.db?.storage?.db;
+            if (sqlite) {
+                sqlite.prepare(`
+                    UPDATE Nodes
+                    SET data = json_remove(data, '$.properties.archivedAt', '$.properties.archivedReason')
+                    WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
+                      AND json_extract(data, '$.properties.agentIdentity') = ?
+                      AND json_extract(data, '$.properties.archivedAt') IS NOT NULL
+                `).run(agentIdentity);
+            }
+
+            // In-memory node-cache coherence (mirror of the archive sweep): clear the cached marker.
+            const nodeCache = GraphService.db?.nodes;
+            if (nodeCache) {
+                for (const {id} of restore) {
+                    const cached = nodeCache.get(id);
+                    if (cached && cached.properties) {
+                        delete cached.properties.archivedAt;
+                        delete cached.properties.archivedReason;
+                    }
+                }
+            }
+
+            logger.info(`[MemoryService] unarchiveMemoriesByAgentIdentity('${agentIdentity}'): restored ${restore.length}`);
+            return {agentIdentity, restoredCount: restore.length};
+        } catch (error) {
+            logger.error('[MemoryService] Error unarchiving memories by agentIdentity:', error);
+            return {error: 'Failed to unarchive memories', message: error.message, code: 'MEMORY_UNARCHIVE_ERROR'};
         }
     }
 
@@ -1045,6 +1202,7 @@ class MemoryService extends Base {
                 WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
                   AND json_extract(memory.data, '$.properties.agentIdentity') = ?
                   AND json_extract(memory.data, '$.properties.userId')        = ?
+                  AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
                   ${cursorClause}
                 ORDER BY json_extract(memory.data, '$.properties.timestamp') DESC, memory.id DESC
                 LIMIT ?
@@ -1501,6 +1659,19 @@ class MemoryService extends Base {
             let ids       = searchResult.ids?.[0] || [];
             let distances = searchResult.distances?.[0] || [];
             let metadatas = searchResult.metadatas?.[0] || [];
+
+            // Tombstone exclusion: archived rows (metadata.archivedAt set) are dropped from
+            // recall. UNCONDITIONAL — the legacy/trust post-filter below only runs for some policies,
+            // so the exclusion cannot live there. A dropped archived row reads as a genuine no-match.
+            if (metadatas.some(m => m && m.archivedAt)) {
+                const live = [];
+                for (let i = 0; i < metadatas.length; i++) {
+                    if (!(metadatas[i] && metadatas[i].archivedAt)) live.push(i);
+                }
+                ids       = live.map(i => ids[i]);
+                distances = live.map(i => distances[i]);
+                metadatas = live.map(i => metadatas[i]);
+            }
 
             if ((userId && policy === 'legacy') || minTrustTier) {
                 const filteredIndices = [];
