@@ -124,4 +124,37 @@ test.describe('Neo.ai.client.InstanceService — named-transaction batching', ()
         expect(calls.every(call => call.undoReplay === true)).toBe(true); // under capture-suppression (no re-capture)
         expect(transactionService.stackOf({id: ID}).committed.length).toBe(0) // the single batched tx consumed
     });
+
+    test('a committed batch redoes as a single unit — forwards re-dispatched in capture order, redo branch consumed', async () => {
+        const
+            calls  = [],
+            client = {
+                transactionService,
+                async handleRequest(tool, args, context) { calls.push({properties: args?.properties, undoReplay: context?.undoReplay}) }
+            },
+            batchService = Neo.create(InstanceService, {client}),
+            // distinct forwards so the redo re-dispatch order is observable (the shared op() helper's forwards are identical)
+            opA = {...op('set x', 's1'), forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}}},
+            opB = {...op('set y', 's2'), forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {y: 2}}}};
+
+        await batchService.beginTransaction({name: 'add-grid'}, ID);
+        batchService.recordUndo(ID, opA);
+        batchService.recordUndo(ID, opB);
+        await batchService.commitTransaction({}, ID);
+
+        await batchService.undo({}, ID); // batch → undone, onto the redo branch
+        calls.length = 0;                // isolate the redo's forward re-dispatches from the undo's reverses
+
+        const result = await batchService.redo({}, ID);
+
+        expect(result.redone).toBe(true);
+        expect(result.reapplied).toBe(2);                              // both batched ops re-applied as ONE redo
+        expect(calls.map(call => call.properties)).toEqual([{x: 1}, {y: 2}]); // forwards, in capture order (opA → opB)
+        expect(calls.every(call => call.undoReplay === true)).toBe(true);     // under capture-suppression
+
+        const {committed, redo} = transactionService.stackOf({id: ID});
+        expect(redo.length).toBe(0);              // redo branch consumed
+        expect(committed.length).toBe(1);
+        expect(committed[0].ops.length).toBe(2)   // restored as one multi-op unit (undoable again)
+    });
 });
