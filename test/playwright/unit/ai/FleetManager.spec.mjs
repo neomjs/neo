@@ -89,6 +89,35 @@ test.describe('Neo.ai.services.fleet.FleetManager', () => {
         expect(result).toEqual([{agentId: 'a'}]);
     });
 
+    test('stopAgent delegates to the lifecycle service stop with the agent id', async () => {
+        const calls     = [],
+              lifecycle = {stop: id => { calls.push(id); return Promise.resolve({success: true, id, state: 'stopped'}); }};
+
+        FleetManager.lifecycleService = lifecycle;
+
+        const result = await FleetManager.stopAgent('agent-a');
+
+        expect(calls).toEqual(['agent-a']);
+        expect(result).toMatchObject({success: true, id: 'agent-a', state: 'stopped'});
+    });
+
+    test('restartAgent stops then re-starts via the PROVISIONED path (preserving the repo cwd)', async () => {
+        const order     = [],
+              lifecycle = {stop: id => { order.push(`stop:${id}`); return Promise.resolve({success: true, id, state: 'stopped'}); }};
+
+        FleetManager.managedRoot         = '/managed/root';
+        FleetManager.lifecycleService    = lifecycle;
+        FleetManager.provisionAndStartFn = async args => { order.push(`provisionStart:${args.agentId}`); return {state: 'running'}; };
+
+        const status = await FleetManager.restartAgent('agent-a');
+
+        // stop runs BEFORE the provisioned start, and the start goes through the provision-then-start
+        // composer (NOT lifecycleService.restart, which the stub deliberately omits) → the restarted
+        // agent re-runs in its provisioned checkout, not the Fleet Manager's dir.
+        expect(order).toEqual(['stop:agent-a', 'provisionStart:agent-a']);
+        expect(status.state).toBe('running');
+    });
+
     test('seams default to the real composers (a no-injection construction wires them)', () => {
         expect(FleetManager.getProvisionAndStartFn()).toBe(startAgentProvisioned);
         expect(FleetManager.getRepoStatusFn()).toBe(inspectFleetRepos);

@@ -139,6 +139,33 @@ class FleetManager extends Base {
             managedRoot: this.getManagedRoot()
         });
     }
+
+    /**
+     * @summary Turnkey stop: gracefully stop an agent's harness process (`SIGTERM`, then `SIGKILL` after
+     * the timeout) via the lifecycle collaborator. A thin delegation — stopping a process needs no
+     * `managedRoot` / provisioning, so it forwards straight to `FleetLifecycleService.stop`, mirroring how
+     * `fleetRepoStatus` forwards to its aggregator.
+     * @param {String} agentId Registry agent id.
+     * @returns {Promise<Object>} `{success, id, state}` from the lifecycle service's `stop`.
+     */
+    stopAgent(agentId) {
+        return this.getLifecycleService().stop(agentId);
+    }
+
+    /**
+     * @summary Turnkey restart: stop the agent, then start it again through the provisioned path
+     * ({@link startAgent}) — so the restarted harness re-ensures its repo and runs inside ITS checkout,
+     * not the Fleet Manager's own directory. Deliberately NOT a delegation to the lifecycle service's own
+     * `restart`, which re-starts with no `cwd`: that would re-spawn a provisioned agent in the wrong
+     * directory, and the checkout-path-keyed auto-memory would silently fork (the exact failure the
+     * provisioned start path prevents). Restarting a non-running agent is just a provisioned start.
+     * @param {String} agentId Registry agent id.
+     * @returns {Promise<Object>} the agent's lifecycle status (see {@link startAgent}).
+     */
+    async restartAgent(agentId) {
+        await this.stopAgent(agentId);
+        return this.startAgent(agentId);
+    }
 }
 
 export default Neo.setupClass(FleetManager);
