@@ -49,9 +49,10 @@ class FileSystemIngestor extends Base {
         // Precache existing mtimeMs dynamically bypassing RAM bloat cleanly natively
         const mtimeMap = new Map();
         const hashMap  = new Map();
-        if (GraphService.db.storage?.db) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (sqlite) {
             try {
-                const stmt = GraphService.db.storage.db.prepare("SELECT id, data FROM Nodes WHERE id LIKE 'file-%'");
+                const stmt = sqlite.prepare("SELECT id, data FROM Nodes WHERE id LIKE 'file-%'");
                 const rows = stmt.all();
                 for (const row of rows) {
                     const parsedData = JSON.parse(row.data);

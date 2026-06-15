@@ -177,6 +177,33 @@ class GraphService extends Base {
     }
 
     /**
+     * Builds the canonical degraded-graph error surfaced by graph-backed Memory Core tools.
+     * @param {String} surface Consumer surface reporting the unavailable graph.
+     * @returns {Error}
+     */
+    createUnavailableError(surface='GraphService') {
+        const reason = this.graphInitError?.message || 'graph database is unavailable';
+        return new Error(`[${surface}] GraphService unavailable: ${reason}`);
+    }
+
+    /**
+     * @summary Returns the mounted graph database or throws the canonical degraded-graph error.
+     *
+     * WAL-only paths such as `add_memory` must stay callable during graph startup degradation, but
+     * graph-backed tool paths must fail closed with a stable error instead of leaking `TypeError`
+     * from a `null` database dereference.
+     * @param {String} surface Consumer surface requiring the graph.
+     * @returns {Neo.ai.graph.Database}
+     */
+    requireDb(surface='GraphService') {
+        if (!this.db) {
+            throw this.createUnavailableError(surface);
+        }
+
+        return this.db;
+    }
+
+    /**
      * Upserts a Node representation into the graph securely linking the ID.
      * @important The `type` string is mapped directly to `node.label` to comply with strict Graph Database taxonomy (Node Labels).
      * @param {Object} nodeData
