@@ -2,6 +2,7 @@ import {WebSocketServer}  from 'ws';
 import crypto             from 'crypto';
 import Base               from '../../../../src/core/Base.mjs';
 import logger             from './logger.mjs';
+import {createBridgeInfoPayload} from './BridgeProtocol.mjs';
 import {verifyBridgeToken} from './verifyBridgeToken.mjs';
 
 /**
@@ -237,6 +238,8 @@ class Bridge extends Base {
         });
         ws.on('error', (err) => logger.error(`Bridge: Agent error [${id}]`, err));
 
+        this.sendBridgeInfo(ws);
+
         // Notify other agents
         this.broadcastToAgents({
             type   : 'agent_connected',
@@ -252,6 +255,16 @@ class Bridge extends Base {
                     appName    : appWs.appName || 'Unknown'
                 }));
             }
+        }
+    }
+
+    /**
+     * @summary Sends the freshness/protocol stamp expected by current agent clients.
+     * @param {WebSocket} ws
+     */
+    sendBridgeInfo(ws) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(createBridgeInfoPayload()))
         }
     }
 
