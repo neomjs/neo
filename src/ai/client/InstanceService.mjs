@@ -285,11 +285,18 @@ class InstanceService extends Service {
     }
 
     /**
-     * Records a captured reverse-op as a single-op committed transaction on this heap's undo stack
-     * ({@link Neo.ai.Client#transactionService}) — `begin` → `record` → `commit`, keyed on the writer's
-     * `(agentId, sessionId)`. Best-effort: a `null` op, an absent stack authority, or a stack rejection (a malformed /
-     * unserializable reverse) is dropped cleanly (`abort`), never thrown — capturing an undo must never break the
-     * forward write it shadows.
+     * Captures a reverse-op onto this heap's undo stack ({@link Neo.ai.Client#transactionService}), keyed on the
+     * writer's `(agentId, sessionId)`. Two routes, decided by whether the writer has an **agent-opened named batch**
+     * in progress ({@link #beginTransaction}):
+     * - **named batch open** → `record` the op INTO it; no per-op commit (the batch accumulates, so the agent's
+     *   {@link #commitTransaction} closes it and multiple mutations undo as one unit). The auto-wrap below MUST be
+     *   skipped here — its `begin` would abort the open batch ({@link Neo.ai.TransactionService#begin} drops a prior
+     *   open tx).
+     * - **no open batch** → auto-wrap the op as its own single-op committed transaction (`begin` → `record` →
+     *   `commit`), the default per-mutation capture.
+     * Best-effort: a `null` op (incl. an undo replay, suppressed at the call site), an absent stack authority, or a
+     * stack rejection (a malformed / unserializable reverse) is dropped cleanly (`abort` on the auto-wrap path),
+     * never thrown — capturing an undo must never break the forward write it shadows.
      * @param {Object|null} context
      * @param {Object|null} op
      * @protected
@@ -302,8 +309,18 @@ class InstanceService extends Service {
         }
 
         const
-            stackId = {agentId: context.agentId, sessionId: context.sessionId},
-            txId    = `tx:${op.sequenceId}`;
+            stackId  = {agentId: context.agentId, sessionId: context.sessionId},
+            openTxId = transactionService.openTxId({id: stackId});
+
+        if (openTxId) {
+            // An agent-opened named batch is in progress — accumulate this op into it (no per-op commit). A record
+            // rejection drops the op cleanly (the batch stays open + intact).
+            transactionService.record({id: stackId, txId: openTxId, op});
+            return
+        }
+
+        // No open batch → auto-wrap this single mutation as its own committed transaction.
+        const txId = `tx:${op.sequenceId}`;
 
         transactionService.begin({id: stackId, txId});
 
@@ -460,6 +477,94 @@ class InstanceService extends Service {
             summarize         = tx => ({txId: tx.txId, status: tx.status, opCount: tx.ops.length, labels: tx.ops.map(op => op.label)});
 
         return {committed: committed.map(summarize), redo: redo.map(summarize)}
+    }
+
+    /**
+     * Opens a named transaction for the requester — the `begin_transaction` Neural Link tool. While a batch is open,
+     * the writer's subsequent mutations are captured INTO it (via {@link #recordUndo}) instead of auto-wrapped per-op,
+     * so a later {@link #undo} reverts the whole intent (e.g. *"add a summary grid"* = several mutations) as one unit.
+     * Close the batch with {@link #commitTransaction}.
+     *
+     * Fail-closed (never throws for an expected outcome): no writer identity, no stack authority, an empty `name`, or a
+     * batch already open (commit it first — opening over it would silently drop the in-flight ops) → `{opened: false,
+     * reason}`. The batch `txId` is `batch:<name>` — the agent-supplied name is its audit identity, namespaced apart
+     * from an auto-wrap's `tx:<sequenceId>`.
+     * @param {Object} params
+     * @param {String} params.name A non-empty human-facing name for the batch (the user intent it groups).
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
+     * @returns {Promise<Object>} `{opened: Boolean, txId?: String, reason?: String}`
+     */
+    async beginTransaction({name}={}, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId) {
+            return {opened: false, reason: 'no-writer-identity'}
+        }
+
+        if (!transactionService) {
+            return {opened: false, reason: 'no-transaction-service'}
+        }
+
+        if (typeof name !== 'string' || name.trim() === '') {
+            return {opened: false, reason: 'name-required'}
+        }
+
+        const stackId = {agentId: context.agentId, sessionId: context.sessionId};
+
+        // Reject rather than abort an in-flight batch — opening over an open one would silently drop its captured ops
+        // (TransactionService#begin aborts a prior open tx). The agent must commit the current batch first.
+        const openTxId = transactionService.openTxId({id: stackId});
+
+        if (openTxId) {
+            return {opened: false, reason: 'transaction-already-open', txId: openTxId}
+        }
+
+        const
+            txId         = `batch:${name.trim()}`,
+            {ok, reason} = transactionService.begin({id: stackId, txId});
+
+        return ok ? {opened: true, txId} : {opened: false, reason}
+    }
+
+    /**
+     * Commits the requester's open named transaction — the `commit_transaction` Neural Link tool. Closes the batch
+     * {@link #beginTransaction} opened (`open → committed`), so its accumulated mutations become a single undoable unit
+     * on the stack and the redo branch is cleared (a fresh committed mutation diverges history). The symmetric close of
+     * the batch lifecycle.
+     *
+     * Fail-closed (never throws for an expected outcome): no writer identity, no stack authority, no open batch, or an
+     * empty batch (no mutations captured — {@link Neo.ai.TransactionService#commit} drops it) → `{committed: false,
+     * reason}`.
+     * @param {Object} [params] No parameters — commits the requester's own open batch.
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
+     * @returns {Promise<Object>} `{committed: Boolean, txId?: String, ops?: Number, reason?: String}`
+     */
+    async commitTransaction(params, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId) {
+            return {committed: false, reason: 'no-writer-identity'}
+        }
+
+        if (!transactionService) {
+            return {committed: false, reason: 'no-transaction-service'}
+        }
+
+        const
+            stackId = {agentId: context.agentId, sessionId: context.sessionId},
+            {open}  = transactionService.stackOf({id: stackId});
+
+        if (!open) {
+            return {committed: false, reason: 'no-open-transaction'}
+        }
+
+        // op count from the pre-commit snapshot (commit returns only {ok, reason}) — reported so the agent knows how
+        // many mutations the batch folded into one undoable unit.
+        const
+            opCount      = open.ops.length,
+            {ok, reason} = transactionService.commit({id: stackId, txId: open.txId});
+
+        return ok ? {committed: true, txId: open.txId, ops: opCount} : {committed: false, reason}
     }
 
     /**

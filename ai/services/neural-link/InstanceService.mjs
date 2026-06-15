@@ -115,6 +115,31 @@ class InstanceService extends Base {
     }
 
     /**
+     * Opens a named transaction for the requester — forwards the `begin_transaction` tool to the connected App Worker,
+     * which captures subsequent mutations into one batch until `commit_transaction`. See
+     * {@link Neo.ai.client.InstanceService#beginTransaction}.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @param {String} opts.name
+     * @returns {Promise<Object>}
+     */
+    async beginTransaction({sessionId, name}) {
+        return await ConnectionService.call(sessionId, 'begin_transaction', {name})
+    }
+
+    /**
+     * Commits the requester's open named transaction — forwards the `commit_transaction` tool to the connected App
+     * Worker, folding its accumulated mutations into a single undoable unit. See
+     * {@link Neo.ai.client.InstanceService#commitTransaction}.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @returns {Promise<Object>}
+     */
+    async commitTransaction({sessionId}) {
+        return await ConnectionService.call(sessionId, 'commit_transaction', {})
+    }
+
+    /**
      * Calls a method on a specific instance.
      * @param {Object} opts
      * @param {String} opts.sessionId
