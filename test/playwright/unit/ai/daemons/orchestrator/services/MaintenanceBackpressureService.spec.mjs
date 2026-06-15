@@ -2,9 +2,11 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
+    DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     MaintenanceBackpressureService,
+    areHeavyMaintenanceTasksCompatible,
     clearDeferralLogState,
     getActiveGoldenPathDependencyTask,
     getActiveHeavyMaintenanceTask,
@@ -73,6 +75,14 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(Object.isFrozen(DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES)).toBe(true);
     });
 
+    test('DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS keeps miniSummary backfill independent of kbSync', () => {
+        expect(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS).toEqual([
+            ['kbSync', 'memory-summary-backfill']
+        ]);
+        expect(Object.isFrozen(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS)).toBe(true);
+        expect(Object.isFrozen(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS[0])).toBe(true);
+    });
+
     // ====================================================================
     // Group 1 — Pure predicates + finders
     // ====================================================================
@@ -99,6 +109,29 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         })).toBe(false);
     });
 
+    test('areHeavyMaintenanceTasksCompatible is symmetric and deny-by-default', () => {
+        expect(areHeavyMaintenanceTasksCompatible({
+            taskName: 'kbSync',
+            otherTaskName: 'memory-summary-backfill',
+            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+        })).toBe(true);
+        expect(areHeavyMaintenanceTasksCompatible({
+            taskName: 'memory-summary-backfill',
+            otherTaskName: 'kbSync',
+            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+        })).toBe(true);
+        expect(areHeavyMaintenanceTasksCompatible({
+            taskName: 'summary',
+            otherTaskName: 'kbSync',
+            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+        })).toBe(false);
+        expect(areHeavyMaintenanceTasksCompatible({
+            taskName: 'kbSync',
+            otherTaskName: 'kbSync',
+            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+        })).toBe(false);
+    });
+
     test('getActiveHeavyMaintenanceTask returns first running heavy task, honors exclude', () => {
         const taskStateService = buildTaskStateService({
             summary: {running: true},
@@ -120,6 +153,22 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
             taskStateService         : buildTaskStateService({})
         })).toBeNull();
+    });
+
+    test('getActiveHeavyMaintenanceTask ignores compatible running heavy task for a candidate', () => {
+        expect(getActiveHeavyMaintenanceTask({
+            heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+            taskStateService         : buildTaskStateService({kbSync: {running: true}}),
+            candidateTaskName        : 'memory-summary-backfill',
+            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+        })).toBeNull();
+
+        expect(getActiveHeavyMaintenanceTask({
+            heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+            taskStateService         : buildTaskStateService({summary: {running: true}, kbSync: {running: true}}),
+            candidateTaskName        : 'memory-summary-backfill',
+            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+        })).toBe('summary');
     });
 
     test('getActiveGoldenPathDependencyTask prioritizes activeTaskName when it is a dependency', () => {
@@ -346,6 +395,37 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(outcomeCalls[0].p.blockingTaskName).toBe('summary');
     });
 
+    test('acquireLeaseAndExecute allows memory-summary-backfill behind active kbSync (#13358)', () => {
+        const outcomeCalls = [];
+        const executions   = [];
+        const service      = buildService({
+            taskStateService: buildTaskStateService({kbSync: {running: true}}),
+            healthService   : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})},
+            acquireLeaseFn  : () => ({acquired: true, lease: {token: 'memory-token'}}),
+            releaseLeaseFn  : () => {}
+        });
+
+        const activeHeavyTask = {name: 'kbSync'};
+        const result = service.acquireLeaseAndExecute({
+            taskName : 'memory-summary-backfill',
+            executeFn: (taskName, reason, onSuccess, taskOptions) => {
+                executions.push({taskName, reason, env: taskOptions.env});
+                return true;
+            },
+            reason: 'pending-memory-minisummary:3647',
+            activeHeavyTask
+        });
+
+        expect(result).toBe(true);
+        expect(executions).toEqual([{
+            taskName: 'memory-summary-backfill',
+            reason  : 'pending-memory-minisummary:3647',
+            env     : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: 'memory-token'}
+        }]);
+        expect(outcomeCalls).toEqual([]);
+        expect(activeHeavyTask.name).toBe('memory-summary-backfill');
+    });
+
     test('Sub 9 hypotheses 4 and 5: acquireLeaseAndExecute records held lease as skipped (#12617)', () => {
         const outcomeCalls = [];
         const service      = buildService({
@@ -366,6 +446,39 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(result).toBe(false);
         expect(outcomeCalls[0].p.reasonCode).toBe('heavy-maintenance-lease-held');
         expect(outcomeCalls[0].p.holdingOwner).toBe('sandman');
+    });
+
+    test('acquireLeaseAndExecute allows memory-summary-backfill when compatible kbSync owns the lease (#13358)', () => {
+        const outcomeCalls = [];
+        const executions   = [];
+        const releases     = [];
+        const service      = buildService({
+            taskStateService: buildTaskStateService({}),
+            healthService   : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})},
+            acquireLeaseFn  : () => ({acquired: false, lease: {owner: 'kbSync', pid: 77}}),
+            releaseLeaseFn  : opts => releases.push(opts)
+        });
+
+        const activeHeavyTask = {name: null};
+        const result = service.acquireLeaseAndExecute({
+            taskName : 'memory-summary-backfill',
+            executeFn: (taskName, reason, onSuccess, taskOptions) => {
+                executions.push({taskName, reason, env: taskOptions.env});
+                return true;
+            },
+            reason: 'pending-memory-minisummary:3647',
+            activeHeavyTask
+        });
+
+        expect(result).toBe(true);
+        expect(executions).toEqual([{
+            taskName: 'memory-summary-backfill',
+            reason  : 'pending-memory-minisummary:3647',
+            env     : {}
+        }]);
+        expect(outcomeCalls).toEqual([]);
+        expect(releases).toEqual([]);
+        expect(activeHeavyTask.name).toBe('memory-summary-backfill');
     });
 
     test('acquireLeaseAndExecute records failure outcome on lease-acquire throw', () => {
