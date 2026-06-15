@@ -800,14 +800,15 @@ class MemoryService extends Base {
      * @returns {Promise<Object[]>} Row-shaped pending turns.
      * @private
      */
-    async _readPendingWalRecencyRows({identity, userId, before, limit, excludeIds = new Set()} = {}) {
+    async _readPendingWalRecencyRows({identity, userId, before, excludeIds = new Set()} = {}) {
         try {
-            // Bound the WAL scan: graph projection normally keeps the pending set tiny, but under a
-            // projection-lag/outage the set grows — an unbounded read would turn every recency query
-            // into an O(pending) disk scan. readPendingWalRecords reads newest-segment-first, so a
-            // page-sized cap protects the recency-critical newest page; deeper pages under heavy lag
-            // fill in once projection catches up.
-            const records = await readPendingWalRecords({dir: aiConfig.memoryWal.dir, limit, markerType: 'graph'});
+            // No raw read-limit here: readPendingWalRecords walks each daily segment in append
+            // (oldest-first) order, so capping the raw count would drop the NEWEST graph-pending rows
+            // — exactly the just-written, not-yet-projected turns the read-after-write overlay must
+            // surface. The recency bound belongs at the recency-eligible level instead: the caller
+            // (queryRecentTurns) sorts the identity-filtered merge and slices to the page size. The
+            // pending set is naturally bounded by the drain cadence + write rate.
+            const records = await readPendingWalRecords({dir: aiConfig.memoryWal.dir, markerType: 'graph'});
             const rows    = [];
 
             for (const record of records) {
@@ -1029,7 +1030,7 @@ class MemoryService extends Base {
             // this method, the row is either present in this pending snapshot or visible in the
             // graph query below; querying graph first creates a race where the graph marker can
             // land between the two reads and hide the row from both surfaces.
-            const pendingRows = await this._readPendingWalRecencyRows({identity, userId, before, limit: boundedLimit});
+            const pendingRows = await this._readPendingWalRecencyRows({identity, userId, before});
 
             const graphRows = sqlite.prepare(`
                 SELECT memory.id                                            AS id,
