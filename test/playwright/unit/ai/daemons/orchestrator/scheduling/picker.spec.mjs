@@ -58,6 +58,44 @@ test.describe('orchestrator/scheduling/picker (#11862 Sub 18)', () => {
         expect(winner.taskName).toBe('summary');
     });
 
+    test('filterExclusiveHeavyConflict: keeps compatible miniSummary backfill behind kbSync (#13358)', () => {
+        const candidates = [
+            makeCandidate('memory-summary-backfill', {maintenanceClass: 'heavy'}),
+            makeCandidate('summary', {maintenanceClass: 'continuous'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : ['kbSync'],
+            policyContext: {
+                runningHeavyTasks: new Set(['kbSync']),
+                isHeavyMaintenanceConflict(candidateTaskName, runningTaskName) {
+                    return !(candidateTaskName === 'memory-summary-backfill' && runningTaskName === 'kbSync');
+                }
+            }
+        });
+
+        expect(winner.taskName).toBe('memory-summary-backfill');
+    });
+
+    test('filterExclusiveHeavyConflict: keeps incompatible heavy task blocked when kbSync runs (#13358)', () => {
+        const candidates = [
+            makeCandidate('backup', {maintenanceClass: 'heavy'}),
+            makeCandidate('summary', {maintenanceClass: 'continuous'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : ['kbSync'],
+            policyContext: {
+                runningHeavyTasks: new Set(['kbSync']),
+                isHeavyMaintenanceConflict() {
+                    return true;
+                }
+            }
+        });
+
+        expect(winner.taskName).toBe('summary');
+    });
+
     test('filterExclusiveHeavyConflict: no-op when no heavy is running', () => {
         const candidates = [
             makeCandidate('backup', {maintenanceClass: 'heavy'}),

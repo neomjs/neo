@@ -1055,6 +1055,60 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
     });
 
+    test('runs memory miniSummary backfill while kbSync is already running (#13358)', () => {
+        const outcomes = [];
+        const started  = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            backupIntervalMs             : Number.MAX_SAFE_INTEGER,
+            graphLogCompactionIntervalMs : Number.MAX_SAFE_INTEGER,
+            primaryDevSyncIntervalMs     : Number.MAX_SAFE_INTEGER,
+            dreamIntervalMs              : Number.MAX_SAFE_INTEGER
+        });
+
+        orchestrator.db = {
+            prepare(sql) {
+                if (sql.includes('COUNT(*)')) {
+                    return {
+                        get: () => ({n: 3647})
+                    };
+                }
+
+                return {
+                    all: () => [{id: 'memory-1'}]
+                };
+            }
+        };
+
+        TaskStateService.taskState.kbSync.running = true;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toContainEqual({
+            taskName: 'memory-summary-backfill',
+            reason  : 'pending-memory-minisummary:3647'
+        });
+        expect(outcomes).not.toContainEqual({
+            taskName: 'memory-summary-backfill',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'kbSync',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
+    });
+
     test('defers due dream when another heavy maintenance task is already running (#11513 AC4 — umbrella AC2 gap fill)', () => {
         const dreamCalls = [];
         const outcomes   = [];

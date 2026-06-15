@@ -115,14 +115,21 @@ export function runSchedulingPipeline({registry, context, services, runtime}) {
     const winner = pickNextCandidate({
         candidates,
         runningTasks  : runningTaskNames,
-        policyContext : {runningHeavyTasks}
+        policyContext : {
+            runningHeavyTasks,
+            isHeavyMaintenanceConflict: services.maintenanceBackpressureService.isHeavyMaintenanceConflict?.bind(
+                services.maintenanceBackpressureService
+            )
+        }
     });
 
     if (winner) {
         executeCandidate({
             candidate: winner,
             activeHeavyTask: {
-                name: services.maintenanceBackpressureService.getActiveHeavyMaintenanceTask()
+                name: services.maintenanceBackpressureService.getActiveHeavyMaintenanceTask({
+                    candidateTaskName: winner.taskName
+                })
             },
             services,
             runtime
@@ -181,10 +188,15 @@ export function recordPickerDeferrals({
     maintenanceBackpressureService
 }) {
     const runningSet        = new Set(runningTaskNames);
-    const blockingHeavyTask = runningHeavyTasks.values().next().value;
 
     for (const candidate of candidates) {
         if (runningSet.has(candidate.taskName)) continue;
+
+        const blockingHeavyTask = findBlockingHeavyTask({
+            candidate,
+            runningHeavyTasks,
+            maintenanceBackpressureService
+        });
 
         if (blockingHeavyTask && candidate.descriptor.maintenanceClass === 'heavy') {
             maintenanceBackpressureService.recordDeferral({
@@ -208,6 +220,30 @@ export function recordPickerDeferrals({
             });
         }
     }
+}
+
+/**
+ * @param {Object} options
+ * @param {Object} options.candidate Scheduling candidate.
+ * @param {Set<String>} options.runningHeavyTasks Running heavy task names.
+ * @param {Object} options.maintenanceBackpressureService Backpressure policy service.
+ * @returns {String|null}
+ */
+function findBlockingHeavyTask({candidate, runningHeavyTasks, maintenanceBackpressureService}) {
+    if (candidate.descriptor.maintenanceClass !== 'heavy') return null;
+
+    for (const runningTaskName of runningHeavyTasks) {
+        if (runningTaskName === candidate.taskName) continue;
+        if (typeof maintenanceBackpressureService.isHeavyMaintenanceConflict === 'function') {
+            if (maintenanceBackpressureService.isHeavyMaintenanceConflict(candidate.taskName, runningTaskName)) {
+                return runningTaskName;
+            }
+            continue;
+        }
+        return runningTaskName;
+    }
+
+    return null;
 }
 
 /**
