@@ -17,8 +17,10 @@ import {getCurrentTurnId} from './Server.mjs';
 import RecorderService    from '../../../services/neural-link/RecorderService.mjs';
 
 const serviceMapping = {
+    begin_transaction            : InstanceService   .beginTransaction          .bind(InstanceService),
     call_method                 : InstanceService   .callMethod              .bind(InstanceService),
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),
+    commit_transaction           : InstanceService   .commitTransaction         .bind(InstanceService),
     create_component             : ComponentService  .createComponent           .bind(ComponentService),
     find_instances               : InstanceService   .findInstances             .bind(InstanceService),
     get_component_tree           : ComponentService  .getComponentTree          .bind(ComponentService),

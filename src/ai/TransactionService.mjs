@@ -376,6 +376,21 @@ class TransactionService extends Base {
     }
 
     /**
+     * @summary The id of the session's currently-open transaction, or `null` — a clone-free open-batch probe.
+     * The hot-path counterpart to {@link stackOf}: the capture hook ({@link Neo.ai.client.InstanceService#recordUndo})
+     * consults this on **every** mutation to route an op into an agent-opened named batch (`begin_transaction`) vs.
+     * auto-wrapping it as its own single-op transaction — and `stackOf` deep-copies the entire stack, the wrong cost
+     * for a per-mutation check (within an N-mutation batch the open tx grows, so probing it via `stackOf` is O(N²)).
+     * Fail-closed: an incomplete identity / unknown session → `null`.
+     * @param {Object} params
+     * @param {Object} params.id  `{agentId, sessionId}` — the Bridge-stamped writer pair
+     * @returns {String|null}
+     */
+    openTxId({id}) {
+        return this.sessions.get(stackKey(id) ?? '')?.open?.txId ?? null
+    }
+
+    /**
      * @summary A deep snapshot of a session's undo state (introspection / testing).
      * Every returned transaction + op is a copy, so a caller cannot mutate the live stack through the result.
      * @param {Object} params
