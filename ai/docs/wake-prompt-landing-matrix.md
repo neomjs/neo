@@ -44,16 +44,17 @@ Regression ticket #13287 adds a Codex-specific validation rule: a green backend
 adapter test is not enough when heartbeat wakes and actionable A2A wakes appear
 to diverge at the final Codex submit boundary. The controlled validation must
 compare all three digest shapes below on the same active Codex subscription
-metadata before declaring the lane complete.
+metadata, recording the resolved adapter route for each attempt before
+declaring the lane complete.
 
 | Scenario | Required Controlled Payload | Backend Assertions | Live Codex Assertions |
 | :--- | :--- | :--- | :--- |
-| Pure heartbeat | One `heartbeat_pulse` event and no message/task/permission events. | Digest includes `heartbeat pulses`; adapter selection matches the active subscription; backend logs only adapter acceptance. | Payload lands in the existing Codex prompt surface, submits without operator Enter, and starts a turn. |
-| Direct A2A message | One unread `SENT_TO_ME` message event and no heartbeat event. | Digest includes `new messages`; adapter selection matches the active subscription; stale-read retry suppression stays intact. | Payload lands in the existing Codex prompt surface, submits without operator Enter, and starts a turn. |
-| Mixed message + heartbeat | One unread `SENT_TO_ME` message event plus one heartbeat event in the same coalesced flush. | Digest includes both `new messages` and `heartbeat pulses`; adapter selection remains one route, not event-type-dependent. | Payload lands once, submits once, starts one turn, and does not duplicate-submit during draft restore or retry handling. |
+| Pure heartbeat | One `heartbeat_pulse` event and no message/task/permission events. | Digest includes `heartbeat pulses`; resolved adapter route is recorded from subscription metadata plus platform default; backend logs only adapter acceptance. | Payload lands in the existing Codex prompt surface, submits without operator Enter, and starts a turn. |
+| Direct A2A message | One unread `SENT_TO_ME` message event and no heartbeat event. | Digest includes `new messages`; resolved adapter route is recorded from subscription metadata plus platform default; stale-read retry suppression stays intact. | Payload lands in the existing Codex prompt surface, submits without operator Enter, and starts a turn. |
+| Mixed message + heartbeat | One unread `SENT_TO_ME` message event plus one heartbeat event in the same coalesced flush. | Digest includes both `new messages` and `heartbeat pulses`; evidence records whether the resolved adapter route remains one route or changes by event shape/path. | Payload lands once, submits once, starts one turn, and does not duplicate-submit during draft restore or retry handling. |
 
 The live evidence artifact for #13287 must name the subscription id, adapter
-metadata, payload scenario, observed prompt landing result, submit/start-turn
-result, and whether a human Enter key was required. If a scenario lands text
-without starting a turn, record the backend adapter result as partial delivery
-instead of treating it as a successful Codex wake.
+metadata, resolved adapter route, payload scenario, observed prompt landing
+result, submit/start-turn result, and whether a human Enter key was required. If
+a scenario lands text without starting a turn, record the backend adapter result
+as partial delivery instead of treating it as a successful Codex wake.
