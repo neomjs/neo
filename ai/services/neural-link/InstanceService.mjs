@@ -49,6 +49,108 @@ class InstanceService extends Base {
     }
 
     /**
+     * @summary Creates any JSON-addressable Neo instance through the Neural Link write surface.
+     *
+     * This is the general creation primitive beneath component-only creation: callers provide a `className`
+     * or `ntype` plus a JSON config, optionally with `parentId` to attach the created component to a container.
+     * Server-side validation keeps the MCP boundary data-only before dispatching to the App Worker.
+     * @param {Object} opts
+     * @param {String} [opts.className] The fully-qualified Neo class name.
+     * @param {Object} [opts.config={}] JSON-safe instance config.
+     * @param {String} [opts.ntype] The Neo ntype shortcut.
+     * @param {String} [opts.parentId] Optional target container id.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>}
+     */
+    async createInstance({className, config={}, ntype, parentId, sessionId}) {
+        const payload = this.buildCreateInstancePayload({className, config, ntype, parentId});
+
+        return await ConnectionService.call(sessionId, 'create_instance', payload)
+    }
+
+    /**
+     * @summary Builds the data-only App Worker payload for `create_instance`.
+     * @param {Object} params
+     * @param {String} [params.className]
+     * @param {Object} [params.config={}]
+     * @param {String} [params.ntype]
+     * @param {String} [params.parentId]
+     * @returns {Object}
+     * @protected
+     */
+    buildCreateInstancePayload({className, config={}, ntype, parentId}) {
+        if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            throw new Error('create_instance: `config` must be an instance configuration object.')
+        }
+
+        this.rejectFunctionBearingConfig(config);
+
+        if (Object.hasOwn(config, 'module')) {
+            throw new Error('create_instance: `module` is a class reference and cannot cross the Neural Link wire; declare `ntype` or `className` instead.')
+        }
+
+        const
+            resolvedClassName = className ?? config.className,
+            resolvedNtype     = ntype     ?? config.ntype;
+
+        if (className !== undefined && typeof className !== 'string') {
+            throw new Error('create_instance: `className` must be a string.')
+        }
+
+        if (ntype !== undefined && typeof ntype !== 'string') {
+            throw new Error('create_instance: `ntype` must be a string.')
+        }
+
+        if (className && config.className && className !== config.className) {
+            throw new Error('create_instance: top-level `className` conflicts with `config.className`.')
+        }
+
+        if (ntype && config.ntype && ntype !== config.ntype) {
+            throw new Error('create_instance: top-level `ntype` conflicts with `config.ntype`.')
+        }
+
+        if (resolvedClassName && resolvedNtype) {
+            throw new Error('create_instance: provide exactly one of `className` or `ntype`.')
+        }
+
+        if (!resolvedClassName && !resolvedNtype) {
+            throw new Error('create_instance: provide `className` or `ntype` to instantiate.')
+        }
+
+        return {
+            className: resolvedClassName,
+            config,
+            ntype: resolvedNtype,
+            parentId
+        }
+    }
+
+    /**
+     * @summary Rejects function-bearing config values at the MCP boundary.
+     * @param {*} value
+     * @param {String} [path='config']
+     * @protected
+     */
+    rejectFunctionBearingConfig(value, path='config') {
+        if (typeof value === 'function') {
+            throw new Error(`create_instance: function-bearing config is not supported at ${path}; pass a registered handler id string instead.`)
+        }
+
+        if (!value || typeof value !== 'object') {
+            return
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => this.rejectFunctionBearingConfig(item, `${path}[${index}]`));
+            return
+        }
+
+        Object.entries(value).forEach(([key, item]) => {
+            this.rejectFunctionBearingConfig(item, `${path}.${key}`)
+        })
+    }
+
+    /**
      * Retrieves properties from a specific instance by its ID.
      * @param {Object} opts
      * @param {String} opts.sessionId

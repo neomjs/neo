@@ -75,6 +75,237 @@ class InstanceService extends Service {
     }
 
     /**
+     * @summary Creates any JSON-addressable Neo instance, optionally attaching it to a container.
+     *
+     * `create_instance` is the general Neural Link creation primitive: standalone data/model/controller
+     * instances use `Neo.create` / `Neo.ntype`; component creation with `parentId` first passes the target
+     * container through the existing subtree write guard, then attaches the created instance via `parent.add`.
+     * The captured undo reverse dispatches through the internal `destroy_instance` replay target.
+     * @param {Object} params
+     * @param {String} [params.className]
+     * @param {Object} [params.config={}]
+     * @param {String} [params.ntype]
+     * @param {String} [params.parentId]
+     * @param {Object|null} [context] The Bridge-stamped agent writer pair (2nd dispatch arg); null/undefined = legacy.
+     * @returns {Object} `{id, className, parentId?}`
+     */
+    createInstance({className, config={}, ntype, parentId}, context) {
+        const
+            createConfig = this.buildCreateInstanceConfig({className, config, ntype}),
+            parent       = parentId ? Neo.getComponent(parentId) : null;
+
+        if (parentId) {
+            if (!parent) {
+                throw new Error(`Parent component not found: ${parentId}`)
+            }
+
+            if (typeof parent.add !== 'function') {
+                throw new Error(`Parent is not a container: ${parentId}`)
+            }
+
+            this.assertWritable(context, parentId)
+        }
+
+        const instance = createConfig.ntype ? Neo.ntype(createConfig) : Neo.create(createConfig);
+
+        if (!instance) {
+            throw new Error('create_instance: Neo.create returned no instance.')
+        }
+
+        let attachedInstance = instance;
+
+        if (parent) {
+            try {
+                attachedInstance = parent.add(instance)
+            } catch (error) {
+                instance.destroy();
+                throw error
+            }
+        }
+
+        this.recordUndo(context, this.buildCreateInstanceReverse({
+            config  : createConfig,
+            context,
+            instance: attachedInstance,
+            parentId
+        }));
+
+        const result = {
+            id       : attachedInstance.id,
+            className: attachedInstance.className
+        };
+
+        if (parentId) {
+            result.parentId = parentId
+        }
+
+        return result
+    }
+
+    /**
+     * @summary Builds the normalized, data-only config used by `create_instance`.
+     * @param {Object} params
+     * @param {String} [params.className]
+     * @param {Object} [params.config={}]
+     * @param {String} [params.ntype]
+     * @returns {Object}
+     * @protected
+     */
+    buildCreateInstanceConfig({className, config={}, ntype}) {
+        if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            throw new Error('create_instance: `config` must be an instance configuration object.')
+        }
+
+        this.rejectFunctionBearingCreateConfig(config);
+
+        if (Object.hasOwn(config, 'module')) {
+            throw new Error('create_instance: `module` is a class reference and cannot cross the Neural Link wire; declare `ntype` or `className` instead.')
+        }
+
+        const
+            resolvedClassName = className ?? config.className,
+            resolvedNtype     = ntype     ?? config.ntype;
+
+        if (className !== undefined && typeof className !== 'string') {
+            throw new Error('create_instance: `className` must be a string.')
+        }
+
+        if (ntype !== undefined && typeof ntype !== 'string') {
+            throw new Error('create_instance: `ntype` must be a string.')
+        }
+
+        if (className && config.className && className !== config.className) {
+            throw new Error('create_instance: top-level `className` conflicts with `config.className`.')
+        }
+
+        if (ntype && config.ntype && ntype !== config.ntype) {
+            throw new Error('create_instance: top-level `ntype` conflicts with `config.ntype`.')
+        }
+
+        if (resolvedClassName && resolvedNtype) {
+            throw new Error('create_instance: provide exactly one of `className` or `ntype`.')
+        }
+
+        if (!resolvedClassName && !resolvedNtype) {
+            throw new Error('create_instance: provide `className` or `ntype` to instantiate.')
+        }
+
+        const createConfig = {...config};
+
+        if (resolvedClassName) {
+            delete createConfig.ntype;
+            createConfig.className = resolvedClassName
+        } else {
+            delete createConfig.className;
+            createConfig.ntype = resolvedNtype
+        }
+
+        return createConfig
+    }
+
+    /**
+     * @summary Rejects function-bearing config values on the app-side Bridge boundary.
+     * @param {*} value
+     * @param {String} [path='config']
+     * @protected
+     */
+    rejectFunctionBearingCreateConfig(value, path='config') {
+        if (typeof value === 'function') {
+            throw new Error(`create_instance: function-bearing config is not supported at ${path}; pass a registered handler id string instead.`)
+        }
+
+        if (!value || typeof value !== 'object') {
+            return
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => this.rejectFunctionBearingCreateConfig(item, `${path}[${index}]`));
+            return
+        }
+
+        Object.entries(value).forEach(([key, item]) => {
+            this.rejectFunctionBearingCreateConfig(item, `${path}.${key}`)
+        })
+    }
+
+    /**
+     * @summary Builds the reverse-op for a `create_instance` write.
+     * @param {Object} params
+     * @param {Object} params.config The normalized forward config.
+     * @param {Object|null} params.context The Bridge-stamped `{agentId, sessionId}` writer pair.
+     * @param {Neo.core.Base} params.instance The created instance.
+     * @param {String} [params.parentId] Optional parent container id.
+     * @returns {Object|null}
+     * @protected
+     */
+    buildCreateInstanceReverse({config, context, instance, parentId}) {
+        if (context?.undoReplay || !context?.agentId || !context?.sessionId) {
+            return null
+        }
+
+        const id = instance?.id;
+
+        if (typeof id !== 'string' || id === '') {
+            return null
+        }
+
+        const targetSubtreePath = parentId
+            ? deriveSubtreePath(id, cid => Neo.getComponent(cid)?.parentId)
+            : [`instance:${id}`];
+
+        if (!targetSubtreePath) {
+            return null
+        }
+
+        const forwardArgs = {config: this.safeSerialize(config)};
+
+        if (parentId) {
+            forwardArgs.parentId = parentId
+        }
+
+        return {
+            sequenceId       : `${id}:${++this.undoSequence}`,
+            originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+            targetSubtreePath,
+            forward          : {tool: 'create_instance', args: forwardArgs},
+            reverse          : {tool: 'destroy_instance', args: {id}},
+            label            : `create ${config.ntype || config.className || 'instance'}${parentId ? ` in ${parentId}` : ''}`
+        }
+    }
+
+    /**
+     * @summary Internal undo/redo replay target that destroys an instance created by `create_instance`.
+     *
+     * This method is deliberately not exposed as an MCP tool. It is reachable through the in-app dispatcher so the
+     * transaction stack can replay a data-only reverse descriptor. Component instances still re-enter subtree
+     * write-guard enforcement; standalone instances are destroyed directly because they have no component path.
+     * @param {Object} params
+     * @param {String} params.id
+     * @param {Object|null} [context] The Bridge-stamped agent writer pair.
+     * @returns {Object}
+     */
+    destroyInstance({id}, context) {
+        if (!context?.undoReplay) {
+            throw new Error('destroy_instance is an internal undo/redo replay target.')
+        }
+
+        const instance = Neo.get(id);
+
+        if (!instance) {
+            throw new Error(`Instance not found: ${id}`)
+        }
+
+        if (Neo.getComponent(id)) {
+            this.assertWritable(context, id);
+            instance.destroy(true)
+        } else {
+            instance.destroy()
+        }
+
+        return {destroyed: true, id}
+    }
+
+    /**
      * Enforces the multi-writer write-lock before a write-class op mutates: composes the {@link Neo.ai.admitWrite}
      * decision with this heap's {@link Neo.ai.Client#writeGuard} and **throws** a deny (no mutation) when the write is
      * not admitted. A bare / legacy frame (no `context`) is unguarded — backward-compatible with non-agent callers.

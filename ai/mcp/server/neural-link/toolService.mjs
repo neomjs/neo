@@ -23,6 +23,7 @@ const serviceMapping = {
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),
     commit_transaction           : InstanceService   .commitTransaction         .bind(InstanceService),
     create_component             : ComponentService  .createComponent           .bind(ComponentService),
+    create_instance              : InstanceService   .createInstance            .bind(InstanceService),
     find_instances               : InstanceService   .findInstances             .bind(InstanceService),
     get_component_tree           : ComponentService  .getComponentTree          .bind(ComponentService),
     get_computed_styles          : ComponentService  .getComputedStyles         .bind(ComponentService),
