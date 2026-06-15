@@ -216,6 +216,15 @@ async function main() {
 
     console.log('✅ Release created! GitHub Actions will now publish to npm.');
 
+    // The release note is now the GitHub release body. Step 6's GH_SyncService.runFullSync() re-materializes
+    // it under resources/content/release-notes/chunk-N/ (with frontmatter) via the ordinal-100 bucketing.
+    // Remove the top-level staging copy here so it does not linger as a duplicate of the chunked record —
+    // the broad `git add .` in Step 6 stages this removal alongside the archive moves.
+    if (fs.existsSync(releaseNotePath)) {
+        fs.removeSync(releaseNotePath);
+        console.log(`🧹 Removed top-level staging release note: ${path.relative(root, releaseNotePath)}`);
+    }
+
 
     // --- 5.5 Upload Knowledge Base ---
 
