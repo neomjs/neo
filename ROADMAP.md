@@ -14,22 +14,22 @@ The former v12.2 plan grew into v13 along the way: [#9999](https://github.com/ne
 
 ## Next: v13.1 — Harness Phase-1 + Reliability
 
-v13 proved the institution; **v13.1 gives it an operable face.** It is a milestone-scoped release ([milestone #8](https://github.com/neomjs/neo/milestone/8)) run as **epic-ownership** — each cornerstone has an owner who drives it to resolution *and close*, not a flat backlog of grabbed tickets. The budget is **~100–150 merged PRs as a ceiling, not a fill-target**: scope to genuine foundation-slices — a slice of each cornerstone lands now, full resolution may span v13.2. This section names the load-bearing cornerstones and the *why*; the exhaustive set is the milestone's linked items (mirroring the `update-roadmap` skill's shape, [#13380](https://github.com/neomjs/neo/issues/13380)).
+v13 proved the institution; **v13.1 gives it an operable face.** It is a milestone-scoped release ([milestone #8](https://github.com/neomjs/neo/milestone/8)) run as **epic-ownership** — each cornerstone has an owner who drives it to resolution *and close*, not a flat backlog of grabbed tickets. The budget is **~100–150 merged PRs as a ceiling, not a fill-target**: scope to genuine foundation-slices — a slice of each cornerstone lands now, full resolution may span v13.2. This section names the load-bearing cornerstones and the *why*; the exhaustive set is the milestone's linked items (mirroring the `update-roadmap` skill's shape, [#13380](https://github.com/neomjs/neo/issues/13380)). The three latest Ideation discussions (#13378 / #13374 / #13370) are **targeted for graduation into v13.1** — pending their open questions and cross-family quorum, **not yet graduated**.
 
 **Harness phase-1 spine** — the [Current Focus](#current-focus-the-agent-harness) arc below, sliced for this release (Epic [#13012](https://github.com/neomjs/neo/issues/13012)):
 
 *   **Fleet Manager** completion ([#13015](https://github.com/neomjs/neo/issues/13015)) — the H1 cockpit, finished.
 *   **Conversational first widget** ([#13349](https://github.com/neomjs/neo/issues/13349), the M2/H2 capstone) — chat → a live Neo grid in a running app: agent JSON output IS framework input.
-*   **Neural Link agent-control + creation** ([#13376](https://github.com/neomjs/neo/issues/13376)) — multi-window ops, instance creation, and the trust-tiered dynamic-import ceiling (graduates [Discussion #13378](https://github.com/orgs/neomjs/discussions/13378)).
-*   **Docking + multi-window** ([#13158](https://github.com/neomjs/neo/issues/13158)) — QT-grade docking on the one cross-window engine (graduates [Discussion #13370](https://github.com/orgs/neomjs/discussions/13370)).
+*   **Neural Link agent-control + creation** ([#13376](https://github.com/neomjs/neo/issues/13376)) — multi-window ops, instance creation, and the trust-tiered dynamic-import ceiling — targets [Discussion #13378](https://github.com/orgs/neomjs/discussions/13378) for graduation (OQ2/OQ4 still open).
+*   **Docking + multi-window** ([#13158](https://github.com/neomjs/neo/issues/13158)) — QT-grade docking on the one cross-window engine — targets [Discussion #13370](https://github.com/orgs/neomjs/discussions/13370) for graduation.
 *   **Extended-NL coordination** ([#13056](https://github.com/neomjs/neo/issues/13056)) — identity, multi-writer locking, curated tool surface.
 *   **Electron shell foundation** ([#13377](https://github.com/neomjs/neo/issues/13377)) — package and host the Agent OS.
 
 **Reliability cornerstones** — the friction the institution hit running itself:
 
-*   **Local-model cost-safety** ([#13390](https://github.com/neomjs/neo/issues/13390)) — tier the local chat-model context default to host RAM (256K ≈ 90GB today; won't load on smaller machines). Supersedes #12740.
+*   **Local-model cost-safety** ([#13390](https://github.com/neomjs/neo/issues/13390)) — tier the local chat-model context default to host RAM (256K ≈ 90GB today; won't load on smaller machines) — the v13.1 leaf of the local-first cost-safety epic [#12740](https://github.com/neomjs/neo/issues/12740).
 *   **Golden-path freshness** ([#12065](https://github.com/neomjs/neo/issues/12065)) — keep the Orchestrator's roadmap live: run the REM pipeline on a schedule, un-stale the Sandman handoff.
-*   **Agent wake delivery** ([#13287](https://github.com/neomjs/neo/issues/13287), with stale-process detection [Discussion #13374](https://github.com/orgs/neomjs/discussions/13374)) — a wake path that is both focus-free *and* submit-capable: the harness's coordination floor.
+*   **Agent wake delivery** ([#13287](https://github.com/neomjs/neo/issues/13287), with stale-process detection targeted via [Discussion #13374](https://github.com/orgs/neomjs/discussions/13374)) — a wake path that is both focus-free *and* submit-capable: the harness's coordination floor.
 *   **Cloud-deploy reliability** ([#10291](https://github.com/neomjs/neo/issues/10291) + ADR 0014) — health/observability plus safe deploy/restart across the multi-container Agent OS.
 
 **Discipline:** the `update-roadmap` skill ([#13380](https://github.com/neomjs/neo/issues/13380)) so a release always triggers the next roadmap; an epic-ownership discipline ([Discussion #13388](https://github.com/orgs/neomjs/discussions/13388)) so peers own epics end-to-end; the harness session-entry refresh.
