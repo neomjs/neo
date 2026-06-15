@@ -230,6 +230,7 @@ Generic tools for working with *any* Neo.mjs instance (Components, Stores, Manag
 | `remove_component` | Destroys a component by ID, removing it from its parent and the DOM. |
 | `call_method` | Calls a method on a specific instance (e.g. `store.load()`, `grid.scrollToRow()`) — the generic instance-action tool. |
 | `undo` | Reverts the requester's most-recent committed mutation (single-level), re-dispatching the captured reverse under live enforcement. |
+| `redo` | Re-applies the requester's most-recently undone mutation (single-level) — the symmetric counterpart of `undo`. |
 
 ### 4. Runtime & System
 
