@@ -106,7 +106,7 @@ test.describe('ai/graph/identityRoots — model assignments', () => {
 test.describe('ai/graph/identityRoots — Codex wake route', () => {
     const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
 
-    test('@neo-gpt routes SENT_TO_ME wake delivery through the Codex app-server adapter (#13350)', () => {
+    test('@neo-gpt routes SENT_TO_ME wake delivery through the verified Codex UI adapter (#13287)', () => {
         const entry = findIdentity('@neo-gpt');
 
         expect(entry, '@neo-gpt must be a registered AgentIdentity root').toBeTruthy();
@@ -114,12 +114,11 @@ test.describe('ai/graph/identityRoots — Codex wake route', () => {
             trigger              : 'SENT_TO_ME',
             harnessTarget        : 'bridge-daemon',
             harnessTargetMetadata: {
-                adapter    : 'codex-app-server',
-                appName    : 'Codex',
-                tabShortcut: null
+                adapter     : 'osascript',
+                appName     : 'Codex',
+                tabShortcut : null,
+                focusSeedKey: 'r'
             }
         });
-        expect(entry.properties.subscriptionTemplate.harnessTargetMetadata)
-            .not.toHaveProperty('focusSeedKey');
     });
 });
