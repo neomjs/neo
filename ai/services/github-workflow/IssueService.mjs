@@ -28,13 +28,6 @@ import {
 
 const execAsync = promisify(exec);
 
-const AGENT_ICONS = {
-    gemini : '✦',
-    claude : '❋',
-    gpt    : '●',
-    default: '◆'
-};
-
 /**
  * @summary Service for interacting with GitHub issues via the GraphQL API.
  *
@@ -326,9 +319,8 @@ class IssueService extends Base {
      * graph-readable provenance via the Native Edge Graph + Retrospective daemon's
      * comment-ingestion path.
      *
-     * Posts the comment via raw `ADD_COMMENT` (not via `createComment`) to avoid the
-     * agent-attribution header (`**Input from <agent>:**`); the audit comment is system-
-     * generated, not agent-authored.
+     * Posts the comment via raw `ADD_COMMENT` because the audit comment is system-
+     * generated provenance rather than caller-authored feedback.
      *
      * Comment failure does NOT roll back the assignee mutation — graceful degradation,
      * mirroring `createIssue`'s projectAttach partial-failure pattern. Audit-trail tests
@@ -371,10 +363,9 @@ class IssueService extends Base {
      * @param {number} [options.issue_number] The number of the issue.
      * @param {number} [options.pr_number]    The number of the pull request.
      * @param {string} options.body           The raw content of the comment.
-     * @param {string} options.agent          The identity of the calling agent.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async createComment({issue_number, pr_number, body, agent}) {
+    async createComment({issue_number, pr_number, body}) {
         // Input Validation
         if (issue_number && pr_number) {
             return {
@@ -400,22 +391,6 @@ class IssueService extends Base {
             [isPR ? 'prNumber' : 'number']: number
         };
 
-        // Agent Header Formatting
-        const header       = `**Input from ${agent}:**\n\n`;
-        const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
-        const headingMatch = body.match(/^(#+\s*)(.*)$/);
-        let processedBody;
-
-        if (headingMatch) {
-            const headingMarkers = headingMatch[1];
-            const headingContent = headingMatch[2];
-            processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
-        } else {
-            processedBody = `${agentIcon} ${body}`;
-        }
-
-        const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
-
         try {
             // Divergent ID Lookup
             const query = isPR ? GET_PULL_REQUEST_ID : GET_ISSUE_ID;
@@ -431,7 +406,7 @@ class IssueService extends Base {
             // via mailbox DM to the author; the author fetches just-this-comment via
             // `get_conversation({comment_id: ...})` instead of re-walking the whole thread.
             // Symmetric with `updateComment`'s existing `{commentId, url, updatedAt}` shape.
-            const result = await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
+            const result = await GraphqlService.query(ADD_COMMENT, { subjectId, body });
             const node   = result.addComment.commentEdge.node;
 
             return {
@@ -945,21 +920,6 @@ class IssueService extends Base {
     }
 
     /**
-     * Extracts the agent type from the agent string for icon selection.
-     * @param {string} agent The full agent identifier
-     * @returns {string} The agent type key for AGENT_ICONS lookup
-     */
-    getAgentType(agent) {
-        const agentLower = agent.toLowerCase();
-
-        if (agentLower.includes('gemini')) return 'gemini';
-        if (agentLower.includes('claude')) return 'claude';
-        if (agentLower.includes('gpt'))    return 'gpt';
-
-        return 'default';
-    }
-
-    /**
      * Convenience shortcut
      * @returns {Promise<Boolean>}
      */
@@ -1006,11 +966,10 @@ class IssueService extends Base {
      * @param {number} [options.pr_number]    The number of the pull request (required for create if issue_number omitted).
      * @param {string} [options.comment_id]   The global node ID of the comment (required for update).
      * @param {string} options.body           The content of the comment.
-     * @param {string} [options.agent]        The identity of the calling agent (required for create).
      * @param {string} options.action         The action to perform: 'create' or 'update'.
      * @returns {Promise<object>}
      */
-    async manageIssueComment({issue_number, pr_number, comment_id, body, agent, action}) {
+    async manageIssueComment({issue_number, pr_number, comment_id, body, action}) {
         if (!['create', 'update'].includes(action)) {
             return {
                 error: 'Bad Request',
@@ -1020,14 +979,7 @@ class IssueService extends Base {
         }
 
         if (action === 'create') {
-            if (!agent) {
-                return {
-                    error: 'Bad Request',
-                    message: "Missing required argument: 'agent' is required for creating comments.",
-                    code: 'MISSING_ARGUMENTS'
-                };
-            }
-            return this.createComment({issue_number, pr_number, body, agent});
+            return this.createComment({issue_number, pr_number, body});
         } else {
             if (!comment_id) {
                 return {
