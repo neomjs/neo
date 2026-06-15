@@ -135,6 +135,24 @@ test.describe('Neo.ai.services.fleet.FleetManager', () => {
         expect(result).toEqual({success: true, id: 'agent-a'});
     });
 
+    test('removeAgent on a non-running agent: stop is a safe no-op, deregister still proceeds', async () => {
+        const order     = [],
+              registry  = {removeAgent: id => { order.push(`deregister:${id}`); return {success: false, id}; }},
+              // a non-running agent: stop resolves {success:false} without an exit — removal must still deregister.
+              lifecycle = {
+                  stop       : id => { order.push(`stop:${id}`); return Promise.resolve({success: false, id, state: 'stopped'}); },
+                  getRegistry: () => registry
+              };
+
+        FleetManager.lifecycleService = lifecycle;
+
+        const result = await FleetManager.removeAgent('absent-agent');
+
+        // stop's {success:false} (not running) does NOT short-circuit removal; deregister still runs.
+        expect(order).toEqual(['stop:absent-agent', 'deregister:absent-agent']);
+        expect(result).toEqual({success: false, id: 'absent-agent'});
+    });
+
     test('seams default to the real composers (a no-injection construction wires them)', () => {
         expect(FleetManager.getProvisionAndStartFn()).toBe(startAgentProvisioned);
         expect(FleetManager.getRepoStatusFn()).toBe(inspectFleetRepos);
