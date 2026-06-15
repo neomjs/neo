@@ -831,6 +831,15 @@ class HealthService extends Base {
     #stdioIdentityState = null;
 
     /**
+     * Startup dependency observations recorded by the Memory Core server boot path. These are
+     * intentionally separate from the request-time health probes: the MCP server must still expose
+     * WAL-local tools such as `add_memory` when graph/vector startup tiers degrade.
+     * @member {Object}
+     * @private
+     */
+    #startupDependencies = {};
+
+    /**
      * Shared runtime freshness tracker.
      * @member {RuntimeFreshnessTracker} #runtimeFreshnessTracker
      * @private
@@ -1333,6 +1342,9 @@ class HealthService extends Base {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
                 summary  : buildSummaryProviderBlock(aiConfig)
             },
+            startup : {
+                dependencies: this.getStartupDependencyState()
+            },
             backup   : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
@@ -1385,6 +1397,15 @@ class HealthService extends Base {
                 payload.status = 'degraded';
             }
             payload.details.push(`WARN: ${payload.identity.warning}`);
+        }
+
+        for (const [name, dependency] of Object.entries(payload.startup.dependencies)) {
+            if (dependency.status === 'ready') continue;
+
+            if (payload.status === 'healthy') {
+                payload.status = 'degraded';
+            }
+            payload.details.push(`Startup dependency '${name}' is ${dependency.status}: ${dependency.error || 'see startup.dependencies'}`);
         }
 
         // If we made it here with no errors, report success
@@ -1581,6 +1602,40 @@ class HealthService extends Base {
      */
     setStdioIdentityState(stdioIdentityState) {
         this.#stdioIdentityState = stdioIdentityState;
+        this.clearCache();
+    }
+
+    /**
+     * Records startup dependency readiness without turning degraded graph/vector tiers into MCP
+     * server boot failures. Exposed through `healthcheck().startup.dependencies`.
+     * @param {String} name Stable dependency key.
+     * @param {String} status Readiness status, e.g. 'ready' or 'degraded'.
+     * @param {Object|null} details Optional diagnostic details.
+     */
+    recordStartupDependency(name, status, details=null) {
+        this.#startupDependencies[name] = {
+            status,
+            ...(details || {}),
+            recordedAt: new Date().toISOString()
+        };
+        this.clearCache();
+    }
+
+    /**
+     * @returns {Object} Shallow-cloned startup dependency status map.
+     */
+    getStartupDependencyState() {
+        return Object.fromEntries(
+            Object.entries(this.#startupDependencies).map(([key, value]) => [key, {...value}])
+        );
+    }
+
+    /**
+     * @summary Clears startup dependency observations for test/restart boundaries.
+     * @returns {void}
+     */
+    clearStartupDependencyState() {
+        this.#startupDependencies = {};
         this.clearCache();
     }
 

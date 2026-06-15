@@ -165,6 +165,40 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
     });
 });
 
+test.describe('HealthService #13312 — startup dependency observability', () => {
+    let HealthService;
+
+    test.beforeAll(async () => {
+        HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+    });
+
+    test('records degraded startup tiers without exposing mutable internal state', () => {
+        const dependencyName = `unit-startup-dependency-${Date.now()}`;
+
+        try {
+            HealthService.recordStartupDependency(dependencyName, 'degraded', {
+                className: 'Test.Unit.MemoryCore.StartupDependency',
+                error    : 'attempt to write a readonly database'
+            });
+
+            const state = HealthService.getStartupDependencyState();
+
+            expect(state[dependencyName]).toMatchObject({
+                status   : 'degraded',
+                className: 'Test.Unit.MemoryCore.StartupDependency',
+                error    : 'attempt to write a readonly database'
+            });
+            expect(state[dependencyName].recordedAt).toEqual(expect.any(String));
+
+            state[dependencyName].status = 'mutated';
+
+            expect(HealthService.getStartupDependencyState()[dependencyName].status).toBe('degraded');
+        } finally {
+            HealthService.clearStartupDependencyState();
+        }
+    });
+});
+
 /**
  * @summary Coverage for the Memory Core runtime freshness diagnostic.
  *
@@ -363,6 +397,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         HealthService.setStdioIdentityState(null);
         HealthService.runtimeFreshnessReader = null;
+        HealthService.clearStartupDependencyState();
         HealthService.clearCache();
     });
 
@@ -385,13 +420,19 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         HealthService.setStdioIdentityState(null);
         HealthService.runtimeFreshnessReader = null;
+        HealthService.clearStartupDependencyState();
         HealthService.clearCache();
     });
 
     test('direct healthcheck refreshes cached timestamp and collection counts without mutating the cache', async () => {
         const cached = await HealthService.healthcheck();
 
-        expect(cached.status).toBe('healthy');
+        expect(cached.status, JSON.stringify({
+            details  : cached.details,
+            startup  : cached.startup,
+            identity : cached.identity,
+            providers: cached.providers
+        }, null, 2)).toBe('healthy');
         expect(cached.database.connection.collections.memories.count).toBe(10);
         expect(cached.database.connection.collections.summaries.count).toBe(20);
 
@@ -435,7 +476,12 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         const cached = await HealthService.healthcheck();
 
-        expect(cached.status).toBe('healthy');
+        expect(cached.status, JSON.stringify({
+            details  : cached.details,
+            startup  : cached.startup,
+            identity : cached.identity,
+            providers: cached.providers
+        }, null, 2)).toBe('healthy');
         expect(cached.runtimeFreshness.status).toBe('current');
 
         currentConfigDigest = 'sha256:migrated-config';

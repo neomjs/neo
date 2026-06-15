@@ -309,11 +309,15 @@ class MemoryService extends Base {
     }
 
     /**
+     * @summary Starts MemoryService without awaiting graph/vector storage readiness.
+     *
+     * `add_memory` acceptance is the local WAL. GraphService/StorageRouter work is reached only by
+     * read/query/projection paths, so startup degradation there must not make the mandatory turn-save
+     * tool unavailable before it can append its WAL row.
      * @returns {Promise<void>}
      */
     async initAsync() {
         await super.initAsync();
-        await StorageRouter.ready();
     }
 
     /**

@@ -149,6 +149,10 @@ class WakeSubscriptionService extends Base {
      */
     async init() {
         await GraphService.ready();
+        if (!GraphService.db) {
+            const reason = GraphService.graphInitError?.message || 'graph database is not mounted';
+            throw new Error(`GraphService unavailable: ${reason}`);
+        }
         const storage = GraphService.db?.storage;
         if (storage?.db) {
             try {
