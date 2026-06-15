@@ -26,9 +26,10 @@ import {drainMemoryWal}      from './util.mjs';
  *   AC2 never-fail      — the write path never touches the content store at all (the embed
  *                         daemon owns the drain), so a down OR hung store can neither fail nor
  *                         stall the tool; the payload is durable in the WAL (pending) either way.
- *   AC3 recency         — the AGENT_MEMORY graph row stays synchronous: a just-written turn is
- *                         immediately visible to query_recent_turns even with the embed down,
- *                         and the WAL pending-overlay serves its content for BOTH detail levels.
+ *   AC3 recency         — graph projection is derived/fail-soft: a just-written turn is immediately
+ *                         visible to query_recent_turns through the WAL pending-overlay even when
+ *                         graph projection has not caught up, and that overlay serves content for
+ *                         BOTH detail levels.
  *   Drain reconcile     — the daemon drain path (`drainWalOnce` via the `drainMemoryWal` spec
  *                         helper) embeds pending records and marks them reconciled, and never
  *                         re-embeds a purge-tombstoned record.
@@ -155,30 +156,72 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         collectionMode = 'ok';
     });
 
+    test('AC3: graph projection failure cannot fail the save and recency uses the pending WAL overlay', async () => {
+        const originalUpsertNode   = GraphService.upsertNode;
+        const originalBuildSummary = MemoryService.buildMiniSummary;
+
+        GraphService.upsertNode       = () => { throw new Error('graph down (spec)'); };
+        MemoryService.buildMiniSummary = async () => null;
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt: 'graph-down prompt', thought: 'graph-down thought', response: 'graph-down response'
+            }));
+
+            expect(result.code).toBeUndefined();
+            expect(result.error).toBeUndefined();
+            expect(result.id).toBeTruthy();
+            expect(result.message).toBe('Memory successfully added');
+
+            // Let the scheduled projection attempt run and fail under the stub. The failure must
+            // stay logged/fail-soft, not turn into a rejected add_memory result or unhandled throw.
+            await new Promise(resolve => setImmediate(resolve));
+
+            const pending = await readPendingWalRecords({dir: testWalDir, ids: [result.id]});
+            expect(pending).toHaveLength(1);
+
+            const recent = await asTenant(() => MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1, detail: 'full', projection: 'private'}));
+
+            expect(recent.count).toBe(1);
+            expect(recent.turns[0].id).toBe(result.id);
+            expect(recent.turns[0].projectionPending).toBe(true);
+            expect(recent.turns[0].prompt).toBe('graph-down prompt');
+            expect(recent.turns[0].response).toBe('graph-down response');
+            expect(recent.turns[0].thought).toBe('graph-down thought');
+        } finally {
+            GraphService.upsertNode        = originalUpsertNode;
+            MemoryService.buildMiniSummary = originalBuildSummary;
+        }
+    });
+
     test('AC3: with the embed down, a just-written turn is immediately recency-visible and the WAL overlay serves BOTH detail levels', async () => {
         collectionMode = 'throw';
 
-        const {summaryResult, fullResult} = await asTenant(async () => {
-            await MemoryService.addMemory({
+        const {write, summaryResult, fullResult} = await asTenant(async () => {
+            const write = await MemoryService.addMemory({
                 prompt: 'overlay prompt', thought: 'overlay thought', response: 'overlay response'
             });
             return {
-                summaryResult: await MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1}),
-                fullResult   : await MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 1, detail: 'full', projection: 'private'})
+                write,
+                summaryResult: await MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 20}),
+                fullResult   : await MemoryService.queryRecentTurns({agentIdentity: '@me', limit: 20, detail: 'full', projection: 'private'})
             };
         });
 
-        // Graph row synchronous → immediately visible (read-after-write recency preserved).
-        expect(summaryResult.count).toBe(1);
+        // The row is immediately visible even if graph projection has not caught up yet.
+        expect(summaryResult.count).toBeGreaterThan(0);
         // No Chroma content exists yet — the summary fallback comes from the WAL pending-overlay.
-        expect(summaryResult.turns[0].summary).toContain('overlay prompt');
-        expect(summaryResult.turns[0].summaryFallback).toBe(true);
+        const summaryTurn = summaryResult.turns.find(turn => turn.id === write.id);
+        expect(summaryTurn).toBeTruthy();
+        expect(summaryTurn.summary).toContain('overlay prompt');
+        expect(summaryTurn.summaryFallback).toBe(true);
 
         // detail:'full' hydration equally falls back to the WAL payload.
-        expect(fullResult.count).toBe(1);
-        expect(fullResult.turns[0].prompt).toBe('overlay prompt');
-        expect(fullResult.turns[0].response).toBe('overlay response');
-        expect(fullResult.turns[0].thought).toBe('overlay thought');
+        const fullTurn = fullResult.turns.find(turn => turn.id === write.id);
+        expect(fullTurn).toBeTruthy();
+        expect(fullTurn.prompt).toBe('overlay prompt');
+        expect(fullTurn.response).toBe('overlay response');
+        expect(fullTurn.thought).toBe('overlay thought');
 
         collectionMode = 'ok';
     });

@@ -5,7 +5,7 @@ import GraphService          from './GraphService.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
 import SessionService        from './SessionService.mjs';
 import {withTimeout}         from './helpers/withTimeout.mjs';
-import {appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
+import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import {buildChatModel}      from '../../provider/buildChatModel.mjs';
 import aiConfig              from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -34,6 +34,26 @@ const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = 600000;
  * @type {Number}
  */
 const CHROMA_FETCH_TIMEOUT_MS = 10000;
+
+/**
+ * Bounded in-process graph-projection retry for WAL-accepted memories. This is the cloud-safe host:
+ * it does not require a local orchestrator daemon, and a persistent MCP server keeps retrying
+ * transient graph contention without making `add_memory` wait.
+ * @type {Number}
+ */
+const GRAPH_PROJECTION_MAX_ATTEMPTS = 5;
+
+/**
+ * Base delay for graph projection retries.
+ * @type {Number}
+ */
+const GRAPH_PROJECTION_RETRY_BASE_MS = 250;
+
+/**
+ * Maximum delay for graph projection retries.
+ * @type {Number}
+ */
+const GRAPH_PROJECTION_RETRY_MAX_MS = 5000;
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -300,8 +320,10 @@ class MemoryService extends Base {
      *    only deliberate error envelopes; everything after them is never-fail.
      * 2. **Durable JSONL write-ahead append** — the full payload lands on local disk first, so a
      *    crash or embed failure never loses the turn.
-     * 3. **Synchronous graph writes** — the `AGENT_MEMORY` node + edges keep the read-after-write
-     *    recency contract (`queryRecentTurns` reads these rows "fresh the instant the write returns").
+     * 3. **Asynchronous graph projection** — the `AGENT_MEMORY` node + edges are derived from the
+     *    accepted WAL record and must never veto the turn save. `queryRecentTurns` overlays pending
+     *    WAL records until projection catches up, preserving read-after-write recency without making
+     *    SQLite graph availability part of the acceptance gate.
      * 4. **No embed on this path.** The model-dependent Chroma `collection.add` is owned entirely
      *    by the orchestrator-managed embed daemon (`ai/daemons/embed/daemon.mjs`), which drains the
      *    WAL with retry/backoff and marks records reconciled. Until a record is drained, the WAL
@@ -402,11 +424,14 @@ class MemoryService extends Base {
             //    awaited here, which also lost the graph node below whenever it threw.
             const walDir       = aiConfig.memoryWal.dir;
             const {segmentKey} = await appendWalMemory(
-                {id: memoryId, timestamp: now, metadata, document: combinedText},
+                {id: memoryId, timestamp: now, metadata, document: combinedText, graphProjectionVersion: 1},
                 {dir: walDir}
             );
 
-            // 2. Topologically inject the new memory into the Native Edge Graph
+            // 2. Schedule the Native Edge Graph projection from the accepted WAL record. This is
+            //    derived work: graph contention/unavailability must not reject the mandatory
+            //    add_memory save once the WAL append has succeeded. Recency reads merge pending WAL
+            //    rows until the graph projection catches up.
             const memoryProperties = {
                 ...(canonicalIdentity ? { agentIdentity: canonicalIdentity } : {}),
                 ...(userId ? { userId } : {}),
@@ -414,30 +439,17 @@ class MemoryService extends Base {
                 timestamp
             };
 
-            GraphService.upsertNode({
-                id: memoryId,
-                type: 'AGENT_MEMORY',
-                name: `Memory: ${timestamp}`,
-                description: `Agent thought flow inside session ${sessionId}.`,
-                semanticVectorId: memoryId,
-                properties: memoryProperties
+            this._scheduleMemoryGraphProjection({
+                memoryId,
+                timestamp,
+                sessionId,
+                segmentKey,
+                walDir,
+                requestIdentity,
+                memoryProperties
             });
 
-            // 3. Stamp write-time provenance when the transport resolved a real AgentIdentity.
-            // Fallback-only identities remain scalar metadata so single-tenant/unseeded callers
-            // keep working without hallucinated graph edges to nodes that do not exist.
-            if (requestIdentity) {
-                GraphService.linkNodes(memoryId, requestIdentity, 'AUTHORED_BY', 1.0, {
-                    timestamp,
-                    userId      : requestIdentity,
-                    sharedEntity: true
-                });
-            }
-
-            // 4. Link this memory dynamically to the active context frontier
-            GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
-
-            // 5. WAL retention (write-side, best-effort): bound the reconciled-segment count on
+            // 3. WAL retention (write-side, best-effort): bound the reconciled-segment count on
             //    each append. Never prunes a segment holding a pending record, never fails the save.
             //    The embed itself no longer runs here — the orchestrator-managed embed daemon
             //    (`ai/daemons/embed/daemon.mjs`) drains pending records with retry/backoff; the
@@ -448,10 +460,11 @@ class MemoryService extends Base {
                 activeSegmentKey: segmentKey
             }).catch(() => {});
 
-            // 6. Best-effort inline tweet-summary via the configured chat model (the modelProvider
+            // 4. Best-effort inline tweet-summary via the configured chat model (the modelProvider
             //    SSOT — reads the resolved leaf at the use site, never aliases it). Fire-and-forget
-            //    so the per-turn write stays fast: the memory node above is already written (fresh
-            //    for recency recall); this only enriches it asynchronously. Fully self-contained —
+            //    so the per-turn write stays fast: the memory is already WAL-accepted and visible
+            //    through the pending recency overlay; this only enriches graph projection
+            //    asynchronously. Fully self-contained —
             //    errors/timeouts never touch the write path, and a null summary never hides the turn
             //    (recency recall falls back to raw content). The summarizer choice (local gemma4 OR
             //    remote gemini-flash) is the user's deployment-agnostic provider setting → cloud-ready.
@@ -468,15 +481,15 @@ class MemoryService extends Base {
                 }
             }).catch(() => {});
 
-            // 7. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
+            // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
             //    so a degraded mailbox query never blocks a successful memory write.
             const mailbox = buildMailboxDelta();
 
             return {id: memoryId, sessionId, timestamp, message: "Memory successfully added", mailbox};
         } catch (error) {
-            // Reaches here only for LOCAL write failures (WAL filesystem / SQLite graph) — the
-            // embed and every other model-dependent step are off this path by construction.
+            // Reaches here only for WAL acceptance or validation-adjacent failures. Graph
+            // projection, embed, and every model-dependent step are off this path by construction.
             logger.error('[MemoryService] Error adding memory:', error);
             return {
                 error  : 'Failed to add memory',
@@ -484,6 +497,86 @@ class MemoryService extends Base {
                 code   : 'MEMORY_ADD_ERROR'
             };
         }
+    }
+
+    /**
+     * @summary Schedules best-effort graph projection for a WAL-accepted memory.
+     *
+     * The mandatory durability contract ends at the WAL append. Graph rows and provenance edges are
+     * derived projection work, so they are deliberately moved behind the acceptance boundary; any
+     * graph failure is logged while the WAL row remains visible as projection-pending rather than
+     * surfacing as an `add_memory` error envelope.
+     *
+     * @param {Object} options
+     * @param {String} options.memoryId
+     * @param {String} options.timestamp ISO timestamp.
+     * @param {String} options.sessionId
+     * @param {String} options.segmentKey WAL segment key.
+     * @param {String} options.walDir WAL directory.
+     * @param {String|undefined} options.requestIdentity Bound AgentIdentity, when present.
+     * @param {Object} options.memoryProperties Graph properties derived from the WAL metadata.
+     * @param {Number} [attempt=1] Current bounded retry attempt.
+     * @returns {void}
+     * @private
+     */
+    _scheduleMemoryGraphProjection(options, attempt = 1) {
+        const delayMs = attempt === 1
+            ? 0
+            : Math.min(GRAPH_PROJECTION_RETRY_BASE_MS * 2 ** (attempt - 2), GRAPH_PROJECTION_RETRY_MAX_MS);
+
+        setTimeout(async () => {
+            try {
+                await this._projectMemoryToGraph(options);
+            } catch (error) {
+                if (attempt < GRAPH_PROJECTION_MAX_ATTEMPTS) {
+                    logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} (attempt ${attempt}/${GRAPH_PROJECTION_MAX_ATTEMPTS}); retrying: ${error.message}`);
+                    this._scheduleMemoryGraphProjection(options, attempt + 1);
+                    return;
+                }
+
+                logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} after ${GRAPH_PROJECTION_MAX_ATTEMPTS} attempts; WAL row remains projection-pending: ${error.message}`);
+            }
+        }, delayMs);
+    }
+
+    /**
+     * @summary Projects one WAL-accepted memory into the Native Edge Graph.
+     * @param {Object} options
+     * @param {String} options.memoryId
+     * @param {String} options.timestamp ISO timestamp.
+     * @param {String} options.sessionId
+     * @param {String} options.segmentKey WAL segment key.
+     * @param {String} options.walDir WAL directory.
+     * @param {String|undefined} options.requestIdentity Bound AgentIdentity, when present.
+     * @param {Object} options.memoryProperties Graph properties derived from the WAL metadata.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async _projectMemoryToGraph({memoryId, timestamp, sessionId, segmentKey, walDir, requestIdentity, memoryProperties}) {
+        GraphService.upsertNode({
+            id: memoryId,
+            type: 'AGENT_MEMORY',
+            name: `Memory: ${timestamp}`,
+            description: `Agent thought flow inside session ${sessionId}.`,
+            semanticVectorId: memoryId,
+            properties: memoryProperties
+        });
+
+        // Stamp write-time provenance when the transport resolved a real AgentIdentity.
+        // Fallback-only identities remain scalar metadata so single-tenant/unseeded callers
+        // keep working without hallucinated graph edges to nodes that do not exist.
+        if (requestIdentity) {
+            GraphService.linkNodes(memoryId, requestIdentity, 'AUTHORED_BY', 1.0, {
+                timestamp,
+                userId      : requestIdentity,
+                sharedEntity: true
+            });
+        }
+
+        // Link this memory dynamically to the active context frontier.
+        GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
+
+        await appendWalGraphProjectionMarker({id: memoryId, segmentKey}, {dir: walDir});
     }
 
     /**
@@ -527,6 +620,60 @@ class MemoryService extends Base {
             return new Map(records.map(record => [record.id, record.metadata || {}]));
         } catch {
             return new Map();
+        }
+    }
+
+    /**
+     * @summary Reads pending WAL records as recency rows for graph-projection lag/failure windows.
+     *
+     * Graph projection is derived work after WAL acceptance. Until it catches up, the WAL itself is
+     * the read-after-write source of truth for the caller's own recency feed. This overlay is
+     * tenant-scoped with the same fail-closed `userId` + `agentIdentity` filter as the graph query.
+     *
+     * @param {Object} options
+     * @param {String} options.identity Canonical AgentIdentity to recall.
+     * @param {String} options.userId Normalized tenant id.
+     * @param {Object} [options.before] Optional compound pagination cursor.
+     * @param {Set<String>} [options.excludeIds] Graph rows already present in this page query.
+     * @returns {Promise<Object[]>} Row-shaped pending turns.
+     * @private
+     */
+    async _readPendingWalRecencyRows({identity, userId, before, excludeIds = new Set()} = {}) {
+        try {
+            const records = await readPendingWalRecords({dir: aiConfig.memoryWal.dir, markerType: 'graph'});
+            const rows    = [];
+
+            for (const record of records) {
+                if (!record?.id || excludeIds.has(record.id)) continue;
+                if (record.graphProjectionVersion !== 1) continue;
+
+                const meta = record.metadata || {};
+                if (meta.agentIdentity !== identity || normalizeUserId(meta.userId) !== userId) continue;
+
+                const timestampMs = Number(meta.timestamp ?? record.timestamp);
+                if (!Number.isFinite(timestampMs)) continue;
+
+                const timestamp = new Date(timestampMs).toISOString();
+                if (before?.timestamp) {
+                    const beforeTimestamp = String(before.timestamp),
+                          beforeId        = String(before.id ?? '');
+                    if (timestamp > beforeTimestamp || (timestamp === beforeTimestamp && record.id >= beforeId)) {
+                        continue;
+                    }
+                }
+
+                rows.push({
+                    id               : record.id,
+                    sessionId        : meta.sessionId,
+                    timestamp,
+                    miniSummary      : meta.miniSummary ?? null,
+                    projectionPending: true
+                });
+            }
+
+            return rows;
+        } catch {
+            return [];
         }
     }
 
@@ -644,9 +791,9 @@ class MemoryService extends Base {
      *
      * The recency retrieval axis — the complement to {@link queryMemories}' *relevance* (semantic)
      * axis. Built for post-compaction context recovery ("what just happened, in order"), which
-     * semantic search cannot reconstruct. Reads the `AGENT_MEMORY` graph rows that
-     * {@link addMemory} writes *synchronously* (fresh the instant the write returns — never the
-     * lagged REM-projection nodes), tenant-scoped and fail-closed for multi-tenant cloud.
+     * semantic search cannot reconstruct. Reads graph-projected `AGENT_MEMORY` rows plus WAL-pending
+     * rows whose graph projection has not caught up yet, tenant-scoped and fail-closed for
+     * multi-tenant cloud.
      *
      * Graduated from a cross-family Ideation Sandbox; see the originating issue for the full
      * acceptance-criteria + signal ledger.
@@ -698,8 +845,9 @@ class MemoryService extends Base {
 
             const boundedLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
 
-            // AC2/AC3 — recency read over the synchronously-written AGENT_MEMORY rows. ORDER BY
-            // (timestamp, id) DESC for a stable reverse-chronological page even at equal timestamps.
+            // AC2/AC3 — recency read over graph-projected AGENT_MEMORY rows plus pending WAL rows.
+            // ORDER BY (timestamp, id) DESC for a stable reverse-chronological page even at equal
+            // timestamps.
             const params = [identity, userId];
             let cursorClause = '';
             if (before && before.timestamp) {
@@ -710,7 +858,13 @@ class MemoryService extends Base {
             }
             params.push(boundedLimit);
 
-            const rows = sqlite.prepare(`
+            // Read graph-pending WAL rows BEFORE the graph query. If projection completes during
+            // this method, the row is either present in this pending snapshot or visible in the
+            // graph query below; querying graph first creates a race where the graph marker can
+            // land between the two reads and hide the row from both surfaces.
+            const pendingRows = await this._readPendingWalRecencyRows({identity, userId, before});
+
+            const graphRows = sqlite.prepare(`
                 SELECT memory.id                                            AS id,
                        json_extract(memory.data, '$.properties.sessionId')   AS sessionId,
                        json_extract(memory.data, '$.properties.timestamp')   AS timestamp,
@@ -723,6 +877,15 @@ class MemoryService extends Base {
                 ORDER BY json_extract(memory.data, '$.properties.timestamp') DESC, memory.id DESC
                 LIMIT ?
             `).all(...params);
+
+            const graphIds = new Set(graphRows.map(row => row.id));
+
+            const rows = [...graphRows, ...pendingRows.filter(row => !graphIds.has(row.id))]
+                .sort((a, b) => {
+                    const timestampOrder = String(b.timestamp).localeCompare(String(a.timestamp));
+                    return timestampOrder || String(b.id).localeCompare(String(a.id));
+                })
+                .slice(0, boundedLimit);
 
             // 'summary' = compact graph-only projection (with a raw fallback for not-yet-summarized
             // turns); 'full' joins Chroma for content.
@@ -789,12 +952,13 @@ class MemoryService extends Base {
         return rows.map(row => {
             const meta = byId.get(row.id) || {};
             const turn = {
-                id         : row.id,
-                sessionId  : row.sessionId,
-                timestamp  : row.timestamp,
-                miniSummary: row.miniSummary ?? null,
-                prompt     : meta.prompt   ?? null,
-                response   : meta.response ?? null
+                id               : row.id,
+                sessionId        : row.sessionId,
+                timestamp        : row.timestamp,
+                miniSummary      : row.miniSummary ?? null,
+                projectionPending: row.projectionPending === true,
+                prompt           : meta.prompt   ?? null,
+                response         : meta.response ?? null
             };
             // Privacy: the private `thought` field is included only when the caller passed the
             // already-authorized 'private' projection (own-agent recall — gated in queryRecentTurns).
@@ -819,11 +983,12 @@ class MemoryService extends Base {
      */
     async _hydrateRecentTurnSummaries(rows) {
         const turns = rows.map(row => ({
-            id             : row.id,
-            sessionId      : row.sessionId,
-            timestamp      : row.timestamp,
-            summary        : row.miniSummary ?? null,
-            summaryFallback: false
+            id               : row.id,
+            sessionId        : row.sessionId,
+            timestamp        : row.timestamp,
+            projectionPending: row.projectionPending === true,
+            summary          : row.miniSummary ?? null,
+            summaryFallback  : false
         }));
 
         const unsummarized = turns.filter(turn => !turn.summary);
