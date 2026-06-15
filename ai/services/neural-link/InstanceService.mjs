@@ -115,6 +115,17 @@ class InstanceService extends Base {
     }
 
     /**
+     * Aborts the requester's open named transaction — forwards the `abort_transaction` tool to the connected App
+     * Worker, discarding the open batch without committing. See {@link Neo.ai.client.InstanceService#abortTransaction}.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @returns {Promise<Object>}
+     */
+    async abortTransaction({sessionId}) {
+        return await ConnectionService.call(sessionId, 'abort_transaction', {})
+    }
+
+    /**
      * Opens a named transaction for the requester — forwards the `begin_transaction` tool to the connected App Worker,
      * which captures subsequent mutations into one batch until `commit_transaction`. See
      * {@link Neo.ai.client.InstanceService#beginTransaction}.
