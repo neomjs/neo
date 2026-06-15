@@ -231,6 +231,7 @@ Generic tools for working with *any* Neo.mjs instance (Components, Stores, Manag
 | `call_method` | Calls a method on a specific instance (e.g. `store.load()`, `grid.scrollToRow()`) — the generic instance-action tool. |
 | `undo` | Reverts the requester's most-recent committed mutation (single-level), re-dispatching the captured reverse under live enforcement. |
 | `redo` | Re-applies the requester's most-recently undone mutation (single-level) — the symmetric counterpart of `undo`. |
+| `list_transactions` | Read-only audit view of the requester's undo-stack history — the committed (undoable) transactions + the redo branch. |
 
 ### 4. Runtime & System
 

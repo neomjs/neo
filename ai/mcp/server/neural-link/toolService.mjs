@@ -43,6 +43,7 @@ const serviceMapping = {
     inspect_state_provider       : DataService       .inspectStateProvider      .bind(DataService),
     inspect_store                : DataService       .inspectStore              .bind(DataService),
     list_stores                  : DataService       .listStores                .bind(DataService),
+    list_transactions            : InstanceService   .listTransactions          .bind(InstanceService),
     manage_connection            : ConnectionService .manageConnection          .bind(ConnectionService),
     manage_neo_config            : RuntimeService    .manageNeoConfig           .bind(RuntimeService),
     modify_state_provider        : DataService       .modifyStateProvider       .bind(DataService),
