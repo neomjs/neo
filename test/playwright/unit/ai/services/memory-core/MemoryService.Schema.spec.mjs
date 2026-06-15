@@ -70,6 +70,8 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
         GraphService.linkNodes            = originalLinkNodes;
     });
 
+    const flushGraphProjection = () => new Promise(resolve => setTimeout(resolve, 10));
+
     test('addMemory canonicalizes profile-string agent to node-id graph identity', async () => {
         await MemoryService.addMemory({
             agent    : 'neo-gemini-pro',
@@ -78,6 +80,8 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
             thought  : 'thinking',
             response : 'hi'
         });
+
+        await flushGraphProjection();
 
         expect(upsertNodeCalls).toHaveLength(1);
         const node = upsertNodeCalls[0];
@@ -100,6 +104,8 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
             thought  : 'thinking',
             response : 'hi'
         });
+
+        await flushGraphProjection();
 
         expect(upsertNodeCalls).toHaveLength(1);
         const node = upsertNodeCalls[0];
@@ -147,6 +153,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
 
         // addMemory leaves the record WAL-pending — flush it through the daemon drain path.
         await drainMemoryWal({ids: [result.id]});
+        await flushGraphProjection();
 
         expect(collectionAddCalls).toHaveLength(1);
         expect(collectionAddCalls[0].metadatas[0].userId).toBe('neo-gpt');
