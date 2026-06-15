@@ -37,6 +37,7 @@ import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { constants as fsConstants } from 'fs';
 import { spawn, execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,6 +76,7 @@ const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
 const CODEX_APP_SERVER_ADAPTER   = 'codex-app-server';
+const DEFAULT_CODEX_DESKTOP_CLI_PATH = '/Applications/Codex.app/Contents/Resources/codex';
 const WAKE_PRIORITY_RANKS      = {
     low   : 0,
     normal: 1,
@@ -704,13 +706,32 @@ function spawnAsync(command, args) {
 /**
  * @summary Resolves the Codex CLI used by the app-server wake adapter.
  *
- * `CODEX_CLI_PATH` mirrors the resume-harness test hook so unit tests can assert
- * the command shape without reaching a live Codex Desktop app-server.
+ * `CODEX_CLI_PATH` mirrors the resume-harness test hook and always wins. When
+ * unset on macOS, the daemon probes the Codex Desktop bundled CLI path because
+ * launchd / daemon environments often lack the user's interactive shell PATH.
  *
  * @returns {String}
  */
 function resolveCodexCliPath() {
-    return process.env.CODEX_CLI_PATH || 'codex';
+    if (process.env.CODEX_CLI_PATH) return process.env.CODEX_CLI_PATH;
+    const desktopCliPath = process.env.CODEX_DESKTOP_CLI_PATH || DEFAULT_CODEX_DESKTOP_CLI_PATH;
+    if (process.platform === 'darwin' && fileIsExecutableSync(desktopCliPath)) return desktopCliPath;
+    return 'codex';
+}
+
+/**
+ * @summary Checks whether a file exists and can be executed.
+ *
+ * @param {String} filePath
+ * @returns {Boolean}
+ */
+function fileIsExecutableSync(filePath) {
+    try {
+        fs.accessSync(filePath, fsConstants.X_OK);
+        return true;
+    } catch (err) {
+        return false;
+    }
 }
 
 /**

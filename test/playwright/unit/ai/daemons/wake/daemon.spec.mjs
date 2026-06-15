@@ -1060,6 +1060,82 @@ test.describe('Wake Daemon', () => {
         );
     });
 
+    test('resolves bundled Codex Desktop CLI when daemon PATH lacks bare codex (#13287)', async () => {
+        test.skip(process.platform !== 'darwin', 'Codex Desktop bundled CLI path is currently mac-specific');
+
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-desktop-cli';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'codex-app-server',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir           = path.join(DAEMON_DIR, 'bin');
+        const mockCodexPath    = path.join(DAEMON_DIR, 'Codex.app', 'Contents', 'Resources', 'codex');
+        const mockCodexOutPath = path.join(DAEMON_DIR, 'mock_codex_desktop_cli_out.json');
+
+        fs.ensureDirSync(binDir);
+        fs.ensureDirSync(path.dirname(mockCodexPath));
+        writeMockPs(binDir);
+        fs.writeFileSync(mockCodexPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockCodexOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockCodexPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                CODEX_CLI_PATH        : '',
+                CODEX_DESKTOP_CLI_PATH: mockCodexPath,
+                NEO_MEMORY_DB_PATH    : DB_PATH,
+                NEO_AI_DAEMON_DIR     : DAEMON_DIR,
+                PATH                  : `${path.dirname(process.execPath)}${path.delimiter}${path.resolve(binDir)}`
+            }
+        });
+
+        let stdoutLog = '';
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver Codex app-server digest via Desktop CLI fallback')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes(`[Wake Daemon] Dispatched ${subId} via codex-app-server send-message-v2`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Codex Desktop CLI Wake'
+        });
+
+        await deliveryPromise;
+
+        const args = JSON.parse(fs.readFileSync(mockCodexOutPath, 'utf8'));
+        expect(args.slice(0, 3)).toEqual(['debug', 'app-server', 'send-message-v2']);
+        expect(args[3]).toContain('Codex Desktop CLI Wake');
+        expect(stdoutLog).toContain(
+            'scenario=direct-message; route=codex-app-server; adapterSource=metadata; app=Codex; ' +
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+        );
+    });
+
     test('uses the highest coalesced message priority in the wake digest header and preserves divergent latest priority', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-priority';
