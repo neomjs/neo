@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures.mjs';
-import WebSocket        from 'ws';
+import { openRawAgent } from '../util/rawAgent.mjs';
 
 /**
  * @summary LIVE two-writer proof for the multi-writer WriteGuard enforcement (the umbrella-closure proof) —
@@ -21,17 +21,17 @@ import WebSocket        from 'ws';
  * A control write by writer-2 to a sibling B → ADMITTED (no overlap) — proving writer-2's writes succeed
  * absent a conflict, so the deny on A is a genuine cross-writer conflict, not a broken writer-2.
  *
+ * Verifies the full path fires end-to-end — writer-1's `set_instance_properties` holds the lock; writer-2's
+ * overlapping write returns the jsonrpc error `-32603 "Write denied for <id>: conflict (held by <agentId> /
+ * <sessionId>)"` from `InstanceService.assertWritable`; writer-2's sibling write returns
+ * `{result:{success:true}}`. The raw-`ws` response arrives as a `{type:'app_message', message:<jsonrpc>}`
+ * frame, matched by request id.
+ *
  * ⚠️ REQUIRES A FRESH BRIDGE. A long-running bridge predating the `agent_message` sidecar-emit merge
  * forwards BARE frames → enforcement silently no-ops → writer-2's A write would wrongly ADMIT. CI (clean
  * port) spawns a fresh bridge from source via `ConnectionService.spawnBridge`. LOCALLY, kill any
- * neural-link bridge on :8081 first. A step-2 ADMIT (instead of deny) most likely means a stale bridge,
- * not a logic regression — a stale bridge fails the conflict assertion for an environment reason.
- *
- * LIVE-VERIFIED (fresh bridge, headless chromium): the full path fires end-to-end — writer-1's
- * `set_instance_properties` on `neo-button-1` holds the lock; writer-2's overlapping write returns the
- * jsonrpc error `-32603 "Write denied for <id>: conflict (held by <agentId> / <sessionId>)"` from
- * `InstanceService.assertWritable`; writer-2's sibling write returns `{result:{success:true}}`. The raw-`ws`
- * response arrives as a `{type:'app_message', message:<jsonrpc>}` frame, matched by request id below.
+ * neural-link bridge on the configured port first. A step-2 ADMIT (instead of deny) most likely means a
+ * stale bridge, not a logic regression — a stale bridge fails the conflict assertion for an environment reason.
  */
 test.describe('WriteGuard multi-writer enforcement (live two-writer e2e)', () => {
     test.setTimeout(90000);
@@ -71,7 +71,7 @@ test.describe('WriteGuard multi-writer enforcement (live two-writer e2e)', () =>
         await app.setProperties(componentA, { text: 'writer-1-holds-A' });
 
         // writer-2 — a RAW second agent ws with a DISTINCT identity (the bridge mints its own sessionId).
-        const writer2 = await openRawAgent(BRIDGE_PORT, 'neo-writer-2');
+        const writer2 = await openRawAgent(neuralLink.bridgePort, 'neo-writer-2');
 
         try {
             // (1) Overlapping write — same component A, different writer → DENIED (conflict).
@@ -92,65 +92,3 @@ test.describe('WriteGuard multi-writer enforcement (live two-writer e2e)', () =>
         }
     });
 });
-
-/** Bridge default port — see `ai/mcp/server/neural-link/Bridge.mjs` (`port: 8081`). */
-const BRIDGE_PORT = 8081;
-
-/**
- * Opens a raw second agent connection to the live Neural Link Bridge — a writer identity DISTINCT from
- * the fixture's writer-1. The Bridge accepts a `role=agent&id=` connection (no token = dev path), mints a
- * per-connection `sessionId`, and stamps the `agent_message` sidecar on every forward, so writes from
- * this socket carry a `(agentId, sessionId)` the WriteGuard sees as a separate writer.
- *
- * @param {Number} port
- * @param {String} agentId A distinct agent id for this writer.
- * @returns {Promise<{call: Function, close: Function}>}
- */
-async function openRawAgent(port, agentId) {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}?role=agent&id=${encodeURIComponent(agentId)}`);
-
-    await new Promise((resolve, reject) => {
-        ws.on('open',  resolve);
-        ws.on('error', reject);
-    });
-
-    let nextId = 1;
-
-    return {
-        /**
-         * Sends a JSON-RPC method to the target App Worker over this raw agent socket and resolves with the
-         * App Worker's response (success or jsonrpc error). The Bridge routes the response back to this
-         * socket; we match by request id, tolerating a bare response or a `{message: <response>}` envelope.
-         */
-        call(targetSessionId, method, params) {
-            const id = nextId++;
-            return new Promise((resolve, reject) => {
-                const timer = setTimeout(() => {
-                    ws.off('message', onMessage);
-                    reject(new Error(`raw-agent call ${method} (#${id}) timed out`));
-                }, 15000);
-
-                const onMessage = data => {
-                    let frame;
-                    try { frame = JSON.parse(data.toString()); } catch { return; }
-                    const msg = frame?.message ?? frame;
-                    if (msg && msg.id === id) {
-                        clearTimeout(timer);
-                        ws.off('message', onMessage);
-                        resolve(msg);
-                    }
-                };
-
-                ws.on('message', onMessage);
-                ws.send(JSON.stringify({
-                    target : targetSessionId,
-                    message: { jsonrpc: '2.0', method, params, id }
-                }));
-            });
-        },
-
-        close() {
-            ws.close();
-        }
-    };
-}
