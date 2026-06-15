@@ -19,7 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
-import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {snapshotAiConfig, TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     let GraphService;
@@ -31,6 +31,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     const testDbName = `memory-core-concept-ingestor-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
     let tmpConceptsDir;
+    let restoreAiConfig;
 
     let originalWarn;
     let warnMessages = [];
@@ -44,9 +45,10 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
-        aiConfig.storagePaths.graph   = testDbPath;
-        aiConfig.autoIngestFileSystem = false;
-        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'handoffFilePath']);
+
+        aiConfig.storagePaths.graph = testDbPath;
+        aiConfig.handoffFilePath    = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         ConceptIngestor        = (await import('../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
@@ -67,6 +69,10 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         } else {
             await SystemLifecycleService.ready();
         }
+    });
+
+    test.afterAll(() => {
+        restoreAiConfig?.();
     });
 
     test.beforeEach(() => {
@@ -221,7 +227,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     });
 
     test('should count orphan concepts in stats without emitting per-orphan logger.warn (#10087)', async () => {
-        // Post-#10087: orphan surfacing moved from the ephemeral logger.warn channel to the
+        // Orphan surfacing moved from the ephemeral logger.warn channel to the
         // durable capabilityGap channel via GapInferenceEngine.inferConceptGraphGaps. ConceptIngestor
         // retains the count for the cycle-summary info line but no longer warns per orphan.
         writeFixture(
