@@ -181,7 +181,7 @@ The Bridge tracks all connected agents via `activeAgents`. Multiple agents can q
 
 ## Tool Reference
 
-The Neural Link exposes 33 tools categorized by domain.
+The Neural Link exposes its tool surface across the seven domains below. These tables are a curated, human-readable overview — the complete, authoritative list (with parameter specs and validation) lives in the OpenAPI definition, the single source of truth referenced just below.
 
 > **Definitive Reference:** The complete specifications are in `ai/mcp/server/neural-link/openapi.yaml`. This file is the single source of truth for parameters, validation, and usage. If there's a discrepancy between this guide and the OpenAPI spec, the spec is correct.
 
@@ -199,6 +199,7 @@ These tools let agents navigate the UI structure and visual state—like Chrome 
 | `inspect_component_render_tree` | Deep inspection of a component's VDOM (blueprint) and VNode (actual DOM-aligned tree). |
 | `get_computed_styles` | Retrieves the exact computed CSS styles (e.g., `backgroundColor`, `fontSize`) for a component. |
 | `get_dom_rect` | Measures the physical screen coordinates and dimensions (`getBoundingClientRect`) of components. |
+| `verify_component_consistency` | Verifies a component's VDOM (blueprint) ↔ VNode (DOM-aligned tree) consistency. |
 
 ### 2. Data & State Management
 
@@ -225,6 +226,11 @@ Generic tools for working with *any* Neo.mjs instance (Components, Stores, Manag
 | `find_instances` | powerful tool to find non-component instances (like Managers or Controllers) by property matching. |
 | `get_instance_properties` | Reads specific runtime properties from any instance by ID. |
 | `set_instance_properties` | **The primary control tool.** Modifies properties on an instance, triggering all reactive `beforeSet`/`afterSet` hooks. |
+| `create_component` | Creates a new child component under a parent container (the agent-driven `add(config)` mutation). |
+| `remove_component` | Destroys a component by ID, removing it from its parent and the DOM. |
+| `call_method` | Calls a method on a specific instance (e.g. `store.load()`, `grid.scrollToRow()`) — the generic instance-action tool. |
+| `undo` | Reverts the requester's most-recent committed mutation (single-level), re-dispatching the captured reverse under live enforcement. |
+| `redo` | Re-applies the requester's most-recently undone mutation (single-level) — the symmetric counterpart of `undo`. |
 
 ### 4. Runtime & System
 
@@ -238,9 +244,10 @@ Tools for understanding the environment, topology, and execution flow.
 | `check_namespace` | Verifies if a specific class or namespace is available. |
 | `get_worker_topology` | Lists all connected App Workers, their environments, and session IDs. |
 | `get_window_topology` | Maps logical Window IDs to physical browser windows and their dimensions. |
-| `get_console_logs` | Streams `console.log/warn/error` messages from the App Worker to the Agent. |
+| `healthcheck` | Health probe for the Neural Link bridge + App Worker — a first-step connectivity diagnostic. |
 | `reload_page` | Forces a full reload of the application window. |
 | `manage_neo_config` | Reads or updates the global `Neo.config` object at runtime. |
+| `manage_connection` | Manages the Neural Link WebSocket bridge connection (start / stop / status). |
 
 ### 5. Navigation & Routing
 
@@ -265,6 +272,9 @@ Tools for simulating user input, debugging events, and monitoring runtime output
 | `highlight_component` | Visually flashes a border around a component in the browser. Critical for agents to confirm they "see" the right element. |
 | `get_dom_event_listeners` | Lists all active DOM event listeners attached to a component, including their delegates. |
 | `get_dom_event_summary` | Provides a high-level overview of the global event system state. |
+| `get_drag_state` | Inspects the current drag-and-drop operation's live state. |
+| `get_drag_trace` | Returns a trace of the most recent drag operation's events. |
+| `observe_motion` | Observes a component's in-flight animation / motion state. |
 | `get_console_logs` | Streams live console.log/warn/error output from the App Worker. Supports filtering by type and content. Logs generated before connection are buffered and delivered on reconnect. |
 
 ### 7. Runtime Coding & Patching
