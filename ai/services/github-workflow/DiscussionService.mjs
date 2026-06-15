@@ -270,7 +270,6 @@ class DiscussionService extends Base {
      * @param {number} [options.discussion_number]    The number of the discussion (required for create).
      * @param {string} [options.comment_id]           The global node ID of the comment (required for update).
      * @param {string} options.body                   The content of the comment.
-     * @param {string} [options.agent]                Deprecated no-op retained for backward compatibility.
      * @param {string} options.action                 The action to perform: 'create' or 'update'.
      * @returns {Promise<object>}
      */

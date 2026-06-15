@@ -301,54 +301,6 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             expect(callCount).toBe(0);
         });
 
-        test('accepts deprecated agent argument without formatting the body', async () => {
-            const ISSUE_NODE_ID     = 'I_kwDOABcD1234567890';
-            const NEW_COMMENT_ID    = 'IC_kwDOABcD_legacy_agent_9876';
-            const NEW_COMMENT_URL   = 'https://github.com/neomjs/neo/issues/10272#issuecomment-4309098999';
-            const NEW_COMMENT_TS    = '2026-04-24T01:49:00Z';
-
-            let callCount = 0;
-            GraphqlService.query = async (query, variables) => {
-                callCount++;
-                if (callCount === 1) {
-                    return {repository: {issue: {id: ISSUE_NODE_ID}}};
-                }
-                if (callCount === 2) {
-                    expect(variables).toMatchObject({
-                        subjectId: ISSUE_NODE_ID,
-                        body     : 'Legacy caller body'
-                    });
-                    return {
-                        addComment: {
-                            commentEdge: {
-                                node: {
-                                    id       : NEW_COMMENT_ID,
-                                    url      : NEW_COMMENT_URL,
-                                    createdAt: NEW_COMMENT_TS
-                                }
-                            }
-                        }
-                    };
-                }
-                throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
-            };
-
-            const result = await IssueService.manageIssueComment({
-                issue_number: 10272,
-                body        : 'Legacy caller body',
-                agent       : 'Claude Opus 4.7 (Claude Code)',
-                action      : 'create'
-            });
-
-            expect(result).toEqual({
-                message  : 'Successfully created comment on issue #10272',
-                commentId: NEW_COMMENT_ID,
-                url      : NEW_COMMENT_URL,
-                createdAt: NEW_COMMENT_TS
-            });
-            expect(callCount).toBe(2);
-        });
-
         test('propagates GraphQL error shape on API failure', async () => {
             GraphqlService.query = async () => {
                 throw new Error('GitHub API rate limit exceeded');

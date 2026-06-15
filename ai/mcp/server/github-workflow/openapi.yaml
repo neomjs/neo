@@ -445,10 +445,6 @@ paths:
                 body:
                   type: string
                   description: The content of the comment.
-                agent:
-                  type: string
-                  description: Deprecated no-op retained for backward compatibility; comments are no longer auto-formatted with an agent identity byline.
-                  example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
           description: |
@@ -1415,10 +1411,6 @@ paths:
                 body:
                   type: string
                   description: The content of the comment.
-                agent:
-                  type: string
-                  description: Deprecated no-op retained for backward compatibility; discussion comments are no longer auto-formatted with an agent identity byline.
-                  example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
           description: Comment created or updated successfully.
