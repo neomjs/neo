@@ -116,6 +116,42 @@ export async function drainMemoryWal({ids, collection, SDK} = {}) {
     });
 }
 
+/**
+ * @summary Snapshots the given dot-path `aiConfig` leaves and returns a `restore()` thunk.
+ *
+ * `aiConfig` is a Provider singleton imported once per module graph; a spec that writes its leaves
+ * in setup (e.g. `storagePaths.graph`, `autoIngestFileSystem`) without restoring leaks that state
+ * into the next `--workers=1` spec — the latent cross-spec config bleed this isolation helper
+ * targets. Capture BEFORE the first mutation; call the returned thunk in `afterAll`/`afterEach`.
+ *
+ * @param {Object} aiConfig The memory-core `aiConfig` Provider singleton.
+ * @param {String[]} paths Dot-paths to snapshot, e.g. `['storagePaths.graph', 'autoIngestFileSystem']`.
+ * @returns {Function} `restore()` — reassigns each captured leaf to its original value, or deletes a
+ *     leaf that did not exist at capture time.
+ */
+export function snapshotAiConfig(aiConfig, paths) {
+    const captured = paths.map(dotPath => {
+        const segments = dotPath.split('.'),
+              key      = segments.pop(),
+              parent   = segments.reduce((node, segment) => node?.[segment], aiConfig),
+              existed  = parent ? Object.prototype.hasOwnProperty.call(parent, key) : false;
+
+        return {parent, key, existed, value: parent ? parent[key] : undefined};
+    });
+
+    return function restore() {
+        captured.forEach(({parent, key, existed, value}) => {
+            if (!parent) return;
+
+            if (existed) {
+                parent[key] = value;
+            } else {
+                delete parent[key];
+            }
+        });
+    };
+}
+
 export class TestLifecycleHelper {
     static async cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, strategy = 'destroy') {
         if (strategy === 'clear') {
