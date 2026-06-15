@@ -157,4 +157,18 @@ test.describe('Neo.ai.client.InstanceService — named-transaction batching', ()
         expect(committed.length).toBe(1);
         expect(committed[0].ops.length).toBe(2)   // restored as one multi-op unit (undoable again)
     });
+
+    test('list_transactions reports a committed named batch — opCount + all labels (cross-tool integration)', async () => {
+        await service.beginTransaction({name: 'add-grid'}, ID);
+        service.recordUndo(ID, op('set width',  's1'));
+        service.recordUndo(ID, op('set height', 's2'));
+        await service.commitTransaction({}, ID);
+
+        const {committed, redo} = await service.listTransactions({}, ID);
+
+        expect(redo).toEqual([]);
+        expect(committed).toHaveLength(1);
+        // the batch folded 2 mutations into one auditable unit — labels in capture order, raw ops excluded
+        expect(committed[0]).toEqual({txId: 'batch:add-grid', status: 'committed', opCount: 2, labels: ['set width', 'set height']})
+    });
 });
