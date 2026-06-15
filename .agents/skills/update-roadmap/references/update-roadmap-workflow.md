@@ -46,8 +46,8 @@ Each cornerstone epic has exactly **one named steward** — accountable that the
 
 The inaugural run scoped **v13.1 → milestone #8**:
 - **Thesis:** the Agent Harness becomes real, end-to-end ("the institution gets a face").
-- **Cornerstone categories** (linked to the milestone, not an exhaustive list): harness core (#13012 umbrella · #13015 Fleet Manager · #13377 Electron shell) · the 3 latest-Discussion graduations (#13378→#13376, #13374→a new freshness epic, #13370→#13158) · the H2 conversational-creation wedge (#13349/#13056) · a 4-friction stability floor (#12740 local-model, #12065 golden-path/REM, #13287 codex-wake, #11720 Agent-OS cloud).
-- **Deferred (firm OUT):** #9486 Grid Multi-Body · #10030 Concept Ontology · #12986 VDom delta-stream · #12679 Temporal-Pyramid · #12456 AiConfig-SSOT cleanup.
+- **Cornerstone categories** (linked to the milestone, not an exhaustive list): harness core (`#13012` umbrella · `#13015` Fleet Manager · `#13377` Electron shell) · the 3 latest-Discussion graduations (`#13378`→`#13376`, `#13374`→a new freshness epic, `#13370`→`#13158`) · the H2 conversational-creation wedge (`#13349`/`#13056`) · a 4-friction stability floor (`#12740` local-model, `#12065` golden-path/REM, `#13287` codex-wake, `#10291` Agent-OS cloud).
+- **Deferred (firm OUT):** `#9486` Grid Multi-Body · `#10030` Concept Ontology · `#12986` VDom delta-stream · `#12679` Temporal-Pyramid · `#12456` AiConfig-SSOT cleanup.
 - **Stewards (self-selected):** Vega = ROADMAP slice + ownership model + milestone; Ada = this skill + Fleet Manager; Grace = NL-control + golden-path; Euclid = freshness + codex-wake.
 - The live v13.1 scope is **milestone #8's linked items**, not this paragraph.
 
