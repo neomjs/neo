@@ -6,7 +6,6 @@ import logger            from '../../mcp/server/github-workflow/logger.mjs';
 import {projectConversationTrust} from './shared/conversationTrust.mjs';
 import {exec}            from 'child_process';
 import {promisify}       from 'util';
-import {spawn}           from 'child_process';
 import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
 import {
@@ -471,51 +470,33 @@ class IssueService extends Base {
             }
         }
 
-        const ghArgs = [
-            'issue', 'create',
-            '--title', title,
-            '--body', body || 'No additional details provided.',
-            '--repo', `${aiConfig.owner}/${aiConfig.repo}`
-        ];
+        // Route issue creation through GraphqlService's cached-token, retry-equipped REST path
+        // rather than a fresh per-call `spawn('gh', ['issue','create'])` that re-resolves
+        // gh-auth on every invocation. REST `POST /issues` accepts label names + assignee logins
+        // directly — identical semantics to `gh issue create`, with none of the label/user
+        // node-ID resolution a GraphQL `createIssue` mutation would require. The ProjectV2 attach
+        // below already runs through GraphqlService, so creation is now a single auth path.
+        const payload = {
+            title,
+            body: body || 'No additional details provided.'
+        };
 
         if (labels && labels.length > 0) {
-            labels.forEach(label => {
-                ghArgs.push('--label', label);
-            });
+            payload.labels = labels;
         }
 
         if (assignees && assignees.length > 0) {
-            assignees.forEach(assignee => {
-                ghArgs.push('--assignee', assignee);
-            });
+            payload.assignees = assignees;
         }
 
         try {
-            const ghProcess = spawn('gh', ghArgs);
+            const issue = await GraphqlService.rest('POST', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues`, payload);
 
-            let stdout = '';
-            let stderr = '';
-
-            for await (const chunk of ghProcess.stdout) {
-                stdout += chunk;
-            }
-            for await (const chunk of ghProcess.stderr) {
-                stderr += chunk;
-            }
-
-            const exitCode = await new Promise(resolve => {
-                ghProcess.on('close', resolve);
-            });
-
-            if (exitCode !== 0) {
-                throw new Error(stderr || 'Failed to create GitHub issue.');
-            }
-
-            const issueUrl = stdout.trim();
-            const issueNumber = parseInt(issueUrl.split('/').pop(), 10);
+            const issueNumber = issue?.number,
+                  issueUrl    = issue?.html_url;
 
             if (!issueNumber) {
-                throw new Error('Could not parse issue number from gh CLI output.');
+                throw new Error('Could not resolve the new issue number from the GitHub REST response.');
             }
 
             logger.info(`Successfully created GitHub issue #${issueNumber}: ${issueUrl}`);
@@ -538,9 +519,9 @@ class IssueService extends Base {
         } catch (error) {
             logger.error('Error creating GitHub issue:', error);
             return {
-                error  : 'GitHub CLI command failed',
+                error  : 'GitHub API request failed',
                 message: error.message,
-                code   : 'GH_CLI_ERROR'
+                code   : 'GITHUB_API_ERROR'
             };
         }
     }
