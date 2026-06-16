@@ -284,7 +284,7 @@ class MainContainer extends Viewport {
     /**
      * Reads the persisted named-perspective collection and applies it only when both the collection and active restore
      * validate. Invalid payloads fail closed to the seeded collection/current document.
-     * @returns {Promise<{collection:Object|null, document:Object|null, errors:String[], loaded:Boolean}>}
+     * @returns {Promise<{collection:(Object|null), document:(Object|null), errors:String[], loaded:Boolean}>}
      */
     async loadLayoutCollectionFromStorage() {
         let me      = this,
@@ -331,7 +331,7 @@ class MainContainer extends Viewport {
     /**
      * Persists the current named-perspective collection via the main-thread LocalStorage addon.
      * @param {Object} [collection=this.layoutCollection]
-     * @returns {Promise<{persisted:Boolean, error:String|null}>|undefined}
+     * @returns {Promise<{persisted:Boolean, error:(String|null)}>|undefined}
      */
     persistLayoutCollection(collection=this.layoutCollection) {
         let storage = Neo.main?.addon?.LocalStorage;
@@ -364,7 +364,7 @@ class MainContainer extends Viewport {
     /**
      * Selects and restores a named perspective through `DockZoneModel.restoreActiveSavedLayout()`.
      * @param {String} layoutId
-     * @returns {{collection:Object, document:Object|null, errors:String[]}}
+     * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
     restorePerspective(layoutId) {
         let me       = this,
@@ -391,7 +391,7 @@ class MainContainer extends Viewport {
 
     /**
      * Saves the current committed dock document as a new named perspective and activates it.
-     * @returns {{collection:Object, layout:Object|null, errors:String[]}}
+     * @returns {{collection:Object, layout:(Object|null), errors:String[]}}
      */
     saveCurrentPerspective() {
         let me       = this,
@@ -426,7 +426,7 @@ class MainContainer extends Viewport {
 
     /**
      * Removes the active saved perspective and restores the next available replacement.
-     * @returns {{collection:Object, document:Object|null, errors:String[]}}
+     * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
     removeActivePerspective() {
         let me             = this,

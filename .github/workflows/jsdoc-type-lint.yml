@@ -1,0 +1,49 @@
+name: JSDoc Type Lint
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'src/**/*.mjs'
+      - 'ai/**/*.mjs'
+      - 'docs/app/**/*.mjs'
+      - 'apps/**/*.mjs'
+      - 'examples/**/*.mjs'
+      - 'buildScripts/util/check-jsdoc-types.mjs'
+      - '.github/workflows/jsdoc-type-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'src/**/*.mjs'
+      - 'ai/**/*.mjs'
+      - 'docs/app/**/*.mjs'
+      - 'apps/**/*.mjs'
+      - 'examples/**/*.mjs'
+      - 'buildScripts/util/check-jsdoc-types.mjs'
+      - '.github/workflows/jsdoc-type-lint.yml'
+
+concurrency:
+  group: jsdoc-type-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # Unlike the dependency-free lint workflows, this one runs catharsis (the docs-build's own type
+      # parser, a transitive dep of jsdoc-api). --ignore-scripts skips the heavy postinstall (KB pull /
+      # server-config setup) we don't need — only node_modules must be present.
+      - name: Install dependencies (catharsis)
+        run: npm ci --ignore-scripts
+
+      - name: Lint JSDoc type expressions (docs-build parser check-mode)
+        run: node ./buildScripts/util/check-jsdoc-types.mjs

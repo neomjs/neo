@@ -652,7 +652,7 @@ class DockZoneModel extends Base {
      * credentials or runtime authority inside it.
      * @param {Object} document The committed dock-zone document to normalize and wrap.
      * @param {Object} [metadata={}] {layoutId, title, revision, metadata}
-     * @returns {{layout:Object|null, errors:String[]}}
+     * @returns {{layout:(Object|null), errors:String[]}}
      * @static
      */
     static createSavedLayout(document, metadata={}) {
@@ -731,7 +731,7 @@ class DockZoneModel extends Base {
      * and item `blueprint` fields are opaque JSON-only non-secret payloads; runtime fields beside the
      * known model are rejected rather than filtered or repaired.
      * @param {Object} savedLayout
-     * @returns {{document:Object|null, errors:String[]}}
+     * @returns {{document:(Object|null), errors:String[]}}
      * @static
      */
     static restoreSavedLayout(savedLayout) {
@@ -888,7 +888,7 @@ class DockZoneModel extends Base {
      * @summary Creates a storage-free collection of named saved-layout wrappers.
      * @param {Array<Object>|Object<String,Object>} [layouts=[]]
      * @param {Object} [options={}] {activeLayoutId, metadata, revision}
-     * @returns {{collection:Object|null, errors:String[]}}
+     * @returns {{collection:(Object|null), errors:String[]}}
      * @static
      */
     static createSavedLayoutCollection(layouts=[], options={}) {
@@ -1053,7 +1053,7 @@ class DockZoneModel extends Base {
     /**
      * @summary Restores the active saved-layout wrapper from a named layout collection.
      * @param {Object} collection
-     * @returns {{document:Object|null, errors:String[]}}
+     * @returns {{document:(Object|null), errors:String[]}}
      * @static
      */
     static restoreActiveSavedLayout(collection) {
