@@ -222,7 +222,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
     test('hasCoreSwarmParticipant detects comma-separated and array-form agent lists', () => {
         expect(hasCoreSwarmParticipant('@neo-gpt')).toBe(true);
         expect(hasCoreSwarmParticipant('@alice, @neo-opus-ada')).toBe(true);
-        expect(hasCoreSwarmParticipant('@neo-claude-opus')).toBe(true);
+        expect(hasCoreSwarmParticipant('@neo-opus-grace')).toBe(true);
         expect(hasCoreSwarmParticipant('@neo-opus-vega')).toBe(true);
         expect(hasCoreSwarmParticipant(['neo-gemini-pro', '@alice'])).toBe(true);
         expect(hasCoreSwarmParticipant('@alice,@bob')).toBe(false);

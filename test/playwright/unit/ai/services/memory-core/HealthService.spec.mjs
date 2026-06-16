@@ -101,7 +101,7 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         // login does not exist. The operator can immediately check identity seeding
         // instead of mining boot logs.
         const state = {
-            userId             : 'neo-claude-opus',
+            userId             : 'neo-opus-grace',
             agentIdentityNodeId: null,
             source             : 'env-var'
         };
@@ -111,7 +111,7 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         expect(block.source).toBe('env-var');
         expect(block.bound).toBe(false);
         expect(block.nodeId).toBeNull();
-        expect(block.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
+        expect(block.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-opus-grace'");
         expect(block.warning).toContain('stale checkout');
         expect(block.warning).toContain('ai/scripts/setup/seedAgentIdentities.mjs');
         expect(block.warning).toContain('ai/graph/identityRoots.mjs');
@@ -563,7 +563,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
     test('healthcheck degrades env-pinned unbound identity warning', async () => {
         HealthService.setStdioIdentityState({
-            userId             : 'neo-claude-opus',
+            userId             : 'neo-opus-grace',
             agentIdentityNodeId: null,
             source             : 'env-var'
         });
@@ -576,7 +576,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             bound  : false,
             nodeId : null
         });
-        expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
+        expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-opus-grace'");
         expect(result.details).toContain(`WARN: ${result.identity.warning}`);
         expect(result.details).not.toContain('All features are operational');
     });

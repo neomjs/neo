@@ -117,7 +117,7 @@ test.describe('ai/scripts/resumeHarness', () => {
             tabShortcut         : '3',
             freshSessionShortcut: 'n'
         });
-        expect(resolveHarnessTargetForIdentity('@neo-claude-opus')).toMatchObject({
+        expect(resolveHarnessTargetForIdentity('@neo-opus-grace')).toMatchObject({
             adapter             : 'osascript',
             appName             : 'Claude',
             tabShortcut         : '3',

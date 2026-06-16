@@ -393,7 +393,7 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
 
     test('#9959: explicit named-session summarization should bypass the externally active drift filter', async () => {
         const activeSessionId = `explicit-active-${crypto.randomUUID()}`;
-        const agentIdentity   = '@neo-claude-opus';
+        const agentIdentity   = '@neo-opus-grace';
         const now             = Date.now();
 
         await seedExternallyActiveSession({
