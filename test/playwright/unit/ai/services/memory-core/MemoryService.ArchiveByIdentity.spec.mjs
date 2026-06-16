@@ -33,9 +33,9 @@ import path                  from 'node:path';
  * Mirrors `MemoryService.TenantIsolation.spec.mjs`: a stateful in-memory spy collection records
  * every add/get/query/UPDATE so the sweep's `collection.update` (set archivedAt) is reflected in
  * subsequent queries. `GraphService.db` is stubbed to a no-op SQL + empty node-cache — the graph-SQL
- * exclusion (`queryRecentTurns`) + frontier exclusion are the proven `buildMailboxDelta`
- * `archivedAt IS NULL` pattern and are covered by a separate integration assertion; this spec pins
- * the Chroma content-recall paths, which are the primary recall-pollution surface.
+ * exclusion (`queryRecentTurns`) + frontier exclusion (`getContextFrontier`) are pinned directly,
+ * against the real `:memory:` graph, in the sibling `MemoryService.ArchiveByIdentity.PublicRecall.spec.mjs`;
+ * this spec pins the Chroma content-recall paths, which are the primary recall-pollution surface.
  */
 function createSpyCollection() {
     const rows = new Map();
