@@ -814,6 +814,10 @@ paths:
         Creates a component inside a target container at runtime — a schema-validated, CONSTRAINED
         alternative to the admin-tier `call_method(container.add(...))`.
 
+        Disposition: retained as component-specific convenience sugar. Use `create_instance` for the
+        general primitive that can create standalone Stores/Models/Controllers or attach a created
+        component to a parent container.
+
         **When to Use:**
         To add a new component to a live container (e.g. add a `Button` to a `Toolbar`) without granting
         admin method-call access. The `config` must declare an `ntype` (e.g. `button`) or `className`
@@ -831,6 +835,53 @@ paths:
           description: Component added to the container
         '400':
           description: Invalid request body (config not an object, or missing module / ntype / className)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/create:
+    post:
+      summary: Create Instance
+      operationId: create_instance
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Creates any JSON-addressable Neo instance by `className` or `ntype` plus a JSON config.
+        With `parentId`, the created component is attached to that live container; without `parentId`,
+        the instance remains standalone (for example, a `Neo.data.Store`).
+
+        This is a write-locked Neural Link tool. It does not widen read-only `harness-embedded`
+        projections; only tool projections that already receive write-locked tools can see it.
+
+        **When to Use:**
+        Use this instead of `create_component` when the target may be a Store, Model, Controller,
+        StateProvider, or any other non-component instance. Use `parentId` only when the created
+        instance should also be inserted into a container. The config must stay data-only: `module`
+        class references and function-bearing values are rejected; pass registered handler id strings
+        for later handler-registry work.
+      tags: [Instance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+      responses:
+        '200':
+          description: Instance created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInstanceResponse'
+        '400':
+          description: Invalid request body (missing className/ntype, module/class reference, or function-bearing config)
           content:
             application/json:
               schema:
@@ -2029,6 +2080,39 @@ components:
         sessionId:
           type: string
           description: The target App Worker Session ID
+
+    CreateInstanceRequest:
+      type: object
+      properties:
+        className:
+          type: string
+          description: Fully-qualified Neo class name to instantiate. Provide exactly one of className or ntype.
+        ntype:
+          type: string
+          description: Neo ntype shortcut to instantiate. Provide exactly one of className or ntype.
+        config:
+          type: object
+          default: {}
+          description: JSON-safe instance config. Must not contain `module` class references or function-bearing values.
+        parentId:
+          type: string
+          description: Optional target container id; when present, the created instance is attached via parent.add(instance).
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    CreateInstanceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The created live instance id.
+        className:
+          type: string
+          description: The created instance class name.
+        parentId:
+          type: string
+          description: Present when the created instance was attached to a parent container.
 
     CreateComponentRequest:
       type: object

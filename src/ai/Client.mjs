@@ -123,6 +123,8 @@ class Client extends Base {
             verify_component      : component,
 
             call_method            : instance,
+            create_instance         : instance,
+            destroy_instance        : instance,
             find_instances         : instance,
             get_instance_properties: instance,
             set_instance_properties: instance,

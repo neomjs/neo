@@ -227,6 +227,7 @@ Generic tools for working with *any* Neo.mjs instance (Components, Stores, Manag
 | `get_instance_properties` | Reads specific runtime properties from any instance by ID. |
 | `set_instance_properties` | **The primary control tool.** Modifies properties on an instance, triggering all reactive `beforeSet`/`afterSet` hooks. |
 | `create_component` | Creates a new child component under a parent container (the agent-driven `add(config)` mutation). |
+| `create_instance` | Creates JSON-addressable Neo instances through the general `Neo.create` path for Stores, Models, Controllers, Managers, or other non-component instances. |
 | `remove_component` | Destroys a component by ID, removing it from its parent and the DOM. |
 | `call_method` | Calls a method on a specific instance (e.g. `store.load()`, `grid.scrollToRow()`) — the generic instance-action tool. |
 | `undo` | Reverts the requester's most-recent committed mutation (single-level), re-dispatching the captured reverse under live enforcement. |
