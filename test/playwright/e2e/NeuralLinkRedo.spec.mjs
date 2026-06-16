@@ -21,6 +21,12 @@ test.describe('Neural Link - redo (e2e)', () => {
         const app = await neuralLink.connectToApp('Neo.examples.button.base');
         expect(app.sessionId).toBeTruthy();
 
+        // ⚠️ Fresh-bridge diagnostic guard: an `{undone:false}` / `{redone:false, reason:'no-writer-identity'}`
+        // below means a STALE `:8081` bridge — one predating the `agent_message` sidecar-emit that threads the
+        // writer `{agentId, sessionId}` into the App Worker — NOT a logic regression. Restart `run-bridge.mjs`
+        // and rerun. (The undo/redo capture + replay key on that writer identity; the assertion messages below
+        // surface the raw `{reason}`, so a stale bridge is diagnosable at a glance. Mirrors the undo-e2e story.)
+
         const pick = res => res?.[0]?.id ?? res?.components?.[0]?.id ?? res?.instances?.[0]?.id ?? res?.id ?? null;
 
         let containerId = pick(await app.findInstances({ ntype: 'viewport' }, ['id']));
