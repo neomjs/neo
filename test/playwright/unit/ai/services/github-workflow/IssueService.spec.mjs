@@ -904,6 +904,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
     let GraphqlService;
     let RepositoryService;
     let originalQuery;
+    let originalRest;
     let originalGetViewerPermission;
 
     test.beforeAll(async () => {
@@ -912,6 +913,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
         IssueService      = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
 
         originalQuery               = GraphqlService.query.bind(GraphqlService);
+        originalRest                = GraphqlService.rest.bind(GraphqlService);
         originalGetViewerPermission = RepositoryService.getViewerPermission.bind(RepositoryService);
 
         // Default permission stub — write-eligible for the duration of this describe block.
@@ -920,7 +922,17 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
 
     test.afterAll(() => {
         GraphqlService.query                  = originalQuery;
+        GraphqlService.rest                   = originalRest;
         RepositoryService.getViewerPermission = originalGetViewerPermission;
+    });
+
+    // Hermetic guard: the assignee mutations now route through GraphqlService.rest. Any test
+    // that reaches a mutation MUST stub rest explicitly; an unstubbed reach throws loudly here rather
+    // than hitting real GitHub. Conflict/permission tests return before the mutation and never trip it.
+    test.beforeEach(() => {
+        GraphqlService.rest = async (method, path) => {
+            throw new Error(`Unexpected GraphqlService.rest call in assignIssue test: ${method} ${path}`);
+        };
     });
 
     test.describe('conflict path (the substrate-discipline value-add)', () => {
@@ -1018,26 +1030,186 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
     });
 
     test.describe('clear-mode preservation (no precondition gate for empty assignees)', () => {
-        test('clear-mode (empty assignees array) does NOT trigger precondition fetch', async () => {
-            // Clear-mode hits the `if (!assignees || assignees.length === 0)` branch BEFORE the precondition.
-            // execAsync may fail in the test env (no real gh CLI) — the key assertion is that GraphqlService.query
-            // is NOT called (precondition skipped for clear-mode), pinning the gate-boundary.
+        test('clear-mode (empty assignees) PATCHes an empty set without a precondition fetch', async () => {
+            // Clear-mode hits the empty-assignees branch BEFORE the precondition. Invariants: (1) the
+            // precondition/conflict fetch (GraphqlService.query) is NOT called; (2) the clear is a REST
+            // PATCH with an empty assignees array — not a fetch-then-delete.
             let graphqlCalled = false;
+            GraphqlService.query = async () => { graphqlCalled = true; return {}; };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                captured = {method, path, body};
+                return null;
+            };
+
+            const result = await IssueService.assignIssue({issue_number: 10148, assignees: []});
+
+            expect(graphqlCalled).toBe(false);
+            expect(captured.method).toBe('PATCH');
+            expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues\/10148$/);
+            expect(captured.body.assignees).toEqual([]);
+            expect(result.message).toContain('Successfully unassigned all users');
+        });
+    });
+
+    test.describe('REST mutation path (#13400)', () => {
+        test('fresh add (unassigned issue) PATCHes the resolved assignee set', async () => {
+            // precondition fetch → empty (unassigned); post-verify fetch → the new set.
+            let queryCount = 0;
             GraphqlService.query = async () => {
-                graphqlCalled = true;
+                queryCount++;
+                const nodes = queryCount === 1 ? [] : [{login: 'neo-opus-vega'}];
+                return {repository: {issue: {assignees: {nodes}}}};
+            };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                captured = {method, path, body};
+                return {};
+            };
+
+            const result = await IssueService.assignIssue({issue_number: 11235, assignees: ['neo-opus-vega']});
+
+            expect(captured.method).toBe('PATCH');
+            expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues\/11235$/);
+            expect(captured.body.assignees).toEqual(['neo-opus-vega']);
+            expect(result.message).toContain('Successfully assigned');
+            expect(result.verifiedAssignees).toEqual(['neo-opus-vega']);
+        });
+
+        test('normalizes the @me alias to the authenticated login before the PATCH', async () => {
+            let queryCount = 0;
+            GraphqlService.query = async () => {
+                queryCount++;
+                const nodes = queryCount === 1 ? [] : [{login: 'neo-opus-vega'}];
+                return {repository: {issue: {assignees: {nodes}}}};
+            };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                if (method === 'GET' && path === '/user') {
+                    return {login: 'neo-opus-vega'};
+                }
+                captured = {method, path, body};
+                return {};
+            };
+
+            await IssueService.assignIssue({issue_number: 11235, assignees: ['@me']});
+
+            expect(captured.method).toBe('PATCH');
+            expect(captured.body.assignees).toEqual(['neo-opus-vega']);
+        });
+
+        test('strict-replacement override PATCHes the new set + records previous assignees', async () => {
+            // precondition → occupied; post-verify → new; getIssueNodeId + ADD_COMMENT (audit) degrade gracefully.
+            let assigneeFetchCount = 0;
+            GraphqlService.query = async (query, variables) => {
+                if (variables?.maxAssignees !== undefined) {
+                    assigneeFetchCount++;
+                    const nodes = assigneeFetchCount === 1 ? [{login: 'tobiu'}] : [{login: 'neo-opus-vega'}];
+                    return {repository: {issue: {assignees: {nodes}}}};
+                }
+                if (variables?.subjectId) {
+                    return {addComment: {commentEdge: {node: {id: 'C_audit'}}}};
+                }
+                return {repository: {issue: {id: 'I_1'}}};
+            };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                captured = {method, path, body};
                 return {};
             };
 
             const result = await IssueService.assignIssue({
-                issue_number: 10148,
-                assignees   : []
+                issue_number        : 11235,
+                assignees           : ['neo-opus-vega'],
+                acknowledgedReassign: 'reassigning per handoff'
             });
 
-            expect(graphqlCalled).toBe(false);
-            // Result will be either GH_CLI_ERROR (execAsync threw in test env) or success message — both acceptable;
-            // we are testing the gate-boundary, not the underlying CLI shell-through.
-            expect(result.code === 'GH_CLI_ERROR' || result.message?.includes('Successfully unassigned')).toBe(true);
+            expect(captured.method).toBe('PATCH');
+            expect(captured.body.assignees).toEqual(['neo-opus-vega']);
+            expect(result.acknowledgedReassign).toBe('reassigning per handoff');
+            expect(result.previousAssignees).toEqual(['tobiu']);
+            expect(result.message).toContain('reassigned');
         });
+
+        test('returns GITHUB_API_ERROR (not a throw) when the PATCH fails', async () => {
+            GraphqlService.query = async () => ({repository: {issue: {assignees: {nodes: []}}}});
+            GraphqlService.rest  = async () => { throw new Error('GitHub REST request failed: PATCH /repos/o/r/issues/11235 -> 422 Unprocessable Entity'); };
+
+            const result = await IssueService.assignIssue({issue_number: 11235, assignees: ['neo-opus-vega']});
+
+            expect(result.error).toBe('GitHub API request failed');
+            expect(result.code).toBe('GITHUB_API_ERROR');
+        });
+    });
+});
+
+/**
+ * @summary Contract coverage for `IssueService.unassignIssue` REST routing.
+ *
+ * `unassignIssue` now removes specific assignees via `DELETE /issues/{n}/assignees` (incremental
+ * remove, the equivalent of `gh issue edit --remove-assignee`) instead of `execAsync`. Pins the
+ * REST call shape, the empty-array BAD_REQUEST guard (no REST call), and structured
+ * `GITHUB_API_ERROR` failure handling. Each test stubs `GraphqlService.rest` (hermetic).
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#unassignIssue
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — unassignIssue REST routing (#13400)', () => {
+    let IssueService;
+    let GraphqlService;
+    let RepositoryService;
+    let originalRest;
+    let originalGetViewerPermission;
+
+    test.beforeAll(async () => {
+        GraphqlService    = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        RepositoryService = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
+        IssueService      = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalRest                = GraphqlService.rest.bind(GraphqlService);
+        originalGetViewerPermission = RepositoryService.getViewerPermission.bind(RepositoryService);
+        RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
+    });
+
+    test.afterAll(() => {
+        GraphqlService.rest                   = originalRest;
+        RepositoryService.getViewerPermission = originalGetViewerPermission;
+    });
+
+    test('DELETEs the specified assignees (incremental remove)', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {};
+        };
+
+        const result = await IssueService.unassignIssue({issue_number: 11235, assignees: ['tobiu']});
+
+        expect(captured.method).toBe('DELETE');
+        expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues\/11235\/assignees$/);
+        expect(captured.body.assignees).toEqual(['tobiu']);
+        expect(result.message).toContain('Successfully unassigned');
+    });
+
+    test('rejects an empty assignees array with BAD_REQUEST (no REST call)', async () => {
+        let called = false;
+        GraphqlService.rest = async () => { called = true; return {}; };
+
+        const result = await IssueService.unassignIssue({issue_number: 11235, assignees: []});
+
+        expect(result.code).toBe('BAD_REQUEST');
+        expect(called).toBe(false);
+    });
+
+    test('returns GITHUB_API_ERROR when the DELETE fails', async () => {
+        GraphqlService.rest = async () => { throw new Error('GitHub REST request failed: DELETE /repos/o/r/issues/11235/assignees -> 404 Not Found'); };
+
+        const result = await IssueService.unassignIssue({issue_number: 11235, assignees: ['tobiu']});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
     });
 });
 
