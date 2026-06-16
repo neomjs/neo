@@ -1295,6 +1295,36 @@ test.describe('Neo.ai.services.github-workflow.IssueService — createIssue REST
         expect(captured.body.assignees).toEqual(['neo-opus-vega', 'tobiu']);
     });
 
+    test('returns GITHUB_API_ERROR (does not throw) when @me normalization GET /user fails', async () => {
+        GraphqlService.rest = async (method, path) => {
+            if (method === 'GET' && path === '/user') {
+                throw new Error('GET /user failed');
+            }
+            return {number: 1, html_url: 'https://github.com/neomjs/neo/issues/1'};
+        };
+
+        // The alias resolver runs inside createIssue's try, so a GET /user failure maps to the same
+        // structured error as a POST failure — it must NOT escape as a thrown exception.
+        const result = await IssueService.createIssue({title: 'Doomed alias', assignees: ['@me']});
+
+        expect(result.error).toBe('GitHub API request failed');
+        expect(result.code).toBe('GITHUB_API_ERROR');
+    });
+
+    test('returns GITHUB_API_ERROR when GET /user returns no login during @me normalization', async () => {
+        GraphqlService.rest = async (method, path) => {
+            if (method === 'GET' && path === '/user') {
+                return {};
+            }
+            return {number: 2, html_url: 'https://github.com/neomjs/neo/issues/2'};
+        };
+
+        const result = await IssueService.createIssue({title: 'No login', assignees: ['@me']});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('@me');
+    });
+
     test('omits labels/assignees keys entirely when the arrays are empty', async () => {
         let captured;
         GraphqlService.rest = async (method, path, body) => {

@@ -485,13 +485,14 @@ class IssueService extends Base {
             payload.labels = labels;
         }
 
-        if (assignees && assignees.length > 0) {
-            // `@me` is a gh-CLI alias the create_issue contract advertises (assigns the authenticated
-            // user); the REST issues endpoint expects concrete logins, so it must be normalized first.
-            payload.assignees = await this.#resolveAssigneeAliases(assignees);
-        }
-
         try {
+            if (assignees && assignees.length > 0) {
+                // `@me` is a gh-CLI alias the create_issue contract advertises (assigns the authenticated
+                // user); the REST issues endpoint expects concrete logins, so normalize it first. Inside
+                // the try so an alias-resolution failure returns the structured error rather than throwing.
+                payload.assignees = await this.#resolveAssigneeAliases(assignees);
+            }
+
             const issue = await GraphqlService.rest('POST', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues`, payload);
 
             const issueNumber = issue?.number,
