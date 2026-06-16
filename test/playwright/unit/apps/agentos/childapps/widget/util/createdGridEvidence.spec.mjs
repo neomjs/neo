@@ -20,11 +20,13 @@ import * as core      from '../../../../../../../../src/core/_export.mjs';
 /**
  * @summary Unit coverage for projecting a live Neural-Link-created grid into evidence.
  *
- * Verifies the H2 provenance seam: a live created grid projects to the deterministic
- * `{schema, title, columns, rows}` blueprint shape, the projection reads only safe scalar metadata
- * (never the live store's record data or the grid's other props/methods), the title falls back
- * sensibly, and anything that is not a usable grid fails closed to `null`. A final case proves the
- * output flows cleanly through the existing `projectBlueprintEvidence` safe boundary unchanged.
+ * Verifies the H2 provenance seam against the REAL live-grid shape (its `columns` is a Neo collection
+ * whose `.items` are the column components, its `store` a collection with a `count`): a live created
+ * grid projects to the deterministic `{schema, title, columns, rows}` blueprint shape, reading only
+ * safe scalar metadata — never the column components' internals (renderers, widths) or the store's
+ * record data. The title falls back sensibly, a plain-array config is accepted defensively, anything
+ * that is not a usable grid fails closed to `null`, and the output flows cleanly through the existing
+ * `projectBlueprintEvidence` safe boundary unchanged.
  *
  * @see apps/agentos/childapps/widget/util/createdGridEvidence.mjs
  */
@@ -37,24 +39,28 @@ test.describe('AgentOSWidget.util.createdGridEvidence', () => {
     });
 
     /**
-     * A live-grid stand-in: the shape the `insert {index, item}` event hands the controller — a class
-     * id, column definitions, a live store with a count, plus extra props/methods that must NOT leak.
+     * A live-grid stand-in matching the real instance the `insert {index, item}` event hands the
+     * controller: a class id, a columns COLLECTION (its `.items` are full column components), a store
+     * COLLECTION with a count, plus extra props/methods that must NOT leak.
      */
     const liveGrid = () => ({
         className: 'Neo.grid.Container',
         id       : 'nl-created-grid-h2-proof',
-        columns  : [
-            {dataField: 'task',     text: 'Task'},
-            {dataField: 'owner',    text: 'Owner'},
-            {dataField: 'evidence', text: 'Evidence'}
-        ],
+        columns  : {
+            count: 3,
+            items: [
+                {dataField: 'task',     text: 'Task',     renderer: () => 'x', cellAlign: 'left'},
+                {dataField: 'owner',    text: 'Owner',    width: 140},
+                {dataField: 'evidence', text: 'Evidence', hidden: false}
+            ]
+        },
         store: {
             count: 3,
-            data : [{id: 'a'}, {id: 'b'}, {id: 'c'}]
+            items: [{id: 'a'}, {id: 'b'}, {id: 'c'}]
         },
         // hostile / irrelevant surface that must never reach the evidence blueprint
-        destroy   : () => 'boom',
-        vdom      : {cn: [{tag: 'script'}]},
+        destroy      : () => 'boom',
+        vdom         : {cn: [{tag: 'script'}]},
         onConstructed: 'doSomething()'
     });
 
@@ -73,10 +79,12 @@ test.describe('AgentOSWidget.util.createdGridEvidence', () => {
         })
     });
 
-    test('reads only the four blueprint keys — no live grid props/methods leak', () => {
+    test('reads only the four blueprint keys — no column internals, props or record data leak', () => {
         const result = projectCreatedGrid(liveGrid());
 
         expect(Object.keys(result).sort()).toEqual(['columns', 'rows', 'schema', 'title']);
+        // column components carry renderers/widths — only dataField + text survive
+        expect(Object.keys(result.columns[0]).sort()).toEqual(['dataField', 'text']);
         // row COUNT is preserved but no record data is copied through
         expect(result.rows).toHaveLength(3);
         expect(result.rows.some(row => row !== undefined)).toBe(false)
@@ -88,23 +96,41 @@ test.describe('AgentOSWidget.util.createdGridEvidence', () => {
         expect(projectCreatedGrid({...liveGrid(), id: undefined}).title).toBe('Neo.grid.Container') // no title/id -> schema
     });
 
-    test('derives the row count from store.data when count is absent', () => {
-        const grid = liveGrid();
-        delete grid.store.count;
-        expect(projectCreatedGrid(grid).rows).toHaveLength(3);
+    test('derives the row count from store.items or a plain-array store.data when count is absent', () => {
+        const noCount = liveGrid();
+        delete noCount.store.count;
+        expect(projectCreatedGrid(noCount).rows).toHaveLength(3); // falls to the store collection's items
 
-        const empty = liveGrid();
-        empty.store = {count: 0, data: []};
+        const dataShape = {...liveGrid(), store: {data: [{id: 1}, {id: 2}]}};
+        expect(projectCreatedGrid(dataShape).rows).toHaveLength(2); // defensive {data} config
+
+        const empty = {...liveGrid(), store: {count: 0, items: []}};
         expect(projectCreatedGrid(empty).rows).toHaveLength(0)
+    });
+
+    test('accepts a plain-array columns config defensively', () => {
+        const arrayShape = {
+            className: 'Neo.grid.Container',
+            id       : 'cfg-grid',
+            columns  : [{dataField: 'a', text: 'A'}, {dataField: 'b', text: 'B'}],
+            store    : {count: 1, data: [{a: 1}]}
+        };
+
+        expect(projectCreatedGrid(arrayShape)).toEqual({
+            schema : 'Neo.grid.Container',
+            title  : 'cfg-grid',
+            columns: [{dataField: 'a', text: 'A'}, {dataField: 'b', text: 'B'}],
+            rows   : [undefined]
+        })
     });
 
     test('fails closed to null when the input is not a usable grid', () => {
         const bad = [
             null, undefined, 'a string', 42, ['an', 'array'],
-            {columns: [], store: {count: 0}},                          // no className
-            {className: 'Neo.grid.Container', store: {count: 0}},       // no columns array
-            {className: 'Neo.grid.Container', columns: []},             // no store
-            {className: '', columns: [], store: {count: 0}}             // empty className
+            {columns: {items: []}, store: {count: 0}},                  // no className
+            {className: 'Neo.grid.Container', store: {count: 0}},       // no columns
+            {className: 'Neo.grid.Container', columns: {items: []}},    // no store
+            {className: '', columns: {items: []}, store: {count: 0}}    // empty className
         ];
 
         for (const input of bad) {

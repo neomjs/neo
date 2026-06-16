@@ -20,7 +20,22 @@
  */
 
 /**
- * Reads the live row count off a grid's store without copying any record data.
+ * Whether a value is a usable object to read metadata off — a live `NeoInstance` (the grid + its
+ * store are class instances, NOT plain objects) OR a plain config object (the defensive / unit path).
+ * `Neo.isObject` is deliberately NOT used here: it is plain-object-only (`constructor.name === 'Object'`)
+ * and would reject the live grid instance this projection exists to read.
+ * @param {*} value
+ * @returns {Boolean}
+ * @private
+ */
+function isObjectLike(value) {
+    const type = Neo.typeOf(value);
+    return type === 'Object' || type === 'NeoInstance'
+}
+
+/**
+ * Reads the live row count off a grid's store without copying any record data. A live store is a
+ * Neo collection (`count` / `items`); a plain `{data}` config array is also accepted defensively.
  * @param {Object} store the grid's live store instance
  * @returns {Number} the row count (0 when it cannot be determined)
  * @private
@@ -30,11 +45,32 @@ function readRowCount(store) {
         return store.count
     }
 
-    if (Array.isArray(store.data)) {
-        return store.data.length
+    for (const candidate of [store.items, store.data]) {
+        if (Array.isArray(candidate)) {
+            return candidate.length
+        }
     }
 
     return 0
+}
+
+/**
+ * Resolves a grid's columns to a plain array of column definitions. A live grid's `columns` is a Neo
+ * collection (its `.items` are the column components); a plain config array is also accepted.
+ * @param {Object} grid the live grid component
+ * @returns {Object[]|null} the column array, or `null` when columns cannot be read
+ * @private
+ */
+function readColumns(grid) {
+    if (Array.isArray(grid.columns?.items)) {
+        return grid.columns.items
+    }
+
+    if (Array.isArray(grid.columns)) {
+        return grid.columns
+    }
+
+    return null
 }
 
 /**
@@ -47,20 +83,21 @@ function readRowCount(store) {
  *   so the caller can fail the evidence pane closed.
  */
 export function projectCreatedGrid(grid) {
-    if (!Neo.isObject(grid)) {
+    if (!isObjectLike(grid)) {
         return null
     }
 
     const
-        schema = typeof grid.className === 'string' && grid.className ? grid.className : null,
-        store  = Neo.isObject(grid.store) ? grid.store : null;
+        schema      = typeof grid.className === 'string' && grid.className ? grid.className : null,
+        store       = isObjectLike(grid.store) ? grid.store : null,
+        columnItems = readColumns(grid);
 
-    if (!schema || !Array.isArray(grid.columns) || !store) {
+    if (!schema || !columnItems || !store) {
         return null
     }
 
     // safe scalar metadata only — never the live column instances or record data
-    const columns = grid.columns.map(column => ({
+    const columns = columnItems.map(column => ({
         dataField: typeof column?.dataField === 'string' ? column.dataField : '',
         text     : typeof column?.text === 'string' ? column.text : ''
     }));
