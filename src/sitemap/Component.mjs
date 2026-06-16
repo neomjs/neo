@@ -16,29 +16,30 @@ class Component extends Base {
     static itemHideModes = ['removeDom', 'visibility']
 
     static config = {
-        /*
+        /**
          * @member {String} className='Neo.sitemap.Component'
          * @protected
          */
         className: 'Neo.sitemap.Component',
-        /*
+        /**
          * @member {String} ntype='sitemap'
          * @protected
          */
         ntype: 'sitemap',
-        /*
-         * @member {String[} baseCls=['neo-sitemap']
+        /**
+         * @member {String[]} baseCls=['neo-sitemap']
          */
         baseCls: ['neo-sitemap'],
         /**
          * Valid values: removeDom, visibility
          * Defines if the component items should use css visibility:'hidden' or vdom:removeDom
-         * @member {String} hideMode_='removeDom'
+         * @member {String} itemHideMode_='removeDom'
          * @reactive
          */
         itemHideMode_: 'removeDom',
-        /*
+        /**
          * @member {Neo.sitemap.Store|null} store_=null
+         * @reactive
          */
         store_: null
     }

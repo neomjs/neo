@@ -196,6 +196,7 @@ function main() {
             console.error('and breaks the docs app. Most common cause: a TS-like type — typically a bare union inside a');
             console.error('record value with no space after the colon (`{a:Object|null}`). Fix: parenthesize the union');
             console.error('(`{a:(Object|null)}`) or add a space (`{a: Object|null}`); use a `@typedef` for complex shapes.')
+            console.error('See .github/CODING_GUIDELINES.md#11-jsdoc-type-expressions for accepted forms.')
         }
         process.exit(1)
     }
