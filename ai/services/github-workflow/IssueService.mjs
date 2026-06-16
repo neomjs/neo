@@ -4,8 +4,6 @@ import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
 import {projectConversationTrust} from './shared/conversationTrust.mjs';
-import {exec}            from 'child_process';
-import {promisify}       from 'util';
 import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
 import {
@@ -24,8 +22,6 @@ import {
     FIND_PROJECT_V2_ITEM_BY_CONTENT,
     UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT
 } from './queries/mutations.mjs';
-
-const execAsync = promisify(exec);
 
 /**
  * @summary Service for interacting with GitHub issues via the GraphQL API.
@@ -187,7 +183,7 @@ class IssueService extends Base {
      * never simultaneous co-ownership.
      *
      * **Clear mode (empty assignees):** unchanged — clearing is always safe (no
-     * precondition needed); proceeds via `gh issue edit --remove-assignee ""`.
+     * precondition needed); proceeds via a REST `PATCH` with an empty `assignees` array.
      *
      * @param {object}   options                       The options object
      * @param {number}   options.issue_number          The number of the issue to modify.
@@ -215,9 +211,10 @@ class IssueService extends Base {
             // CLEAR MODE: empty assignees — no precondition needed; proceeds directly.
             if (!assignees || assignees.length === 0) {
                 logger.info(`Attempting to unassign all users from issue #${issue_number}`);
-                // Passing an empty string to --remove-assignee has been experimentally verified to clear all assignees.
-                const command  = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
-                await execAsync(command);
+                // REST PATCH with an empty assignees array clears the full set atomically — the
+                // equivalent of the prior `gh issue edit --remove-assignee ""`, with no fetch and no
+                // intermediate state. (PATCH sends only `assignees`, so other issue fields are untouched.)
+                await GraphqlService.rest('PATCH', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}`, {assignees: []});
                 const message  = `Successfully unassigned all users from issue #${issue_number}`;
                 logger.info(message);
                 return {message};
@@ -245,19 +242,19 @@ class IssueService extends Base {
                 };
             }
 
-            // Step 3 — strict-replacement override: clear existing first.
-            const isOverride = currentAssignees.length > 0 && acknowledgedReassign;
-            if (isOverride) {
-                logger.info(`Strict-replacement override on #${issue_number} (reason: "${acknowledgedReassign}"): clearing existing [${currentAssignees.join(',')}] before assigning [${assignees.join(',')}]`);
-                const clearCommand = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
-                await execAsync(clearCommand);
-            }
+            // Step 3 — mutate: PATCH replaces the full assignee set. The conflict gate above
+            // guarantees we only reach here on an unassigned issue (fresh add) OR an acknowledged
+            // override (strict replacement) — replacing the set is the correct semantics for both,
+            // atomically (no intermediate empty state the prior clear-then-add carried). `@me` is
+            // normalized to the authenticated login first (REST takes concrete logins).
+            const isOverride        = currentAssignees.length > 0 && acknowledgedReassign;
+            const resolvedAssignees = await this.#resolveAssigneeAliases(assignees);
 
-            // Step 4 — mutate: add the new assignees.
-            logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
-            const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
-            const command       = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
-            await execAsync(command);
+            logger.info(isOverride
+                ? `Strict-replacement override on #${issue_number} (reason: "${acknowledgedReassign}"): replacing [${currentAssignees.join(',')}] with [${assignees.join(',')}]`
+                : `Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
+
+            await GraphqlService.rest('PATCH', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}`, {assignees: resolvedAssignees});
 
             // Step 5 — post-verify: re-fetch and confirm the resulting assignee state.
             const verifiedAssignees = await this.#fetchCurrentAssignees(issue_number);
@@ -286,9 +283,9 @@ class IssueService extends Base {
         } catch (error) {
             logger.error(`Error updating assignees for issue #${issue_number}:`, error);
             return {
-                error  : 'GitHub CLI command failed',
+                error  : 'GitHub API request failed',
                 message: error.message,
-                code   : 'GH_CLI_ERROR'
+                code   : 'GITHUB_API_ERROR'
             };
         }
     }
@@ -1061,10 +1058,9 @@ class IssueService extends Base {
         logger.info(`Attempting to unassign issue #${issue_number} from: ${assignees.join(', ')}`);
 
         try {
-            const assigneeFlags = assignees.map(a => `--remove-assignee "${a}"`).join(' ');
-            const command       = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
-
-            await execAsync(command);
+            // DELETE removes the specified logins from the issue's assignee set (incremental remove,
+            // the equivalent of `gh issue edit --remove-assignee`); other assignees are preserved.
+            await GraphqlService.rest('DELETE', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}/assignees`, {assignees});
 
             const message = `Successfully unassigned ${assignees.join(', ')} from issue #${issue_number}`;
             logger.info(message);
@@ -1073,9 +1069,9 @@ class IssueService extends Base {
         } catch (error) {
             logger.error(`Error unassigning from issue #${issue_number}:`, error);
             return {
-                error  : 'GitHub CLI command failed',
+                error  : 'GitHub API request failed',
                 message: error.message,
-                code   : 'GH_CLI_ERROR'
+                code   : 'GITHUB_API_ERROR'
             };
         }
     }
