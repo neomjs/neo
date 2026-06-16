@@ -1,12 +1,13 @@
 import {test, expect}                            from '@playwright/test';
-import {findUnparseableTypes, extractType, inScope} from '../../../../../buildScripts/util/check-jsdoc-types.mjs';
+import {findUnparseableTypes, extractType, inScope} from '../../../../../../buildScripts/util/check-jsdoc-types.mjs';
 
 /**
  * Self-test for the JSDoc-type lint: the mechanical gate that stops TS-like type expressions the
  * docs build (jsdoc-x → catharsis) cannot parse from breaking `npm run generate-docs-json` (the last
  * `build all` step) + the docs app. Verifies it flags the build-breaking no-space record-union (+ malformed
  * types), passes the catharsis-valid spaced / parenthesized / plain / top-level-union forms, scans only
- * `/**` doc blocks (not `/*` or `//`), and scopes to the docs-build parse surface.
+ * `/**` doc blocks (not `/*` or `//`), and scopes to the authored-source surface (src/ai/examples/apps/docs-app) —
+ * intentionally broader than the docs build (unparseable JSDoc is a defect anywhere, not only where it parses today).
  */
 const block = (...lines) => ['/**', ...lines.map(l => ' * ' + l), ' */'].join('\n');
 
@@ -52,11 +53,13 @@ test.describe('check-jsdoc-types guard', () => {
         expect(extractType([scalar], 0, scalar.indexOf('{'))).toBe('String')
     });
 
-    test('inScope mirrors the docs-build parse surface', () => {
+    test('inScope covers the authored-source surface (src/ai/examples/apps/docs-app), broader than the docs build', () => {
         expect(inScope('src/dashboard/DockZoneModel.mjs')).toBe(true);
         expect(inScope('ai/WriteGuard.mjs')).toBe(true);
+        expect(inScope('examples/dashboard/dock/MainContainer.mjs')).toBe(true);
         expect(inScope('docs/app/view/Main.mjs')).toBe(true);
         expect(inScope('apps/portal/view/Main.mjs')).toBe(true);
+        expect(inScope('apps/ai/view/Main.mjs')).toBe(true); // ALL apps, not only docs-build-configured ones
 
         // out of scope: build scripts, tests, underscore aggregators, the config overlays, non-.mjs
         expect(inScope('buildScripts/util/check-jsdoc-types.mjs')).toBe(false);

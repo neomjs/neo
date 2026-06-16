@@ -29,9 +29,12 @@ const scriptRoot = path.resolve(__dirname, '../..');
 // JSDoc tags whose {type} the docs build must be able to parse.
 const TYPE_TAG = /@(param|returns?|type|property|prop|typedef|yields?|throws|exception|augments|member|enum)\b/;
 
-// Mirror buildScripts/docs/jsdocx.mjs `files` scope + excludePattern (the surface the docs build parses):
-// underscore-prefixed paths, node_modules/dist, and the machine-local config overlays are out.
-const DEFAULT_DIRS = ['src', 'ai', 'docs/app', 'apps'];
+// The authored-source surface the team writes JSDoc in — intentionally BROADER than the docs build's
+// current parse set (which only covers configured apps): an unparseable type is a defect anywhere, even
+// where `generate-docs-json` does not yet reach (an unconfigured app/example becomes a build break the
+// moment it is wired in). Excludes underscore-prefixed aggregators, node_modules/dist, and the machine-
+// local config overlays.
+const DEFAULT_DIRS = ['src', 'ai', 'examples', 'apps', 'docs/app'];
 const EXCLUDE      = /(^|\/)_|\/node_modules\/|\/dist\/|(^|\/)ai\/config\.mjs$|(^|\/)ai\/mcp\/server\/[^/]+\/config\.mjs$/;
 
 /**

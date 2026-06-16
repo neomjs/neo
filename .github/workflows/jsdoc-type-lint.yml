@@ -8,6 +8,7 @@ on:
       - 'ai/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'apps/**/*.mjs'
+      - 'examples/**/*.mjs'
       - 'buildScripts/util/check-jsdoc-types.mjs'
       - '.github/workflows/jsdoc-type-lint.yml'
   push:
@@ -17,6 +18,7 @@ on:
       - 'ai/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'apps/**/*.mjs'
+      - 'examples/**/*.mjs'
       - 'buildScripts/util/check-jsdoc-types.mjs'
       - '.github/workflows/jsdoc-type-lint.yml'
 
