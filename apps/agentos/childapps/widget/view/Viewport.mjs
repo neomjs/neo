@@ -1,37 +1,20 @@
 import BaseViewport       from '../../../../../src/container/Viewport.mjs';
 import EvidencePane       from './EvidencePane.mjs';
-import GridContainer      from '../../../../../src/grid/Container.mjs';
 import RequestIntake      from './RequestIntake.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
- * The deterministic first-widget blueprint — the single source of truth shared by the evidence
- * pane (which shows its metadata) and the live grid (which renders its columns + rows). Keeping
- * ONE blueprint object is the whole provenance point: the metadata a reviewer inspects in the
- * evidence pane is the exact blueprint that produced the live grid below it, not a parallel
- * hand-built demo. Natural-language orchestration is intentionally out of scope for this leaf, so
- * the blueprint is fixed — the render stays deterministic and smoke-testable.
- * @type {Object}
- */
-const firstWidgetBlueprint = {
-    schema : 'Neo.grid.Container',
-    title  : 'First Neo Grid',
-    columns: [
-        {dataField: 'id',       text: 'ID'},
-        {dataField: 'task',     text: 'Task'},
-        {dataField: 'owner',    text: 'Owner'},
-        {dataField: 'evidence', text: 'Evidence'}
-    ],
-    rows: [
-        {id: 'intent',   task: 'Verify intent', owner: 'Ada',           evidence: 'Blueprint'},
-        {id: 'render',   task: 'Render grid',   owner: 'Runtime',       evidence: 'Live widget'},
-        {id: 'evidence', task: 'Show evidence', owner: 'Evidence pane', evidence: 'Safe text'}
-    ]
-};
-
-/**
  * @class AgentOSWidget.view.Viewport
  * @extends Neo.container.Viewport
+ *
+ * The H2 first-widget surface: a bounded chat intake, the evidence pane (request / response /
+ * accepted-blueprint metadata), and a stage the live grid is created INTO. The grid is no longer a
+ * declarative child — the {@link AgentOSWidget.view.ViewportController controller} creates it through
+ * the same `add → insert` path a Neural-Link `create_component` drives, then projects the actually
+ * created grid into the evidence pane. That keeps a single create path: the evidence describes the
+ * grid that was inserted into the stage, and an external agent's `create_component` into the stage flows
+ * through the identical projection. The evidence pane starts on its own default blueprint until the
+ * first insert projects the real grid over it.
  */
 class Viewport extends BaseViewport {
     static config = {
@@ -60,28 +43,22 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * The first-widget surface: a bounded chat intake, the evidence pane (request / response /
-         * accepted blueprint metadata), and the live grid the same blueprint produced.
          * @member {Object[]} items
          */
         items: [{
             module: RequestIntake
         }, {
             module   : EvidencePane,
-            reference: 'evidence-pane',
-            blueprint: firstWidgetBlueprint
+            reference: 'evidence-pane'
         }, {
-            module        : GridContainer,
-            reference     : 'first-widget-grid',
-            cls           : ['agent-os-first-widget-grid'],
-            flex          : 1,
-            columnDefaults: {width: 140},
-            columns       : firstWidgetBlueprint.columns.map(column => ({...column})),
-            store         : {
-                keyProperty: 'id',
-                model      : {fields: firstWidgetBlueprint.columns.map(column => ({name: column.dataField, type: 'String'}))},
-                data       : [...firstWidgetBlueprint.rows]
-            }
+            ntype    : 'container',
+            // a fixed, known id so an external agent can `create_component` a widget INTO this stage —
+            // the same mount point the in-app bootstrap uses; both fire the projected `insert`
+            id       : 'widget-stage',
+            reference: 'widget-stage',
+            cls      : ['agent-os-widget-stage'],
+            flex     : 1,
+            layout   : {ntype: 'fit'}
         }]
     }
 }
