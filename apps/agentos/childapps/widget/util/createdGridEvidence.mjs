@@ -76,7 +76,7 @@ function readColumns(grid) {
 /**
  * Projects a live created grid into the deterministic first-widget blueprint shape.
  *
- * @param {Object} grid the live grid component inserted via the Neural-Link create path
+ * @param {Object} grid the live grid component received from the stage's insert event
  * @returns {{schema: String, title: String, columns: Object[], rows: Array}|null}
  *   the blueprint object (exactly the `schema`/`title`/`columns`/`rows` keys
  *   `projectBlueprintEvidence` allowlists) on success, or `null` when `grid` is not a usable grid —

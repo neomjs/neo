@@ -48,7 +48,7 @@ const firstWidgetGridConfig = {
  *
  * Two responsibilities, one path. On construct it boots the first grid by `add()`-ing it to the stage
  * container (the same `add → insert` path a Neural-Link `create_component` drives), so the live grid is
- * created through the create seam rather than declared as a static item. It then observes the stage's
+ * created through the stage insert seam rather than declared as a static item. It then observes the stage's
  * `insert` event — fired for that bootstrap AND for any later external `create_component` into the same
  * stage — and projects the inserted grid into the evidence pane via {@link projectCreatedGrid},
  * so the evidence always describes the grid that was inserted into the stage, not a hand-authored
