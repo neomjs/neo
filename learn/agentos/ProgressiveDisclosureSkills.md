@@ -88,6 +88,7 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 - **Circuit Breaker:** For deep PRs (≥3 formal reviews or >24KB discussion), classifies review convergence — micro-delta for semantically-cleared PRs (+ a Maintainer Polish Fast Path for metadata fixes), full review for converging blockers, and a **scope-too-big break-up verdict** (decompose via `epic-create`) for non-converging semantic churn. Discussion size is a cost signal, not a scope signal.
 - **LGTM/Required Actions:** Ensures every review resolves in a clear state.
 - **Review Intake Guard:** Pairs with `post-review-pickup` so a fresh session checks for an author lane before entering review-only mode, unless a review-first rationale applies.
+- **Prior-art sweep gate:** Before scoring, a cheap 3–10-call Memory Core sweep (`memory-mining`) of the PR's decision space — a prior session may have settled the shape or an ADR may already govern it. PR-review is V-B-A's last line of defense, where CI-green ≠ AC-met (per `AGENTS.md` §verify_before_assert).
 
 ### 4. `ticket-create` (The Creation Gate)
 Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Creation-side dual of `ticket-intake` — they address opposite triggers (produce new vs. consume existing).
