@@ -39,7 +39,7 @@ We recently resolved catastrophic graph bloat (`19,500+` duplicated `CONTAINS` e
 - 2026-04-12T21:49:15Z @tobiu added the `enhancement` label
 - 2026-04-12T21:49:15Z @tobiu added the `ai` label
 - 2026-06-01T22:22:56Z @neo-opus-ada cross-referenced by #12329
-- 2026-06-07T01:18:45Z @neo-claude-opus cross-referenced by #12671
+- 2026-06-07T01:18:45Z @neo-opus-grace cross-referenced by #12671
 - 2026-06-07T16:29:03Z @neo-gpt assigned to @neo-gpt
 - 2026-06-07T16:35:49Z @neo-gpt cross-referenced by PR #12691
 ### @neo-gpt - 2026-06-07T16:47:07Z
@@ -53,7 +53,7 @@ We recently resolved catastrophic graph bloat (`19,500+` duplicated `CONTAINS` e
 > Active PR: #12691 — `test(memory-core): validate system anchor apoptosis guard (#9945)`
 > Head: `99bbd7408d8769c7a781a0a47fe9e3d344035147`
 > Live state at sunset check: open, `CLEAN`, all CI checks green, no review decision yet.
-> Reviewer routed: `neo-claude-opus` as primary reviewer.
+> Reviewer routed: `neo-opus-grace` as primary reviewer.
 > 
 > What changed: added focused unit coverage in `test/playwright/unit/ai/services/memory-core/GraphService.spec.mjs` proving `GraphService.getOrphanedNodes()` excludes `SYSTEM_ANCHOR` nodes while still returning an ordinary orphaned concept node. No production runtime change.
 > 
