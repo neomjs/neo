@@ -889,12 +889,13 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
  * - Fetches current assignees via `GET_ISSUE_ASSIGNEES`.
  * - If non-empty and `requireUnassigned: true` (default), rejects with `ASSIGNEE_CONFLICT` (HTTP 409)
  *   unless `acknowledgedReassign: '<reason>'` is provided.
- * - On override, performs strict-replacement (clear + add) and posts an audit-trail comment on
- *   the issue capturing the reason (per GPT STEP_BACK AC8 carry-forward).
+ * - On override, performs strict-replacement (a single REST `PATCH` replacing the assignee set) and
+ *   posts an audit-trail comment on the issue capturing the reason (per GPT STEP_BACK AC8 carry-forward).
  *
- * This spec pins the **conflict-path** behavior — the substrate-discipline value-add of the gate.
- * Override/strict-replacement/audit-trail paths depend on `child_process.exec` (no ES-module-friendly
- * mock pattern in the current test harness), so this file keeps coverage at the service boundary.
+ * This spec pins the **conflict-path** behavior — the substrate-discipline value-add of the gate —
+ * plus the REST mutation paths (clear, fresh-add, `@me` normalization, strict-replacement override,
+ * and `GITHUB_API_ERROR` failure), hermetically covered by stubbing `GraphqlService.rest` (the
+ * assignee mutations route through it now; no `child_process.exec` remains).
  *
  * @see Neo.ai.services.github-workflow.IssueService#assignIssue
  * @see https://github.com/orgs/neomjs/discussions/11536 — graduation origin (Pre-Write Coordination Substrate)
