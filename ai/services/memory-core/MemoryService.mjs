@@ -527,7 +527,9 @@ class MemoryService extends Base {
                         name: `Memory: ${timestamp}`,
                         description: `Agent thought flow inside session ${sessionId}.`,
                         semanticVectorId: memoryId,
-                        properties: {...memoryProperties, miniSummary}
+                        // Archive-aware re-upsert: a tombstone set between the initial projection and this
+                        // post-summary re-mint must not be dropped (see _withArchiveState).
+                        properties: this._withArchiveState({...memoryProperties, miniSummary})
                     });
                 }
             }).catch(() => {});
@@ -809,6 +811,14 @@ class MemoryService extends Base {
      */
     async _readPendingWalRecencyRows({identity, userId, before, excludeIds = new Set()} = {}) {
         try {
+            // Identity-level tombstone short-circuit: archiveMemoriesByAgentIdentity sweeps ALL of an
+            // identity's memories + writes a durable marker, and the graph-SQL recency path already
+            // excludes archivedAt — so an archived identity's graph-PENDING rows must be excluded here
+            // too, else they leak into recency recall during projection lag.
+            if (this._archivedIdentityState(identity)) {
+                return [];
+            }
+
             // No raw read-limit here: readPendingWalRecords walks each daily segment in append
             // (oldest-first) order, so capping the raw count would drop the NEWEST graph-pending rows
             // — exactly the just-written, not-yet-projected turns the read-after-write overlay must
@@ -1498,7 +1508,9 @@ class MemoryService extends Base {
         }
 
         const existing   = JSON.parse(row.data),
-              properties = {...(existing.properties || {}), miniSummary},
+              // Archive-aware: this addNodes overwrites the node, so a tombstone set after `existing` was
+              // read (the merge-vs-archive race) must be replayed from the durable marker (_withArchiveState).
+              properties = this._withArchiveState({...(existing.properties || {}), miniSummary}),
               nodeData   = {
                   id        : existing.id || id,
                   label     : existing.label || 'AGENT_MEMORY',

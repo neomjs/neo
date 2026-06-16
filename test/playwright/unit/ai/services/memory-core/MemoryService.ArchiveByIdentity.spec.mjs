@@ -341,4 +341,15 @@ test.describe('MemoryService — archive survives graph-projection lag (durable 
         expect(node).toBeTruthy();
         expect(node.properties.archivedAt).toBeUndefined();
     });
+
+    test('recency overlay short-circuits for an archived identity (graph-pending rows excluded)', async () => {
+        const identity = 'lag-recency-identity';
+
+        await MemoryService.archiveMemoriesByAgentIdentity({agentIdentity: identity, reason: 'lag-test'});
+
+        // The durable marker makes _readPendingWalRecencyRows short-circuit before the WAL read, so an
+        // archived identity's graph-pending rows never reach recency recall (the graph-SQL path already
+        // excludes archivedAt; this closes the WAL-pending overlay gap).
+        expect(await MemoryService._readPendingWalRecencyRows({identity, userId: 'u-irrelevant'})).toEqual([]);
+    });
 });
