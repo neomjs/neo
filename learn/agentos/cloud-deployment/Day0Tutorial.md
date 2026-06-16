@@ -29,7 +29,10 @@ connect-error (Invalid Host, missing `Accept` header, the auth layers, the
 When using the optional ingress profile, `ai/deploy/Caddyfile` binds
 `tls internal` to `NEO_DEPLOY_HOSTNAME`, defaulting to `localhost`. Set
 `NEO_DEPLOY_HOSTNAME` before starting the ingress service when testing a named
-host.
+host. If you enable the `gitlab-pat` auth profile and compose reports unhealthy
+KB/MC containers or `dependency <svc> failed to start`, see the
+[Connection Troubleshooting](./Troubleshooting.md) entry for the required
+healthcheck bearer token.
 
 ## Prerequisites
 
