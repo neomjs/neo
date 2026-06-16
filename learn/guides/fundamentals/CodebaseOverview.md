@@ -456,7 +456,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
 - `update-roadmap`: Post-release celebrate + plan-next-roadmap — cornerstones + rationale + an explicit deferred set scoped into a GitHub milestone with a named steward per epic (release-altitude analog of `epic-create`; sibling to the parked release-cut skill #10321).
 - `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence, explicit custom Playwright targeting).
-- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + a Review-Loop Cost Circuit Breaker that classifies review convergence (micro-delta when semantically cleared; scope-too-big break-up via `epic-create` for non-converging churn) (enforces mandatory ROI template usage).
+- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + a Review-Loop Cost Circuit Breaker that classifies review convergence (micro-delta when semantically cleared; scope-too-big break-up via `epic-create` for non-converging churn) + a prior-art Memory Core sweep gate before scoring (CI-green ≠ AC-met) (enforces mandatory ROI template usage).
 - `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
 
 **Tactical (live operations):**
@@ -466,7 +466,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `unit-test`: Synthetically driving custom Playwright configs natively within the single-thread architecture.
 - `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests with custom Playwright configs.
 - `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
-- `memory-mining`: Querying Memory Core before diagnosing regressions or proposing architectural claims — prevents re-derivation of prior reasoning across sessions and harnesses.
+- `memory-mining`: Querying Memory Core before diagnosing regressions, proposing architectural claims, or beginning an implementation / PR-review — prevents re-derivation of prior reasoning across sessions and harnesses.
 - `context-recovery`: Reconstructing active lane state after context compaction from Memory Core recency, semantic recall, session rollups, and A2A before resuming.
 - `neo-identity-update`: Updating Neo's identity coherently across all encoding surfaces (README, VISION, package.json, GitHub metadata, portal, SEO generators) — facts, framing, and actions model per ADR 0018.
 - `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
