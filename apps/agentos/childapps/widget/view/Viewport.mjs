@@ -1,6 +1,8 @@
-import BaseViewport  from '../../../../../src/container/Viewport.mjs';
-import EvidencePane  from './EvidencePane.mjs';
-import GridContainer from '../../../../../src/grid/Container.mjs';
+import BaseViewport       from '../../../../../src/container/Viewport.mjs';
+import EvidencePane       from './EvidencePane.mjs';
+import GridContainer      from '../../../../../src/grid/Container.mjs';
+import RequestIntake      from './RequestIntake.mjs';
+import ViewportController from './ViewportController.mjs';
 
 /**
  * The deterministic first-widget blueprint — the single source of truth shared by the evidence
@@ -39,6 +41,11 @@ class Viewport extends BaseViewport {
          */
         className: 'AgentOSWidget.view.Viewport',
         /**
+         * @member {Neo.controller.Component} controller=AgentOSWidget.view.ViewportController
+         * @reactive
+         */
+        controller: ViewportController,
+        /**
          * @member {String[]} additionalThemeFiles=['AgentOS.view.Viewport']
          */
         additionalThemeFiles: ['AgentOS.view.Viewport'],
@@ -53,12 +60,15 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * The first-widget surface: the evidence pane (request / response / accepted blueprint
-         * metadata) above the live grid that the same blueprint produced.
+         * The first-widget surface: a bounded chat intake, the evidence pane (request / response /
+         * accepted blueprint metadata), and the live grid the same blueprint produced.
          * @member {Object[]} items
          */
         items: [{
+            module: RequestIntake
+        }, {
             module   : EvidencePane,
+            reference: 'evidence-pane',
             blueprint: firstWidgetBlueprint
         }, {
             module        : GridContainer,
