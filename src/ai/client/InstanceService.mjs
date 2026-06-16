@@ -92,7 +92,12 @@ class InstanceService extends Service {
     createInstance({className, config={}, ntype, parentId}, context) {
         const
             createConfig = this.buildCreateInstanceConfig({className, config, ntype}),
-            parent       = parentId ? Neo.getComponent(parentId) : null;
+            // Deep-snapshot the resolved config BEFORE instantiation: Neo.ntype / Neo.create → construct
+            // consumes the `ntype` / `className` meta keys off createConfig, so the redo forward-op must
+            // capture them from a pre-instantiation copy — else a redo re-dispatch has no class to
+            // instantiate and fails closed ("provide `className` or `ntype`").
+            reverseConfig = this.safeSerialize(createConfig),
+            parent        = parentId ? Neo.getComponent(parentId) : null;
 
         if (parentId) {
             if (!parent) {
@@ -124,7 +129,7 @@ class InstanceService extends Service {
         }
 
         this.recordUndo(context, this.buildCreateInstanceReverse({
-            config  : createConfig,
+            config  : reverseConfig,
             context,
             instance: attachedInstance,
             parentId

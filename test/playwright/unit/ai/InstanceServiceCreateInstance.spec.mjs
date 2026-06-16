@@ -146,4 +146,39 @@ test.describe('Neo.ai.client.InstanceService - create_instance', () => {
         expect(() => service.destroyInstance({id: 'created-store'}, ID)).toThrow(/internal undo\/redo replay/);
         expect(Neo.get('created-store')).toBeInstanceOf(Store)
     });
+
+    test('the captured create forward-op retains a top-level ntype despite instantiation (regression lock, #13412)', () => {
+        service.createInstance({
+            ntype   : 'component',
+            parentId: 'create-instance-container',
+            config  : {id: 'capture-button', text: 'Captured'}
+        }, ID);
+
+        const op = transactionService.stackOf({id: ID}).committed[0].ops[0];
+
+        expect(op.forward.tool).toBe('create_instance');
+        // Neo.ntype / Neo.create consume the meta keys off the live createConfig during instantiation,
+        // so the redo forward-op must carry a pre-instantiation snapshot — else a redo re-dispatch has
+        // no class to instantiate and fails closed.
+        expect(op.forward.args.config.ntype).toBe('component')
+    });
+
+    test('create -> undo -> redo re-applies the create (the undo/redo cycle, #13412)', async () => {
+        service.createInstance({
+            ntype   : 'component',
+            parentId: 'create-instance-container',
+            config  : {id: 'redo-button', text: 'Redo me'}
+        }, ID);
+        expect(Neo.getComponent('redo-button')).toBeInstanceOf(Component);
+
+        const undo = await service.undo({}, ID);
+        expect(undo.undone).toBe(true);
+        expect(Neo.getComponent('redo-button')?.isDestroyed ?? true).toBe(true);
+
+        // Pre-fix this returned {redone:false, reason:'redo-denied: provide className or ntype'} — the
+        // captured forward-op had lost its ntype. redone:true + reapplied:1 locks the re-dispatch.
+        const redo = await service.redo({}, ID);
+        expect(redo.redone).toBe(true);
+        expect(redo.reapplied).toBe(1)
+    })
 });
