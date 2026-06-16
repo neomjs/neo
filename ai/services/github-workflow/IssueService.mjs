@@ -486,7 +486,9 @@ class IssueService extends Base {
         }
 
         if (assignees && assignees.length > 0) {
-            payload.assignees = assignees;
+            // `@me` is a gh-CLI alias the create_issue contract advertises (assigns the authenticated
+            // user); the REST issues endpoint expects concrete logins, so it must be normalized first.
+            payload.assignees = await this.#resolveAssigneeAliases(assignees);
         }
 
         try {
@@ -524,6 +526,32 @@ class IssueService extends Base {
                 code   : 'GITHUB_API_ERROR'
             };
         }
+    }
+
+    /**
+     * @summary Resolves the `@me` assignee alias to the authenticated user's login.
+     *
+     * `create_issue` advertises `@me` (the gh-CLI convenience the prior `gh issue create` path relied
+     * on) as a valid assignee; GitHub's REST issues endpoint expects concrete user logins, so `@me`
+     * must be normalized before the REST call. Resolution uses the cached-token `GET /user` — a single
+     * round-trip, made only when the alias is actually present. Non-alias logins pass through unchanged.
+     * @param {String[]} assignees
+     * @returns {Promise<String[]>}
+     * @private
+     */
+    async #resolveAssigneeAliases(assignees) {
+        if (!assignees.includes('@me')) {
+            return assignees;
+        }
+
+        const viewer = await GraphqlService.rest('GET', '/user'),
+              login  = viewer?.login;
+
+        if (!login) {
+            throw new Error('Could not resolve the `@me` assignee alias: GitHub REST /user returned no login.');
+        }
+
+        return assignees.map(assignee => assignee === '@me' ? login : assignee);
     }
 
     /**

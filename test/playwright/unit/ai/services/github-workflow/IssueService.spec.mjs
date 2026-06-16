@@ -1258,7 +1258,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — createIssue REST
         expect(result.error).toBeUndefined();
     });
 
-    test('passes label NAMES and assignee LOGINS verbatim (no node-ID resolution)', async () => {
+    test('passes label NAMES and concrete assignee LOGINS verbatim (no node-ID resolution)', async () => {
         let captured;
         GraphqlService.rest = async (method, path, body) => {
             captured = {method, path, body};
@@ -1268,11 +1268,31 @@ test.describe('Neo.ai.services.github-workflow.IssueService — createIssue REST
         await IssueService.createIssue({
             title    : 'Tagged',
             labels   : ['bug', 'ai'],
-            assignees: ['neo-opus-vega', '@me']
+            assignees: ['neo-opus-vega', 'tobiu']
         });
 
         expect(captured.body.labels).toEqual(['bug', 'ai']);
-        expect(captured.body.assignees).toEqual(['neo-opus-vega', '@me']);
+        expect(captured.body.assignees).toEqual(['neo-opus-vega', 'tobiu']);
+    });
+
+    test('normalizes the @me assignee alias to the authenticated login before the REST call', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            if (method === 'GET' && path === '/user') {
+                return {login: 'neo-opus-vega'};
+            }
+            captured = {method, path, body};
+            return {number: 14002, html_url: 'https://github.com/neomjs/neo/issues/14002'};
+        };
+
+        await IssueService.createIssue({
+            title    : 'Self-assigned',
+            assignees: ['@me', 'tobiu']
+        });
+
+        // The create_issue contract promises `@me` resolves to the authenticated user; REST takes
+        // concrete logins, so it must be normalized via GET /user. Concrete logins pass through.
+        expect(captured.body.assignees).toEqual(['neo-opus-vega', 'tobiu']);
     });
 
     test('omits labels/assignees keys entirely when the arrays are empty', async () => {
