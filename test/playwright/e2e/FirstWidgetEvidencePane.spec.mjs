@@ -1,38 +1,43 @@
 import {test, expect} from '../fixtures.mjs';
 
 /**
- * @summary H2 render smoke: the first-widget evidence pane and the live grid render TOGETHER.
+ * @summary H2 render proof: the first-widget evidence pane and the live grid render together, and
+ * the grid actually renders the blueprint's content ROWS — not an empty grid.
  *
- * This is the AC6 counterpart to the unit specs (which prove the projection + safe-render source
- * boundary). It boots the AgentOSWidget child app and verifies end-to-end that the EvidencePane
- * (request / response / accepted-blueprint metadata) and the live grid BOTH render, and that the
- * grid actually rendered the SAME deterministic blueprint's rows the evidence pane describes — the
- * H2 provenance point. No Neural Link / NL orchestration is involved (out of scope for the leaf);
- * the blueprint is fixed, so the render is deterministic.
+ * The AC6 counterpart to the unit specs (which prove the projection + safe-render boundary). It
+ * boots the AgentOSWidget child app and verifies the EvidencePane (request + accepted-blueprint
+ * metadata) AND that the live grid renders ALL of the SAME deterministic blueprint's rows — the
+ * provenance point of the leaf. The cell-COUNT + per-row cell-VALUE assertions are deliberate: a
+ * grid that mounts but renders zero content rows MUST fail here. (An earlier weak `toContainText`-
+ * only check passed against a stale dev-server render and never validated a real row — fixed.)
  *
  * @see apps/agentos/childapps/widget/view/Viewport.mjs
  */
-test.describe('AgentOS first widget — evidence pane + live grid (H2 render smoke)', () => {
+test.describe('AgentOS first widget — evidence pane + live grid rows (H2 render proof)', () => {
     test.setTimeout(90000);
 
-    test('renders the evidence pane and the live grid together from one blueprint', async ({page}) => {
+    test('renders the evidence pane and the grid with all blueprint content rows', async ({page}) => {
         await page.goto('/apps/agentos/childapps/widget/index.html');
 
         const evidence = page.locator('.agent-os-evidence-pane'),
               grid     = page.locator('.agent-os-first-widget-grid');
 
-        // 1) the evidence pane renders
         await expect(evidence).toBeVisible({timeout: 30000});
-        // 2) the live grid renders alongside it (render TOGETHER)
         await expect(grid).toBeVisible({timeout: 30000});
 
-        // 3) the evidence pane shows the deterministic request + accepted-blueprint metadata
+        // evidence pane: deterministic request + accepted-blueprint metadata (scalar, safe text)
         await expect(evidence).toContainText('build me a neo grid');
         await expect(evidence).toContainText('Neo.grid.Container');
         await expect(evidence).toContainText('First Neo Grid');
 
-        // 4) the live grid actually rendered the SAME blueprint's rows (provenance: evidence == grid)
-        await expect(grid).toContainText('Verify intent', {timeout: 30000});
-        await expect(grid).toContainText('Show evidence');
+        // the live grid renders ALL blueprint rows — 3 rows × 4 columns = 12 cells. `toHaveCount`
+        // auto-waits for the async render to settle; an empty grid (0 cells) FAILS this assertion.
+        await expect(grid.locator('.neo-grid-cell')).toHaveCount(12, {timeout: 30000});
+
+        // and each content row's value is actually rendered in the grid (not just buffered) — the
+        // provenance link: what the evidence pane describes is what the grid below it renders.
+        for (const value of ['Verify intent', 'Render grid', 'Show evidence']) {
+            await expect(grid.locator('.neo-grid-cell', {hasText: value})).toHaveCount(1)
+        }
     });
 });

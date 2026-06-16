@@ -33,7 +33,7 @@ const ALLOWED_KEYS = ['schema', 'title', 'columns', 'rows'];
  *   `{accepted: false, reason}` when the input is missing, malformed, or carries unexpected keys.
  */
 export function projectBlueprintEvidence(blueprint) {
-    if (!blueprint || typeof blueprint !== 'object' || Array.isArray(blueprint)) {
+    if (!Neo.isObject(blueprint)) {
         return {accepted: false, reason: 'Blueprint evidence is missing or not an object.'}
     }
 
