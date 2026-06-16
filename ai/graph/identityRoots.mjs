@@ -441,9 +441,10 @@ export const IDENTITIES = [
                 trigger: 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
-                    adapter: 'codex-app-server',
+                    adapter: 'osascript',
                     appName: 'Codex',
-                    tabShortcut: null
+                    tabShortcut: null,
+                    focusSeedKey: 'r'
                 }
             },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md §neo_gpt.

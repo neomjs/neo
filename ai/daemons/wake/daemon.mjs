@@ -737,10 +737,10 @@ function fileIsExecutableSync(filePath) {
 /**
  * @summary Dispatches a Codex wake digest through the native Codex app-server control plane.
  *
- * This is the normal wake-daemon equivalent of the existing resume-harness
- * `codex debug app-server send-message-v2 <payload>` route. It intentionally does
- * not fall back to `osascript`; a route explicitly configured as `codex-app-server`
- * must fail visibly instead of recreating the GUI-focus delivery path.
+ * This is the explicit wake-daemon route for subscriptions configured as
+ * `codex-app-server`. It intentionally does not fall back to `osascript`; a route
+ * explicitly configured as `codex-app-server` must fail visibly instead of
+ * recreating the GUI-focus delivery path.
  *
  * `send-message-v2` command success proves app-server acceptance/injection only.
  * The Codex prompt-submission / turn-start boundary remains a wake-prompt landing
@@ -974,7 +974,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                     `[Wake Daemon] Codex UI wake delivery refused for ${subscription.id}: ` +
                     `no validated composer-focus primitive (per #10664). ` +
                     `Subscription must opt in via meta.focusSeedKey with a verified primitive, ` +
-                    `or wait for the #10517 Codex app-server adapter.`
+                    `or use a submit-proven Codex app-server route.`
                 );
                 return;
             }
