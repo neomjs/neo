@@ -93,7 +93,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 
 ### 4.2 Issue Management
 
-*   **`create_issue`**: **Authoritative** tool for creating tickets. Uses `gh issue create`.
+*   **`create_issue`**: **Authoritative** tool for creating tickets. Routes through `GraphqlService`'s cached-token REST path (`POST /issues`); the `@me` assignee alias is normalized to the authenticated login before the call.
 *   **`list_issues`**: Lists issues with filtering. Uses client-side filtering for labels/assignees to reduce API complexity.
 *   **`get_local_issue_by_id`**: Fast, offline retrieval of an issue's full Markdown content from the local file system.
 *   **`add_labels` / `remove_labels`**: Manages labels via GraphQL mutations.
@@ -233,7 +233,7 @@ The `create_issue` MCP tool accepts an optional `projects` parameter:
 }
 ```
 
-The issue is created via `gh issue create`, then attached to each ProjectV2 board via `addProjectV2ItemById`. Partial-attach is the graceful failure mode (issue exists; orphan-rollback would be worse for agent workflows).
+The issue is created via `GraphqlService`'s cached-token REST path (`POST /issues`; the `@me` assignee alias above is normalized to the authenticated login), then attached to each ProjectV2 board via `addProjectV2ItemById`. Partial-attach is the graceful failure mode (issue exists; orphan-rollback would be worse for agent workflows).
 
 ### Agent ergonomics — post-create membership management
 

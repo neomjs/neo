@@ -1202,3 +1202,161 @@ test.describe('Neo.ai.services.github-workflow.IssueService — getConversation 
         expect(result.message).toContain('authentication');
     });
 });
+
+/**
+ * @summary Contract coverage for `IssueService.createIssue` REST routing.
+ *
+ * `createIssue` now routes through `GraphqlService.rest` (cached-token, retry-equipped REST path)
+ * instead of a fresh per-call `spawn('gh', ['issue','create'])`. These tests pin: the REST request
+ * shape (`POST /repos/{owner}/{repo}/issues` with label NAMES + assignee LOGINS passed verbatim —
+ * no node-ID resolution), the empty-collection omission contract, success result mapping
+ * (`{issueNumber, url}` from REST `{number, html_url}`), and structured `GITHUB_API_ERROR`
+ * failure handling. Each test monkey-patches `GraphqlService.rest`, mirroring the established
+ * `GraphqlService.query` stub pattern used throughout this file.
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#createIssue
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — createIssue REST routing (#13352)', () => {
+    let IssueService;
+    let GraphqlService;
+    let RepositoryService;
+    let originalRest;
+    let originalGetViewerPermission;
+
+    test.beforeAll(async () => {
+        GraphqlService    = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        RepositoryService = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
+        IssueService      = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalRest                = GraphqlService.rest.bind(GraphqlService);
+        originalGetViewerPermission = RepositoryService.getViewerPermission.bind(RepositoryService);
+
+        // Default permission stub — write-eligible for the duration of this describe block.
+        RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
+    });
+
+    test.afterAll(() => {
+        GraphqlService.rest                   = originalRest;
+        RepositoryService.getViewerPermission = originalGetViewerPermission;
+    });
+
+    test('routes creation through GraphqlService.rest (POST /issues) and maps the response', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {number: 13999, html_url: 'https://github.com/neomjs/neo/issues/13999'};
+        };
+
+        const result = await IssueService.createIssue({title: 'Hello', body: 'World'});
+
+        expect(captured.method).toBe('POST');
+        expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues$/);
+        expect(captured.body.title).toBe('Hello');
+        expect(captured.body.body).toBe('World');
+        expect(result.issueNumber).toBe(13999);
+        expect(result.url).toBe('https://github.com/neomjs/neo/issues/13999');
+        expect(result.error).toBeUndefined();
+    });
+
+    test('passes label NAMES and concrete assignee LOGINS verbatim (no node-ID resolution)', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {number: 14000, html_url: 'https://github.com/neomjs/neo/issues/14000'};
+        };
+
+        await IssueService.createIssue({
+            title    : 'Tagged',
+            labels   : ['bug', 'ai'],
+            assignees: ['neo-opus-vega', 'tobiu']
+        });
+
+        expect(captured.body.labels).toEqual(['bug', 'ai']);
+        expect(captured.body.assignees).toEqual(['neo-opus-vega', 'tobiu']);
+    });
+
+    test('normalizes the @me assignee alias to the authenticated login before the REST call', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            if (method === 'GET' && path === '/user') {
+                return {login: 'neo-opus-vega'};
+            }
+            captured = {method, path, body};
+            return {number: 14002, html_url: 'https://github.com/neomjs/neo/issues/14002'};
+        };
+
+        await IssueService.createIssue({
+            title    : 'Self-assigned',
+            assignees: ['@me', 'tobiu']
+        });
+
+        // The create_issue contract promises `@me` resolves to the authenticated user; REST takes
+        // concrete logins, so it must be normalized via GET /user. Concrete logins pass through.
+        expect(captured.body.assignees).toEqual(['neo-opus-vega', 'tobiu']);
+    });
+
+    test('returns GITHUB_API_ERROR (does not throw) when @me normalization GET /user fails', async () => {
+        GraphqlService.rest = async (method, path) => {
+            if (method === 'GET' && path === '/user') {
+                throw new Error('GET /user failed');
+            }
+            return {number: 1, html_url: 'https://github.com/neomjs/neo/issues/1'};
+        };
+
+        // The alias resolver runs inside createIssue's try, so a GET /user failure maps to the same
+        // structured error as a POST failure — it must NOT escape as a thrown exception.
+        const result = await IssueService.createIssue({title: 'Doomed alias', assignees: ['@me']});
+
+        expect(result.error).toBe('GitHub API request failed');
+        expect(result.code).toBe('GITHUB_API_ERROR');
+    });
+
+    test('returns GITHUB_API_ERROR when GET /user returns no login during @me normalization', async () => {
+        GraphqlService.rest = async (method, path) => {
+            if (method === 'GET' && path === '/user') {
+                return {};
+            }
+            return {number: 2, html_url: 'https://github.com/neomjs/neo/issues/2'};
+        };
+
+        const result = await IssueService.createIssue({title: 'No login', assignees: ['@me']});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('@me');
+    });
+
+    test('omits labels/assignees keys entirely when the arrays are empty', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {number: 14001, html_url: 'https://github.com/neomjs/neo/issues/14001'};
+        };
+
+        await IssueService.createIssue({title: 'Bare'});
+
+        expect('labels' in captured.body).toBe(false);
+        expect('assignees' in captured.body).toBe(false);
+        expect(captured.body.body).toBe('No additional details provided.');
+    });
+
+    test('returns structured GITHUB_API_ERROR when the REST request fails', async () => {
+        GraphqlService.rest = async () => {
+            throw new Error('GitHub REST request failed: POST /repos/o/r/issues -> 422 Unprocessable Entity');
+        };
+
+        const result = await IssueService.createIssue({title: 'Doomed'});
+
+        expect(result.error).toBe('GitHub API request failed');
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('422');
+    });
+
+    test('returns GITHUB_API_ERROR when the REST response lacks an issue number', async () => {
+        GraphqlService.rest = async () => ({html_url: 'https://github.com/neomjs/neo/issues/?'});
+
+        const result = await IssueService.createIssue({title: 'Numberless'});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('issue number');
+    });
+});
