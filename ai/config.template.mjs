@@ -208,27 +208,32 @@ class Config extends ConfigProvider {
              */
             localModels: {
                 /**
-                 * @summary Chat-model context limits in tokens.
+                 * @summary Chat-model context limits in tokens — a WORKLOAD FLOOR, not a RAM-fit target.
                  *
-                 * Tuned for `gemma-4-31b-it` (native 256K context). Operators serving
-                 * smaller chat models should pin this to the actual loaded-model capacity;
-                 * `ConsumerFrictionHelper.invokeWithGuardrail` uses these values to fire
-                 * the upstream pre-check skip (emits `'context-overflow'` /
-                 * `'size-precheck-skip'` friction) when composed input exceeds the safe
-                 * processing band.
+                 * Default is HALF of `gemma-4-31b-it`'s native 256K context (131072). This is a
+                 * deliberate floor, NOT a value auto-shrunk to fit free host RAM: graph extraction
+                 * (`SemanticGraphExtractor`, `TopologyInferenceEngine`) and session summaries
+                 * (`SessionService`) read this via the AiConfig SSOT and degrade below ~half. The
+                 * host is sized to load the model at this window (free co-resident RAM / raise the
+                 * env), rather than the config shrinking the window to whatever RAM is spare — total
+                 * system RAM does not predict a co-resident model's actual headroom.
+                 * `ConsumerFrictionHelper.invokeWithGuardrail` uses these values to fire the upstream
+                 * pre-check skip (emits `'context-overflow'` / `'size-precheck-skip'` friction) when
+                 * composed input exceeds the safe-processing band.
                  *
-                 * `safeProcessingLimitTokens` is the explicit ~76% headroom band — leaves
-                 * ~62K tokens for system-prompt envelope + LLM response generation. Explicit
-                 * value avoids implicit `0.75 × cap` derivation drift if the cap moves.
+                 * `safeProcessingLimitTokens` is the explicit ~76% headroom band (100000) — leaves
+                 * ~31K tokens for system-prompt envelope + LLM response generation. Explicit value
+                 * avoids implicit `0.75 × cap` derivation drift if the cap moves.
                  *
-                 * Env overrides: `NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS`,
+                 * Per-host tuning is the env override, not a host-RAM heuristic:
+                 * `NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS`,
                  * `NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS`.
                  *
                  * @type {Object}
                  */
                 chat: {
-                    contextLimitTokens       : leaf(262144, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(200000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
+                    contextLimitTokens       : leaf(131072, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(100000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
                 },
                 /**
                  * @summary Embedding-model context limits in tokens.
