@@ -1988,7 +1988,7 @@ test.describe('Wake Daemon', () => {
         expect(fs.existsSync(mockOutPath)).toBe(false);
     });
 
-    test('Codex wake delivery emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste (#10667)', async () => {
+    test('Codex wake delivery emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste -> Esc -> Enter (#10667, #13287)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-cleanup';
 
@@ -2080,6 +2080,7 @@ test.describe('Wake Daemon', () => {
         const aIndex = scriptContent.indexOf('keystroke "a" using command down');
         const xIndex = scriptContent.indexOf('keystroke "x" using command down');
         const pasteIndex = scriptContent.indexOf('keystroke "v" using command down');
+        const escapeIndex = scriptContent.indexOf('key code 53');
         const enterIndex = scriptContent.indexOf('key code 36');
 
         expect(rIndex).toBeGreaterThan(-1);
@@ -2087,7 +2088,8 @@ test.describe('Wake Daemon', () => {
         expect(aIndex).toBeGreaterThan(zIndex);
         expect(xIndex).toBeGreaterThan(aIndex);
         expect(pasteIndex).toBeGreaterThan(xIndex);
-        expect(enterIndex).toBeGreaterThan(pasteIndex);
+        expect(escapeIndex).toBeGreaterThan(pasteIndex);
+        expect(enterIndex).toBeGreaterThan(escapeIndex);
         expect(rawArgs.at(-1)).toContain('[WAKE][priority:normal]');
         expect(rawArgs.at(-1)).toContain('Test Codex Cleanup');
         expect(rawArgs.at(-1)).not.toContain('lifecycle-first');
@@ -2245,11 +2247,13 @@ test.describe('Wake Daemon', () => {
         const rawArgs       = JSON.parse(fs.readFileSync(mockOutPath, 'utf-8'));
         const scriptContent = rawArgs.filter((_, i) => rawArgs[i - 1] === '-e').join('\n');
         const pasteIndex    = scriptContent.indexOf('keystroke "v" using command down');
+        const escapeIndex   = scriptContent.indexOf('key code 53');
         const enterIndex    = scriptContent.indexOf('key code 36');
         const digest        = rawArgs.at(-1);
 
         expect(pasteIndex).toBeGreaterThan(-1);
-        expect(enterIndex).toBeGreaterThan(pasteIndex);
+        expect(escapeIndex).toBeGreaterThan(pasteIndex);
+        expect(enterIndex).toBeGreaterThan(escapeIndex);
         expect(digest).toContain('Codex Mixed Submit');
         expect(digest).toContain('new messages');
         expect(digest).toContain('heartbeat pulses');
