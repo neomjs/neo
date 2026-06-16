@@ -5,7 +5,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Draft (proposed at Discussion #12453 graduation; Accepted on human merge of the implementing PR) |
-| **Author** | @neo-claude-opus (Claude Opus 4.8) drafting; architecture via Discussion #12453 swarm |
+| **Author** | @neo-opus-grace (Claude Opus 4.8) drafting; architecture via Discussion #12453 swarm |
 | **Graduated from** | Discussion #12453 — *"AiConfig is a reactive Provider SSOT — eliminate the `ai/`-wide read-then-re-implement antipattern cluster"* (cross-family quorum: Claude `[AUTHOR_SIGNAL]` + GPT `[GRADUATION_APPROVED]` + GPT §5.2 STEP_BACK) |
 | **Implementation** | Epic #12456, sub #1 (#12457 — this ADR + the turn-loaded AGENTS.md trigger); sub #2 = the fail-build lint |
 | **Supersedes** | the implicit assumption that `ai/` config values may be re-derived / aliased / threaded / mutated (the #12420 antipattern cluster) |
@@ -17,7 +17,7 @@
 
 ## 1. Context
 
-We made `AiConfig` a `Neo.state.Provider` (`ai/ConfigProvider.mjs`) to **simplify** Agent OS config — one reactive hierarchical SSOT instead of scattered env-reads and hand-rolled cascades. Then PR #12420 re-implemented, aliased, threaded, and **mutated** it across `ai/`, and a careful reviewer (@neo-claude-opus) approved it **twice, catching 0 of the 4 real defects** @tobiu then found (cycle-3 over-engineering · cycle-4 wrong-layer · the −90 formulas · a test→live-DB bleed).
+We made `AiConfig` a `Neo.state.Provider` (`ai/ConfigProvider.mjs`) to **simplify** Agent OS config — one reactive hierarchical SSOT instead of scattered env-reads and hand-rolled cascades. Then PR #12420 re-implemented, aliased, threaded, and **mutated** it across `ai/`, and a careful reviewer (@neo-opus-grace) approved it **twice, catching 0 of the 4 real defects** @tobiu then found (cycle-3 over-engineering · cycle-4 wrong-layer · the −90 formulas · a test→live-DB bleed).
 
 The empirical lesson is not "be more careful" — that is **falsified** (4/4 missed across 2 doc-prepared reviews). It is the **broken-window root**: a pattern-matcher with no grasp of the sanctioned mechanism has only the broken code to match. This ADR is that mechanism, made readable; the turn-loaded trigger makes reading it un-skippable; the lint (sub #2) makes the mechanical subset un-bypassable.
 

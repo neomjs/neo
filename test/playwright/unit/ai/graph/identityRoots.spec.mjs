@@ -28,7 +28,7 @@ import {IDENTITIES}   from '../../../../../ai/graph/identityRoots.mjs';
  * session every heartbeat — the fresh-session loop.
  *
  * `@neo-opus-vega` (the 3rd same-app harness) had neither and was caught in that loop, so it
- * gets the static template here, mirroring `@neo-opus-ada`. `@neo-claude-opus` is active via a
+ * gets the static template here, mirroring `@neo-opus-ada`. `@neo-opus-grace` is active via a
  * self-registered runtime subscription and deliberately carries NO static template — asserted
  * below so a static route it does not need cannot be re-introduced.
  *
@@ -72,12 +72,12 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
     }
 
     // Self-registered-runtime identities carry NO static template: their wake route registers at
-    // runtime from a distinct boot env. @neo-claude-opus uses a self-registered WAKE_SUBSCRIPTION;
+    // runtime from a distinct boot env. @neo-opus-grace uses a self-registered WAKE_SUBSCRIPTION;
     // @neo-fable runs as a fully isolated Claude instance (its own --user-data-dir per @tobiu), whose
     // distinct user-data-dir IS the per-instance address ada/vega's shared static tabShortcut lacks.
     // Asserting absence prevents re-introducing a static route these identities do not need (and
     // which would cross-leak).
-    for (const id of ['@neo-claude-opus', '@neo-fable']) {
+    for (const id of ['@neo-opus-grace', '@neo-fable']) {
         test(`${id} carries no static template (active via self-registered runtime subscription)`, () => {
             const entry = findIdentity(id);
             expect(entry).toBeTruthy();

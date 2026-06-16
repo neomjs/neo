@@ -154,7 +154,7 @@ Lead can be passed between sessions by the A2A Baton Pass V1 (`#11038`).
 This is a deterministic handoff, not leader election.
 
 **Fixed cycle (single source of truth — other skills point here, never duplicate this roster):**
-`['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega', '@neo-gpt']`.
+`['@neo-opus-ada', '@neo-opus-grace', '@neo-opus-vega', '@neo-gpt']`.
 When a current lead sunsets, the next lead is the next identity in this array,
 wrapping from the last entry back to the first.
 

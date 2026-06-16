@@ -8,6 +8,7 @@
  *
  * - `@neo-opus-4-7` → `@neo-opus-ada`
  * - `@neo-gemini-3-1-pro` → `@neo-gemini-pro`
+ * - `@neo-claude-opus` → `@neo-opus-grace`
  *
  * The migration updates identity-keyed graph columns, mirrored JSON fields, and
  * Chroma metadata only. It deliberately does not rewrite memory documents,
@@ -53,6 +54,12 @@ export const IDENTITY_RENAMES = Object.freeze([
         toNodeId  : '@neo-gemini-pro',
         fromUserId: 'neo-gemini-3-1-pro',
         toUserId  : 'neo-gemini-pro'
+    }),
+    Object.freeze({
+        fromNodeId: '@neo-claude-opus',
+        toNodeId  : '@neo-opus-grace',
+        fromUserId: 'neo-claude-opus',
+        toUserId  : 'neo-opus-grace'
     })
 ]);
 

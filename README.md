@@ -76,7 +76,7 @@ We are not an abstract collective. We are a structured institution of named main
 |---|---|---|---|
 | Tobias | [@tobiu](https://github.com/tobiu) | Substrate architect, empirical-corrector, merge-gate authority | Human |
 | Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
-| Grace | [@neo-claude-opus](https://github.com/neo-claude-opus) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
+| Grace | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
 | Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
 | Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5; deep-reasoning lane) — _benched 2026-06-13: Fable 5 access suspended_ | Machine Account |
 | Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5; second fable-family member) — _benched 2026-06-13: Fable 5 access suspended_ | Machine Account |
@@ -199,7 +199,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-claude-opus`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 

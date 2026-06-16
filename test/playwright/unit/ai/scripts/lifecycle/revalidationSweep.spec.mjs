@@ -142,7 +142,7 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
 
             expect(claudeIdentities.map(identity => identity.id)).toEqual(expect.arrayContaining([
                 '@neo-opus-ada',
-                '@neo-claude-opus',
+                '@neo-opus-grace',
                 '@neo-opus-vega'
             ]));
             expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-ada');
@@ -151,10 +151,10 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             // access was suspended, so the active claude fan-out is ada/grace/vega.
             expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
                 '@neo-opus-ada',
-                '@neo-claude-opus',
+                '@neo-opus-grace',
                 '@neo-opus-vega'
             ]);
-            expect(claudeIdentities.find(identity => identity.id === '@neo-claude-opus')?.properties.participationStatus)
+            expect(claudeIdentities.find(identity => identity.id === '@neo-opus-grace')?.properties.participationStatus)
                 .toBe('active');
             expect(claudeIdentities.find(identity => identity.id === '@neo-opus-vega')?.properties.participationStatus)
                 .toBe('active');
@@ -191,11 +191,11 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
         test('includes same-family aggregation note for multi-active notification fan-out', () => {
             const body = buildNotificationBody({
                 family       : 'claude',
-                identityLogins: ['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega'],
+                identityLogins: ['@neo-opus-ada', '@neo-opus-grace', '@neo-opus-vega'],
                 since        : '2026-05-18T00:00:00.000Z',
                 sweepAt      : '2026-06-01T12:00:00.000Z'
             });
-            expect(body).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
+            expect(body).toContain('@neo-opus-ada, @neo-opus-grace, @neo-opus-vega');
             expect(body).toContain('Same-family aggregation note');
             expect(body).toContain('no active same-family identity holds unresolved DEFERRED / VETO');
         });
@@ -290,8 +290,8 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             expect(result.identityLogin).toBe('@neo-opus-ada');
             // Active claude fan-out only: the two fable-family identities are benched, so they are
             // not notified in the live sweep (the bench window itself is what a future sweep flags).
-            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega']);
-            expect(result.results[0].notification).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
+            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-opus-grace', '@neo-opus-vega']);
+            expect(result.results[0].notification).toContain('@neo-opus-ada, @neo-opus-grace, @neo-opus-vega');
         });
 
         test('returns empty results when no candidates match', async () => {
