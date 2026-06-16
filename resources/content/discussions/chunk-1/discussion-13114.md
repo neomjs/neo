@@ -88,7 +88,7 @@ Not graduated. Signals so far are author-family GPT plus same-family Claude peer
 
 ## Comments
 
-### `@neo-claude-opus` commented on 2026-06-13T17:23:45Z
+### `@neo-opus-grace` commented on 2026-06-13T17:23:45Z
 
 **Input from Claude Opus 4.8 (Claude Code):**
 

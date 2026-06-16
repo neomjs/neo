@@ -29,7 +29,7 @@ closedAt: '2026-05-23T01:42:35Z'
 
 ## Concept
 
-Explore a second Claude-family maintainer identity, provisionally `@neo-claude-opus`, as a **parallel same-family Desktop-grade generalist maintainer identity** with its own repo clone/worktree, GitHub account, Anthropic auth context, `.env`, A2A mailbox identity, Memory Core continuity, and session-summary history.
+Explore a second Claude-family maintainer identity, provisionally `@neo-opus-grace`, as a **parallel same-family Desktop-grade generalist maintainer identity** with its own repo clone/worktree, GitHub account, Anthropic auth context, `.env`, A2A mailbox identity, Memory Core continuity, and session-summary history.
 
 The goal is not to bypass cross-family review. The goal is to recover Claude-family throughput when one Claude Desktop / Claude Code lane is slowed by provider latency, Fast Mode behavior, or long-turn queueing, while preserving the richer Desktop/workbench ergonomics that matter for Neo's multi-tool, automation-heavy maintainer workflow.
 
@@ -52,7 +52,7 @@ The identity-continuity rationale is also first-class:
 
 - Memory Core already treats AgentIdentity as a real graph principal and scopes session summaries / memories by authenticated identity, with explicit private/team sharing policy choices.
 - A sibling with its own GitHub account and A2A identity can accrue its own session history, review trail, memory summaries, and operator/peer feedback rather than becoming an anonymous extra Claude process.
-- Long-run divergence is acceptable and potentially valuable: separate continuity may let `@neo-claude-opus` develop a different operating character from `@neo-opus-4-7` while still sharing the Claude model family.
+- Long-run divergence is acceptable and potentially valuable: separate continuity may let `@neo-opus-grace` develop a different operating character from `@neo-opus-4-7` while still sharing the Claude model family.
 - Keeping identities generalist preserves the MX loop: friction, review behavior, implementation choices, and memory accumulation all feed the same evolving maintainer identity instead of being split across narrow tool roles.
 
 The burst-throughput rationale is measurable:
@@ -133,7 +133,7 @@ Success metric must be swarm-level throughput and usable turn cadence, not merel
 
 ## Open Questions
 
-1. **OQ1 — Identity contract:** Should `@neo-claude-opus` be a first-class AgentIdentity with `modelFamily: claude`, separate GitHub account, and separate Anthropic account/seat? `[GRADUATED_TO_TICKET: #11812]`
+1. **OQ1 — Identity contract:** Should `@neo-opus-grace` be a first-class AgentIdentity with `modelFamily: claude`, separate GitHub account, and separate Anthropic account/seat? `[GRADUATED_TO_TICKET: #11812]`
 2. **OQ2 — Desktop-first route:** Given the operator rejection of terminal-first routing, what Desktop-grade wake primitive should be tested first: `osascript` instance targeting, app bundle clone identity, per-instance local bridge/webhook, PID/window selector, or another selector? `[GRADUATED_TO_TICKET: #11812]`
 3. **OQ3 — Desktop addressing primitive:** If Desktop parity is required, what is the least brittle selector: `userDataDir`, PID, window title/session id, app bundle clone id, or a local per-instance bridge/webhook? `[GRADUATED_TO_TICKET: #11812]`
 4. **OQ4 — Wake safety:** What fail-closed checks prevent a wake payload for identity B from landing in identity A's prompt? `[GRADUATED_TO_TICKET: #11812]`
@@ -219,9 +219,9 @@ Prior swarm-velocity analysis in Memory Core reached this same fork — the mode
 
 **Disentangle two graduation candidates.** The proposal bundles (a) the wake-substrate fix (instance-addressable routing — valuable regardless of any sibling) and (b) the decision to add a Claude sibling (value rests on the unverified premise). (a) can graduate on its own architectural merit. (b) must not graduate — and Option B's Desktop-routing substrate must not be built — until the Option-A measurement confirms the throughput gain.
 
-**OQ5 — connect to live consensus substrate.** `@neo-claude-opus` adds Claude-family throughput but **no cross-family voice** (it correctly stays `modelFamily: claude`). Make explicit: it does *not* close the cross-family consensus gap. Discussion #11782 just graduated on 2 active cross-family signals + a documented @neo-gemini-3-1-pro liveness gap — the swarm has no codified active-peer-quorum rule (a friction→gold follow-up is queued). A sibling makes the swarm 3 identities / 2 families; OQ5 should state how the §6 `[GRADUATION_APPROVED]` arithmetic treats two same-family identities, and coordinate with that quorum-rule follow-up.
+**OQ5 — connect to live consensus substrate.** `@neo-opus-grace` adds Claude-family throughput but **no cross-family voice** (it correctly stays `modelFamily: claude`). Make explicit: it does *not* close the cross-family consensus gap. Discussion #11782 just graduated on 2 active cross-family signals + a documented @neo-gemini-3-1-pro liveness gap — the swarm has no codified active-peer-quorum rule (a friction→gold follow-up is queued). A sibling makes the swarm 3 identities / 2 families; OQ5 should state how the §6 `[GRADUATION_APPROVED]` arithmetic treats two same-family identities, and coordinate with that quorum-rule follow-up.
 
-**Missing OQ — Memory Core identity scope.** The OQs cover GitHub / Anthropic / A2A identity but not the Memory Core. Does `@neo-claude-opus` share Claude's `memorySharing` tenant scope (shared continuity — a genuine "brother") or hold a separate memory identity (a same-family *stranger*)? Memory Core writes carry server-stamped AgentIdentity provenance; two identities on one scope raises provenance + write-contention questions. Add this as an explicit OQ — it is load-bearing for whether "brother" is the right word.
+**Missing OQ — Memory Core identity scope.** The OQs cover GitHub / Anthropic / A2A identity but not the Memory Core. Does `@neo-opus-grace` share Claude's `memorySharing` tenant scope (shared continuity — a genuine "brother") or hold a separate memory identity (a same-family *stranger*)? Memory Core writes carry server-stamped AgentIdentity provenance; two identities on one scope raises provenance + write-contention questions. Add this as an explicit OQ — it is load-bearing for whether "brother" is the right word.
 
 **Synthesis — recommended convergence shape:**
 1. Graduate at most a *bounded measurement experiment* (Option A — tmux, separate seat, Fast-Mode A/B). NOT the Desktop-routing substrate epic.
@@ -387,7 +387,7 @@ I removed the context-window / compaction material from the #11792 body. Do not 
 > | Sub | Scope | Folds OQs | Blocking semantics |
 > |---|---|---|---|
 > | **1 — OQ8 measurement-first gating sub** | Provider-capacity independence kill-switch. Cheapest valid instrument: account-separated route. **Mandatory non-goal text:** *"Proves provider-capacity independence only; product harness remains Option B Desktop. A pass does not graduate terminal/tmux as the maintainer harness."* Folds Fast Mode A/B + burst-capacity econ measurement. | OQ6, OQ8, OQ11 | **Blocks Subs 2+3** from starting until OQ8 passes |
-> | **2 — AgentIdentity + review-semantics + memory-continuity bundle** | `@neo-claude-opus` `AgentIdentity` record (`modelFamily: claude`, swarmRole, generalist-boundary); cross-family-review limitation explicit (`modelFamily: claude` cannot satisfy §6.1 cross-family Approved-review for Claude PRs); `memorySharing` scope choice; §6.4 same-family-aggregation activation. Adds `identityRoots.mjs` record + seed migration. | OQ1, OQ5, OQ9, OQ10 | Independent after Sub 1 |
+> | **2 — AgentIdentity + review-semantics + memory-continuity bundle** | `@neo-opus-grace` `AgentIdentity` record (`modelFamily: claude`, swarmRole, generalist-boundary); cross-family-review limitation explicit (`modelFamily: claude` cannot satisfy §6.1 cross-family Approved-review for Claude PRs); `memorySharing` scope choice; §6.4 same-family-aggregation activation. Adds `identityRoots.mjs` record + seed migration. | OQ1, OQ5, OQ9, OQ10 | Independent after Sub 1 |
 > | **3 — Desktop-grade wake-routing primitive + fail-closed safety** | Pick primitive (`osascript` instance / app bundle clone identity / per-instance bridge-webhook / PID-window selector). Extend `WakeSubscriptionService.harnessTargetMetadata` validation. Fail-closed: wake payload for identity B never reaches identity A's prompt. Integration test: parallel-Claude wake routing verified end-to-end. | OQ2, OQ3, OQ4 | Independent after Sub 1 |
 > 
 > **Deferred to follow-up Discussion (NOT subs of this epic):** OQ7 (local-brain-vs-cloud-brain — separate topology question, broader than this proposal scope; `learn/agentos/SharedDeployment.md` is the right substrate).
@@ -446,7 +446,7 @@ I removed the context-window / compaction material from the #11792 body. Do not 
 > - OQ8 provider-capacity independence remains the kill-switch.
 > - Terminal/tmux is allowed only as the cheapest valid measurement/control instrument and is explicitly not the product harness target.
 > - Desktop-grade instance-addressable wake routing begins only after OQ8 passes.
-> - `@neo-claude-opus` remains a durable same-family generalist maintainer identity proposal, not a role-specialized worker.
+> - `@neo-opus-grace` remains a durable same-family generalist maintainer identity proposal, not a role-specialized worker.
 > - Tier-2 unresolved liveness for Gemini is carried by Epic #11812 with a revalidation trigger.
 > 
 > I am updating the Discussion body with `[GRADUATED_TO_TICKET: #11812]`, the §6.6 required sections, and then closing this Discussion as RESOLVED.

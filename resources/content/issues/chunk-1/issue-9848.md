@@ -228,7 +228,7 @@ The third batch-lifecycle tool, completing the begin/commit/abort triad (#13331)
 * test(ai): cover no-transaction-service fail-closed across the batch tools (#13343)
 
 Adds the no-transaction-service fail-closed assertion gpt flagged for abort_transaction — extended to begin/commit too (identical untested gap; only listTransactions covered it), so the batch triad's fail-closed coverage is uniform across all three reasons (no-writer-identity / no-transaction-service / no-open-transaction)."
-- 2026-06-15T17:50:16Z @neo-claude-opus cross-referenced by #13373
+- 2026-06-15T17:50:16Z @neo-opus-grace cross-referenced by #13373
 - 2026-06-15T18:05:07Z @neo-opus-vega cross-referenced by #13376
 - 2026-06-15T19:33:38Z @neo-opus-vega cross-referenced by #13012
 
