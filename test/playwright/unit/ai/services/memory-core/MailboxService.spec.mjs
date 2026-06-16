@@ -1629,7 +1629,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
  */
 test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (#10252)', () => {
     test.describe.configure({ mode: 'serial' });
-    let MailboxService, GraphService, PermissionService, LifecycleService, AiConfig, mailboxAiConfig, originalAutoSave, originalMailboxPolicy;
+    let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave, originalMailboxPolicy;
     let dbPath;
 
     test.beforeAll(async () => {
@@ -1644,7 +1644,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
-        AiConfig = (await import('../../../../../../ai/config.mjs')).default;
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
 
@@ -1955,21 +1954,21 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
 
     test('#13411 related PR state echo: cloud deployment mode skips GitHub CLI resolution', async () => {
         const originalResolvePullRequestState = MailboxService.resolvePullRequestState,
-            originalDeploymentMode = AiConfig.orchestrator.deploymentMode;
+            originalDeploymentMode = mailboxAiConfig.orchestrator.deploymentMode;
         let calls = 0;
 
         MailboxService.resolvePullRequestState = async (number) => {
             calls++;
             return { ticket: `#${number}`, number, state: 'OPEN', mergedAt: null }
         };
-        AiConfig.setEnvOverride('NEO_AI_DEPLOYMENT_MODE', 'cloud');
+        mailboxAiConfig.orchestrator.deploymentMode = 'cloud';
 
         try {
             const states = await MailboxService.resolveRelatedPullRequestStates(['#13411']);
             expect(states).toEqual([]);
             expect(calls).toBe(0);
         } finally {
-            AiConfig.setEnvOverride('NEO_AI_DEPLOYMENT_MODE', originalDeploymentMode);
+            mailboxAiConfig.orchestrator.deploymentMode = originalDeploymentMode;
             MailboxService.resolvePullRequestState = originalResolvePullRequestState;
         }
     });

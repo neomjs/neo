@@ -1,6 +1,5 @@
 import Base from '../../../src/core/Base.mjs';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import AiConfig from '../../config.mjs';
 import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
 import GraphService from './GraphService.mjs';
 import PermissionService from './PermissionService.mjs';
@@ -1010,7 +1009,7 @@ class MailboxService extends Base {
      * @returns {Promise<Object|null>}
      */
     async resolvePullRequestStateCached(number) {
-        if (AiConfig.orchestrator.deploymentMode === 'cloud') return null;
+        if (aiConfig.orchestrator.deploymentMode === 'cloud') return null;
 
         const now = Date.now(),
             cached = relatedPullRequestStateCache.get(number);
@@ -1050,7 +1049,7 @@ class MailboxService extends Base {
      * @returns {Promise<Object|null>}
      */
     async resolvePullRequestState(number) {
-        if (AiConfig.orchestrator.deploymentMode === 'cloud') return null;
+        if (aiConfig.orchestrator.deploymentMode === 'cloud') return null;
 
         try {
             const {stdout} = await execFileAsync('gh', ['pr', 'view', String(number), '--json', 'state,mergedAt'], {
