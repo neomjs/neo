@@ -433,7 +433,7 @@ For multi-cycle reviews, after posting a review comment **capture its `commentId
 
 ### 10.1 PR-State Freshness Gate
 
-<!-- trigger: before relaying ANY review outcome / merge-eligibility claim / lane-state naming a PR → read ../audits/pr-state-freshness.md (live `state,mergedAt` read; verdict-not-enum) -->
+Before relaying any review outcome / merge-eligibility claim / lane-state naming a PR, prefer the mechanical A2A/wake PR-state echo; if no echo is present, run `gh pr view <N> --json state,mergedAt`. Relay the review body's §9 verdict, not the flattened `reviewDecision` enum.
 
 ## 11. Post-Review-Cycle Reviewer Pickup
 

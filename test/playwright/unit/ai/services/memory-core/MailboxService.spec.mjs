@@ -1858,6 +1858,80 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         expect(found.task).toEqual(taskPayload);
     });
 
+    test('#13411 related PR state echo: getMessage/listMessages surface live state', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalResolvePullRequestState = MailboxService.resolvePullRequestState;
+        MailboxService.resolvePullRequestState = async (number) => number === 13411
+            ? { ticket: '#13411', number, state: 'OPEN', mergedAt: null }
+            : null;
+
+        try {
+            let msgId;
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({
+                    to            : '@bob',
+                    subject       : 'Review request',
+                    body          : 'Please review the PR.',
+                    relatedTickets: ['#13411', '#13412']
+                });
+                msgId = res.messageId;
+            });
+
+            const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.getMessage({ messageId: msgId });
+            });
+            expect(bobRead.relatedTickets).toEqual(['#13411', '#13412']);
+            expect(bobRead.relatedPullRequests).toEqual([
+                { ticket: '#13411', number: 13411, state: 'OPEN', mergedAt: null }
+            ]);
+
+            const bobList = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.listMessages({ status: 'all' });
+            });
+            const found = bobList.messages.find(m => m.messageId === msgId);
+            expect(found.relatedTickets).toEqual(['#13411', '#13412']);
+            expect(found.relatedPullRequests).toEqual([
+                { ticket: '#13411', number: 13411, state: 'OPEN', mergedAt: null }
+            ]);
+        } finally {
+            MailboxService.resolvePullRequestState = originalResolvePullRequestState;
+        }
+    });
+
+    test('#13411 related PR state echo: fetch failure omits echo but keeps message', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalResolvePullRequestState = MailboxService.resolvePullRequestState;
+        MailboxService.resolvePullRequestState = async () => null;
+
+        try {
+            let msgId;
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({
+                    to            : '@bob',
+                    subject       : 'Review request',
+                    body          : 'Please review the PR.',
+                    relatedTickets: ['#13411']
+                });
+                msgId = res.messageId;
+            });
+
+            const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.getMessage({ messageId: msgId });
+            });
+            expect(bobRead.relatedTickets).toEqual(['#13411']);
+            expect(bobRead.relatedPullRequests).toBeUndefined();
+            expect(bobRead.body).toBe('Please review the PR.');
+        } finally {
+            MailboxService.resolvePullRequestState = originalResolvePullRequestState;
+        }
+    });
+
     test('#10334 task envelope: backward-compatible — messages without task field unaffected', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });

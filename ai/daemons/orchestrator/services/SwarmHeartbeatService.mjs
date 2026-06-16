@@ -84,6 +84,19 @@ function isGitHubRemoteUrl(remoteUrl = '') {
 }
 
 /**
+ * @summary Extracts a pull request candidate number from GitHub notification subject URLs.
+ * @param {String} url GitHub API or web URL for an issue / pull request subject.
+ * @returns {Number|null}
+ */
+function extractPullRequestNumberFromNotificationUrl(url = '') {
+    const match = String(url).match(/\/(?:issues|pulls)\/(\d+)(?:$|[/?#])/);
+    if (!match) return null;
+
+    const number = Number(match[1]);
+    return Number.isSafeInteger(number) && number > 0 ? number : null
+}
+
+/**
  * @summary Builds a compact heartbeat-pulse payload for GitHub notification wake digests.
  *
  * The heartbeat-pulse GraphLog row has no JSON payload column, so source content rides inside the
@@ -98,11 +111,12 @@ function buildGitHubNotificationPulseId(notifications = []) {
         source: 'github-notification',
         count : notifications.length,
         latest: {
-            id    : latest.id,
-            reason: latest.reason,
-            type  : latest.type,
-            title : latest.title,
-            url   : latest.url
+            id         : latest.id,
+            reason     : latest.reason,
+            type       : latest.type,
+            title      : latest.title,
+            url        : latest.url,
+            pullRequest: latest.pullRequest
         }
     });
     return `github-notification.${Buffer.from(json).toString('base64url')}`
@@ -890,10 +904,63 @@ class SwarmHeartbeatService extends Base {
     async getGitHubNotifications() {
         try {
             const output = await this.runCmd('gh', ['api', 'notifications?participating=true']);
-            return getWakeRelevantNotifications(JSON.parse(output || '[]'))
+            const notifications = getWakeRelevantNotifications(JSON.parse(output || '[]'));
+            return await this.enrichGitHubNotificationsWithPullRequestState(notifications)
         } catch (err) {
             logger.warn(`[SwarmHeartbeatService] GitHub notification fetch failed: ${err.message}`);
             return []
+        }
+    }
+
+    /**
+     * @summary Adds live PR state echoes to wake-relevant GitHub notifications when resolvable.
+     * @param {Object[]} notifications Wake-relevant notification projections.
+     * @returns {Promise<Object[]>}
+     * @protected
+     */
+    async enrichGitHubNotificationsWithPullRequestState(notifications = []) {
+        const enriched = [];
+
+        for (const notification of notifications) {
+            if (notification.type !== 'PullRequest') {
+                enriched.push(notification);
+                continue;
+            }
+
+            const number = extractPullRequestNumberFromNotificationUrl(notification.url);
+            if (!number) {
+                enriched.push(notification);
+                continue;
+            }
+
+            const pullRequest = await this.resolvePullRequestState(number);
+            enriched.push(pullRequest ? {...notification, pullRequest} : notification);
+        }
+
+        return enriched
+    }
+
+    /**
+     * @summary Resolves live GitHub pull request state for wake payload echoes.
+     * @param {Number} number Pull request number.
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async resolvePullRequestState(number) {
+        try {
+            const output = await this.runCmd('gh', ['pr', 'view', String(number), '--json', 'state,mergedAt']);
+            const parsed = JSON.parse(output || '{}');
+            if (!parsed?.state) return null;
+
+            return {
+                number,
+                state    : parsed.state,
+                mergedAt : parsed.mergedAt || null,
+                checkedAt: new Date().toISOString()
+            }
+        } catch (err) {
+            logger.warn(`[SwarmHeartbeatService] PR state echo omitted for #${number}: ${err.message}`);
+            return null
         }
     }
 
@@ -1187,4 +1254,11 @@ class SwarmHeartbeatService extends Base {
 
 export default Neo.setupClass(SwarmHeartbeatService);
 
-export {HEARTBEAT_LOCK_PATH, DEFAULT_POLL_INTERVAL_MS, heartbeatAlivePath, githubNotificationWakeStatePath, isGitHubRemoteUrl};
+export {
+    HEARTBEAT_LOCK_PATH,
+    DEFAULT_POLL_INTERVAL_MS,
+    heartbeatAlivePath,
+    githubNotificationWakeStatePath,
+    isGitHubRemoteUrl,
+    extractPullRequestNumberFromNotificationUrl
+};
