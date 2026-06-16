@@ -212,7 +212,7 @@ class DockSplitter extends Component {
 
     /**
      * @param {Object} descriptor
-     * @returns {{document:Object|null, errors:String[]}}
+     * @returns {{document:(Object|null), errors:String[]}}
      * @protected
      */
     commitResizeSplit(descriptor) {
