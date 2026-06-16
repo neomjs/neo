@@ -448,6 +448,20 @@ function decodeHeartbeatPulseSummary(pulseId = '') {
 }
 
 /**
+ * @summary Formats an optional live PR-state echo embedded in a heartbeat pulse summary.
+ * @param {Object} summary Decoded heartbeat summary.
+ * @returns {String}
+ */
+function formatPullRequestStateEcho(summary = {}) {
+    const pullRequest = summary.latest?.pullRequest;
+    if (!pullRequest?.state || !pullRequest?.number) return '';
+
+    const mergedAt  = pullRequest.mergedAt  ? `, mergedAt ${pullRequest.mergedAt}`   : '',
+          checkedAt = pullRequest.checkedAt ? `, checkedAt ${pullRequest.checkedAt}` : '';
+    return ` [PR #${pullRequest.number}: ${pullRequest.state}${mergedAt}${checkedAt}]`
+}
+
+/**
  * Does a MESSAGE carry any `DELIVERED_TO` receipt edges? Drives the shared evaluator's
  * `SENT_TO -> AGENT:*` receipt-dedup gate (receipt-backed broadcasts wake via `DELIVERED_TO`
  * instead). Checks the in-delta edges first, then falls back to the persisted graph.
@@ -1245,7 +1259,7 @@ function buildWakeDigest(identity, {messages = [], tasks = [], permissions = [],
     if (heartbeats.length > 0) {
         const latest        = heartbeats[heartbeats.length - 1],
               gitHubSummary = latest.summary?.source === 'github-notification'
-                  ? `; latest GitHub ${latest.summary.latest?.reason || 'notification'}: "${latest.summary.latest?.title || latest.summary.latest?.id || 'untitled'}"${latest.summary.latest?.url ? ` (${latest.summary.latest.url})` : ''}`
+                  ? `; latest GitHub ${latest.summary.latest?.reason || 'notification'}: "${latest.summary.latest?.title || latest.summary.latest?.id || 'untitled'}"${formatPullRequestStateEcho(latest.summary)}${latest.summary.latest?.url ? ` (${latest.summary.latest.url})` : ''}`
                   : '';
         breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${gitHubSummary})`;
     }

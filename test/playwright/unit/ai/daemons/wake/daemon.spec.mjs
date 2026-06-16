@@ -728,10 +728,16 @@ test.describe('Wake Daemon', () => {
             source: 'github-notification',
             count : 1,
             latest: {
-                id    : 'ghn-test-1',
-                reason: 'mention',
-                title : 'Ping Euclid',
-                url   : 'https://api.github.com/repos/neomjs/neo/issues/12937'
+                id         : 'ghn-test-1',
+                reason     : 'mention',
+                title      : 'Ping Euclid',
+                url        : 'https://api.github.com/repos/neomjs/neo/pulls/13411',
+                pullRequest: {
+                    number   : 13411,
+                    state    : 'MERGED',
+                    mergedAt : '2026-06-16T10:20:00Z',
+                    checkedAt: '2026-06-16T10:21:00Z'
+                }
             }
         })).toString('base64url');
         const pulseId = `HEARTBEAT_PULSE:${agentId}:github-notification.${pulseSummary}`;
@@ -743,6 +749,7 @@ test.describe('Wake Daemon', () => {
         expect(output).toContain('heartbeat pulses');
         expect(output).toContain('lifecycle-first');   // a pure-heartbeat digest DOES carry the lane directive (heartbeat-only placement)
         expect(output).toContain('latest GitHub mention: "Ping Euclid"');
+        expect(output).toContain('[PR #13411: MERGED, mergedAt 2026-06-16T10:20:00Z, checkedAt 2026-06-16T10:21:00Z]');
         expect(output).not.toContain('new messages');
     });
 

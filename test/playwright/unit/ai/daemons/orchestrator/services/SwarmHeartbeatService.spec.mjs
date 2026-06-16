@@ -72,6 +72,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let heartbeatAlivePath;
     let githubNotificationWakeStatePath;
     let isGitHubRemoteUrl;
+    let extractPullRequestNumberFromNotificationUrl;
     let GraphService;
     let originalLifecycleInit;
     let originalGraphServiceInit;
@@ -85,6 +86,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         heartbeatAlivePath               = swarmHeartbeatModule.heartbeatAlivePath;
         githubNotificationWakeStatePath  = swarmHeartbeatModule.githubNotificationWakeStatePath;
         isGitHubRemoteUrl                = swarmHeartbeatModule.isGitHubRemoteUrl;
+        extractPullRequestNumberFromNotificationUrl = swarmHeartbeatModule.extractPullRequestNumberFromNotificationUrl;
 
         const wakeSubscriptionModule = await import('../../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs');
         WakeSubscriptionService      = wakeSubscriptionModule.default;
@@ -804,6 +806,52 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(isGitHubRemoteUrl('')).toBe(false);
     });
 
+    test('#13411 GitHub notification enrichment carries live PR state and degrades safe', async () => {
+        applyDefaultStubs();
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+
+        expect(extractPullRequestNumberFromNotificationUrl('https://api.github.com/repos/acme/repo/pulls/13411')).toBe(13411);
+        expect(extractPullRequestNumberFromNotificationUrl('https://api.github.com/repos/acme/repo/issues/13411')).toBe(13411);
+        expect(extractPullRequestNumberFromNotificationUrl('https://api.github.com/repos/acme/repo')).toBeNull();
+
+        SwarmHeartbeatService.resolvePullRequestState = async (number) => {
+            if (number === 13411) return { number, state: 'OPEN', mergedAt: null, checkedAt: '2026-06-16T10:19:00Z' };
+            if (number === 13412) return { number, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z' };
+            return null
+        };
+
+        const enriched = await serviceProto.enrichGitHubNotificationsWithPullRequestState.call(SwarmHeartbeatService, [{
+            id    : 'ghn-open',
+            reason: 'mention',
+            type  : 'PullRequest',
+            title : 'Open PR',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/13411'
+        }, {
+            id    : 'ghn-merged',
+            reason: 'review_requested',
+            type  : 'PullRequest',
+            title : 'Merged PR',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/13412'
+        }, {
+            id    : 'ghn-fail',
+            reason: 'mention',
+            type  : 'PullRequest',
+            title : 'Fetch fails',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/13413'
+        }, {
+            id    : 'ghn-issue',
+            reason: 'mention',
+            type  : 'Issue',
+            title : 'Issue mention',
+            url   : 'https://api.github.com/repos/acme/repo/issues/13414'
+        }]);
+
+        expect(enriched[0].pullRequest).toEqual({ number: 13411, state: 'OPEN', mergedAt: null, checkedAt: '2026-06-16T10:19:00Z' });
+        expect(enriched[1].pullRequest).toEqual({ number: 13412, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z' });
+        expect(enriched[2].pullRequest).toBeUndefined();
+        expect(enriched[3].pullRequest).toBeUndefined();
+    });
+
     test('getGitHubNotifications consumes the shared mention/review-request projection (#12937)', async () => {
         applyDefaultStubs();
         delete SwarmHeartbeatService.getGitHubNotifications;
@@ -876,9 +924,10 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             reason: 'mention',
             title : 'Ping Euclid'
         }, {
-            id    : 'ghn-2',
-            reason: 'review_requested',
-            title : 'Review request'
+            id         : 'ghn-2',
+            reason     : 'review_requested',
+            title      : 'Review request',
+            pullRequest: {number: 13411, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z'}
         }];
         SwarmHeartbeatService.readGitHubNotificationWakeState  = async () => state;
         SwarmHeartbeatService.writeGitHubNotificationWakeState = async (nextState) => {
@@ -900,9 +949,10 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             source: 'github-notification',
             count : 2,
             latest: {
-                id    : 'ghn-2',
-                reason: 'review_requested',
-                title : 'Review request'
+                id         : 'ghn-2',
+                reason     : 'review_requested',
+                title      : 'Review request',
+                pullRequest: {number: 13411, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z'}
             }
         });
         expect(state['@test']).toEqual(['ghn-1', 'ghn-2']);
