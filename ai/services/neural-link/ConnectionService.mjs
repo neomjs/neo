@@ -622,7 +622,7 @@ class ConnectionService extends Base {
              // timeout rather than a TypeError. Callers should pass a string appWorkerId or appName.
              const targetLower = String(target ?? '').toLowerCase();
              for (const [id, meta] of this.sessionData.entries()) {
-                 if (id === target || (meta.appName && meta.appName.toLowerCase() === targetLower)) {
+                 if (id === target || meta.appName?.toLowerCase() === targetLower) {
                      return id;
                  }
              }
