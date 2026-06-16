@@ -75,6 +75,35 @@ A proxied deployment commonly has **two** auth layers, and an error at one is ea
 
 Identify which layer an error came from (via the ladder) before changing any config.
 
+### `dependency <svc> failed to start` after enabling `NEO_AUTH_MODE=gitlab-pat`
+
+**Symptom:** after switching a compose deployment to `NEO_AUTH_MODE=gitlab-pat`,
+`docker compose up` leaves `kb-server` or `mc-server` unhealthy, and dependent
+services report `dependency <svc> failed to start`.
+
+**Confirm it is the bearer healthcheck case, not a boot crash:** send a
+tokenless `initialize` request through the public ingress. A clean `401` with
+`WWW-Authenticate: Bearer` means the MCP server is up and enforcing auth; a
+`502`, timeout, or connection-refused result points at a process/proxy boot
+failure instead.
+
+**Cause:** the in-container healthcheck runs `mcpHealthcheck.mjs` against the
+same authenticated `/mcp` route. In `gitlab-pat` mode that self-probe must also
+send a bearer token. If `NEO_MCP_HEALTHCHECK_TOKEN` is unset or empty, the
+healthcheck gets `401`, the container never reaches `service_healthy`, and
+compose dependency waits abort.
+
+**Fix:** set `NEO_MCP_HEALTHCHECK_TOKEN=<read_user bearer>` in the deployment
+`.env` (a GitLab PAT or OAuth access token with the same `read_user` validation
+surface as other MCP clients), then recreate the affected services so the
+environment is reloaded:
+
+```bash
+docker compose -p <project> up -d --force-recreate kb-server mc-server orchestrator
+```
+
+This is an environment-only repair; no image rebuild is required.
+
 ## Test profile vs production auth profile
 
 Verify the wiring *before* real auth is enabled, but keep the two profiles distinct:
