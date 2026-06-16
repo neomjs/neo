@@ -36,6 +36,14 @@ class GraphqlService extends Base {
          */
         apiUrl: 'https://api.github.com/graphql',
         /**
+         * The GitHub REST API base URL. REST requests share this service's cached `gh auth token`
+         * and retry machinery (see {@link #rest}), so REST writes run through the same
+         * authenticated, retry-equipped path as GraphQL instead of a fresh per-call `spawn('gh')`.
+         * @member {String} restApiUrl='https://api.github.com'
+         * @protected
+         */
+        restApiUrl: 'https://api.github.com',
+        /**
          * Optional explicit token override for tests or controlled embedded callers.
          * Normal runtime auth continues to use `gh auth token`.
          * @member {String|null} authTokenOverride=null
@@ -303,6 +311,85 @@ class GraphqlService extends Base {
         }
 
         return json.data;
+    }
+
+    /**
+     * @summary Executes an authenticated request against the GitHub REST API.
+     *
+     * Shares the cached `gh auth token` (`#getAuthToken`) and the transient-failure retry
+     * machinery used by {@link #query}, so REST writes run through the same single,
+     * cached-token, retry-equipped path as the GraphQL tools — instead of a fresh per-call
+     * `spawn('gh')` that re-resolves gh-auth on every invocation.
+     *
+     * REST is preferred (over a GraphQL mutation) where the operation accepts human-facing
+     * names/logins directly — e.g. issue labels and assignees — avoiding the extra node-ID
+     * resolution a GraphQL mutation would require, and preserving the exact semantics of the
+     * `gh` command it replaces.
+     *
+     * @param {String} method      HTTP method, e.g. 'GET', 'POST', 'PATCH', 'DELETE'.
+     * @param {String} path        REST path beginning with '/', e.g. '/repos/owner/name/issues'.
+     * @param {Object} [body=null] Optional JSON request body; omitted for bodyless methods.
+     * @returns {Promise<Object|null>} The parsed JSON response, or `null` for an empty `204` response.
+     * @throws {Error} If authentication fails, or the request fails after exhausting transient retries.
+     */
+    async rest(method, path, body=null) {
+        const token = await this.#getAuthToken();
+
+        const headers = {
+            'Accept'              : 'application/vnd.github+json',
+            'Authorization'       : `bearer ${token}`,
+            'X-GitHub-Api-Version': '2022-11-28'
+        };
+
+        const init = {method, headers};
+
+        if (body != null) {
+            headers['Content-Type'] = 'application/json';
+            init.body               = JSON.stringify(body);
+        }
+
+        const url = `${this.restApiUrl}${path}`;
+
+        let response;
+
+        for (let attempt = 0; attempt <= this.maxRetryAttempts; attempt++) {
+            try {
+                response = await fetch(url, init);
+            } catch (e) {
+                if (attempt < this.maxRetryAttempts && this.#isRetryableNetworkError(e)) {
+                    await this.#waitForRetry(`Transient GitHub REST transport failure (${e.message})`, attempt + 1);
+                    continue;
+                }
+
+                throw e;
+            }
+
+            if (response.ok) {
+                break;
+            }
+
+            if (attempt < this.maxRetryAttempts && this.#isRetryableHttpStatus(response.status)) {
+                await this.#waitForRetry(`GitHub REST ${method} ${path} -> ${response.status} ${response.statusText}`, attempt + 1, response);
+                continue;
+            }
+
+            let detail = '';
+
+            try {
+                const errorBody = await response.json();
+                detail = errorBody?.message ? ` - ${errorBody.message}` : '';
+            } catch (ignore) {
+                // Non-JSON error body; the status line is the best available detail.
+            }
+
+            throw new Error(`GitHub REST request failed: ${method} ${path} -> ${response.status} ${response.statusText}${detail}`);
+        }
+
+        if (response.status === 204) {
+            return null;
+        }
+
+        return response.json();
     }
 }
 
