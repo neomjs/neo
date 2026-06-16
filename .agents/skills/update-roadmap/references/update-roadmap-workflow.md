@@ -10,9 +10,11 @@ A roadmap names the **load-bearing direction** of the next release — the few c
 
 Clarity comes as much from the visible **out** (deferred) as the **in** (cornerstones). A roadmap with no deferred set leaves every un-named epic silently-abstract — the "abstract goals to chase" friction this skill exists to kill.
 
+**Replace, don't append (the temporal axis).** The roadmap holds the CURRENT next-release ONLY — each run **REPLACES** the prior next-scope; it never accretes a `## Shipped: vN` layer per release. Prior-release history + the framework vision are relocated, not inlined (see MUST NOT).
+
 ## The beat — celebrate, then plan (in order)
 
-1. **Celebrate first.** Name the shipped release and its headline (PRs merged, issues closed, the thesis it delivered). The win + reward-continuity are an institution-health goal, not ceremony — skipping it is a rejected shape. A short A2A broadcast / release-note acknowledgement suffices.
+1. **Celebrate first.** Name the shipped release and its headline (PRs merged, issues closed, the thesis it delivered). The win + reward-continuity are an institution-health goal, not ceremony — skipping it is a rejected shape. A short A2A broadcast / release-note acknowledgement suffices — never a permanent `ROADMAP.md` section.
 2. **Assess what landed** (Verify-Before-Assert). Confirm the shipped version, that its milestone closed, and which epics resolved. Read the truth — release tags (`13.0.0`, *not* `v13.0.0` — empirical substrate), milestone state, `package.json` — never assume.
 3. **Open / identify the next release milestone.** The milestone is the durable container that cornerstone epics get assigned to. (Cite the milestone tool / `gh` behavior; do not re-document its mechanics here.)
 4. **Scope the cornerstones + rationale.** Name the few load-bearing epics and the one-paragraph "why this release" thesis. Prefer epics that already exist; file new ones via `epic-create` only when a cornerstone has no home.
@@ -31,7 +33,7 @@ Each cornerstone epic has exactly **one named steward** — accountable that the
 
 **SHOULD:** the release thesis (rationale); the cornerstone epics (linked to the milestone); the explicit deferred set; the steward map; a budget/cadence note (steady-state ≈ 100–150 merged PRs — sequence any over-budget stretch as a capstone, keep the deferred set firm).
 
-**MUST NOT:** an exhaustive prose item-list (stales → FAIL); a scope with no visible deferred set; pre-assigned peer steward lanes; a graduation rubber-stamped to fit the scope.
+**MUST NOT:** an exhaustive prose item-list (stales → FAIL); a scope with no visible deferred set; pre-assigned peer steward lanes; a graduation rubber-stamped to fit the scope; a framework-vision restatement (→ `.github/VISION.md`); prior-release shipped-history (→ `resources/content/release-notes/`).
 
 ## Avoided traps / rejected shapes
 
@@ -67,3 +69,4 @@ The inaugural run scoped **v13.1 → milestone #8**:
 - [ ] Each cornerstone epic is **assigned to the milestone** and has **one self-selected steward**.
 - [ ] Any folded Discussion graduation **met cross-family quorum** (no rubber-stamp).
 - [ ] Over-budget stretch (vs the ≈ 100–150 PR cadence) is sequenced as a **capstone**, deferred set held firm.
+- [ ] No prior-release history or vision restatement remains **inline** (relocated, not duplicated).
