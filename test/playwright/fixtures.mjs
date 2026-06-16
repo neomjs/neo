@@ -225,6 +225,15 @@ export const test = base.extend({
                         return NeuralLink_InstanceService.setInstanceProperties({ sessionId, id, properties });
                     },
 
+                    /**
+                     * Creates any JSON-addressable Neo instance, optionally attaching it to a parent container.
+                     * @param {Object} opts
+                     * @returns {Promise<Object>}
+                     */
+                    async createInstance(opts) {
+                        return NeuralLink_InstanceService.createInstance({ sessionId, ...opts });
+                    },
+
                     // --- Component & VDOM Methods ---
 
                     /**
