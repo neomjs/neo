@@ -8,8 +8,8 @@ import {validateRequest}    from '../util/validateRequest.mjs';
  * `add → insert` path a Neural-Link `create_component` drives (it calls
  * `call_method(parentId, 'add', [config])`). Keeping ONE create path is the provenance point: whatever
  * lands in the stage — this in-app bootstrap or an external agent's `create_component` — is what the
- * evidence pane projects, so the evidence always describes the grid that actually crossed the create
- * path. The bootstrap uses `module` (the class is imported here, registering the live app); an external
+ * evidence pane projects, so the evidence always describes the grid that was actually inserted into the
+ * stage. The bootstrap uses `module` (the class is imported here, registering the live app); an external
  * agent sends `ntype`/`className` instead, since a module reference cannot cross the Neural Link wire.
  * @type {Object}
  */
@@ -50,9 +50,9 @@ const firstWidgetGridConfig = {
  * container (the same `add → insert` path a Neural-Link `create_component` drives), so the live grid is
  * created through the create seam rather than declared as a static item. It then observes the stage's
  * `insert` event — fired for that bootstrap AND for any later external `create_component` into the same
- * stage — and projects the actually-created grid into the evidence pane via {@link projectCreatedGrid},
- * so the evidence always describes the grid that crossed the bridge, not a hand-authored blueprint.
- * It also keeps the deterministic chat-intake submit handling. No model invocation / persistence.
+ * stage — and projects the inserted grid into the evidence pane via {@link projectCreatedGrid},
+ * so the evidence always describes the grid that was inserted into the stage, not a hand-authored
+ * blueprint. It also keeps the deterministic chat-intake submit handling. No model invocation / persistence.
  */
 class ViewportController extends Controller {
     static config = {
@@ -64,7 +64,7 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Boots the first widget through the live create path: binds the stage's `insert` observer, then
+     * Boots the first widget through the stage insert seam: binds the stage's `insert` observer, then
      * `add()`s the grid config (firing `insert`, which {@link onStageInsert} projects into the evidence
      * pane). Binding before the add ensures the bootstrap insert is observed, exactly as a later
      * external `create_component` into the same stage would be.

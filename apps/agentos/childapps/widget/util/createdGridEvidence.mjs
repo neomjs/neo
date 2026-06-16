@@ -1,14 +1,14 @@
 /**
  * @module AgentOSWidget.util.createdGridEvidence
- * @summary Projects a live, Neural-Link-created grid into the first-widget evidence blueprint shape.
+ * @summary Projects a live inserted grid into the first-widget evidence blueprint shape.
  *
  * The deterministic first-widget path fed a hand-authored blueprint object straight into the evidence
- * pane. This leaf closes the H2 provenance loop: the grid is now created through the Neural-Link
- * `create_component` path and inserted into a live container, which fires
- * `insert {index, item}` (see `src/container/Base.mjs`). The `item` is the real, mounted grid — not a
- * config object. This projection turns that live grid into the SAME
+ * pane. This leaf moves the provenance to a live inserted grid: the grid is added to a stage container,
+ * which fires `insert {index, item}` (see `src/container/Base.mjs`) — the same `add → insert` seam a
+ * Neural-Link `create_component` drives (it calls `add` on the parent container). The `item` is the
+ * real, mounted grid — not a config object. This projection turns that live grid into the SAME
  * `{schema:String, title:String, columns:Array, rows:Array}` shape `projectBlueprintEvidence` already
- * consumes, so the evidence pane reflects the grid that actually crossed the bridge.
+ * consumes, so the evidence pane reflects the grid that was actually inserted into the stage.
  *
  * It is deliberately NOT the safety boundary — `projectBlueprintEvidence` remains that. This function
  * only reads safe scalar metadata off the live grid (its class id, a title label, the column

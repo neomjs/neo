@@ -18,7 +18,7 @@ import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Unit coverage for projecting a live Neural-Link-created grid into evidence.
+ * @summary Unit coverage for projecting a live inserted grid into evidence.
  *
  * Verifies the H2 provenance seam against the REAL live-grid shape (its `columns` is a Neo collection
  * whose `.items` are the column components, its `store` a collection with a `count`): a live created
@@ -45,7 +45,7 @@ test.describe('AgentOSWidget.util.createdGridEvidence', () => {
      */
     const liveGrid = () => ({
         className: 'Neo.grid.Container',
-        id       : 'nl-created-grid-h2-proof',
+        id       : 'inserted-grid-h2',
         columns  : {
             count: 3,
             items: [
@@ -69,7 +69,7 @@ test.describe('AgentOSWidget.util.createdGridEvidence', () => {
 
         expect(result).toEqual({
             schema : 'Neo.grid.Container',
-            title  : 'nl-created-grid-h2-proof',
+            title  : 'inserted-grid-h2',
             columns: [
                 {dataField: 'task',     text: 'Task'},
                 {dataField: 'owner',    text: 'Owner'},
@@ -92,7 +92,7 @@ test.describe('AgentOSWidget.util.createdGridEvidence', () => {
 
     test('prefers an explicit title, then the id, then the schema', () => {
         expect(projectCreatedGrid({...liveGrid(), title: 'First Neo Grid'}).title).toBe('First Neo Grid');
-        expect(projectCreatedGrid(liveGrid()).title).toBe('nl-created-grid-h2-proof'); // no title -> id
+        expect(projectCreatedGrid(liveGrid()).title).toBe('inserted-grid-h2'); // no title -> id
         expect(projectCreatedGrid({...liveGrid(), id: undefined}).title).toBe('Neo.grid.Container') // no title/id -> schema
     });
 
@@ -145,7 +145,7 @@ test.describe('AgentOSWidget.util.createdGridEvidence', () => {
         expect(evidence).toEqual({
             accepted   : true,
             schema     : 'Neo.grid.Container',
-            title      : 'nl-created-grid-h2-proof',
+            title      : 'inserted-grid-h2',
             columnCount: 3,
             rowCount   : 3
         })

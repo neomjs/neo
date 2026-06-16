@@ -12,9 +12,9 @@ import ViewportController from './ViewportController.mjs';
  * declarative child — the {@link AgentOSWidget.view.ViewportController controller} creates it through
  * the same `add → insert` path a Neural-Link `create_component` drives, then projects the actually
  * created grid into the evidence pane. That keeps a single create path: the evidence describes the
- * grid that crossed the bridge, and an external agent's `create_component` into the stage flows through
- * the identical projection. The evidence pane starts on its own default blueprint until the first
- * insert projects the real grid over it.
+ * grid that was inserted into the stage, and an external agent's `create_component` into the stage flows
+ * through the identical projection. The evidence pane starts on its own default blueprint until the
+ * first insert projects the real grid over it.
  */
 class Viewport extends BaseViewport {
     static config = {
