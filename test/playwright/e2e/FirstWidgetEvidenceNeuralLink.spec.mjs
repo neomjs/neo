@@ -49,13 +49,33 @@ test.describe('AgentOS first widget — external Neural-Link create → evidence
             }
         });
 
-        // the evidence pane projects the EXTERNALLY-created grid: its id (proves the write was followed)
-        // + its schema. `nl-external-grid` cannot appear unless the external insert was projected.
+        // ENGINE STATE: the external write produced the INTENDED live grid WITH content (not a shell) —
+        // asserted as test truth, not read from bridge debug output. Poll store.count (populates async).
+        let grid;
+        await expect.poll(async () => {
+            grid = await app.getComponent(gridId, ['ntype', 'className', 'parentId', 'store.count']);
+            return grid?.['store.count']
+        }, {message: 'the external grid must register a live store of 2 rows', timeout: 15000}).toBe(2);
+        expect(grid.ntype).toBe('grid-container');
+        expect(grid.className).toBe('Neo.grid.Container');
+        expect(grid.parentId).toBe('widget-stage');
+
+        // EVIDENCE: projects the EXTERNAL grid — id + schema + its ACTUAL column/row counts (2 / 2, NOT
+        // the bootstrap grid's 4 / 3), so id/schema-only projection cannot satisfy this.
         const evidence = page.locator('.agent-os-evidence-pane');
         await expect(evidence).toContainText('nl-external-grid', {timeout: 30000});
         await expect(evidence).toContainText('Neo.grid.Container');
+        const evidenceMeta = evidence.locator('.agent-os-evidence-meta dd'); // [schema, title, columns, rows]
+        await expect(evidenceMeta.nth(2)).toHaveText('2'); // Columns — the external grid's count
+        await expect(evidenceMeta.nth(3)).toHaveText('2'); // Rows
 
-        // and the externally-created grid is live in the running app
-        await expect(page.locator(`#${gridId}.neo-grid-container`)).toHaveCount(1, {timeout: 15000})
+        // RENDERED CONTENT: the external grid renders its real data — 2 cols × 2 rows = 4 cells, with the
+        // created values (not a zero-content grid-shaped shell).
+        const gridEl = page.locator(`#${gridId}.neo-grid-container`);
+        await expect(gridEl).toBeVisible({timeout: 15000});
+        await expect(gridEl.locator('.neo-grid-cell')).toHaveCount(4);
+        for (const value of ['latency', '12ms', 'throughput', '1k/s']) {
+            await expect(gridEl.locator('.neo-grid-cell', {hasText: value})).toHaveCount(1)
+        }
     });
 });
