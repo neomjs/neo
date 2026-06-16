@@ -88,6 +88,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
     test.beforeEach(async () => {
         // Ensure a clean slate per test
+        MailboxService.clearRelatedPullRequestStateCache();
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
@@ -1674,6 +1675,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
     });
 
     test.beforeEach(async () => {
+        MailboxService.clearRelatedPullRequestStateCache();
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
@@ -1856,6 +1858,119 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         const found = bobList.messages.find(m => m.messageId === msgId);
         expect(found).toBeDefined();
         expect(found.task).toEqual(taskPayload);
+    });
+
+    test('#13411 related PR state echo: getMessage/listMessages surface live state', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalResolvePullRequestState = MailboxService.resolvePullRequestState,
+            calls = [];
+
+        MailboxService.resolvePullRequestState = async (number) => {
+            calls.push(number);
+
+            return number === 13411
+                ? { ticket: '#13411', number, state: 'OPEN', mergedAt: null }
+                : null
+        };
+
+        try {
+            let msgId;
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({
+                    to            : '@bob',
+                    subject       : 'Review request',
+                    body          : 'Please review the PR.',
+                    relatedTickets: ['#13411', '#13412']
+                });
+                msgId = res.messageId;
+            });
+
+            const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.getMessage({ messageId: msgId });
+            });
+            expect(bobRead.relatedTickets).toEqual(['#13411', '#13412']);
+            expect(bobRead.relatedPullRequests).toEqual([
+                { ticket: '#13411', number: 13411, state: 'OPEN', mergedAt: null }
+            ]);
+
+            const bobList = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.listMessages({ status: 'all' });
+            });
+            const found = bobList.messages.find(m => m.messageId === msgId);
+            expect(found.relatedTickets).toEqual(['#13411', '#13412']);
+            expect(found.relatedPullRequests).toEqual([
+                { ticket: '#13411', number: 13411, state: 'OPEN', mergedAt: null }
+            ]);
+            expect(calls).toEqual([13411, 13412]);
+        } finally {
+            MailboxService.resolvePullRequestState = originalResolvePullRequestState;
+        }
+    });
+
+    test('#13411 related PR state echo: fetch failure omits echo but keeps message', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalResolvePullRequestState = MailboxService.resolvePullRequestState;
+        let calls = 0;
+        MailboxService.resolvePullRequestState = async () => {
+            calls++;
+            return null
+        };
+
+        try {
+            let msgId;
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({
+                    to            : '@bob',
+                    subject       : 'Review request',
+                    body          : 'Please review the PR.',
+                    relatedTickets: ['#13411']
+                });
+                msgId = res.messageId;
+            });
+
+            const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.getMessage({ messageId: msgId });
+            });
+            expect(bobRead.relatedTickets).toEqual(['#13411']);
+            expect(bobRead.relatedPullRequests).toBeUndefined();
+            expect(bobRead.body).toBe('Please review the PR.');
+
+            const bobList = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.listMessages({ status: 'all' });
+            });
+            const found = bobList.messages.find(m => m.messageId === msgId);
+            expect(found.relatedPullRequests).toBeUndefined();
+            expect(calls).toBe(1);
+        } finally {
+            MailboxService.resolvePullRequestState = originalResolvePullRequestState;
+        }
+    });
+
+    test('#13411 related PR state echo: cloud deployment mode skips GitHub CLI resolution', async () => {
+        const originalResolvePullRequestState = MailboxService.resolvePullRequestState,
+            originalDeploymentMode = mailboxAiConfig.orchestrator.deploymentMode;
+        let calls = 0;
+
+        MailboxService.resolvePullRequestState = async (number) => {
+            calls++;
+            return { ticket: `#${number}`, number, state: 'OPEN', mergedAt: null }
+        };
+        mailboxAiConfig.orchestrator.deploymentMode = 'cloud';
+
+        try {
+            const states = await MailboxService.resolveRelatedPullRequestStates(['#13411']);
+            expect(states).toEqual([]);
+            expect(calls).toBe(0);
+        } finally {
+            mailboxAiConfig.orchestrator.deploymentMode = originalDeploymentMode;
+            MailboxService.resolvePullRequestState = originalResolvePullRequestState;
+        }
     });
 
     test('#10334 task envelope: backward-compatible — messages without task field unaffected', async () => {
