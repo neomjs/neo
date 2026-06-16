@@ -48,6 +48,7 @@ export function parseArgs(argv = [], env = process.env) {
         url           : options.url,
         identity      : options.identity,
         bearerToken   : env[options.bearerTokenEnv] || null,
+        bearerTokenEnv: options.bearerTokenEnv,
         expectedStatus: options.expectedStatus,
         clientName    : options.clientName
     };
@@ -151,6 +152,27 @@ export async function runHealthcheck({
     }
 }
 
+/**
+ * @summary Augments a healthcheck failure message with an actionable bearer-token hint when
+ * no token was configured. Under `NEO_AUTH_MODE=gitlab-pat` the in-container self-probe 401s
+ * with an opaque transport error; this surfaces the likely cause at the failure site (visible
+ * in `docker logs`) instead of leaving it only in the troubleshooting doc.
+ * @param {Error} error The failure thrown by `runHealthcheck` / the transport.
+ * @param {Object} [options]
+ * @param {String|null} [options.bearerToken] The configured bearer token (`null` when unset).
+ * @param {String} [options.bearerTokenEnv='NEO_MCP_HEALTHCHECK_TOKEN'] The env var the token reads from.
+ * @returns {String} `error.message`, plus the hint when no bearer token was sent.
+ */
+export function formatHealthcheckError(error, {bearerToken = null, bearerTokenEnv = 'NEO_MCP_HEALTHCHECK_TOKEN'} = {}) {
+    const message = error?.message || String(error);
+
+    if (bearerToken) {
+        return message;
+    }
+
+    return `${message}\nNo bearer token was sent (${bearerTokenEnv} is unset). If the server runs NEO_AUTH_MODE=gitlab-pat, that is the likely cause of a 401 — set ${bearerTokenEnv} to a GitLab token that validates at /api/v4/user (a read_user PAT, or a read_api OAuth-app / group token). See learn/agentos/cloud-deployment/Troubleshooting.md.`;
+}
+
 async function main() {
     let options;
 
@@ -167,7 +189,7 @@ async function main() {
         const result = await runHealthcheck(options);
         console.log(JSON.stringify(result));
     } catch (error) {
-        console.error(error.message);
+        console.error(formatHealthcheckError(error, options));
         process.exitCode = 1;
     }
 }

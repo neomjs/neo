@@ -7,6 +7,7 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
     let buildHeaders;
     let readToolJson;
     let runHealthcheck;
+    let formatHealthcheckError;
     const readProductionCompose = () => yaml.load(fs.readFileSync(
         new URL('../../../../../../ai/deploy/docker-compose.yml', import.meta.url),
         'utf8'
@@ -19,10 +20,11 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/scripts/diagnostics/mcpHealthcheck.mjs');
 
-        parseArgs      = mod.parseArgs;
-        buildHeaders   = mod.buildHeaders;
-        readToolJson   = mod.readToolJson;
-        runHealthcheck = mod.runHealthcheck;
+        parseArgs              = mod.parseArgs;
+        buildHeaders           = mod.buildHeaders;
+        readToolJson           = mod.readToolJson;
+        runHealthcheck         = mod.runHealthcheck;
+        formatHealthcheckError = mod.formatHealthcheckError;
     });
 
     test('parseArgs uses dotenv-compatible environment defaults', () => {
@@ -39,6 +41,7 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             url           : 'http://mc-server:3001',
             identity      : 'deploy-probe',
             bearerToken   : 'secret-token',
+            bearerTokenEnv: 'TOKEN_SLOT',
             expectedStatus: 'ready',
             clientName    : 'deploy-client'
         });
@@ -149,6 +152,28 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             ClientClass   : FakeClient,
             TransportClass: FakeTransport
         })).rejects.toThrow("Expected healthcheck status 'healthy', got 'degraded'.");
+    });
+
+    test('formatHealthcheckError appends a bearer-token hint only when no token was configured', () => {
+        const error = new Error('HTTP 401');
+
+        const withToken = formatHealthcheckError(error, {bearerToken: 'secret'});
+        expect(withToken).toBe('HTTP 401');
+        expect(withToken).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN');
+
+        const withoutToken = formatHealthcheckError(error, {bearerToken: null});
+        expect(withoutToken).toContain('HTTP 401');
+        expect(withoutToken).toContain('NEO_MCP_HEALTHCHECK_TOKEN is unset');
+        expect(withoutToken).toContain('NEO_AUTH_MODE=gitlab-pat');
+        expect(withoutToken).toContain('/api/v4/user');
+        expect(withoutToken).toContain('Troubleshooting.md');
+    });
+
+    test('formatHealthcheckError names the configured bearer-token env var', () => {
+        const hint = formatHealthcheckError(new Error('boom'), {bearerToken: null, bearerTokenEnv: 'TOKEN_SLOT'});
+
+        expect(hint).toContain('TOKEN_SLOT is unset');
+        expect(hint).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN');
     });
 
     test('production compose wires KB/MC MCP healthchecks before cloud orchestrator startup', () => {
