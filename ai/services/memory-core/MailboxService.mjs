@@ -1,5 +1,6 @@
 import Base from '../../../src/core/Base.mjs';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
+import AiConfig from '../../config.mjs';
 import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
 import GraphService from './GraphService.mjs';
 import PermissionService from './PermissionService.mjs';
@@ -10,8 +11,10 @@ import crypto from 'crypto';
 import SemanticGraphExtractor from '../../services/graph/SemanticGraphExtractor.mjs';
 
 const
-    execFileAsync                  = promisify(execFile),
-    RELATED_PULL_REQUEST_PATTERN   = /^#(\d+)$/,
+    execFileAsync                     = promisify(execFile),
+    RELATED_PULL_REQUEST_CACHE_TTL_MS = 30 * 1000,
+    RELATED_PULL_REQUEST_PATTERN      = /^#(\d+)$/,
+    relatedPullRequestStateCache      = new Map(),
     WAKE_SUPPRESSION_ALLOWED_TAGS = new Set(['sunset-protocol-handover', 'lead-role-baton']),
     WAKE_SUPPRESSION_ACTIONABLE_SUBJECTS = [
         /^\[re-review/i,
@@ -983,7 +986,7 @@ class MailboxService extends Base {
         const states = [];
         for (const number of pullRequestNumbers) {
             if (!cache.has(number)) {
-                cache.set(number, await this.resolvePullRequestState(number));
+                cache.set(number, await this.resolvePullRequestStateCached(number));
             }
 
             const state = cache.get(number);
@@ -991,6 +994,38 @@ class MailboxService extends Base {
         }
 
         return states
+    }
+
+    /**
+     * @summary Clears the cross-read PR-state cache.
+     * @returns {void}
+     */
+    clearRelatedPullRequestStateCache() {
+        relatedPullRequestStateCache.clear()
+    }
+
+    /**
+     * @summary Resolves a live GitHub pull request state echo using a short cross-read cache.
+     * @param {Number} number Pull request number.
+     * @returns {Promise<Object|null>}
+     */
+    async resolvePullRequestStateCached(number) {
+        if (AiConfig.orchestrator.deploymentMode === 'cloud') return null;
+
+        const now = Date.now(),
+            cached = relatedPullRequestStateCache.get(number);
+
+        if (cached && now - cached.cachedAt < RELATED_PULL_REQUEST_CACHE_TTL_MS) {
+            return cached.state
+        }
+
+        const state = await this.resolvePullRequestState(number);
+        relatedPullRequestStateCache.set(number, {
+            cachedAt: Date.now(),
+            state
+        });
+
+        return state
     }
 
     /**
@@ -1015,6 +1050,8 @@ class MailboxService extends Base {
      * @returns {Promise<Object|null>}
      */
     async resolvePullRequestState(number) {
+        if (AiConfig.orchestrator.deploymentMode === 'cloud') return null;
+
         try {
             const {stdout} = await execFileAsync('gh', ['pr', 'view', String(number), '--json', 'state,mergedAt'], {
                 cwd      : aiConfig.projectRoot,
