@@ -60,29 +60,29 @@
 
         &.is-redacted,
         &.is-gated {
-            color : #d29922;
+            color : var(--agent-state-waiting);
         }
 
         &.is-stored-node-side {
-            color : #3fb950;
+            color : var(--agent-state-live);
         }
     }
 
     .agent-bridge-status {
-        border-left : 3px solid #d29922;
+        border-left : 3px solid var(--agent-state-waiting);
         font-size   : 12px;
         line-height : 1.35;
         min-height  : 34px;
         padding     : 7px 10px;
 
         &.is-error {
-            border-left-color : #cf222e;
-            color             : #cf222e;
+            border-left-color : var(--agent-accent-intervention);
+            color             : var(--agent-accent-intervention);
         }
 
         &.is-live {
-            border-left-color : #3fb950;
-            color             : #3fb950;
+            border-left-color : var(--agent-state-live);
+            color             : var(--agent-state-live);
         }
     }
 }
