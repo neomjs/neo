@@ -621,7 +621,10 @@ class MemoryService extends Base {
             name: `Memory: ${timestamp}`,
             description: `Agent thought flow inside session ${sessionId}.`,
             semanticVectorId: memoryId,
-            properties: memoryProperties
+            // Archive-aware: a tombstone set while this record was graph-pending (the projection-lag
+            // window) is replayed onto the node here, so a deferred projection cannot reintroduce an
+            // archived row un-tombstoned. See _withArchiveState + the durable ARCHIVED_AGENT_IDENTITY marker.
+            properties: this._withArchiveState(memoryProperties)
         });
 
         // Stamp write-time provenance when the transport resolved a real AgentIdentity.
@@ -1039,6 +1042,21 @@ class MemoryService extends Base {
                 }
             }
 
+            // Durable tombstone marker — survives graph-projection lag. The SQL UPDATE + node-cache sweep
+            // above only reach ALREADY-projected nodes; a row embedded into Chroma but still graph-pending
+            // (graphProjectionVersion:1, no .graph.jsonl marker) has no node to stamp yet. This global,
+            // RLS-exempt marker lets the deferred projection drain (_projectMemoryToGraph → _withArchiveState)
+            // and the recency overlay tombstone it once projection catches up — even across a restart.
+            // Set unconditionally (not gated on live.length) so an identity archived entirely during
+            // projection lag is still covered.
+            GraphService.upsertGlobalNode({
+                id         : `ARCHIVED_AGENT_IDENTITY:${agentIdentity}`,
+                type       : 'ARCHIVED_AGENT_IDENTITY',
+                name       : `Archived identity: ${agentIdentity}`,
+                description: 'Tombstone marker: deferred graph projection + recency overlay exclude this identity.',
+                properties : {agentIdentity, archivedAt, archivedReason}
+            });
+
             logger.info(`[MemoryService] archiveMemoriesByAgentIdentity('${agentIdentity}'): matched ${matchedIds.length}, archived ${live.length}`);
             return {agentIdentity, matchedCount: matchedIds.length, archivedCount: live.length, dryRun: false};
         } catch (error) {
@@ -1107,12 +1125,52 @@ class MemoryService extends Base {
                 }
             }
 
+            // Remove the durable tombstone marker so future projections + the recency overlay re-admit
+            // the identity. Safe when absent (the identity was never archived) — removeNodes no-ops.
+            GraphService.removeNodes([`ARCHIVED_AGENT_IDENTITY:${agentIdentity}`]);
+
             logger.info(`[MemoryService] unarchiveMemoriesByAgentIdentity('${agentIdentity}'): restored ${restore.length}`);
             return {agentIdentity, restoredCount: restore.length};
         } catch (error) {
             logger.error('[MemoryService] Error unarchiving memories by agentIdentity:', error);
             return {error: 'Failed to unarchive memories', message: error.message, code: 'MEMORY_UNARCHIVE_ERROR'};
         }
+    }
+
+    /**
+     * @summary Looks up the durable tombstone marker for an agent identity.
+     *
+     * The archive op ({@link MemoryService#archiveMemoriesByAgentIdentity}) writes a global,
+     * RLS-exempt `ARCHIVED_AGENT_IDENTITY:<identity>` node; this reads it so the deferred
+     * graph-projection drain + the recency overlay can tombstone a record whose graph node did
+     * not exist when the archive ran (the projection-lag leak: Chroma embed and graph projection
+     * are independent derived states that catch up on different clocks).
+     * @param {String} agentIdentity The stamped write-identity.
+     * @returns {Object|null} `{archivedAt, archivedReason}` when archived, else `null`.
+     * @private
+     */
+    _archivedIdentityState(agentIdentity) {
+        if (!agentIdentity) {
+            return null;
+        }
+
+        const props = GraphService.getNodeRecord({id: `ARCHIVED_AGENT_IDENTITY:${agentIdentity}`})?.properties;
+        return props?.archivedAt ? {archivedAt: props.archivedAt, archivedReason: props.archivedReason || ''} : null;
+    }
+
+    /**
+     * @summary Returns `memoryProperties` augmented with `archivedAt`/`archivedReason` when the row's
+     * `agentIdentity` carries a durable tombstone marker — applied at every `AGENT_MEMORY` mint site so
+     * a tombstone set during projection lag survives a later (re)projection.
+     * @param {Object} memoryProperties The properties about to be projected onto the graph node.
+     * @returns {Object} The same object, or a tombstoned copy when the identity is archived.
+     * @private
+     */
+    _withArchiveState(memoryProperties) {
+        const archived = this._archivedIdentityState(memoryProperties?.agentIdentity);
+        return archived
+            ? {...memoryProperties, archivedAt: archived.archivedAt, archivedReason: archived.archivedReason}
+            : memoryProperties;
     }
 
     /**

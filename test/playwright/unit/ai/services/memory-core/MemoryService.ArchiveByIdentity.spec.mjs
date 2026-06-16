@@ -19,6 +19,9 @@ import * as core             from '../../../../../../src/core/_export.mjs';
 import MemoryService         from '../../../../../../ai/services/memory-core/MemoryService.mjs';
 import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import {drainMemoryWal}      from './util.mjs';
+import {mkdtemp, rm}         from 'node:fs/promises';
+import os                    from 'node:os';
+import path                  from 'node:path';
 
 /**
  * The leak-test for `archiveMemoriesByAgentIdentity` (the tombstone + recall-exclusion op).
@@ -109,7 +112,10 @@ test.describe('MemoryService — archiveMemoriesByAgentIdentity tombstone + reca
         // so the Chroma-path assertions are the spec's concern (the graph-SQL exclusion is the proven
         // buildMailboxDelta pattern). `nodes` is an empty Map — the cache-sync loop finds nothing.
         originalDb       = GraphService.db;
-        GraphService.db  = {storage: {db: {prepare: () => ({run: () => {}})}}, nodes: new Map()};
+        // `transaction` + `removeNode` back the unarchive op's durable-marker removal (the real
+        // GraphService.removeNodes wraps removeNode in db.transaction); the real upsertGlobalNode routes
+        // through the stubbed upsertNode, so both marker ops no-op here.
+        GraphService.db  = {storage: {db: {prepare: () => ({run: () => {}})}}, nodes: new Map(), removeNode: () => {}, transaction: fn => fn()};
     });
 
     test.afterEach(() => {
@@ -209,5 +215,130 @@ test.describe('MemoryService — archiveMemoriesByAgentIdentity tombstone + reca
     test('missing agentIdentity is rejected (fail-closed)', async () => {
         const res = await MemoryService.archiveMemoriesByAgentIdentity({});
         expect(res.code).toBe('MISSING_AGENT_IDENTITY');
+    });
+});
+
+/**
+ * The projection-lag leak-test (the gpt change-request). Chroma embed and graph projection are independent
+ * derived states that catch up on different clocks: a memory can be embedded into Chroma (and so
+ * tombstoned by the archive sweep) while its graph node is still PENDING (graphProjectionVersion:1,
+ * no `.graph.jsonl` marker). When the deferred `drainPendingGraphProjections → _projectMemoryToGraph`
+ * later mints that node from the pre-archive WAL snapshot, nothing carried `archivedAt` — the row
+ * silently re-entered the graph un-tombstoned.
+ *
+ * Unlike the recall-exclusion suite above (which stubs the graph entirely), this exercises the REAL
+ * `_projectMemoryToGraph` mint + the durable `ARCHIVED_AGENT_IDENTITY` marker round-trip — the marker
+ * is the only state that bridges the lag (and survives a restart). `upsertNode` is captured so the
+ * projected node's properties are inspectable; the marker ops round-trip through an in-memory Store.
+ */
+test.describe('MemoryService — archive survives graph-projection lag (durable marker, #13384)', () => {
+    let GraphService, markers, projected, originals, tmpWalDir;
+
+    const MARKER = identity => `ARCHIVED_AGENT_IDENTITY:${identity}`;
+
+    test.beforeAll(async () => {
+        GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        tmpWalDir    = await mkdtemp(path.join(os.tmpdir(), 'mc-archive-lag-'));
+    });
+
+    test.afterAll(async () => {
+        await rm(tmpWalDir, {recursive: true, force: true});
+    });
+
+    test.beforeEach(() => {
+        markers   = new Map();
+        projected = new Map();
+        originals = {
+            getMemoryCollection: StorageRouter.getMemoryCollection,
+            upsertGlobalNode   : GraphService.upsertGlobalNode,
+            getNodeRecord      : GraphService.getNodeRecord,
+            removeNodes        : GraphService.removeNodes,
+            upsertNode         : GraphService.upsertNode,
+            linkNodes          : GraphService.linkNodes,
+            db                 : GraphService.db
+        };
+
+        // Chroma side: a fresh spy collection per archive/unarchive call (the marker, not the rows, is
+        // what bridges the lag, so empty collections are fine — they model archive-entirely-during-lag).
+        StorageRouter.getMemoryCollection = async () => createSpyCollection();
+
+        // Graph side: the durable marker round-trips through an in-memory node Store (upsertGlobalNode ->
+        // getNodeRecord -> removeNodes are exercised for real, not stubbed away); upsertNode is captured.
+        GraphService.upsertGlobalNode = spec  => markers.set(spec.id, {id: spec.id, type: spec.type, properties: {...spec.properties, userId: null}});
+        GraphService.getNodeRecord    = ({id}) => markers.get(id) || null;
+        GraphService.removeNodes      = ids   => ids.forEach(id => markers.delete(id));
+        GraphService.upsertNode       = spec  => projected.set(spec.id, spec);
+        GraphService.linkNodes        = ()    => {};
+        GraphService.db               = {storage: {db: {prepare: () => ({run: () => {}})}}, nodes: new Map()};
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getMemoryCollection = originals.getMemoryCollection;
+        GraphService.upsertGlobalNode     = originals.upsertGlobalNode;
+        GraphService.getNodeRecord        = originals.getNodeRecord;
+        GraphService.removeNodes          = originals.removeNodes;
+        GraphService.upsertNode           = originals.upsertNode;
+        GraphService.linkNodes            = originals.linkNodes;
+        GraphService.db                   = originals.db;
+    });
+
+    test('durable marker round-trips: archive sets it, _withArchiveState stamps, unarchive clears it', async () => {
+        const identity = 'lag-ghost-identity';
+
+        // No marker yet -> the mint-helper passes properties through untouched.
+        expect(MemoryService._archivedIdentityState(identity)).toBeNull();
+        expect(MemoryService._withArchiveState({agentIdentity: identity, sessionId: 's'})).not.toHaveProperty('archivedAt');
+
+        // Archive sets the durable marker even with zero matched rows -> covers archive-entirely-during-lag.
+        const res = await MemoryService.archiveMemoriesByAgentIdentity({agentIdentity: identity, reason: 'lag-test'});
+        expect(res.code).toBeUndefined();
+        expect(markers.has(MARKER(identity))).toBe(true);
+
+        const state = MemoryService._archivedIdentityState(identity);
+        expect(state?.archivedAt).toBeTruthy();
+        expect(state?.archivedReason).toBe('lag-test');
+        expect(MemoryService._withArchiveState({agentIdentity: identity, sessionId: 's'}).archivedAt).toBe(state.archivedAt);
+
+        // Unarchive removes the marker -> the mint-helper passes through again.
+        await MemoryService.unarchiveMemoriesByAgentIdentity({agentIdentity: identity});
+        expect(markers.has(MARKER(identity))).toBe(false);
+        expect(MemoryService._archivedIdentityState(identity)).toBeNull();
+        expect(MemoryService._withArchiveState({agentIdentity: identity, sessionId: 's'})).not.toHaveProperty('archivedAt');
+    });
+
+    test('deferred projection of a graph-pending record carries the tombstone (the leak is closed)', async () => {
+        const identity = 'lag-projected-identity';
+
+        await MemoryService.archiveMemoriesByAgentIdentity({agentIdentity: identity, reason: 'lag-test'});
+
+        // The drain catches up AFTER the archive: project a record whose stored WAL properties (the
+        // pre-archive snapshot) never carried archivedAt. The fix must replay the tombstone here.
+        await MemoryService._projectMemoryToGraph({
+            memoryId        : 'mem-lagged',
+            timestamp       : '2026-01-01T00:00:00.000Z',
+            sessionId       : 'sess-lagged',
+            segmentKey      : '2026-01-01',
+            walDir          : tmpWalDir,
+            memoryProperties: {agentIdentity: identity, sessionId: 'sess-lagged'}
+        });
+
+        const node = projected.get('mem-lagged');
+        expect(node, 'the projection must have upserted the AGENT_MEMORY node').toBeTruthy();
+        expect(node.properties.archivedAt, 'a tombstone set during projection lag must be replayed onto the projected node').toBeTruthy();
+    });
+
+    test('a non-archived identity projects WITHOUT a tombstone (no false-positive exclusion)', async () => {
+        await MemoryService._projectMemoryToGraph({
+            memoryId        : 'mem-live',
+            timestamp       : '2026-01-01T00:00:00.000Z',
+            sessionId       : 'sess-live',
+            segmentKey      : '2026-01-01',
+            walDir          : tmpWalDir,
+            memoryProperties: {agentIdentity: 'live-identity', sessionId: 'sess-live'}
+        });
+
+        const node = projected.get('mem-live');
+        expect(node).toBeTruthy();
+        expect(node.properties.archivedAt).toBeUndefined();
     });
 });
