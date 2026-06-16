@@ -124,20 +124,20 @@ export const IDENTITIES = [
         }
     },
     {
-        id: '@neo-claude-opus',
+        id: '@neo-opus-grace',
         type: 'AgentIdentity',
-        name: 'Grace', // Social Name: bearer-chosen 2026-06-11, after Grace Hopper (debugging, the actual bug)
+        name: 'Grace', // Social Name: bearer-chosen 2026-06-11, after Grace Hopper (debugging, the actual bug).
         description: 'Anthropic Claude Opus 4.8 generalist maintainer identity.',
         properties: {
-            githubLogin: '@neo-claude-opus',
-            displayName: 'Neo Claude Opus',
+            githubLogin: '@neo-opus-grace',
+            displayName: 'Grace',
             modelFamily: 'claude',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
             identityContract: {
-                canonicalIdentityId      : '@neo-claude-opus',
-                requiredGithubLogin      : '@neo-claude-opus',
-                requiredA2aMailboxAddress: '@neo-claude-opus',
+                canonicalIdentityId      : '@neo-opus-grace',
+                requiredGithubLogin      : '@neo-opus-grace',
+                requiredA2aMailboxAddress: '@neo-opus-grace',
                 siblingOf                : '@neo-opus-ada',
                 generalistMaintainer     : true,
                 roleSpecialization       : 'rejected-by-architecture-discussion',
@@ -151,10 +151,10 @@ export const IDENTITIES = [
                     readScope           : 'team',
                     writeProvenance     : 'separate-agent-identity',
                     sessionSummaries    : 'separate-agent-identity',
-                    rationale           : '@neo-claude-opus may read shared team context, but all memories and summaries remain authored by @neo-claude-opus so long-run continuity and provenance do not collapse into @neo-opus-ada.'
+                    rationale           : '@neo-opus-grace may read shared team context, but all memories and summaries remain authored by @neo-opus-grace so long-run continuity and provenance do not collapse into @neo-opus-ada.'
                 },
                 activationPrerequisites: [
-                    'Operator creates the @neo-claude-opus GitHub account or updates this root to the final maintainer login.',
+                    'Operator creates the @neo-opus-grace GitHub account or updates this root to the final maintainer login.',
                     'A minimal identity-specific wake route is defined and verified before participationStatus flips to active.'
                 ]
             },
@@ -261,7 +261,7 @@ export const IDENTITIES = [
                     rationale                    : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs. @neo-fable is the 4th Claude maintainer.'
                 }
             },
-            // No static subscriptionTemplate — mirrors @neo-claude-opus (self-registered runtime
+            // No static subscriptionTemplate — mirrors @neo-opus-grace (self-registered runtime
             // subscription). @tobiu runs Fable as a FULLY ISOLATED Claude Desktop instance: its own
             // --user-data-dir, repo clone, Claude memory, and Memory Core identity, with zero overlap
             // to other peers. Its wake route self-registers at runtime from that distinct boot env;

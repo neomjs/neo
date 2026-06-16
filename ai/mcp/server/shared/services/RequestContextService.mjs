@@ -30,7 +30,7 @@ export const SHARED_USER_ID = 'shared';
  */
 export const CORE_SWARM_USER_IDS = Object.freeze([
     'neo-opus-ada',
-    'neo-claude-opus',
+    'neo-opus-grace',
     'neo-opus-vega',
     'neo-gemini-pro',
     'neo-gpt'
