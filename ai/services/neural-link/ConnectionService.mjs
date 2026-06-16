@@ -618,9 +618,11 @@ class ConnectionService extends Base {
      */
     async waitForSession(target, timeout = 10000) {
         const check = () => {
-             const targetLower = target.toLowerCase();
+             // Tolerate a non-string target (e.g. an unresolved worker-id envelope): degrade to a clean
+             // timeout rather than a TypeError. Callers should pass a string appWorkerId or appName.
+             const targetLower = String(target ?? '').toLowerCase();
              for (const [id, meta] of this.sessionData.entries()) {
-                 if (id === target || (meta.appName && meta.appName.toLowerCase() === targetLower)) {
+                 if (id === target || meta.appName?.toLowerCase() === targetLower) {
                      return id;
                  }
              }
