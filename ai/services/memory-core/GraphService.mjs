@@ -869,7 +869,7 @@ class GraphService extends Base {
                 let node       = this.db.nodes.get(adjacentId);
 
                 // Actively filter out CLOSED structural paths plus RLS-invisible nodes/edges.
-                if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId) && node.properties?.state !== 'CLOSED') {
+                if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId) && node.properties?.state !== 'CLOSED' && !node.properties?.archivedAt) {
                     topology.strategicNeighbors.push({
                         id              : node.id,
                         type            : node.label,
