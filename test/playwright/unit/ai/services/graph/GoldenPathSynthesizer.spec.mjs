@@ -132,7 +132,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
 
         expect(Synthesizer.getCoreSwarmAgentFamilies()).toMatchObject({
-            'neo-claude-opus' : 'claude',
+            'neo-opus-grace' : 'claude',
             'neo-gemini-pro': 'gemini',
             'neo-gpt'           : 'gpt',
             'neo-opus-ada'      : 'claude',
@@ -140,7 +140,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         });
 
         expect(Synthesizer.getAgentLogins()).toEqual(expect.arrayContaining([
-            'neo-claude-opus',
+            'neo-opus-grace',
             'neo-gemini-pro',
             'neo-gpt',
             'neo-opus-ada',
@@ -149,7 +149,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(Synthesizer.getAgentLogins()).not.toContain('tobiu');
 
         expect(Synthesizer.getStaleAssignmentMaintainers()).toEqual(expect.arrayContaining([
-            'neo-claude-opus',
+            'neo-opus-grace',
             'neo-gemini-pro',
             'neo-gpt',
             'neo-opus-ada',
@@ -841,7 +841,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
     // `@`-stripped login → modelFamily, matching getCoreSwarmAgentFamilies().
     const agentFamilies = {
         'neo-gpt'        : 'gpt',
-        'neo-claude-opus': 'claude',
+        'neo-opus-grace': 'claude',
         'neo-opus-ada'   : 'claude',
         'neo-opus-vega'  : 'claude'
     };
@@ -854,17 +854,17 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
     test('parseSelfIdLogin resolves the Social-Name-led form and the legacy @identity form', () => {
         // Legacy @identity form (transitional / pre-trim bodies).
         expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop), @neo-gpt (Euclid). Session x.')).toBe('neo-gpt');
-        expect(Synthesizer.parseSelfIdLogin('Authored by Claude Opus 4.8 (Claude Code), @neo-claude-opus (Grace).')).toBe('neo-claude-opus');
+        expect(Synthesizer.parseSelfIdLogin('Authored by Claude Opus 4.8 (Claude Code), @neo-opus-grace (Grace).')).toBe('neo-opus-grace');
         // Real PR bodies open with `Resolves #N`, so the self-id is mid-body — the /m anchor must still match it.
         expect(Synthesizer.parseSelfIdLogin('Resolves #1\n\nAuthored by GPT-5 (Codex Desktop), @neo-gpt (Euclid).')).toBe('neo-gpt');
         // Current Social-Name-led form (post-trim): resolve the Social Name to a login via the roster.
         expect(Synthesizer.parseSelfIdLogin('Authored by Euclid (GPT-5, Codex Desktop). Session x.')).toBe('neo-gpt');
         expect(Synthesizer.parseSelfIdLogin('Authored by Ada (Claude Opus 4.8, Claude Code).')).toBe('neo-opus-ada');
-        expect(Synthesizer.parseSelfIdLogin('Resolves #1\n\nAuthored by Grace (Claude Opus 4.8, Claude Code).')).toBe('neo-claude-opus');
+        expect(Synthesizer.parseSelfIdLogin('Resolves #1\n\nAuthored by Grace (Claude Opus 4.8, Claude Code).')).toBe('neo-opus-grace');
         expect(Synthesizer.parseSelfIdLogin('Authored by Unregistered Name (Some Model). Session x.')).toBe(null); // social name not in roster
         expect(Synthesizer.parseSelfIdLogin('Authored by GPT-5 (Codex Desktop). Session x.')).toBe(null); // model-led, no @identity; "GPT-5" not a social name
         // Overmatch guards: a `Co-Authored by` trailer or prose merely containing `Authored by` mid-line must NOT match.
-        expect(Synthesizer.parseSelfIdLogin('Co-Authored by Claude Opus, @neo-claude-opus.')).toBe(null);
+        expect(Synthesizer.parseSelfIdLogin('Co-Authored by Claude Opus, @neo-opus-grace.')).toBe(null);
         expect(Synthesizer.parseSelfIdLogin('Note: Authored by old session @neo-gpt in context.')).toBe(null);
         expect(Synthesizer.parseSelfIdLogin('Body text\nCo-Authored by X, @neo-gpt\nmore')).toBe(null);
         expect(Synthesizer.parseSelfIdLogin(null)).toBe(null)
@@ -876,7 +876,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             number : 13233,
             author : {login: 'neo-opus-ada'}, // drifted (mis-resolved opener)
             body   : 'Authored by GPT-5 (Codex Desktop), @neo-gpt (Euclid). Session x.',
-            reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
+            reviews: [{author: {login: 'neo-opus-grace'}, state: 'APPROVED'}]
         };
         // Login-only reads author=claude, reviewer=claude -> false (the bug). The self-id reads author=gpt -> cross-family true.
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
@@ -888,7 +888,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             number : 13367,
             author : {login: 'neo-opus-ada'}, // drifted (mis-resolved opener)
             body   : 'Authored by Euclid (GPT-5, Codex Desktop). Session x.',
-            reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
+            reviews: [{author: {login: 'neo-opus-grace'}, state: 'APPROVED'}]
         };
         // The Social-Name self-id resolves author=gpt via the roster, so the claude reviewer makes it cross-family.
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
@@ -899,7 +899,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             number : 1,
             author : {login: 'neo-gpt'},
             body   : 'Authored by GPT-5 (Codex Desktop). Session x.', // no @identity → advisory login path
-            reviews: [{author: {login: 'neo-claude-opus'}, state: 'APPROVED'}]
+            reviews: [{author: {login: 'neo-opus-grace'}, state: 'APPROVED'}]
         };
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(true)
     });
@@ -908,7 +908,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         const pr = {
             number : 2,
             author : {login: 'someone-unmapped'},
-            body   : 'Authored by Claude Opus 4.8 (Claude Code), @neo-claude-opus (Grace).',
+            body   : 'Authored by Claude Opus 4.8 (Claude Code), @neo-opus-grace (Grace).',
             reviews: [{author: {login: 'neo-opus-ada'}, state: 'APPROVED'}] // both claude
         };
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(false)

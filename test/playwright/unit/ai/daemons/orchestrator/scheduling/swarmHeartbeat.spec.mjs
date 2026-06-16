@@ -137,8 +137,8 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         }
     });
 
-    test('identityRoots marks @neo-claude-opus active without static wake-route leakage (#12413)', () => {
-        const identity = IDENTITIES.find(identity => identity.id === '@neo-claude-opus');
+    test('identityRoots marks @neo-opus-grace active without static wake-route leakage (#12413)', () => {
+        const identity = IDENTITIES.find(identity => identity.id === '@neo-opus-grace');
 
         expect(identity).toBeDefined();
 
@@ -253,7 +253,7 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         expect(result).toEqual(['@neo-opus-4-7']);
     });
 
-    // ----- active-a2a-participants (#12003): activity-derived candidate discovery -----
+    // ----- active-a2a-participants: activity-derived candidate discovery -----
 
     test('active-a2a-participants — unions self with provider output (3h A2A activity)', async () => {
         const participants = ['@neo-gpt', '@neo-opus-4-7', 'neo-gemini-3-1-pro'];

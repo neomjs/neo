@@ -1073,19 +1073,19 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 properties: {accountType: 'agent', modelFamily: 'claude'}
             });
             GraphService.upsertNode({
-                id        : '@neo-claude-opus',
+                id        : '@neo-opus-grace',
                 type      : 'AgentIdentity',
                 name      : 'Neo Claude Opus',
                 properties: {accountType: 'agent', modelFamily: 'claude'}
             });
 
-            await RequestContextService.run({ agentIdentityNodeId: '@neo-claude-opus' }, async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@neo-opus-grace' }, async () => {
                 await PermissionService.grantPermission({ to: '@neo-opus-4-7', scope: 'CAN_REPLY_TO' });
             });
 
             await RequestContextService.run({ agentIdentityNodeId: '@neo-opus-4-7' }, async () => {
                 const res = await MailboxService.addMessage({
-                    to     : '@neo-claude-opus',
+                    to     : '@neo-opus-grace',
                     subject: 'additional Claude direct ping',
                     body   : 'Canonical same-family Claude address must remain routable.'
                 });
@@ -1098,7 +1098,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 })).rejects.toThrow(/Ambiguous 'to' alias.*modelFamily='claude'/);
             });
 
-            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@neo-claude-opus' }, async () => {
+            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@neo-opus-grace' }, async () => {
                 return await MailboxService.listMessages({ box: 'inbox' });
             });
 

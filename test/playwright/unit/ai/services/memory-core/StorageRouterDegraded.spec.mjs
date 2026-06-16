@@ -94,7 +94,7 @@ test.describe('memory-core degraded-query tool envelopes', () => {
     });
 
     const runAs = fn => RequestContextService.run(
-        {agentIdentityNodeId: '@neo-claude-opus', source: 'unit-test', userId: 'neo-claude-opus'}, fn
+        {agentIdentityNodeId: '@neo-opus-grace', source: 'unit-test', userId: 'neo-opus-grace'}, fn
     );
 
     test('querySummaries returns a QUERY_PATH_DEGRADED envelope (not a silent {count:0}) on a degraded collection', async () => {

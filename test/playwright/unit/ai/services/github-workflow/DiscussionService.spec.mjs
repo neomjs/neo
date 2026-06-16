@@ -202,7 +202,7 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — getConversa
                 },
                 {
                     id       : 'DC_second',
-                    author   : {login: 'neo-claude-opus'},
+                    author   : {login: 'neo-opus-grace'},
                     body     : 'Second comment',
                     createdAt: '2026-05-02T00:02:00Z',
                     updatedAt: '2026-05-02T00:02:00Z',
