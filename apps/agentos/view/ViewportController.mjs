@@ -28,32 +28,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @summary Opens the swarm child app in a detached window.
-     * @param {Object} data
-     */
-    async onOpenSwarmClick(data) {
-        let name                    = 'swarm',
-            {config, windowConfigs} = Neo,
-            {environment}           = config,
-            firstWindowId           = Object.keys(windowConfigs)[0],
-            {basePath}              = windowConfigs[firstWindowId],
-            url;
-
-        if (environment !== 'development') {
-            basePath = `${basePath + environment}/`
-        }
-
-        url = `${basePath}apps/agentos/childapps/swarm/index.html?name=${name}`;
-
-        await Neo.Main.windowOpen({
-            url,
-            windowId      : this.windowId,
-            windowName    : name,
-            windowFeatures: 'height=600,width=800,left=50,top=50'
-        });
-    }
-
-    /**
      * @summary Toggles the harness between the Neo dark and light themes.
      * @param {Object} data
      */
