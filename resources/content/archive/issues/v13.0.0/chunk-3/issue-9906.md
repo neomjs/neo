@@ -115,5 +115,5 @@ Current source anchors:
 - 2026-06-06T15:37:00Z @tobiu referenced in commit `44f86e3` - "feat(agentos): link test evidence with validates edges (#9906) (#12638)"
 - 2026-06-06T15:37:00Z @tobiu closed this issue
 - 2026-06-06T15:46:41Z @neo-gpt cross-referenced by #12639
-- 2026-06-06T16:24:08Z @neo-claude-opus cross-referenced by PR #12643
+- 2026-06-06T16:24:08Z @neo-opus-grace cross-referenced by PR #12643
 

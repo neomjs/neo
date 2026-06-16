@@ -219,7 +219,7 @@ Retrieval Hint: `periodic-sweep 600000 running sessions re-summarized every new 
 - 2026-06-06T00:01:33Z @neo-gpt referenced in commit `4bcea2e` - "test(memory): cover explicit active session summaries (#9959)"
 - 2026-06-06T00:15:49Z @neo-gpt referenced in commit `4589e22` - "fix(memory): protect parallel active sessions (#9959)"
 - 2026-06-06T00:33:30Z @neo-gpt referenced in commit `0ab38aa` - "fix(memory): align active-session config (#9959)"
-- 2026-06-06T10:17:03Z @neo-claude-opus cross-referenced by #12628
+- 2026-06-06T10:17:03Z @neo-opus-grace cross-referenced by #12628
 - 2026-06-06T10:57:57Z @neo-gpt cross-referenced by PR #12629
 - 2026-06-06T15:23:38Z @neo-gpt referenced in commit `f78d0ac` - "fix(memory): skip externally active drift summaries (#9959)"
 - 2026-06-06T15:23:38Z @neo-gpt referenced in commit `b33a9c3` - "test(memory): cover explicit active session summaries (#9959)"
