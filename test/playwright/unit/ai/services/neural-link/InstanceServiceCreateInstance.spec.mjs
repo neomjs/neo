@@ -78,6 +78,21 @@ test.describe('Neo.ai.services.neural-link.InstanceService - createInstance', ()
         expect(calls.length).toBe(0)
     });
 
+    test('rejects `module` nested in arrays and objects (recursive boundary)', async () => {
+        await expect(InstanceService.createInstance({
+            config   : {items: [{module: 'Neo.button.Base'}]},
+            sessionId: 's1'
+        })).rejects.toThrow(/module.*cannot cross/);
+
+        await expect(InstanceService.createInstance({
+            className: 'Neo.container.Base',
+            config   : {items: [{ntype: 'button', config: {module: 'Neo.button.Base'}}]},
+            sessionId: 's1'
+        })).rejects.toThrow(/module.*cannot cross/);
+
+        expect(calls.length).toBe(0)
+    });
+
     test('delegates a standalone Store create request to the App Worker', async () => {
         const config = {
             id   : 'nl-store-1',

@@ -158,9 +158,7 @@ class InstanceService extends Service {
 
         this.rejectFunctionBearingCreateConfig(config);
 
-        if (Object.hasOwn(config, 'module')) {
-            throw new Error('create_instance: `module` is a class reference and cannot cross the Neural Link wire; declare `ntype` or `className` instead.')
-        }
+        this.rejectModuleBearingCreateConfig(config);
 
         const
             resolvedClassName = className ?? config.className,
@@ -225,6 +223,34 @@ class InstanceService extends Service {
 
         Object.entries(value).forEach(([key, item]) => {
             this.rejectFunctionBearingCreateConfig(item, `${path}.${key}`)
+        })
+    }
+
+    /**
+     * @summary Recursively rejects `module` class-reference keys at any depth on the app-side Bridge boundary.
+     *
+     * Mirrors {@link rejectFunctionBearingCreateConfig}: a nested `{items: [{module: 'Neo.button.Base'}]}`
+     * must be rejected at the boundary, not reach an internal `Container.createItem` TypeError.
+     * @param {*} value
+     * @param {String} [path='config']
+     * @protected
+     */
+    rejectModuleBearingCreateConfig(value, path='config') {
+        if (!value || typeof value !== 'object') {
+            return
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => this.rejectModuleBearingCreateConfig(item, `${path}[${index}]`));
+            return
+        }
+
+        if (Object.hasOwn(value, 'module')) {
+            throw new Error(`create_instance: \`module\` is a class reference and cannot cross the Neural Link wire; declare \`ntype\` or \`className\` instead (found at ${path}.module).`)
+        }
+
+        Object.entries(value).forEach(([key, item]) => {
+            this.rejectModuleBearingCreateConfig(item, `${path}.${key}`)
         })
     }
 

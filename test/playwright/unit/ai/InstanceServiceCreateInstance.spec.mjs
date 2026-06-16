@@ -106,6 +106,21 @@ test.describe('Neo.ai.client.InstanceService - create_instance', () => {
         expect(Neo.getComponent('created-button')?.isDestroyed ?? true).toBe(true)
     });
 
+    test('rejects `module` class references at top level and nested (recursive boundary)', () => {
+        expect(() => service.createInstance({
+            config: {module: 'Neo.button.Base'}
+        }, ID)).toThrow(/module.*cannot cross/);
+
+        expect(() => service.createInstance({
+            config: {items: [{module: 'Neo.button.Base'}]}
+        }, ID)).toThrow(/module.*cannot cross/);
+
+        expect(() => service.createInstance({
+            className: 'Neo.container.Base',
+            config   : {items: [{ntype: 'button', config: {module: 'Neo.button.Base'}}]}
+        }, ID)).toThrow(/module.*cannot cross/);
+    });
+
     test('denies a conflicting parent-attached create through WriteGuard', () => {
         service.createInstance({
             ntype   : 'component',
