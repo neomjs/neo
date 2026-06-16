@@ -100,7 +100,7 @@ class FleetSettingsPanel extends DashboardPanel {
             items: [{
                 ntype: 'component',
                 cls  : ['agent-form-copy'],
-                html : '<strong>Agent definition</strong>'
+                vdom : {cn: [{tag: 'strong', text: 'Agent definition'}]}
             }, {
                 module         : TextField,
                 clearable      : true,
@@ -205,8 +205,8 @@ class FleetSettingsPanel extends DashboardPanel {
             }, {
                 ntype    : 'component',
                 cls      : ['agent-bridge-status', 'is-waiting'],
-                html     : 'Fleet Registry bridge unavailable in dev-server mode. Submit fails closed; no PAT is stored in browser state.',
-                reference: 'bridge-status'
+                reference: 'bridge-status',
+                vdom     : {cn: [{text: 'Fleet Registry bridge unavailable in dev-server mode. Submit fails closed; no PAT is stored in browser state.'}]}
             }]
         }]
     }
@@ -325,8 +325,9 @@ class FleetSettingsPanel extends DashboardPanel {
      */
     updateBridgeStatus(stateCls, message) {
         const status = this.getReference('bridge-status');
-        status.cls  = ['agent-bridge-status', stateCls];
-        status.html = message
+        status.cls             = ['agent-bridge-status', stateCls];
+        status.vdom.cn[0].text = message;
+        status.update()
     }
 }
 
