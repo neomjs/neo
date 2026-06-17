@@ -1378,14 +1378,10 @@ async function attemptDeliveryRetries() {
             }
         } else {
             pendingDeliveryRetries.delete(subId);
-            if (outcome === 'skipped') {
-                writeLog('INFO',
-                    `[Wake Daemon] Wake delivery for ${subId} skipped on retry (attempt ${entry.attempts + 1}).`
-                );
-            } else {
+            if (outcome !== 'skipped') {
                 writeLog('INFO',
                     `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
-                );
+                )
             }
         }
     }
