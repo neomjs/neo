@@ -87,6 +87,17 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         expect(logger.calls).toEqual([]);
     });
 
+    test('self targetSource excludes known non-active identities', async () => {
+        const logger = captureLogger();
+        const result = await resolveTargets({
+            selfIdentity: '@neo-gemini-pro',
+            targetSource: 'self',
+            logger
+        });
+        expect(result).toEqual([]);
+        expect(logger.calls).toEqual([]);
+    });
+
     test('explicit target list wins over targetSource', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
@@ -176,12 +187,7 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         // Self appears first; subscribers union (no duplicates); known benched identities are
         // filtered, while unknown local/fork identities remain eligible.
         expect(result).toEqual(['@neo-opus-4-7', '@neo-gpt', '@custom-local-agent']);
-        expect(logger.calls.some(c =>
-            c.level === 'info' &&
-            c.msg.includes("targetSource='active-subscribers'") &&
-            c.msg.includes('@neo-gemini-pro') &&
-            c.msg.includes('not active')
-        )).toBe(true);
+        expect(logger.calls).toEqual([]);
     });
 
     test('active-subscribers without provider — falls back to self with warn', async () => {
@@ -276,12 +282,7 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         // Self appears first; participants union (no duplicates); known benched identities are
         // filtered, while unknown local/fork identities remain eligible.
         expect(result).toEqual(['@neo-opus-4-7', '@neo-gpt', '@custom-local-agent']);
-        expect(logger.calls.some(c =>
-            c.level === 'info' &&
-            c.msg.includes("targetSource='active-a2a-participants'") &&
-            c.msg.includes('@neo-gemini-pro') &&
-            c.msg.includes('not active')
-        )).toBe(true);
+        expect(logger.calls).toEqual([]);
     });
 
     test('active-a2a-participants without provider — falls back to self with warn', async () => {

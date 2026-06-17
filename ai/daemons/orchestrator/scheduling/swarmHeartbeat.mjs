@@ -24,16 +24,15 @@ const identityParticipationById = new Map(
 );
 
 /**
- * @summary True when a dynamic heartbeat source may include the identity.
+ * @summary True when heartbeat target discovery may include the identity.
  *
- * Dynamic sources are runtime-derived, so unknown identities are allowed for
- * forks/local custom agents. Known repo identities with a non-active
- * participationStatus are excluded; explicit target lists remain the operator
- * override for diagnostics.
+ * Unknown identities are allowed for forks/local custom agents. Known repo
+ * identities with a non-active participationStatus are excluded; explicit
+ * target lists remain the operator override for diagnostics.
  * @param {String} id Normalized agent identity.
  * @returns {Boolean}
  */
-function isDynamicHeartbeatTargetEligible(id) {
+function isHeartbeatTargetEligible(id) {
     const participationStatus = identityParticipationById.get(id);
     return !participationStatus || participationStatus === 'active';
 }
@@ -75,8 +74,8 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
  *
  * **Per-source semantics:**
  *
- * - **`'self'`** — pulses only the harness owner (`selfIdentity`); deployment-portable
- *   minimal-fan-out shape.
+ * - **`'self'`** — pulses only the active harness owner (`selfIdentity`); deployment-
+ *   portable minimal-fan-out shape.
  * - **`'active-local-team'`** — reads `identityRoots.IDENTITIES` filtered on
  *   `type === 'AgentIdentity'` AND `properties.participationStatus === 'active'`. Team-
  *   registry coupled (suitable for Neo team workspace; external forks customize
@@ -142,6 +141,7 @@ export async function resolveTargets({
             log('info', `[resolveSwarmHeartbeatTargets] '${resolvedFrom}' resolved to self but selfIdentity is null — disabled (no pulse targets). Set NEO_AGENT_IDENTITY or orchestrator.swarmHeartbeat.targetSource='disabled' explicitly to silence this notice.`);
             return [];
         }
+        if (!isHeartbeatTargetEligible(normalizedSelf)) return [];
         return [normalizedSelf];
     };
 
@@ -199,10 +199,7 @@ export async function resolveTargets({
             }
             for (const raw of subscribers) {
                 const id = normalizeAgentIdentityNodeId(raw);
-                if (id && !isDynamicHeartbeatTargetEligible(id)) {
-                    log('info', `[resolveSwarmHeartbeatTargets] targetSource='active-subscribers' skipped '${id}' because identityRoots participationStatus is not active`);
-                    continue;
-                }
+                if (id && !isHeartbeatTargetEligible(id)) continue;
                 if (id && !seen.has(id)) {
                     seen.add(id);
                     out.push(id);
@@ -230,10 +227,7 @@ export async function resolveTargets({
             }
             for (const raw of participants) {
                 const id = normalizeAgentIdentityNodeId(raw);
-                if (id && !isDynamicHeartbeatTargetEligible(id)) {
-                    log('info', `[resolveSwarmHeartbeatTargets] targetSource='active-a2a-participants' skipped '${id}' because identityRoots participationStatus is not active`);
-                    continue;
-                }
+                if (id && !isHeartbeatTargetEligible(id)) continue;
                 if (id && !seen.has(id)) {
                     seen.add(id);
                     out.push(id);
