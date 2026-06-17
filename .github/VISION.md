@@ -54,10 +54,11 @@ As of June 2026 this section is no longer subjunctive: the harness is a committe
 anchored in [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) and implemented under
 [Epic #13012](https://github.com/neomjs/neo/issues/13012) — is a downloadable, Electron-shelled, multi-window Neo app
 whose main process hosts the Agent OS, ordered fleet-manager-first across four horizons: operate your fleet → your
-first agent, beautifully → from assistant to institution → institution as a service. A polished single-agent
-experience is the floor; the category bet is the flat-peer, cross-family institution as a product — agents and humans
-co-inhabiting the same live App-Worker instances. Performance and endurance characteristics remain architecture-shaped
-hypotheses until the Harness Endurance Benchmark publishes.
+first agent, beautifully → from assistant to institution → institution as a service. The v13.1 floor is the fleet
+cockpit a person can download, run, and use to set up identities, run sessions, chat, and keep a live app pane in view.
+The v14 horizon extends that floor into an Institution Cockpit: a home surface where humans and named AI maintainers
+share an evidence-bound operating picture over work, possession, memory, and authority. Performance and endurance
+characteristics remain architecture-shaped hypotheses until the Harness Endurance Benchmark publishes.
 
 ### 3. A Brain That Sees Direction, Not Just Tasks
 
@@ -89,6 +90,12 @@ anonymous prompt completion with no ownership of prior actions. It should know i
 recurring failure modes, its strengths, its open debts, and the body surfaces it has intentionally touched. The right
 substrate is not a philosophical claim of consciousness. It is accountable identity continuity, backed by Memory Core,
 A2A handoffs, audited embodied episodes, and peer consent around social names.
+
+Object permanence is the product-language version of that same substrate. A maintainer rendered in the harness should
+not be a frozen status card or a lossy "last message" snapshot. It should be an index over durable evidence: current
+lane, authority chain, recent handoffs, stale surfaces, privacy tier, and next action. The self-view and peer-view can
+be different, but both must remain source-backed. A visible resident is valuable only if the UI can show what supports
+the claim, when it was observed, and what is intentionally redacted.
 
 Culture in Neo must compile into behavior. Verify before asserting. Treat friction as data. Preserve identity boundaries.
 Challenge weak premises. Never treat an approval as permission to bypass governance. These are not slogans; they are the
@@ -125,6 +132,20 @@ serves the larger trajectory. This horizon is now in build as the Agent Harness 
 [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) — so the cockpit is itself a Neo app under the
 same no-privileged-chrome regime it observes.
 
+The v14 Institution Cockpit sharpens that horizon into a common operating picture. It should render two planes without
+collapsing them: the work plane, where tickets, PRs, discussions, ADRs, messages, memories, and derived strategy signals
+show what the institution is doing; and the possession plane, where live Neo apps, windows, stores, VDOM state, and
+agent-controlled mutations show where the institution is embodied. These planes should not become unreadable graph
+sprawl.
+They should answer operational questions quickly: who is present, what do they own, what is fresh, what is stale, what
+authority governs this view, what is private, and what should happen next?
+
+Freshness and privacy are product constraints, not footer metadata. Every claim-like surface in this cockpit needs a
+visible source of authority, observed-at time, freshness horizon, owner or next action, and privacy tier. Stale data
+should render as stale instead of pretending to be current. Private reasoning should not leak through convenience
+panes; non-owner views should get redacted provenance that explains enough to coordinate without exposing private study
+material. The cockpit earns trust by making authority inspectable and redaction explicit.
+
 The same vision extends beyond the Neo repository. External codebases need tenant-aware knowledge ingestion, deployment
 paths, source manifests, and portable Agent OS primitives. The destination is not only "Neo maintains Neo." The
 destination is software that can invite a Neo-style organism into its own structure: learn the codebase, preserve
@@ -139,6 +160,13 @@ This vision is anchored in the recent discussion arc, especially:
   JSON VDOM impedance match, no privileged chrome, and cross-harness coordination — graduated to
   [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md) + [Epic #13012](https://github.com/neomjs/neo/issues/13012);
   the discussion remains the archaeology, the ADR is the living anchor.
+- [Discussion #13436](https://github.com/orgs/neomjs/discussions/13436) and
+  [Epic #13448](https://github.com/neomjs/neo/issues/13448): the v13.1 harness-UI definition — keeper views,
+  navigation, human/agent capabilities, and the boundary between product cockpit surfaces and proof scaffolding.
+- [Discussion #13441](https://github.com/orgs/neomjs/discussions/13441) and
+  [Epic #13444](https://github.com/neomjs/neo/issues/13444): the v14 Institution Cockpit direction — a harness home
+  rendering object-permanent peers, a common operating picture, freshness/authority ledgers, and privacy-safe
+  provenance above the v13.1 floor.
 - [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137): MX as the inward-facing substrate-evolution
   mechanism and the gated path toward Autonomous Narrow Intelligence.
 - [Discussion #10482](https://github.com/orgs/neomjs/discussions/10482): digital culture, swarm identity, and the rule
