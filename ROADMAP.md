@@ -2,7 +2,7 @@
 
 The roadmap holds the **next-release scope only** — what ships next and why. Everything else has a canonical home:
 
-- **Framework vision & positioning:** [`.github/VISION.md`](.github/VISION.md)
+- **Vision & positioning:** [`.github/VISION.md`](.github/VISION.md)
 - **Architecture:** [Architecture Overview](learn/benefits/ArchitectureOverview.md) · [The Dream Pipeline & Golden Path](learn/agentos/DreamPipeline.md)
 - **Shipped history:** the [release notes](resources/content/release-notes/) ([v13.0.0](resources/content/release-notes/chunk-2/v13.0.0.md)) + the v13 architectural path ([`learn/agentos/v13-path.md`](learn/agentos/v13-path.md))
 
