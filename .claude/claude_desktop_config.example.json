@@ -1,0 +1,56 @@
+{
+  "_comment": "Claude DESKTOP (GUI) example for a LOCAL-FIRST Neo setup. Copy the `mcpServers` block into ~/Library/Application Support/Claude/claude_desktop_config.json (macOS) or %APPDATA%/Claude/claude_desktop_config.json (Windows), then replace every <PLACEHOLDER>. Claude Desktop and Claude Code do NOT share this file — Claude Code (CLI) reads a repo-root .mcp.json (see .github/AI_QUICK_START.md §5). SECRETS (GH_TOKEN and any optional cloud provider keys) live in the .env file loaded via --env-file — never inline here. NEO_OPENAI_COMPATIBLE_HOST points at your local inference endpoint (e.g. LM Studio on 127.0.0.1:1234), so NO cloud API key is required. NEO_AGENT_IDENTITY (your GitHub login — binds the A2A mailbox) goes in the memory-core env block only. On Apple Silicon prepend /opt/homebrew/bin to PATH (GUI launches strip it). Fully quit (Cmd-Q) and relaunch after any edit.",
+  "mcpServers": {
+    "neo-mjs-knowledge-base": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "--env-file=<YOUR_NEO_REPO_PATH>/.env",
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"
+      ],
+      "env": {
+        "NEO_OPENAI_COMPATIBLE_HOST": "http://127.0.0.1:1234",
+        "PATH": "/opt/homebrew/bin:<YOUR_NEO_REPO_PATH>/node_modules/.bin:/usr/local/bin:/usr/bin:/bin",
+        "HOME": "<YOUR_HOME>"
+      }
+    },
+    "neo-mjs-memory-core": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "--env-file=<YOUR_NEO_REPO_PATH>/.env",
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"
+      ],
+      "env": {
+        "NEO_AGENT_IDENTITY": "<YOUR_GITHUB_LOGIN>",
+        "NEO_OPENAI_COMPATIBLE_HOST": "http://127.0.0.1:1234",
+        "PATH": "/opt/homebrew/bin:<YOUR_NEO_REPO_PATH>/node_modules/.bin:/usr/local/bin:/usr/bin:/bin",
+        "HOME": "<YOUR_HOME>"
+      }
+    },
+    "neo-mjs-github-workflow": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "--env-file=<YOUR_NEO_REPO_PATH>/.env",
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
+      ],
+      "env": {
+        "NEO_OPENAI_COMPATIBLE_HOST": "http://127.0.0.1:1234",
+        "PATH": "/opt/homebrew/bin:<YOUR_NEO_REPO_PATH>/node_modules/.bin:/usr/local/bin:/usr/bin:/bin",
+        "HOME": "<YOUR_HOME>"
+      }
+    },
+    "neo-mjs-neural-link": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "--env-file=<YOUR_NEO_REPO_PATH>/.env",
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "--cwd",
+        "<YOUR_NEO_REPO_PATH>"
+      ],
+      "env": {
+        "NEO_OPENAI_COMPATIBLE_HOST": "http://127.0.0.1:1234",
+        "PATH": "/opt/homebrew/bin:<YOUR_NEO_REPO_PATH>/node_modules/.bin:/usr/local/bin:/usr/bin:/bin",
+        "HOME": "<YOUR_HOME>"
+      }
+    }
+  }
+}
