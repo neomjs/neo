@@ -1352,12 +1352,15 @@ test.describe('Wake Daemon', () => {
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
+        let stdoutLog = '';
+
         // We know bridge-daemon will log INFO when it finishes osascript
         const deliveryPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
+                stdoutLog += out;
                 if (out.includes('[Wake Daemon] Delivered ' + subId)) {
                     clearTimeout(timeout);
                     resolve();
@@ -1398,6 +1401,10 @@ test.describe('Wake Daemon', () => {
         expect(args.join(' ')).toContain('keystroke "i" using {command down, shift down}');
         expect(args.join(' ')).toContain('tell application "Antigravity" to activate');
         expect(args.join(' ')).not.toContain('key code 49');
+        expect(stdoutLog).toContain(
+            'scenario=direct-message; route=osascript; adapterSource=metadata; app=Antigravity; ' +
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+        );
     });
 
     test('Claude default focus seed emits r -> Cmd+Z before prompt clear and guards frontmost (#10987, #10422)', async () => {
@@ -1833,6 +1840,60 @@ test.describe('Wake Daemon', () => {
         expect(args.at(-1)).toBe('C-m');
     });
 
+    test('tmux wake suppresses pure-heartbeat interactive submit and logs route evidence (#13456)', async () => {
+        const agentId = '@test-agent-tmux-pure-heartbeat';
+        const subId = insertWakeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter: 'tmux',
+                appName: 'Antigravity',
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockTmuxPath = path.join(binDir, 'tmux');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_tmux_pure_heartbeat_out.json');
+        fs.writeFileSync(mockTmuxPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockTmuxPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        let stdoutLog = '';
+
+        const suppressionPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not suppress pure-heartbeat tmux wake within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes(`Suppressed ${subId} tmux delivery for pure-heartbeat`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const pulseId = `HEARTBEAT_PULSE:${agentId}:${crypto.randomUUID()}`;
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
+
+        await suppressionPromise;
+
+        expect(fs.existsSync(mockOutPath)).toBe(false);
+        expect(stdoutLog).toContain(
+            'scenario=pure-heartbeat; route=tmux; adapterSource=metadata; app=Antigravity; ' +
+            'counts=messages:0,tasks:0,permissions:0,heartbeats:1'
+        );
+    });
+
     test('addressType webhookUrl dispatch POSTs the wake digest to the instanceAddress (#12422)', async () => {
         const received = new Promise((resolve, reject) => {
             const server = http.createServer((req, res) => {
@@ -2106,7 +2167,7 @@ test.describe('Wake Daemon', () => {
         );
     });
 
-    test('Codex UI wake logs pure-heartbeat scenario and route evidence (#13320)', async () => {
+    test('Codex UI wake suppresses pure-heartbeat interactive submit and logs route evidence (#13456)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-pure-heartbeat';
 
@@ -2151,12 +2212,12 @@ test.describe('Wake Daemon', () => {
         let stdoutLog = '';
 
         const deliveryPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Daemon did not deliver pure-heartbeat Codex wake within timeout')), 10000);
+            const timeout = setTimeout(() => reject(new Error('Daemon did not suppress pure-heartbeat Codex wake within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 stdoutLog += out;
-                if (out.includes(`Delivered ${subId}`)) {
+                if (out.includes(`Suppressed ${subId} osascript delivery for pure-heartbeat`)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -2172,12 +2233,8 @@ test.describe('Wake Daemon', () => {
 
         await deliveryPromise;
 
-        const rawArgs = JSON.parse(fs.readFileSync(mockOutPath, 'utf-8'));
-        const digest  = rawArgs.at(-1);
-
-        expect(digest).toContain('heartbeat pulses');
-        expect(digest).toContain('lifecycle-first');
-        expect(digest).not.toContain('new messages');
+        expect(fs.existsSync(mockOutPath)).toBe(false);
+        expect(stdoutLog).toContain('not submitting into interactive harness');
         expect(stdoutLog).toContain(
             'scenario=pure-heartbeat; route=osascript; adapterSource=metadata; app=Codex; ' +
             'counts=messages:0,tasks:0,permissions:0,heartbeats:1'

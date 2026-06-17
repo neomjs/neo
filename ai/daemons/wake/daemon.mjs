@@ -868,7 +868,7 @@ function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [],
 }
 
 /**
- * @summary Formats Codex wake-delivery evidence for live route validation logs.
+ * @summary Formats wake-delivery evidence for live route validation logs.
  * @param {Object} evidence Scenario/count evidence from buildWakeDeliveryEvidence().
  * @param {Object} options Adapter metadata.
  * @returns {String}
@@ -883,6 +883,21 @@ function formatWakeDeliveryEvidence(evidence, {adapter, adapterSource, appName})
     return ` (scenario=${scenario}; route=${adapter}; adapterSource=${adapterSource}; app=${appName || ''}; ` +
         `counts=messages:${counts.messages || 0},tasks:${counts.tasks || 0},` +
         `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0})`;
+}
+
+/**
+ * @summary Blocks heartbeat-only wakes from prompt-submitting interactive adapters.
+ *
+ * Pure heartbeat pulses are scheduler nudges, not actionable user/peer messages.
+ * `osascript` and `tmux` both submit by pressing Enter, so they must not deliver
+ * heartbeat-only digests into a harness composer. Direct-message and mixed
+ * actionable wakes keep the proven interactive route.
+ * @param {String} adapter Delivery adapter.
+ * @param {Object} evidence Scenario/count evidence.
+ * @returns {Boolean}
+ */
+function shouldSuppressPromptSubmittingHeartbeat(adapter, evidence = {}) {
+    return evidence.scenario === 'pure-heartbeat' && (adapter === 'osascript' || adapter === 'tmux');
 }
 
 /**
@@ -923,14 +938,20 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
     const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
     const adapter       = meta.adapter || defaultAdapter;
     const adapterSource = meta.adapter ? 'metadata' : 'platform-default';
-    const evidenceLabel = meta.appName === 'Codex' || adapter === CODEX_APP_SERVER_ADAPTER
-        ? formatWakeDeliveryEvidence(deliveryEvidence, {adapter, adapterSource, appName: meta.appName})
-        : '';
+    const evidenceLabel = formatWakeDeliveryEvidence(deliveryEvidence, {adapter, adapterSource, appName: meta.appName});
 
     // Serialize execution to prevent focus collisions (Electron-Paradox defense)
     deliveryPromise = deliveryPromise.then(async () => {
 
     try {
+        if (shouldSuppressPromptSubmittingHeartbeat(adapter, deliveryEvidence)) {
+            writeLog('INFO',
+                `[Wake Daemon] Suppressed ${subscription.id} ${adapter} delivery for pure-heartbeat; ` +
+                `not submitting into interactive harness${evidenceLabel}`
+            );
+            return 'skipped';
+        }
+
         // `userDataDir` is exempt from the freshness veto: the dispatch below resolves it through
         // `getInstancePid({userDataDir})`, which fails closed when no live process maps to the
         // address — a live liveness proof, unlike the volatile presence overlay (written once at
@@ -958,7 +979,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 ? instanceAddress
                 : meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
-            writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
+            writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}${evidenceLabel}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName;
             if (!appName) {
@@ -967,7 +988,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                     `harnessTargetMetadata.appName is missing/empty. ` +
                     `Skipping delivery to avoid misrouting. ` +
                     `Verify subscription template via 'manage_wake_subscription({action: \\'list\\'})' ` +
-                    `or fix the AgentIdentity subscriptionTemplate.`
+                    `or fix the AgentIdentity subscriptionTemplate.${evidenceLabel}`
                 );
                 return;
             }
@@ -1040,10 +1061,10 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
             // the \`first application process whose frontmost is true\`.
             //
             // [Anchor & Echo] The Key Code 36 (Enter) Defense:
-            // We specifically use \`key code 36\` (Enter) to submit the payload after pasting.
-            // This is load-bearing for Claude Desktop with Tab 3 (Claude Code) and Google Antigravity.
-            // Do NOT "clean this up" or revert to \`tell process\` or try to replace the Enter key
-            // without empiric validation across both harnesses.
+            // Actionable wakes specifically use \`key code 36\` (Enter) to submit the payload after
+            // pasting. This is load-bearing for Claude Desktop with Tab 3 (Claude Code) and Google
+            // Antigravity. Pure-heartbeat digests are suppressed before this branch because a
+            // scheduler nudge must not submit into an interactive composer.
             // Instance-addressed wake raises the resolved pid's process to frontmost (verified
             // addressable via System Events `whose unix id`); single-instance wakes keep the
             // app-activate path unchanged.
@@ -1357,9 +1378,15 @@ async function attemptDeliveryRetries() {
             }
         } else {
             pendingDeliveryRetries.delete(subId);
-            writeLog('INFO',
-                `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
-            );
+            if (outcome === 'skipped') {
+                writeLog('INFO',
+                    `[Wake Daemon] Wake delivery for ${subId} skipped on retry (attempt ${entry.attempts + 1}).`
+                );
+            } else {
+                writeLog('INFO',
+                    `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
+                );
+            }
         }
     }
 }
