@@ -55,7 +55,8 @@ anchored in [ADR 0020](../learn/agentos/decisions/0020-agent-harness-concept.md)
 [Epic #13012](https://github.com/neomjs/neo/issues/13012) — is a downloadable, Electron-shelled, multi-window Neo app
 whose main process hosts the Agent OS, ordered fleet-manager-first across four horizons: operate your fleet → your
 first agent, beautifully → from assistant to institution → institution as a service. The v13.1 floor is the fleet
-cockpit a person can download, run, and use to set up identities, run sessions, chat, and keep a live app pane in view.
+cockpit a person can download, run, and use to set up identities, run sessions, chat, and keep a live app pane in view:
+the same live App-Worker instances that agents inhabit through Neural Link and humans drive through the rendered UI.
 The v14 horizon extends that floor into an Institution Cockpit: a home surface where humans and named AI maintainers
 share an evidence-bound operating picture over work, possession, memory, and authority. Performance and endurance
 characteristics remain architecture-shaped hypotheses until the Harness Endurance Benchmark publishes.
