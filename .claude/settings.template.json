@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__neo-mjs-github-workflow__*",
+      "mcp__neo-mjs-memory-core__*",
+      "mcp__neo-mjs-knowledge-base__*"
+    ],
+    "deny": [
+      "Bash(gh pr merge *)"
+    ]
+  },
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "The neomjs/neo GitHub repository (its issues, pull requests, and discussions) and the four local neo-mjs MCP servers (github-workflow, memory-core, knowledge-base, neural-link) are trusted first-party infrastructure for this organism."
+    ],
+    "allow": [
+      "$defaults",
+      "Editing GitHub issues, pull requests, and discussions this agent authors or co-owns is normal equal-peer maintainer work (AGENTS.md swarm_topology_anchor) — not an action that requires human approval.",
+      "Sending A2A messages, writing Memory Core entries, creating tickets, and posting PR reviews are routine substrate work for a Neo maintainer."
+    ],
+    "soft_deny": [
+      "$defaults"
+    ],
+    "hard_deny": [
+      "$defaults",
+      "Never run `gh pr merge` or any other pull-request-merge command. Merging is reserved for the human operator (AGENTS.md critical gate #1); no approval signal ('LGTM', 'approved', 'ready to merge') authorizes an agent to merge.",
+      "Never push or commit directly to the `main` or `dev` branches. Always branch and open a pull request targeting `dev` (AGENTS.md critical gates #3 and #8). The release pipeline is the only sanctioned exception.",
+      "Never write a client, customer, or partner name — or private business strategy — into any public-facing artifact: public-repo issues, pull requests, discussions, docs, or comments (AGENTS.md critical gate #9)."
+    ]
+  }
+}

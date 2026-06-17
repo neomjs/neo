@@ -1,0 +1,42 @@
+{
+  "_comment": "Claude DESKTOP (GUI) example. Copy the `mcpServers` block below into ~/Library/Application Support/Claude/claude_desktop_config.json (macOS) or %APPDATA%/Claude/claude_desktop_config.json (Windows), then replace every <PLACEHOLDER>. IMPORTANT: Claude Desktop and Claude Code do NOT share this file — Claude Code (CLI) reads a repo-root .mcp.json (or ~/.claude.json); see .github/AI_QUICK_START.md §5. GUI apps launched from Finder do NOT inherit your shell environment, so credentials AND NEO_AGENT_IDENTITY (the GitHub login that binds your A2A mailbox) MUST live in the per-server env blocks below. GEMINI_API_KEY and NEO_KB_ASK_API_KEY are OPTIONAL for a local-first (Ollama / MLX / openAiCompatible) setup. After any edit, fully quit (Cmd-Q on macOS) and relaunch — there is no hot-reload.",
+  "mcpServers": {
+    "neo-mjs-knowledge-base": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"],
+      "env": {
+        "GEMINI_API_KEY": "<OPTIONAL_GEMINI_API_KEY>",
+        "NEO_KB_ASK_API_KEY": "<OPTIONAL_KB_ASK_API_KEY>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-memory-core": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"],
+      "env": {
+        "GEMINI_API_KEY": "<OPTIONAL_GEMINI_API_KEY>",
+        "NEO_AGENT_IDENTITY": "<YOUR_GITHUB_LOGIN>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-github-workflow": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"],
+      "env": {
+        "GH_TOKEN": "<YOUR_GH_TOKEN>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-neural-link": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "--cwd",
+        "<YOUR_NEO_REPO_PATH>"
+      ],
+      "env": {
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    }
+  }
+}
