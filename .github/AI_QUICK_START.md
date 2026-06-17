@@ -9,7 +9,7 @@ for the Neo.mjs repository.
 
 Before you begin, ensure you have the following:
 
-1.  **Google Account (optional)**: Only needed if you use Google's Gemini API for embeddings or chat. The pre-built Knowledge Base ships ready-to-query, and a fully local setup (Ollama / MLX / any OpenAI-compatible endpoint) needs no Gemini key at all. If you do want one, create it at [Google AI Studio](https://aistudio.google.com/app/apikey).
+1.  **Google Account**: You'll need one to access Google AI Studio for an API key, which is required to build the knowledge base. If you don't have one, you can create it at [accounts.google.com](https://accounts.google.com).
 2.  **Node.js**: Version 24 or later. If you don't have it, you can install it from [nodejs.org](https://nodejs.org).
 3.  **Project Setup**: Your setup depends on how you are working with Neo.mjs.
 
@@ -37,7 +37,7 @@ Before you begin, ensure you have the following:
 
 For this workflow, an "AI agent" is a local AI assistant capable of executing shell commands and making architectural decisions.
 
-**Current Support:** This guide covers four harnesses: the Google Gemini CLI, the Antigravity OS, Claude Desktop, and Claude Code. The core infrastructure (MCP servers, knowledge base) is agent-agnostic; each harness reads its own configuration file — Claude Desktop and Claude Code do **not** share one (see §4–§5).
+**Current Support:** This guide covers the setup for three environments: the Google Gemini CLI, the Antigravity OS, and Claude Desktop plus Claude Code (which share a single MCP configuration file). The core infrastructure (MCP servers, knowledge base) is agent-agnostic, but their respective configuration files differ slightly.
 
 ## 3. Setup the AI Environment (Required)
 
@@ -61,14 +61,9 @@ If the automatic download fails (e.g., due to network issues), you can trigger i
 npm run ai:download-kb
 ```
 
-### Step 3.2: Obtain a Gemini API Key (Optional)
+### Step 3.2: Obtain a Gemini API Key
 
-The pre-built Knowledge Base artifact ships ready-to-query, so a Gemini key is **optional** — a fully local setup (Ollama / MLX / any OpenAI-compatible endpoint) needs none. You only need a key if you choose Gemini as your provider or run incremental KB rebuilds against it. Two independent, optional keys are recognized:
-
-- **`GEMINI_API_KEY`** — Gemini as the embedding / LLM provider.
-- **`NEO_KB_ASK_API_KEY`** — a dedicated, budget-cappable key for the Knowledge Base *ask*-synthesis path only.
-
-For a local-first setup, skip this step. If you do want a Gemini key:
+The Knowledge Base artifact allows you to start quickly, but you still need a Gemini API Key to run the AI Agent (for chat/generation) and for incremental updates to the knowledge base.
 
 1.  **Visit Google AI Studio**: Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
 2.  **Sign In**: Use your Google account credentials. Complete any two-factor authentication (2FA) if prompted.
@@ -86,18 +81,13 @@ To ensure your environment is accurately inherited across all local MCP sub-serv
 1.  **Open your shell profile**: `nano ~/.zshrc` (or `~/.zprofile`)
 2.  **Add your keys**: Add the following lines, replacing the placeholder keys:
     ```bash
-    export GH_TOKEN="YOUR_GITHUB_TOKEN_HERE"
-
-    # Optional — only for the Gemini provider path (omit entirely for a local-first setup):
     export GEMINI_API_KEY="YOUR_API_KEY_HERE"
-    # Optional — dedicated, budget-cappable key for the Knowledge Base ask-synthesis path only:
-    export NEO_KB_ASK_API_KEY="YOUR_KB_ASK_KEY_HERE"
+    export GH_TOKEN="YOUR_GITHUB_TOKEN_HERE"
+    # Core LLM Engine provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
+    # export MODEL_PROVIDER="openAiCompatible"
 
-    # Provider (Supported: 'gemini', 'ollama', 'openAiCompatible'). Local-first is the default —
-    # point the servers at a local OpenAI-compatible endpoint (e.g. LM Studio); no cloud key needed:
-    export MODEL_PROVIDER="openAiCompatible"
-    export NEO_EMBEDDING_PROVIDER="openAiCompatible"
-    export NEO_OPENAI_COMPATIBLE_HOST="http://127.0.0.1:1234"
+    # Vector Embedding provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
+    export NEO_EMBEDDING_PROVIDER="gemini"
     ```
 3.  **Apply changes**: `source ~/.zshrc`
 
@@ -150,14 +140,15 @@ Antigravity is a desktop agent environment that embeds the Gemini runtime plus i
 
 Configuration source: user-level `mcp_config.json`. See §5 "Core Configuration (Antigravity OS)".
 
-### Option C: Claude Desktop and Claude Code
+### Option C: Claude Desktop / Claude Code
 
-Claude Desktop is Anthropic's desktop agent app (macOS/Windows). Claude Code is Anthropic's shell-capable CLI harness. They are **separate apps with separate config** — they do **not** share a file:
+Claude Desktop is Anthropic's desktop agent app (macOS/Windows). Claude Code is Anthropic's shell-capable CLI harness. **Both harnesses share a single MCP configuration file** — configuring one configures the other.
 
-- **Claude Desktop (GUI):** `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) / `%APPDATA%\Claude\claude_desktop_config.json` (Windows). Starter: [`.claude/claude_desktop_config.example.json`](../.claude/claude_desktop_config.example.json).
-- **Claude Code (CLI):** a repo-root `.mcp.json` (committable, team-shared) or `~/.claude.json` for MCP servers, plus [`.claude/settings.template.json`](../.claude/settings.template.json) for permissions / auto-mode.
+Configuration path:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-See §5 "Core Configuration (Claude Desktop / Claude Code)" for both structures, including the `NEO_AGENT_IDENTITY` requirement for A2A mailbox binding.
+See §5 "Core Configuration (Claude Desktop / Claude Code)" for the complete structure, including the `NEO_AGENT_IDENTITY` env-var requirement for A2A mailbox binding.
 
 ## 5. Understanding the Configuration Files
 
@@ -232,45 +223,60 @@ Use the following structure:
 
 ### Core Configuration (Claude Desktop / Claude Code)
 
-Claude Desktop (the macOS / Windows GUI app) and Claude Code (Anthropic's CLI harness) are **separate applications with separate configuration — they do not share a file.** Claude Desktop reads `claude_desktop_config.json`; Claude Code reads a repo-root `.mcp.json` (or `~/.claude.json`) for MCP servers plus `.claude/settings.json` for permissions / auto-mode. Configuring one does **not** configure the other.
-
-**Claude Desktop config path:**
+Claude Desktop (the macOS / Windows agent app) and Claude Code (Anthropic's CLI harness) share a single MCP configuration file at:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Copy-paste starters live in the repo: [`.claude/claude_desktop_config.example.json`](../.claude/claude_desktop_config.example.json) (Desktop) and [`.claude/settings.template.json`](../.claude/settings.template.json) (Claude Code permissions / auto-mode — mirrors `AGENTS.md`: allows equal-peer substrate work, hard-denies `gh pr merge` and direct `main`/`dev` pushes). The Claude Code `.mcp.json` setup is in the **Claude Code (CLI)** subsection after the Desktop block below.
-
-#### Claude Desktop (GUI)
+Configuring one harness configures the other — both spawn the same MCP subprocesses from this file.
 
 **Critical: `NEO_AGENT_IDENTITY` placement for A2A mailbox binding.**
 
 For the A2A (Agent-to-Agent) mailbox substrate to bind your agent session to its AgentIdentity graph node, the Memory Core server's `env` block MUST include `NEO_AGENT_IDENTITY` set to the GitHub login of the bound identity (e.g., `neo-opus`). **This MUST live inside the per-server `env` block — not as a shell export** — because Claude Desktop launches MCP subprocesses directly from the GUI without inheriting interactive-shell state. A shell export in `~/.zshrc` will NOT reach the spawned MCP process.
 
-The full structure is in [`.claude/claude_desktop_config.example.json`](../.claude/claude_desktop_config.example.json) — a **local-first** setup. Each server launches as `node --env-file=<YOUR_NEO_REPO_PATH>/.env <YOUR_NEO_REPO_PATH>/ai/mcp/server/<name>/mcp-server.mjs`, so:
-
-- **Secrets stay in `.env`, never inline.** `GH_TOKEN` and any optional cloud provider keys live in the `.env` file loaded via `--env-file`; the per-server `env` blocks carry no secrets.
-- **No cloud API key for a local setup.** `NEO_OPENAI_COMPATIBLE_HOST` points each server at your local inference endpoint (e.g. LM Studio on `http://127.0.0.1:1234`). A local-first config has **no `GEMINI_API_KEY`** at all.
-- **`NEO_AGENT_IDENTITY`** (your GitHub login) goes in the `neo-mjs-memory-core` `env` block — this is what binds your A2A mailbox.
-- On **Apple Silicon**, prepend `/opt/homebrew/bin` to `PATH` (GUI launches strip it) and set `HOME` explicitly.
-
-#### Claude Code (CLI)
-
-Claude Code reads MCP server definitions from a repo-root `.mcp.json` (project scope — committable and shared with the whole team) or `~/.claude.json` (user scope). It does **not** read `claude_desktop_config.json`. Because the CLI inherits your shell environment, you can export `NEO_AGENT_IDENTITY`, `GH_TOKEN`, and any provider keys in your shell profile (§3.3) — they are inherited by the spawned MCP servers, so per-server `env` blocks are not required (unlike the GUI).
-
-A minimal repo-root `.mcp.json` (servers launched via the repo's own npm scripts):
+Use the following structure (replace the placeholders as in the Antigravity section above):
 
 ```json
 {
   "mcpServers": {
-    "neo-mjs-github-workflow": { "command": "npm", "args": ["run", "ai:mcp-server-github-workflow"] },
-    "neo-mjs-knowledge-base":  { "command": "npm", "args": ["run", "ai:mcp-server-knowledge-base"] },
-    "neo-mjs-memory-core":     { "command": "npm", "args": ["run", "ai:mcp-server-memory-core"] },
-    "neo-mjs-neural-link":     { "command": "npm", "args": ["run", "ai:mcp-server-neural-link"] }
+    "neo-mjs-knowledge-base": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"],
+      "env": {
+        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-memory-core": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"],
+      "env": {
+        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
+        "NEO_AGENT_IDENTITY": "<YOUR_GITHUB_LOGIN>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-github-workflow": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"],
+      "env": {
+        "GH_TOKEN": "<YOUR_GH_TOKEN>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-neural-link": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "--cwd",
+        "<YOUR_NEO_REPO_PATH>"
+      ],
+      "env": {
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    }
   }
 }
 ```
-
-Claude Code prompts you to approve project-scoped `.mcp.json` servers the first time you launch it in the repo. Permissions and auto-mode are configured separately — copy [`.claude/settings.template.json`](../.claude/settings.template.json) to `.claude/settings.json` (or the gitignored `.claude/settings.local.json`) and adjust. That template mirrors `AGENTS.md`: it allow-lists the neo-mjs MCP substrate tools (so routine equal-peer work isn't gated), hard-denies `gh pr merge`, and via prose auto-mode rules blocks direct pushes/commits to `main`/`dev` and client names in public artifacts.
 
 **File System MCP scope:** frontier harnesses such as Codex, Claude Code, Gemini CLI, and Antigravity already provide their own filesystem and command-execution tools. Neo still ships `ai:mcp-server-file-system`, but it is for `Neo.ai.Agent` instances and local harnessless profiles such as Gemma-powered QA/documentation loops that need file access through the Agent OS client.
 
@@ -321,8 +327,8 @@ ln -s /Users/Shared/github/neomjs/neo/.neo-ai-data .neo-ai-data
 **What NOT to symlink**: source-code paths (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`). Node's ESM resolver walks to the canonical path and `Neo.setupClass` sees the same namespace registered from two different file paths → `Namespace collision in unitTestMode`. Symlinks are safe ONLY for pure-data directories like `.neo-ai-data/`. Config files MUST be real copies (which is what `bootstrapWorktree.mjs` does by default, without the `--link-data` flag).
 
 ### Agent Guidelines (Repository root)
-- **`AGENTS.md`**: Per-turn operational mandates (automatically loaded via the harness settings).
-- **`AGENTS_STARTUP.md`**: Step-by-step session initialization. **Note:** the boot/initialization workflow it describes is being revised and is no longer a reliable per-session ritual — treat it as historical context until refreshed; `AGENTS.md` (auto-loaded) carries the operative mandates.
+- **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
+- **`AGENTS.md`**: Per-turn operational mandates (automatically loaded via settings.json)
 
 ### Developer Guide
 - **[Strategic Workflows](../learn/agentos/StrategicWorkflows.md)**: Best practices for working effectively with the agents — the advanced, integrated workflows they support.
@@ -335,9 +341,20 @@ ln -s /Users/Shared/github/neomjs/neo/.neo-ai-data .neo-ai-data
    * **For Gemini CLI:** Run `gemini` in your terminal.
    * **For Antigravity:** Follow the Antigravity launch procedure.
 
-2. **Initialize the session:**
+2. **Follow the initialization instructions in AGENTS_STARTUP.md**:
 
-   `AGENTS.md` is auto-loaded as per-turn operational mandates (via the harness settings). The separate `AGENTS_STARTUP.md` boot ritual is **being revised** — the once-required "Read and follow @AGENTS_STARTUP.md" step is no longer a reliable per-session requirement; follow your operator's current boot guidance. It still helps to load core context at session start (e.g. `src/Neo.mjs`, `src/core/Base.mjs`, the `learn/` overview docs) and to check Memory Core status before your first real prompt.
+   The agent **will not** automatically initialize itself on startup. You must explicitly instruct it to do so:
+
+   > "Read and follow all instructions in @AGENTS_STARTUP.md"
+
+   The agent will then:
+    - Read the AGENTS_STARTUP.md file
+    - Load core Neo.mjs files (Neo.mjs, Base.mjs, CodebaseOverview.md)
+    - Check the Memory Core status
+    - Confirm it's ready for work
+
+   **Important:** This initialization step is required at the start of every new session. Without it, the agent will not
+   have proper context about the codebase structure and operational guidelines.
 
 3. **Give your actual prompt**, for example:
    > "Explain the Neo.mjs two-tier reactivity model with a code example."
@@ -363,7 +380,7 @@ and understand your codebase.
 
 ### Agent Behavior Issues
 - **Agent doesn't initialize**: Check that `AGENTS_STARTUP.md` exists
-- **Agent doesn't save memories**: Memory Core may not be running. Ask the agent to perform a healthcheck on the `neo-mjs-memory-core` MCP server. If it's unhealthy, you can ask the agent to start the database or use other memory-core tools.
+- **Agent doesn't save memories**: Memory Core may not be running. Ask the agent to perform a healthcheck on the `neo.mjs-memory-core` MCP server. If it's unhealthy, you can ask the agent to start the database or use other memory-core tools.
 - **Agent makes incorrect assumptions**: It may be hallucinating - remind it to query the knowledge base
 
 ### Agent Identity Binding Issues (A2A Mailbox)
