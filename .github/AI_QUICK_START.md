@@ -93,12 +93,11 @@ To ensure your environment is accurately inherited across all local MCP sub-serv
     # Optional — dedicated, budget-cappable key for the Knowledge Base ask-synthesis path only:
     export NEO_KB_ASK_API_KEY="YOUR_KB_ASK_KEY_HERE"
 
-    # Core LLM Engine provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
-    # export MODEL_PROVIDER="openAiCompatible"
-
-    # Vector Embedding provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
-    # Use 'ollama' or 'openAiCompatible' for a fully local, no-API-key setup:
-    export NEO_EMBEDDING_PROVIDER="gemini"
+    # Provider (Supported: 'gemini', 'ollama', 'openAiCompatible'). Local-first is the default —
+    # point the servers at a local OpenAI-compatible endpoint (e.g. LM Studio); no cloud key needed:
+    export MODEL_PROVIDER="openAiCompatible"
+    export NEO_EMBEDDING_PROVIDER="openAiCompatible"
+    export NEO_OPENAI_COMPATIBLE_HOST="http://127.0.0.1:1234"
     ```
 3.  **Apply changes**: `source ~/.zshrc`
 
@@ -247,50 +246,12 @@ Copy-paste starters live in the repo: [`.claude/claude_desktop_config.example.js
 
 For the A2A (Agent-to-Agent) mailbox substrate to bind your agent session to its AgentIdentity graph node, the Memory Core server's `env` block MUST include `NEO_AGENT_IDENTITY` set to the GitHub login of the bound identity (e.g., `neo-opus`). **This MUST live inside the per-server `env` block — not as a shell export** — because Claude Desktop launches MCP subprocesses directly from the GUI without inheriting interactive-shell state. A shell export in `~/.zshrc` will NOT reach the spawned MCP process.
 
-Use the following structure (replace the placeholders as in the Antigravity section above):
+The full structure is in [`.claude/claude_desktop_config.example.json`](../.claude/claude_desktop_config.example.json) — a **local-first** setup. Each server launches as `node --env-file=<YOUR_NEO_REPO_PATH>/.env <YOUR_NEO_REPO_PATH>/ai/mcp/server/<name>/mcp-server.mjs`, so:
 
-```json
-{
-  "mcpServers": {
-    "neo-mjs-knowledge-base": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"],
-      "env": {
-        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
-    "neo-mjs-memory-core": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"],
-      "env": {
-        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "NEO_AGENT_IDENTITY": "<YOUR_GITHUB_LOGIN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
-    "neo-mjs-github-workflow": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"],
-      "env": {
-        "GH_TOKEN": "<YOUR_GH_TOKEN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
-    "neo-mjs-neural-link": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
-        "--cwd",
-        "<YOUR_NEO_REPO_PATH>"
-      ],
-      "env": {
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    }
-  }
-}
-```
+- **Secrets stay in `.env`, never inline.** `GH_TOKEN` and any optional cloud provider keys live in the `.env` file loaded via `--env-file`; the per-server `env` blocks carry no secrets.
+- **No cloud API key for a local setup.** `NEO_OPENAI_COMPATIBLE_HOST` points each server at your local inference endpoint (e.g. LM Studio on `http://127.0.0.1:1234`). A local-first config has **no `GEMINI_API_KEY`** at all.
+- **`NEO_AGENT_IDENTITY`** (your GitHub login) goes in the `neo-mjs-memory-core` `env` block — this is what binds your A2A mailbox.
+- On **Apple Silicon**, prepend `/opt/homebrew/bin` to `PATH` (GUI launches strip it) and set `HOME` explicitly.
 
 #### Claude Code (CLI)
 
