@@ -11,6 +11,10 @@ import TextField from '../../../../../src/form/field/Text.mjs';
  * (`maxLength`), the submit routes to the Viewport controller (which validates + projects the request
  * into the evidence state), and the error line below renders any fail-closed reason as safe vdom
  * `text` — never `html` / `innerHTML`, and never executable. Deterministic: no model call here.
+ *
+ * Below the create row, a bounded follow-up EDIT row (a second field + `Edit` submit) routes to the
+ * controller's edit handler, which mutates the EXISTING widget through a small deterministic grammar
+ * (rename / row-count / reset) — the same one chat surface, not a second chat path.
  */
 class RequestIntake extends Container {
     static config = {
@@ -59,6 +63,23 @@ class RequestIntake extends Container {
             reference: 'request-error',
             cls      : ['agent-os-request-error'],
             vdom     : {cn: [{text: ''}]}
+        }, {
+            ntype : 'container',
+            cls   : ['agent-os-edit-row'],
+            layout: {ntype: 'hbox', align: 'stretch'},
+            items : [{
+                module         : TextField,
+                reference      : 'edit-field',
+                flex           : 1,
+                labelText      : 'Edit',
+                placeholderText: 'rename it to … · show 8 rows · reset data',
+                maxLength      : 200
+            }, {
+                module : Button,
+                cls    : ['agent-os-edit-submit'],
+                handler: 'onSubmitEdit',
+                text   : 'Edit'
+            }]
         }]
     }
 }

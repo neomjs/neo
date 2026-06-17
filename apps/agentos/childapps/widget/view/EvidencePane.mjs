@@ -48,6 +48,14 @@ class EvidencePane extends Container {
          */
         responseSummary_: 'Accepted a bounded grid blueprint and rendered it as a live widget.',
         /**
+         * The latest bounded follow-up edit outcome — an accepted-edit echo or a fail-closed
+         * `Rejected: …` reason. Rendered as a safe text node so neither an applied edit nor a rejection
+         * reason can reach the view as HTML.
+         * @member {String} editOutcome_=''
+         * @reactive
+         */
+        editOutcome_: '',
+        /**
          * The accepted first-widget blueprint. Rendered through `projectBlueprintEvidence`, so only
          * safe scalar metadata reaches the view; invalid input fails closed to a rejected line.
          * @member {Object|null} blueprint_
@@ -68,7 +76,8 @@ class EvidencePane extends Container {
             cls      : ['agent-os-evidence-transcript'],
             vdom     : {cn: [
                 {cls: ['agent-os-evidence-request']},
-                {cls: ['agent-os-evidence-response']}
+                {cls: ['agent-os-evidence-response']},
+                {cls: ['agent-os-evidence-edit-outcome']}
             ]}
         }, {
             ntype    : 'component',
@@ -104,6 +113,22 @@ class EvidencePane extends Container {
 
         if (transcript) {
             transcript.vdom.cn[1].text = value;
+            transcript.update?.()
+        }
+    }
+
+    /**
+     * Triggered after the editOutcome config changed; renders it as a safe text node so an applied-edit
+     * echo or a fail-closed rejection reason can never reach the view as HTML.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEditOutcome(value, oldValue) {
+        let transcript = this.getItem('transcript');
+
+        if (transcript) {
+            transcript.vdom.cn[2].text = value;
             transcript.update?.()
         }
     }
