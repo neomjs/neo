@@ -1,3 +1,4 @@
+import net from 'net';
 import path from 'path';
 import {fileURLToPath} from 'url';
 
@@ -7,6 +8,21 @@ const __dirname  = path.dirname(__filename);
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
+
+function probeTcpPort({port, timeoutMs}) {
+    return new Promise(resolve => {
+        const socket = net.connect({host: 'localhost', port});
+        const finish = result => {
+            socket.destroy();
+            resolve(result);
+        };
+
+        socket.setTimeout(timeoutMs);
+        socket.once('connect', () => finish(true));
+        socket.once('timeout', () => finish(false));
+        socket.once('error',   () => finish(false));
+    });
+}
 
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
@@ -28,6 +44,8 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
  * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
+ * @param {String|Number} [options.devServerPort] Local webpack dev-server port — used for the `--port` arg, singleton detection, and TCP liveness probe.
+ * @param {Number} [options.devServerLivenessTimeoutMs] TCP liveness probe timeout.
  * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
@@ -45,6 +63,8 @@ export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
     chromaPort,
+    devServerPort,
+    devServerLivenessTimeoutMs,
     mlxEnabled = false,
     mlxModel,
     mlxPort,
@@ -57,6 +77,8 @@ export function buildTaskDefinitions({
     providerReadiness,
     graphLogCompactionVacuum
 } = {}) {
+    const hasDevServerPort = devServerPort !== undefined && devServerPort !== null;
+
     const tasks = {
         chroma: {
             label          : 'chroma daemon',
@@ -80,6 +102,28 @@ export function buildTaskDefinitions({
             pidFileName    : 'wake-daemon.pid',
             expectedCommand: 'daemons/wake/daemon.mjs'
         },
+        ...(hasDevServerPort ? {
+            devServer: {
+                label                  : 'local dev-server',
+                command                : nodeBin,
+                args                   : [
+                    path.resolve(scriptDir, '../../node_modules/webpack/bin/webpack.js'),
+                    'serve',
+                    '-c',
+                    './buildScripts/webpack/webpack.server.config.mjs',
+                    '--port',
+                    String(devServerPort)
+                ],
+                pidFileName            : 'dev-server.pid',
+                expectedCommand        : 'node_modules/webpack/bin/webpack.js',
+                singletonPort          : Number(devServerPort),
+                duplicateListenerPolicy: 'defer',
+                livenessProbe          : () => probeTcpPort({
+                    port     : devServerPort,
+                    timeoutMs: devServerLivenessTimeoutMs
+                })
+            }
+        } : {}),
         embedDaemon: {
             label          : 'embed daemon (add_memory WAL drain)',
             command        : nodeBin,

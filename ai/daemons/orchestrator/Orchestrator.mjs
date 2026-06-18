@@ -55,10 +55,13 @@ export async function initializeDatabaseSelfBootstrap(dbPath) {
  * @param {String} key
  * @returns {Boolean}
  */
-function resolveDeploymentEnabled(key) {
-    const cfg = AiConfig.orchestrator.localOnly[key];
+function resolveLocalDeploymentDefault(cfg) {
     if (cfg !== null && cfg !== undefined) return cfg;
     return AiConfig.orchestrator.deploymentMode !== 'cloud';
+}
+
+function resolveDeploymentEnabled(key) {
+    return resolveLocalDeploymentDefault(AiConfig.orchestrator.localOnly[key]);
 }
 
 /**
@@ -203,6 +206,7 @@ export class Orchestrator extends Base {
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
+    get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -229,6 +233,8 @@ export class Orchestrator extends Base {
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
             chromaPort: AiConfig.engines.chroma.port,
+            devServerPort              : AiConfig.orchestrator.devServer.port,
+            devServerLivenessTimeoutMs : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
             mlxEnabled: this.mlxEnabled,
             mlxModel  : AiConfig.orchestrator.mlx.model,
             mlxPort   : AiConfig.orchestrator.mlx.port,
@@ -350,6 +356,7 @@ export class Orchestrator extends Base {
         const continuousTasks = [
             ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
+            ...(this.devServerEnabled    ? ['devServer'] : []),
             ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
             'mlx',
             'lms'

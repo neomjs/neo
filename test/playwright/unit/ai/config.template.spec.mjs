@@ -149,6 +149,11 @@ test.describe('Tier 1 Config Immutability', () => {
             swarmHeartbeatEnabled: null,
             wakeDispatchEnabled  : null
         });
+        expect(Config.orchestrator.devServer).toEqual({
+            enabled               : null,
+            port                  : 8080,
+            livenessProbeTimeoutMs: 1000
+        });
 
         // The swarm-heartbeat candidate-discovery default is the activity-derived source
         // ("activity-derived signals" framing).
