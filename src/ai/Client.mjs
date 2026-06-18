@@ -142,6 +142,7 @@ class Client extends Base {
             modify_state_provider : data,
 
             check_namespace       : runtime,
+            focus_window          : runtime,
             get_dom_event         : runtime,
             get_drag              : runtime,
             get_method_source     : runtime,
@@ -150,7 +151,9 @@ class Client extends Base {
             get_route             : runtime,
             get_window            : runtime,
             inspect_class         : runtime,
+            open_component_window : runtime,
             patch_code            : runtime,
+            position_window       : runtime,
             reload_page           : runtime,
             set_route             : runtime,
             simulate_event        : interaction

@@ -1,5 +1,6 @@
 import Base              from '../../../src/core/Base.mjs';
 import ConnectionService from './ConnectionService.mjs';
+import {resolveWindowTarget} from './windowOps.mjs';
 
 /**
  * @summary Manages application runtime and topology operations for the Neural Link MCP Server.
@@ -136,6 +137,69 @@ class RuntimeService extends Base {
         }
 
         return windows
+    }
+
+    /**
+     * Opens a known live component in a browser popup through the app runtime.
+     * @param {Object} opts
+     * @param {String} opts.componentId   The component id to pop out.
+     * @param {String} [opts.dashboardId] Optional dashboard/container id owning the popup primitive.
+     * @param {Object} [opts.rect]        Optional source rectangle used for popup placement.
+     * @param {String} [opts.sessionId]   Optional App Worker session scope.
+     * @param {String} [opts.windowId]    Optional known source window id from topology.
+     * @returns {Promise<Object>}
+     */
+    async openComponentWindow({componentId, dashboardId, rect, sessionId, windowId}) {
+        const targetSessionId = windowId ?
+            resolveWindowTarget({
+                sessionData: ConnectionService.sessionData,
+                sessionId,
+                windowId
+            }).sessionId :
+            sessionId;
+
+        return await ConnectionService.call(targetSessionId, 'open_component_window', {
+            componentId,
+            dashboardId,
+            rect,
+            windowId
+        })
+    }
+
+    /**
+     * Moves a known live browser popup window when the runtime supports native window positioning.
+     * @param {Object} opts
+     * @param {String} opts.windowId    The logical window id from topology.
+     * @param {Number} opts.x           The target screen x coordinate.
+     * @param {Number} opts.y           The target screen y coordinate.
+     * @param {String} [opts.sessionId] Optional App Worker session scope.
+     * @returns {Promise<Object>}
+     */
+    async positionWindow({windowId, x, y, sessionId}) {
+        const target = resolveWindowTarget({
+            sessionData: ConnectionService.sessionData,
+            sessionId,
+            windowId
+        });
+
+        return await ConnectionService.call(target.sessionId, 'position_window', {windowId, x, y})
+    }
+
+    /**
+     * Focuses a known live browser popup window when the runtime exposes a focus handle.
+     * @param {Object} opts
+     * @param {String} opts.windowId    The logical window id from topology.
+     * @param {String} [opts.sessionId] Optional App Worker session scope.
+     * @returns {Promise<Object>}
+     */
+    async focusWindow({windowId, sessionId}) {
+        const target = resolveWindowTarget({
+            sessionData: ConnectionService.sessionData,
+            sessionId,
+            windowId
+        });
+
+        return await ConnectionService.call(target.sessionId, 'focus_window', {windowId})
     }
 
     /**
