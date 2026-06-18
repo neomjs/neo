@@ -983,95 +983,23 @@ class HealthService extends Base {
         };
 
         try {
-            // Check memory collection
-            const memoryCollection = await withTimeout(
-                StorageRouter.getMemoryCollection(),
-                chromaProbeTimeoutMs,
-                'memory collection resolution health probe'
-            ).catch(error => {
-                result.memories = {
-                    name  : aiConfig.collections.memory,
-                    exists: false,
-                    count : 0,
-                    error : error.message
-                };
-                return null;
+            result.memories = await this.#checkCollectionCount({
+                collectionType : 'memory',
+                name           : aiConfig.collections.memory,
+                getCollection  : () => StorageRouter.getMemoryCollection(),
+                resolutionLabel: 'memory collection resolution health probe',
+                countLabel     : 'memory collection count health probe',
+                chromaProbeTimeoutMs
             });
-            if (memoryCollection) {
-                let memoryCount = 0;
-                try {
-                    memoryCount = await withTimeout(
-                        memoryCollection.count(),
-                        chromaProbeTimeoutMs,
-                        'memory collection count health probe'
-                    );
-                } catch (error) {
-                    result.memories = {
-                        name  : aiConfig.collections.memory,
-                        exists: true,
-                        count : 0,
-                        error : error.message
-                    };
-                }
 
-                result.memories = {
-                    name : aiConfig.collections.memory,
-                    exists: true,
-                    count: memoryCount,
-                    ...(result.memories?.error ? {error: result.memories.error} : {})
-                };
-            } else if (!result.memories) {
-                result.memories = {
-                    name  : aiConfig.collections.memory,
-                    exists: false,
-                    count : 0
-                };
-            }
-
-            // Check summary collection
-            const summaryCollection = await withTimeout(
-                StorageRouter.getSummaryCollection(),
-                chromaProbeTimeoutMs,
-                'summary collection resolution health probe'
-            ).catch(error => {
-                result.summaries = {
-                    name  : aiConfig.collections.session,
-                    exists: false,
-                    count : 0,
-                    error : error.message
-                };
-                return null;
+            result.summaries = await this.#checkCollectionCount({
+                collectionType : 'summary',
+                name           : aiConfig.collections.session,
+                getCollection  : () => StorageRouter.getSummaryCollection(),
+                resolutionLabel: 'summary collection resolution health probe',
+                countLabel     : 'summary collection count health probe',
+                chromaProbeTimeoutMs
             });
-            if (summaryCollection) {
-                let summaryCount = 0;
-                try {
-                    summaryCount = await withTimeout(
-                        summaryCollection.count(),
-                        chromaProbeTimeoutMs,
-                        'summary collection count health probe'
-                    );
-                } catch (error) {
-                    result.summaries = {
-                        name  : aiConfig.collections.session,
-                        exists: true,
-                        count : 0,
-                        error : error.message
-                    };
-                }
-
-                result.summaries = {
-                    name : aiConfig.collections.session,
-                    exists: true,
-                    count: summaryCount,
-                    ...(result.summaries?.error ? {error: result.summaries.error} : {})
-                };
-            } else if (!result.summaries) {
-                result.summaries = {
-                    name  : aiConfig.collections.session,
-                    exists: false,
-                    count : 0
-                };
-            }
 
             const errors = [result.memories?.error, result.summaries?.error].filter(Boolean);
             if (errors.length) {
@@ -1084,6 +1012,105 @@ class HealthService extends Base {
                 ...result,
                 error: `Failed to access collections: ${e.message}`
             };
+        }
+    }
+
+    /**
+     * Resolves and counts one Memory Core Chroma collection.
+     *
+     * Operation-level not-found failures on a resolved collection object are treated as
+     * stale-handle evidence: invalidate that collection cache and retry resolution once.
+     *
+     * @param {Object} options
+     * @param {'memory'|'summary'} options.collectionType
+     * @param {String} options.name
+     * @param {Function} options.getCollection
+     * @param {String} options.resolutionLabel
+     * @param {String} options.countLabel
+     * @param {Number} options.chromaProbeTimeoutMs
+     * @returns {Promise<Object>}
+     * @private
+     */
+    async #checkCollectionCount({
+        collectionType,
+        name,
+        getCollection,
+        resolutionLabel,
+        countLabel,
+        chromaProbeTimeoutMs
+    }) {
+        let collection = await withTimeout(
+            getCollection(),
+            chromaProbeTimeoutMs,
+            resolutionLabel
+        ).catch(error => ({
+            __resolutionError: error
+        }));
+
+        if (collection?.__resolutionError) {
+            return {
+                name,
+                exists: false,
+                count : 0,
+                error : collection.__resolutionError.message
+            }
+        }
+
+        if (!collection) {
+            return {
+                name,
+                exists: false,
+                count : 0
+            }
+        }
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                return {
+                    name,
+                    exists: true,
+                    count : await withTimeout(
+                        collection.count(),
+                        chromaProbeTimeoutMs,
+                        countLabel
+                    )
+                }
+            } catch (error) {
+                if (attempt > 0 || !ChromaManager.isCollectionNotFoundError(error)) {
+                    return {
+                        name,
+                        exists: true,
+                        count : 0,
+                        error : error.message
+                    }
+                }
+
+                ChromaManager.invalidateCollectionCache(collectionType);
+                collection = await withTimeout(
+                    getCollection(),
+                    chromaProbeTimeoutMs,
+                    resolutionLabel
+                ).catch(resolveError => ({
+                    __resolutionError: resolveError
+                }));
+
+                if (collection?.__resolutionError) {
+                    return {
+                        name,
+                        exists: false,
+                        count : 0,
+                        error : collection.__resolutionError.message
+                    }
+                }
+
+                if (!collection) {
+                    return {
+                        name,
+                        exists: false,
+                        count : 0
+                    }
+                }
+            }
         }
     }
 

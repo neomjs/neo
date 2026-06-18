@@ -1,6 +1,7 @@
 import {knownEmbeddingFunctions, registerEmbeddingFunction} from 'chromadb';
 
 export const CHROMA_DYNAMIC_TEXT_EMBEDDING_FUNCTION_NAME = 'dynamic_text_embedding_service';
+const CHROMA_COLLECTION_NOT_FOUND_RE = /does not exist|not found|not be found|could not be found|404/i;
 
 /**
  * @summary Local Chroma embedding placeholder for collections that always provide raw vectors.
@@ -112,6 +113,21 @@ export function registerNeoChromaEmbeddingFunctions({
     }
 
     return registered
+}
+
+/**
+ * @summary Classifies Chroma collection-handle failures that should trigger re-resolution.
+ *
+ * Long-lived MCP processes can keep a collection object across a Chroma daemon recycle,
+ * shadow-swap, or restore. The next operation on that object can fail with Chroma's
+ * not-found signatures even though the canonical collection is available to a fresh
+ * lookup. Callers use this predicate to invalidate their memoized handle and retry once.
+ *
+ * @param {Error} error
+ * @returns {Boolean}
+ */
+export function isChromaCollectionNotFoundError(error) {
+    return error?.name === 'ChromaNotFoundError' || CHROMA_COLLECTION_NOT_FOUND_RE.test(error?.message || '')
 }
 
 /**
