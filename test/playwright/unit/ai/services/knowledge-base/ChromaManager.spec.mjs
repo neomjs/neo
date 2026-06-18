@@ -128,6 +128,15 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         });
     });
 
+    test('isCollectionNotFoundError exposes the canonical Chroma not-found classifier', () => {
+        const namedError = new Error('The requested resource could not be found');
+        namedError.name  = 'ChromaNotFoundError';
+
+        expect(ChromaManager.isCollectionNotFoundError(namedError)).toBe(true);
+        expect(ChromaManager.isCollectionNotFoundError(new Error('collection does not exist'))).toBe(true);
+        expect(ChromaManager.isCollectionNotFoundError(new Error('connection refused'))).toBe(false);
+    });
+
     test('getKnowledgeBaseCollection refuses to create canonical during active shadow-swap promotion', async () => {
         let createCount = 0;
 

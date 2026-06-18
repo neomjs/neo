@@ -183,6 +183,62 @@ class HealthService extends Base {
     }
 
     /**
+     * Counts the canonical KB collection, invalidating a stale resolved handle once
+     * when Chroma reports the handle no longer points at a live collection.
+     *
+     * @returns {Promise<Object>} {name, exists, count, error?}
+     * @private
+     */
+    async #checkKnowledgeBaseCollection() {
+        const base = {
+            name  : aiConfig.collectionName,
+            exists: false,
+            count : 0
+        };
+
+        let collection;
+
+        try {
+            collection = await ChromaManager.getKnowledgeBaseCollection();
+        } catch (error) {
+            return {
+                ...base,
+                error: error.message
+            };
+        }
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                return {
+                    ...base,
+                    exists: true,
+                    count : await collection.count()
+                };
+            } catch (error) {
+                if (attempt > 0 || !ChromaManager.isCollectionNotFoundError(error)) {
+                    return {
+                        ...base,
+                        error: error.message
+                    };
+                }
+
+                ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+                try {
+                    collection = await ChromaManager.getKnowledgeBaseCollection();
+                } catch (retryError) {
+                    return {
+                        ...base,
+                        error: retryError.message
+                    };
+                }
+            }
+        }
+
+        return base;
+    }
+
+    /**
      * Verifies that the required collections exist and are accessible.
      *
      * Intent: Even if ChromaDB is running, we need to ensure our specific collection
@@ -193,32 +249,23 @@ class HealthService extends Base {
      * @private
      */
     async #checkCollections() {
-        const result = {
-            knowledgeBase: null
-        };
-
         try {
-            // Check knowledge base collection
-            const knowledgeBaseCollection = await ChromaManager.getKnowledgeBaseCollection().catch(() => null);
-            if (knowledgeBaseCollection) {
-                const count = await knowledgeBaseCollection.count();
-                result.knowledgeBase = {
-                    name  : aiConfig.collectionName,
-                    exists: true,
-                    count
-                };
-            } else {
-                result.knowledgeBase = {
-                    name  : aiConfig.collectionName,
-                    exists: false,
-                    count : 0
-                };
+            const knowledgeBase = await this.#checkKnowledgeBaseCollection(),
+                  result        = {knowledgeBase};
+
+            if (knowledgeBase.error) {
+                result.error = `Failed to access collections: ${knowledgeBase.error}`;
             }
 
             return result;
         } catch (e) {
             return {
-                ...result,
+                knowledgeBase: {
+                    name  : aiConfig.collectionName,
+                    exists: false,
+                    count : 0,
+                    error : e.message
+                },
                 error: `Failed to access collections: ${e.message}`
             };
         }
@@ -269,9 +316,9 @@ class HealthService extends Base {
      * 3. Embedding provider readiness (needed for retrieval; only `gemini` needs a key)
      *
      * Status levels:
-     * - healthy: ChromaDB running, collections accessible, embedding provider ready
-     * - degraded: ChromaDB running, collections accessible, but embedding provider not ready
-     * - unhealthy: ChromaDB not running or collections not accessible
+     * - healthy: ChromaDB connected, KB corpus accessible, embedding provider ready
+     * - degraded: ChromaDB connected, but KB corpus or embedding provider unavailable
+     * - unhealthy: ChromaDB not reachable
      *
      * @returns {Promise<object>} A comprehensive health status payload
      * @private
@@ -312,16 +359,9 @@ class HealthService extends Base {
             knowledgeBase: collectionsCheck.knowledgeBase
         };
 
-        if (collectionsCheck.error) {
-            payload.status = 'unhealthy';
-            payload.details.push(collectionsCheck.error);
-            return payload;
-        }
-
-        if (!collectionsCheck.knowledgeBase?.exists) {
-            payload.status = 'unhealthy';
-            payload.details.push('The required knowledge base collection is missing');
-            return payload;
+        if (collectionsCheck.error || !collectionsCheck.knowledgeBase?.exists) {
+            payload.status = 'degraded';
+            payload.details.push(collectionsCheck.error || 'The required knowledge base collection is missing');
         }
 
         // Step 3: Check embedding provider readiness (provider-aware; only 'gemini' needs a key)
@@ -335,7 +375,7 @@ class HealthService extends Base {
 
         // If we made it here with no errors, report success
         if (payload.status === 'healthy') {
-            payload.details.push('ChromaDB is running and all collections are accessible');
+            payload.details.push('Connected to the orchestrator-managed ChromaDB instance');
             payload.details.push('All features are operational');
         }
 

@@ -580,7 +580,7 @@ components:
       properties:
         status:
           type: string
-          description: Overall health status of the server.
+          description: Overall health status of the server. `unhealthy` means ChromaDB is unreachable; `degraded` means ChromaDB is reachable but corpus or provider readiness is incomplete.
           enum: [healthy, degraded, unhealthy]
           example: "healthy"
         timestamp:
@@ -626,7 +626,7 @@ components:
               properties:
                 running:
                   type: boolean
-                  description: True if the ChromaDB process is running.
+                  description: True if the ChromaDB process is locally observed as running. In unified topology this can be false while connection.connected is true because ChromaDB is orchestrator-managed.
                   example: true
                 pid:
                   type: integer
@@ -660,12 +660,15 @@ components:
                         count:
                           type: integer
                           example: 1234
+                        error:
+                          type: string
+                          description: Collection access error when the KB corpus is unavailable.
         features:
           type: object
           properties:
             embedding:
               type: boolean
-              description: "Indicates if the embedding feature is available (requires GEMINI_API_KEY)."
+              description: "Indicates if the configured embedding provider is available."
               example: true
         details:
           type: array
@@ -673,7 +676,7 @@ components:
             type: string
           description: "A list of human-readable details about the system's status."
           example:
-            - "ChromaDB is running and all collections are accessible"
+            - "Connected to the orchestrator-managed ChromaDB instance"
             - "All features are operational"
         version:
           type: string

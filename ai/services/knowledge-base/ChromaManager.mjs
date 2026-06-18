@@ -192,6 +192,20 @@ class ChromaManager extends Base {
     }
 
     /**
+     * Public predicate for consumers that operate on an already-resolved collection handle.
+     *
+     * `getKnowledgeBaseCollection()` invalidates resolution failures itself. Callers that
+     * receive a later operation-level Chroma not-found need the same classifier to drop a
+     * stale handle before retrying the canonical collection name.
+     *
+     * @param {Error} error
+     * @returns {Boolean}
+     */
+    isCollectionNotFoundError(error) {
+        return this.#isCollectionNotFoundError(error);
+    }
+
+    /**
      * @param {Error} error
      * @returns {Boolean}
      */
