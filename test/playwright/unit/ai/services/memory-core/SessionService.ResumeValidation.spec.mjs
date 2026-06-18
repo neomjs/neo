@@ -44,7 +44,6 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
         const tmpDir = path.resolve(process.cwd(), "tmp");
         aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
-        
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, {recursive: true});
         }
@@ -85,6 +84,50 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
         expect(result.success).toBeUndefined();
         expect(result.code).toBe('SESSION_NOT_FOUND');
         expect(result.sessionId).toBe(sessionId);
+    });
+
+    test('#13458: stalled Chroma metadata read falls through to graph fallback', async () => {
+        const sessionId     = `graph-fallback-${crypto.randomUUID()}`;
+        const memoryNodeId  = `memory:${sessionId}`;
+        const timestamp     = new Date().toISOString();
+        const GraphService  = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+
+        await GraphService.ready();
+        const originalGetMemoryCollection = StorageRouter.getMemoryCollection;
+
+        StorageRouter.getMemoryCollection = async () => ({
+            get: async () => new Promise(() => {})
+        });
+
+        GraphService.upsertNode({
+            id        : memoryNodeId,
+            type      : 'AGENT_MEMORY',
+            properties: {
+                sessionId,
+                timestamp
+            }
+        });
+
+        try {
+            const result = await SDK.Memory_SessionService.validateSessionForResume({
+                sessionId,
+                chromaTimeoutMs: 5
+            });
+
+            expect(result).toMatchObject({
+                success            : true,
+                sessionId,
+                status             : 'resumable',
+                memoryCount        : 1,
+                lastActivityAt     : timestamp,
+                summarizationStatus: 'none'
+            });
+        } finally {
+            StorageRouter.getMemoryCollection = originalGetMemoryCollection;
+            GraphService.db?.storage?.db?.prepare('DELETE FROM Nodes WHERE id = ?').run(memoryNodeId);
+            GraphService.db?.nodes?.delete?.(memoryNodeId);
+        }
     });
 
     test('#12199: queueSummarizationJob writes an idempotent pending marker', async () => {

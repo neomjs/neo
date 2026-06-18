@@ -28,9 +28,9 @@ import {
 
 /**
  * @summary Cross-service unit coverage for the 5-axis REM observability primitive
- * shipped by Epic #12065 Sub 2 / #12068 Phase 1 Part A.
+ * shipped for REM pipeline divergence detection.
  *
- * The 5 axes per Discussion #12062 §2.6:
+ * The 5 axes covered by the REM divergence model:
  * - **A** — Chroma summary count (via existing tooling, not under test here)
  * - **A2 (positive)** — `ChromaManager.getGraphDigestedCount`
  * - **A2 (negative)** — `ChromaManager.getUndigestedSessionCount`
@@ -49,8 +49,6 @@ import {
  * @see ai/services/memory-core/managers/ChromaManager.mjs — axis helpers
  * @see ai/services/memory-core/GraphService.mjs — axis helpers
  * @see ai/services/graph/TopologyInferenceEngine.mjs — axis helper
- * @see Epic #12065 Sub 2 #12068 — 5-axis observability primitive ticket
- * @see Discussion #12062 §2.6 — axis-divergence framing
  */
 
 const __filename = fileURLToPath(import.meta.url);
@@ -426,6 +424,39 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                     entityCount: 9
                 }
             });
+        });
+
+        test('#13458: a stalled REM axis returns a bounded numeric fallback plus axisErrors', async () => {
+            const originalGetUndigestedSessionCount = ChromaManager.getUndigestedSessionCount;
+            const originalGetGraphDigestedCount     = ChromaManager.getGraphDigestedCount;
+            const originalGetSessionNodeCount       = GraphService.getSessionNodeCount;
+            const originalGetTopologyConflictCount  = TopologyInferenceEngine.getTopologyConflictCount;
+
+            ChromaManager.getUndigestedSessionCount = async () => new Promise(() => {});
+            ChromaManager.getGraphDigestedCount     = async () => 7;
+            GraphService.getSessionNodeCount        = async () => 11;
+            TopologyInferenceEngine.getTopologyConflictCount = async () => 2;
+
+            try {
+                const {buildRemPipelineState} = await import('../../../../../ai/services/memory-core/HealthService.mjs');
+                const state = await buildRemPipelineState({axisTimeoutMs: 5});
+
+                expect(state).toMatchObject({
+                    undigested       : 0,
+                    digested         : 7,
+                    sessionNodes     : 11,
+                    topologyConflicts: 2,
+                    recentCycles     : [],
+                    axisErrors       : {
+                        undigested: 'REM axis undigested timed out after 5ms'
+                    }
+                });
+            } finally {
+                ChromaManager.getUndigestedSessionCount = originalGetUndigestedSessionCount;
+                ChromaManager.getGraphDigestedCount     = originalGetGraphDigestedCount;
+                GraphService.getSessionNodeCount        = originalGetSessionNodeCount;
+                TopologyInferenceEngine.getTopologyConflictCount = originalGetTopologyConflictCount;
+            }
         });
 
         test('projects recent JSONL cycle state through the MCP tool', async () => {

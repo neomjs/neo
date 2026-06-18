@@ -613,6 +613,37 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(result.details).toContain('Embedding write canary failed: embedding provider busy');
         expect(result.details).not.toContain('All features are operational');
     });
+
+    test('#13458: embedding write canary timeout degrades healthcheck instead of hanging', async () => {
+        TextEmbeddingService.embedText = async () => new Promise(() => {});
+
+        const result = await HealthService.healthcheck({
+            embeddingWriteCanaryTimeoutMs: 5
+        });
+
+        expect(result.status).toBe('degraded');
+        expect(result.details).toContain('Embedding write canary failed: Embedding write canary timed out after 5ms');
+        expect(result.details).not.toContain('All features are operational');
+    });
+
+    test('#13458: collection count timeout makes healthcheck resolve unhealthy instead of hanging', async () => {
+        StorageRouter.getMemoryCollection = async () => ({
+            count: async () => new Promise(() => {}),
+            get  : async () => ({ids: [], metadatas: []})
+        });
+
+        const result = await HealthService.healthcheck({
+            chromaProbeTimeoutMs: 5
+        });
+
+        expect(result.status).toBe('unhealthy');
+        expect(result.database.connection.collections.memories).toMatchObject({
+            exists: true,
+            count : 0,
+            error : 'memory collection count health probe timed out after 5ms'
+        });
+        expect(result.details).toContain('Failed to access collections: memory collection count health probe timed out after 5ms');
+    });
 });
 
 /**
@@ -847,6 +878,27 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
             expectedDimensions: 4096,
             durationMs        : 0,
             error             : 'embedding provider busy'
+        });
+    });
+
+    test('#13458: reports failed when the active provider never resolves', async () => {
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 4096
+            },
+            embedText: async () => new Promise(() => {}),
+            now: () => 100,
+            timeoutMs: 5
+        });
+
+        expect(result).toMatchObject({
+            status            : 'failed',
+            provider          : 'openAiCompatible',
+            dimensions        : null,
+            expectedDimensions: 4096,
+            durationMs        : 0,
+            error             : 'Embedding write canary timed out after 5ms'
         });
     });
 
