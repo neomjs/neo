@@ -42,17 +42,29 @@ test.describe.configure({mode: 'serial'});
 
 test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#12140)', () => {
     let TARGETS;
+    let assertDefragTargetSupported;
+    let assertNoIncompleteDefragState;
+    let clearDefragState;
+    let createSwapCollectionName;
     let resolveLiveSegmentIds;
+    let rewriteCollectionViaShadowPromotion;
     let cleanOrphanedSegmentDirs;
+    let writeDefragState;
     let tmpRoot;
     let nudge           = 0;
     let sqlite3Available = false;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/scripts/maintenance/defragChromaDB.mjs');
-        TARGETS                  = mod.TARGETS;
-        resolveLiveSegmentIds    = mod.resolveLiveSegmentIds;
-        cleanOrphanedSegmentDirs = mod.cleanOrphanedSegmentDirs;
+        TARGETS                             = mod.TARGETS;
+        assertDefragTargetSupported         = mod.assertDefragTargetSupported;
+        assertNoIncompleteDefragState       = mod.assertNoIncompleteDefragState;
+        clearDefragState                    = mod.clearDefragState;
+        createSwapCollectionName            = mod.createSwapCollectionName;
+        resolveLiveSegmentIds               = mod.resolveLiveSegmentIds;
+        rewriteCollectionViaShadowPromotion = mod.rewriteCollectionViaShadowPromotion;
+        cleanOrphanedSegmentDirs            = mod.cleanOrphanedSegmentDirs;
+        writeDefragState                    = mod.writeDefragState;
 
         try {
             execSync('sqlite3 --version', {stdio: 'ignore'});
@@ -81,6 +93,94 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
         await fs.ensureDir(dirPath);
         await fs.writeFile(path.join(dirPath, 'data_level0.bin'), 'hnsw-index-marker');
         return uuid;
+    }
+
+    function createRegistryBackedCollection({name, registry, failModifyTo = null}) {
+        const rows = new Map();
+        const collection = {
+            name,
+            calls: {
+                add   : [],
+                get   : [],
+                modify: []
+            },
+            async add(payload) {
+                this.calls.add.push(payload);
+                for (let i = 0; i < payload.ids.length; i++) {
+                    rows.set(payload.ids[i], {
+                        embedding: payload.embeddings[i],
+                        metadata : payload.metadatas[i],
+                        document : payload.documents[i]
+                    });
+                }
+            },
+            async count() {
+                return rows.size;
+            },
+            async get({ids, include = []} = {}) {
+                this.calls.get.push({ids, include});
+                const foundIds = (ids || []).filter(id => rows.has(id));
+                return {ids: foundIds};
+            },
+            async modify({name: nextName}) {
+                this.calls.modify.push({name: nextName});
+                if (nextName === failModifyTo) {
+                    throw new Error(`forced modify failure for ${nextName}`);
+                }
+                registry.delete(this.name);
+                this.name = nextName;
+                registry.set(nextName, this);
+            },
+            rows
+        };
+
+        registry.set(name, collection);
+        return collection;
+    }
+
+    function createRegistryBackedClient({registry, shadowFailModifyTo = null}) {
+        const calls = {
+            createCollection: [],
+            deleteCollection: [],
+            getCollection   : []
+        };
+        const created = [];
+
+        return {
+            calls,
+            created,
+            async createCollection({name}) {
+                calls.createCollection.push({name});
+                const collection = createRegistryBackedCollection({
+                    name,
+                    registry,
+                    failModifyTo: shadowFailModifyTo
+                });
+                created.push(collection);
+                return collection;
+            },
+            async deleteCollection({name}) {
+                calls.deleteCollection.push({name});
+                registry.delete(name);
+            },
+            async getCollection({name}) {
+                calls.getCollection.push({name});
+                const collection = registry.get(name);
+                if (!collection) {
+                    throw new Error(`Collection ${name} not found`);
+                }
+                return collection;
+            }
+        };
+    }
+
+    function createCollectionData() {
+        return {
+            ids       : ['chunk-1', 'chunk-2'],
+            embeddings: [[1, 0], [0, 1]],
+            metadatas : [{source: 'a'}, {source: 'b'}],
+            documents : [null, {body: 'object-doc'}]
+        };
     }
 
     test('preserves every live segment dir (this target AND sibling) and removes only true orphans', async () => {
@@ -161,6 +261,127 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             'neo-agent-sessions',
             'neo-native-graph'
         ]);
+    });
+
+    test('fails closed for Memory Core until safe multi-collection promotion exists', () => {
+        expect(() => assertDefragTargetSupported({targetName: 'memory-core'}))
+            .toThrow(/Memory Core defrag is disabled/);
+        try {
+            assertDefragTargetSupported({targetName: 'memory-core'});
+        } catch (error) {
+            expect(error.code).toBe('DEFRAG_MEMORY_CORE_UNSAFE');
+        }
+
+        expect(() => assertDefragTargetSupported({targetName: 'knowledge-base'})).not.toThrow();
+    });
+
+    test('durable phase markers block reruns until an incomplete defrag is cleared', async () => {
+        const statePath = path.join(tmpRoot, 'defrag-state.json');
+
+        await writeDefragState({
+            statePath,
+            state: {
+                targetName    : 'knowledge-base',
+                collectionName: 'neo-knowledge-base',
+                phase         : 'live-parked',
+                shadowName    : 'neo-knowledge-base-shadow-test',
+                parkingName   : 'neo-knowledge-base-parking-test'
+            }
+        });
+
+        await expect(assertNoIncompleteDefragState({statePath}))
+            .rejects.toMatchObject({
+                code : 'DEFRAG_INCOMPLETE_STATE',
+                state: expect.objectContaining({phase: 'live-parked'})
+            });
+
+        await clearDefragState({statePath});
+        await expect(assertNoIncompleteDefragState({statePath})).resolves.toBeUndefined();
+    });
+
+    test('shadow promotion loads replacement before parking live and never deletes canonical', async () => {
+        const registry       = new Map();
+        const collectionName = 'neo-knowledge-base';
+        const live           = createRegistryBackedCollection({name: collectionName, registry});
+        const client         = createRegistryBackedClient({registry});
+        const data           = createCollectionData();
+        const statePath      = path.join(tmpRoot, 'defrag-state.json');
+        let uuid             = 0;
+
+        const result = await rewriteCollectionViaShadowPromotion({
+            client,
+            collectionName,
+            data,
+            embeddingFunction: {name: 'dummy'},
+            statePath,
+            timestamp        : 123,
+            uuidFactory      : () => `uuid-${++uuid}`,
+            log              : () => {},
+            writeProgress    : () => {}
+        });
+
+        expect(result.shadowName).toBe('neo-knowledge-base-shadow-123-uuid-1');
+        expect(result.parkingName).toBe('neo-knowledge-base-parking-123-uuid-2');
+        expect(result.parkingDeleted).toBe(true);
+        expect(client.calls.createCollection).toEqual([{name: result.shadowName}]);
+        expect(client.calls.deleteCollection).toEqual([{name: result.parkingName}]);
+        expect(client.calls.deleteCollection).not.toContainEqual({name: collectionName});
+        expect(live.calls.modify).toEqual([{name: result.parkingName}]);
+
+        const canonical = registry.get(collectionName);
+        expect(canonical).toBe(client.created[0]);
+        expect(canonical.rows.size).toBe(2);
+        expect(canonical.calls.add[0].documents).toEqual(['', '{"body":"object-doc"}']);
+        expect(registry.has(result.parkingName)).toBe(false);
+
+        const state = await fs.readJson(statePath);
+        expect(state.phase).toBe('parking-deleted');
+    });
+
+    test('shadow promotion rolls live collection back when promotion fails after parking', async () => {
+        const registry       = new Map();
+        const collectionName = 'neo-knowledge-base';
+        const data           = createCollectionData();
+        const statePath      = path.join(tmpRoot, 'defrag-state.json');
+        const parkingName    = createSwapCollectionName(collectionName, 'parking', {
+            timestamp: 456,
+            uuid     : 'uuid-2'
+        });
+        const failedName     = createSwapCollectionName(collectionName, 'failed-shadow', {
+            timestamp: 456,
+            uuid     : 'uuid-3'
+        });
+        const live           = createRegistryBackedCollection({name: collectionName, registry});
+        const client         = createRegistryBackedClient({
+            registry,
+            shadowFailModifyTo: collectionName
+        });
+        let uuid = 0;
+
+        await expect(rewriteCollectionViaShadowPromotion({
+            client,
+            collectionName,
+            data,
+            embeddingFunction: {name: 'dummy'},
+            statePath,
+            timestamp        : 456,
+            uuidFactory      : () => `uuid-${++uuid}`,
+            log              : () => {},
+            warn             : () => {},
+            writeProgress    : () => {}
+        })).rejects.toThrow(`forced modify failure for ${collectionName}`);
+
+        expect(registry.get(collectionName)).toBe(live);
+        expect(live.calls.modify).toEqual([
+            {name: parkingName},
+            {name: collectionName}
+        ]);
+        expect(client.calls.deleteCollection).toEqual([]);
+        expect(registry.has(failedName)).toBe(true);
+
+        const state = await fs.readJson(statePath);
+        expect(state.phase).toBe('shadow-parked-after-failure');
+        expect(state.failedShadowName).toBe(failedName);
     });
 
     test('registers Neo Chroma embedding functions before defrag collection hydration', async () => {
