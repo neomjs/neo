@@ -34,7 +34,8 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             NEO_MCP_HEALTHCHECK_TOKEN_ENV      : 'TOKEN_SLOT',
             TOKEN_SLOT                         : 'secret-token',
             NEO_MCP_HEALTHCHECK_EXPECTED_STATUS: 'ready',
-            NEO_MCP_HEALTHCHECK_CLIENT_NAME    : 'deploy-client'
+            NEO_MCP_HEALTHCHECK_CLIENT_NAME    : 'deploy-client',
+            NEO_MCP_HEALTHCHECK_TIMEOUT_MS     : '7000'
         });
 
         expect(args).toEqual({
@@ -43,7 +44,8 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             bearerToken   : 'secret-token',
             bearerTokenEnv: 'TOKEN_SLOT',
             expectedStatus: 'ready',
-            clientName    : 'deploy-client'
+            clientName    : 'deploy-client',
+            timeoutMs     : 7000
         });
     });
 
@@ -53,7 +55,8 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             '--identity', 'cli-identity',
             '--bearer-token-env', 'CLI_TOKEN',
             '--expected-status', 'healthy',
-            '--client-name', 'cli-client'
+            '--client-name', 'cli-client',
+            '--timeout-ms', '6000'
         ], {
             NEO_MCP_HEALTHCHECK_URL      : 'http://ignored:3000',
             NEO_MCP_HEALTHCHECK_IDENTITY : 'ignored',
@@ -66,7 +69,8 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             identity      : 'cli-identity',
             bearerToken   : 'cli-secret',
             expectedStatus: 'healthy',
-            clientName    : 'cli-client'
+            clientName    : 'cli-client',
+            timeoutMs     : 6000
         });
     });
 
@@ -152,6 +156,57 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             ClientClass   : FakeClient,
             TransportClass: FakeTransport
         })).rejects.toThrow("Expected healthcheck status 'healthy', got 'degraded'.");
+    });
+
+    test('#13458: runHealthcheck times out a hanging MCP connect and closes the client', async () => {
+        const calls = [];
+
+        class FakeTransport {}
+        class FakeClient {
+            async connect() {
+                calls.push({type: 'connect'});
+                return new Promise(() => {});
+            }
+            async close() {
+                calls.push({type: 'close'});
+            }
+        }
+
+        await expect(runHealthcheck({
+            url           : 'http://127.0.0.1:3000',
+            timeoutMs     : 5,
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        })).rejects.toThrow('MCP healthcheck connect timed out after 5ms');
+
+        expect(calls).toEqual([{type: 'connect'}, {type: 'close'}]);
+    });
+
+    test('#13458: runHealthcheck times out a hanging healthcheck tool call and closes the client', async () => {
+        const calls = [];
+
+        class FakeTransport {}
+        class FakeClient {
+            async connect() {
+                calls.push({type: 'connect'});
+            }
+            async callTool() {
+                calls.push({type: 'callTool'});
+                return new Promise(() => {});
+            }
+            async close() {
+                calls.push({type: 'close'});
+            }
+        }
+
+        await expect(runHealthcheck({
+            url           : 'http://127.0.0.1:3000',
+            timeoutMs     : 5,
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        })).rejects.toThrow('MCP healthcheck tool call timed out after 5ms');
+
+        expect(calls).toEqual([{type: 'connect'}, {type: 'callTool'}, {type: 'close'}]);
     });
 
     test('formatHealthcheckError appends a bearer-token hint only when no token was configured', () => {

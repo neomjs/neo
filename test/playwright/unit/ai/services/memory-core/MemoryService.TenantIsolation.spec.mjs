@@ -219,6 +219,24 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         expect(getCall.where).toEqual({sessionId: 'session-local'});
     });
 
+    test('#13458: listMemories returns a bounded error when Chroma metadata fetch never resolves', async () => {
+        StorageRouter.getMemoryCollection = async () => ({
+            get: async () => new Promise(() => {})
+        });
+
+        const result = await MemoryService.listMemories({
+            sessionId       : 'session-hung-chroma',
+            limit           : 10,
+            chromaTimeoutMs : 5
+        });
+
+        expect(result).toMatchObject({
+            error  : 'Failed to list memories',
+            message: 'listMemories collection.get timed out after 5ms',
+            code   : 'MEMORY_LIST_ERROR'
+        });
+    });
+
     test('queryMemories merges userId with caller-provided sessionId in the where clause', async () => {
         await RequestContextService.run({userId: 'u-alice'}, () =>
             MemoryService.queryMemories({

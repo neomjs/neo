@@ -16,6 +16,7 @@ import {
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {readRecentRemRunStates} from './helpers/remRunStateStore.mjs';
+import {withTimeout}             from './helpers/withTimeout.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -173,6 +174,7 @@ export function buildEmbeddingProviderBlock(cfg) {
  * @param {Function} [options.embedText] Optional test seam matching `TextEmbeddingService.embedText`.
  * @param {String} [options.input='neo-healthcheck-embedding-write-canary'] Probe text.
  * @param {Function} [options.now=Date.now] Time source for deterministic tests.
+ * @param {Number} [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Max time to wait for the provider.
  * @returns {Promise<{status: String, provider: String, dimensions: Number|null,
  *     expectedDimensions: Number|null, durationMs: Number, error: String|undefined}>}
  */
@@ -180,7 +182,8 @@ export async function buildEmbeddingWriteCanaryBlock({
     cfg       = aiConfig,
     embedText = null,
     input     = 'neo-healthcheck-embedding-write-canary',
-    now       = Date.now
+    now       = Date.now,
+    timeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
 } = {}) {
     const readNow            = typeof now === 'function' ? now : () => (typeof now === 'number' ? now : now.getTime()),
           startedAt          = readNow(),
@@ -192,7 +195,11 @@ export async function buildEmbeddingWriteCanaryBlock({
             const {default: TextEmbeddingService} = await import('./TextEmbeddingService.mjs');
             return TextEmbeddingService.embedText(text, explicitProvider);
         });
-        const embedding = await probe(input, provider),
+        const embedding = await withTimeout(
+                  Promise.resolve(probe(input, provider)),
+                  timeoutMs,
+                  'Embedding write canary'
+              ),
               dimensions = Array.isArray(embedding) ? embedding.length : null,
               durationMs = Math.max(0, readNow() - startedAt);
 
@@ -639,14 +646,21 @@ export function buildChromaMigrationStats(metadatas, {summaryCollection = false}
  *
  * @param {String} label Human-readable axis label for warning logs
  * @param {Function} fn Probe function returning the axis count
- * @returns {Promise<Number>} Axis count or `0` on failure
+ * @param {Number} [timeoutMs=aiConfig.healthcheck.remAxisTimeoutMs] Max time to wait for the axis.
+ * @returns {Promise<{value: Number, error: String|null}>} Axis count and optional degradation reason
  */
-async function resolveRemAxis(label, fn) {
+async function resolveRemAxis(label, fn, timeoutMs = aiConfig.healthcheck.remAxisTimeoutMs) {
     try {
-        return await fn();
+        return {
+            value: await withTimeout(Promise.resolve(fn()), timeoutMs, `REM axis ${label}`),
+            error: null
+        };
     } catch (e) {
         logger.warn(`[HealthService] get_rem_pipeline_state axis ${label} failed:`, e?.message ?? e);
-        return 0;
+        return {
+            value: 0,
+            error: e?.message || String(e)
+        };
     }
 }
 
@@ -677,13 +691,14 @@ async function resolveRemBlock(label, fn, fallback) {
  *
  * @param {Object} [options]
  * @param {String} [options.sessionId] Optional session id for per-session entity yield
+ * @param {Number} [options.axisTimeoutMs=aiConfig.healthcheck.remAxisTimeoutMs] Max time to wait for each axis.
  * @returns {Promise<Object>} REM pipeline state projection
  * @see ChromaManager#getUndigestedSessionCount
  * @see ChromaManager#getGraphDigestedCount
  * @see Neo.ai.services.memory-core.GraphService#getSessionNodeCount
  * @see Neo.ai.daemons.services.TopologyInferenceEngine#getTopologyConflictCount
  */
-export async function buildRemPipelineState({sessionId} = {}) {
+export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig.healthcheck.remAxisTimeoutMs} = {}) {
     const [
         {default: GraphService},
         {default: TopologyInferenceEngine}
@@ -692,17 +707,19 @@ export async function buildRemPipelineState({sessionId} = {}) {
         import('../graph/TopologyInferenceEngine.mjs')
     ]);
 
-    const [
-        undigested,
-        digested,
-        sessionNodes,
-        topologyConflicts
-    ] = await Promise.all([
-        resolveRemAxis('undigested',        () => ChromaManager.getUndigestedSessionCount()),
-        resolveRemAxis('digested',          () => ChromaManager.getGraphDigestedCount()),
-        resolveRemAxis('sessionNodes',      () => GraphService.getSessionNodeCount()),
-        resolveRemAxis('topologyConflicts', () => TopologyInferenceEngine.getTopologyConflictCount())
+    const axisEntries = await Promise.all([
+        resolveRemAxis('undigested',        () => ChromaManager.getUndigestedSessionCount(), axisTimeoutMs),
+        resolveRemAxis('digested',          () => ChromaManager.getGraphDigestedCount(), axisTimeoutMs),
+        resolveRemAxis('sessionNodes',      () => GraphService.getSessionNodeCount(), axisTimeoutMs),
+        resolveRemAxis('topologyConflicts', () => TopologyInferenceEngine.getTopologyConflictCount(), axisTimeoutMs)
     ]);
+
+    const [undigested, digested, sessionNodes, topologyConflicts] = axisEntries.map(entry => entry.value),
+          axisErrors = Object.fromEntries(
+              ['undigested', 'digested', 'sessionNodes', 'topologyConflicts']
+                  .map((key, index) => [key, axisEntries[index].error])
+                  .filter(([, error]) => error)
+          );
 
     const recentCycles = await resolveRemBlock('recentCycles', async () => {
         const entries = await readRecentRemRunStates({
@@ -727,11 +744,28 @@ export async function buildRemPipelineState({sessionId} = {}) {
         recentCycles
     };
 
+    if (Object.keys(axisErrors).length) {
+        state.axisErrors = axisErrors;
+    }
+
     if (sessionId) {
+        const entityCount = await resolveRemAxis(
+            'perSession.entityCount',
+            () => GraphService.getSessionEntityCount(sessionId),
+            axisTimeoutMs
+        );
+
         state.perSession = {
             sessionId,
-            entityCount: await resolveRemAxis('perSession.entityCount', () => GraphService.getSessionEntityCount(sessionId))
+            entityCount: entityCount.value
         };
+
+        if (entityCount.error) {
+            state.axisErrors = {
+                ...(state.axisErrors || {}),
+                'perSession.entityCount': entityCount.error
+            };
+        }
     }
 
     return state;
@@ -896,18 +930,27 @@ class HealthService extends Base {
 
     /**
      * Checks if the active vector and graph databases are running and accessible.
+     * @param {Number} chromaProbeTimeoutMs Chroma probe timeout budget.
      * @returns {Promise<Object>} {running: boolean, error: string|undefined, engines: Object}
      * @private
      */
-    async #checkDatabaseConnections() {
+    async #checkDatabaseConnections(chromaProbeTimeoutMs) {
         try {
             const engine = aiConfig.engine;
             const engines = { chroma: false };
 
             // 2. Vector Chroma DB (Hybrid & Standalone Chroma)
             if (engine === 'chroma' || engine === 'hybrid') {
-                await ChromaManager.ready();
-                if (!ChromaManager.connected && !(await ChromaManager.connect())) {
+                await withTimeout(
+                    ChromaManager.ready(),
+                    chromaProbeTimeoutMs,
+                    'ChromaManager.ready health probe'
+                );
+                if (!ChromaManager.connected && !(await withTimeout(
+                    ChromaManager.connect(),
+                    chromaProbeTimeoutMs,
+                    'ChromaManager.connect health probe'
+                ))) {
                     throw new Error("ChromaDB is not accessible");
                 }
                 engines.chroma = true;
@@ -929,10 +972,11 @@ class HealthService extends Base {
      * Intent: Confirms both memory and summary collections
      * are available for operations on the active StorageRouter.
      *
+     * @param {Number} chromaProbeTimeoutMs Chroma probe timeout budget.
      * @returns {Promise<Object>} {memories: Object|null, summaries: Object|null, error: string|undefined}
      * @private
      */
-    async #checkCollections() {
+    async #checkCollections(chromaProbeTimeoutMs) {
         const result = {
             memories : null,
             summaries: null
@@ -940,14 +984,43 @@ class HealthService extends Base {
 
         try {
             // Check memory collection
-            const memoryCollection = await StorageRouter.getMemoryCollection().catch(() => null);
-            if (memoryCollection) {
+            const memoryCollection = await withTimeout(
+                StorageRouter.getMemoryCollection(),
+                chromaProbeTimeoutMs,
+                'memory collection resolution health probe'
+            ).catch(error => {
                 result.memories = {
                     name  : aiConfig.collections.memory,
-                    exists: true,
-                    count : await memoryCollection.count().catch(() => 0)
+                    exists: false,
+                    count : 0,
+                    error : error.message
                 };
-            } else {
+                return null;
+            });
+            if (memoryCollection) {
+                let memoryCount = 0;
+                try {
+                    memoryCount = await withTimeout(
+                        memoryCollection.count(),
+                        chromaProbeTimeoutMs,
+                        'memory collection count health probe'
+                    );
+                } catch (error) {
+                    result.memories = {
+                        name  : aiConfig.collections.memory,
+                        exists: true,
+                        count : 0,
+                        error : error.message
+                    };
+                }
+
+                result.memories = {
+                    name : aiConfig.collections.memory,
+                    exists: true,
+                    count: memoryCount,
+                    ...(result.memories?.error ? {error: result.memories.error} : {})
+                };
+            } else if (!result.memories) {
                 result.memories = {
                     name  : aiConfig.collections.memory,
                     exists: false,
@@ -956,19 +1029,53 @@ class HealthService extends Base {
             }
 
             // Check summary collection
-            const summaryCollection = await StorageRouter.getSummaryCollection().catch(() => null);
-            if (summaryCollection) {
+            const summaryCollection = await withTimeout(
+                StorageRouter.getSummaryCollection(),
+                chromaProbeTimeoutMs,
+                'summary collection resolution health probe'
+            ).catch(error => {
                 result.summaries = {
                     name  : aiConfig.collections.session,
-                    exists: true,
-                    count : await summaryCollection.count().catch(() => 0)
+                    exists: false,
+                    count : 0,
+                    error : error.message
                 };
-            } else {
+                return null;
+            });
+            if (summaryCollection) {
+                let summaryCount = 0;
+                try {
+                    summaryCount = await withTimeout(
+                        summaryCollection.count(),
+                        chromaProbeTimeoutMs,
+                        'summary collection count health probe'
+                    );
+                } catch (error) {
+                    result.summaries = {
+                        name  : aiConfig.collections.session,
+                        exists: true,
+                        count : 0,
+                        error : error.message
+                    };
+                }
+
+                result.summaries = {
+                    name : aiConfig.collections.session,
+                    exists: true,
+                    count: summaryCount,
+                    ...(result.summaries?.error ? {error: result.summaries.error} : {})
+                };
+            } else if (!result.summaries) {
                 result.summaries = {
                     name  : aiConfig.collections.session,
                     exists: false,
                     count : 0
                 };
+            }
+
+            const errors = [result.memories?.error, result.summaries?.error].filter(Boolean);
+            if (errors.length) {
+                result.error = `Failed to access collections: ${errors.join('; ')}`;
             }
 
             return result;
@@ -990,10 +1097,16 @@ class HealthService extends Base {
      *
      * @param {Object} cachedHealth Previously cached healthy healthcheck payload.
      * @param {Number|Date} now Request time used for the returned `timestamp`.
+     * @param {Object} [options]
+     * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
+     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<Object|null>} Fresh request snapshot or `null` when a full healthcheck is required.
      * @private
      */
-    async #buildRequestFreshCachedHealth(cachedHealth, now) {
+    async #buildRequestFreshCachedHealth(cachedHealth, now, {
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
+        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+    } = {}) {
         if (!cachedHealth) {
             return null;
         }
@@ -1001,7 +1114,7 @@ class HealthService extends Base {
         let collectionsCheck;
 
         try {
-            collectionsCheck = await this.#checkCollections();
+            collectionsCheck = await this.#checkCollections(chromaProbeTimeoutMs);
         } catch (e) {
             return null;
         }
@@ -1031,7 +1144,7 @@ class HealthService extends Base {
             }
         };
 
-        return this.#applyEmbeddingWriteCanary(freshPayload);
+        return this.#applyEmbeddingWriteCanary(freshPayload, embeddingWriteCanaryTimeoutMs);
     }
 
     /**
@@ -1246,11 +1359,12 @@ class HealthService extends Base {
      * surfaces a starved embedding write path without shipping the full per-call canary sub-object.
      *
      * @param {Object} payload Mutable healthcheck payload under construction.
+     * @param {Number} embeddingWriteCanaryTimeoutMs Embedding canary timeout budget.
      * @returns {Promise<Object>}
      * @private
      */
-    async #applyEmbeddingWriteCanary(payload) {
-        const canary = await this.#getEmbeddingWriteCanary();
+    async #applyEmbeddingWriteCanary(payload, embeddingWriteCanaryTimeoutMs) {
+        const canary = await this.#getEmbeddingWriteCanary(embeddingWriteCanaryTimeoutMs);
 
         if (canary.status !== 'healthy') {
             payload.status = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
@@ -1269,12 +1383,13 @@ class HealthService extends Base {
      * Cache key includes the active provider and expected vector dimension so config changes do
      * not reuse a canary from a different embedding route.
      *
+     * @param {Number} embeddingWriteCanaryTimeoutMs Embedding canary timeout budget.
      * @returns {Promise<Object>} Embedding write-canary block.
      * @private
      */
-    async #getEmbeddingWriteCanary() {
+    async #getEmbeddingWriteCanary(embeddingWriteCanaryTimeoutMs) {
         const now = Date.now(),
-              key = `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`,
+              key = `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}:${embeddingWriteCanaryTimeoutMs}`,
               cached = this.#embeddingWriteCanaryCache;
 
         if (cached &&
@@ -1283,7 +1398,9 @@ class HealthService extends Base {
             return {...cached.result};
         }
 
-        const result = await buildEmbeddingWriteCanaryBlock();
+        const result = await buildEmbeddingWriteCanaryBlock({
+            timeoutMs: embeddingWriteCanaryTimeoutMs
+        });
 
         if (result.status === 'healthy') {
             this.#embeddingWriteCanaryCache = {
@@ -1315,10 +1432,16 @@ class HealthService extends Base {
      * - degraded: ChromaDB running, collections accessible, but a configured provider is missing credentials
      * - unhealthy: ChromaDB not running or collections not accessible
      *
+     * @param {Object} [options]
+     * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
+     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<object>} A comprehensive health status payload
      * @private
      */
-    async #performHealthCheck() {
+    async #performHealthCheck({
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
+        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+    } = {}) {
         const payload = {
             status          : 'healthy',
             timestamp       : new Date().toISOString(),
@@ -1352,7 +1475,7 @@ class HealthService extends Base {
         };
 
         // Step 1: Check Database connectivity
-        const connectionCheck = await this.#checkDatabaseConnections();
+        const connectionCheck = await this.#checkDatabaseConnections(chromaProbeTimeoutMs);
         payload.database.connection.connected = connectionCheck.running;
         payload.database.connection.engines = connectionCheck.engines;
 
@@ -1363,7 +1486,7 @@ class HealthService extends Base {
         }
 
         // Step 2: Check collections
-        const collectionsCheck = await this.#checkCollections();
+        const collectionsCheck = await this.#checkCollections(chromaProbeTimeoutMs);
         payload.database.connection.collections = {
             memories : collectionsCheck.memories,
             summaries: collectionsCheck.summaries
@@ -1381,7 +1504,7 @@ class HealthService extends Base {
             return payload;
         }
 
-        await this.#applyEmbeddingWriteCanary(payload);
+        await this.#applyEmbeddingWriteCanary(payload, embeddingWriteCanaryTimeoutMs);
 
         // Step 3: Check configured provider prerequisites.
         const providerPrerequisites = this.#checkProviderPrerequisites();
@@ -1438,9 +1561,15 @@ class HealthService extends Base {
      *
      * @param {Object} [options]
      * @param {Boolean} [options.freshObservability=true] Refresh request-facing fields on cached healthy results.
+     * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
+     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<object>} A health status payload with session information
      */
-    async healthcheck({freshObservability = true} = {}) {
+    async healthcheck({
+        freshObservability = true,
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
+        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+    } = {}) {
         try {
             const now = Date.now();
 
@@ -1460,7 +1589,10 @@ class HealthService extends Base {
                         return this.#cachedHealth;
                     }
 
-                    const freshCachedHealth = await this.#buildRequestFreshCachedHealth(this.#cachedHealth, now);
+                    const freshCachedHealth = await this.#buildRequestFreshCachedHealth(this.#cachedHealth, now, {
+                        chromaProbeTimeoutMs,
+                        embeddingWriteCanaryTimeoutMs
+                    });
 
                     if (freshCachedHealth) {
                         return freshCachedHealth;
@@ -1480,7 +1612,10 @@ class HealthService extends Base {
             logger.debug('[HealthService] Performing fresh health check');
 
             // Create the promise and store it
-            this.#healthCheckPromise = this.#performHealthCheck().finally(() => {
+            this.#healthCheckPromise = this.#performHealthCheck({
+                chromaProbeTimeoutMs,
+                embeddingWriteCanaryTimeoutMs
+            }).finally(() => {
                 // Always clear the promise when done, success or fail
                 this.#healthCheckPromise = null;
             });
