@@ -54,7 +54,10 @@ import {
     getActiveHarnessPresence,
     isHarnessPresenceFresh
 } from './queries.mjs';
-import {applyHarnessMetadataDefaults} from '../../scripts/lifecycle/harnessRouting.mjs';
+import {
+    applyHarnessMetadataDefaults,
+    normalizeAgentIdentityNodeId
+} from '../../scripts/lifecycle/harnessRouting.mjs';
 import {
     getDefaultInstancePid,
     resolveGuiInstancePid
@@ -66,6 +69,7 @@ import {
     shouldDeferFlush
 } from './flushDeferPolicy.mjs';
 import {clampWatermark, filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
+import {IDENTITIES} from '../../graph/identityRoots.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
@@ -82,6 +86,15 @@ const WAKE_PRIORITY_RANKS      = {
     normal: 1,
     high  : 2
 };
+
+const identityParticipationById = new Map(
+    IDENTITIES
+        .filter(identity => identity.type === 'AgentIdentity')
+        .map(identity => [
+            normalizeAgentIdentityNodeId(identity.id),
+            identity.properties?.participationStatus || 'active'
+        ])
+);
 
 // Ensure daemon data dir exists
 fs.ensureDirSync(DAEMON_DATA_DIR);
@@ -406,6 +419,8 @@ async function pollLoop() {
  * edges are created nowhere), and task `from`-OR-`assignee` targeting (formerly assignee-only).
  */
 function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
+    if (!isWakeTargetEligible(sub.properties?.agentIdentity)) return null;
+
     const result = match(sub.properties || {}, {
         entity,
         getNode            : id    => nodesMap.get(id) ?? getDbNode(db, id),
@@ -413,6 +428,7 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     }, trace);
 
     if (!result) return null;
+    if (result.type === 'heartbeat_pulse' && isPromptSubmittingSubscription(sub)) return null;
 
     // Map the shared evaluator's {type, payload, logId} onto the daemon's flat coalescing payload.
     const {payload, logId} = result;
@@ -428,6 +444,43 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
         default:
             return null;
     }
+}
+
+/**
+ * @summary True when a wake subscription target may receive wake delivery.
+ *
+ * Unknown identities stay eligible for forks/local custom agents. Known repo
+ * identities with non-active participationStatus are filtered before coalescing
+ * so they never create delivery attempts or retries.
+ * @param {String} identity Agent identity.
+ * @returns {Boolean}
+ */
+function isWakeTargetEligible(identity) {
+    if (!identity) return true;
+    const normalizedIdentity  = normalizeAgentIdentityNodeId(identity),
+          participationStatus = identityParticipationById.get(normalizedIdentity);
+
+    return !participationStatus || participationStatus === 'active';
+}
+
+/**
+ * @summary Resolves the effective wake adapter for a subscription.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @returns {String}
+ */
+function getSubscriptionAdapter(subscription) {
+    const meta = subscription.properties?.harnessTargetMetadata || {};
+    return meta.adapter || (process.platform === 'darwin' ? 'osascript' : 'tmux');
+}
+
+/**
+ * @summary True when heartbeat-only delivery would submit into an interactive prompt.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @returns {Boolean}
+ */
+function isPromptSubmittingSubscription(subscription) {
+    const adapter = getSubscriptionAdapter(subscription);
+    return adapter === 'osascript' || adapter === 'tmux';
 }
 
 /**
@@ -679,8 +732,8 @@ async function flushSubscription(subId) {
 
     // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a live
     // target) is re-queued for retry — carrying the EVENTS, not just this digest string, so a second
-    // failure for the same subscription coalesces them without loss. Intentional skips and successful
-    // deliveries are not re-queued.
+    // failure for the same subscription coalesces them without loss. Successful deliveries are not
+    // re-queued.
     const deliveryOutcome = await deliverDigest(subscription, digest, deliveryEvidence);
     if (deliveryOutcome === 'failed') {
         enqueueDeliveryRetry(subscription, identity, events);
@@ -868,7 +921,7 @@ function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [],
 }
 
 /**
- * @summary Formats Codex wake-delivery evidence for live route validation logs.
+ * @summary Formats wake-delivery evidence for live route validation logs.
  * @param {Object} evidence Scenario/count evidence from buildWakeDeliveryEvidence().
  * @param {Object} options Adapter metadata.
  * @returns {String}
@@ -900,8 +953,8 @@ function escapeAppleScriptString(value) {
  */
 let deliveryPromise = Promise.resolve();
 
-// Bounded retry store for wakes whose adapter dispatch THREW (a live-target delivery failure, not an
-// intentional skip). The global lastSyncId tail cursor consumes the source GraphLog events regardless
+// Bounded retry store for wakes whose adapter dispatch THREW (a live-target delivery failure). The
+// global lastSyncId tail cursor consumes the source GraphLog events regardless
 // of delivery outcome, so a failed delivery is otherwise lost; this holds the failed EVENTS and
 // rebuilds + re-attempts the digest on later poll cycles, independent of the cursor — coalescing
 // repeated same-subscription failures so no earlier wake is overwritten. After the cap the wake is
@@ -923,9 +976,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
     const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
     const adapter       = meta.adapter || defaultAdapter;
     const adapterSource = meta.adapter ? 'metadata' : 'platform-default';
-    const evidenceLabel = meta.appName === 'Codex' || adapter === CODEX_APP_SERVER_ADAPTER
-        ? formatWakeDeliveryEvidence(deliveryEvidence, {adapter, adapterSource, appName: meta.appName})
-        : '';
+    const evidenceLabel = formatWakeDeliveryEvidence(deliveryEvidence, {adapter, adapterSource, appName: meta.appName});
 
     // Serialize execution to prevent focus collisions (Electron-Paradox defense)
     deliveryPromise = deliveryPromise.then(async () => {
@@ -958,7 +1009,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 ? instanceAddress
                 : meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
-            writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
+            writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}${evidenceLabel}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName;
             if (!appName) {
@@ -967,7 +1018,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                     `harnessTargetMetadata.appName is missing/empty. ` +
                     `Skipping delivery to avoid misrouting. ` +
                     `Verify subscription template via 'manage_wake_subscription({action: \\'list\\'})' ` +
-                    `or fix the AgentIdentity subscriptionTemplate.`
+                    `or fix the AgentIdentity subscriptionTemplate.${evidenceLabel}`
                 );
                 return;
             }
@@ -1040,10 +1091,11 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
             // the \`first application process whose frontmost is true\`.
             //
             // [Anchor & Echo] The Key Code 36 (Enter) Defense:
-            // We specifically use \`key code 36\` (Enter) to submit the payload after pasting.
-            // This is load-bearing for Claude Desktop with Tab 3 (Claude Code) and Google Antigravity.
-            // Do NOT "clean this up" or revert to \`tell process\` or try to replace the Enter key
-            // without empiric validation across both harnesses.
+            // Actionable wakes specifically use \`key code 36\` (Enter) to submit the payload after
+            // pasting. This is load-bearing for Claude Desktop with Tab 3 (Claude Code) and Google
+            // Antigravity. Pure-heartbeat digests for prompt-submitting adapters are filtered
+            // before coalescing because a scheduler nudge must not submit into an interactive
+            // composer.
             // Instance-addressed wake raises the resolved pid's process to frontmost (verified
             // addressable via System Events `whose unix id`); single-instance wakes keep the
             // app-activate path unchanged.
@@ -1286,6 +1338,8 @@ function buildWakeDigest(identity, {messages = [], tasks = [], permissions = [],
  * @returns {void}
  */
 function enqueueDeliveryRetry(subscription, identity, events) {
+    if (!isWakeTargetEligible(identity)) return;
+
     const subId    = subscription.id,
           existing = pendingDeliveryRetries.get(subId);
 
@@ -1309,8 +1363,8 @@ function enqueueDeliveryRetry(subscription, identity, events) {
 }
 
 /**
- * @summary Re-attempts due wake-delivery retries; called once per poll cycle. A success or skip
- * clears the entry; a repeat failure increments the attempt count with linear backoff; exceeding
+ * @summary Re-attempts due wake-delivery retries; called once per poll cycle. A success clears the
+ * entry; a repeat failure increments the attempt count with linear backoff; exceeding
  * `MAX_DELIVERY_RETRIES` drops the entry with a terminal ERROR so a persistently-unreachable target
  * cannot storm or wedge the loop.
  * @returns {Promise<void>}
@@ -1322,6 +1376,10 @@ async function attemptDeliveryRetries() {
 
     for (const [subId, entry] of pendingDeliveryRetries) {
         if (entry.nextAttemptAt > now) continue;
+        if (!isWakeTargetEligible(entry.subscription.properties?.agentIdentity || entry.identity)) {
+            pendingDeliveryRetries.delete(subId);
+            continue;
+        }
 
         // Re-apply the read-state reconcile the initial digest used (see `flushSubscription`): a message
         // the recipient read between the failed delivery and this retry must NOT be re-delivered. The
@@ -1359,7 +1417,7 @@ async function attemptDeliveryRetries() {
             pendingDeliveryRetries.delete(subId);
             writeLog('INFO',
                 `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
-            );
+            )
         }
     }
 }
