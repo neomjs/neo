@@ -840,11 +840,11 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
  * "lost frontmost status" error. Focus contention is transient, so we re-attempt the whole
  * delivery a few times before giving up.
  *
- * Phase-aware idempotency guard: the wake payload is submitted (`key code 36` / Enter) BEFORE
- * the "user input restore" phases. A frontmost-loss reported for a restore phase therefore means
- * the wake already landed — only the user's draft-restore failed (cosmetic). We must NOT retry
- * that case (it would double-submit the wake). Non-race errors (syntax/permissions) re-throw
- * immediately.
+ * Phase-aware idempotency guard: the wake payload submit is attempted (`key code 36` / Enter)
+ * BEFORE the "user input restore" phases. A frontmost-loss reported for a restore phase therefore
+ * means the submit step already ran — only the user's draft-restore failed (cosmetic). We must NOT
+ * retry that case (it would double-submit the wake). Non-race errors (syntax/permissions) re-throw
+ * immediately. For Codex Desktop, an `osascript` exit proves adapter completion, not turn start.
  * @param {String[]} osascriptArgs The fully-built `osascript -e …` argument list.
  * @param {String} subscriptionId For log attribution.
  * @param {String} appName For log attribution.
@@ -858,19 +858,21 @@ async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appNa
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
             await spawnAsync('osascript', osascriptArgs);
-            const attemptLabel = attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : '';
+            const attemptLabel = attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : '',
+                  outcomeLabel = appName === 'Codex' ? 'Submit attempted' : 'Delivered';
             writeLog('INFO',
-                `[Wake Daemon] Delivered ${subscriptionId} via osascript to ${appName}${attemptLabel}${evidenceLabel}`);
+                `[Wake Daemon] ${outcomeLabel} ${subscriptionId} via osascript to ${appName}${attemptLabel}${evidenceLabel}`);
             return
         } catch (err) {
             const message         = err.message || '',
                   isFrontmostRace = /lost frontmost status|-2700/.test(message),
                   afterSubmit     = /user input restore/.test(message);
 
-            // Wake already submitted; only the draft-restore lost frontmost → delivered, do not retry.
+            // Submit step already ran; only the draft-restore lost frontmost → do not retry.
             if (isFrontmostRace && afterSubmit) {
+                const outcomeLabel = appName === 'Codex' ? 'wake submit attempted' : 'wake landed';
                 writeLog('WARN',
-                    `[Wake Daemon] ${subscriptionId} wake landed but draft-restore lost frontmost; ` +
+                    `[Wake Daemon] ${subscriptionId} ${outcomeLabel} but draft-restore lost frontmost; ` +
                     `not retrying (avoids double-send)${evidenceLabel}. ${message}`);
                 return
             }
@@ -931,11 +933,14 @@ function formatWakeDeliveryEvidence(evidence, {adapter, adapterSource, appName})
 
     const counts = evidence.counts || {};
 
-    const scenario = evidence.scenario || 'unknown';
+    const scenario       = evidence.scenario || 'unknown',
+          submitBoundary = adapter === 'osascript' && appName === 'Codex'
+              ? '; submitProof=attempted; turnStartProof=live-required'
+              : '';
 
     return ` (scenario=${scenario}; route=${adapter}; adapterSource=${adapterSource}; app=${appName || ''}; ` +
         `counts=messages:${counts.messages || 0},tasks:${counts.tasks || 0},` +
-        `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0})`;
+        `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0}${submitBoundary})`;
 }
 
 /**
