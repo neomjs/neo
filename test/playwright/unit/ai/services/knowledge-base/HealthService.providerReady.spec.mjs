@@ -110,6 +110,121 @@ test.describe('Neo.ai.services.knowledge-base.HealthService provider-aware readi
     });
 });
 
+test.describe('Neo.ai.services.knowledge-base.HealthService stale collection handle recovery (#13464)', () => {
+    let HealthService, ChromaManager, DatabaseLifecycleService;
+    let originalClient, originalGetCollection, originalGetDbStatus, originalGeminiKey, originalInvalidateCache;
+
+    const createNotFoundError = () => {
+        const error = new Error('The requested resource could not be found');
+        error.name  = 'ChromaNotFoundError';
+        return error;
+    };
+
+    test.beforeAll(async () => {
+        HealthService            = (await import('../../../../../../ai/services/knowledge-base/HealthService.mjs')).default;
+        ChromaManager            = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        DatabaseLifecycleService = (await import('../../../../../../ai/services/knowledge-base/DatabaseLifecycleService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        originalClient          = ChromaManager.client;
+        originalGetCollection   = ChromaManager.getKnowledgeBaseCollection;
+        originalGetDbStatus     = DatabaseLifecycleService.getDatabaseStatus;
+        originalGeminiKey       = process.env.GEMINI_API_KEY;
+        originalInvalidateCache = ChromaManager.invalidateKnowledgeBaseCollectionCache;
+
+        ChromaManager.client = {heartbeat: async () => ({})};
+        DatabaseLifecycleService.getDatabaseStatus = () => ({running: false});
+        delete process.env.GEMINI_API_KEY;
+
+        HealthService.clearCache();
+    });
+
+    test.afterEach(() => {
+        ChromaManager.client                         = originalClient;
+        ChromaManager.getKnowledgeBaseCollection     = originalGetCollection;
+        ChromaManager.invalidateKnowledgeBaseCollectionCache = originalInvalidateCache;
+        DatabaseLifecycleService.getDatabaseStatus   = originalGetDbStatus;
+
+        if (originalGeminiKey === undefined) {
+            delete process.env.GEMINI_API_KEY;
+        } else {
+            process.env.GEMINI_API_KEY = originalGeminiKey;
+        }
+
+        HealthService.clearCache();
+    });
+
+    test('retries once after a resolved collection handle fails with not-found', async () => {
+        let collectionReads = 0;
+        let invalidateCalls = 0;
+
+        ChromaManager.invalidateKnowledgeBaseCollectionCache = () => {
+            invalidateCalls++;
+        };
+        ChromaManager.getKnowledgeBaseCollection = async () => {
+            collectionReads++;
+
+            return {
+                count: async () => {
+                    if (collectionReads === 1) {
+                        throw createNotFoundError();
+                    }
+
+                    return 42;
+                }
+            };
+        };
+
+        const health = await HealthService.healthcheck();
+
+        expect(collectionReads).toBe(2);
+        expect(invalidateCalls).toBe(1);
+        expect(health.status).toBe('healthy');
+        expect(health.database.connection.collections.knowledgeBase).toMatchObject({
+            exists: true,
+            count : 42
+        });
+        expect(health.features.embedding).toBe(true);
+        expect(health.details).toContain('Connected to the orchestrator-managed ChromaDB instance');
+    });
+
+    test('reports degraded corpus readiness after retry fails without masking provider readiness', async () => {
+        let collectionReads = 0;
+        let invalidateCalls = 0;
+
+        ChromaManager.invalidateKnowledgeBaseCollectionCache = () => {
+            invalidateCalls++;
+        };
+        ChromaManager.getKnowledgeBaseCollection = async () => {
+            collectionReads++;
+
+            return {
+                count: async () => {
+                    throw createNotFoundError();
+                }
+            };
+        };
+
+        const health = await HealthService.healthcheck();
+
+        expect(collectionReads).toBe(2);
+        expect(invalidateCalls).toBe(1);
+        expect(health.status).toBe('degraded');
+        expect(health.features.embedding).toBe(true);
+        expect(health.database.connection.connected).toBe(true);
+        expect(health.database.connection.collections.knowledgeBase).toMatchObject({
+            exists: false,
+            count : 0,
+            error : 'The requested resource could not be found'
+        });
+        expect(health.details).toContain('Failed to access collections: The requested resource could not be found');
+        expect(health.details).not.toContain('All features are operational');
+
+        await expect(HealthService.ensureHealthy()).rejects.toThrow('Knowledge Base is not fully operational');
+    });
+});
+
 test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshness (#12774)', () => {
     let HealthService, ChromaManager, DatabaseLifecycleService,
         bootRuntimeIdentity, bootRuntimeFreshnessErrors;
