@@ -19,10 +19,19 @@ import os              from 'os';
 import path            from 'path';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
-import {createLogger}  from '../../../../../../../ai/mcp/server/shared/logger.mjs';
+import {
+    createLogger,
+    pruneLoggerRetention,
+    resolveLoggerRetention,
+    selectPrunableLogFiles
+} from '../../../../../../../ai/mcp/server/shared/logger.mjs';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const dayStamp = daysAgo => new Date(Date.now() - (daysAgo * DAY_MS)).toISOString().slice(0, 10);
 
 /**
- * @summary Shared MCP logger primitive coverage for #11878.
+ * @summary Shared MCP logger primitive coverage.
  *
  * The shared logger is intentionally not `Neo.util.Logger`: MCP servers must keep
  * stdout protocol-clean, log errors without throwing, and preserve per-server sink
@@ -158,5 +167,123 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
                 fs.rmSync(tmpLogDir, {recursive: true, force: true});
             }
         }
+    });
+
+    test('prunes old matching file logs while preserving active and unrelated files', async () => {
+        const tmpLogDir = path.resolve(os.tmpdir(), `shared-logger-retention-${process.pid}-${Date.now()}`);
+        const today     = dayStamp(0);
+        const keepDay   = dayStamp(1);
+        const oldDay    = dayStamp(2);
+        const olderDay  = dayStamp(3);
+
+        try {
+            fs.ensureDirSync(tmpLogDir);
+
+            const activePath    = path.join(tmpLogDir, `shared-test-${today}.log`);
+            const keepPath      = path.join(tmpLogDir, `shared-test-${keepDay}.log`);
+            const oldPath       = path.join(tmpLogDir, `shared-test-${oldDay}.log`);
+            const olderPath     = path.join(tmpLogDir, `shared-test-${olderDay}.log`);
+            const unrelatedPath = path.join(tmpLogDir, `other-test-${olderDay}.log`);
+            const malformedPath = path.join(tmpLogDir, 'shared-test-not-a-date.log');
+
+            fs.writeFileSync(activePath, 'active-before\n');
+            fs.writeFileSync(keepPath, 'keep\n');
+            fs.writeFileSync(oldPath, 'old\n');
+            fs.writeFileSync(olderPath, 'older\n');
+            fs.writeFileSync(unrelatedPath, 'unrelated\n');
+            fs.writeFileSync(malformedPath, 'malformed\n');
+
+            const logger = createLogger({
+                debug          : false,
+                logPath        : tmpLogDir,
+                loggerRetention: {
+                    enabled   : true,
+                    maxAgeDays: 1,
+                    maxFiles  : 1
+                },
+                logger: {
+                    filePrefix    : 'shared-test',
+                    fileSink      : true,
+                    flush         : true,
+                    stderrMode    : 'debug',
+                    timestampStyle: 'plain'
+                }
+            });
+
+            logger.info('after-retention');
+            await logger.flush();
+
+            expect(fs.existsSync(activePath)).toBe(true);
+            expect(fs.readFileSync(activePath, 'utf8')).toContain('active-before');
+            expect(fs.readFileSync(activePath, 'utf8')).toContain('after-retention');
+            expect(fs.existsSync(keepPath)).toBe(true);
+            expect(fs.existsSync(oldPath)).toBe(false);
+            expect(fs.existsSync(olderPath)).toBe(false);
+            expect(fs.existsSync(unrelatedPath)).toBe(true);
+            expect(fs.existsSync(malformedPath)).toBe(true);
+        } finally {
+            if (fs.existsSync(tmpLogDir)) {
+                fs.rmSync(tmpLogDir, {recursive: true, force: true});
+            }
+        }
+    });
+
+    test('treats disabled or invalid retention config as preserve-all', () => {
+        const today = '2026-06-18';
+        const files = [{
+            filePath: '/tmp/shared-test-2026-06-17.log',
+            date    : '2026-06-17',
+            time    : Date.parse('2026-06-17T00:00:00.000Z')
+        }];
+
+        expect(resolveLoggerRetention({
+            loggerRetention: {
+                enabled   : false,
+                maxAgeDays: 0,
+                maxFiles  : 0
+            }
+        })).toEqual({
+            enabled   : false,
+            maxAgeDays: null,
+            maxFiles  : null
+        });
+
+        const invalid = resolveLoggerRetention({
+            loggerRetention: {
+                maxAgeDays: -1,
+                maxFiles  : 'many'
+            }
+        });
+
+        expect(invalid).toEqual({
+            enabled   : true,
+            maxAgeDays: null,
+            maxFiles  : null
+        });
+        expect(selectPrunableLogFiles({files, retention: invalid, today})).toEqual([]);
+    });
+
+    test('turns retention prune failures into bounded warnings', () => {
+        const warnings = [];
+        const count = pruneLoggerRetention({
+            logDir      : '/tmp',
+            filePrefix  : 'shared-test',
+            today       : '2026-06-18',
+            retention   : {enabled: true, maxAgeDays: 0, maxFiles: null},
+            loggerConfig: {filePrefix: 'shared-test', timestampStyle: 'plain'},
+            readDir     : () => [{
+                isFile: () => true,
+                name  : 'shared-test-2026-06-17.log'
+            }],
+            unlinkFile: () => {
+                throw new Error('blocked unlink');
+            },
+            warn: (error, loggerConfig) => warnings.push({error, loggerConfig})
+        });
+
+        expect(count).toBe(0);
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0].error.message).toBe('blocked unlink');
+        expect(warnings[0].loggerConfig.filePrefix).toBe('shared-test');
     });
 });

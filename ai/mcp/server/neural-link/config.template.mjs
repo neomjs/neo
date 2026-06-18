@@ -77,6 +77,20 @@ class Config extends ConfigProvider {
              */
             logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
             /**
+             * @summary Retention policy for Neural Link MCP diagnostic log files.
+             *
+             * The shared logger applies this policy only to files matching the `nl-server`
+             * prefix in `logPath`. `maxFiles` counts historical files; the active current-day
+             * file is always preserved. Set `enabled=false` to delegate retention entirely to
+             * deployment infrastructure.
+             * @type {Object}
+             */
+            loggerRetention: {
+                enabled   : leaf(true, 'NEO_NL_LOG_RETENTION_ENABLED', 'boolean'),
+                maxAgeDays: leaf(14, 'NEO_NL_LOG_RETENTION_MAX_AGE_DAYS', 'number'),
+                maxFiles  : leaf(30, 'NEO_NL_LOG_RETENTION_MAX_FILES', 'number')
+            },
+            /**
              * @summary Shared MCP logger policy for Neural Link.
              *
              * Always-on file sink plus tier-gated stderr: info/warn/error write without

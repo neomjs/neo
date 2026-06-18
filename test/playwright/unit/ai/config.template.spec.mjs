@@ -244,4 +244,26 @@ test.describe('Tier 1 Config Immutability', () => {
             expect(source).toMatch(/data\s*:/);
         }
     });
+
+    test('exposes MCP file-log retention leaves in file-sink server templates', async () => {
+        const templates = [{
+            envPrefix  : 'NEO_KB_LOG_RETENTION',
+            templateUrl: '../../../../ai/mcp/server/knowledge-base/config.template.mjs'
+        }, {
+            envPrefix  : 'NEO_MEMORY_LOG_RETENTION',
+            templateUrl: '../../../../ai/mcp/server/memory-core/config.template.mjs'
+        }, {
+            envPrefix  : 'NEO_NL_LOG_RETENTION',
+            templateUrl: '../../../../ai/mcp/server/neural-link/config.template.mjs'
+        }];
+
+        for (const {envPrefix, templateUrl} of templates) {
+            const source = await fs.readFile(new URL(templateUrl, import.meta.url), 'utf8');
+
+            expect(source).toContain('loggerRetention');
+            expect(source).toContain(`${envPrefix}_ENABLED`);
+            expect(source).toContain(`${envPrefix}_MAX_AGE_DAYS`);
+            expect(source).toContain(`${envPrefix}_MAX_FILES`);
+        }
+    });
 });
