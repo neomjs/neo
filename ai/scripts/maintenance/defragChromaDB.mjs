@@ -1,6 +1,7 @@
 import {program}       from 'commander';
 import {ChromaClient}  from 'chromadb';
 import {execSync}      from 'child_process';
+import crypto          from 'crypto';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath, pathToFileURL} from 'url';
@@ -11,9 +12,10 @@ import {registerNeoChromaEmbeddingFunctions} from '../../services/shared/vector/
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
  *
- * This script implements the "Nuke and Pave" strategy to eliminate HNSW index fragmentation and file bloat
- * within ChromaDB. It is target-agnostic at the collection-group layer: Knowledge Base and Memory Core
- * share one unified persist directory, while the target controls which logical collections are rewritten.
+ * This script rewrites collection groups to eliminate HNSW index fragmentation and file bloat within
+ * ChromaDB. Knowledge Base and Memory Core share one unified persist directory, while the target controls
+ * which logical collections are eligible for rewrite. KB uses shadow/parking promotion; MC currently fails
+ * closed until a safe multi-collection promotion exists.
  *
  * ## Peer Architecture
  *
@@ -28,27 +30,29 @@ import {registerNeoChromaEmbeddingFunctions} from '../../services/shared/vector/
  *
  * Operators who want compacted backups compose at the shell layer: `npm run ai:defrag-kb && npm run ai:backup`.
  *
- * ## The "Nuke and Pave" Strategy
+ * ## The Shadow-Promote Strategy
  *
- * 1.  **Pre-Nuke Snapshot (Defrag-Internal Safety)**: Before any destructive operation, a full physical copy
+ * 1.  **Pre-Rewrite Snapshot (Defrag-Internal Safety)**: Before any rewrite operation, a full physical copy
  *     of the database folder is created via `fs.copy()`. This preserves exact HNSW index state for instant
- *     restore if the nuke-and-pave ETL fails mid-flight. Snapshots live at `dist/chromadb-backups/<target>/`
+ *     restore if the shadow-promotion ETL fails mid-flight. Snapshots live at `dist/chromadb-backups/<target>/`
  *     and are explicitly NOT the canonical backup — that lives at `.neo-ai-data/backups/backup-<ts>/` via
  *     `ai/scripts/maintenance/backup.mjs`. Automated retention: keep last 3, delete others older than 7 days.
  * 2.  **Extract (ETL)**: All data (IDs, embeddings, metadata, documents) is fetched from every collection in the
  *     selected collection group into an in-memory buffer.
- * 3.  **Nuke (Logical Reset)**: The collections are deleted via the API. This releases the logical references to the data,
- *     marking the underlying index files as obsolete.
- * 4.  **Load (Restoration)**: The collections are recreated, and the buffered data is re-inserted in batches.
- *     This forces ChromaDB to rebuild the HNSW indices from scratch, resulting in a compact, defragmented state.
+ * 3.  **Shadow Load**: A process-unique shadow collection is created and loaded with the extracted data.
+ * 4.  **Promote**: The live KB collection is renamed to parking, the shadow is renamed to the canonical name,
+ *     then the parked old collection is deleted only after the canonical replacement validates.
  * 5.  **Cleanup (Physical)**: The filesystem is scanned for orphaned segment directories — UUID dirs absent
  *     from the live segment registry (`chroma.sqlite3` `segments` table) — which are physically deleted. The
  *     keep-set is the *segment* registry (on-disk dirs are segment-named), spanning the whole shared store,
  *     never a single target's collection ids.
  *
+ * This is not an SQLite FTS5 integrity repair. If `pragma quick_check` reports malformed full-text search
+ * indexes, use the dedicated integrity-repair lane instead of collection defrag.
+ *
  * Usage:
  * `node ai/scripts/maintenance/defragChromaDB.mjs --target knowledge-base`
- * `node ai/scripts/maintenance/defragChromaDB.mjs --target memory-core`
+ * `node ai/scripts/maintenance/defragChromaDB.mjs --target memory-core` (fails closed until safe)
  *
  * @module ai.scripts.maintenance.defragChromaDB
  * @see ai/scripts/maintenance/backup.mjs   Canonical JSONL bundle backup orchestrator (peer, not dependency)
@@ -61,6 +65,10 @@ const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
+const DEFRAG_STATE_DIR            = path.join(PROJECT_ROOT, '.neo-ai-data', 'maintenance', 'defrag-state');
+const MEMORY_CORE_UNSAFE_MESSAGE  =
+    'Memory Core defrag is disabled until a safe multi-collection shadow/parking promotion exists. ' +
+    'MC is an irreplaceable store; use backup/restore or a purpose-built repair lane instead of delete/recreate defrag.';
 
 registerNeoChromaEmbeddingFunctions({
     dummyEmbeddingFunction: AiConfig.dummyEmbeddingFunction
@@ -150,6 +158,110 @@ export function resolveDefragSnapshotRetention({
     aiConfig = AiConfig
 } = {}) {
     return aiConfig.maintenance.defrag.snapshotRetention;
+}
+
+/**
+ * Fails closed for target groups whose interruption safety is not yet proven.
+ *
+ * @param {Object} options
+ * @param {String} options.targetName CLI target name.
+ * @returns {void}
+ */
+export function assertDefragTargetSupported({targetName} = {}) {
+    if (targetName === 'memory-core') {
+        const error = new Error(MEMORY_CORE_UNSAFE_MESSAGE);
+        error.code  = 'DEFRAG_MEMORY_CORE_UNSAFE';
+        throw error
+    }
+}
+
+/**
+ * Creates a Chroma collection name that the KB ChromaManager recognizes as an
+ * active swap artifact for `shadow` / `parking` phases.
+ *
+ * @param {String} collectionName Canonical collection name.
+ * @param {String} phase Swap phase suffix.
+ * @param {Object} [options]
+ * @param {Number} [options.timestamp=Date.now()] Stable run timestamp.
+ * @param {String} [options.uuid=crypto.randomUUID()] Unique suffix.
+ * @returns {String}
+ */
+export function createSwapCollectionName(collectionName, phase, {
+    timestamp = Date.now(),
+    uuid      = crypto.randomUUID()
+} = {}) {
+    return `${collectionName}-${phase}-${timestamp}-${uuid}`
+}
+
+/**
+ * Resolves the durable state marker for an in-flight defrag promotion.
+ *
+ * @param {Object} options
+ * @param {String} options.targetName CLI target name.
+ * @param {String} [options.projectRoot=PROJECT_ROOT] Repository root.
+ * @returns {String}
+ */
+export function resolveDefragStatePath({
+    targetName,
+    projectRoot = PROJECT_ROOT
+} = {}) {
+    const stateDir = projectRoot === PROJECT_ROOT
+        ? DEFRAG_STATE_DIR
+        : path.join(projectRoot, '.neo-ai-data', 'maintenance', 'defrag-state');
+
+    return path.join(stateDir, `${targetName}.json`)
+}
+
+/**
+ * Refuses to run over an incomplete previous promotion.
+ *
+ * @param {Object} options
+ * @param {String} options.statePath State marker path.
+ * @param {Object} [options.fsModule=fs] Filesystem seam.
+ * @returns {Promise<void>}
+ */
+export async function assertNoIncompleteDefragState({statePath, fsModule = fs} = {}) {
+    if (!await fsModule.pathExists(statePath)) {
+        return
+    }
+
+    const state = await fsModule.readJson(statePath);
+    const error = new Error(
+        `Incomplete Chroma defrag state found at ${statePath}. ` +
+        `Phase '${state.phase}' for target '${state.targetName || 'unknown'}' must be recovered or cleared before rerun.`
+    );
+    error.code  = 'DEFRAG_INCOMPLETE_STATE';
+    error.state = state;
+    throw error
+}
+
+/**
+ * Writes the durable defrag phase marker.
+ *
+ * @param {Object} options
+ * @param {String} options.statePath State marker path.
+ * @param {Object} options.state Serializable state payload.
+ * @param {Object} [options.fsModule=fs] Filesystem seam.
+ * @returns {Promise<void>}
+ */
+export async function writeDefragState({statePath, state, fsModule = fs} = {}) {
+    await fsModule.ensureDir(path.dirname(statePath));
+    await fsModule.writeJson(statePath, {
+        ...state,
+        updatedAt: new Date().toISOString()
+    }, {spaces: 2})
+}
+
+/**
+ * Clears the durable defrag phase marker after canonical validation succeeds.
+ *
+ * @param {Object} options
+ * @param {String} options.statePath State marker path.
+ * @param {Object} [options.fsModule=fs] Filesystem seam.
+ * @returns {Promise<void>}
+ */
+export async function clearDefragState({statePath, fsModule = fs} = {}) {
+    await fsModule.remove(statePath)
 }
 
 /**
@@ -308,13 +420,224 @@ export async function cleanOrphanedSegmentDirs({dbPath, liveSegmentIds, fsModule
 }
 
 /**
+ * Normalizes Chroma document payloads for collection re-insertion.
+ *
+ * @param {Array} documents Chroma document values.
+ * @returns {String[]}
+ */
+export function sanitizeDocuments(documents = []) {
+    return documents.map(d => {
+        if (d == null)             return '';
+        if (typeof d === 'object') return JSON.stringify(d);
+        return String(d)
+    })
+}
+
+/**
+ * Adds extracted collection data into a replacement collection in batches.
+ *
+ * @param {Object} options
+ * @param {Object} options.collection Chroma collection handle.
+ * @param {Object} options.data Extracted `{ids, embeddings, metadatas, documents}`.
+ * @param {Number} [options.batchSize=1000] Chroma add batch size.
+ * @param {Function} [options.writeProgress=process.stdout.write.bind(process.stdout)] Progress sink.
+ * @param {Function} [options.log=console.log] Log sink.
+ * @returns {Promise<void>}
+ */
+export async function addCollectionData({
+    collection,
+    data,
+    batchSize     = 1000,
+    writeProgress = process.stdout.write.bind(process.stdout),
+    log           = console.log
+} = {}) {
+    const total = data.ids.length;
+
+    for (let i = 0; i < total; i += batchSize) {
+        const end = Math.min(i + batchSize, total);
+        writeProgress(`     Upserting ${i} to ${end}... `);
+
+        await collection.add({
+            ids       : data.ids.slice(i, end),
+            embeddings: data.embeddings.slice(i, end),
+            metadatas : data.metadatas.slice(i, end),
+            documents : sanitizeDocuments(data.documents.slice(i, end))
+        });
+        log('✅');
+    }
+}
+
+/**
+ * Validates that a rewritten collection is readable before promotion / completion.
+ *
+ * @param {Object} options
+ * @param {Object} options.collection Chroma collection handle.
+ * @param {Object} options.data Extracted source data.
+ * @param {String} options.collectionName Collection name for diagnostics.
+ * @returns {Promise<{count: Number}>}
+ */
+export async function validateLoadedCollection({collection, data, collectionName} = {}) {
+    const expected = data.ids.length;
+    const count    = await collection.count();
+
+    if (count !== expected) {
+        throw new Error(`Collection '${collectionName}' validation failed: expected ${expected} rows, found ${count}.`)
+    }
+
+    if (expected > 0) {
+        const sampleId = data.ids[0];
+        const sample   = await collection.get({ids: [sampleId], include: []});
+
+        if (!sample.ids?.includes(sampleId)) {
+            throw new Error(`Collection '${collectionName}' validation failed: sample id '${sampleId}' was not readable.`)
+        }
+    }
+
+    return {count}
+}
+
+/**
+ * Rewrites one canonical collection through a shadow/parking promotion. The
+ * canonical name remains live while the shadow loads; the only absent-canonical
+ * window is the bounded live->parking / shadow->canonical rename pair, where
+ * active `shadow` / `parking` names make KB healthcheck fail closed instead of
+ * creating an empty canonical collection.
+ *
+ * @param {Object} options
+ * @param {Object} options.client Chroma client.
+ * @param {String} options.collectionName Canonical collection name.
+ * @param {Object} options.data Extracted source data.
+ * @param {Object} options.embeddingFunction Chroma embedding function.
+ * @param {String} options.statePath Durable state marker path.
+ * @param {Object} [options.stateBase] Stable fields written into every phase marker.
+ * @param {Number} [options.timestamp=Date.now()] Stable run timestamp.
+ * @param {Function} [options.uuidFactory=crypto.randomUUID] Unique id factory.
+ * @param {Function} [options.log=console.log] Log sink.
+ * @param {Function} [options.warn=console.warn] Warning sink.
+ * @param {Function} [options.writeProgress] Progress sink.
+ * @returns {Promise<Object>}
+ */
+export async function rewriteCollectionViaShadowPromotion({
+    client,
+    collectionName,
+    data,
+    embeddingFunction,
+    statePath,
+    stateBase     = {},
+    timestamp     = Date.now(),
+    uuidFactory   = crypto.randomUUID,
+    log           = console.log,
+    warn          = console.warn,
+    writeProgress
+} = {}) {
+    const shadowName  = createSwapCollectionName(collectionName, 'shadow',  {timestamp, uuid: uuidFactory()});
+    const parkingName = createSwapCollectionName(collectionName, 'parking', {timestamp, uuid: uuidFactory()});
+    const sourceCount = data.ids.length;
+    const baseState   = {
+        ...stateBase,
+        collectionName,
+        sourceCount,
+        shadowName,
+        parkingName
+    };
+
+    let shadowCollection;
+    let liveCollection;
+    let liveParked     = false;
+    let shadowPromoted = false;
+    let parkingDeleted = false;
+
+    await writeDefragState({statePath, state: {...baseState, phase: 'creating-shadow'}});
+
+    shadowCollection = await client.createCollection({
+        name             : shadowName,
+        embeddingFunction,
+        metadata         : {"hnsw:space": "cosine"}
+    });
+
+    try {
+        await writeDefragState({statePath, state: {...baseState, phase: 'shadow-loading'}});
+        await addCollectionData({collection: shadowCollection, data, writeProgress, log});
+        await validateLoadedCollection({collection: shadowCollection, data, collectionName: shadowName});
+        await writeDefragState({statePath, state: {...baseState, phase: 'shadow-loaded'}});
+
+        liveCollection = await client.getCollection({
+            name             : collectionName,
+            embeddingFunction
+        });
+
+        await liveCollection.modify({name: parkingName});
+        liveParked = true;
+        await writeDefragState({statePath, state: {...baseState, phase: 'live-parked'}});
+
+        await shadowCollection.modify({name: collectionName});
+        shadowPromoted = true;
+        await writeDefragState({statePath, state: {...baseState, phase: 'shadow-promoted'}});
+
+        const canonicalCollection = await client.getCollection({
+            name             : collectionName,
+            embeddingFunction
+        });
+        await validateLoadedCollection({collection: canonicalCollection, data, collectionName});
+        await writeDefragState({statePath, state: {...baseState, phase: 'canonical-validated'}});
+
+        try {
+            await client.deleteCollection({name: parkingName});
+            parkingDeleted = true;
+            await writeDefragState({statePath, state: {...baseState, phase: 'parking-deleted'}});
+        } catch (error) {
+            warn(`   ⚠️  Could not delete parked pre-defrag collection '${parkingName}': ${error.message}`);
+        }
+
+        return {
+            collectionName,
+            shadowName,
+            parkingName,
+            sourceCount,
+            parkingDeleted
+        }
+    } catch (error) {
+        if (liveParked && !shadowPromoted && liveCollection) {
+            try {
+                await liveCollection.modify({name: collectionName});
+                await writeDefragState({statePath, state: {...baseState, phase: 'live-rollback-complete'}});
+            } catch (rollbackError) {
+                warn(`   ⚠️  Failed to roll back parked collection '${parkingName}': ${rollbackError.message}`);
+            }
+        }
+
+        if (!shadowPromoted && shadowCollection?.modify) {
+            try {
+                const failedShadowName = createSwapCollectionName(collectionName, 'failed-shadow', {
+                    timestamp,
+                    uuid: uuidFactory()
+                });
+                await shadowCollection.modify({name: failedShadowName});
+                await writeDefragState({
+                    statePath,
+                    state: {
+                        ...baseState,
+                        phase           : 'shadow-parked-after-failure',
+                        failedShadowName
+                    }
+                });
+            } catch (shadowError) {
+                warn(`   ⚠️  Failed to park shadow collection '${shadowName}': ${shadowError.message}`);
+            }
+        }
+
+        throw error
+    }
+}
+
+/**
  * Main execution function for the defragmentation process.
  *
- * It orchestrates the Backup -> Extract -> Nuke -> Load -> Cleanup pipeline.
+ * It orchestrates the Snapshot -> Extract -> Shadow Load -> Promote -> Cleanup pipeline.
  *
  * Key details:
  * - Uses a dummy embedding function to bypass ChromaDB's validation when moving raw embeddings.
- * - Handles multiple collections per target (essential for Memory Core).
+ * - Fails closed for Memory Core until safe multi-collection promotion exists.
  * - Implements batch processing for memory efficiency during the restore phase.
  * - Uses heuristics (UUIDv4 pattern matching) to identify orphaned directories safely.
  *
@@ -337,7 +660,12 @@ async function defragChromaDB() {
     try {
         await loadTopLevelAiConfig();
 
-        const config  = await loadConfig(targetName);
+        const config    = await loadConfig(targetName);
+        const statePath = resolveDefragStatePath({targetName});
+
+        assertDefragTargetSupported({targetName});
+        await assertNoIncompleteDefragState({statePath});
+
         const DB_PATH = config.path;
 
         if (!DB_PATH) {
@@ -469,21 +797,10 @@ async function defragChromaDB() {
             process.exit(1);
         }
 
-        // 4. Nuke (Logical Delete)
-        // Deleting the collection via API releases the logical locks on the index files.
-        console.log(`\n4️⃣  Resetting Collections...`);
-        for (const colName of config.collections) {
-            try {
-                console.log(`   Deleting ${colName}...`);
-                await client.deleteCollection({name: colName});
-            } catch (e) {
-                console.log(`   ℹ️  Delete failed (maybe didn't exist): ${e.message}`);
-            }
-        }
-
-        // 5. Load (Restore)
-        // Re-creating the collection triggers a clean build of the HNSW index.
-        console.log(`\n5️⃣  Restoring Data...`);
+        // 4. Shadow Load + Promote
+        // Load a replacement collection first, then perform the bounded live->parking /
+        // shadow->canonical rename pair. The canonical collection is never deleted up-front.
+        console.log(`\n4️⃣  Rewriting Collections via Shadow Promotion...`);
         let hasRestoreErrors = false;
 
         for (const colName of config.collections) {
@@ -494,37 +811,26 @@ async function defragChromaDB() {
                     continue;
                 }
 
-                console.log(`   Recreating ${colName}...`);
-                const newCollection = await client.createCollection({
-                    name             : colName,
-                    embeddingFunction: dummyEf,
-                    metadata         : {"hnsw:space": "cosine"}
+                console.log(`   Rewriting ${colName}...`);
+                const result = await rewriteCollectionViaShadowPromotion({
+                    client,
+                    collectionName    : colName,
+                    data,
+                    embeddingFunction : dummyEf,
+                    statePath,
+                    stateBase         : {
+                        targetName,
+                        dbPath      : DB_PATH,
+                        snapshotPath: backupPath,
+                        startedAt   : new Date(timestamp).toISOString()
+                    }
                 });
 
-                console.log(`     New ID: ${newCollection.id}`);
-
-                const total     = data.ids.length;
-                const batchSize = 1000;
-
-                for (let i = 0; i < total; i += batchSize) {
-                    const end = Math.min(i + batchSize, total);
-                    process.stdout.write(`     Upserting ${i} to ${end}... `);
-
-                    // Document Sanitization: Ensure documents are always strings.
-                    // ChromaDB can throw if a document is null or an object.
-                    const batchDocs = data.documents.slice(i, end).map(d => {
-                        if (d == null)             return '';
-                        if (typeof d === 'object') return JSON.stringify(d);
-                        return String(d);
-                    });
-
-                    await newCollection.add({
-                        ids       : data.ids.slice(i, end),
-                        embeddings: data.embeddings.slice(i, end),
-                        metadatas : data.metadatas.slice(i, end),
-                        documents : batchDocs
-                    });
-                    console.log('✅');
+                console.log(`     Promoted ${result.shadowName} to ${colName}.`);
+                if (result.parkingDeleted) {
+                    console.log(`     Deleted parked pre-defrag collection ${result.parkingName}.`);
+                } else {
+                    console.warn(`     Parked pre-defrag collection remains for manual cleanup: ${result.parkingName}.`);
                 }
             } catch (e) {
                 console.error(`❌ Failed to restore ${colName}: ${e.message}`);
@@ -532,20 +838,27 @@ async function defragChromaDB() {
             }
         }
 
-        // 6. Cleanup (Physical)
+        if (hasRestoreErrors) {
+            console.error('\n⚠️ Completed with errors in some collections.');
+            process.exit(1);
+        }
+
+        await clearDefragState({statePath});
+
+        // 5. Cleanup (Physical)
         // Keep-set is the authoritative live-SEGMENT-id registry, not the recreated
         // collection ids: on-disk UUID dirs are segment-named (disjoint from collection
         // ids), and the unified store shares one persist dir across subsystems, so a
         // collection-id / single-target keep-set deletes live data.
-        console.log(`\n6️⃣  Cleaning up orphaned segment directories...`);
+        console.log(`\n5️⃣  Cleaning up orphaned segment directories...`);
         const liveSegmentIds = resolveLiveSegmentIds({dbPath: DB_PATH});
         console.log(`   Live segments: ${liveSegmentIds.size}`);
 
         const {kept, removed} = await cleanOrphanedSegmentDirs({dbPath: DB_PATH, liveSegmentIds});
         console.log(`   Kept ${kept.length} live segment dirs; removed ${removed.length} orphans.`);
 
-        // 7. Vacuum (SQLite)
-        console.log(`\n7️⃣  Vacuuming SQLite Database...`);
+        // 6. Vacuum (SQLite)
+        console.log(`\n6️⃣  Vacuuming SQLite Database...`);
         vacuumSqlite(DB_PATH);
 
         console.log(`\n🎉 Defragmentation Complete!`);
@@ -558,12 +871,6 @@ async function defragChromaDB() {
         console.log(`   📉 Initial Size : ${(initialSize / 1024 / 1024).toFixed(2)} MB`);
         console.log(`   📉 Final Size   : ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
         console.log(`   🔥 Reduction    : ${(reduction / 1024 / 1024).toFixed(2)} MB (${reductionPercent.toFixed(1)}%)`);
-
-        // Exit with error code if any collection failed to restore
-        if (hasRestoreErrors) {
-            console.error('\n⚠️ Completed with errors in some collections.');
-            process.exit(1);
-        }
 
     } catch (e) {
         console.error(`\n❌ Fatal Error: ${e.message}`);
