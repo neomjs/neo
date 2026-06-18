@@ -7,11 +7,11 @@ import {
     chromaConnect,
     chromaDeleteCollection,
     createSilentExecutor,
+    isChromaCollectionNotFoundError,
     registerNeoChromaEmbeddingFunctions
 } from '../shared/vector/chromaClientPrimitives.mjs';
 
 const COLLECTION_ALREADY_EXISTS_RE = /already exists|already contains|conflict/i;
-const COLLECTION_NOT_FOUND_RE      = /does not exist|not found|not be found|could not be found|404/i;
 const SWAP_ACTIVE_PHASES           = ['parking', 'shadow'];
 
 registerNeoChromaEmbeddingFunctions({
@@ -188,7 +188,7 @@ class ChromaManager extends Base {
      * @returns {Boolean}
      */
     #isCollectionNotFoundError(error) {
-        return error?.name === 'ChromaNotFoundError' || COLLECTION_NOT_FOUND_RE.test(error?.message || '');
+        return isChromaCollectionNotFoundError(error)
     }
 
     /**
