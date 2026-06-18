@@ -883,15 +883,20 @@ class MemoryService extends Base {
      * @param {Number} options.limit     The maximum number of memories to return.
      * @param {Number} options.offset    The number of memories to skip.
      * @param {String} [options.memorySharing] Optional tenant-isolation policy override (mirrors queryMemories) — lets callers and tests select 'team' / 'private' without depending on ambient defaultPolicy resolution.
+     * @param {Number} [options.chromaTimeoutMs=CHROMA_FETCH_TIMEOUT_MS] Test seam for bounding Chroma metadata reads.
      * @returns {Promise<{sessionId: string, count: number, total: number, memories: Object[]}>}
      */
-    async listMemories({sessionId, limit=100, offset=0, memorySharing} = {}) {
+    async listMemories({sessionId, limit=100, offset=0, memorySharing, chromaTimeoutMs=CHROMA_FETCH_TIMEOUT_MS} = {}) {
         try {
             if (!sessionId) {
                 return { sessionId, count: 0, total: 0, memories: [] };
             }
 
-            const collection = await StorageRouter.getMemoryCollection();
+            const collection = await withTimeout(
+                StorageRouter.getMemoryCollection(),
+                chromaTimeoutMs,
+                'listMemories getMemoryCollection'
+            );
 
             // Tenant read-filter with additive shared-commons access: when a
             // userId resolves, the filter returns the tenant's own records AND records tagged
@@ -918,10 +923,14 @@ class MemoryService extends Base {
 
             const where = tenantScope ? {$and: [{sessionId}, tenantScope]} : {sessionId};
 
-            const result = await collection.get({
-                where,
-                include: ['metadatas']
-            });
+            const result = await withTimeout(
+                collection.get({
+                    where,
+                    include: ['metadatas']
+                }),
+                chromaTimeoutMs,
+                'listMemories collection.get'
+            );
 
             let records = result.ids.map((id, index) => {
                 const metadata = result.metadatas[index] || {};

@@ -1458,6 +1458,13 @@ components:
           type: integer
           description: Conflict entries currently present in the Sandman handoff file.
           example: 2
+        axisErrors:
+          type: object
+          description: Optional per-axis degradation map. Present only when an axis probe timed out or failed and its numeric value fell back to 0.
+          additionalProperties:
+            type: string
+          example:
+            undigested: "REM axis undigested timed out after 1500ms"
         recentCycles:
           type: array
           description: Recent REM cycle summaries read from the gitignored JSONL run-state store.

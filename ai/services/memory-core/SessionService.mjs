@@ -20,6 +20,8 @@ import RequestContextService, {
     resolveSummaryVisibilityUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
 
+const CHROMA_SESSION_READ_TIMEOUT_MS = 10000;
+
 /**
  * @summary Service for handling session summarization and drift detection.
  *
@@ -938,13 +940,14 @@ ${sessionContent}
      *
      * @param {Object} args
      * @param {String} args.sessionId The session ID to validate.
+     * @param {Number} [args.chromaTimeoutMs=CHROMA_SESSION_READ_TIMEOUT_MS] Test seam for bounding Chroma metadata reads.
      * @returns {Promise<Object>} Either a success payload (`{success: true, sessionId, status:
      *     'resumable', memoryCount, lastActivityAt, summarizationStatus}`) OR a structured error
      *     with one of `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED`, `SESSION_BUSY`.
      * @see RequestContextService — transport-layer session binding
      * @see SummarizationJobs — lease semantics (TTL + status enum)
      */
-    async validateSessionForResume({sessionId} = {}) {
+    async validateSessionForResume({sessionId, chromaTimeoutMs = CHROMA_SESSION_READ_TIMEOUT_MS} = {}) {
         if (!sessionId || typeof sessionId !== 'string') {
             return {error: 'Invalid sessionId', code: 'INVALID_SESSION_ID'};
         }
@@ -992,17 +995,25 @@ ${sessionContent}
         let memoryCount    = 0;
         let lastActivityAt = null;
         try {
-            const collection = await StorageRouter.getMemoryCollection();
+            const collection = await withTimeout(
+                StorageRouter.getMemoryCollection(),
+                chromaTimeoutMs,
+                'validateSessionForResume getMemoryCollection'
+            );
             if (collection) {
                 const userId = normalizeUserId(RequestContextService.getUserId());
                 const where  = userId
                     ? {$and: [{sessionId}, {$or: [{userId}, {userId: SHARED_USER_ID}]}]}
                     : {sessionId};
 
-                const result = await collection.get({
-                    where,
-                    include: ['metadatas']
-                });
+                const result = await withTimeout(
+                    collection.get({
+                        where,
+                        include: ['metadatas']
+                    }),
+                    chromaTimeoutMs,
+                    'validateSessionForResume collection.get'
+                );
 
                 memoryCount = result.ids?.length || 0;
 
