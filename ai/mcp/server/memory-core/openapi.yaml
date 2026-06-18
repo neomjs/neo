@@ -43,6 +43,7 @@ paths:
     get:
       summary: Health Check
       operationId: healthcheck
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
@@ -51,6 +52,30 @@ paths:
         **When to Use:**
         Use this as a first-step diagnostic tool to ensure the memory system is operational before attempting other operations.
       tags: [Health]
+      parameters:
+        - name: freshObservability
+          in: query
+          required: false
+          description: Refresh request-facing fields on cached healthy results.
+          schema:
+            type: boolean
+            default: true
+        - name: chromaProbeTimeoutMs
+          in: query
+          required: false
+          description: Max time to wait for Chroma readiness, connection, and collection-count probes.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1500
+        - name: embeddingWriteCanaryTimeoutMs
+          in: query
+          required: false
+          description: Max time to wait for the active embedding provider during the write canary.
+          schema:
+            type: integer
+            minimum: 1
+            default: 5000
       responses:
         '200':
           description: Server is healthy and database is accessible
