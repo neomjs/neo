@@ -55,7 +55,7 @@ class PermissionService extends Base {
      */
     async grantPermission({ to, scope }) {
         const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw new Error("Cannot grant permission: no agent identity context bound.");
+        if (!owner) throw RequestContextService.unboundIdentityError('grant permission');
         if (!to) throw new Error("Missing 'to' parameter.");
         if (!scope) throw new Error("Missing 'scope' parameter.");
 
@@ -90,7 +90,7 @@ class PermissionService extends Base {
      */
     async revokePermission({ to, scope }) {
         const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw new Error("Cannot revoke permission: no agent identity context bound.");
+        if (!owner) throw RequestContextService.unboundIdentityError('revoke permission');
 
         const db = GraphService.requireDb('PermissionService.revokePermission');
         const edgesToRemove = [];

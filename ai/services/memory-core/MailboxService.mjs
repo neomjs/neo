@@ -498,7 +498,7 @@ class MailboxService extends Base {
         const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
-            throw new Error("Cannot send message: no agent identity context bound. Ensure StdioIdentityResolver or OIDC transport is active.");
+            throw RequestContextService.unboundIdentityError('send message');
         }
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
@@ -722,7 +722,7 @@ class MailboxService extends Base {
     async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, taggedConcepts, limit = 50, offset = 0, includeArchived = false } = {}) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
-            throw new Error("Cannot list messages: no agent identity context bound.");
+            throw RequestContextService.unboundIdentityError('list messages');
         }
 
         const target = to || me;
@@ -895,7 +895,7 @@ class MailboxService extends Base {
     async getMessage({ messageId }) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
-            throw new Error("Cannot get message: no agent identity context bound.");
+            throw RequestContextService.unboundIdentityError('get message');
         }
 
         const db = GraphService.requireDb('MailboxService.getMessage');
@@ -1081,7 +1081,7 @@ class MailboxService extends Base {
     async markRead({ messageId }) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
-            throw new Error("Cannot mark message read: no agent identity context bound.");
+            throw RequestContextService.unboundIdentityError('mark message read');
         }
 
         const db = GraphService.requireDb('MailboxService.markRead');
@@ -1161,7 +1161,7 @@ class MailboxService extends Base {
     async archiveMessage({ messageId }) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
-            throw new Error("Cannot archive message: no agent identity context bound.");
+            throw RequestContextService.unboundIdentityError('archive message');
         }
 
         const db = GraphService.requireDb('MailboxService.archiveMessage');
@@ -1240,7 +1240,7 @@ class MailboxService extends Base {
     async deleteMessage({ messageId }) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
-            throw new Error("Cannot delete message: no agent identity context bound.");
+            throw RequestContextService.unboundIdentityError('delete message');
         }
 
         const db = GraphService.requireDb('MailboxService.deleteMessage');
@@ -1301,7 +1301,7 @@ class MailboxService extends Base {
 
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
-            throw new Error("Cannot transition task: no agent identity context bound.");
+            throw RequestContextService.unboundIdentityError('transition task');
         }
 
         const db = GraphService.requireDb('MailboxService.transitionTask');
@@ -1529,7 +1529,7 @@ class MailboxService extends Base {
     async countMessages({ box = 'inbox', status = 'all', to, fromIdentity, includeArchived = false } = {}) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
-            throw new Error("Cannot count messages: no agent identity context bound.");
+            throw RequestContextService.unboundIdentityError('count messages');
         }
 
         // Reject unsupported `box` values explicitly rather than silently aliasing to the inbox
