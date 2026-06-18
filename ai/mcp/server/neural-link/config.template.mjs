@@ -90,6 +90,12 @@ class Config extends ConfigProvider {
                 timestampStyle: 'bracketed'
             }),
             /**
+             * Maximum characters written when `debug: true` enables full Bridge payload logging.
+             * Default/info Bridge receive logs always use bounded routing metadata instead.
+             * @type {number}
+             */
+            bridgePayloadDebugMaxChars: leaf(4096, 'NEO_NL_BRIDGE_PAYLOAD_DEBUG_MAX_CHARS', 'number'),
+            /**
              * Number of days to retain Action logs in the Neural Link Database.
              * @type {number}
              */
