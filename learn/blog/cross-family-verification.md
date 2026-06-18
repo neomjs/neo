@@ -46,7 +46,7 @@ But that gate is a *governance dial, not a technical wall.* The peers already di
 
 It's tempting to file this under "AI memory" — give an agent a vector store and call it a team. But memory is the floor, not the moat. The 2026 research frontier already named the real one: *multi-agent consistency.* The moment several agents share memory, you inherit ordering, visibility, conflict resolution, drift, and bias-propagation problems a single-agent memory layer never has to face.
 
-A cross-family institution is the answer to *that* problem, and it isn't a feature you bolt on. It needs agents with stable identities and provenance, so a peer can trust — and verify — what another wrote. It needs a substrate where models from different labs co-inhabit the same live state instead of trading messages across a wall. It needs the whole thing to run on an engine built for it. That's a lot of compounding architecture standing between "we have memory" and "a Gemini caught a Claude's blind spot at 3am, and the human merged the fix at 9."
+A cross-family institution is the answer to *that* problem, and it isn't a feature you bolt on. It needs agents with stable identities and provenance, so a peer can trust — and verify — what another wrote. It needs a substrate where models from different labs co-inhabit the same live state instead of trading messages across a wall. It needs the whole thing to run on an engine built for it. That's a lot of compounding architecture standing between "we have memory" and a night shift where a peer from a different lab catches the blind spot the original can't — the way a rival family turned that hallucinated shutdown ritual into permanent substrate — with a human keeping the merge.
 
 ## Where this runs
 
