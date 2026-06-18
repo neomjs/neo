@@ -2031,11 +2031,14 @@ test.describe('Wake Daemon', () => {
                     clearTimeout(timeout);
                     resolve();
                 }
-                // Negative case: if the daemon ever logs "Delivered" for this subId, the
+                // Negative case: if the daemon ever logs an osascript attempt for this subId, the
                 // fail-closed guard didn't fire. Reject so the test fails loudly.
-                if (out.includes(`[Wake Daemon] Delivered ${subId}`)) {
+                if (
+                    out.includes(`[Wake Daemon] Delivered ${subId}`) ||
+                    out.includes(`[Wake Daemon] Submit attempted ${subId}`)
+                ) {
                     clearTimeout(timeout);
-                    reject(new Error('Daemon delivered Codex wake despite missing focusSeedKey — fail-closed guard regressed'));
+                    reject(new Error('Daemon attempted Codex wake despite missing focusSeedKey — fail-closed guard regressed'));
                 }
             });
             daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
@@ -2072,7 +2075,7 @@ test.describe('Wake Daemon', () => {
         expect(fs.existsSync(mockOutPath)).toBe(false);
     });
 
-    test('Codex wake delivery emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste -> Esc -> Enter (#10667, #13287)', async () => {
+    test('Codex wake submit attempt emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste -> Esc -> Enter (#10667, #13287, #13480)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-cleanup';
 
@@ -2117,12 +2120,12 @@ test.describe('Wake Daemon', () => {
         let stdoutLog = '';
 
         const deliveryPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Daemon did not deliver Codex wake within timeout')), 10000);
+            const timeout = setTimeout(() => reject(new Error('Daemon did not attempt Codex wake submit within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 stdoutLog += out;
-                if (out.includes(`Delivered ${subId}`)) {
+                if (out.includes(`Submit attempted ${subId}`)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -2177,9 +2180,12 @@ test.describe('Wake Daemon', () => {
         expect(rawArgs.at(-1)).toContain('[WAKE][priority:normal]');
         expect(rawArgs.at(-1)).toContain('Test Codex Cleanup');
         expect(rawArgs.at(-1)).not.toContain('lifecycle-first');
+        expect(stdoutLog).toContain(`[Wake Daemon] Submit attempted ${subId} via osascript to Codex`);
+        expect(stdoutLog).not.toContain(`[Wake Daemon] Delivered ${subId} via osascript to Codex`);
         expect(stdoutLog).toContain(
             'scenario=direct-message; route=osascript; adapterSource=metadata; app=Codex; ' +
-            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0; ' +
+            'submitProof=attempted; turnStartProof=live-required'
         );
     });
 
@@ -2239,10 +2245,11 @@ test.describe('Wake Daemon', () => {
 
         expect(fs.existsSync(mockOutPath)).toBe(false);
         expect(stdoutLog).not.toContain(`Delivered ${subId}`);
+        expect(stdoutLog).not.toContain(`Submit attempted ${subId}`);
         expect(stdoutLog).not.toContain(`Suppressed ${subId}`);
     });
 
-    test('Codex UI wake submits actionable message and drops coalesced heartbeat event (#13456)', async () => {
+    test('Codex UI wake attempts actionable message submit and drops coalesced heartbeat event (#13456, #13480)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-mixed-submit';
 
@@ -2287,12 +2294,12 @@ test.describe('Wake Daemon', () => {
         let stdoutLog = '';
 
         const deliveryPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Daemon did not deliver actionable Codex wake within timeout')), 10000);
+            const timeout = setTimeout(() => reject(new Error('Daemon did not attempt actionable Codex wake submit within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 stdoutLog += out;
-                if (out.includes(`Delivered ${subId}`)) {
+                if (out.includes(`Submit attempted ${subId}`)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -2323,9 +2330,12 @@ test.describe('Wake Daemon', () => {
         expect(digest).toContain('new messages');
         expect(digest).not.toContain('heartbeat pulses');
         expect(digest).not.toContain('lifecycle-first');
+        expect(stdoutLog).toContain(`[Wake Daemon] Submit attempted ${subId} via osascript to Codex`);
+        expect(stdoutLog).not.toContain(`[Wake Daemon] Delivered ${subId} via osascript to Codex`);
         expect(stdoutLog).toContain(
             'scenario=direct-message; route=osascript; adapterSource=metadata; app=Codex; ' +
-            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0; ' +
+            'submitProof=attempted; turnStartProof=live-required'
         );
     });
 
