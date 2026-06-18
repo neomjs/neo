@@ -351,6 +351,11 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         count: async () => countGetter(),
         get  : async () => ({ids: [], metadatas: []})
     });
+    const createNotFoundError = () => {
+        const error = new Error('The requested resource could not be found');
+        error.name  = 'ChromaNotFoundError';
+        return error
+    };
 
     test.beforeAll(async () => {
         HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
@@ -373,6 +378,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             chromaConnected         : ChromaManager.connected,
             chromaReady             : ChromaManager.ready,
             chromaConnect           : ChromaManager.connect,
+            invalidateCollectionCache: ChromaManager.invalidateCollectionCache,
             getMemoryCollection     : StorageRouter.getMemoryCollection,
             getSummaryCollection    : StorageRouter.getSummaryCollection,
             getDatabaseStatus       : ChromaLifecycleService.getDatabaseStatus
@@ -413,6 +419,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         ChromaManager.connected = originals.chromaConnected;
         ChromaManager.ready     = originals.chromaReady;
         ChromaManager.connect   = originals.chromaConnect;
+        ChromaManager.invalidateCollectionCache = originals.invalidateCollectionCache;
         StorageRouter.getMemoryCollection      = originals.getMemoryCollection;
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
@@ -597,6 +604,70 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(refreshed).not.toBe(cached);
         expect(refreshed.database.connection.collections.memories.count).toBe(12);
         expect(refreshed.database.connection.collections.summaries.count).toBe(22);
+    });
+
+    test('#13466: memory count stale handle invalidates and retries once', async () => {
+        let memoryReads = 0;
+        const invalidated = [];
+
+        ChromaManager.invalidateCollectionCache = type => invalidated.push(type);
+        StorageRouter.getMemoryCollection = async () => {
+            memoryReads++;
+
+            return {
+                count: async () => {
+                    if (memoryReads === 1) {
+                        throw createNotFoundError()
+                    }
+
+                    return 13
+                },
+                get: async () => ({ids: [], metadatas: []})
+            }
+        };
+
+        const result = await HealthService.healthcheck();
+
+        expect(memoryReads).toBe(2);
+        expect(invalidated).toEqual(['memory']);
+        expect(result.status).toBe('healthy');
+        expect(result.database.connection.collections.memories).toMatchObject({
+            exists: true,
+            count : 13
+        });
+        expect(result.details).toContain('All features are operational');
+    });
+
+    test('#13466: summary count stale handle invalidates and retries once', async () => {
+        let summaryReads = 0;
+        const invalidated = [];
+
+        ChromaManager.invalidateCollectionCache = type => invalidated.push(type);
+        StorageRouter.getSummaryCollection = async () => {
+            summaryReads++;
+
+            return {
+                count: async () => {
+                    if (summaryReads === 1) {
+                        throw createNotFoundError()
+                    }
+
+                    return 23
+                },
+                get: async () => ({ids: [], metadatas: []})
+            }
+        };
+
+        const result = await HealthService.healthcheck();
+
+        expect(summaryReads).toBe(2);
+        expect(invalidated).toEqual(['summary']);
+        expect(result.status).toBe('healthy');
+        expect(result.database.connection.collections.summaries).toMatchObject({
+            exists: true,
+            count : 23
+        });
+        expect(result.details).toContain('All features are operational');
     });
 
     test('embedding write canary failure degrades healthcheck status', async () => {

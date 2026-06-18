@@ -25,7 +25,7 @@ import StorageRouter  from '../../../../../../../ai/services/memory-core/manager
 import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import {resetMemoryCoreLifecycle} from '../util.mjs';
 
-// ADR 0019 B4: storagePaths.graph resolves to ':memory:' by construction under UNIT_TEST_MODE.
+// Unit test mode resolves storagePaths.graph to ':memory:' by construction.
 
 test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
     test('logs an operator-actionable config error before throwing on missing Chroma coordinates', () => {
@@ -113,6 +113,44 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(ChromaManager.memoryCollection).toBeNull();
         expect(ChromaManager.summaryCollection).toBeNull();
         expect(ChromaManager.graphCollection).toBeNull();
+    });
+
+    test('invalidateCollectionCache clears targeted and all collection handles', () => {
+        const stalePromise = Promise.resolve({name: 'stale-collection'});
+
+        ChromaManager._memoryCollectionPromise  = stalePromise;
+        ChromaManager._summaryCollectionPromise = stalePromise;
+        ChromaManager._graphCollectionPromise   = stalePromise;
+        ChromaManager.memoryCollection  = {name: 'stale-memory'};
+        ChromaManager.summaryCollection = {name: 'stale-summary'};
+        ChromaManager.graphCollection   = {name: 'stale-graph'};
+
+        ChromaManager.invalidateCollectionCache('summary');
+
+        expect(ChromaManager._memoryCollectionPromise).toBe(stalePromise);
+        expect(ChromaManager.memoryCollection).toEqual({name: 'stale-memory'});
+        expect(ChromaManager._summaryCollectionPromise).toBeNull();
+        expect(ChromaManager.summaryCollection).toBeNull();
+        expect(ChromaManager._graphCollectionPromise).toBe(stalePromise);
+        expect(ChromaManager.graphCollection).toEqual({name: 'stale-graph'});
+
+        ChromaManager.invalidateCollectionCache();
+
+        expect(ChromaManager._memoryCollectionPromise).toBeNull();
+        expect(ChromaManager._summaryCollectionPromise).toBeNull();
+        expect(ChromaManager._graphCollectionPromise).toBeNull();
+        expect(ChromaManager.memoryCollection).toBeNull();
+        expect(ChromaManager.summaryCollection).toBeNull();
+        expect(ChromaManager.graphCollection).toBeNull();
+    });
+
+    test('isCollectionNotFoundError classifies Chroma stale-handle signatures', () => {
+        const namedError = new Error('boom');
+        namedError.name  = 'ChromaNotFoundError';
+
+        expect(ChromaManager.isCollectionNotFoundError(namedError)).toBe(true);
+        expect(ChromaManager.isCollectionNotFoundError(new Error('The requested resource could not be found'))).toBe(true);
+        expect(ChromaManager.isCollectionNotFoundError(new Error('connection refused'))).toBe(false);
     });
 
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {

@@ -8,6 +8,7 @@ import {
     chromaDeleteCollection,
     createDynamicTextEmbeddingFunction,
     createSilentExecutor,
+    isChromaCollectionNotFoundError,
     registerNeoChromaEmbeddingFunctions
 } from '../../shared/vector/chromaClientPrimitives.mjs';
 import {ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
@@ -253,6 +254,47 @@ class ChromaManager extends AbstractVectorManager {
 
         this.graphCollection = await this._graphCollectionPromise;
         return this.graphCollection;
+    }
+
+    /**
+     * Public predicate for consumers operating on already-resolved collection handles.
+     *
+     * A long-lived MCP process can hold a collection object across an orchestrator-owned
+     * Chroma recycle. Operation-level Chroma not-found failures should invalidate the
+     * memoized handle and retry the canonical collection name once.
+     *
+     * @param {Error} error
+     * @returns {Boolean}
+     */
+    isCollectionNotFoundError(error) {
+        return isChromaCollectionNotFoundError(error)
+    }
+
+    /**
+     * @summary Invalidates memoized Memory Core Chroma collection handles.
+     *
+     * This is the production-safe subset of the test-only lifecycle reset: it clears only
+     * cached Chroma collection promises/objects, leaving service readiness and graph state
+     * untouched so the next operation lazily re-resolves by canonical collection name.
+     *
+     * @param {'memory'|'summary'|'graph'|'all'} [collectionType='all']
+     * @returns {void}
+     */
+    invalidateCollectionCache(collectionType = 'all') {
+        const types = collectionType === 'all' ? ['memory', 'summary', 'graph'] : [collectionType];
+
+        for (const type of types) {
+            if (type === 'memory') {
+                this._memoryCollectionPromise = null;
+                this.memoryCollection         = null;
+            } else if (type === 'summary') {
+                this._summaryCollectionPromise = null;
+                this.summaryCollection         = null;
+            } else if (type === 'graph') {
+                this._graphCollectionPromise = null;
+                this.graphCollection         = null;
+            }
+        }
     }
 
     /**
