@@ -343,8 +343,6 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
     let originalEmbedText;
     let originalGeminiApiKey;
     let originals;
-    let originalChromaHealthProbeTimeoutMs;
-    let originalEmbeddingWriteCanaryTimeoutMs;
     let summaryCount;
     let summaryGetCalls;
     let summaryUnavailableOnCall;
@@ -363,8 +361,6 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         originalDateNow    = Date.now;
         originalEmbedText  = TextEmbeddingService.embedText;
         originalGeminiApiKey = process.env.GEMINI_API_KEY;
-        originalChromaHealthProbeTimeoutMs = HealthService.chromaHealthProbeTimeoutMs;
-        originalEmbeddingWriteCanaryTimeoutMs = HealthService.embeddingWriteCanaryTimeoutMs;
         memoryCount        = 10;
         summaryCount       = 20;
         summaryGetCalls    = 0;
@@ -421,8 +417,6 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
         TextEmbeddingService.embedText            = originalEmbedText;
-        HealthService.chromaHealthProbeTimeoutMs = originalChromaHealthProbeTimeoutMs;
-        HealthService.embeddingWriteCanaryTimeoutMs = originalEmbeddingWriteCanaryTimeoutMs;
 
         HealthService.setStdioIdentityState(null);
         HealthService.runtimeFreshnessReader = null;
@@ -621,10 +615,11 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
     });
 
     test('#13458: embedding write canary timeout degrades healthcheck instead of hanging', async () => {
-        HealthService.embeddingWriteCanaryTimeoutMs = 5;
         TextEmbeddingService.embedText = async () => new Promise(() => {});
 
-        const result = await HealthService.healthcheck();
+        const result = await HealthService.healthcheck({
+            embeddingWriteCanaryTimeoutMs: 5
+        });
 
         expect(result.status).toBe('degraded');
         expect(result.details).toContain('Embedding write canary failed: Embedding write canary timed out after 5ms');
@@ -632,14 +627,14 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
     });
 
     test('#13458: collection count timeout makes healthcheck resolve unhealthy instead of hanging', async () => {
-        HealthService.chromaHealthProbeTimeoutMs = 5;
-
         StorageRouter.getMemoryCollection = async () => ({
             count: async () => new Promise(() => {}),
             get  : async () => ({ids: [], metadatas: []})
         });
 
-        const result = await HealthService.healthcheck();
+        const result = await HealthService.healthcheck({
+            chromaProbeTimeoutMs: 5
+        });
 
         expect(result.status).toBe('unhealthy');
         expect(result.database.connection.collections.memories).toMatchObject({

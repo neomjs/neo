@@ -232,6 +232,29 @@ class Config extends ConfigProvider {
              */
             remRunRetentionLimit: leaf(200, 'NEO_REM_RUN_RETENTION_LIMIT', 'number'),
             /**
+             * Healthcheck probe budgets. These bound dependency probes so a stalled
+             * Chroma client, embedding provider, or REM axis returns unhealthy/degraded
+             * observability instead of keeping the MCP request open indefinitely.
+             * @type {Object}
+             */
+            healthcheck: {
+                /**
+                 * Max time to wait for Chroma readiness, connection, and collection-count probes.
+                 * @type {number}
+                 */
+                chromaProbeTimeoutMs: leaf(1500, 'NEO_MEMORY_HEALTHCHECK_CHROMA_PROBE_TIMEOUT_MS', 'number'),
+                /**
+                 * Max time to wait for the active embedding provider during the write canary.
+                 * @type {number}
+                 */
+                embeddingWriteCanaryTimeoutMs: leaf(5000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
+                /**
+                 * Max time to wait for each REM pipeline-state axis.
+                 * @type {number}
+                 */
+                remAxisTimeoutMs: leaf(1500, 'NEO_MEMORY_HEALTHCHECK_REM_AXIS_TIMEOUT_MS', 'number')
+            },
+            /**
              * Durable JSONL write-ahead store for `add_memory` payloads.
              *
              * The mandated per-turn save appends its full payload here BEFORE any model-dependent
