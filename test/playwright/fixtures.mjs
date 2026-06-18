@@ -536,6 +536,33 @@ export const test = base.extend({
                         return NeuralLink_RuntimeService.manageNeoConfig({ sessionId, action, config, windowId });
                     },
 
+                    /**
+                     * Opens a live dashboard component in a popup window.
+                     * @param {Object} options
+                     * @returns {Promise<Object>}
+                     */
+                    async openComponentWindow(options) {
+                        return NeuralLink_RuntimeService.openComponentWindow({ sessionId, ...options });
+                    },
+
+                    /**
+                     * Moves a known popup window when the runtime exposes a native handle.
+                     * @param {Object} options
+                     * @returns {Promise<Object>}
+                     */
+                    async positionWindow(options) {
+                        return NeuralLink_RuntimeService.positionWindow({ sessionId, ...options });
+                    },
+
+                    /**
+                     * Focuses a known popup window when the runtime exposes a native handle.
+                     * @param {String} windowId
+                     * @returns {Promise<Object>}
+                     */
+                    async focusWindow(windowId) {
+                        return NeuralLink_RuntimeService.focusWindow({ sessionId, windowId });
+                    },
+
                     // --- Topology ---
 
                     /**
@@ -543,7 +570,7 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getWorkerTopology() {
-                        return NeuralLink_ConnectionService.getWorkerTopology();
+                        return NeuralLink_RuntimeService.getWorkerTopology();
                     },
 
                     /**
@@ -551,7 +578,7 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getWindowTopology() {
-                        return NeuralLink_ConnectionService.getWindowTopology();
+                        return NeuralLink_RuntimeService.getWindowTopology();
                     }
                 };
             }

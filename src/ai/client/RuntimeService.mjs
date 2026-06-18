@@ -219,6 +219,103 @@ class RuntimeService extends Service {
     }
 
     /**
+     * Opens a dashboard widget in a browser popup through the live dashboard primitive.
+     * @param {Object} params
+     * @param {String} params.componentId
+     * @param {String} [params.dashboardId]
+     * @param {Object} [params.rect]
+     * @returns {Promise<Object>}
+     */
+    async openComponentWindow({componentId, dashboardId, rect} = {}) {
+        const component = Neo.getComponent(componentId);
+
+        if (!component) {
+            return {success: false, error: `Unknown componentId '${componentId}'.`}
+        }
+
+        const dashboard = this.#resolveDashboardHost(component, dashboardId);
+
+        if (!dashboard) {
+            return {
+                success: false,
+                error  : dashboardId ?
+                    `Component '${dashboardId}' cannot open dashboard popups.` :
+                    `Component '${componentId}' is not inside a dashboard host that can open popups.`
+            }
+        }
+
+        const popupData = await dashboard.openWidgetInPopup(component, await this.#normalizePopupRect(component, rect));
+
+        if (!popupData) {
+            return {
+                success: false,
+                error  : `Dashboard '${dashboard.id}' did not open a popup for component '${componentId}'.`
+            }
+        }
+
+        return {
+            success    : true,
+            componentId,
+            dashboardId: dashboard.id,
+            ...popupData
+        }
+    }
+
+    /**
+     * Moves a known browser popup when Neo.Main has an addressable native handle for it.
+     * @param {Object} params
+     * @param {String} params.windowId
+     * @param {Number} params.x
+     * @param {Number} params.y
+     * @returns {Object}
+     */
+    positionWindow({windowId, x, y} = {}) {
+        if (!this.#hasKnownWindow(windowId)) {
+            return {success: false, error: `Unknown windowId '${windowId}'.`}
+        }
+
+        const nativeWindow = Neo.Main?.openWindows?.[windowId]?.win;
+
+        if (!nativeWindow?.moveTo) {
+            return {
+                success    : false,
+                unsupported: true,
+                error      : `Window '${windowId}' cannot be positioned by this runtime.`
+            }
+        }
+
+        Neo.Main.windowMoveTo({windowName: windowId, x, y});
+
+        return {success: true, windowId, x, y}
+    }
+
+    /**
+     * Focuses a known browser popup when Neo.Main has an addressable native handle for it.
+     * @param {Object} params
+     * @param {String} params.windowId
+     * @returns {Object}
+     */
+    focusWindow({windowId} = {}) {
+        if (!this.#hasKnownWindow(windowId)) {
+            return {success: false, error: `Unknown windowId '${windowId}'.`}
+        }
+
+        const nativeWindow = Neo.Main?.openWindows?.[windowId]?.win;
+
+        if (!nativeWindow?.focus) {
+            return {
+                success    : false,
+                unsupported: true,
+                error      : `Window '${windowId}' cannot be focused by this runtime.`
+            }
+        }
+
+        nativeWindow.focus();
+
+        return {success: true, windowId}
+    }
+
+    /**
      * Inspects a class to retrieve its full schema (configs, methods, hierarchy).
      * @param {Object} params
      * @param {String} params.className
@@ -456,6 +553,67 @@ class RuntimeService extends Service {
         });
 
         return {status: 'ok', hash}
+    }
+
+    /**
+     * @param {String} windowId
+     * @returns {Boolean}
+     */
+    #hasKnownWindow(windowId) {
+        return !!(windowId && Neo.manager?.Window?.get(windowId))
+    }
+
+    /**
+     * @param {Neo.component.Base} component
+     * @param {String} [dashboardId]
+     * @returns {Neo.dashboard.Container|null}
+     */
+    #resolveDashboardHost(component, dashboardId) {
+        if (dashboardId) {
+            const dashboard = Neo.getComponent(dashboardId);
+
+            return typeof dashboard?.openWidgetInPopup === 'function' ? dashboard : null
+        }
+
+        let candidate = component;
+
+        while (candidate) {
+            if (typeof candidate.openWidgetInPopup === 'function') {
+                return candidate
+            }
+
+            candidate = candidate.parent
+        }
+
+        return null
+    }
+
+    /**
+     * @param {Neo.component.Base} component
+     * @param {Object} [rect]
+     * @returns {Promise<Object>}
+     */
+    async #normalizePopupRect(component, rect) {
+        let source = rect;
+
+        if (!source && typeof component.getDomRect === 'function') {
+            source = await component.getDomRect(component.id)
+        }
+
+        source ||= {};
+
+        const
+            width  = Number(source.width  ?? 480),
+            height = Number(source.height ?? 320),
+            x      = Number(source.x ?? source.left ?? 0),
+            y      = Number(source.y ?? source.top  ?? 0);
+
+        return {
+            height: Number.isFinite(height) ? Math.max(1, height) : 320,
+            width : Number.isFinite(width)  ? Math.max(1, width)  : 480,
+            x     : Number.isFinite(x)      ? x                  : 0,
+            y     : Number.isFinite(y)      ? y                  : 0
+        }
     }
 
     /**

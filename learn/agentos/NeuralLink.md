@@ -249,6 +249,9 @@ Tools for understanding the environment, topology, and execution flow.
 | `check_namespace` | Verifies if a specific class or namespace is available. |
 | `get_worker_topology` | Lists all connected App Workers, their environments, and session IDs. |
 | `get_window_topology` | Maps logical Window IDs to physical browser windows and their dimensions. |
+| `open_component_window` | Opens a known live dashboard widget or pane in a browser popup through the app's existing popup primitive. |
+| `position_window` | Moves a topology-discovered popup when the runtime exposes an addressable native window handle; otherwise returns a recoverable unsupported result. |
+| `focus_window` | Focuses a topology-discovered popup when the runtime exposes an addressable native window handle; otherwise returns a recoverable unsupported result. |
 | `healthcheck` | Health probe for the Neural Link bridge + App Worker — a first-step connectivity diagnostic. |
 | `reload_page` | Forces a full reload of the application window. |
 | `manage_neo_config` | Reads or updates the global `Neo.config` object at runtime. |

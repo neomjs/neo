@@ -1261,6 +1261,108 @@ paths:
                     chrome:
                       type: object
 
+  /window/component/open:
+    post:
+      summary: Open Component Window
+      operationId: open_component_window
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Opens a known live component in a browser popup through the application's existing popup primitive.
+
+        **When to Use:**
+        To pop out a dashboard widget or pane that already belongs to a runtime surface with popup support.
+      tags: [Window]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenComponentWindowRequest'
+      responses:
+        '200':
+          description: Popup open result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /window/position:
+    post:
+      summary: Position Window
+      operationId: position_window
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Moves a known live browser popup when the runtime exposes a native window-positioning handle.
+
+        **When to Use:**
+        To place a topology-discovered popup at explicit screen coordinates; returns a recoverable unsupported result when the browser/runtime cannot move that window.
+      tags: [Window]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionWindowRequest'
+      responses:
+        '200':
+          description: Window positioning result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /window/focus:
+    post:
+      summary: Focus Window
+      operationId: focus_window
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Focuses a known live browser popup when the runtime exposes a native focus handle.
+
+        **When to Use:**
+        To bring a topology-discovered popup forward; returns a recoverable unsupported result when the browser/runtime cannot focus that window.
+      tags: [Window]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FocusWindowRequest'
+      responses:
+        '200':
+          description: Window focus result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/properties/set:
     post:
       summary: Set Instance Properties
@@ -2026,6 +2128,68 @@ components:
         windowId:
           type: string
           description: Optional window ID to get history for.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    OpenComponentWindowRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
+          description: The live component ID to open in a popup.
+        dashboardId:
+          type: string
+          description: Optional dashboard/container ID that owns the popup primitive.
+        windowId:
+          type: string
+          description: Optional known source window ID from window topology.
+        rect:
+          type: object
+          description: Optional source rectangle used for popup placement.
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            width:
+              type: number
+            height:
+              type: number
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    PositionWindowRequest:
+      type: object
+      required:
+        - windowId
+        - x
+        - y
+      properties:
+        windowId:
+          type: string
+          description: The known live window ID from topology.
+        x:
+          type: number
+          description: The target screen x coordinate.
+        y:
+          type: number
+          description: The target screen y coordinate.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    FocusWindowRequest:
+      type: object
+      required:
+        - windowId
+      properties:
+        windowId:
+          type: string
+          description: The known live window ID from topology.
         sessionId:
           type: string
           description: The target App Worker Session ID
