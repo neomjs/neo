@@ -14,6 +14,104 @@ import {
 import {resolveCallTarget} from './resolveCallTarget.mjs';
 
 /**
+ * @summary Validates the Neural Link bridge payload debug-log cap from AiConfig.
+ * @param {Number} maxChars
+ * @returns {Number}
+ */
+export const normalizeBridgePayloadDebugMaxChars = maxChars => {
+    const value = Number(maxChars);
+
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new Error('Invalid aiConfig.bridgePayloadDebugMaxChars value')
+    }
+
+    return Math.floor(value)
+};
+
+/**
+ * @summary Serializes a bridge payload for opt-in debug logging, capped for file safety.
+ * @param {*} payload
+ * @param {Number} maxChars
+ * @returns {String}
+ */
+export const stringifyBridgePayloadForDebug = (payload, maxChars) => {
+    let serialized;
+
+    if (payload instanceof Error) {
+        serialized = `${payload.name}: ${payload.message}\n${payload.stack || ''}`.trim()
+    } else {
+        try {
+            serialized = JSON.stringify(payload)
+        } catch {
+            serialized = String(payload)
+        }
+    }
+
+    serialized ??= String(payload);
+
+    const limit = normalizeBridgePayloadDebugMaxChars(maxChars);
+
+    if (serialized.length <= limit) {
+        return serialized
+    }
+
+    return `${serialized.slice(0, limit)}... [truncated ${serialized.length - limit} chars]`
+};
+
+/**
+ * @summary Measures a payload's serialized byte size without exposing its body.
+ * @param {*} payload
+ * @returns {Number|null}
+ */
+export const getBridgePayloadByteLength = payload => {
+    try {
+        return Buffer.byteLength(JSON.stringify(payload) ?? String(payload), 'utf8')
+    } catch {
+        return null
+    }
+};
+
+/**
+ * @summary Creates a bounded, payload-free bridge receive log line.
+ * @param {Object} payload
+ * @returns {String}
+ */
+export const formatBridgePayloadSummary = payload => {
+    const message = payload?.message ?? {},
+          error   = message?.error ?? payload?.error,
+          fields  = [
+              ['type',         payload?.type],
+              ['appWorkerId',  payload?.appWorkerId],
+              ['agentId',      payload?.agentId],
+              ['messageId',    message?.id],
+              ['method',       message?.method],
+              ['errorCode',    error?.code],
+              ['payloadBytes', getBridgePayloadByteLength(payload) ?? 'unknown']
+          ];
+
+    return `[ConnectionService] Bridge message ${fields
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' ')}`
+};
+
+/**
+ * @summary Logs a bridge payload without dumping its full body unless debug is enabled.
+ * @param {Object} payload
+ * @param {Object} options
+ * @param {Object} options.logger
+ * @param {Boolean} options.debug
+ * @param {Number} options.maxChars
+ */
+export const logBridgePayload = (payload, {logger, debug, maxChars}) => {
+    logger.info(formatBridgePayloadSummary(payload));
+
+    if (debug) {
+        logger.debug(`[ConnectionService] Bridge payload ${stringifyBridgePayloadForDebug(payload, maxChars)}`);
+    }
+};
+
+/**
  * @summary Manages the connection to the Neural Link Bridge and orchestrates RPC calls.
  *
  * **Architecture Change (v2):**
@@ -448,7 +546,11 @@ class ConnectionService extends Base {
     handleBridgeMessage(data) {
         try {
             const payload = JSON.parse(data.toString());
-            logger.info(`[DEBUG] Received from Bridge: ${JSON.stringify(payload)}`);
+            logBridgePayload(payload, {
+                logger,
+                debug   : aiConfig.debug,
+                maxChars: aiConfig.bridgePayloadDebugMaxChars
+            });
 
             switch (payload.type) {
                 case 'app_connected':
