@@ -14,6 +14,29 @@ export const VALID_TARGET_SOURCES = Object.freeze([
     'disabled'
 ]);
 
+const identityParticipationById = new Map(
+    IDENTITIES
+        .filter(identity => identity.type === 'AgentIdentity')
+        .map(identity => [
+            normalizeAgentIdentityNodeId(identity.id),
+            identity.properties?.participationStatus || 'active'
+        ])
+);
+
+/**
+ * @summary True when heartbeat target discovery may include the identity.
+ *
+ * Unknown identities are allowed for forks/local custom agents. Known repo
+ * identities with a non-active participationStatus are excluded; explicit
+ * target lists remain the operator override for diagnostics.
+ * @param {String} id Normalized agent identity.
+ * @returns {Boolean}
+ */
+function isHeartbeatTargetEligible(id) {
+    const participationStatus = identityParticipationById.get(id);
+    return !participationStatus || participationStatus === 'active';
+}
+
 /**
  * Swarm-heartbeat due-trigger projection. Returns a trigger descriptor when the
  * configured interval has elapsed since `lastRunAt`; null otherwise. Pure function.
@@ -51,8 +74,8 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
  *
  * **Per-source semantics:**
  *
- * - **`'self'`** — pulses only the harness owner (`selfIdentity`); deployment-portable
- *   minimal-fan-out shape.
+ * - **`'self'`** — pulses only the active harness owner (`selfIdentity`); deployment-
+ *   portable minimal-fan-out shape.
  * - **`'active-local-team'`** — reads `identityRoots.IDENTITIES` filtered on
  *   `type === 'AgentIdentity'` AND `properties.participationStatus === 'active'`. Team-
  *   registry coupled (suitable for Neo team workspace; external forks customize
@@ -60,12 +83,15 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
  * - **`'active-subscribers'`** — delegates to injected `activeSubscribersProvider`
  *   (the existing `WAKE_SUBSCRIPTION` SQL discovery in
  *   `SwarmHeartbeatService.getWakeSubscriptionIdentities()`); union with `selfIdentity`.
- *   Subscription-presence-based — degrades on dormant subscribers.
+ *   Subscription-presence-based — degrades on dormant subscribers. Known repo identities
+ *   are still gated by `participationStatus === 'active'` so stale subscriptions cannot
+ *   wake operator-benched harnesses.
  * - **`'active-a2a-participants'`** — delegates to injected
  *   `activeA2aParticipantsProvider` (the `SwarmHeartbeatService.getActiveA2aParticipants()`
  *   3h `MESSAGE`-edge query); union with `selfIdentity`. Activity-derived — per-MC-instance
  *   discovery, tenant-safe (no team-registry coupling), self-healing 3h sliding window.
- *   This is the tracked template default.
+ *   Known repo identities are still gated by `participationStatus === 'active'`. This is
+ *   the tracked template default.
  * - **`'disabled'`** — returns `[]` plus an info log. Downstream `pulse()` skips per-identity
  *   work (sunset detection, idle-out nudge) while identity-agnostic substrate maintenance
  *   (TTL sweep, all-agent-idle detection, liveness touch) still runs.
@@ -115,6 +141,7 @@ export async function resolveTargets({
             log('info', `[resolveSwarmHeartbeatTargets] '${resolvedFrom}' resolved to self but selfIdentity is null — disabled (no pulse targets). Set NEO_AGENT_IDENTITY or orchestrator.swarmHeartbeat.targetSource='disabled' explicitly to silence this notice.`);
             return [];
         }
+        if (!isHeartbeatTargetEligible(normalizedSelf)) return [];
         return [normalizedSelf];
     };
 
@@ -172,6 +199,7 @@ export async function resolveTargets({
             }
             for (const raw of subscribers) {
                 const id = normalizeAgentIdentityNodeId(raw);
+                if (id && !isHeartbeatTargetEligible(id)) continue;
                 if (id && !seen.has(id)) {
                     seen.add(id);
                     out.push(id);
@@ -199,6 +227,7 @@ export async function resolveTargets({
             }
             for (const raw of participants) {
                 const id = normalizeAgentIdentityNodeId(raw);
+                if (id && !isHeartbeatTargetEligible(id)) continue;
                 if (id && !seen.has(id)) {
                     seen.add(id);
                     out.push(id);
