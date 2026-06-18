@@ -15913,6 +15913,7 @@
   "repo:cloudflare/flan",
   "repo:cloudflare/foundations",
   "repo:cloudflare/gokey",
+  "repo:cloudflare/lol-html",
   "repo:cloudflare/mcp-server-cloudflare",
   "repo:cloudflare/miniflare",
   "repo:cloudflare/moltworker",
