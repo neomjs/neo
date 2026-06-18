@@ -327,7 +327,7 @@ export class ProcessSupervisorService extends Base {
      * @param {Function} [onSuccess] Optional success hook.
      * @param {Object} [options] Optional configuration.
      * @param {Function} [options.onComplete] Optional completion hook called on both success and failure.
-     * @param {Object} [options.env] Optional extra environment variables to merge with process.env.
+     * @param {Object} [options.env] Optional call-site environment variables to merge after task env.
      * @returns {Boolean} True when a child was started.
      */
     runTask(taskName, reason, onSuccess, options = {}) {
@@ -349,7 +349,9 @@ export class ProcessSupervisorService extends Base {
 
         let child;
         try {
-            const env = options.env ? { ...process.env, ...options.env } : process.env;
+            const env = task.env || options.env
+                ? {...process.env, ...(task.env || {}), ...(options.env || {})}
+                : process.env;
             child = this.spawnFn(task.command, task.args, {stdio: ['ignore', 'ignore', 'pipe'], env});
 
             child.stderr?.on('data', data => {
@@ -548,16 +550,16 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * @summary Enforces a single live process for a port-owning ("singleton") task by
-     * SIGKILLing any extra listeners on its port.
+     * @summary Enforces or observes a single live process for a port-owning task.
      *
-     * The orchestrator is the sole authority for these daemons (chroma). When more than one
-     * process binds the task's `singletonPort` — an externally-started instance, a
-     * pre-unification leftover, or a second orchestrator — the duplicates corrupt a shared
-     * persist dir. This keeps the orchestrator-tracked pid and SIGKILLs the rest. SIGTERM is
-     * deliberately not attempted: chroma does not honor it, so a graceful signal only delays
-     * the unavoidable SIGKILL. Each candidate's command is verified against `expectedCommand`
-     * first, so an unrelated process that merely happens to hold the port is never touched.
+     * Default policy is authoritative ownership: when more than one process binds the task's
+     * `singletonPort`, keep the orchestrator-tracked pid and SIGKILL verified duplicates. This
+     * is required for daemons like Chroma where duplicate writers corrupt a shared persist dir.
+     *
+     * Tasks that expose shared local infrastructure may opt into
+     * `duplicateListenerPolicy: 'defer'`: matching listeners are treated as externally-owned
+     * live instances and are never killed by this supervisor. The task's liveness probe then
+     * decides whether a restart is needed.
      *
      * @param {String} taskName Task key.
      * @returns {Number} Count of duplicate processes reaped.
@@ -575,6 +577,10 @@ export class ProcessSupervisorService extends Base {
         const listenerPids = this.listPortListeners(task.singletonPort);
         const canonicalPid = this.taskStateService.getTaskState(taskName)?.pid;
         let   reaped       = 0;
+
+        if (task.duplicateListenerPolicy === 'defer') {
+            return 0;
+        }
 
         for (const pid of listenerPids) {
             if (!Number.isInteger(pid) || pid === canonicalPid) {
