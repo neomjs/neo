@@ -1190,13 +1190,22 @@ ${sessionContent}
      * @summary Provides exclusive lock acquisition for the background summarization coordinator loop.
      * @param {String} sessionId
      * @param {String} leaseToken
-     * @param {Number} [ttlMs=300000] Default 5-minute lease
+     * @param {Number|Object} [ttlMs=300000] Default 5-minute lease, or options.
+     * @param {Object} [options]
+     * @param {Boolean} [options.allowCompletedRepair=false] Reclaim `completed` rows when a caller
+     *     already proved summary-artifact drift and needs to rebuild the missing/outdated artifact.
      * @returns {Boolean} true if the lease was claimed successfully, false otherwise.
      */
-    claimSummarizationJob(sessionId, leaseToken, ttlMs = 300000) {
+    claimSummarizationJob(sessionId, leaseToken, ttlMs = 300000, options = {}) {
         const db = GraphService.db?.storage?.db;
         if (!db) return true; // Fallback: allow execution if DB is somehow missing
 
+        if (ttlMs && typeof ttlMs === 'object') {
+            options = ttlMs;
+            ttlMs   = 300000;
+        }
+
+        const allowCompletedRepair = options.allowCompletedRepair === true;
         const now = Date.now();
         const expiresAt = now + ttlMs;
 
@@ -1213,6 +1222,14 @@ ${sessionContent}
                 }
 
                 if (existing.status === 'completed') {
+                    if (allowCompletedRepair) {
+                        db.prepare(`
+                            UPDATE SummarizationJobs
+                            SET status = 'in_progress', lease_token = ?, expires_at = ?, retry_count = retry_count + 1
+                            WHERE session_id = ?
+                        `).run(leaseToken, expiresAt, sessionId);
+                        return true;
+                    }
                     return false;
                 }
 
@@ -1328,14 +1345,16 @@ ${sessionContent}
 
                 logger.info(`[SessionService] Found ${total} sessions to summarize. Processing in batches of ${batchSize}...`);
 
-                let completed = 0;
+                let completed = 0,
+                    skippedClaims = 0;
 
                 for (let i = 0; i < total; i += batchSize) {
                     const chunk = sessionsToSummarize.slice(i, i + batchSize);
                     logger.info(`[SessionService] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(total / batchSize)} (${chunk.length} sessions)...`);
 
                     const promises = chunk.map(async (id) => {
-                        if (!this.claimSummarizationJob(id, leaseToken)) {
+                        if (!this.claimSummarizationJob(id, leaseToken, {allowCompletedRepair: true})) {
+                            skippedClaims++;
                             logger.info(`[SessionService] Skipping session ${id} - active lease held by another instance or already completed.`);
                             return null;
                         }
@@ -1365,6 +1384,8 @@ ${sessionContent}
 
                     processed.push(...batchResult);
                 }
+
+                console.error(`[INFO] [SessionService] session summarization drift complete: candidates=${total}; processed=${processed.length}; skippedClaims=${skippedClaims}`);
             }
 
             return { processed: processed.length, sessions: processed };

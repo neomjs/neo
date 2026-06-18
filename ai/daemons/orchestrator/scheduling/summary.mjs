@@ -62,12 +62,15 @@ export function getPendingSummarizationCount(db) {
 }
 
 /**
- * Counts sessions that have `AGENT_MEMORY` turns but no `SESSION_SUMMARY` — the real
- * unsummarized-session backlog the periodic sweep drains (parallel to the mini-summary backlog
- * count, not the capped SummarizationJobs marker fetch).
+ * Counts sessions that have `AGENT_MEMORY` turns but no graph-visible summary evidence. The
+ * summary artifact itself is `SESSION_SUMMARY` (`summary_<sessionId>`), while the REM projection
+ * layer also creates `SESSION` nodes from Chroma summary rows (`session:<sessionId>` with
+ * `properties.chromaId = summary_<sessionId>`). Minimal `SESSION` placeholders without a summary
+ * Chroma id are deliberately excluded so they do not mask truly unsummarized sessions.
  *
- * @summary Feeds the periodic-sweep trigger reason so the orchestrator log reports the
- * session-summary backlog depth. Fail-soft: returns `null` when the graph table is unavailable.
+ * @summary Feeds the periodic-sweep trigger reason so the orchestrator log reports the best
+ * graph-backed session-summary backlog proxy available without opening Chroma. Fail-soft:
+ * returns `null` when the graph table is unavailable.
  * @param {Object} db SQLite database handle.
  * @returns {Number|null}
  */
@@ -77,22 +80,34 @@ export function getPendingSessionSummaryCount(db) {
     }
 
     try {
-        // Null-safe anti-join: a correlated NOT EXISTS rather than `NOT IN (subquery)`. A single
-        // SESSION_SUMMARY row with a NULL sessionId would make `NOT IN` evaluate to NULL for every
-        // row, silently collapsing the backlog count to 0; NOT EXISTS is immune to that.
+        // Null-safe set anti-join. `NOT IN` would still collapse to 0 if any summary row has a
+        // NULL sessionId, while the former correlated NOT EXISTS plan full-scanned the summary set
+        // for every memory session on live graphs. Materialize both distinct sets once instead.
         const row = db.prepare(`
-            SELECT COUNT(*) AS n FROM (
+            WITH memory_sessions AS (
                 SELECT DISTINCT json_extract(memory.data, '$.properties.sessionId') AS sessionId
                 FROM Nodes memory
                 WHERE json_extract(memory.data, '$.label')                = 'AGENT_MEMORY'
                   AND json_extract(memory.data, '$.properties.sessionId') IS NOT NULL
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM Nodes summary
-                      WHERE json_extract(summary.data, '$.label')                = 'SESSION_SUMMARY'
-                        AND json_extract(summary.data, '$.properties.sessionId') = json_extract(memory.data, '$.properties.sessionId')
-                  )
+            ),
+            summary_sessions AS (
+                SELECT DISTINCT json_extract(summary.data, '$.properties.sessionId') AS sessionId
+                FROM Nodes summary
+                WHERE json_extract(summary.data, '$.label')                = 'SESSION_SUMMARY'
+                  AND json_extract(summary.data, '$.properties.sessionId') IS NOT NULL
+                UNION
+                SELECT DISTINCT json_extract(summary.data, '$.properties.sessionId') AS sessionId
+                FROM Nodes summary
+                WHERE json_extract(summary.data, '$.label')                = 'SESSION'
+                  -- REM/provenance projection derived from an actual Chroma summary row. Minimal
+                  -- back-fill placeholders have no summary_ chromaId and remain countable.
+                  AND json_extract(summary.data, '$.properties.chromaId') LIKE 'summary_%'
+                  AND json_extract(summary.data, '$.properties.sessionId') IS NOT NULL
             )
+            SELECT COUNT(*) AS n
+            FROM memory_sessions memory
+            LEFT JOIN summary_sessions summary ON summary.sessionId = memory.sessionId
+            WHERE summary.sessionId IS NULL
         `).get();
 
         return Number.isInteger(row?.n) ? row.n : null;
