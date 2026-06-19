@@ -58,17 +58,29 @@ const normalizeRetentionNumber = (value, integer = false) => {
 };
 
 /**
+ * @summary Normalizes a positive finite byte budget; invalid values disable that dimension.
+ * @param {*} value
+ * @returns {Number|null}
+ */
+const normalizeRetentionByteSize = value => {
+    const normalized = normalizeRetentionNumber(value, true);
+
+    return normalized > 0 ? normalized : null;
+};
+
+/**
  * @summary Resolves the durable MCP file-log retention policy from config.
  *
  * The shared logger reads the Provider-owned `loggerRetention` namespace used by MCP
  * server config templates first, then `logger.retention` for direct test/fallback configs.
  * Invalid numeric values degrade to a disabled dimension instead of crashing the server.
  *
- * `maxFiles` caps historical matching files; the active current-day file is always kept.
+ * `maxFiles` and `maxTotalBytes` cap historical matching files; the active current-day
+ * file is always kept.
  *
  * @param {Object} aiConfig
  * @param {Object} loggerConfig
- * @returns {{enabled:Boolean,maxAgeDays:(Number|null),maxFiles:(Number|null)}}
+ * @returns {{enabled:Boolean,maxAgeDays:(Number|null),maxFiles:(Number|null),maxTotalBytes:(Number|null)}}
  */
 export const resolveLoggerRetention = (aiConfig, loggerConfig = {}) => {
     const data   = getConfigData(aiConfig);
@@ -76,16 +88,18 @@ export const resolveLoggerRetention = (aiConfig, loggerConfig = {}) => {
 
     if (policy.enabled === false) {
         return {
-            enabled   : false,
-            maxAgeDays: null,
-            maxFiles  : null
+            enabled      : false,
+            maxAgeDays   : null,
+            maxFiles     : null,
+            maxTotalBytes: null
         };
     }
 
     return {
-        enabled   : true,
-        maxAgeDays: normalizeRetentionNumber(policy.maxAgeDays),
-        maxFiles  : normalizeRetentionNumber(policy.maxFiles, true)
+        enabled      : true,
+        maxAgeDays   : normalizeRetentionNumber(policy.maxAgeDays),
+        maxFiles     : normalizeRetentionNumber(policy.maxFiles, true),
+        maxTotalBytes: normalizeRetentionByteSize(policy.maxTotalBytes)
     };
 };
 
@@ -152,14 +166,18 @@ const warnRetentionFailure = (error, loggerConfig) => {
  * @param {String} options.logDir
  * @param {String} options.filePrefix
  * @param {String} options.today
+ * @param {Boolean} [options.includeSize=false]
  * @param {Function} [options.readDir]
- * @returns {Array<{name:String,filePath:String,date:String,time:Number}>}
+ * @param {Function} [options.statFile]
+ * @returns {Array<{name:String,filePath:String,date:String,time:Number,size:(Number|undefined)}>}
  */
 export const listHistoricalLogFiles = ({
     logDir,
     filePrefix,
     today,
-    readDir = fs.readdirSync
+    includeSize = false,
+    readDir = fs.readdirSync,
+    statFile = fs.statSync
 }) => {
     const escapedPrefix = filePrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const matcher       = new RegExp(`^${escapedPrefix}-(\\d{4}-\\d{2}-\\d{2})\\.log$`);
@@ -173,11 +191,14 @@ export const listHistoricalLogFiles = ({
                 return null;
             }
 
+            const filePath = path.join(logDir, entry.name);
+
             return {
                 name    : entry.name,
-                filePath: path.join(logDir, entry.name),
+                filePath,
                 date    : match[1],
-                time    : Date.parse(`${match[1]}T00:00:00.000Z`)
+                time    : Date.parse(`${match[1]}T00:00:00.000Z`),
+                size    : includeSize ? statFile(filePath).size : undefined
             };
         })
         .filter(Boolean)
@@ -187,13 +208,14 @@ export const listHistoricalLogFiles = ({
 /**
  * @summary Selects matching historical MCP log files that exceed the retention policy.
  * @param {Object} options
- * @param {Array<{filePath:String,date:String,time:Number}>} options.files
- * @param {{enabled:Boolean,maxAgeDays:(Number|null),maxFiles:(Number|null)}} options.retention
+ * @param {Array<{filePath:String,date:String,time:Number,size:(Number|undefined)}>} options.files
+ * @param {{enabled:Boolean,maxAgeDays:(Number|null),maxFiles:(Number|null),maxTotalBytes:(Number|null)}} options.retention
  * @param {String} options.today
- * @returns {Array<{filePath:String,date:String,time:Number}>}
+ * @returns {Array<{filePath:String,date:String,time:Number,size:(Number|undefined)}>}
  */
 export const selectPrunableLogFiles = ({files, retention, today}) => {
-    if (!retention?.enabled || (retention.maxAgeDays == null && retention.maxFiles == null)) {
+    if (!retention?.enabled ||
+        (retention.maxAgeDays == null && retention.maxFiles == null && retention.maxTotalBytes == null)) {
         return [];
     }
 
@@ -217,6 +239,22 @@ export const selectPrunableLogFiles = ({files, retention, today}) => {
             .forEach(file => prunable.add(file.filePath));
     }
 
+    if (Number.isFinite(retention.maxTotalBytes)) {
+        let retainedBytes = 0;
+
+        [...files]
+            .sort((a, b) => b.time - a.time || b.filePath.localeCompare(a.filePath))
+            .forEach(file => {
+                const size = Number.isFinite(file.size) ? file.size : 0;
+
+                retainedBytes += size;
+
+                if (retainedBytes > retention.maxTotalBytes) {
+                    prunable.add(file.filePath);
+                }
+            });
+    }
+
     return files.filter(file => prunable.has(file.filePath));
 };
 
@@ -230,9 +268,10 @@ export const selectPrunableLogFiles = ({files, retention, today}) => {
  * @param {String} options.logDir
  * @param {String} options.filePrefix
  * @param {String} options.today
- * @param {{enabled:Boolean,maxAgeDays:(Number|null),maxFiles:(Number|null)}} options.retention
+ * @param {{enabled:Boolean,maxAgeDays:(Number|null),maxFiles:(Number|null),maxTotalBytes:(Number|null)}} options.retention
  * @param {Object} options.loggerConfig
  * @param {Function} [options.readDir]
+ * @param {Function} [options.statFile]
  * @param {Function} [options.unlinkFile]
  * @param {Function} [options.warn]
  * @returns {Number}
@@ -244,15 +283,24 @@ export const pruneLoggerRetention = ({
     retention,
     loggerConfig,
     readDir = fs.readdirSync,
+    statFile = fs.statSync,
     unlinkFile = fs.unlinkSync,
     warn = warnRetentionFailure
 }) => {
-    if (!retention?.enabled || (retention.maxAgeDays == null && retention.maxFiles == null)) {
+    if (!retention?.enabled ||
+        (retention.maxAgeDays == null && retention.maxFiles == null && retention.maxTotalBytes == null)) {
         return 0;
     }
 
     try {
-        const files = listHistoricalLogFiles({logDir, filePrefix, today, readDir});
+        const files = listHistoricalLogFiles({
+            logDir,
+            filePrefix,
+            today,
+            readDir,
+            statFile,
+            includeSize: Number.isFinite(retention.maxTotalBytes)
+        });
         const prune = selectPrunableLogFiles({files, retention, today});
 
         prune.forEach(file => unlinkFile(file.filePath));

@@ -238,29 +238,98 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
 
         expect(resolveLoggerRetention({
             loggerRetention: {
-                enabled   : false,
-                maxAgeDays: 0,
-                maxFiles  : 0
+                enabled      : false,
+                maxAgeDays   : 0,
+                maxFiles     : 0,
+                maxTotalBytes: 1
             }
         })).toEqual({
-            enabled   : false,
-            maxAgeDays: null,
-            maxFiles  : null
+            enabled      : false,
+            maxAgeDays   : null,
+            maxFiles     : null,
+            maxTotalBytes: null
         });
 
         const invalid = resolveLoggerRetention({
             loggerRetention: {
-                maxAgeDays: -1,
-                maxFiles  : 'many'
+                maxAgeDays   : -1,
+                maxFiles     : 'many',
+                maxTotalBytes: 0
             }
         });
 
         expect(invalid).toEqual({
-            enabled   : true,
-            maxAgeDays: null,
-            maxFiles  : null
+            enabled      : true,
+            maxAgeDays   : null,
+            maxFiles     : null,
+            maxTotalBytes: null
         });
         expect(selectPrunableLogFiles({files, retention: invalid, today})).toEqual([]);
+    });
+
+    test('prunes oldest historical files until the byte budget is satisfied', () => {
+        const today = '2026-06-18';
+        const files = [{
+            filePath: '/tmp/shared-test-2026-06-17.log',
+            date    : '2026-06-17',
+            time    : Date.parse('2026-06-17T00:00:00.000Z'),
+            size    : 40
+        }, {
+            filePath: '/tmp/shared-test-2026-06-16.log',
+            date    : '2026-06-16',
+            time    : Date.parse('2026-06-16T00:00:00.000Z'),
+            size    : 50
+        }, {
+            filePath: '/tmp/shared-test-2026-06-15.log',
+            date    : '2026-06-15',
+            time    : Date.parse('2026-06-15T00:00:00.000Z'),
+            size    : 60
+        }];
+
+        expect(selectPrunableLogFiles({
+            files,
+            today,
+            retention: {
+                enabled      : true,
+                maxAgeDays   : null,
+                maxFiles     : null,
+                maxTotalBytes: 90
+            }
+        }).map(file => file.filePath)).toEqual([
+            '/tmp/shared-test-2026-06-15.log'
+        ]);
+    });
+
+    test('applies byte-budget retention to matching historical files only', () => {
+        const unlinked = [];
+
+        const count = pruneLoggerRetention({
+            logDir      : '/tmp',
+            filePrefix  : 'shared-test',
+            today       : '2026-06-18',
+            retention   : {enabled: true, maxAgeDays: null, maxFiles: null, maxTotalBytes: 90},
+            loggerConfig: {filePrefix: 'shared-test', timestampStyle: 'plain'},
+            readDir     : () => [{
+                isFile: () => true,
+                name  : 'shared-test-2026-06-18.log'
+            }, {
+                isFile: () => true,
+                name  : 'shared-test-2026-06-17.log'
+            }, {
+                isFile: () => true,
+                name  : 'shared-test-2026-06-16.log'
+            }, {
+                isFile: () => true,
+                name  : 'other-test-2026-06-15.log'
+            }],
+            statFile: filePath => ({
+                size: filePath.includes('2026-06-17') ? 70 : 60
+            }),
+            unlinkFile: filePath => unlinked.push(filePath)
+        });
+
+        expect(count).toBe(1);
+        expect(unlinked).toEqual(['/tmp/shared-test-2026-06-16.log']);
     });
 
     test('turns retention prune failures into bounded warnings', () => {
@@ -269,12 +338,15 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
             logDir      : '/tmp',
             filePrefix  : 'shared-test',
             today       : '2026-06-18',
-            retention   : {enabled: true, maxAgeDays: 0, maxFiles: null},
+            retention   : {enabled: true, maxAgeDays: 0, maxFiles: null, maxTotalBytes: null},
             loggerConfig: {filePrefix: 'shared-test', timestampStyle: 'plain'},
             readDir     : () => [{
                 isFile: () => true,
                 name  : 'shared-test-2026-06-17.log'
             }],
+            statFile: () => {
+                throw new Error('stat should not run without byte-budget retention');
+            },
             unlinkFile: () => {
                 throw new Error('blocked unlink');
             },
