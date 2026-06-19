@@ -80,4 +80,22 @@ test.describe('MemoryService.archiveMemoryNode — reversible per-node archive',
         expect(MemoryService.archiveMemoryNode({id: 'archive-node-test-absent'})).toBe(false);
         expect(MemoryService.archiveMemoryNode({})).toBe(false);
     });
+
+    test('mirrors archivedAt onto the in-memory node cache, gated on a real archive', () => {
+        // upsertGlobalNode populates BOTH the SQL row and the in-memory node cache getContextFrontier
+        // reads (addNodes is SQL-only) — so this exercises the archive op's cache-coherence mirror.
+        const id = 'AGENT_MEMORY:archive-cache-probe';
+        GraphService.upsertGlobalNode({id, type: 'AGENT_MEMORY', name: 'archive cache probe', properties: {agentIdentity: '@z'}});
+
+        expect(MemoryService.archiveMemoryNode({id, reason: 'no-content'})).toBe(true);
+        const cached = GraphService.db.nodes.get(id);
+        expect(cached.properties.archivedAt).toBeTruthy();
+        expect(cached.properties.archivedReason).toBe('no-content');
+
+        // Idempotent re-run: gated on info.changes → the DB UPDATE no-ops and the cache keeps the
+        // original stamp (no DB/cache drift).
+        const stamped = cached.properties.archivedAt;
+        expect(MemoryService.archiveMemoryNode({id, reason: 'no-content'})).toBe(false);
+        expect(GraphService.db.nodes.get(id).properties.archivedAt).toBe(stamped);
+    });
 });
