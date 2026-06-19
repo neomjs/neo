@@ -1,13 +1,13 @@
-import { test, expect } from '@playwright/test';
-import fs from 'fs-extra';
-import path from 'path';
-import Database from 'better-sqlite3';
-import { spawn } from 'child_process';
-import crypto from 'crypto';
-import http from 'http';
-import os from 'os';
+import { test, expect }                                                                        from '@playwright/test';
+import fs                                                                                      from 'fs-extra';
+import path                                                                                    from 'path';
+import Database                                                                                from 'better-sqlite3';
+import { spawn }                                                                               from 'child_process';
+import crypto                                                                                  from 'crypto';
+import http                                                                                    from 'http';
+import os                                                                                      from 'os';
 import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/wake/queries.mjs';
-import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../../ai/graph/storage/constants.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE }                                                         from '../../../../../../ai/graph/storage/constants.mjs';
 
 /**
  * @summary Stubs `ps` for subprocess daemon tests so instance-resolution branches do not depend
@@ -1870,7 +1870,7 @@ test.describe('Wake Daemon', () => {
         expect(args.at(-1)).toBe('C-m');
     });
 
-    test('tmux wake does not queue pure-heartbeat interactive submit (#13456)', async () => {
+    test('tmux wake delivers pure-heartbeat interactive submit (idle-gated at emit, not delivery)', async () => {
         const agentId = '@test-agent-tmux-pure-heartbeat';
         const subId = insertWakeSubscription(db, {
             agentId,
@@ -1905,8 +1905,8 @@ test.describe('Wake Daemon', () => {
 
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        expect(fs.existsSync(mockOutPath)).toBe(false);
-        expect(stdoutLog).not.toContain(`Delivered ${subId}`);
+        expect(fs.existsSync(mockOutPath)).toBe(true);
+        expect(stdoutLog).toContain(`Delivered ${subId}`);
         expect(stdoutLog).not.toContain(`Suppressed ${subId}`);
     });
 
@@ -2189,7 +2189,7 @@ test.describe('Wake Daemon', () => {
         );
     });
 
-    test('Codex UI wake does not queue pure-heartbeat interactive submit (#13456)', async () => {
+    test('Codex UI wake submits pure-heartbeat interactively (idle-gated at emit, not delivery)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-pure-heartbeat';
 
@@ -2243,9 +2243,8 @@ test.describe('Wake Daemon', () => {
 
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        expect(fs.existsSync(mockOutPath)).toBe(false);
-        expect(stdoutLog).not.toContain(`Delivered ${subId}`);
-        expect(stdoutLog).not.toContain(`Submit attempted ${subId}`);
+        expect(fs.existsSync(mockOutPath)).toBe(true);
+        expect(stdoutLog).toContain(`Submit attempted ${subId}`);
         expect(stdoutLog).not.toContain(`Suppressed ${subId}`);
     });
 
