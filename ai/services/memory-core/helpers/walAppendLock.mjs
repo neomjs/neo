@@ -12,7 +12,8 @@ import fs   from 'fs/promises';
  * PER-APPEND semantics:
  *  - **retry, not refuse** — a live holder mid-append (milliseconds) is waited out, then re-claimed;
  *  - **stale-reclaim** — a holder with a dead pid OR held past `ttlMs` (a hung/crashed writer; a real
- *    append is ms, never seconds) is reclaimed;
+ *    append is ms, never seconds) is reclaimed, fenced by a re-read byte-match so a racing reclaimer
+ *    can never path-unlink a successor's fresh lock;
  *  - **never-fail fall-through** — if the lock can't be acquired within `acquireTimeoutMs`, the write
  *    runs UNLOCKED rather than blocking. This is load-bearing: `add_memory` is the never-fail turn-save
  *    (AGENTS.md §critical_gates #5). The lock is best-effort serialization, NEVER a gate on the durable
@@ -55,18 +56,71 @@ function defaultIsAlive(pid) {
 }
 
 /**
- * Reads + parses the lock holder descriptor, or `null` when absent (raced away) or corrupt. A `null`
- * holder is reclaimable — a corrupt lock must never permanently wedge the never-fail write path.
+ * Reads the lock file's RAW bytes, or `null` when absent (raced away). The raw string is used both to
+ * judge staleness (via {@link parseHolder}) AND as the exact compare-token that fences reclaim against
+ * a racing successor (see {@link reclaimStaleLock}).
  * @param {String} lockPath
  * @param {Object} fsImpl
- * @returns {Promise<{pid: Number, startedAt: Number}|null>}
+ * @returns {Promise<String|null>}
  */
-async function readHolder(lockPath, fsImpl) {
+async function readLockRaw(lockPath, fsImpl) {
     try {
-        const parsed = JSON.parse(await fsImpl.readFile(lockPath, 'utf8'));
+        return await fsImpl.readFile(lockPath, 'utf8');
+    } catch (err) {
+        return null;
+    }
+}
+
+/**
+ * Parses a holder descriptor from raw lock bytes, or `null` when absent or corrupt. A `null` holder is
+ * reclaimable — a corrupt lock must never permanently wedge the never-fail write path.
+ * @param {String|null} raw
+ * @returns {{pid: Number, startedAt: Number}|null}
+ */
+function parseHolder(raw) {
+    if (raw === null) return null;
+    try {
+        const parsed = JSON.parse(raw);
         return (parsed && Number.isInteger(parsed.pid)) ? parsed : null;
     } catch (err) {
         return null;
+    }
+}
+
+/** Reads + parses the holder descriptor in one step (used by the idempotent release path). */
+async function readHolder(lockPath, fsImpl) {
+    return parseHolder(await readLockRaw(lockPath, fsImpl));
+}
+
+/**
+ * @summary Reclaims a stale lock WITHOUT clobbering a successor. A bare path-unlink is content-blind:
+ * in the window between our staleness read and the unlink, another writer can reclaim + re-lock, and an
+ * unconditional unlink would delete its fresh, valid lock — leaving BOTH writers "holding" (exactly the
+ * interleave the lock exists to prevent). So we re-read immediately before removing and unlink ONLY
+ * while the byte-identical stale content is still present; a successor's fresh lock (or an already-gone
+ * lock) makes us back off and re-evaluate on the next claim attempt.
+ *
+ * This narrows the clobber window to a single syscall; the irreducible residual is bounded by never-fail
+ * (a rare interleaved line is tolerated by the lock-free drainer). Fully closing it would require
+ * encoding holder identity in the lock-file NAME, breaking the fixed `.lock` path the drainer relies on
+ * to skip lock files — disproportionate for a best-effort lock.
+ * @param {String}      lockPath
+ * @param {String|null} observedRaw The raw bytes we judged stale.
+ * @param {Object}      fsImpl
+ * @param {Function}    log
+ * @returns {Promise<Boolean>} whether we removed the stale lock.
+ */
+async function reclaimStaleLock(lockPath, observedRaw, fsImpl, log) {
+    const current = await readLockRaw(lockPath, fsImpl);
+    // Gone already (a peer reclaimed it) or replaced by a successor's fresh lock → never clobber it.
+    if (current === null || current !== observedRaw) return false;
+    try {
+        await fsImpl.unlink(lockPath);
+        return true;
+    } catch (err) {
+        // ENOENT = raced away between our re-read and the unlink; the next wx claim settles it.
+        if (err.code !== 'ENOENT') log('warn', `[wal-append-lock] reclaim unlink failed (${err.code})`);
+        return false;
     }
 }
 
@@ -117,20 +171,18 @@ export async function withAppendLock(filePath, fn, {
                 break;
             }
 
-            const holder = await readHolder(lockPath, fsImpl);
+            // Read the holder's RAW bytes once — both to judge staleness AND as the compare-token that
+            // fences reclaim against a racing successor (see reclaimStaleLock).
+            const raw    = await readLockRaw(lockPath, fsImpl);
+            const holder = parseHolder(raw);
             const stale  = !holder || !isAlive(holder.pid) || (now() - holder.startedAt > ttlMs);
 
-            if (stale) {
-                try {
-                    await fsImpl.unlink(lockPath);
-                } catch (unlinkErr) {
-                    // ENOENT = raced away (another writer reclaimed); the next wx claim settles it.
-                    if (unlinkErr.code !== 'ENOENT') log('warn', `[wal-append-lock] reclaim unlink failed (${unlinkErr.code})`);
-                }
-                continue; // retry the wx claim immediately
+            if (stale && await reclaimStaleLock(lockPath, raw, fsImpl, log)) {
+                continue; // we removed the exact stale lock — retry the wx claim immediately
             }
 
-            await sleep(retryIntervalMs); // live holder mid-append (ms) — brief wait, then retry
+            // A live holder mid-append (ms), or a successor we must NOT clobber — brief wait, re-evaluate.
+            await sleep(retryIntervalMs);
         }
     }
 

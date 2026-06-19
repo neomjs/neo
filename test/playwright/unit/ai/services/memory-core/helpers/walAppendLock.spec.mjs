@@ -15,6 +15,7 @@ import {withAppendLock, APPEND_LOCK_SUFFIX} from '../../../../../../../ai/servic
  *   - never-fail — `fn` ALWAYS runs and returns its result: locked, OR (on a bounded acquire-timeout
  *                  against a live holder) UNLOCKED. A contended/hung lock never blocks the turn-save.
  *   - stale     — a dead-pid holder, a TTL-exceeded live holder, or a corrupt lock is reclaimed.
+ *   - reclaim-fence — stale-reclaim never path-unlinks a successor lock that re-locks in the race window.
  *   - release   — removes the lock only when it still records our pid (never clobbers a successor).
  *
  * Real temp dir + real fs (the lock IS atomic-write behavior); clock / sleep / liveness are injected
@@ -113,5 +114,47 @@ test.describe('Neo.ai.services.memory-core.helpers.walAppendLock', () => {
         expect(locked).toBe(true);
         // our release saw holder.pid 7777 ≠ our 4242 → did NOT unlink; the successor's lock survives
         expect(JSON.parse(await readFile(lockPath(), 'utf8')).pid).toBe(7777);
+    });
+
+    test('REGRESSION (#13544 RA): stale-reclaim NEVER path-unlinks a successor lock that re-locks in the race window', async () => {
+        // The reported TOCTOU: two writers observe the SAME stale (dead-pid) holder; writer A reclaims +
+        // re-locks; writer B's content-blind unlink then deletes A's fresh lock → both "hold" (the very
+        // interleave the lock prevents). Modelled deterministically with an injected fs: the staleness
+        // read returns the stale holder, but a peer re-locks BEFORE the reclaim-unlink. The byte-match
+        // fence must back off rather than unlink the successor. Red on the pre-fix unconditional unlink.
+        const staleRaw     = JSON.stringify({pid: 9999, startedAt: 1000}); // dead holder we observe as stale
+        const successorRaw = JSON.stringify({pid: 7777, startedAt: 5000}); // fresh lock a peer re-locks with
+
+        let store = staleRaw, reads = 0, clock = 2000, unlinkedSuccessor = false;
+
+        const fakeFs = {
+            async writeFile(p, data, opts) {
+                if (opts?.flag === 'wx') {
+                    if (store !== null) { const e = new Error('EEXIST'); e.code = 'EEXIST'; throw e; }
+                    store = data; return;
+                }
+                store = data;
+            },
+            async readFile() {
+                // The FIRST (staleness) read returns the stale holder — then a peer immediately reclaims
+                // + re-locks (the race window). Every later read sees the successor's fresh lock.
+                if (++reads === 1) { const observed = store; store = successorRaw; return observed; }
+                return store;
+            },
+            async unlink() {
+                if (store === successorRaw) unlinkedSuccessor = true;
+                store = null;
+            }
+        };
+
+        const {locked} = await withAppendLock(walPath, async () => 'wrote-unlocked', {
+            pid: 4242, now: () => clock, sleep: async ms => { clock += ms; },
+            isAlive: pid => pid === 7777,   // the successor (7777) is ALIVE; the observed 9999 is dead
+            fs: fakeFs, ttlMs: 1_000_000, acquireTimeoutMs: 40, retryIntervalMs: 15
+        });
+
+        expect(unlinkedSuccessor).toBe(false); // the RA: the fence must NOT remove the successor's lock
+        expect(store).toBe(successorRaw);       // the successor's lock survives intact
+        expect(locked).toBe(false);             // never displaced the live successor → never-fail fall-through
     });
 });
