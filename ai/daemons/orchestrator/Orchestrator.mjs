@@ -55,10 +55,13 @@ export async function initializeDatabaseSelfBootstrap(dbPath) {
  * @param {String} key
  * @returns {Boolean}
  */
-function resolveDeploymentEnabled(key) {
-    const cfg = AiConfig.orchestrator.localOnly[key];
-    if (cfg !== null && cfg !== undefined) return cfg;
+function resolveLocalDeploymentDefault(cfg) {
+    if (cfg != null) return cfg;
     return AiConfig.orchestrator.deploymentMode !== 'cloud';
+}
+
+function resolveDeploymentEnabled(key) {
+    return resolveLocalDeploymentDefault(AiConfig.orchestrator.localOnly[key]);
 }
 
 /**
@@ -72,7 +75,7 @@ function resolveDeploymentEnabled(key) {
  */
 function resolveCloudOnlyEnabled(key) {
     const cfg = AiConfig.orchestrator.cloudOnly[key];
-    if (cfg !== null && cfg !== undefined) return cfg;
+    if (cfg != null) return cfg;
     return AiConfig.orchestrator.deploymentMode === 'cloud';
 }
 
@@ -203,6 +206,7 @@ export class Orchestrator extends Base {
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
+    get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -227,19 +231,21 @@ export class Orchestrator extends Base {
         const lmsPreloadConfig = this.lmsPreloadConfig;
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
-            nodeBin   : options.nodeBin || process.argv[0],
-            chromaPort: AiConfig.engines.chroma.port,
-            mlxEnabled: this.mlxEnabled,
-            mlxModel  : AiConfig.orchestrator.mlx.model,
-            mlxPort   : AiConfig.orchestrator.mlx.port,
-            lmsEnabled: this.lmsEnabled,
-            lmsModel  : AiConfig.orchestrator.lms.model,
-            lmsModels : lmsPreloadConfig.models,
-            lmsHost   : AiConfig.openAiCompatible.host,
-            lmsPort   : AiConfig.orchestrator.lms.port,
-            lmsContextLengths: lmsPreloadConfig.contextLengths,
-            providerReadiness: AiConfig.orchestrator.providerReadiness,
-            graphLogCompactionVacuum: AiConfig.orchestrator.graphLogCompaction.vacuum
+            nodeBin                    : options.nodeBin || process.argv[0],
+            chromaPort                 : AiConfig.engines.chroma.port,
+            devServerPort              : AiConfig.orchestrator.devServer.port,
+            devServerLivenessTimeoutMs : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
+            mlxEnabled                 : this.mlxEnabled,
+            mlxModel                   : AiConfig.orchestrator.mlx.model,
+            mlxPort                    : AiConfig.orchestrator.mlx.port,
+            lmsEnabled                 : this.lmsEnabled,
+            lmsModel                   : AiConfig.orchestrator.lms.model,
+            lmsModels                  : lmsPreloadConfig.models,
+            lmsHost                    : AiConfig.openAiCompatible.host,
+            lmsPort                    : AiConfig.orchestrator.lms.port,
+            lmsContextLengths          : lmsPreloadConfig.contextLengths,
+            providerReadiness          : AiConfig.orchestrator.providerReadiness,
+            graphLogCompactionVacuum   : AiConfig.orchestrator.graphLogCompaction.vacuum
         });
 
         this.dbPath                    = options.dbPath   || DEFAULT_DB_PATH;
@@ -350,6 +356,7 @@ export class Orchestrator extends Base {
         const continuousTasks = [
             ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
+            ...(this.devServerEnabled    ? ['devServer'] : []),
             ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
             'mlx',
             'lms'

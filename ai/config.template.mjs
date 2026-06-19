@@ -400,6 +400,18 @@ class Config extends ConfigProvider {
                     maxRuntimeMs: leaf(DAY_MS, 'NEO_CHROMA_MAX_RUNTIME_MS', 'number')
                 },
                 /**
+                 * Local webpack dev-server supervision policy. `enabled: null` means the
+                 * deployment profile decides (local enables, cloud disables); explicit true/false
+                 * lets operators opt in/out without changing the manual `server-start --open`
+                 * command. The orchestrator-owned task never passes `--open`.
+                 * @type {Object}
+                 */
+                devServer: {
+                    enabled               : leaf(null, 'NEO_ORCHESTRATOR_DEV_SERVER_ENABLED', 'boolean'),
+                    port                  : leaf(8080, 'NEO_ORCHESTRATOR_DEV_SERVER_PORT', 'port'),
+                    livenessProbeTimeoutMs: leaf(1000, 'NEO_ORCHESTRATOR_DEV_SERVER_LIVENESS_TIMEOUT_MS', 'number')
+                },
+                /**
                  * GraphLog compaction policy. The scheduled lane invokes the existing
                  * `compactGraphLog.mjs --apply` maintenance script; the script owns retention
                  * safety and cursor handling. `vacuum` stays explicit because SQLite VACUUM is

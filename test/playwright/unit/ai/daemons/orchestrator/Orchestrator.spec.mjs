@@ -13,9 +13,12 @@ import {
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
 let testOrchestratorSeq = 0;
+const TEST_DEV_SERVER_PORT = 18080;
 let savedIntervals = null;
 let savedLocalOnly = null;
 let savedCloudOnly = null;
+let savedDevServer = null;
+let savedDevServerMissing = false;
 let savedGraphLogCompaction = null;
 let savedGraphLogCompactionMissing = false;
 let savedDeploymentMode = null;
@@ -34,6 +37,8 @@ function createTestOrchestrator(config = {}) {
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
         scriptDir: '/repo/ai/scripts',
         nodeBin  : '/node',
+        devServerPort              : config.devServerPort ?? TEST_DEV_SERVER_PORT,
+        devServerLivenessTimeoutMs : config.devServerLivenessTimeoutMs ?? 50,
         graphLogCompactionVacuum: config.graphLogCompactionVacuum ?? false
     });
 
@@ -46,7 +51,7 @@ function createTestOrchestrator(config = {}) {
         writeLogFn     : () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
-    ['chroma', 'bridgeDaemon', 'mlx', 'lms'].forEach(name => {
+    ['chroma', 'bridgeDaemon', 'devServer', 'mlx', 'lms'].forEach(name => {
         if (TaskStateService.taskState[name]) {
             TaskStateService.taskState[name].running = true;
         }
@@ -56,6 +61,10 @@ function createTestOrchestrator(config = {}) {
     savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
     savedLocalOnly = savedLocalOnly || {...AiConfig.orchestrator.localOnly};
     savedCloudOnly = savedCloudOnly || {...AiConfig.orchestrator.cloudOnly};
+    if (savedDevServer === null) {
+        savedDevServerMissing = AiConfig.orchestrator.devServer === undefined;
+        savedDevServer = {...(AiConfig.orchestrator.devServer || {})};
+    }
     if (savedGraphLogCompaction === null) {
         savedGraphLogCompactionMissing = AiConfig.orchestrator.graphLogCompaction === undefined;
         savedGraphLogCompaction = {...(AiConfig.orchestrator.graphLogCompaction || {})};
@@ -87,6 +96,11 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.goldenPathRepoEnrichmentEnabled = config.goldenPathRepoEnrichmentEnabled ?? true;
 
     AiConfig.orchestrator.cloudOnly.tenantRepoSyncEnabled = config.tenantRepoSyncEnabled ?? false;
+    AiConfig.setData('orchestrator.devServer', {
+        enabled               : Object.hasOwn(config, 'devServerEnabled') ? config.devServerEnabled : null,
+        port                  : config.devServerPort ?? TEST_DEV_SERVER_PORT,
+        livenessProbeTimeoutMs: config.devServerLivenessTimeoutMs ?? 50
+    });
     AiConfig.setData('orchestrator.graphLogCompaction', {
         enabled: config.graphLogCompactionEnabled ?? true,
         vacuum : config.graphLogCompactionVacuum ?? false
@@ -137,6 +151,15 @@ test.afterEach(() => {
     if (savedCloudOnly) {
         restoreConfigObject(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
         savedCloudOnly = null;
+    }
+    if (savedDevServer) {
+        if (savedDevServerMissing) {
+            AiConfig.setData('orchestrator.devServer', undefined);
+        } else {
+            AiConfig.setData('orchestrator.devServer', {...savedDevServer});
+        }
+        savedDevServer = null;
+        savedDevServerMissing = false;
     }
     if (savedGraphLogCompaction) {
         if (savedGraphLogCompactionMissing) {
@@ -484,6 +507,104 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: 'embedDaemon',
             reason  : 'supervisor-restart'
         });
+    });
+
+    test('defines the local dev-server task without browser auto-open (#13482)', () => {
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir                    : '/repo/ai/scripts',
+            nodeBin                      : '/node',
+            devServerPort                : 4242,
+            devServerLivenessTimeoutMs   : 50
+        });
+
+        expect(taskDefinitions.devServer).toMatchObject({
+            label                  : 'local dev-server',
+            command                : '/node',
+            pidFileName            : 'dev-server.pid',
+            expectedCommand        : 'node_modules/webpack/bin/webpack.js',
+            singletonPort          : 4242,
+            duplicateListenerPolicy: 'defer'
+        });
+        expect(taskDefinitions.devServer.args).toEqual([
+            '/repo/node_modules/webpack/bin/webpack.js',
+            'serve',
+            '-c',
+            './buildScripts/webpack/webpack.server.config.mjs',
+            '--port',
+            '4242'
+        ]);
+        expect(taskDefinitions.devServer.args).not.toContain('--open');
+        expect(typeof taskDefinitions.devServer.livenessProbe).toBe('function');
+    });
+
+    test('supervises the local dev-server in local mode and skips it in cloud mode (#13482)', async () => {
+        const flushProbe = () => new Promise(resolve => setTimeout(resolve, 0));
+        const cloudStarted = [];
+        const cloudOrchestrator = createTestOrchestrator({
+            deploymentMode   : 'cloud',
+            kbSyncEnabled    : false,
+            devServerEnabled : null
+        });
+
+        TaskStateService.taskState.devServer.running   = false;
+        TaskStateService.taskState.devServer.lastRunAt = 0;
+        cloudOrchestrator.taskDefinitions.devServer.livenessProbe = async () => false;
+        cloudOrchestrator.processSupervisorService.taskDefinitions.devServer.livenessProbe = async () => false;
+        cloudOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            cloudStarted.push({taskName, reason});
+            return true;
+        };
+
+        cloudOrchestrator.poll();
+        await flushProbe();
+
+        expect(cloudStarted.find(entry => entry.taskName === 'devServer')).toBeUndefined();
+
+        const localStarted = [];
+        const localOrchestrator = createTestOrchestrator({
+            deploymentMode   : 'local',
+            kbSyncEnabled    : false,
+            devServerEnabled : null
+        });
+
+        TaskStateService.taskState.devServer.running   = false;
+        TaskStateService.taskState.devServer.lastRunAt = 0;
+        localOrchestrator.taskDefinitions.devServer.livenessProbe = async () => false;
+        localOrchestrator.processSupervisorService.taskDefinitions.devServer.livenessProbe = async () => false;
+        localOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            localStarted.push({taskName, reason});
+            return true;
+        };
+
+        localOrchestrator.poll();
+        await flushProbe();
+
+        expect(localStarted).toContainEqual({
+            taskName: 'devServer',
+            reason  : 'supervisor-restart'
+        });
+    });
+
+    test('does not spawn over a healthy manually started dev-server (#13482)', async () => {
+        const started = [];
+        const orchestrator = createTestOrchestrator({
+            deploymentMode: 'local',
+            kbSyncEnabled : false
+        });
+
+        TaskStateService.taskState.devServer.running   = false;
+        TaskStateService.taskState.devServer.lastRunAt = 0;
+        orchestrator.taskDefinitions.devServer.livenessProbe = async () => true;
+        orchestrator.processSupervisorService.taskDefinitions.devServer.livenessProbe = async () => true;
+        orchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            started.push({taskName, reason});
+            return true;
+        };
+
+        orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(started.find(entry => entry.taskName === 'devServer')).toBeUndefined();
     });
 
     test('supervises lms via the supervisor HTTP liveness probe — (re)start only when the endpoint is down (#12262 / #12090)', async () => {
