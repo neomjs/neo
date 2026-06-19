@@ -601,6 +601,71 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
     return {action: 'warn', drift}
 }
 
+/**
+ * @summary Boot-time freshness guard. Throws if a materialized overlay (`config.mjs`) is missing
+ * structural leaves its template (`config.template.mjs`) added — the crash-causing drift class that
+ * otherwise surfaces as a cryptic `reading '<x>' of undefined` at runtime (the stale-overlay-crash
+ * incident). Reuses the prepare-time {@link detectDrift} / {@link projectShape} detection but FAILS
+ * FAST at boot, scoped to CRASH-CAUSING drift (missing imports / exports / env-leaves); benign drift
+ * (a changed default for a leaf that still exists) warns rather than throws.
+ *
+ * Pairs with {@link initConfigs} / {@link initTier1Config}: those WARN at `npm prepare`; this is the
+ * last-line boot guard for the `git-pull-without-prepare` window, so a stale overlay names its missing
+ * leaves + the `--migrate-config` fix instead of crashing every consumer cryptically.
+ *
+ * @param {Object}   [options]
+ * @param {String}   [options.serverPath] An `ai/mcp/server/<name>/` dir whose `config.mjs` overlay to
+ *   additionally check; its Tier-1 import is materialized before the shape-compare (matching
+ *   {@link initConfigs}) so the template-vs-overlay import path is not read as false drift.
+ * @param {String}   [options.aiRoot=aiDir]  Tier-1 root; `ai/config.mjs` is always checked.
+ * @param {Object}   [options.logger=console] Log sink; injectable for tests.
+ * @returns {Promise<void>}
+ * @throws {Error} on crash-causing overlay drift, naming the missing leaves + the `--migrate-config` fix.
+ */
+export async function assertConfigFresh({serverPath, aiRoot = aiDir, logger = console} = {}) {
+    const stale = [];
+
+    const record = (label, drift) => {
+        const crashCausing = [...drift.missingImports, ...drift.missingExports, ...drift.missingEnvVars];
+
+        if (crashCausing.length > 0) {
+            stale.push({label, missing: crashCausing});
+        } else if (drift.hasDrift) {
+            logger.warn(`[Neo AI] ${label}: benign config drift (changed default only) — run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (non-fatal).`);
+        }
+    };
+
+    const tier1Template = path.join(aiRoot, 'config.template.mjs');
+    const tier1Active   = path.join(aiRoot, 'config.mjs');
+
+    if (fs.existsSync(tier1Template) && fs.existsSync(tier1Active)) {
+        record('Tier-1 ai/config.mjs', detectDrift(await projectShape(tier1Template), await projectShape(tier1Active)));
+    }
+
+    if (serverPath) {
+        const serverTemplate = path.join(serverPath, 'config.template.mjs');
+        const serverActive   = path.join(serverPath, 'config.mjs');
+
+        if (fs.existsSync(serverTemplate) && fs.existsSync(serverActive)) {
+            // Materialize the template's Tier-1 import before the compare so the template-vs-overlay
+            // import path is not itself flagged as drift (matches the initConfigs per-server path).
+            const templateShape = projectSourceShape(materializeServerConfigTemplate(await fs.readFile(serverTemplate, 'utf-8'))),
+                  activeShape   = projectSourceShape(await fs.readFile(serverActive, 'utf-8'));
+
+            record(`${path.basename(serverPath)}/config.mjs`, detectDrift(templateShape, activeShape));
+        }
+    }
+
+    if (stale.length > 0) {
+        const detail = stale.map(item => `  - ${item.label}: missing ${item.missing.join(', ')}`).join('\n');
+
+        throw new Error(
+            `[Neo AI] Stale config overlay — a materialized config.mjs is missing leaves its template added:\n${detail}\n` +
+            `This will crash at runtime on an undefined config leaf. Refresh: \`npm run prepare -- ${MIGRATE_FLAG}\` (gitignored; safe), then restart.`
+        );
+    }
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
     (async () => {
         await initTier1Config();
