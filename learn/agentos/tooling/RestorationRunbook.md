@@ -35,7 +35,58 @@ Memory Core memories and session summaries live as the `neo-agent-memory` and `n
    ```
    *(Note: A dedicated `restore.mjs` CLI is deferred to #10871. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
 
-### 3. Memory Core - Native Edge Graph
+### 3. Chroma FTS5 Integrity Repair
+The unified Chroma store is a shared physical SQLite database. `pragma quick_check`
+or `pragma integrity_check` can report `malformed inverted index for FTS5 table
+main.embedding_fulltext_search` while vector collections still answer normal
+queries. Treat this as a shared-store integrity incident: diagnose copy-first,
+stop all writers before touching the live database, and do not use Chroma defrag
+as a substitute for SQLite FTS5 repair.
+
+**Procedure:**
+1. Run the on-demand diagnostic and keep its copied SQLite snapshot:
+   ```bash
+   npm run ai:check-chroma-integrity -- --json --keep-snapshot
+   ```
+2. Validate the repair on the reported snapshot path, not on the live file:
+   ```bash
+   sqlite3 <snapshot>/chroma.sqlite3 "insert into embedding_fulltext_search(embedding_fulltext_search) values('rebuild'); pragma quick_check; pragma integrity_check;"
+   ```
+   Continue only if both pragmas return `ok`. If the copied snapshot remains
+   malformed, stop here and recover from backup or rebuild the affected
+   collection rather than experimenting on the live store.
+3. Stop every process that can reach the Chroma daemon or the unified Chroma
+   directory: Orchestrator, Memory Core, Knowledge Base, wake daemons, harness
+   MCP server instances, and the Chroma daemon itself.
+4. Capture a fresh backup bundle and a physical copy of the unified Chroma
+   directory:
+   ```bash
+   npm run ai:backup
+   cp -R .neo-ai-data/chroma/unified .neo-ai-data/chroma/unified.pre-fts5-rebuild-<timestamp>
+   ```
+5. Rebuild the live FTS5 table only after the writers are stopped and the
+   backups exist:
+   ```bash
+   sqlite3 .neo-ai-data/chroma/unified/chroma.sqlite3 "insert into embedding_fulltext_search(embedding_fulltext_search) values('rebuild'); pragma quick_check; pragma integrity_check;"
+   ```
+6. Restart Chroma and the dependent AI services, then verify both SQLite
+   integrity and API-level reachability:
+   ```bash
+   npm run ai:check-chroma-integrity -- --json
+   node ai/scripts/maintenance/probeCollectionQueryHealth.mjs
+   ```
+
+**Boundaries:**
+- `ai/scripts/maintenance/defragChromaDB.mjs` compacts collection storage; it is
+  not an FTS5 integrity repair tool.
+- KB rebuild (`npm run ai:sync-kb`) repairs the cache collection, not the shared
+  SQLite full-text index.
+- MC backup import restores collection rows, but it is not required when the
+  copied FTS5 rebuild validates cleanly.
+- API embedding-export failures such as `Error finding id` are a separate
+  Chroma read-path issue; do not conflate them with FTS5 index repair.
+
+### 4. Memory Core - Native Edge Graph
 The Memory Core Edge Graph is persisted in SQLite.
 
 **Procedure:**
@@ -48,7 +99,7 @@ The Memory Core Edge Graph is persisted in SQLite.
    node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/graph/graph-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
 
-### 4. Concept Ontology
+### 5. Concept Ontology
 The Concept Ontology consists of nodes and edges defined in JSONL.
 
 **Procedure:**
@@ -61,7 +112,7 @@ The Concept Ontology consists of nodes and edges defined in JSONL.
    cp -r .neo-ai-data/backups/backup-<timestamp>/concepts/* .neo-ai-data/concepts/
    ```
 
-### 5. RLAIF Trajectories
+### 6. RLAIF Trajectories
 The RLAIF trajectories capture interaction feedback and metadata for offline RL alignment.
 
 **Procedure:**
