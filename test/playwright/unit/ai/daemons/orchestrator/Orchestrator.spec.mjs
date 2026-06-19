@@ -670,12 +670,11 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         };
 
         localOrchestrator.poll();
-        await flushProbe();
 
-        expect(localStarted).toContainEqual({
-            taskName: 'neuralLinkBridge',
-            reason  : 'supervisor-restart'
-        });
+        await expect.poll(() => localStarted.some(entry =>
+            entry.taskName === 'neuralLinkBridge' &&
+            entry.reason === 'supervisor-restart'
+        ), {timeout: 5000}).toBe(true);
 
         const cloudStarted = [];
         const cloudOrchestrator = createTestOrchestrator({
