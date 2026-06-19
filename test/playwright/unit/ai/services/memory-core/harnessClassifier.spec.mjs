@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Coverage for #10206 Memory Core harness-classified sibling diagnostics.
+ * @summary Coverage for Memory Core harness-classified sibling diagnostics.
  *
  * Pins the extracted classifier used by both `diagnoseMcpConcurrency.mjs` and
  * `MemoryCoreServer.logSiblingConcurrency()`. The helper remains read-only and testable
@@ -27,13 +27,15 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * @see ai.services.memory-core.helpers.HarnessClassifier#classifyHarness
  */
 test.describe('Memory Core HarnessClassifier #10206', () => {
-    let classifyHarness, groupProcessesByHarness, formatHarnessGroups;
+    let buildSqliteHolderDiagnostics, classifyHarness, groupProcessesByHarness, formatHarnessGroups, parseLsofOutput;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/helpers/harnessClassifier.mjs');
-        classifyHarness        = mod.classifyHarness;
-        groupProcessesByHarness = mod.groupProcessesByHarness;
-        formatHarnessGroups     = mod.formatHarnessGroups;
+        buildSqliteHolderDiagnostics = mod.buildSqliteHolderDiagnostics;
+        classifyHarness              = mod.classifyHarness;
+        groupProcessesByHarness      = mod.groupProcessesByHarness;
+        formatHarnessGroups          = mod.formatHarnessGroups;
+        parseLsofOutput              = mod.parseLsofOutput;
     });
 
     function makeExecSync(responses) {
@@ -68,6 +70,24 @@ test.describe('Memory Core HarnessClassifier #10206', () => {
         expect(classifyHarness(301, {execSync}).harness).toBe('claude-code');
     });
 
+    test('classifies Codex desktop harnesses', () => {
+        const execSync = makeExecSync(new Map([
+            [351, '  352 node'],
+            [352, '    1 /Applications/Codex.app/Contents/MacOS/Codex']
+        ]));
+
+        expect(classifyHarness(351, {execSync}).harness).toBe('codex');
+    });
+
+    test('classifies Neo orchestrator-owned processes', () => {
+        const execSync = makeExecSync(new Map([
+            [361, '  362 node'],
+            [362, '    1 npm run ai:orchestrator']
+        ]));
+
+        expect(classifyHarness(361, {execSync}).harness).toBe('orchestrator');
+    });
+
     test('falls back to unknown when no recognizable harness exists', () => {
         const execSync = makeExecSync(new Map([
             [401, '  402 node'],
@@ -99,5 +119,99 @@ test.describe('Memory Core HarnessClassifier #10206', () => {
             unknown    : 1
         });
         expect(formatHarnessGroups(groups)).toBe('2 Antigravity (PIDs: 101, 102) + 1 unknown (PID: 201)');
+    });
+
+    test('parses lsof records with held SQLite files', () => {
+        const records = parseLsofOutput([
+            'p101',
+            'cnode',
+            'n/tmp/memory-core-graph.sqlite',
+            'n/tmp/memory-core-graph.sqlite-wal',
+            'p202',
+            'cClaude',
+            'n/tmp/memory-core-graph.sqlite-shm'
+        ].join('\n'));
+
+        expect(records).toEqual([{
+            pid    : 101,
+            command: 'node',
+            files  : [
+                '/tmp/memory-core-graph.sqlite',
+                '/tmp/memory-core-graph.sqlite-wal'
+            ]
+        }, {
+            pid    : 202,
+            command: 'Claude',
+            files  : ['/tmp/memory-core-graph.sqlite-shm']
+        }]);
+    });
+
+    test('builds grouped SQLite holder diagnostics and excludes the current process', () => {
+        const dbPath     = '/tmp/memory-core-graph.sqlite';
+        const existing   = new Set([dbPath, `${dbPath}-wal`, `${dbPath}-shm`]);
+        const diagnostics = buildSqliteHolderDiagnostics({
+            dbPath,
+            currentPid: 999,
+            measuredAt: '2026-06-19T00:00:00.000Z',
+            existsSync: file => existing.has(file),
+            execSync  : () => [
+                'p101',
+                'cnode',
+                `n${dbPath}`,
+                'p101',
+                'cnode',
+                `n${dbPath}-wal`,
+                'p201',
+                'cnode',
+                `n${dbPath}-shm`,
+                'p999',
+                'cnode',
+                `n${dbPath}`
+            ].join('\n'),
+            classifier(pid) {
+                return {
+                    harness: pid === 101 ? 'antigravity' : 'unknown',
+                    chain  : [{pid, command: 'node'}]
+                };
+            }
+        });
+
+        expect(diagnostics.status).toBe('ok');
+        expect(diagnostics.totalProcesses).toBe(2);
+        expect(diagnostics.byHarness).toEqual({
+            antigravity: 1,
+            unknown    : 1
+        });
+        expect(diagnostics.processes.map(processRecord => processRecord.pid)).toEqual([101, 201]);
+        expect(diagnostics.processes[0].files).toEqual([dbPath, `${dbPath}-wal`]);
+        expect(diagnostics.processes[0].harness).toBe('antigravity');
+        expect(diagnostics.processes[0].chain).toEqual([{pid: 101, command: 'node'}]);
+        expect(diagnostics.groups.map(group => [group.harness, group.processes.length])).toEqual([
+            ['antigravity', 1],
+            ['unknown', 1]
+        ]);
+        expect(diagnostics.warnings).toEqual([{
+            code   : 'unknown-harness',
+            message: '1 SQLite holder process(es) could not be mapped to a known harness'
+        }]);
+    });
+
+    test('returns degraded diagnostic data when process inspection is unavailable', () => {
+        const dbPath = '/tmp/memory-core-graph.sqlite';
+        const error  = new Error('spawn lsof ENOENT');
+        error.code = 'ENOENT';
+
+        const diagnostics = buildSqliteHolderDiagnostics({
+            dbPath,
+            existsSync: () => true,
+            execSync  : () => {
+                throw error;
+            }
+        });
+
+        expect(diagnostics.status).toBe('degraded');
+        expect(diagnostics.error).toContain('requires `lsof`');
+        expect(diagnostics.totalProcesses).toBe(0);
+        expect(diagnostics.groups).toEqual([]);
     });
 });
