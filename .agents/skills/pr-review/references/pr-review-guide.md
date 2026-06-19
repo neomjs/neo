@@ -299,6 +299,8 @@ Reviewers MUST verify testing claims and canonical file placement:
 
 ### 7.6 CI / Security Checks Audit
 
+<!-- trigger: PR is stacked (`baseRefName` is not the default branch) OR full CI is deferred until retarget -> read ../../pull-request/references/stacked-pr-ci-routing.md before approval or merge-readiness claims -->
+
 Formal reviews assume CI is already green. Verify the current PR check state before `manage_pr_review`; if checks are pending, missing, or failing, stop and send a compact CI deferral instead of a full review. Load `.agents/skills/pr-review/audits/ci-security-audit.md` only for security-sensitive changes or ambiguous/failing check surfaces.
 
 ### 7.7 Anti-Patterns

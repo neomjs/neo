@@ -133,6 +133,8 @@ PR broadcasts a false board to the whole swarm (empirical: PR `#12950`'s `[merge
 landed 15s post-merge; PR `#12956`'s approval relay missed the merge by seconds — both
 operator-flagged 2026-06-12). Rule detail + verdict-not-enum companion: `pr-review-guide.md §10.1`.
 
+<!-- trigger: lane-state/report names a stacked PR (`baseRefName` is not the default branch) -> read ../../pull-request/references/stacked-pr-ci-routing.md before `human-gate`, `verified-empty`, approval, or merge-readiness wording -->
+
 ## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
 
 Per #11455 AC: at EACH broadened lifecycle boundary (reviewer post, author

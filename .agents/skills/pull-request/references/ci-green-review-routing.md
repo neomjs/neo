@@ -12,6 +12,8 @@ The goal is to preserve lifecycle visibility without waking a reviewer into work
 
 ## 2. CI-Green Gate
 
+<!-- trigger: PR base branch is not the default branch OR full CI is deferred until retarget -> read ./stacked-pr-ci-routing.md before review/re-review routing -->
+
 Before sending any actionable primary-reviewer request, run:
 
 ```bash
