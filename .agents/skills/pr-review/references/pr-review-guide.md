@@ -135,6 +135,8 @@ The PR cannot be approved if the implemented contract and the ticket's Contract 
 
 Before drafting your review, classify the review cycle. Template choice is a context-budget gate: Cycle 1 / cold-cache needs the full structure; Cycle N / warm-cache uses delta shape unless evidence shows the prior anchors are no longer reliable.
 
+Template fidelity is mandatory in both cycle shapes: copy selected-template headings, icons, order, and null-state wording; compact follow-up means delta content, not lower quality.
+
 > **Symmetry Note:** The `pull-request` skill enforces an author-side template-adherence check (see `pull-request-workflow.md §6.4`). If you fail to use the correct template structure specified below, the author is mandated to reject your review and A2A you for a complete rewrite. Substantive content without structural adherence is not merge-eligible.
 
 ### 6.1 Full Review Template

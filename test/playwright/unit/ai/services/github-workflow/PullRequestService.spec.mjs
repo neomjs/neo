@@ -493,7 +493,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         databaseId : 12345
     };
 
-    // Minimal review body that passes BOTH layers of the tool-boundary template-anchor validator:
+    // Compact review body that passes BOTH layers of the tool-boundary template-anchor validator:
     // - VISIBLE layer: the 7 evaluation-metric tags from pr-review-template.md / pr-review-followup-template.md
     // - INVISIBLE layer: structural anchors NOT enumerated in error responses; see
     //   `INVISIBLE_PR_REVIEW_ANCHORS` constant in `ai/services/github-workflow/PullRequestService.mjs`
@@ -504,14 +504,32 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     // this constant only satisfies the mechanical depth-floor gate so the downstream behavior under test
     // (action dispatch, GraphQL error handling, PR_NOT_FOUND) can be exercised.
     const VALID_REVIEW_BODY = [
+        '# PR Review Summary',
+        '',
+        '**Status:** Approved',
+        '',
         '### 🪜 Strategic-Fit Decision',
         '- Decision: Approve',
+        '',
+        '### 🧭 Patch-Blind Premise Snapshot',
+        '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
+        '* **Expected Solution Shape:** preserve the selected review template skeleton.',
+        '* **Patch Verdict:** matches the expected shape.',
+        '',
+        '### 🕸️ Context & Graph Linking',
+        '* **Target Epic / Issue ID:** Resolves #11273',
+        '* **Related Graph Nodes:** #11491',
         '',
         '### 🔬 Depth Floor',
         '- Documented search: scanned all relevant surfaces.',
         '',
+        '### 🧠 Graph Ingestion Notes',
+        '* **`[KB_GAP]`**: N/A.',
+        '* **`[TOOLING_GAP]`**: N/A.',
+        '* **`[RETROSPECTIVE]`**: Template validator fixture.',
+        '',
         '### 📋 Required Actions',
-        '- None.',
+        'No required actions — eligible for human merge.',
         '',
         '### 📊 Evaluation Metrics',
         '[ARCH_ALIGNMENT]: 80 - structural fit',
@@ -521,6 +539,56 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '[IMPACT]: 60 - localized substrate fix',
         '[COMPLEXITY]: 40 - mechanical change',
         '[EFFORT_PROFILE]: Quick Win'
+    ].join('\n');
+
+    const VALID_FOLLOWUP_REVIEW_BODY = [
+        '# PR Review Follow-Up Summary',
+        '',
+        '**Status:** Approved',
+        '',
+        '**Cycle:** Cycle 2 follow-up',
+        '',
+        '**Opening:** Re-checking the addressed delta.',
+        '',
+        '### 🧭 Patch-Blind Premise Snapshot',
+        '* **Inputs Read Before Patch:** prior review, author response, changed-file list.',
+        '* **Expected Solution Shape:** narrow delta preserves prior approval anchors.',
+        '* **Patch Verdict:** matches the expected delta.',
+        '',
+        '### 🪜 Strategic-Fit Decision',
+        '- **Decision**: Approve',
+        '- **Rationale**: The delta resolves the prior blocker.',
+        '',
+        '### ⚓ Prior Review Anchor',
+        '* **PR:** #11273',
+        '* **Target Issue:** #11491',
+        '* **Prior Review Comment ID:** PRR_123',
+        '* **Author Response Comment ID:** IC_456',
+        '* **Latest Head SHA:** abc1234',
+        '',
+        '### 🔁 Delta Scope',
+        '* **Files changed:** PR body only',
+        '* **PR body / close-target changes:** pass',
+        '* **Branch freshness / merge state:** clean',
+        '',
+        '### ✅ Previous Required Actions Audit',
+        '* **Addressed:** prior template miss — current body keeps canonical headings.',
+        '',
+        '### 🔬 Delta Depth Floor',
+        '* **Documented delta search:** I actively checked changed metadata, the prior blocker, and close-target state and found no new concerns.',
+        '',
+        '### 📊 Metrics Delta',
+        '* **`[ARCH_ALIGNMENT]`**: unchanged from prior review',
+        '* **`[CONTENT_COMPLETENESS]`**: unchanged from prior review',
+        '* **`[EXECUTION_QUALITY]`**: unchanged from prior review',
+        '* **`[PRODUCTIVITY]`**: unchanged from prior review',
+        '* **`[IMPACT]`**: unchanged from prior review',
+        '* **`[COMPLEXITY]`**: unchanged from prior review',
+        '* **`[EFFORT_PROFILE]`**: unchanged from prior review',
+        '',
+        '### 📋 Required Actions',
+        '',
+        'No required actions — eligible for human merge.'
     ].join('\n');
 
     test.beforeAll(async () => {
@@ -833,6 +901,115 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(graphqlCallCount).toBe(0);
     });
 
+    test('#13547: rejects plain-heading cycle-1 review skeleton drift', async () => {
+        const plainFullReviewBody = [
+            '# PR Review Summary',
+            '',
+            '**Status:** Approved',
+            '',
+            '### Strategic-Fit Decision',
+            '- Decision: Approve',
+            '',
+            '### Patch-Blind Premise Snapshot',
+            '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
+            '* **Expected Solution Shape:** preserve the selected review template skeleton.',
+            '* **Patch Verdict:** matches the expected shape.',
+            '',
+            '### Context & Graph Linking',
+            '* **Target Epic / Issue ID:** Resolves #13547',
+            '',
+            '### Depth Floor',
+            '- Documented search: scanned all relevant surfaces.',
+            '',
+            '### Graph Ingestion Notes',
+            '* **`[KB_GAP]`**: N/A.',
+            '* **`[TOOLING_GAP]`**: N/A.',
+            '* **`[RETROSPECTIVE]`**: Plain-heading regression fixture.',
+            '',
+            '### Required Actions',
+            'No required actions — eligible for human merge.',
+            '',
+            '### Evaluation Metrics',
+            '[ARCH_ALIGNMENT]: 90 - aligned',
+            '[CONTENT_COMPLETENESS]: 90 - complete',
+            '[EXECUTION_QUALITY]: 90 - verified',
+            '[PRODUCTIVITY]: 90 - delivers scope',
+            '[IMPACT]: 70 - workflow guard',
+            '[COMPLEXITY]: 40 - bounded validator',
+            '[EFFORT_PROFILE]: Quick Win'
+        ].join('\n');
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 13547,
+            state    : 'APPROVED',
+            body     : plainFullReviewBody
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing_visible).toEqual([]);
+        expect(result.missing_premise_snapshot).toEqual([]);
+        expect(result.message).toContain('does not match the pr-review template structure');
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#13547: accepts icon-bearing follow-up review skeleton', async () => {
+        let graphqlCallCount = 0;
+        GraphqlService.query = async (queryString) => {
+            graphqlCallCount++;
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 13547,
+            state    : 'APPROVED',
+            body     : VALID_FOLLOWUP_REVIEW_BODY
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#13547: rejects old plain-heading follow-up review skeleton', async () => {
+        const plainFollowupBody = VALID_FOLLOWUP_REVIEW_BODY
+            .replaceAll('### 🧭 Patch-Blind Premise Snapshot', '### Patch-Blind Premise Snapshot')
+            .replaceAll('### 🪜 Strategic-Fit Decision', '### Strategic-Fit Decision')
+            .replaceAll('### ⚓ Prior Review Anchor', '### Prior Review Anchor')
+            .replaceAll('### 🔁 Delta Scope', '### Delta Scope')
+            .replaceAll('### ✅ Previous Required Actions Audit', '### Previous Required Actions Audit')
+            .replaceAll('### 🔬 Delta Depth Floor', '### Delta Depth Floor')
+            .replaceAll('### 📊 Metrics Delta', '### Metrics Delta')
+            .replaceAll('### 📋 Required Actions', '### Required Actions');
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 13547,
+            state    : 'APPROVED',
+            body     : plainFollowupBody
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing_visible).toEqual([]);
+        expect(result.missing_premise_snapshot).toEqual([]);
+        expect(graphqlCallCount).toBe(0);
+    });
+
     test('#11491: rejects body missing some visible anchors and names ONE diagnostic anchor only', async () => {
         // Operator-directed change: even when visible anchors are missing, the error names AT MOST
         // one diagnostic anchor rather than the full list, reducing the "stuff just these tags"
@@ -935,10 +1112,38 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         };
 
         const body = [
-            '### Patch-Blind Premise Snapshot',
+            '# PR Review Summary',
+            '',
+            '**Status:** Approved',
+            '',
+            '### 🪜 Strategic-Fit Decision',
+            '- Decision: Approve',
+            '',
+            '### 🧭 Patch-Blind Premise Snapshot',
             '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
             '',
-            VALID_REVIEW_BODY
+            '### 🕸️ Context & Graph Linking',
+            '* **Target Epic / Issue ID:** Resolves #12448',
+            '',
+            '### 🔬 Depth Floor',
+            '- Documented search: scanned all relevant surfaces.',
+            '',
+            '### 🧠 Graph Ingestion Notes',
+            '* **`[KB_GAP]`**: N/A.',
+            '* **`[TOOLING_GAP]`**: N/A.',
+            '* **`[RETROSPECTIVE]`**: Partial snapshot fixture.',
+            '',
+            '### 📋 Required Actions',
+            'No required actions — eligible for human merge.',
+            '',
+            '### 📊 Evaluation Metrics',
+            '[ARCH_ALIGNMENT]: 80 - structural fit',
+            '[CONTENT_COMPLETENESS]: 80 - covers AC matrix',
+            '[EXECUTION_QUALITY]: 80 - tests pass',
+            '[PRODUCTIVITY]: 70 - bounded scope',
+            '[IMPACT]: 60 - localized substrate fix',
+            '[COMPLEXITY]: 40 - mechanical change',
+            '[EFFORT_PROFILE]: Quick Win'
         ].join('\n');
 
         const result = await PullRequestService.managePrReview({

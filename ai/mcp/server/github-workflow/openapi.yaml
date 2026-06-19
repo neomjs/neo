@@ -671,7 +671,7 @@ paths:
 
         Mandatory pre-step: read `.agents/skills/pr-review/SKILL.md` and use the cycle-appropriate template.
 
-        Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. #12448 premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`) are optional during migration: omit all three or include all three together.
+        Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors and preserve the selected template's canonical skeleton; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. #12448 premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`) are optional during migration: omit all three or include all three together.
       tags: [PullRequests]
       parameters:
         - name: pr_number

@@ -8,7 +8,7 @@
 
 ---
 
-### Patch-Blind Premise Snapshot
+### 🧭 Patch-Blind Premise Snapshot
 
 *For follow-ups, ground the expected shape in the prior review anchor plus the current delta. Do not let the author's response framing replace the source-of-authority substrate.*
 
@@ -18,7 +18,7 @@
 
 ---
 
-### Strategic-Fit Decision
+### 🪜 Strategic-Fit Decision
 
 Per §9 Strategic-Fit Step-Back:
 - **Decision**: [Approve / Approve+Follow-Up / Request Changes / Drop+Supersede]
@@ -26,7 +26,7 @@ Per §9 Strategic-Fit Step-Back:
 
 ---
 
-### Prior Review Anchor
+### ⚓ Prior Review Anchor
 
 *   **PR:** #[PR Number]
 *   **Target Issue:** #[Issue Number]
@@ -36,7 +36,7 @@ Per §9 Strategic-Fit Step-Back:
 
 ---
 
-### Delta Scope
+### 🔁 Delta Scope
 
 Summarize what changed since the prior review:
 
@@ -46,7 +46,7 @@ Summarize what changed since the prior review:
 
 ---
 
-### Previous Required Actions Audit
+### ✅ Previous Required Actions Audit
 
 For each prior Required Action, mark the current state:
 
@@ -56,7 +56,7 @@ For each prior Required Action, mark the current state:
 
 ---
 
-### Delta Depth Floor
+### 🔬 Delta Depth Floor
 
 Provide ONE of the following:
 
@@ -70,7 +70,7 @@ This is the follow-up form of the Depth Floor. Do not omit it because the prior 
 
 ---
 
-### Conditional Audit Delta
+### 🔎 Conditional Audit Delta
 
 Expand only audits affected by the delta. If 2+ dimensions would otherwise render N/A, collapse them:
 
@@ -83,7 +83,7 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ---
 
-### Test-Execution & Location Audit
+### 🧪 Test-Execution & Location Audit
 
 *   **Changed surface class:** [code / test / docs-template only / PR body only]
 *   **Location check:** [pass / incorrect placement flagged / N/A]
@@ -92,7 +92,7 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ---
 
-### Contract Completeness Audit
+### 📑 Contract Completeness Audit
 
 *(Required per guide §5.4 if the delta touches public/consumed surfaces)*
 
@@ -100,7 +100,7 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ---
 
-### Metrics Delta
+### 📊 Metrics Delta
 
 Metrics are unchanged from the prior review unless an explicit delta is listed below.
 
@@ -114,7 +114,7 @@ Metrics are unchanged from the prior review unless an explicit delta is listed b
 
 ---
 
-### Required Actions
+### 📋 Required Actions
 
 **For follow-ups with new or remaining required actions:**
 
@@ -129,6 +129,6 @@ No required actions — eligible for human merge.
 
 ---
 
-### A2A Hand-Off
+### 📨 A2A Hand-Off
 
 After posting this follow-up review, capture the new `commentId` and send it via A2A to the next actor so they can fetch the delta directly.
