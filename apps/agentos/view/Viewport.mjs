@@ -1,3 +1,4 @@
+import Accounts           from './Accounts.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
 import FleetSettingsPanel from './FleetSettingsPanel.mjs';
@@ -31,7 +32,7 @@ class Viewport extends BaseViewport {
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * The cockpit: a header toolbar (logo, title, theme switch) above a dashboard hosting the
-         * Fleet Manager settings. Renders through `neo-theme-neo-dark` / `neo-theme-neo-light`.
+         * Accounts + Fleet keeper-views. Renders through `neo-theme-neo-dark` / `neo-theme-neo-light`.
          * @member {Object[]} items
          */
         items: [{
@@ -68,9 +69,13 @@ class Viewport extends BaseViewport {
             style            : {margin: '20px'},
 
             items: [{
+                module   : Accounts,
+                flex     : 1,
+                reference: 'accounts'
+            }, {
                 module   : FleetSettingsPanel,
                 flex     : 1,
-                reference: 'settings'
+                reference: 'fleet'
             }]
         }]
     }
