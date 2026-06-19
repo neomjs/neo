@@ -1,5 +1,6 @@
-import {collectDueCandidates} from './collector.mjs';
-import {pickNextCandidate}    from './picker.mjs';
+import {collectDueCandidates}                  from './collector.mjs';
+import {pickNextCandidate}                      from './picker.mjs';
+import {evaluateStallAlarm, getEmbedDrainPendingAge} from './embedDrainLivenessWatchdog.mjs';
 
 /**
  * @summary Builds the read-only context consumed by scheduling descriptors.
@@ -36,7 +37,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 dream                 : config.orchestrator.intervals.dreamMs,
                 dreamOverflowThreshold: config.orchestrator.intervals.dreamOverflowThreshold,
                 goldenPath            : config.orchestrator.intervals.goldenPathMs,
-                swarmHeartbeat        : config.orchestrator.intervals.swarmHeartbeatMs
+                swarmHeartbeat        : config.orchestrator.intervals.swarmHeartbeatMs,
+                embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
@@ -55,7 +57,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 dreamGetDueTask           : orchestrator.dreamGetDueTask,
                 goldenPathGetDueTask      : orchestrator.goldenPathGetDueTask,
                 swarmHeartbeatGetDueTask  : orchestrator.swarmHeartbeatGetDueTask,
-                swarmHeartbeatInitFailed  : !!orchestrator.swarmHeartbeatService.initFailed
+                swarmHeartbeatInitFailed  : !!orchestrator.swarmHeartbeatService.initFailed,
+                embedDrainLivenessWatchdogGetDueTask: orchestrator.embedDrainLivenessWatchdogGetDueTask
             }
         }),
         services: {
@@ -67,13 +70,17 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             processSupervisorService     : orchestrator.processSupervisorService,
             swarmHeartbeatService        : orchestrator.swarmHeartbeatService,
             taskStateService             : orchestrator.taskStateService,
-            tenantRepoSyncService        : orchestrator.tenantRepoSyncService
+            tenantRepoSyncService        : orchestrator.tenantRepoSyncService,
+            embedDrainLivenessAlarmDispatcher: orchestrator.embedDrainLivenessAlarmDispatcher
         },
         runtime: {
             goldenPathRepoEnrichmentEnabled: orchestrator.goldenPathRepoEnrichmentEnabled,
             primaryDevSyncRootsConfig      : orchestrator.primaryDevSyncRootsConfig,
             tenantRepoSyncGlobalCadenceMs  : config.orchestrator.intervals.tenantRepoSyncMs,
             tenantRepoSyncJitterRatio      : config.orchestrator.tenantRepoSync.jitterRatio,
+            embedDrainLivenessWatchdogWalDir     : orchestrator.embedDrainLivenessWatchdogWalDir,
+            embedDrainLivenessWatchdogThresholdMs: orchestrator.embedDrainLivenessWatchdogThresholdMs,
+            embedDrainLivenessWatchdogAlarmEnabled: orchestrator.embedDaemonEnabled,
             writeLog                       : orchestrator.writeLog.bind(orchestrator)
         }
     };
@@ -254,7 +261,8 @@ export function executeCandidate({candidate, activeHeavyTask, services, runtime}
     const dispatch = {
         'supervised-child-process': executeSupervisedCandidate,
         'service-runner'          : executeServiceRunnerCandidate,
-        'in-process-async'        : executeInProcessCandidate
+        'in-process-async'        : executeInProcessCandidate,
+        'health-check'            : executeHealthCheckCandidate
     };
 
     const execute = dispatch[candidate.descriptor.executionKind];
@@ -474,6 +482,148 @@ async function runSwarmHeartbeatTask({taskName, reason, services}) {
             error   : e.message,
             failedAt: new Date().toISOString()
         });
+    }
+}
+
+/**
+ * @summary Dispatches the read-only `health-check` execution kind.
+ *
+ * Currently a single lane (`embed-drain-liveness-watchdog`). Unlike the heavy/service kinds, a
+ * health-check takes no maintenance lease and runs directly — it is read-only and lightweight, so it
+ * must never be gated by backpressure. The runner itself is fully wrapped so a check failure degrades
+ * to "no alarm" and never propagates into the pipeline.
+ *
+ * @param {Object} options
+ * @returns {*}
+ */
+function executeHealthCheckCandidate({candidate, services, runtime}) {
+    const runners = {
+        'embed-drain-liveness-watchdog': (taskName, reason) =>
+            runEmbedDrainLivenessWatchdogTask({taskName, reason, services, runtime})
+    };
+
+    const executeFn = runners[candidate.taskName];
+    if (!executeFn) {
+        recordUnsupportedCandidate({
+            candidate,
+            error        : `Unsupported health-check task: ${candidate.taskName}`,
+            healthService: services.healthService,
+            writeLog     : runtime.writeLog
+        });
+        return false;
+    }
+
+    return executeFn(candidate.taskName, candidate.trigger.reason);
+}
+
+/**
+ * @summary Runs the embed-drain liveness watchdog: read-only WAL-backlog age check, passive
+ * health-record, and a one-shot active stall alarm. Never throws.
+ *
+ * Dual alarm per the ticket: (1) PASSIVE — `healthService.recordTaskOutcome` every check (`failed`
+ * when stalled, `completed` otherwise); (2) ACTIVE — a one-shot swarm/operator alarm fired only on
+ * stall-onset, latched so consecutive stalled checks do not re-alarm; a healthy check clears the
+ * latch. The active alarm is additionally gated by `embedDrainLivenessWatchdogAlarmEnabled` (the
+ * orchestrator's `embedDaemonEnabled`) so a deployment with no local drainer never false-alarms on a
+ * backlog another host is responsible for draining.
+ *
+ * The latch (`{alarmed, stalledSince}`) is persisted on the task-state envelope so it survives across
+ * poll cycles and orchestrator restarts. The whole body is wrapped: any unexpected error is recorded
+ * and swallowed — a watchdog fault must never block the never-fail `add_memory`/`appendWalMemory` path
+ * nor break the scheduling loop.
+ *
+ * @param {Object} options
+ * @param {String} options.taskName
+ * @param {String} options.reason Scheduling reason.
+ * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`,
+ *   `embedDrainLivenessAlarmDispatcher`).
+ * @param {Object} options.runtime Runtime policy values (`embedDrainLivenessWatchdogWalDir`,
+ *   `embedDrainLivenessWatchdogThresholdMs`, `embedDrainLivenessWatchdogAlarmEnabled`, `writeLog`).
+ * @returns {Promise<void>}
+ */
+async function runEmbedDrainLivenessWatchdogTask({taskName, reason, services, runtime}) {
+    try {
+        services.taskStateService.markStarted(taskName, reason);
+        services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
+
+        const now = Date.now();
+        const {oldestAgeMs, pendingCount, oldestTimestamp} = await getEmbedDrainPendingAge({
+            walDir: runtime.embedDrainLivenessWatchdogWalDir,
+            now
+        });
+
+        const state      = services.taskStateService.getTaskState(taskName);
+        const alarmState  = state?.embedDrainAlarm ?? null;
+        const thresholdMs = runtime.embedDrainLivenessWatchdogThresholdMs;
+
+        const {stalled, shouldAlarm, nextAlarmState} = evaluateStallAlarm({
+            oldestAgeMs, pendingCount, thresholdMs, alarmState
+        });
+
+        // Stamp the stall-onset timestamp (the clock-free evaluator leaves it null on the latching
+        // transition); preserve it across subsequent latched checks.
+        const stalledSince = stalled
+            ? (shouldAlarm ? now : (alarmState?.stalledSince ?? now))
+            : null;
+        if (state) state.embedDrainAlarm = {alarmed: nextAlarmState.alarmed, stalledSince};
+
+        const details = {reason, ageMs: oldestAgeMs, pendingCount, thresholdMs, checkedAt: new Date(now).toISOString()};
+
+        if (stalled) {
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                ...details,
+                stalledSince: stalledSince === null ? null : new Date(stalledSince).toISOString(),
+                oldestTimestamp: oldestTimestamp === null ? null : new Date(oldestTimestamp).toISOString()
+            });
+
+            if (shouldAlarm && runtime.embedDrainLivenessWatchdogAlarmEnabled) {
+                await dispatchEmbedDrainStallAlarm({
+                    dispatcher  : services.embedDrainLivenessAlarmDispatcher,
+                    ageMs       : oldestAgeMs,
+                    pendingCount,
+                    thresholdMs,
+                    stalledSince,
+                    writeLog    : runtime.writeLog
+                });
+            }
+        } else {
+            services.healthService?.recordTaskOutcome?.(taskName, 'completed', details);
+        }
+
+        services.taskStateService.markCompleted(taskName);
+    } catch (e) {
+        // Degrade to "no alarm": record the fault and clear running state, never rethrow. The
+        // bookkeeping itself is guarded so even a failing health/state collaborator cannot turn a
+        // watchdog fault into an unhandled rejection that breaks the scheduling loop.
+        try {
+            const state = services.taskStateService.getTaskState(taskName);
+            if (state) state.lastReason = e.message;
+            services.taskStateService.markFailed(taskName, 1);
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                reason,
+                phase   : 'watchdog-error',
+                error   : e.message,
+                failedAt: new Date().toISOString()
+            });
+            runtime.writeLog?.('ERROR', `[Orchestrator] embed-drain-liveness-watchdog check failed (degraded to no-alarm): ${e.message}`);
+        } catch {
+            // Last-resort swallow: the never-fail guarantee dominates all observability.
+        }
+    }
+}
+
+/**
+ * @summary Fires the one-shot active stall alarm via the injected dispatcher. Never throws — an alarm
+ * dispatch failure is logged and swallowed (the passive health-record already captured the stall).
+ * @param {Object} options
+ * @returns {Promise<void>}
+ */
+async function dispatchEmbedDrainStallAlarm({dispatcher, ageMs, pendingCount, thresholdMs, stalledSince, writeLog}) {
+    if (typeof dispatcher !== 'function') return;
+    try {
+        await dispatcher({ageMs, pendingCount, thresholdMs, stalledSince});
+    } catch (e) {
+        writeLog?.('ERROR', `[Orchestrator] embed-drain stall-alarm dispatch failed: ${e.message}`);
     }
 }
 

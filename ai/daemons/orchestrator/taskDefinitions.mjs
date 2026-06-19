@@ -253,6 +253,17 @@ export function buildTaskDefinitions({
             pidFileName    : 'swarm-heartbeat.pid',
             expectedCommand: 'SwarmHeartbeatService',
             serviceTask    : true
+        },
+        // In-process read-only health-check (no child process is ever spawned): the embed-drain
+        // liveness watchdog runs entirely inside the orchestrator's scheduling pipeline. The entry
+        // exists only so the task gets a persisted state envelope (cadence `lastRunAt` + the
+        // one-shot stall-alarm latch). `pidFileName`/`expectedCommand` are inert — no PID file is
+        // ever written, so process recovery/supervision short-circuits on the missing file.
+        'embed-drain-liveness-watchdog': {
+            label          : 'embed-drain liveness watchdog',
+            pidFileName    : 'embed-drain-liveness-watchdog.pid',
+            expectedCommand: 'EmbedDrainLivenessWatchdog',
+            serviceTask    : true
         }
     };
 

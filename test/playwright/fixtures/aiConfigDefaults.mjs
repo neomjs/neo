@@ -157,7 +157,8 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             tenantRepoSyncMs : 30 * 60 * 1000,
             dreamMs          : HOUR_MS,
             goldenPathMs     : HOUR_MS,
-            swarmHeartbeatMs : 20 * 60 * 1000
+            swarmHeartbeatMs : 20 * 60 * 1000,
+            embedDrainLivenessWatchdogCheckMs: HOUR_MS
         }
     }
 }, true, true));

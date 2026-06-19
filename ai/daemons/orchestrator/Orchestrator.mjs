@@ -22,6 +22,12 @@ import {getDueTask as graphLogCompactionGetDueTaskImport} from './scheduling/gra
 import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
 import {getDueTask as goldenPathGetDueTaskImport} from './scheduling/goldenPath.mjs';
 import {getDueTask as dreamGetDueTaskImport}          from './scheduling/dream.mjs';
+import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport} from './scheduling/embedDrainLivenessWatchdog.mjs';
+import memoryCoreConfig                  from '../../mcp/server/memory-core/config.mjs';
+import MailboxService                    from '../../services/memory-core/MailboxService.mjs';
+import WakeSubscriptionService           from '../../services/memory-core/WakeSubscriptionService.mjs';
+import RequestContextService             from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {normalizeAgentIdentityNodeId}    from '../../scripts/lifecycle/resumeHarness.mjs';
 import TaskStateService                  from './services/TaskStateService.mjs';
 import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
 import DreamService                      from './services/DreamService.mjs';
@@ -122,6 +128,7 @@ export class Orchestrator extends Base {
     tenantRepoSyncGetDueTask = tenantRepoSyncGetDueTaskImport
     dreamGetDueTask          = dreamGetDueTaskImport
     goldenPathGetDueTask     = goldenPathGetDueTaskImport
+    embedDrainLivenessWatchdogGetDueTask = embedDrainLivenessWatchdogGetDueTaskImport
 
     isPolling                     = false
     pollHandle                    = null
@@ -136,6 +143,61 @@ export class Orchestrator extends Base {
 
     processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
     maintenanceBackpressureWriteLog = (level, msg) => this.writeLog(level, msg)
+
+    /**
+     * @summary One-shot active alarm dispatcher for the embed-drain liveness watchdog.
+     *
+     * The watchdog's PASSIVE leg is its `recordTaskOutcome` health record (every check); this is the
+     * ACTIVE leg, fired once on stall-onset by the scheduling pipeline. It broadcasts a swarm- and
+     * operator-visible A2A alarm (`MailboxService.addMessage` to the `AGENT:*` sentinel — the
+     * `KbAlertingService.dispatchA2A` precedent) carrying the stall payload, then best-effort nudges a
+     * wake via `WakeSubscriptionService.emitHeartbeatPulse` to the harness owner. A2A is the durable
+     * carrier (heartbeat pulses have no payload column); the pulse is only a wake nudge.
+     *
+     * Bound arrow field so it can be passed as `services.embedDrainLivenessAlarmDispatcher`. The
+     * pipeline wraps the call, but each leg is also independently guarded so one failing leg never
+     * suppresses the other.
+     *
+     * @param {Object} payload
+     * @param {Number} payload.ageMs Age of the oldest un-embedded WAL record.
+     * @param {Number} payload.pendingCount Pending (un-embedded) record count.
+     * @param {Number} payload.thresholdMs Stall threshold that tripped.
+     * @param {Number|null} payload.stalledSince Epoch ms the stall was first observed.
+     * @returns {Promise<void>}
+     */
+    embedDrainLivenessAlarmDispatcher = async ({ageMs, pendingCount, thresholdMs, stalledSince} = {}) => {
+        const sender = process.env.NEO_AGENT_IDENTITY
+            ? normalizeAgentIdentityNodeId(process.env.NEO_AGENT_IDENTITY)
+            : '@system';
+        const stalledSinceIso = Number.isFinite(stalledSince) ? new Date(stalledSince).toISOString() : 'unknown';
+        const ageHours        = (ageMs / (60 * 60 * 1000)).toFixed(1);
+        const subject = `[embed-drain-stall] oldest un-embedded WAL record is ${ageHours}h old`;
+        const body =
+            `The embed-drain liveness watchdog detected a STALLED embed pipeline.\n\n` +
+            `- oldest un-embedded WAL record age: ${ageMs}ms (~${ageHours}h)\n` +
+            `- pending (un-embedded) record count: ${pendingCount}\n` +
+            `- stall threshold: ${thresholdMs}ms\n` +
+            `- stalled since: ${stalledSinceIso}\n\n` +
+            `The embed drain has stopped reconciling the WAL (process-alive != draining). Semantic recall ` +
+            `degrades while the backlog grows. Investigate the embed daemon / drain lock on the drainer clone.`;
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
+                await MailboxService.addMessage({to: 'AGENT:*', subject, body, priority: 'high'});
+            });
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] embed-drain stall-alarm A2A broadcast failed: ${e.message}`);
+        }
+
+        const targetIdentity = this.swarmHeartbeatIdentity;
+        if (targetIdentity) {
+            try {
+                await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: normalizeAgentIdentityNodeId(targetIdentity)});
+            } catch (e) {
+                this.writeLog('ERROR', `[Orchestrator] embed-drain stall-alarm wake pulse failed: ${e.message}`);
+            }
+        }
+    }
 
     /**
      * @param {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} value
@@ -210,6 +272,8 @@ export class Orchestrator extends Base {
     get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }
     get neuralLinkBridgeEnabled()        { return resolveDeploymentEnabled('neuralLinkBridgeEnabled');        }
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
+    get embedDrainLivenessWatchdogWalDir()      { return memoryCoreConfig.memoryWal.dir; }
+    get embedDrainLivenessWatchdogThresholdMs() { return memoryCoreConfig.memoryWal.embedDrainStallThresholdMs; }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }

@@ -386,7 +386,16 @@ class Config extends ConfigProvider {
                      * a layer ABOVE the wake-coalescing window (the 300s digest-batching cap, an orthogonal
                      * mechanism), so widening it does not change coalescing semantics.
                      */
-                    swarmHeartbeatMs      : leaf(20 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number')
+                    swarmHeartbeatMs      : leaf(20 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the embed-drain liveness watchdog — the read-only, never-fail health
+                     * check that computes the age of the oldest un-embedded WAL record and raises a
+                     * one-shot alarm when it exceeds `memoryWal.embedDrainStallThresholdMs`. Hourly is
+                     * frequent enough to surface a stalled drain in hours (not the ~8 days of the silent
+                     * drain-death incident) while staying far below the threshold so the check itself adds
+                     * negligible load. `<= 0` disables the lane.
+                     */
+                    embedDrainLivenessWatchdogCheckMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_EMBED_DRAIN_WATCHDOG_INTERVAL_MS', 'number')
                 },
                 /**
                  * Chroma daemon recycle policy. The orchestrator kills and respawns the supervised

@@ -218,7 +218,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             neuralLinkBridgeLivenessTimeoutMs : 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({

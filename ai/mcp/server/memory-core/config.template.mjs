@@ -360,6 +360,18 @@ class Config extends ConfigProvider {
                  */
                 backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number'),
                 /**
+                 * Stall threshold for the embed-drain liveness watchdog: when the OLDEST un-embedded
+                 * WAL record is older than this, the (orchestrator-hosted, read-only) watchdog raises a
+                 * one-shot alarm. Conservative default of 6h — hours, NOT days: the whole point is to
+                 * catch a silently-stalled drain same-session, not after a week (the silent drain-death
+                 * incident went ~8 days unnoticed). It must exceed the worst-case healthy drain latency
+                 * (per-turn saves arrive minutes apart; the drain polls every `pollIntervalMs`) so a
+                 * healthy backlog never false-alarms. `<= 0` disables alarming. The watchdog only READS
+                 * the WAL — it never touches the never-fail `add_memory` write path.
+                 * @type {number}
+                 */
+                embedDrainStallThresholdMs: leaf(6 * 60 * 60 * 1000, 'NEO_MEMORY_WAL_EMBED_DRAIN_STALL_THRESHOLD_MS', 'number'),
+                /**
                  * Hosts the WAL drain loop INSIDE the memory-core server process — the
                  * containerized / single-process deployment shape (dockerized MC, npx-neo-app
                  * workspaces) where no orchestrator-supervised embed daemon exists.
