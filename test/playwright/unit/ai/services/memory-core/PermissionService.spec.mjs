@@ -37,7 +37,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
         originalDbPath = aiConfig.storagePaths.graph;
         aiConfig.storagePaths.graph = dbPath;
 
-        // Mock Chroma collections to prevent production data wipes (#10845 / #10867)
+        // Mock Chroma collections to prevent production data wipes
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
@@ -63,7 +63,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
 
         originalAutoSave = GraphService.db.autoSave;
 
-        // @summary Enables autoSave for the duration of the test suite (#10256).
+        // @summary Enables autoSave for the duration of the test suite.
         // This is necessary because these tests assert SQLite state via direct queries.
         // Without autoSave = true, the memory-state and disk-state may diverge,
         // causing intermittent assertion failures in serial mode.
@@ -175,6 +175,22 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await expect(PermissionService.listPermissions({ forIdentity: '@bob' }))
                 .rejects.toThrow('Unauthorized: Cannot enumerate permissions for @bob');
+        });
+    });
+
+    test('listPermissions routes the unbound case through the named helper (#13488 GPT RA1)', async () => {
+        // No agentIdentityNodeId bound -> the `if (!caller)` guard fires; the shared helper names
+        // the attempted handle + remediation instead of the bare "no agent identity context bound".
+        await RequestContextService.run({userId: 'unseeded-agent', source: 'env-var'}, async () => {
+            let err;
+            try {
+                await PermissionService.listPermissions();
+            } catch (e) {
+                err = e;
+            }
+            expect(err).toBeDefined();
+            expect(err.message).toContain('Cannot list permissions: no agent identity context bound');
+            expect(err.message).toContain('unseeded-agent'); // proves the rich helper, not the bare string
         });
     });
 

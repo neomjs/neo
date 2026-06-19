@@ -329,7 +329,7 @@ class WakeSubscriptionService extends Base {
      */
     async bootstrap({overrideMetadata, presence = {}, bootId = this.bootId, pid = process.pid, now = new Date()} = {}) {
         const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
+        if (!owner) throw RequestContextService.unboundIdentityError('bootstrap subscription');
 
         // Cross-session duplicate-accumulation defense.
         //
@@ -614,7 +614,7 @@ class WakeSubscriptionService extends Base {
      */
     async subscribe({trigger, filters = {}, harnessTarget, harnessTargetMetadata = {}} = {}) {
         const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw new Error('Cannot create subscription: no agent identity context bound.');
+        if (!owner) throw RequestContextService.unboundIdentityError('create subscription');
 
         if (!this.validTriggers.includes(trigger)) {
             throw new Error(`Invalid trigger '${trigger}'. Must be one of: ${this.validTriggers.join(', ')}`);
@@ -696,7 +696,7 @@ class WakeSubscriptionService extends Base {
      */
     async unsubscribe({subscriptionId} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot unsubscribe: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('unsubscribe');
         if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
 
         const subscription = this._loadSubscription(subscriptionId);
@@ -743,7 +743,7 @@ class WakeSubscriptionService extends Base {
      */
     async update({subscriptionId, filters, harnessTarget, harnessTargetMetadata} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot update subscription: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('update subscription');
         if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
 
         const subscription = this._loadSubscription(subscriptionId);
@@ -818,7 +818,7 @@ class WakeSubscriptionService extends Base {
      */
     async list({subscriptionId} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot list subscriptions: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('list subscriptions');
 
         if (subscriptionId) {
             const subscription = this._loadSubscription(subscriptionId);
@@ -904,7 +904,7 @@ class WakeSubscriptionService extends Base {
      */
     async resync({subscriptionId, sinceLogId = 0} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot resync: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('resync');
         if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
 
         const subscription = this._loadSubscription(subscriptionId);
