@@ -172,9 +172,9 @@ paths:
 
 
         Layers (precedence): (1) participationStatus hard gate — operator_benched /
-        temporarily_unreachable report offline; (2) turn-started beacon (primary active-turn proof)
-        — pending the turn-presence writer (not yet emitted), currently inert and never faked; (3) HarnessPresence
-        freshness — corroboration until the beacon ships.
+        temporarily_unreachable report offline; (2) turn-started beacon — reserved as the future
+        primary active-turn proof, but not yet emitted, so currently an inert null slot the code never
+        reads (never faked); (3) HarnessPresence freshness — the corroboration that decides availability today.
       tags: [Health]
       requestBody:
         required: false

@@ -520,11 +520,13 @@ class WakeSubscriptionService extends Base {
      * Composes the liveness layers, in precedence order:
      * 1. **`participationStatus` hard gate** — `operator_benched` / `temporarily_unreachable`
      *    report `online:false` regardless of any softer signal.
-     * 2. **Turn-started beacon (primary)** — the trusted per-turn beacon (`AGENT_TURN_PRESENCE`)
-     *    is not yet emitted, so this slot is inert (`signals.beacon:null`). When that writer lands,
-     *    its freshness becomes the primary active-turn proof. Stubbed, never faked: a running
-     *    harness is not a live agent, and a fail-closeable write-tool (`add_memory`) is not a
-     *    reliable liveness primary either (it false-negatives under the very load that proves life).
+     * 2. **Turn-started beacon (reserved)** — the trusted per-turn beacon (`AGENT_TURN_PRESENCE`)
+     *    is not yet emitted, so this is a reserved slot that always returns `signals.beacon:null`
+     *    today. When that writer lands, a follow-up extends this projection to read the beacon's
+     *    freshness as the primary active-turn proof (demoting HarnessPresence to corroboration);
+     *    it is NOT auto-activated by the current code, which never reads a beacon. Reserved, never
+     *    faked: a running harness is not a live agent, and a fail-closeable write-tool (`add_memory`)
+     *    is not a reliable liveness primary either (it false-negatives under the load that proves life).
      * 3. **HarnessPresence freshness (corroboration)** — the best available liveness signal until
      *    the beacon ships: `freshUntil` (the {@link WakeSubscriptionService#harnessPresenceFreshMs}
      *    window) still ahead of now ⇒ corroborated-online; stale or absent ⇒ probably-dark.
@@ -545,8 +547,8 @@ class WakeSubscriptionService extends Base {
 
         return {
             generatedAt : new Date(nowMs).toISOString(),
-            beaconStatus: 'turn-started beacon (primary active-turn proof) pending Substrate A (the turn-presence writer); ' +
-                          'availability below is participationStatus-gated + HarnessPresence-corroborated',
+            beaconStatus: 'turn-started beacon (reserved as the future primary signal) pending Substrate A (the turn-presence writer); ' +
+                          'availability below is decided by the participationStatus gate + HarnessPresence corroboration',
             agents
         };
     }
