@@ -552,7 +552,7 @@ async function runEmbedDrainLivenessWatchdogTask({taskName, reason, services, ru
             now
         });
 
-        const state      = services.taskStateService.getTaskState(taskName);
+        const state       = services.taskStateService.getTaskState(taskName);
         const alarmState  = state?.embedDrainAlarm ?? null;
         const thresholdMs = runtime.embedDrainLivenessWatchdogThresholdMs;
 

@@ -1,5 +1,5 @@
 import {test, expect}  from '@playwright/test';
-import {mkdtemp, rm}    from 'fs/promises';
+import {mkdtemp, rm}   from 'fs/promises';
 import os               from 'os';
 import path             from 'path';
 
@@ -51,7 +51,7 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — getEmbedDr
     });
 
     test('(a) reports oldest age + pending count over a fixture WAL (oldest = max age)', async () => {
-        const now   = Date.UTC(2026, 5, 3, 12);
+        const now    = Date.UTC(2026, 5, 3, 12);
         const oldest = now - 5 * HOUR_MS;       // 5h old (the oldest pending)
         const newer  = now - 1 * HOUR_MS;       // 1h old
 
