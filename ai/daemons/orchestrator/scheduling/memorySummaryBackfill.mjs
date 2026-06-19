@@ -30,6 +30,8 @@ export function getPendingMemorySummaryBackfillJobs(db, {limit = 50} = {}) {
             FROM Nodes memory
             WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
               AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+              -- exclude rows archived as structurally un-summarizable (no recoverable content)
+              AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
             ORDER BY json_extract(memory.data, '$.properties.timestamp') DESC, memory.id DESC
             LIMIT ?
         `).all(numericLimit).map(row => row.id).filter(Boolean);
@@ -58,6 +60,8 @@ export function getPendingMemorySummaryBackfillCount(db) {
             FROM Nodes memory
             WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
               AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+              -- exclude rows archived as structurally un-summarizable (no recoverable content)
+              AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
         `).get();
 
         return Number.isInteger(row?.n) ? row.n : null;
@@ -90,6 +94,8 @@ export function getStillPendingMemorySummaryBackfillJobs(db, ids = []) {
             FROM Nodes memory
             WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
               AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+              -- an archived row is no longer pending: it counts as progress, not a stuck attempt
+              AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
               AND memory.id IN (${placeholders})
         `).all(...ids).map(row => row.id).filter(Boolean);
     } catch {
