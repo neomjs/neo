@@ -9,6 +9,7 @@ import SummaryService          from '../../../services/memory-core/SummaryServic
 import MailboxService          from '../../../services/memory-core/MailboxService.mjs';
 import PermissionService       from '../../../services/memory-core/PermissionService.mjs';
 import WakeSubscriptionService from '../../../services/memory-core/WakeSubscriptionService.mjs';
+import TurnPresenceService     from '../../../services/memory-core/TurnPresenceService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -46,6 +47,7 @@ const serviceMapping = {
     revoke_permission       : PermissionService      .revokePermission        .bind(PermissionService),
     list_permissions        : PermissionService      .listPermissions         .bind(PermissionService),
     manage_wake_subscription: WakeSubscriptionService.manage                  .bind(WakeSubscriptionService),
+    record_turn_presence    : TurnPresenceService    .recordTurnPresence      .bind(TurnPresenceService),
     purge_session           : SessionService         .purgeSession            .bind(SessionService),
     resume_session          : SessionService         .validateSessionForResume.bind(SessionService),
     set_session_id          : SessionService         .setSessionId            .bind(SessionService)

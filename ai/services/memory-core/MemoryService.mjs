@@ -4,6 +4,7 @@ import crypto                from 'crypto';
 import GraphService          from './GraphService.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
 import SessionService        from './SessionService.mjs';
+import TurnPresenceService   from './TurnPresenceService.mjs';
 import {withTimeout}         from './helpers/withTimeout.mjs';
 import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import {buildChatModel}      from '../../provider/buildChatModel.mjs';
@@ -538,6 +539,19 @@ class MemoryService extends Base {
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
             //    so a degraded mailbox query never blocks a successful memory write.
             const mailbox = buildMailboxDelta();
+
+            // 6. Completed-turn terminal proof: closes the active turn-presence interval when
+            //    add_memory succeeds, but never makes add_memory the liveness primary or a failure
+            //    dependency. If graph/presence is degraded, the WAL save remains successful.
+            try {
+                await TurnPresenceService.recordTurnPresence({
+                    action       : 'terminal',
+                    terminalState: 'completed',
+                    source       : 'add_memory'
+                });
+            } catch (error) {
+                logger.warn(`[MemoryService] Turn presence terminalization skipped (non-fatal): ${error.message}`);
+            }
 
             return {id: memoryId, sessionId, timestamp, message: "Memory successfully added", mailbox};
         } catch (error) {
