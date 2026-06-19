@@ -1,5 +1,5 @@
-import {test, expect}  from '@playwright/test';
-import {mkdtemp, rm}   from 'fs/promises';
+import {test, expect}   from '@playwright/test';
+import {mkdtemp, rm}    from 'fs/promises';
 import os               from 'os';
 import path             from 'path';
 
