@@ -269,6 +269,7 @@ test.describe('Tier 1 Config Immutability', () => {
             expect(source).toContain(`${envPrefix}_ENABLED`);
             expect(source).toContain(`${envPrefix}_MAX_AGE_DAYS`);
             expect(source).toContain(`${envPrefix}_MAX_FILES`);
+            expect(source).toContain(`${envPrefix}_MAX_TOTAL_BYTES`);
         }
     });
 });
