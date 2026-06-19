@@ -56,7 +56,7 @@ export async function initializeDatabaseSelfBootstrap(dbPath) {
  * @returns {Boolean}
  */
 function resolveLocalDeploymentDefault(cfg) {
-    if (cfg !== null && cfg !== undefined) return cfg;
+    if (cfg != null) return cfg;
     return AiConfig.orchestrator.deploymentMode !== 'cloud';
 }
 
@@ -75,7 +75,7 @@ function resolveDeploymentEnabled(key) {
  */
 function resolveCloudOnlyEnabled(key) {
     const cfg = AiConfig.orchestrator.cloudOnly[key];
-    if (cfg !== null && cfg !== undefined) return cfg;
+    if (cfg != null) return cfg;
     return AiConfig.orchestrator.deploymentMode === 'cloud';
 }
 
@@ -231,21 +231,21 @@ export class Orchestrator extends Base {
         const lmsPreloadConfig = this.lmsPreloadConfig;
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
-            nodeBin   : options.nodeBin || process.argv[0],
-            chromaPort: AiConfig.engines.chroma.port,
+            nodeBin                    : options.nodeBin || process.argv[0],
+            chromaPort                 : AiConfig.engines.chroma.port,
             devServerPort              : AiConfig.orchestrator.devServer.port,
             devServerLivenessTimeoutMs : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
-            mlxEnabled: this.mlxEnabled,
-            mlxModel  : AiConfig.orchestrator.mlx.model,
-            mlxPort   : AiConfig.orchestrator.mlx.port,
-            lmsEnabled: this.lmsEnabled,
-            lmsModel  : AiConfig.orchestrator.lms.model,
-            lmsModels : lmsPreloadConfig.models,
-            lmsHost   : AiConfig.openAiCompatible.host,
-            lmsPort   : AiConfig.orchestrator.lms.port,
-            lmsContextLengths: lmsPreloadConfig.contextLengths,
-            providerReadiness: AiConfig.orchestrator.providerReadiness,
-            graphLogCompactionVacuum: AiConfig.orchestrator.graphLogCompaction.vacuum
+            mlxEnabled                 : this.mlxEnabled,
+            mlxModel                   : AiConfig.orchestrator.mlx.model,
+            mlxPort                    : AiConfig.orchestrator.mlx.port,
+            lmsEnabled                 : this.lmsEnabled,
+            lmsModel                   : AiConfig.orchestrator.lms.model,
+            lmsModels                  : lmsPreloadConfig.models,
+            lmsHost                    : AiConfig.openAiCompatible.host,
+            lmsPort                    : AiConfig.orchestrator.lms.port,
+            lmsContextLengths          : lmsPreloadConfig.contextLengths,
+            providerReadiness          : AiConfig.orchestrator.providerReadiness,
+            graphLogCompactionVacuum   : AiConfig.orchestrator.graphLogCompaction.vacuum
         });
 
         this.dbPath                    = options.dbPath   || DEFAULT_DB_PATH;
