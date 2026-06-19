@@ -258,6 +258,12 @@ happens — it is backpressure, not a quota. This is liveness, not throughput: n
 contribution-counter, no per-wake ledger, no N-PR quota; a peer doing less while
 actively working still passes.
 
+**Driver-mode continuity:** "positive-ROI work remains" means the
+highest-available-value lane after the lifecycle queue, not the nearest
+comfortable implementation lane. When review scarcity is the bottleneck, use
+the author-concentration telemetry (§4) to prefer liveness work that does not
+pile more review load onto the same scarce reviewers.
+
 **The ONLY legitimate turn-terminals are externally-falsifiable** (another
 observer can confirm each against repo/board/operator evidence): `verified-empty`
 (the named backlog self-survey below, zero claimable-now lane), `human-gate`
@@ -302,6 +308,14 @@ If any positive-ROI candidate survives that survey, emit
 `lane-state: next-lane (...)` and start the intake/claim path. A human-gated
 own PR plus an unqueried backlog is the stale-yield/idle-out failure mode that
 Epic #12440 rejects.
+
+If multiple clean own PRs have peer review requested and no reviewer
+read/claim/decline/reassign signal in the active window, the next lane is
+coordination, not another implementation PR. Send targeted claim-or-decline A2A
+to each requested reviewer, name the PRs and current checks, and pause
+additional implementation PRs until the stack moves or is explicitly
+rebalanced. This is a liveness route, not reviewer assignment or a productive
+author throttle.
 
 ### Broadcast-Suppressed Coordination Fallback
 

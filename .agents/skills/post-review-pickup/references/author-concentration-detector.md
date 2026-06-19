@@ -68,3 +68,13 @@ review, lane-claim, PR, or issue activity in the active work window. If peers
 are cold, asleep, benched, or unreachable, do not broadcast into a void and call
 it balance; route to the existing liveness/capability legs instead (#12444 /
 #12445 / #12446).
+
+## Reviewer-Scarcity Routing
+
+When the bottleneck is scarce cross-family review rather than a lack of author
+capacity, do not open another implementation PR that will join the same review
+queue by default. Prefer non-reviewer-piling lanes: peer reviews you are
+requested on, ticket-only analysis, substrate evidence gathering, issue/body
+cleanup, or targeted A2A claim-or-decline routing for already-green PRs. This
+still must not become a quota, FAIR band, or request that a productive author
+slow down; it routes pressure toward liveness.

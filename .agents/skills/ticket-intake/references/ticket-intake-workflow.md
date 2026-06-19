@@ -102,7 +102,12 @@ If the ticket passes validation and yields a positive ROI, you MUST execute the 
 Signal to the Swarm that this ticket is actively being worked. Before assigning yourself, you MUST verify that the ticket is not already owned by another active agent or human.
 
 1. **Query Existing Assignee:** Read the `assignees` array by fetching the live issue via the `mcp_neo-mjs-github-workflow_get_conversation` tool.
-2. **If Empty:** Proceed with assignment:
+2. **If Empty:** First read the live issue body and recent maintainer/agent
+   comments for operator reservation, explicit peer ownership, or in-flight
+   handoff markers. `unassigned` does not equal `available`; if the body or
+   thread reserves the lane, treat it as owned and route a clarification or
+   claim-or-decline A2A instead of assigning yourself. If no reservation
+   survives that V-B-A, proceed with assignment:
    ```
    manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])
    ```
