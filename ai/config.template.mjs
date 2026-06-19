@@ -423,6 +423,15 @@ class Config extends ConfigProvider {
                     vacuum : leaf(false, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_VACUUM', 'boolean')
                 },
                 /**
+                 * Neural Link Bridge local-supervision policy. The bridge port itself is owned
+                 * by `ai/mcp/server/neural-link/config.mjs` (`NEO_NL_PORT`); this block only
+                 * controls orchestrator-side probing.
+                 * @type {Object}
+                 */
+                neuralLinkBridge: {
+                    livenessProbeTimeoutMs: leaf(1000, 'NEO_ORCHESTRATOR_NL_BRIDGE_LIVENESS_TIMEOUT_MS', 'number')
+                },
+                /**
                  * Swarm-heartbeat target-resolver config. Controls which identity set
                  * `SwarmHeartbeatService.pulse()` targets per cycle via the resolver
                  * precedence chain. Env override: `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
@@ -502,6 +511,7 @@ class Config extends ConfigProvider {
                     // reaches the compose-owned `chroma` peer container instead.
                     chromaDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
                     bridgeDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    neuralLinkBridgeEnabled        : leaf(null, 'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED', 'boolean'),
                     // The embed daemon durably drains the add_memory WAL into the content store
                     // (ai/daemons/embed/daemon.mjs). Local profile supervises it as a child
                     // process; cloud deployments own their drain story per-container (mirror of

@@ -6,6 +6,7 @@ import path                        from 'path';
 import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import AiConfig                    from '../../config.mjs';
+import neuralLinkConfig            from '../../mcp/server/neural-link/config.mjs';
 import {buildLmsPreloadConfig}     from '../../services/graph/providerReadinessHelper.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import SQLite                      from '../../graph/storage/SQLite.mjs';
@@ -207,10 +208,12 @@ export class Orchestrator extends Base {
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }
+    get neuralLinkBridgeEnabled()        { return resolveDeploymentEnabled('neuralLinkBridgeEnabled');        }
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
+    get neuralLinkBridgeLivenessTimeoutMs() { return AiConfig.orchestrator.neuralLinkBridge.livenessProbeTimeoutMs; }
 
     get mlxEnabled() { return !!AiConfig.orchestrator.mlx.enabled; }
     get lmsEnabled() { return !!AiConfig.orchestrator.lms.enabled; }
@@ -231,21 +234,23 @@ export class Orchestrator extends Base {
         const lmsPreloadConfig = this.lmsPreloadConfig;
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
-            nodeBin                    : options.nodeBin || process.argv[0],
-            chromaPort                 : AiConfig.engines.chroma.port,
-            devServerPort              : AiConfig.orchestrator.devServer.port,
-            devServerLivenessTimeoutMs : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
-            mlxEnabled                 : this.mlxEnabled,
-            mlxModel                   : AiConfig.orchestrator.mlx.model,
-            mlxPort                    : AiConfig.orchestrator.mlx.port,
-            lmsEnabled                 : this.lmsEnabled,
-            lmsModel                   : AiConfig.orchestrator.lms.model,
-            lmsModels                  : lmsPreloadConfig.models,
-            lmsHost                    : AiConfig.openAiCompatible.host,
-            lmsPort                    : AiConfig.orchestrator.lms.port,
-            lmsContextLengths          : lmsPreloadConfig.contextLengths,
-            providerReadiness          : AiConfig.orchestrator.providerReadiness,
-            graphLogCompactionVacuum   : AiConfig.orchestrator.graphLogCompaction.vacuum
+            nodeBin                            : options.nodeBin || process.argv[0],
+            chromaPort                         : AiConfig.engines.chroma.port,
+            devServerPort                      : AiConfig.orchestrator.devServer.port,
+            devServerLivenessTimeoutMs         : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
+            neuralLinkBridgePort               : neuralLinkConfig.port,
+            neuralLinkBridgeLivenessTimeoutMs  : this.neuralLinkBridgeLivenessTimeoutMs,
+            mlxEnabled                         : this.mlxEnabled,
+            mlxModel                           : AiConfig.orchestrator.mlx.model,
+            mlxPort                            : AiConfig.orchestrator.mlx.port,
+            lmsEnabled                         : this.lmsEnabled,
+            lmsModel                           : AiConfig.orchestrator.lms.model,
+            lmsModels                          : lmsPreloadConfig.models,
+            lmsHost                            : AiConfig.openAiCompatible.host,
+            lmsPort                            : AiConfig.orchestrator.lms.port,
+            lmsContextLengths                  : lmsPreloadConfig.contextLengths,
+            providerReadiness                  : AiConfig.orchestrator.providerReadiness,
+            graphLogCompactionVacuum           : AiConfig.orchestrator.graphLogCompaction.vacuum
         });
 
         this.dbPath                    = options.dbPath   || DEFAULT_DB_PATH;
@@ -357,6 +362,7 @@ export class Orchestrator extends Base {
             ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
             ...(this.devServerEnabled    ? ['devServer'] : []),
+            ...(this.neuralLinkBridgeEnabled ? ['neuralLinkBridge'] : []),
             ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
             'mlx',
             'lms'

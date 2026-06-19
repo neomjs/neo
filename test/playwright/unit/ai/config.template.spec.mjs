@@ -144,6 +144,7 @@ test.describe('Tier 1 Config Immutability', () => {
             kbSyncEnabled        : null,
             chromaDaemonEnabled  : null,
             bridgeDaemonEnabled  : null,
+            neuralLinkBridgeEnabled: null,
             embedDaemonEnabled   : null,
             goldenPathRepoEnrichmentEnabled: null,
             swarmHeartbeatEnabled: null,
