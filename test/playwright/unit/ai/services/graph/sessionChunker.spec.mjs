@@ -105,4 +105,31 @@ test.describe('ai/services/graph/sessionChunker', () => {
             expect(() => chunkSession(null, {sessionId: 's', safeProcessingLimitTokens: 250})).not.toThrow();
         });
     });
+
+    test.describe('chunkSession — emitted-text boundedness (#13514 review: join separators counted)', () => {
+        test('boundary-tight input: no chunk reports under-limit while its emitted text estimates over-limit', () => {
+            // GPT falsifier: ['aaaa','aaaa'] @ limit 2 — the per-turn sum was 2 (under), but the joined
+            // text (aaaa + newline + aaaa = 9 chars) estimates 3 (over). The bound must reflect the emitted text.
+            const {chunked, chunks} = chunkSession(['aaaa', 'aaaa'], {sessionId: 's', safeProcessingLimitTokens: 2});
+
+            expect(chunked).toBe(true);
+            for (const chunk of chunks) {
+                expect(chunk.estimatedTokens).toBe(estimateTokens(chunk.text)); // reported === actual emitted-text estimate
+                expect(estimateTokens(chunk.text)).toBeLessThanOrEqual(2);      // and within the limit
+            }
+        });
+
+        test('every chunk reports estimatedTokens === estimate(text); non-oversized chunks stay within the limit', () => {
+            const turns = Array.from({length: 7}, (_, i) => `turn${i}:` + 'y'.repeat(300)); // ~77 tokens each
+            const limit = 200;
+            const {chunks} = chunkSession(turns, {sessionId: 'inv', safeProcessingLimitTokens: limit});
+
+            for (const chunk of chunks) {
+                expect(chunk.estimatedTokens).toBe(estimateTokens(chunk.text));
+                if (!chunk.oversizedTurn) {
+                    expect(chunk.estimatedTokens).toBeLessThanOrEqual(limit);
+                }
+            }
+        });
+    });
 });

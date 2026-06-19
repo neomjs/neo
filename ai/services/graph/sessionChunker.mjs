@@ -38,10 +38,12 @@ export function estimateTokens(text, tokensPerChar = DEFAULT_TOKENS_PER_CHAR) {
 /**
  * @summary Split turn-aligned session content into deterministic, safe-band-bounded chunks.
  *
- * **Greedy left-to-right packing:** a chunk accretes whole turns until the next turn would push it over
- * `safeProcessingLimitTokens`, then a new chunk opens. Turns are NEVER split mid-turn — boundaries are
- * turn-aligned. A single turn that alone exceeds the limit becomes its own chunk flagged `oversizedTurn: true`
- * (kept intact, not split); the integration routes those through the existing guardrail/failure path.
+ * **Greedy left-to-right packing:** a chunk accretes whole turns until the next turn would push the *emitted*
+ * (separator-joined) chunk text over `safeProcessingLimitTokens`, then a new chunk opens. Bounds are measured on
+ * the joined text — never the bare per-turn sum — so a chunk's `estimatedTokens` always equals
+ * `estimateTokens(chunk.text)` and never under-counts the `\n` join separators. Turns are NEVER split mid-turn —
+ * boundaries are turn-aligned. A single turn that alone exceeds the limit becomes its own chunk flagged
+ * `oversizedTurn: true` (kept intact, not split); the integration routes those through the guardrail/failure path.
  *
  * **Small-session fast path:** when the whole session estimates at or below the limit, a single chunk is
  * returned with `chunked: false`, so the caller preserves the current single-pass behavior unchanged.
@@ -57,13 +59,14 @@ export function estimateTokens(text, tokensPerChar = DEFAULT_TOKENS_PER_CHAR) {
  * @returns {{chunked: Boolean, totalEstimatedTokens: Number, chunks: Array<{chunkId: String, turnIndices: Number[], text: String, estimatedTokens: Number, oversizedTurn: Boolean}>}}
  */
 export function chunkSession(turns, {sessionId, safeProcessingLimitTokens, estimate = estimateTokens} = {}) {
-    const safeTurns   = Array.isArray(turns) ? turns : [],
+    const SEP         = '\n',
+          safeTurns   = Array.isArray(turns) ? turns : [],
           limit       = Number.isFinite(safeProcessingLimitTokens) && safeProcessingLimitTokens > 0 ? safeProcessingLimitTokens : Infinity,
           turnTexts   = safeTurns.map(turn => typeof turn === 'string' ? turn : ''),
-          turnTokens  = turnTexts.map(text => estimate(text)),
-          totalTokens = turnTokens.reduce((sum, t) => sum + t, 0);
+          fullText    = turnTexts.join(SEP),
+          totalTokens = estimate(fullText);
 
-    // Small-session fast path: single chunk, single-pass behavior preserved.
+    // Small-session fast path: the whole joined document fits → single-pass behavior preserved.
     if (totalTokens <= limit) {
         return {
             chunked             : false,
@@ -71,7 +74,7 @@ export function chunkSession(turns, {sessionId, safeProcessingLimitTokens, estim
             chunks              : [{
                 chunkId        : `${sessionId}:chunk:0`,
                 turnIndices    : turnTexts.map((_, index) => index),
-                text           : turnTexts.join('\n'),
+                text           : fullText,
                 estimatedTokens: totalTokens,
                 oversizedTurn  : false
             }]
@@ -79,42 +82,43 @@ export function chunkSession(turns, {sessionId, safeProcessingLimitTokens, estim
     }
 
     const chunks  = [];
-    let   current = null; // {turnIndices, parts, tokens, oversizedTurn}
+    let   current = null; // {turnIndices, parts, oversizedTurn}
 
+    // Bounds are measured on the EMITTED (separator-joined) text, so a chunk's reported estimatedTokens
+    // always equals estimate(chunk.text) and can't under-count the `\n` join separators — a per-turn-sum
+    // bound would report under-limit while the joined text estimates over.
     const flush = () => {
         if (!current) return;
+        const text = current.parts.join(SEP);
         chunks.push({
             chunkId        : `${sessionId}:chunk:${chunks.length}`,
             turnIndices    : current.turnIndices,
-            text           : current.parts.join('\n'),
-            estimatedTokens: current.tokens,
+            text,
+            estimatedTokens: estimate(text),
             oversizedTurn  : current.oversizedTurn === true
         });
         current = null;
     };
 
     turnTexts.forEach((text, index) => {
-        const tokens = turnTokens[index];
-
-        // A single turn larger than the whole limit: keep it intact as its own flagged chunk
+        // A single turn whose own text exceeds the limit: keep it intact as its own flagged chunk
         // rather than splitting mid-turn. The integration routes oversized chunks to the guardrail/failure path.
-        if (tokens > limit) {
+        if (estimate(text) > limit) {
             flush();
-            current = {turnIndices: [index], parts: [text], tokens, oversizedTurn: true};
+            current = {turnIndices: [index], parts: [text], oversizedTurn: true};
             flush();
             return;
         }
 
-        // Adding this turn would overflow the open chunk → seal it and start fresh.
-        if (current && current.tokens + tokens > limit) {
+        // Would adding this turn push the EMITTED chunk text (join separators included) over the limit? Seal and start fresh.
+        if (current && estimate(current.parts.concat(text).join(SEP)) > limit) {
             flush();
         }
         if (!current) {
-            current = {turnIndices: [], parts: [], tokens: 0, oversizedTurn: false};
+            current = {turnIndices: [], parts: [], oversizedTurn: false};
         }
         current.turnIndices.push(index);
         current.parts.push(text);
-        current.tokens += tokens;
     });
 
     flush();
