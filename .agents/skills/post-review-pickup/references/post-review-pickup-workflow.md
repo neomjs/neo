@@ -115,13 +115,10 @@ Do not search for a blocker to justify stopping; if the active lane exposes a
 real system defect, file or route the bug ticket, then continue lane selection.
 
 **PR-State Freshness Gate:** any `lane-state:`, A2A broadcast, or report that names a PR's
-review/merge status MUST be preceded by a live `gh pr view <N> --json state,mergedAt` read —
-the triggering signal (A2A, wake, comment) is a recovery hint, NOT the work gate. Under
-merge-on-approval, signals go stale in seconds: reporting an already-MERGED PR as
-awaiting operator merge broadcasts a false board to the whole swarm (empirical:
-PR `#12950`'s `[merge-eligible]` landed 15s post-merge; PR `#12956`'s approval
-relay missed the merge by seconds — both operator-flagged 2026-06-12). Rule
-detail + verdict-not-enum companion: `pr-review-guide.md §10.1`.
+review/merge status MUST first run live `gh pr view <N> --json state,mergedAt,baseRefName`;
+wakes are hints, not cache. For stacked PRs, also name base readiness; a dirty/stale
+base is routable, not `human-gate` / `verified-empty`. Relay the review body's §9 verdict,
+not the flattened enum.
 
 ## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
 
