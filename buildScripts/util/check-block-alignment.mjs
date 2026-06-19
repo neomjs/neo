@@ -4,26 +4,35 @@ import fs from 'fs';
  * @module buildScripts/util/check-block-alignment
  * @summary Lint (with `--fix`) that enforces Neo's aligned-block house style mechanically, so neither
  * a human nor a frontier model has to hand-count alignment padding (the negative-ROI, mis-count-prone
- * task that motivated this gate).
+ * task that motivated this gate). House-style source of authority: `.github/CODING_GUIDELINES.md`
+ * (rule 2 colon-align; rule 35 `=`-align).
  *
- * **v1 scope: import-`from` alignment.** Within a run of consecutive single-line `import … from …`
- * statements, the `from` keyword aligns to one shared column = the widest `import <clause>` in the run
- * + one space. Object-literal colon alignment and `=`-declaration-block alignment are documented
- * fast-follows (the `=` convention differs by tree — deferred as a documented follow-up).
+ * Three alignment groups, each COMPUTED (never eyeballed):
  *
- * The column math is computed, never eyeballed — that is the entire point of the gate.
+ * 1. **import-`from`** (v1) — within a run of ≥ 2 consecutive single-line `import … from …`, the
+ *    `from` aligns to one column = the widest `import <clause>` + one space.
+ * 2. **object-literal colons** (v1b) — within a run of ≥ 2 consecutive same-indent object properties,
+ *    the key `:` aligns to one column = the widest key. Shorthand properties (`foo,`) stay in the run
+ *    but are not themselves aligned; nested objects re-group at their own indent.
+ * 3. **`=` declaration blocks** (v1b) — within a `const`/`let`/`var` declaration block (either
+ *    repeated-keyword lines OR indented `name = value` lines under a lone keyword line), the `=`
+ *    aligns to one column. Agnostic to comma-vs-repeat-keyword structure (per the convention
+ *    resolution). Bare (non-declaration) assignments are NOT aligned — declaration-anchored only, so
+ *    the gate never re-aligns arbitrary `a = b` statements.
+ *
+ * Conservative grouping (≥ 2 members, same indent, broken by any non-conforming line) so the gate
+ * never touches an un-alignable shape and cannot false-positive. The column math is the entire point.
  *
  * Usage:
  *   node buildScripts/util/check-block-alignment.mjs <file.mjs> [...]       # check; exit 1 on drift
  *   node buildScripts/util/check-block-alignment.mjs --fix <file.mjs> [...] # rewrite to aligned form
- *
- * Multi-line imports (`import {\n  a\n} from …`) and lone single imports are intentionally NOT grouped
- * in v1: a run is ≥ 2 consecutive single-line imports, so the gate never touches an un-alignable shape.
  */
+
+// ───────────────────────────── import-`from` (v1) ─────────────────────────────
 
 /** Matches a single-line import that carries both a clause and a `from` source on one line. */
 const SINGLE_LINE_IMPORT = /^import\s+(.*?)\s+from\s+(.+)$/;
-const IMPORT_PREFIX       = 'import ';
+const IMPORT_PREFIX      = 'import ';
 
 /**
  * @summary Splits a file's lines into maximal runs of consecutive single-line imports, returning the
@@ -66,7 +75,7 @@ function alignedImportLine({clause, source}, fromColumn) {
  * @summary Evaluates a file for import-`from` alignment drift. Pure: returns the misaligned lines and
  * the would-be-fixed line array, mutating nothing.
  * @param {String[]} lines
- * @returns {{violations: Array<{lineIndex: Number, expectedColumn: Number}>, fixedLines: String[]}}
+ * @returns {{violations: Array<{lineIndex: Number, expectedColumn: Number, kind: String}>, fixedLines: String[]}}
  */
 function evaluateImportAlignment(lines) {
     const
@@ -82,7 +91,7 @@ function evaluateImportAlignment(lines) {
         for (const entry of run) {
             const expected = alignedImportLine(entry, fromColumn);
             if (expected !== lines[entry.lineIndex]) {
-                violations.push({lineIndex: entry.lineIndex, expectedColumn: fromColumn});
+                violations.push({lineIndex: entry.lineIndex, expectedColumn: fromColumn, kind: 'import'});
                 fixedLines[entry.lineIndex] = expected;
             }
         }
@@ -91,26 +100,266 @@ function evaluateImportAlignment(lines) {
     return {violations, fixedLines};
 }
 
+// ─────────────────────────── object-literal colons (v1b) ───────────────────────────
+
+const
+    COLON_PROPERTY     = /^(\s+)([A-Za-z_$][\w$]*|'[^']*'|"[^"]*"|\[[^\]]+\])\s*:\s+(\S.*)$/,
+    SHORTHAND_PROPERTY = /^(\s+)([A-Za-z_$][\w$]*),?\s*$/;
+
 /**
- * @summary Checks (or, with `fix`, rewrites) one file's import-`from` alignment.
+ * @summary Parses one line as an object property: a `key: value` (`colon`) or a shorthand `key,`
+ * (`shorthand`). Returns `null` for anything else. Only a leading identifier/quoted key with a
+ * following value counts as a colon property — a value-internal colon (ternary, URL) never matches,
+ * since the key+colon are anchored at line start.
+ * @param {String} line
+ * @returns {{indent: String, kind: String, key?: String, value?: String}|null}
+ */
+function parsePropertyLine(line) {
+    const colon = COLON_PROPERTY.exec(line);
+    if (colon) return {indent: colon[1], kind: 'colon', key: colon[2], value: colon[3]};
+
+    const shorthand = SHORTHAND_PROPERTY.exec(line);
+    if (shorthand) return {indent: shorthand[1], kind: 'shorthand'};
+
+    return null;
+}
+
+/**
+ * @summary Splits lines into maximal runs of consecutive same-indent object properties (colon OR
+ * shorthand). A shorthand stays in the run (keeping a block together across e.g. `now,`) but is not
+ * itself aligned; an indent change, blank line, or any non-property line ends the run, so a nested
+ * object re-groups at its own indent and code can never be swept in.
+ * @param {String[]} lines
+ * @returns {Array<Array<{lineIndex: Number, indent: String, kind: String, key?: String, value?: String}>>}
+ */
+function collectPropertyRuns(lines) {
+    const runs    = [];
+    let   current = [];
+
+    lines.forEach((line, lineIndex) => {
+        const property = parsePropertyLine(line);
+        if (property && (current.length === 0 || property.indent === current[0].indent)) {
+            current.push({lineIndex, ...property});
+        } else {
+            if (current.length > 0) runs.push(current);
+            current = property ? [{lineIndex, ...property}] : [];
+        }
+    });
+
+    if (current.length > 0) runs.push(current);
+
+    return runs;
+}
+
+/**
+ * @summary Evaluates object-literal colon alignment. Within each property run, the key colons align
+ * to one column = the widest key. Pure.
+ * @param {String[]} lines
+ * @returns {{violations: Array<{lineIndex: Number, expectedColumn: Number, kind: String}>, fixedLines: String[]}}
+ */
+function evaluateColonAlignment(lines) {
+    const
+        violations = [],
+        fixedLines = lines.slice();
+
+    for (const run of collectPropertyRuns(lines)) {
+        const colonMembers = run.filter(entry => entry.kind === 'colon');
+        if (colonMembers.length < 2) continue; // a lone colon property is not an alignment group
+
+        const
+            indent   = run[0].indent,
+            keyWidth = Math.max(...colonMembers.map(entry => entry.key.length));
+
+        for (const entry of colonMembers) {
+            const expected = `${indent}${entry.key.padEnd(keyWidth)}: ${entry.value}`;
+            if (expected !== lines[entry.lineIndex]) {
+                violations.push({lineIndex: entry.lineIndex, expectedColumn: indent.length + keyWidth, kind: 'object-colon'});
+                fixedLines[entry.lineIndex] = expected;
+            }
+        }
+    }
+
+    return {violations, fixedLines};
+}
+
+// ─────────────────────────── `=` declaration blocks (v1b) ───────────────────────────
+
+const
+    KEYWORD_DECL = /^(\s*)(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*.+$/, // Form A: keyword per line
+    LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,                            // Form B: keyword alone
+    BARE_DECL    = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/;                     // Form B: indented continuation
+
+/**
+ * @summary The leading whitespace of a line.
+ * @param {String} line
+ * @returns {String}
+ */
+function leadingWhitespace(line) {
+    return line.match(/^(\s*)/)[1];
+}
+
+/**
+ * @summary Splits an assignment line at its assignment `=` into `{left, value}`. The first `=` on a
+ * declaration line is always the assignment operator (keywords/identifiers carry none), so a
+ * value-internal `===` / `=>` is preserved in `value`.
+ * @param {String} line
+ * @returns {{left: String, value: String}}
+ */
+function splitAssignment(line) {
+    const equalsIndex = line.indexOf('=');
+    return {
+        left : line.slice(0, equalsIndex).replace(/\s+$/, ''),
+        value: line.slice(equalsIndex + 1).replace(/^\s+/, '')
+    };
+}
+
+/**
+ * @summary Whether an assignment value opens a multi-line block — its last non-space char is an
+ * (unclosed) `{`, `(`, or `[`. Such members are excluded from `=`-alignment: the house style leaves a
+ * block-opening `=` unaligned beside its simple-valued siblings (e.g. `cloneMap = {` next to an
+ * aligned `configSymbol = …` run). Object-literal COLON alignment, by contrast, keeps block values in
+ * the group (`intervals: {` aligns) — the asymmetry matches the observed convention.
+ * @param {String} value
+ * @returns {Boolean}
+ */
+function opensMultilineBlock(value) {
+    return /[{([]$/.test(value.replace(/\s+$/, ''));
+}
+
+/**
+ * @summary Splits lines into declaration-anchored assignment runs. Form A = consecutive same-indent
+ * `const`/`let`/`var <name> = …` lines. Form B = the indented `<name> = …` continuations under a lone
+ * `const`/`let`/`var` keyword line. Bare assignments with no declaration anchor are deliberately NOT
+ * collected, so arbitrary `a = b` statements are never re-aligned.
+ * @param {String[]} lines
+ * @returns {Array<Number[]>} runs of line indices (length ≥ 2)
+ */
+function collectAssignmentRuns(lines) {
+    const runs = [];
+    let   i    = 0;
+
+    while (i < lines.length) {
+        // Form A — consecutive keyword declarations at the same indent.
+        if (KEYWORD_DECL.test(lines[i])) {
+            const indent = leadingWhitespace(lines[i]);
+            const run    = [];
+
+            while (i < lines.length && KEYWORD_DECL.test(lines[i]) && leadingWhitespace(lines[i]) === indent) {
+                run.push(i);
+                i++;
+            }
+
+            if (run.length >= 2) runs.push(run);
+            continue;
+        }
+
+        // Form B — a lone keyword line, then indented `name = value` continuations at one deeper indent.
+        if (LONE_KEYWORD.test(lines[i])) {
+            const keywordIndent = leadingWhitespace(lines[i]);
+            const run           = [];
+            let   runIndent     = null;
+            let   j             = i + 1;
+
+            while (j < lines.length && BARE_DECL.test(lines[j])) {
+                const indent = leadingWhitespace(lines[j]);
+                if (indent.length <= keywordIndent.length) break; // continuations must be deeper
+                if (runIndent === null) runIndent = indent;
+                if (indent !== runIndent) break;                  // uniform indent only
+                run.push(j);
+                j++;
+            }
+
+            if (run.length >= 2) {
+                runs.push(run);
+                i = j;
+                continue;
+            }
+        }
+
+        i++;
+    }
+
+    return runs;
+}
+
+/**
+ * @summary Evaluates `=` declaration-block alignment. Within each declaration run, the `=` aligns to
+ * one column = the widest left side + one space. Pure.
+ * @param {String[]} lines
+ * @returns {{violations: Array<{lineIndex: Number, expectedColumn: Number, kind: String}>, fixedLines: String[]}}
+ */
+function evaluateAssignmentAlignment(lines) {
+    const
+        violations = [],
+        fixedLines = lines.slice();
+
+    for (const run of collectAssignmentRuns(lines)) {
+        // Align the simple-valued members only; a block-opening value keeps its `=` unaligned (house
+        // style). Require ≥ 2 simple members so a lone simple declaration is not an alignment group.
+        const simpleParts = run
+            .map(lineIndex => ({lineIndex, ...splitAssignment(lines[lineIndex])}))
+            .filter(part => !opensMultilineBlock(part.value));
+
+        if (simpleParts.length < 2) continue;
+
+        const leftWidth = Math.max(...simpleParts.map(part => part.left.length));
+
+        for (const {lineIndex, left, value} of simpleParts) {
+            const expected = `${left.padEnd(leftWidth)} = ${value}`;
+            if (expected !== lines[lineIndex]) {
+                violations.push({lineIndex, expectedColumn: leftWidth + 1, kind: 'assignment'});
+                fixedLines[lineIndex] = expected;
+            }
+        }
+    }
+
+    return {violations, fixedLines};
+}
+
+// ───────────────────────────────── driver ─────────────────────────────────
+
+const EVALUATORS = [evaluateImportAlignment, evaluateColonAlignment, evaluateAssignmentAlignment];
+
+/**
+ * @summary The operator-facing diagnostic for one violation. The import wording is preserved verbatim
+ * (the v1 spec asserts it); colon/assignment get their own.
+ * @param {String} file
+ * @param {{lineIndex: Number, expectedColumn: Number, kind: String}} violation
+ * @returns {String}
+ */
+function formatViolation(file, {lineIndex, expectedColumn, kind}) {
+    const at = `${file}:${lineIndex + 1}`;
+    if (kind === 'object-colon') return `Misaligned object-literal colon in ${at} — expected ':' at column ${expectedColumn + 1}`;
+    if (kind === 'assignment')   return `Misaligned '=' in ${at} — expected '=' at column ${expectedColumn + 1}`;
+    return `Misaligned import 'from' in ${at} — expected 'from' at column ${expectedColumn + 1}`;
+}
+
+/**
+ * @summary Checks (or, with `fix`, rewrites) one file across all three alignment groups. The
+ * evaluators are chained — each sees the prior's fixed lines — which is safe because none changes the
+ * line COUNT and the three line-shapes (import / property / declaration) are disjoint.
  * @param {String}  file
  * @param {Boolean} fix
- * @returns {Boolean} whether the file had (in check mode) or had-and-fixed (in fix mode) drift.
+ * @returns {Boolean} whether the file had (check) or had-and-fixed (fix) drift.
  */
 function processFile(file, fix) {
-    const
-        content = fs.readFileSync(file, 'utf8'),
-        lines   = content.split('\n'),
-        {violations, fixedLines} = evaluateImportAlignment(lines);
+    const allViolations = [];
+    let   lines         = fs.readFileSync(file, 'utf8').split('\n');
 
-    if (violations.length === 0) return false;
+    for (const evaluate of EVALUATORS) {
+        const {violations, fixedLines} = evaluate(lines);
+        allViolations.push(...violations);
+        lines = fixedLines;
+    }
+
+    if (allViolations.length === 0) return false;
 
     if (fix) {
-        fs.writeFileSync(file, fixedLines.join('\n'), 'utf8');
-        console.log(`Aligned ${violations.length} import line(s) in ${file}`);
+        fs.writeFileSync(file, lines.join('\n'), 'utf8');
+        console.log(`Aligned ${allViolations.length} line(s) in ${file}`);
     } else {
-        for (const {lineIndex, expectedColumn} of violations) {
-            console.error(`Misaligned import 'from' in ${file}:${lineIndex + 1} — expected 'from' at column ${expectedColumn + 1}`);
+        for (const violation of allViolations.sort((a, b) => a.lineIndex - b.lineIndex)) {
+            console.error(formatViolation(file, violation));
         }
     }
 

@@ -11,8 +11,9 @@ const
     scriptPath = path.resolve(__dirname, '../../../../../../buildScripts/util/check-block-alignment.mjs');
 
 /**
- * check-block-alignment.mjs — the lint that mechanizes Neo's import-`from` alignment so it is
- * never hand-counted. Coverage is constructed WITHOUT any hand-aligned fixture (the exact error class
+ * check-block-alignment.mjs — the lint that mechanizes Neo's block alignment (import-`from`,
+ * object-literal colons, `=` declaration blocks) so it is never hand-counted. Coverage is constructed
+ * WITHOUT any hand-aligned fixture (the exact error class
  * this gate removes): the misaligned input is trivial to write, the aligned form is DERIVED via `--fix`,
  * and the false-positive guards use ungrouped inputs that pass regardless of spacing.
  */
@@ -99,5 +100,141 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         expect(fixResult.output).toContain('Error processing');
 
         expect(run(missing).status).toBe(1); // check mode also fails
+    });
+
+    test.describe('v1b: object-colon + `=` alignment (#13563)', () => {
+        test('--fix aligns an object-literal colon block to one column and is idempotent', () => {
+            const file = write('o.mjs', [
+                'const config = {',
+                '    db: 1,',
+                '    state: 2,',
+                '    intervals: 3',
+                '};'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const colonCols = fs.readFileSync(file, 'utf8').split('\n')
+                .filter(line => /^\s+\w+\s*:/.test(line))
+                .map(line => line.indexOf(':'));
+
+            expect(colonCols.length).toBe(3);
+            expect(new Set(colonCols).size).toBe(1);     // db/state/intervals colons share one column
+            expect(run(file).status).toBe(0);            // aligned → clean
+            expect(run('--fix', file).status).toBe(0);   // idempotent
+        });
+
+        test('a shorthand property stays in the run without breaking colon alignment', () => {
+            const file = write('o.mjs', [
+                'const config = {',
+                '    db: 1,',
+                '    now,',
+                '    intervals: 3',
+                '};'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const lines          = fs.readFileSync(file, 'utf8').split('\n');
+            const dbColon        = lines.find(line => /^\s+db\b/.test(line)).indexOf(':');
+            const intervalsColon = lines.find(line => /^\s+intervals\b/.test(line)).indexOf(':');
+
+            expect(dbColon).toBe(intervalsColon); // aligned across the `now,` shorthand
+        });
+
+        test('a nested object re-groups at its own indent (no cross-indent alignment)', () => {
+            const file = write('o.mjs', [
+                'const config = {',
+                '    a: 1,',
+                '    nested: {',
+                '        x: 1,',
+                '        yy: 2',
+                '    }',
+                '};'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const lines = fs.readFileSync(file, 'utf8').split('\n');
+            const xCol  = lines.find(line => /^\s{8}x\b/.test(line)).indexOf(':');
+            const yyCol = lines.find(line => /^\s{8}yy\b/.test(line)).indexOf(':');
+
+            expect(xCol).toBe(yyCol);          // inner keys align to each other at the deeper indent
+            expect(run(file).status).toBe(0);  // aligned → clean
+        });
+
+        test('a lone colon property is not an alignment group — passes regardless of spacing', () => {
+            const file = write('o.mjs', 'const config = {\n    onlyKey:      1\n};\n');
+            expect(run(file).status).toBe(0);
+        });
+
+        test('--fix aligns a `=` declaration block (lone-keyword form) and is idempotent', () => {
+            const file = write('d.mjs', [
+                'const',
+                '    a = 1,',
+                '    bbb = 2;'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const eqCols = fs.readFileSync(file, 'utf8').split('\n')
+                .filter(line => line.includes('='))
+                .map(line => line.indexOf('='));
+
+            expect(eqCols.length).toBe(2);
+            expect(new Set(eqCols).size).toBe(1);        // a/bbb `=` share one column
+            expect(run(file).status).toBe(0);
+            expect(run('--fix', file).status).toBe(0);   // idempotent
+        });
+
+        test('bare non-declaration assignments are NOT aligned (declaration-anchored only)', () => {
+            // No const/let/var anchor → arbitrary assignments must never be re-aligned (false-positive guard).
+            const file = write('d.mjs', 'obj.a = 1;\nobj.bbb = 2;\n');
+            expect(run(file).status).toBe(0);
+        });
+
+        test('a computed key participates in colon alignment (the [isDescriptor] config pattern)', () => {
+            // Regression guard: a `[bracket]` key must be counted in the key width, not excluded — else
+            // the colons re-align to a narrower column and break the descriptor block.
+            const file = write('o.mjs', [
+                'const d = {',
+                '    [isDescriptor]: true,',
+                '    merge: 1,',
+                '    value: 2',
+                '};'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const colonCols = fs.readFileSync(file, 'utf8').split('\n')
+                .filter(line => /^\s+(\[[^\]]+\]|\w+)\s*:/.test(line))
+                .map(line => line.indexOf(':'));
+
+            expect(colonCols.length).toBe(3);
+            expect(new Set(colonCols).size).toBe(1); // [isDescriptor]/merge/value colons share one column
+        });
+
+        test('a block-opening `=` value is excluded from alignment while simple siblings align', () => {
+            // Regression guard: `cloneMap = {` stays unaligned (house style) beside an aligned
+            // simple-valued declaration run.
+            const file = write('d.mjs', [
+                'const',
+                '    camelRegex = 1,',
+                '    configSymbol = 2,',
+                '    cloneMap = {',
+                '        a: 1',
+                '    };'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const
+                lines    = fs.readFileSync(file, 'utf8').split('\n'),
+                camelEq  = lines.find(line => /camelRegex/.test(line)).indexOf('='),
+                configEq = lines.find(line => /configSymbol/.test(line)).indexOf('=');
+
+            expect(camelEq).toBe(configEq);                                   // simple siblings align
+            expect(lines.find(line => /cloneMap/.test(line))).toBe('    cloneMap = {'); // block-opener untouched
+        });
     });
 });
