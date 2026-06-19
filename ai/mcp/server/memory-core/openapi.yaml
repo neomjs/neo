@@ -37,6 +37,8 @@ tags:
     description: Knowledge Graph operations
   - name: Permissions
     description: Agent permission operations
+  - name: TurnPresence
+    description: Agent active-turn liveness interval operations
 
 paths:
   /healthcheck:
@@ -1372,6 +1374,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /turn-presence/record:
+    post:
+      summary: Record Turn Presence
+      operationId: record_turn_presence
+      x-pass-as-object: true
+      description: |
+        Records a bounded `AGENT_TURN_PRESENCE` interval for the request-bound AgentIdentity.
+        This is the turn-start/progress/terminal writer surface for #13498 Substrate A.
+
+        The caller identity is server-derived; do not pass an identity field. `start` emits
+        the primary active-turn beacon, `progress` refreshes `lastProgressAt` and freshness
+        bounds for the same `turnId`, and `terminal` closes the interval. When a terminal event
+        omits `turnId`, the newest active turn for the bound identity is closed.
+      tags: [TurnPresence]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnPresenceRecordRequest'
+      responses:
+        '200':
+          description: Turn presence recorded, or no-op when no active turn exists for a terminal event.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnPresenceRecordResponse'
+        '400':
+          description: Bad Request (invalid action / terminal state)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /wake-subscriptions/manage:
     post:
       summary: Manage WAKE_SUBSCRIPTION
@@ -1799,6 +1841,83 @@ components:
           items:
             type: string
           example: ["view_file", "replace"]
+
+    TurnPresenceRecordRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [start, progress, terminal]
+          default: start
+          description: Event kind. `start` creates/refreshes the interval, `progress` refreshes it, and `terminal` closes it.
+        turnId:
+          type: string
+          description: Stable active-turn id. Optional on `start` (generated if omitted); required for progress; optional for terminal, which then closes the newest active turn.
+          example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        terminalState:
+          type: string
+          enum: [completed, blocked, aborted, stale]
+          default: completed
+          description: Terminal state used when `action='terminal'`.
+        source:
+          type: string
+          description: Harness or lifecycle source emitting the event.
+          example: "codex-user-prompt-submit"
+        note:
+          type: string
+          description: Optional bounded diagnostic note.
+        now:
+          description: Optional clock override for tests.
+          oneOf:
+            - type: string
+              format: date-time
+            - type: number
+
+    TurnPresenceRecordResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [recorded, noop]
+          example: recorded
+        reason:
+          type: string
+          nullable: true
+          example: no-active-turn
+        action:
+          type: string
+          enum: [start, progress, terminal]
+          example: start
+        id:
+          type: string
+          example: "AGENT_TURN_PRESENCE:@neo-gpt:7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        agentIdentity:
+          type: string
+          example: "@neo-gpt"
+        turnId:
+          type: string
+          example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        startedAt:
+          type: string
+          format: date-time
+        lastProgressAt:
+          type: string
+          format: date-time
+        freshUntil:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        terminalState:
+          type: string
+          nullable: true
+          enum: [completed, blocked, aborted, stale]
+        source:
+          type: string
+        note:
+          type: string
+          nullable: true
 
     MemoryResponse:
       type: object
