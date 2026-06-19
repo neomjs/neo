@@ -520,15 +520,15 @@ class WakeSubscriptionService extends Base {
      * Composes the liveness layers, in precedence order:
      * 1. **`participationStatus` hard gate** — `operator_benched` / `temporarily_unreachable`
      *    report `online:false` regardless of any softer signal.
-     * 2. **`add_memory`-recency (primary)** — the deployment-agnostic, tenant-scoped activity signal
-     *    ({@link WakeSubscriptionService#_readActivityRecency}): the most-recent caller-visible
+     * 2. **`add_memory`-recency (primary)** — the deployment-agnostic activity signal
+     *    ({@link WakeSubscriptionService#_readActivityRecency}): a rostered agent's most-recent OWN
      *    `AGENT_MEMORY` write within the freshness window ⇒ recently active ⇒ online; stale or none ⇒
      *    dark. `add_memory` is the universal activity write every authenticated agent produces — so the
      *    signal works identically in the swarm and a multi-tenant cloud deployment, unlike a harness
      *    beacon (emitted only by the neo-swarm harness, inert elsewhere) or process-presence
      *    (pid/clone-local — the "local neo activity" coupling that is not mergeable). The read is
-     *    RLS-scoped (never cross-tenant) and graph-backed (survives an embed-drain — it reads the
-     *    durable node, not Chroma).
+     *    roster-scoped (the AgentIdentity roster is the visibility boundary, not the per-caller tenant)
+     *    and graph-backed (survives an embed-drain — it reads the durable node, not Chroma).
      *
      * Deliberately **advisory**: it surfaces *probably-dark* maintainers for review-routing /
      * lane-handoff / lead-baton / wake-targeting so a request to a dark agent fails loud instead
@@ -536,21 +536,46 @@ class WakeSubscriptionService extends Base {
      *
      * @param {Object} [opts]
      * @param {String} [opts.family] Optional model-family filter (e.g. `'claude'`, `'gpt'`).
+     * @param {Boolean} [opts.verbose=false] When false (default) returns the terse roster summary
+     *   (`{generatedAt, summary, online, idle, benched}`) — a "who is online?" answer, not a
+     *   diagnostics dump. When true returns the full per-agent projection (signalStatus + per-agent
+     *   reason/signals) for diagnostics. Default stays terse so the per-call token cost is
+     *   proportional to the question.
      * @param {Date|String|Number} [opts.now=new Date()] Clock source (unit-test seam).
-     * @returns {Promise<Object>} `{generatedAt, signalStatus, agents}` where each agent is
+     * @returns {Promise<Object>} Terse (default): `{generatedAt, summary, online[], idle[], benched[]}`
+     *   (identity arrays). Verbose: `{generatedAt, signalStatus, agents}` where each agent is
      *   `{identity, name, family, participationStatus, online, reason, signals}`.
      */
-    async whoIsOnline({family, now = new Date()} = {}) {
-        const nowMs  = this._coerceDate(now).getTime(),
-              agents = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs));
+    async whoIsOnline({family, verbose = false, now = new Date()} = {}) {
+        const nowMs       = this._coerceDate(now).getTime(),
+              agents      = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs)),
+              generatedAt = new Date(nowMs).toISOString();
+
+        if (verbose) {
+            return {
+                generatedAt,
+                signalStatus: 'add_memory-recency: per maintainer, the most-recent roster-visible AGENT_MEMORY ' +
+                              'write within the freshness window. Deployment-agnostic (add_memory is the universal ' +
+                              'activity write — no harness beacon) and graph-backed (survives an embed-drain). ' +
+                              'Advisory, not a hard routing gate.',
+                agents
+            };
+        }
+
+        // Terse default — a "who is online?" answer, not a diagnostics book. The signalStatus essay
+        // and the per-agent reason/signals live behind verbose:true so the per-call token cost stays
+        // proportional to the question. online = fresh add_memory activity; idle = rostered
+        // and active but no fresh write; benched = participationStatus not 'active'.
+        const online  = agents.filter(agent => agent.online).map(agent => agent.identity),
+              benched = agents.filter(agent => !agent.online && agent.participationStatus !== 'active').map(agent => agent.identity),
+              idle    = agents.filter(agent => !agent.online && agent.participationStatus === 'active').map(agent => agent.identity);
 
         return {
-            generatedAt : new Date(nowMs).toISOString(),
-            signalStatus: 'add_memory-recency: per maintainer, the most-recent caller-visible AGENT_MEMORY ' +
-                          'write within the freshness window. Deployment-agnostic (add_memory is the universal ' +
-                          'activity write — no harness beacon), RLS-scoped (never cross-tenant), and graph-backed ' +
-                          '(survives an embed-drain). Advisory, not a hard routing gate.',
-            agents
+            generatedAt,
+            summary: `${online.length} online · ${idle.length} idle · ${benched.length} benched`,
+            online,
+            idle,
+            benched
         };
     }
 
@@ -592,7 +617,7 @@ class WakeSubscriptionService extends Base {
 
     /**
      * @summary Projects a single AgentIdentity node to its liveness verdict via the
-     * gate → beacon → corroboration precedence.
+     * participationStatus-gate → add_memory-recency precedence.
      * @param {Object} node Parsed AgentIdentity node.
      * @param {Number} nowMs Clock epoch ms.
      * @returns {Object} `{identity, name, family, participationStatus, online, reason, signals}`.
@@ -612,18 +637,18 @@ class WakeSubscriptionService extends Base {
                 reason: `roster: participationStatus is '${participationStatus}' (benched / unreachable)`, signals};
         }
 
-        // 2. add_memory-recency — the deployment-agnostic, tenant-scoped activity signal. Every
-        //    authenticated agent's memory write stamps an AGENT_MEMORY node (agentIdentity + timestamp);
-        //    a fresh most-recent caller-visible write ⇒ recently active ⇒ online. Unlike a harness
-        //    beacon (emitted only by the neo-swarm harness, inert in a multi-tenant/cloud deployment),
-        //    add_memory is universal — and the read is RLS-scoped (never cross-tenant) and graph-backed
-        //    (survives an embed-drain).
+        // 2. add_memory-recency — the deployment-agnostic activity signal. Every authenticated agent's
+        //    memory write stamps an AGENT_MEMORY node (agentIdentity + timestamp); this rostered
+        //    agent's fresh most-recent OWN write ⇒ recently active ⇒ online. Unlike a harness beacon
+        //    (emitted only by the neo-swarm harness, inert in a multi-tenant/cloud deployment),
+        //    add_memory is universal — and the read is roster-scoped (the AgentIdentity roster is the
+        //    visibility boundary) and graph-backed (survives an embed-drain).
         const activity = this._readActivityRecency(identity, nowMs);
         signals.activityRecency = activity;
 
         if (!activity) {
             return {identity, name, family, participationStatus, online: false,
-                reason: 'no caller-visible add_memory activity (dark — inactive, or no shared/team activity visible to the caller)', signals};
+                reason: 'no add_memory activity (dark — no AGENT_MEMORY write on record)', signals};
         }
         if (!activity.fresh) {
             return {identity, name, family, participationStatus, online: false,
@@ -635,36 +660,43 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * @summary Reads an agent's most-recent caller-visible `add_memory` activity — the
-     * deployment-agnostic, tenant-scoped liveness signal that replaced the harness beacon.
+     * @summary Reads a rostered agent's most-recent `add_memory` activity — the
+     * deployment-agnostic liveness signal that replaced the harness beacon.
      *
      * Every authenticated agent's memory write stamps an `AGENT_MEMORY` graph node with
      * `agentIdentity` + `timestamp` + `userId` ({@link Neo.ai.services.memory-core.MemoryService#addMemory}).
-     * This returns the freshness verdict for the most-recent such node the CALLER is entitled to see,
-     * RLS-scoped by the same `(user_id = ? OR user_id IS NULL OR sharedEntity OR visibility:team)`
-     * predicate `GraphService.searchNodes` uses — so who_is_online reads THROUGH tenant isolation
-     * rather than bypassing it via a raw owner-only read (the original cross-tenant defect this pivot
-     * fixes). It reads the durable graph node, not Chroma, so it survives an embed-drain; and
-     * `add_memory` is the universal activity write (no harness hook, no per-deployment beacon), so the
-     * signal works identically in the swarm and a multi-tenant cloud.
+     * This returns the freshness verdict for that agent's most-recent OWN write, matched by
+     * `agentIdentity`. who_is_online's visibility boundary is the AgentIdentity ROSTER
+     * ({@link WakeSubscriptionService#_listAgentIdentityNodes}), not the per-caller tenant: raw
+     * AGENT_MEMORY is tagged with each agent's own per-agent `userId`, so a per-caller `user_id` RLS
+     * filter here would hide same-deployment teammates from each other.
+     * Cross-tenant isolation for a multi-tenant cloud belongs at the roster scope (a tenant-scoped
+     * `_listAgentIdentityNodes`), tracked separately. It reads the durable graph node, not Chroma, so it
+     * survives an embed-drain; and `add_memory` is the universal activity write (no harness hook, no
+     * per-deployment beacon), so the signal works identically in the swarm and a multi-tenant cloud.
      *
      * Freshness window: `add_memory` lands at turn boundaries (the consolidate-then-save gate), so the
      * window must exceed a typical turn to avoid marking a mid-turn agent dark — the false-negative the
      * beacon design feared. 15 min covers "active within the last few turns" for an advisory tool.
      * @param {String} owner AgentIdentity node id.
      * @param {Number} nowMs Clock epoch ms.
-     * @returns {Object|null} `{lastActivityAt, ageMs, fresh}` or null when no caller-visible activity.
+     * @returns {Object|null} `{lastActivityAt, ageMs, fresh}` or null when the roster agent has no
+     *   AGENT_MEMORY activity.
      * @protected
      */
     _readActivityRecency(owner, nowMs) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite || !owner) return null;
 
-        // RLS: scope to activity the caller is entitled to see — mirror GraphService's read predicate
-        // (own tenant + null-owner system + sharedEntity + visibility:team) keyed on the caller's bound
-        // identity, so this read goes THROUGH tenant isolation rather than bypassing it.
-        const callerUserId = GraphService.db?.storage?.RequestContextService?.getAgentIdentityNodeId?.() ?? null;
-
+        // Roster-liveness scope: report THIS rostered agent's OWN most-recent activity, matched by
+        // agentIdentity. who_is_online's visibility boundary is the AgentIdentity roster
+        // (_listAgentIdentityNodes), NOT the per-caller tenant: every agent's raw AGENT_MEMORY is
+        // tagged with its own per-agent userId, so a per-caller user_id RLS filter here hid
+        // same-deployment teammates from each other. (getAgentIdentityNodeId
+        // is explicitly "NOT for isolation" per RequestContextService, and the prior filter keyed on
+        // it against the normalizeUserId'd user_id column, so it never matched own writes either.)
+        // Cross-tenant isolation for a multi-tenant cloud belongs at the roster scope (tenant-scoped
+        // _listAgentIdentityNodes), tracked separately — not by isolating roster teammates here.
         let latest;
         try {
             const row = sqlite.prepare(`
@@ -672,11 +704,7 @@ class WakeSubscriptionService extends Base {
                 FROM Nodes
                 WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
                   AND json_extract(data, '$.properties.agentIdentity') = ?
-                  AND (user_id = ?
-                       OR user_id IS NULL
-                       OR json_extract(data, '$.properties.sharedEntity') = 1
-                       OR json_extract(data, '$.properties.visibility') = 'team')
-            `).get(owner, callerUserId);
+            `).get(owner);
             latest = row?.latest || null;
         } catch (error) {
             logger.warn(`[WakeSubscription] who_is_online: activity-recency read failed for ${owner}: ${error.message}`);

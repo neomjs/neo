@@ -9,8 +9,9 @@ import RequestContextService from '../../mcp/server/shared/services/RequestConte
  *
  * `HARNESS_PRESENCE` is a wake-routing overlay: it says whether a receiver route appears
  * addressable. This service records a separate `AGENT_TURN_PRESENCE` interval: a trusted harness
- * turn began, may refresh progress, and eventually expires or terminalizes. The future
- * `who_is_online` projection consumes this writer's records as the primary active-turn proof.
+ * turn began, may refresh progress, and eventually expires or terminalizes. These turn-presence
+ * records are NOT the `who_is_online` liveness signal — `who_is_online` derives liveness from
+ * `add_memory` recency (roster-scoped); turn-presence is a separate active-turn substrate.
  *
  * @class Neo.ai.services.memory-core.TurnPresenceService
  * @extends Neo.core.Base
