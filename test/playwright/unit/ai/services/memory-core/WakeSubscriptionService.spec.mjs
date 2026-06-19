@@ -724,7 +724,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     appName: 'Antigravity',
                     instanceAddress: '4242'
                 }
-            })).rejects.toThrow('requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType');
+            })).rejects.toThrow('Shape C instance addressing requires harnessTargetMetadata.addressType');
         });
     });
 
@@ -739,6 +739,49 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     addressType: 'frontmost'
                 }
             })).rejects.toThrow("Invalid addressType 'frontmost'. Must be one of: userDataDir, pid, tmuxSession, webhookUrl");
+        });
+    });
+
+    test('subscribe rejects an addressType that resolves to no instance address (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName    : 'Claude',
+                    addressType: 'userDataDir',
+                    userDataDir: ''
+                }
+            })).rejects.toThrow("addressType 'userDataDir' requires a non-empty instance address");
+        });
+    });
+
+    test('subscribe accepts a legacy userDataDir field as a complete instance address (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@grace-13481-legacy'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName    : 'Claude',
+                    userDataDir: '/Users/x/.claude-grace'
+                }
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
+        });
+    });
+
+    test('subscribe accepts a canonical instanceAddress + addressType pair (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@grace-13481-canonical'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName        : 'Claude',
+                    addressType    : 'userDataDir',
+                    instanceAddress: '/Users/x/.claude-grace'
+                }
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
         });
     });
 

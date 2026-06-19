@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';
-import { getLastSyncId, getUnreadSunsetHandovers, markNodesAsRead, writeLastSyncId } from '../../../../../../ai/daemons/wake/queries.mjs';
+import { collapseDuplicateShapeCRoutes, getLastSyncId, getUnreadSunsetHandovers, markNodesAsRead, writeLastSyncId } from '../../../../../../ai/daemons/wake/queries.mjs';
 
 test.describe('ai/daemons/wake/queries', () => {
     let db;
@@ -205,6 +205,57 @@ test.describe('ai/daemons/wake/queries', () => {
                 expect(fs.readFileSync(stateFile, 'utf8')).toBe('2');
                 expect(fs.existsSync(`${stateFile}.tmp`)).toBe(false);
             });
+        });
+    });
+
+    test.describe('collapseDuplicateShapeCRoutes (instance-address aware)', () => {
+        // A same-app route (appName) is NOT a stable identity address once multiple named peers
+        // run the same app (e.g. several Claude instances). The collapse key must therefore include
+        // the instance-address fields, or a wake for one named peer collapses onto another's route
+        // and delivers to the wrong instance.
+        const makeSub = (id, metadata, updatedAt = '2026-01-01T00:00:00.000Z') => ({
+            id,
+            properties: {
+                agentIdentity        : '@neo-opus-ada',
+                trigger              : 'SENT_TO_ME',
+                filters              : {},
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: metadata,
+                updatedAt
+            }
+        });
+
+        test('keeps two same-app routes that target different instances distinct', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-ada',  {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-ada'}),
+                makeSub('sub-vega', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-vega'})
+            ]);
+            expect(result.length).toBe(2);
+        });
+
+        test('keeps a generic same-app route distinct from an instance-addressed one', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-generic',  {appName: 'Claude'}),
+                makeSub('sub-addressed', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-vega'})
+            ]);
+            expect(result.length).toBe(2);
+        });
+
+        test('does not collapse a legacy userDataDir route onto a different instanceAddress route', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-legacy',    {appName: 'Claude', userDataDir: '/Users/x/.claude-ada'}),
+                makeSub('sub-canonical', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-vega'})
+            ]);
+            expect(result.length).toBe(2);
+        });
+
+        test('still collapses genuine duplicates (identical route tuple), newest wins', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-old', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-ada'}, '2026-01-01T00:00:00.000Z'),
+                makeSub('sub-new', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-ada'}, '2026-02-01T00:00:00.000Z')
+            ]);
+            expect(result.length).toBe(1);
+            expect(result[0].id).toBe('sub-new');
         });
     });
 });
