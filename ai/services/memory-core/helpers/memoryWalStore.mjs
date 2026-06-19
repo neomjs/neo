@@ -1,5 +1,6 @@
-import fs   from 'fs/promises';
-import path from 'path';
+import fs               from 'fs/promises';
+import path             from 'path';
+import {withAppendLock} from './walAppendLock.mjs';
 
 /**
  * @summary Durable JSONL write-ahead store for `add_memory` payloads.
@@ -11,16 +12,20 @@ import path from 'path';
  * the orchestrator-managed `ai/daemons/embed/` drain daemon). A crash, embed failure, or stalled
  * embedding model never loses the payload: it stays pending in the WAL until an embed pass succeeds.
  *
- * ## File layout (two files per UTC-day segment, each with exactly ONE writer)
+ * ## File layout (two files per UTC-day segment, one writer at a time)
  *
- * - `wal-YYYY-MM-DD.jsonl`          — memory records; written only by the MCP-server process.
+ * - `wal-YYYY-MM-DD.jsonl`          — memory records; written by the MCP-server process(es).
  * - `wal-YYYY-MM-DD.embedded.jsonl` — embed markers; written only by the embedder of the era
  *                                     (Phase 1: the server's deferred embed; Phase 2: the daemon).
  *
- * Records and markers are deliberately split into separate single-writer files instead of one
- * shared append stream: POSIX `O_APPEND` atomicity is only dependable for small writes, and memory
- * records (multi-KB `thought` payloads) appended concurrently with tiny markers from a second
- * process could interleave. One writer per file removes the interleave class by construction.
+ * Records and markers are deliberately split into separate files instead of one shared append
+ * stream: POSIX `O_APPEND` atomicity is only dependable for small writes, and memory records
+ * (multi-KB `thought` payloads) appended concurrently with tiny markers from a second process could
+ * interleave. For a per-clone dir, one writer per file removes the interleave class by construction;
+ * for a SHARED dir (multiple harness clones draining through one embedder),
+ * {@link module:ai/services/memory-core/helpers/walAppendLock} serializes the record writers across
+ * processes to preserve the same no-interleave guarantee — best-effort, never blocking the never-fail
+ * `add_memory` turn-save.
  * A record is "pending" when its id has no marker; a segment is "reconciled" when no record in it
  * is pending. Reads tolerate corrupt lines (skip, never throw) — sibling discipline to
  * {@link module:ai/services/memory-core/helpers/remRunStateStore}.
@@ -107,9 +112,11 @@ export function getWalGraphMarkersFileName(segmentKey) {
  * @param {Object} options
  * @param {String} options.dir Directory for WAL segment files.
  * @param {Date|Number} [options.now] Clock source for the segment key (defaults to record.timestamp).
+ * @param {Object} [options.lockOptions] Forwarded to {@link withAppendLock} (tuning + spec injection of
+ *     fs/clock/liveness/sleep). Omit for the default per-append serialization.
  * @returns {Promise<{filePath: String, segmentKey: String}>}
  */
-export async function appendWalMemory(record, {dir, now} = {}) {
+export async function appendWalMemory(record, {dir, now, lockOptions} = {}) {
     if (!dir) {
         throw new TypeError('appendWalMemory: dir is required');
     }
@@ -121,8 +128,12 @@ export async function appendWalMemory(record, {dir, now} = {}) {
 
     const segmentKey = getWalSegmentKey(now ?? record.timestamp ?? new Date());
     const filePath   = path.join(dir, getWalRecordsFileName(segmentKey));
+    const line       = `${JSON.stringify({...record, segmentKey})}\n`;
 
-    await fs.appendFile(filePath, `${JSON.stringify({...record, segmentKey})}\n`, 'utf8');
+    // Serialize cross-process writers so a SHARED WAL dir cannot interleave multi-KB records; on a
+    // bounded acquire-timeout it falls through and writes UNLOCKED, so the never-fail turn-save
+    // (§critical_gates #5) is never blocked by a contended/hung lock.
+    await withAppendLock(filePath, () => fs.appendFile(filePath, line, 'utf8'), lockOptions);
 
     return {filePath, segmentKey};
 }
