@@ -183,7 +183,11 @@ export function isHarnessPresenceFresh(presence, {
  * active row survives an MCP restart, dispatching every row wakes the same agent multiple times
  * for the same mailbox event. This defense-in-depth guard mirrors the Memory Core
  * `subscribe` idempotency contract: one active route per `(agentIdentity, trigger, filters,
- * appName)` tuple, with the newest updated/created row winning when legacy duplicates exist.
+ * appName, adapter, addressType, instanceAddress, userDataDir)` tuple. The instance-address
+ * fields are load-bearing: two routes that share an app (e.g. multiple Claude instances) but
+ * target different instances MUST stay distinct, or a wake for one named peer can collapse onto
+ * another's route and deliver to the wrong instance. The newest updated/created row wins when
+ * genuine duplicates (same tuple) exist.
  *
  * @param {Object[]} subscriptions Parsed WAKE_SUBSCRIPTION graph nodes.
  * @returns {Object[]} Deduplicated subscriptions for wake delivery.
@@ -213,7 +217,11 @@ function buildShapeCRouteKey(subscription) {
         filters      : props.filters || {},
         harnessTarget: props.harnessTarget,
         routeMetadata: {
-            appName: metadata.appName || null
+            appName        : metadata.appName || null,
+            adapter        : metadata.adapter || null,
+            addressType    : metadata.addressType || null,
+            instanceAddress: metadata.instanceAddress || null,
+            userDataDir    : metadata.userDataDir || null
         }
     });
 }
