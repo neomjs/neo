@@ -12,6 +12,7 @@ import {
     checkSkillMarkdownNetDelta,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
+    hasSkillGrowthJustification,
     parseArgs,
     parseFrontmatter,
     parseSectionTriggers,
@@ -541,6 +542,54 @@ ${padding}
         const getBaseSizeFn = () => 0;
 
         expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta blocks new-skill growth without justification (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/SKILL.md',
+            '.agents/skills/example/references/example-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/example/SKILL.md', 900],
+            ['.agents/skills/example/references/example-workflow.md', 5000]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file);
+        const getBaseSizeFn = () => 0;
+
+        const errors = checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn);
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('[skill-growth-justified: <reason>]');
+    });
+
+    test('checkSkillMarkdownNetDelta allows justified new-skill growth (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/SKILL.md',
+            '.agents/skills/example/references/example-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/example/SKILL.md', 900],
+            ['.agents/skills/example/references/example-workflow.md', 5000]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file);
+        const getBaseSizeFn = () => 0;
+
+        expect(checkSkillMarkdownNetDelta(
+            changedFiles,
+            250,
+            getSizeFn,
+            getBaseSizeFn,
+            {allowJustifiedGrowth: true}
+        )).toEqual([]);
+    });
+
+    test('hasSkillGrowthJustification requires a non-empty commit-marker reason (#13533)', () => {
+        expect(hasSkillGrowthJustification('[skill-growth-justified: new skill with retirement trigger]')).toBe(true);
+        expect(hasSkillGrowthJustification('[skill-growth-justified:]')).toBe(false);
     });
 
     test('checkSkillReferenceIntegrity flags dangling numeric section refs (#12493)', () => {

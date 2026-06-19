@@ -20,6 +20,7 @@ const CLAUDE_DIR    = path.join(ROOT_DIR, '.claude/skills');
 const MANIFEST_PATH = path.join(SKILLS_DIR, 'skills.manifest.json');
 const SCHEMA_PATH   = path.join(SKILLS_DIR, 'skills.manifest.schema.json');
 const REPORT_TOP_N  = 15;
+const SKILL_GROWTH_JUSTIFIED_RE = /\[skill-growth-justified:\s*[^\]\n]+\]/i;
 
 function parseArgs(argv = process.argv.slice(2)) {
     const options = {
@@ -1028,6 +1029,24 @@ function changedSkillNames(base) {
     return names;
 }
 
+function commitMessages(base) {
+    if (!base) return '';
+
+    try {
+        return execFileSync('git', ['log', `${base}...HEAD`, '--pretty=%B'], {
+            cwd     : ROOT_DIR,
+            encoding: 'utf8'
+        });
+    } catch (error) {
+        console.warn(`[lint-skill-manifest] Warning: could not parse git log for commit-message gates: ${error.message}`);
+        return '';
+    }
+}
+
+function hasSkillGrowthJustification(messages) {
+    return SKILL_GROWTH_JUSTIFIED_RE.test(messages);
+}
+
 function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn) {
     const errors = [];
     for (const file of changedFiles) {
@@ -1049,8 +1068,9 @@ function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getS
 /**
  * @summary Blocks net-positive skill Markdown growth beyond the pointer allowance.
  */
-function checkSkillMarkdownNetDelta(changedFiles, maxDelta, getSizeFn, getBaseSizeFn) {
+function checkSkillMarkdownNetDelta(changedFiles, maxDelta, getSizeFn, getBaseSizeFn, options = {}) {
     if (!Number.isInteger(maxDelta) || maxDelta < 0) return [];
+    if (options.allowJustifiedGrowth) return [];
 
     const deltas = [];
 
@@ -1077,7 +1097,7 @@ function checkSkillMarkdownNetDelta(changedFiles, maxDelta, getSizeFn, getBaseSi
         .join(', ');
 
     return [
-        `Skill Markdown net grew by ${netDelta} bytes (max allowed net positive delta is ${maxDelta}). Reduce or replace existing .agents/skills Markdown so net growth stays pointer-sized; moving text into another skill file still counts. Largest deltas: ${details}`
+        `Skill Markdown net grew by ${netDelta} bytes (max allowed net positive delta is ${maxDelta}). Reduce or replace existing .agents/skills Markdown so net growth stays pointer-sized; moving text into another skill file still counts. For new-skill or decay-mitigated exceptions, include [skill-growth-justified: <reason>] in a commit message. Largest deltas: ${details}`
     ];
 }
 
@@ -1094,6 +1114,7 @@ async function lint({base = null} = {}) {
 
     const changed = new Set(changedFiles(base));
     const touchedSkillNames = changedSkillNames(base);
+    const messages = commitMessages(base);
 
     if (base) {
         const oversizedFiles = manifest.defaults.oversizedWorkflowMaps || [];
@@ -1126,7 +1147,8 @@ async function lint({base = null} = {}) {
                     return null;
                 }
             },
-            (file) => getBaseFileSize(base, file)
+            (file) => getBaseFileSize(base, file),
+            {allowJustifiedGrowth: hasSkillGrowthJustification(messages)}
         ));
     }
 
@@ -1182,13 +1204,7 @@ async function lint({base = null} = {}) {
         }
 
         if (base && touchedSkillNames.has(skillName)) {
-            let skipDocs = false;
-            try {
-                const commitMsgs = execFileSync('git', ['log', `${base}...HEAD`, '--pretty=%B'], {cwd: ROOT_DIR, encoding: 'utf8'});
-                if (commitMsgs.includes('[skip docs]')) skipDocs = true;
-            } catch (e) {
-                console.warn(`[lint-skill-manifest] Warning: could not parse git log for skip-docs check: ${e.message}`);
-            }
+            const skipDocs = messages.includes('[skip docs]');
 
             if (!skipDocs) {
                 let routerDiffText = null;
@@ -1281,6 +1297,7 @@ export {
     checkSkillMarkdownNetDelta,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
+    hasSkillGrowthJustification,
     parseSectionTriggers,
     parseUnifiedDiffChangedLines,
     shouldSkipDownstreamDocsTargetForLinkPathOnlyChange,
