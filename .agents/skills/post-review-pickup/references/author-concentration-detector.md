@@ -12,7 +12,7 @@ Telemetry signal for authorship concentration across the swarm. **Successor to t
                   print(Counter(p['author']['login'] for p in json.load(sys.stdin)))"
   ```
 - **Merged-window trigger:** one family / agent dominates the merged window.
-- **Open-pipeline amber:** concentration in the *open* PR pipeline is an early-warning, read before it reaches the merged window.
+- **Open-pipeline amber:** open PR concentration, including routed-but-unmoving clean stacks, before it reaches the merged window.
 
 ## What It Is NOT (the retired FAIR-band failure modes)
 
