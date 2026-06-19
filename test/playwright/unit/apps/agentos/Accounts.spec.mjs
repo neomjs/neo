@@ -57,3 +57,71 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
         expect(source).not.toMatch(/AgentDefinitions\.add\(\s*values/)
     })
 });
+
+test.describe('AgentOS.view.Accounts NL-MCP connect entry (#13548)', () => {
+    let savedAgentOS;
+
+    test.beforeEach(() => { savedAgentOS = globalThis.AgentOS });
+    test.afterEach(()  => { globalThis.AgentOS = savedAgentOS });
+
+    test('connectExternalHarnessBridge fails closed when no Neural Link connection bridge is injected', async () => {
+        globalThis.AgentOS = undefined; // dev-server / un-shelled app — no Brain-side bridge
+
+        await expect(Accounts.prototype.connectExternalHarnessBridge({action: 'start'}))
+            .rejects.toThrow('Neural Link connection bridge unavailable')
+    });
+
+    test('connectExternalHarnessBridge forwards exactly the connect request — carries no credential', async () => {
+        let received;
+        globalThis.AgentOS = {neuralLink: {connectionBridge: {
+            manageConnection: async req => { received = req; return {message: 'External harness started'} }
+        }}};
+
+        const result = await Accounts.prototype.connectExternalHarnessBridge({action: 'start'});
+
+        expect(received).toEqual({action: 'start'}); // exactly the NL-MCP request shape...
+        expect(received.credential).toBeUndefined();  // ...with no credential crossing the boundary
+        expect(result.message).toBe('External harness started')
+    });
+
+    test('onConnectExternalHarnessClick reports is-live on a successful connect', async () => {
+        const calls = [];
+        const stub  = {
+            connectExternalHarnessBridge: async request => {
+                expect(request).toEqual({action: 'start'});
+                return {message: 'External harness started'}
+            },
+            updateBridgeStatus: (stateCls, message) => calls.push({stateCls, message})
+        };
+
+        await Accounts.prototype.onConnectExternalHarnessClick.call(stub);
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0].stateCls).toBe('is-live');
+        expect(calls[0].message).toContain('External harness started')
+    });
+
+    test('onConnectExternalHarnessClick fails closed to is-error when the bridge is unavailable', async () => {
+        const calls = [];
+        const stub  = {
+            connectExternalHarnessBridge: async () => { throw new Error('Neural Link connection bridge unavailable') },
+            updateBridgeStatus: (stateCls, message) => calls.push({stateCls, message})
+        };
+
+        await Accounts.prototype.onConnectExternalHarnessClick.call(stub);
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0].stateCls).toBe('is-error');     // never throws out of the handler...
+        expect(calls[0].message).toMatch(/fails closed/i) // ...reports the fail-closed state instead
+    });
+
+    test('the connect path stays credential-free and fails closed in source', () => {
+        const source = fs.readFileSync(viewPath, 'utf8');
+
+        expect(source).toContain('connectExternalHarnessBridge');
+        expect(source).toContain('neuralLink?.connectionBridge');
+        expect(source).toContain('Neural Link connection bridge unavailable');
+        // the connect handler/bridge invoke manage_connection with {action} only — never a credential
+        expect(source).toMatch(/connectExternalHarnessBridge\(\{action: 'start'\}\)/)
+    })
+});

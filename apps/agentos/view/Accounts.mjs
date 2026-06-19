@@ -14,7 +14,8 @@ import Toolbar          from '../../../src/toolbar/Base.mjs';
  * @summary The **Accounts keeper-view** — set up the cross-family fleet's agent identities (GitHub
  * identity + harness type + provider credential). Extracted from `FleetSettingsPanel` per the cockpit
  * keeper-view decomposition: this view owns identity *setup*; the Fleet view owns the live roster
- * + lifecycle.
+ * + lifecycle. It also surfaces a **basic NL-MCP connect entry** (the external-harness
+ * `manage_connection` start path) through the same fail-closed injected-bridge discipline.
  *
  * Capability-security boundary (the load-bearing reason this is its own surface): a credential is
  * collected only long enough to submit it to the Brain-side Fleet Registry bridge. If that bridge is
@@ -136,6 +137,12 @@ class Accounts extends DashboardPanel {
                     handler: 'up.onLoadSampleClick',
                     iconCls: 'fa fa-pen-to-square',
                     text   : 'Edit Sample'
+                }, {
+                    module : Button,
+                    cls    : ['agent-button', 'agent-connect-button'],
+                    handler: 'up.onConnectExternalHarnessClick',
+                    iconCls: 'fa fa-plug',
+                    text   : 'Connect Harness (NL-MCP)'
                 }]
             }, {
                 ntype    : 'component',
@@ -217,6 +224,22 @@ class Accounts extends DashboardPanel {
     }
 
     /**
+     * @summary Attempt the basic NL-MCP external-harness connect through an injected Neural Link
+     * connection bridge, or fail closed. Mirrors {@link onSubmitAgentClick}'s bridge discipline: the
+     * connect carries no credential, and when no bridge is injected (the dev-server app has none) the
+     * view reports the failure without inventing any browser-side connection state.
+     * @returns {Promise<void>}
+     */
+    async onConnectExternalHarnessClick() {
+        try {
+            const result = await this.connectExternalHarnessBridge({action: 'start'});
+            this.updateBridgeStatus('is-live', result?.message || 'External harness connected through the Neural Link bridge.')
+        } catch (error) {
+            this.updateBridgeStatus('is-error', 'Neural Link connection bridge unavailable in dev-server mode. Connect fails closed; no connection state was stored in the app worker.')
+        }
+    }
+
+    /**
      * @summary Remove credential bytes from the password field after every bridge attempt.
      * @returns {Promise<void>}
      */
@@ -241,6 +264,25 @@ class Accounts extends DashboardPanel {
         }
 
         return bridge.defineAgent(payload)
+    }
+
+    /**
+     * @summary Forward a basic NL-MCP connect request to an injected Neural Link connection bridge,
+     * or fail closed. Mirrors {@link submitToFleetRegistryBridge}: an injected bridge is used when a
+     * future Agent OS shell exposes one; the current dev-server app has none, so the view fails closed
+     * instead of inventing a connection. Carries no credential — the App-Worker → Brain capability
+     * boundary is preserved.
+     * @param {Object} request The NL-MCP connection request, e.g. `{action:'start'}`.
+     * @returns {Promise<*>}
+     */
+    async connectExternalHarnessBridge(request) {
+        const bridge = globalThis.AgentOS?.neuralLink?.connectionBridge;
+
+        if (!bridge?.manageConnection) {
+            throw new Error('Neural Link connection bridge unavailable')
+        }
+
+        return bridge.manageConnection(request)
     }
 
     /**
