@@ -1,5 +1,5 @@
 import {test, expect}  from '@playwright/test';
-import {execSync}      from 'node:child_process';
+import {execFileSync}  from 'node:child_process';
 import fs              from 'node:fs';
 import os              from 'node:os';
 import path            from 'node:path';
@@ -33,9 +33,11 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         return filePath;
     };
 
-    const run = (args) => {
+    // execFileSync (not execSync): node is spawned directly with an argv array — no shell, so the
+    // absolute scriptPath + file args can never be interpolated into a shell command (CodeQL-clean).
+    const run = (...args) => {
         try {
-            return {status: 0, output: execSync(`node ${scriptPath} ${args}`, {encoding: 'utf8', stdio: 'pipe'})};
+            return {status: 0, output: execFileSync('node', [scriptPath, ...args], {encoding: 'utf8', stdio: 'pipe'})};
         } catch (error) {
             return {status: error.status, output: (error.stderr || '') + (error.stdout || '')};
         }
@@ -60,7 +62,7 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
     test('--fix aligns the group to one shared from-column and is idempotent', () => {
         const file = write('m.mjs', MISALIGNED);
 
-        expect(run(`--fix ${file}`).status).toBe(0);
+        expect(run('--fix', file).status).toBe(0);
 
         const
             fixedLines = fs.readFileSync(file, 'utf8').split('\n').filter(line => line.startsWith('import')),
@@ -68,7 +70,7 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
 
         expect(new Set(fromCols).size).toBe(1);        // every 'from' shares one column
         expect(run(file).status).toBe(0);              // re-check passes — aligned file is clean
-        expect(run(`--fix ${file}`).status).toBe(0);   // idempotent — a second --fix changes nothing harmful
+        expect(run('--fix', file).status).toBe(0);   // idempotent — a second --fix changes nothing harmful
     });
 
     test('a lone single import is not a group — passes regardless of its spacing', () => {
@@ -92,7 +94,7 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         // repair that never happened. An unprocessable (missing) file must fail in BOTH modes.
         const missing = path.join(tempDir, 'does-not-exist.mjs');
 
-        const fixResult = run(`--fix ${missing}`);
+        const fixResult = run('--fix', missing);
         expect(fixResult.status).toBe(1);
         expect(fixResult.output).toContain('Error processing');
 
