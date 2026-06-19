@@ -27,18 +27,18 @@
 // at module-load. `InstanceManager` binds `Neo.find` / `Neo.findFirst` / `Neo.get`
 // aliases + sets `Base.instanceManagerAvailable=true` + consumes pre-singleton
 // `Neo.idMap`. All 3 MUST run before consumed class imports.
-import Neo             from '../../../src/Neo.mjs';
-import * as core       from '../../../src/core/_export.mjs';
-import InstanceManager from '../../../src/manager/Instance.mjs';
-import AiConfig        from '../../config.mjs';
-import memoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
+import Neo                   from '../../../src/Neo.mjs';
+import * as core             from '../../../src/core/_export.mjs';
+import InstanceManager       from '../../../src/manager/Instance.mjs';
+import AiConfig              from '../../config.mjs';
+import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
 import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 
-import fs from 'fs-extra';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs                           from 'fs-extra';
+import path                         from 'path';
+import { fileURLToPath }            from 'url';
 import { constants as fsConstants } from 'fs';
-import { spawn, execSync } from 'child_process';
+import { spawn, execSync }          from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,7 +69,7 @@ import {
     shouldDeferFlush
 } from './flushDeferPolicy.mjs';
 import {clampWatermark, filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import {IDENTITIES}                                        from '../../graph/identityRoots.mjs';
 
 const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
 const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
@@ -428,7 +428,11 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     }, trace);
 
     if (!result) return null;
-    if (result.type === 'heartbeat_pulse' && isPromptSubmittingSubscription(sub)) return null;
+
+    // heartbeat_pulse delivers through every adapter (incl. interactive osascript/tmux): emission is
+    // already idle-gated upstream (WakeDecisionService.decideWake — Wake = active AND idle AND ready),
+    // so the delivery layer trusts that gate rather than re-suppressing by adapter, which had dropped
+    // every interactive heartbeat while only non-interactive (codex-app-server) adapters kept theirs.
 
     // Map the shared evaluator's {type, payload, logId} onto the daemon's flat coalescing payload.
     const {payload, logId} = result;
@@ -461,26 +465,6 @@ function isWakeTargetEligible(identity) {
           participationStatus = identityParticipationById.get(normalizedIdentity);
 
     return !participationStatus || participationStatus === 'active';
-}
-
-/**
- * @summary Resolves the effective wake adapter for a subscription.
- * @param {Object} subscription WAKE_SUBSCRIPTION node.
- * @returns {String}
- */
-function getSubscriptionAdapter(subscription) {
-    const meta = subscription.properties?.harnessTargetMetadata || {};
-    return meta.adapter || (process.platform === 'darwin' ? 'osascript' : 'tmux');
-}
-
-/**
- * @summary True when heartbeat-only delivery would submit into an interactive prompt.
- * @param {Object} subscription WAKE_SUBSCRIPTION node.
- * @returns {Boolean}
- */
-function isPromptSubmittingSubscription(subscription) {
-    const adapter = getSubscriptionAdapter(subscription);
-    return adapter === 'osascript' || adapter === 'tmux';
 }
 
 /**
@@ -721,6 +705,18 @@ async function flushSubscription(subId) {
     permissions = filterEventsByWatermark(permissions, watermark);
     heartbeats  = filterEventsByWatermark(heartbeats,  watermark);
 
+    // Mixed-wake heartbeat suppression (digest content only): a heartbeat is the idle-watchdog nudge,
+    // but when it coalesces with an actionable wake (message / task / permission) the agent is already
+    // being woken — so the redundant heartbeat is dropped FROM THE DIGEST. A heartbeat-only queue still
+    // delivers, including through interactive osascript/tmux adapters: this is the correctly-scoped
+    // successor to the per-adapter evaluateSubscription drop that had killed ALL interactive heartbeats.
+    // `consumedHeartbeats` keeps the dropped logIds for the watermark below so a re-queued backlog
+    // cannot re-deliver them.
+    const consumedHeartbeats = heartbeats;
+    if (messages.length > 0 || tasks.length > 0 || permissions.length > 0) {
+        heartbeats = [];
+    }
+
     // Nothing genuinely-new survived (the delta was entirely already-read or already-woken) → suppress.
     if (messages.length === 0 && tasks.length === 0 && permissions.length === 0 && heartbeats.length === 0) {
         return;
@@ -742,7 +738,7 @@ async function flushSubscription(subId) {
     // Advance the per-subscription watermark to the highest delivered logId so these events are not
     // re-counted if the backlog is re-queued; persist for restart durability. logId is monotonic
     // (append-only GraphLog), so genuinely-new events always land strictly above this mark.
-    const deliveredMax = maxLogId([...messages, ...tasks, ...permissions, ...heartbeats]);
+    const deliveredMax = maxLogId([...messages, ...tasks, ...permissions, ...consumedHeartbeats]);
     if (deliveredMax !== null && deliveredMax > (wokenWatermark[subId] ?? 0)) {
         wokenWatermark[subId] = deliveredMax;
         persistWokenWatermark();
