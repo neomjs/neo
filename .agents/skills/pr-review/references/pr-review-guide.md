@@ -241,7 +241,7 @@ Reviewers MUST verify testing claims and canonical file placement:
 
 ### 7.6 CI / Security Checks Audit
 
-Formal reviews assume CI is already green. Verify the current PR check state before `manage_pr_review`; if checks are pending, missing, or failing, stop and send a compact CI deferral instead of a full review. Load `.agents/skills/pr-review/audits/ci-security-audit.md` only for security-sensitive changes or ambiguous/failing check surfaces.
+Formal reviews assume green current-head CI. Verify it before `manage_pr_review`; if checks are pending, missing, or failing, send a compact CI deferral instead of a full review. For stacked PRs (`baseRefName` not `dev` / default), approval/merge-ready wording also names base state + retarget/full-CI status; child-green alone is delta evidence. Load `.agents/skills/pr-review/audits/ci-security-audit.md` only for security-sensitive changes or ambiguous/failing check surfaces.
 
 ### 7.7 Anti-Patterns
 
