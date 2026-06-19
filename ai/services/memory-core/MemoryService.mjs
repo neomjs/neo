@@ -1575,11 +1575,15 @@ class MemoryService extends Base {
               `).run(archivedAt, reason, id);
 
         // Node-cache coherence: getContextFrontier reads the in-memory node cache, which the SQL
-        // UPDATE does not touch. Mirror the marker so the topology frontier excludes it too.
-        const cached = GraphService.db?.nodes?.get(id);
-        if (cached?.properties) {
-            cached.properties.archivedAt     = archivedAt;
-            cached.properties.archivedReason = reason;
+        // UPDATE does not touch. Mirror the marker — but only on a REAL archive (info.changes > 0),
+        // so an idempotent re-run (the DB UPDATE no-ops, keeping the original archivedAt) does not
+        // stamp a fresh timestamp on the cache and drift it from the persisted row.
+        if (info.changes > 0) {
+            const cached = GraphService.db?.nodes?.get(id);
+            if (cached?.properties) {
+                cached.properties.archivedAt     = archivedAt;
+                cached.properties.archivedReason = reason;
+            }
         }
 
         return info.changes > 0;
