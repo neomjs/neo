@@ -36,6 +36,8 @@ import {
 const execFileAsync = promisify(execFile);
 void Neo;
 
+export const DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE = 5;
+
 registerNeoChromaEmbeddingFunctions({
     dummyEmbeddingFunction: AiConfig.dummyEmbeddingFunction
 });
@@ -168,12 +170,96 @@ async function runStep(label, fn) {
 }
 
 /**
+ * @param {*} value
+ * @returns {Number}
+ */
+export function normalizeExportabilitySampleSize(value) {
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed) || parsed < 1) {
+        return DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE
+    }
+
+    return Math.floor(parsed)
+}
+
+/**
+ * @param {Object} options
+ * @param {Object} options.collection
+ * @param {Number} [options.sampleSize=DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE]
+ * @returns {Promise<Object>}
+ */
+export async function probeStoredEmbeddingExportability({
+    collection,
+    sampleSize = DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE
+} = {}) {
+    const label          = 'stored embedding exportability',
+          normalizedSize = normalizeExportabilitySampleSize(sampleSize);
+
+    let ids = [];
+    try {
+        const response = await collection.get({
+            limit  : normalizedSize,
+            include: []
+        });
+
+        ids = response.ids || [];
+    } catch (error) {
+        return {
+            label,
+            ok   : false,
+            error: error.message
+        }
+    }
+
+    const failures = [];
+    let succeeded  = 0;
+
+    for (const id of ids) {
+        try {
+            const response = await collection.get({
+                ids    : [id],
+                include: ['embeddings']
+            });
+
+            const embedding = response.embeddings?.[0];
+            if (!response.ids?.length || !embedding?.length) {
+                throw new Error('Stored embedding missing from single-id export')
+            }
+
+            succeeded++;
+        } catch (error) {
+            failures.push({
+                id,
+                error: error.message
+            });
+        }
+    }
+
+    return {
+        label,
+        ok   : failures.length === 0,
+        value: {
+            sampled: ids.length,
+            succeeded,
+            failed : failures.length,
+            failures
+        }
+    }
+}
+
+/**
  * @param {Object} options
  * @param {Object} options.collection
  * @param {String} options.name
+ * @param {Number} [options.exportabilitySampleSize=DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE]
  * @returns {Promise<Object>}
  */
-export async function probeCollection({collection, name}) {
+export async function probeCollection({
+    collection,
+    name,
+    exportabilitySampleSize = DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE
+}) {
     const result = {
         name,
         steps: []
@@ -188,8 +274,14 @@ export async function probeCollection({collection, name}) {
 
     result.steps.push(idsStep);
 
+    const exportabilityStep = await probeStoredEmbeddingExportability({
+        collection,
+        sampleSize: exportabilitySampleSize
+    });
+
     const id = idsStep.ok ? idsStep.value?.[0] : null;
     if (!id) {
+        result.steps.push(exportabilityStep);
         return result
     }
 
@@ -222,6 +314,8 @@ export async function probeCollection({collection, name}) {
 
     result.steps.push(embeddingStep);
 
+    result.steps.push(exportabilityStep);
+
     if (embedding?.length) {
         result.steps.push(await runStep('query by existing embedding', async () => {
             const response = await collection.query({
@@ -245,12 +339,14 @@ export async function probeCollection({collection, name}) {
  * @param {Object} [options.memoryCoreConfig=mcConfig]
  * @param {Object} [options.knowledgeBaseConfig=kbConfig]
  * @param {Function} [options.Client=ChromaClient]
+ * @param {Number} [options.exportabilitySampleSize=DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE]
  * @returns {Promise<Object[]>}
  */
 export async function probeChromaApi({
     memoryCoreConfig    = mcConfig,
     knowledgeBaseConfig = kbConfig,
-    Client              = ChromaClient
+    Client                  = ChromaClient,
+    exportabilitySampleSize = DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE
 } = {}) {
     const chroma = memoryCoreConfig.engines.chroma,
           client = new Client({
@@ -290,7 +386,8 @@ export async function probeChromaApi({
         });
         const collectionResult = await probeCollection({
             collection: getCollection.value,
-            name
+            name,
+            exportabilitySampleSize
         });
 
         result.steps.push(...collectionResult.steps);
@@ -298,6 +395,24 @@ export async function probeChromaApi({
     }
 
     return results
+}
+
+/**
+ * @param {Object} value
+ * @returns {String}
+ */
+function formatStepValue(value) {
+    if (!value || typeof value !== 'object' || !('sampled' in value)) {
+        return ''
+    }
+
+    const failurePreview = (value.failures || []).slice(0, 3).map(failure => {
+        return `${failure.id}: ${failure.error}`
+    }).join('; ');
+
+    const failures = failurePreview ? `; failures=${failurePreview}` : '';
+
+    return ` (sampled=${value.sampled}, succeeded=${value.succeeded}, failed=${value.failed}${failures})`
 }
 
 /**
@@ -320,7 +435,8 @@ function printHuman(result) {
     for (const collection of result.api.collections) {
         console.log(`- ${collection.name}`);
         for (const step of collection.steps) {
-            console.log(`  - ${step.label}: ${step.ok ? 'ok' : `failed (${step.error})`}`);
+            const details = step.error ? ` (${step.error})` : formatStepValue(step.value);
+            console.log(`  - ${step.label}: ${step.ok ? 'ok' : 'failed'}${details}`);
         }
     }
 }
@@ -335,6 +451,11 @@ export async function run(argv = process.argv) {
         .description('Copy-first Chroma SQLite integrity check plus read-only API probes.')
         .option('--sqlite <path>', 'Path to chroma.sqlite3. Defaults to configured unified store.')
         .option('--skip-api', 'Skip live read-only Chroma API probes.', false)
+        .option(
+            '--exportability-sample-size <count>',
+            'Number of ids to sample for stored-embedding exportability probes.',
+            String(DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE)
+        )
         .option('--keep-snapshot', 'Keep the copied SQLite snapshot instead of removing the temp dir.', false)
         .option('--json', 'Print machine-readable JSON.', false)
         .parse(argv);
@@ -361,7 +482,9 @@ export async function run(argv = process.argv) {
 
     if (!options.skipApi) {
         try {
-            const collections = await probeChromaApi();
+            const collections = await probeChromaApi({
+                exportabilitySampleSize: normalizeExportabilitySampleSize(options.exportabilitySampleSize)
+            });
             result.api = {
                 collections,
                 failedSteps: countFailedApiSteps(collections)
