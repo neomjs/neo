@@ -117,6 +117,24 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(tool.inputSchema.properties.chromaProbeTimeoutMs.minimum).toBe(1);
         expect(tool.inputSchema.properties.embeddingWriteCanaryTimeoutMs.type).toBe('integer');
         expect(tool.inputSchema.properties.embeddingWriteCanaryTimeoutMs.minimum).toBe(1);
+        expect(tool.inputSchema.properties.includeSqliteHolders).toBeUndefined();
+    });
+
+    test('get_sqlite_holder_diagnostics exposes read-only grouped holder contract (#13475)', async () => {
+        const { tools } = await toolService.listTools();
+        const tool = tools.find(item => item.name === 'get_sqlite_holder_diagnostics');
+
+        expect(tool).toBeTruthy();
+        expect(tool.annotations.readOnlyHint).toBe(true);
+        expect(tool.inputSchema.properties).toEqual({});
+        expect(tool.outputSchema.properties.status.enum).toEqual(['ok', 'degraded']);
+        expect(tool.outputSchema.properties.totalProcesses.type).toBe('integer');
+        expect(tool.outputSchema.properties.byHarness.additionalProperties.type).toBe('integer');
+        expect(tool.outputSchema.properties.groups.items.properties.harness.type).toBe('string');
+        expect(tool.outputSchema.properties.groups.items.properties.processes.type).toBe('array');
+        expect(tool.outputSchema.properties.processes.items.properties.pid.type).toBe('integer');
+        expect(tool.outputSchema.properties.processes.items.properties.chain.type).toBe('array');
+        expect(tool.outputSchema.properties.warnings.items.properties.code.type).toBe('string');
     });
 
     test('healthcheck dispatch passes diagnostic options as one object (#13460)', async () => {

@@ -128,6 +128,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /diagnostics/sqlite-holders:
+    get:
+      summary: Get SQLite Holder Diagnostics
+      operationId: get_sqlite_holder_diagnostics
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Returns an on-demand, read-only snapshot of sibling processes currently holding
+        the Memory Core SQLite graph files open.
+
+        This diagnostic is intentionally outside the default healthcheck path. It may
+        shell out to process-inspection tools and should be called only when operators
+        need current holder details for local or cloud Agent OS triage. Probe failures
+        are reported as degraded diagnostic data, not as Memory Core health failures.
+      tags: [Health]
+      responses:
+        '200':
+          description: Current SQLite holder diagnostic snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqliteHolderDiagnosticsResponse'
+        '500':
+          description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /memories:
     post:
       summary: Add New Memory
@@ -1577,6 +1606,134 @@ components:
               type: integer
               description: Inbound graph entity/provenance edge count for the session.
               example: 17
+    SqliteHolderDiagnosticsResponse:
+      type: object
+      required:
+        - status
+        - measuredAt
+        - sqliteFile
+        - files
+        - existingFiles
+        - totalProcesses
+        - byHarness
+        - groups
+        - processes
+        - warnings
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          description: Diagnostic probe status; degraded is diagnostic-only and does not imply Memory Core is unhealthy.
+          example: "ok"
+        measuredAt:
+          type: string
+          format: date-time
+          description: ISO timestamp for the diagnostic snapshot.
+          example: "2026-06-19T02:50:00.000Z"
+        sqliteFile:
+          type: string
+          nullable: true
+          description: Memory Core SQLite graph database path inspected by the probe.
+          example: "/repo/.neo-ai-data/sqlite/memory-core-graph.sqlite"
+        files:
+          type: array
+          description: WAL-mode SQLite file set that was considered by the probe.
+          items:
+            type: string
+        existingFiles:
+          type: array
+          description: Subset of files that existed at probe time and were passed to process inspection.
+          items:
+            type: string
+        totalProcesses:
+          type: integer
+          description: Number of sibling holder processes after PID deduplication and current-process exclusion.
+          example: 3
+        byHarness:
+          type: object
+          description: Holder counts keyed by harness classification.
+          additionalProperties:
+            type: integer
+          example:
+            antigravity: 2
+            unknown: 1
+        groups:
+          type: array
+          description: Holder processes grouped by harness classification.
+          items:
+            type: object
+            required: [harness, label, processes]
+            properties:
+              harness:
+                type: string
+                description: Stable harness classification key.
+                example: "antigravity"
+              label:
+                type: string
+                description: Human-readable harness label.
+                example: "Antigravity"
+              processes:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SqliteHolderProcess'
+        processes:
+          type: array
+          description: Flat process list for callers that do not want grouped projection.
+          items:
+            $ref: '#/components/schemas/SqliteHolderProcess'
+        warnings:
+          type: array
+          description: Non-fatal diagnostic warnings, such as unmapped holder harnesses.
+          items:
+            type: object
+            required: [code, message]
+            properties:
+              code:
+                type: string
+                example: "unknown-harness"
+              message:
+                type: string
+        error:
+          type: string
+          nullable: true
+          description: Present when status is degraded.
+    SqliteHolderProcess:
+      type: object
+      required:
+        - pid
+        - files
+        - harness
+        - chain
+      properties:
+        pid:
+          type: integer
+          description: Process id holding one or more SQLite files.
+          example: 12345
+        command:
+          type: string
+          nullable: true
+          description: Command name reported by lsof.
+          example: "node"
+        files:
+          type: array
+          description: SQLite files held by this process.
+          items:
+            type: string
+        harness:
+          type: string
+          description: Stable harness classification key.
+          example: "claude-desktop"
+        chain:
+          type: array
+          description: Parent process chain used to classify the holder.
+          items:
+            type: object
+            required: [pid, command]
+            properties:
+              pid:
+                type: integer
+              command:
+                type: string
     HealthCheckResponse:
       type: object
       properties:
