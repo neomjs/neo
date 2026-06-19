@@ -206,6 +206,17 @@ class Config extends ConfigProvider {
                 hookWriteTimeoutMs: leaf(TURN_PRESENCE_DEFAULTS.hookWriteTimeoutMs, TURN_PRESENCE_ENV.hookWriteTimeoutMs, 'number')
             },
             /**
+             * Redacted Memory Core MCP tool-call telemetry. The recorder reads these resolved
+             * leaves at write/report time so deployments can tune observability without
+             * re-deriving defaults outside the Provider SSOT.
+             */
+            toolTelemetry: {
+                enabled: leaf(true, 'NEO_MC_TOOL_TELEMETRY_ENABLED', 'boolean'),
+                errorMaxChars: leaf(512, 'NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS', 'number'),
+                aggregateWindowMs: leaf(DAY_MS, 'NEO_MC_TOOL_TELEMETRY_WINDOW_MS', 'number'),
+                aggregateLimit: leaf(50, 'NEO_MC_TOOL_TELEMETRY_LIMIT', 'number')
+            },
+            /**
              * Data Schema/Table Names
              * This defines WHAT the tables/collections are called logically.
              */

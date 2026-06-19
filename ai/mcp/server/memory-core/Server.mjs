@@ -15,10 +15,11 @@ import {
     Memory_GraphService            as GraphService,
     Memory_HealthService           as HealthService,
     Memory_SessionService          as SessionService,
-    Memory_InferenceLifecycleService as InferenceLifecycleService,
-    Memory_StorageRouter           as StorageRouter,
-    Memory_WakeSubscriptionService as WakeSubscriptionService,
-    Memory_CoalescingEngineService as CoalescingEngineService
+    Memory_InferenceLifecycleService  as InferenceLifecycleService,
+    Memory_RecorderService            as RecorderService,
+    Memory_StorageRouter              as StorageRouter,
+    Memory_WakeSubscriptionService    as WakeSubscriptionService,
+    Memory_CoalescingEngineService    as CoalescingEngineService
 } from '../../../services.mjs';
 import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
 import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
@@ -138,8 +139,35 @@ class Server extends BaseServer {
      * outer CallTool try/catch and route to `formatToolError`.
      * @param {{toolName: String, args: Object}} context
      */
-    async beforeToolDispatch({args}) {
-        AuthMiddleware.validateNoIdentitySpoof(args);
+    async beforeToolDispatch({toolName, args, t0}) {
+        try {
+            AuthMiddleware.validateNoIdentitySpoof(args);
+        } catch (error) {
+            RecorderService.logToolCall({
+                toolName,
+                args,
+                success     : false,
+                error,
+                failureStage: 'policy',
+                t0
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * @summary Records health-gate rejects in the redacted MCP tool-call telemetry table.
+     * @param {{toolName: String, args: Object, error: Error, t0: Number}} context
+     */
+    async onHealthGateFailure({toolName, args, error, t0}) {
+        RecorderService.logToolCall({
+            toolName,
+            args,
+            success     : false,
+            error,
+            failureStage: 'health_gate',
+            t0
+        });
     }
 
     /**
@@ -208,6 +236,13 @@ class Server extends BaseServer {
             dependency: SessionService,
             start     : () => SessionService.ready(),
             degraded  : 'session/vector reads are degraded; add_memory remains WAL-available'
+        });
+
+        await this.prepareStartupDependency({
+            name      : 'tool-telemetry',
+            dependency: RecorderService,
+            start     : () => RecorderService.initAsync(),
+            degraded  : 'Memory Core tool telemetry is disabled; tool dispatch remains available'
         });
 
         // In-process WAL drain (containerized / single-process deployments): hosts the embed

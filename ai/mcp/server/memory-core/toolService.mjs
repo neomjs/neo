@@ -1,15 +1,16 @@
 import path                    from 'path';
 import {fileURLToPath}         from 'url';
-import ToolService             from '../../ToolService.mjs';
-import GraphService            from '../../../services/memory-core/GraphService.mjs';
-import HealthService           from '../../../services/memory-core/HealthService.mjs';
-import MemoryService           from '../../../services/memory-core/MemoryService.mjs';
-import SessionService          from '../../../services/memory-core/SessionService.mjs';
-import SummaryService          from '../../../services/memory-core/SummaryService.mjs';
-import MailboxService          from '../../../services/memory-core/MailboxService.mjs';
-import PermissionService       from '../../../services/memory-core/PermissionService.mjs';
-import WakeSubscriptionService from '../../../services/memory-core/WakeSubscriptionService.mjs';
-import TurnPresenceService     from '../../../services/memory-core/TurnPresenceService.mjs';
+import ToolService               from '../../ToolService.mjs';
+import GraphService              from '../../../services/memory-core/GraphService.mjs';
+import HealthService             from '../../../services/memory-core/HealthService.mjs';
+import MemoryService             from '../../../services/memory-core/MemoryService.mjs';
+import SessionService            from '../../../services/memory-core/SessionService.mjs';
+import SummaryService            from '../../../services/memory-core/SummaryService.mjs';
+import MailboxService            from '../../../services/memory-core/MailboxService.mjs';
+import PermissionService         from '../../../services/memory-core/PermissionService.mjs';
+import WakeSubscriptionService   from '../../../services/memory-core/WakeSubscriptionService.mjs';
+import TurnPresenceService       from '../../../services/memory-core/TurnPresenceService.mjs';
+import MemoryCoreRecorderService from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -35,6 +36,8 @@ const serviceMapping = {
     query_recent_turns      : MemoryService          .queryRecentTurns        .bind(MemoryService),
     query_summaries         : SummaryService         .querySummaries          .bind(SummaryService),
     search_nodes            : GraphService           .searchNodes             .bind(GraphService),
+    get_memory_core_tool_metrics:
+                              MemoryCoreRecorderService.getMemoryCoreToolMetrics.bind(MemoryCoreRecorderService),
     add_message             : MailboxService         .addMessage              .bind(MailboxService),
     list_messages           : MailboxService         .listMessages            .bind(MailboxService),
     get_message             : MailboxService         .getMessage              .bind(MailboxService),
@@ -60,7 +63,32 @@ const toolService = Neo.create(ToolService, {
     serviceMapping
 });
 
-const callTool  = toolService.callTool .bind(toolService);
+const _callTool = toolService.callTool.bind(toolService);
+
+const callTool = async (name, args, options = {}) => {
+    const t0 = Date.now();
+
+    let result, success = false, error = null;
+
+    try {
+        result  = await _callTool(name, args, options);
+        success = true;
+        return result;
+    } catch (err) {
+        error = err;
+        throw err;
+    } finally {
+        MemoryCoreRecorderService.logToolCall({
+            toolName    : name,
+            args,
+            result,
+            success,
+            error,
+            failureStage: success ? null : 'dispatch',
+            t0
+        });
+    }
+};
 const listTools = toolService.listTools.bind(toolService);
 
 export {callTool, listTools};
