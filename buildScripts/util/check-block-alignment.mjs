@@ -14,11 +14,10 @@ import fs from 'fs';
  * 2. **object-literal colons** (v1b) — within a run of ≥ 2 consecutive same-indent object properties,
  *    the key `:` aligns to one column = the widest key. Shorthand properties (`foo,`) stay in the run
  *    but are not themselves aligned; nested objects re-group at their own indent.
- * 3. **`=` declaration blocks** (v1b) — within a `const`/`let`/`var` declaration block (either
- *    repeated-keyword lines OR indented `name = value` lines under a lone keyword line), the `=`
- *    aligns to one column. Agnostic to comma-vs-repeat-keyword structure (per the convention
- *    resolution). Bare (non-declaration) assignments are NOT aligned — declaration-anchored only, so
- *    the gate never re-aligns arbitrary `a = b` statements.
+ * 3. **`=` comma-blocks** (v1b) — within a single-keyword comma-block (a lone `const`/`let`/`var`
+ *    line + its indented `name = value` continuations), the `=` aligns to one column. Only this
+ *    rule-35 unit is grouped — separate consecutive declarations and bare assignments are left alone,
+ *    so the gate never re-aligns unrelated statements. A block-opening value (`{`/`(`/`[`) is excluded.
  *
  * Conservative grouping (≥ 2 members, same indent, broken by any non-conforming line) so the gate
  * never touches an un-alignable shape and cannot false-positive. The column math is the entire point.
@@ -185,9 +184,8 @@ function evaluateColonAlignment(lines) {
 // ─────────────────────────── `=` declaration blocks (v1b) ───────────────────────────
 
 const
-    KEYWORD_DECL = /^(\s*)(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*.+$/, // Form A: keyword per line
-    LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,                            // Form B: keyword alone
-    BARE_DECL    = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/;                     // Form B: indented continuation
+    LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,        // a lone `const`/`let`/`var` line (opens a comma-block)
+    BARE_DECL    = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/; // its indented `name = value` comma-block continuation
 
 /**
  * @summary The leading whitespace of a line.
@@ -227,10 +225,10 @@ function opensMultilineBlock(value) {
 }
 
 /**
- * @summary Splits lines into declaration-anchored assignment runs. Form A = consecutive same-indent
- * `const`/`let`/`var <name> = …` lines. Form B = the indented `<name> = …` continuations under a lone
- * `const`/`let`/`var` keyword line. Bare assignments with no declaration anchor are deliberately NOT
- * collected, so arbitrary `a = b` statements are never re-aligned.
+ * @summary Splits lines into single-keyword comma-block assignment runs: the indented `<name> = …`
+ * continuations under a lone `const`/`let`/`var` keyword line (the rule-35 house-style unit). Separate
+ * consecutive declarations (`let a = …; const b = …;`) and bare assignments are deliberately NOT
+ * collected — only the comma-block is an alignment group, so unrelated statements are never re-aligned.
  * @param {String[]} lines
  * @returns {Array<Number[]>} runs of line indices (length ≥ 2)
  */
@@ -239,21 +237,9 @@ function collectAssignmentRuns(lines) {
     let   i    = 0;
 
     while (i < lines.length) {
-        // Form A — consecutive keyword declarations at the same indent.
-        if (KEYWORD_DECL.test(lines[i])) {
-            const indent = leadingWhitespace(lines[i]);
-            const run    = [];
-
-            while (i < lines.length && KEYWORD_DECL.test(lines[i]) && leadingWhitespace(lines[i]) === indent) {
-                run.push(i);
-                i++;
-            }
-
-            if (run.length >= 2) runs.push(run);
-            continue;
-        }
-
-        // Form B — a lone keyword line, then indented `name = value` continuations at one deeper indent.
+        // The single-keyword comma-block — a lone `const`/`let`/`var` line, then its indented
+        // `name = value` continuations at one deeper indent — is the only `=`-alignment unit (rule 35).
+        // Separate consecutive declarations and bare assignments are NOT grouped.
         if (LONE_KEYWORD.test(lines[i])) {
             const keywordIndent = leadingWhitespace(lines[i]);
             const run           = [];

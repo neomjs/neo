@@ -193,6 +193,13 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(run(file).status).toBe(0);
         });
 
+        test('separate consecutive declarations are NOT grouped (only the comma-block aligns)', () => {
+            // `let aaa = …; const b = …;` are distinct statements — the house-style `=` unit is the
+            // single-keyword comma-block, not every adjacent declaration. Must pass unchanged.
+            const file = write('d.mjs', 'let aaa = 1;\nconst b = 2;\nlet cc = 3;\n');
+            expect(run(file).status).toBe(0);
+        });
+
         test('a computed key participates in colon alignment (the [isDescriptor] config pattern)', () => {
             // Regression guard: a `[bracket]` key must be counted in the key width, not excluded — else
             // the colons re-align to a narrower column and break the descriptor block.
