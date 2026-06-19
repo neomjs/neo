@@ -209,9 +209,10 @@ paths:
 
 
         Layers (precedence): (1) participationStatus hard gate — operator_benched /
-        temporarily_unreachable report offline; (2) turn-started beacon — reserved as the future
-        primary active-turn proof, but not yet emitted, so currently an inert null slot the code never
-        reads (never faked); (3) HarnessPresence freshness — the corroboration that decides availability today.
+        temporarily_unreachable report offline; (2) add_memory-recency (primary) — the most-recent
+        caller-visible AGENT_MEMORY write within the freshness window means recently active. add_memory
+        is the universal, deployment-agnostic activity write (no harness beacon); the read is RLS-scoped
+        (never cross-tenant) and graph-backed (survives an embed-drain).
       tags: [Health]
       requestBody:
         required: false
@@ -234,9 +235,9 @@ paths:
                   generatedAt:
                     type: string
                     description: ISO timestamp the projection was computed at.
-                  beaconStatus:
+                  signalStatus:
                     type: string
-                    description: Status of the primary turn-started beacon signal (pending Substrate A).
+                    description: Describes the liveness signal — add_memory-recency, RLS-scoped and graph-backed.
                   agents:
                     type: array
                     items:
