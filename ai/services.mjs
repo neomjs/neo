@@ -49,6 +49,7 @@ import _Memory_GraphService from './services/memory-core/GraphService.mjs';
 import _Memory_SummaryService from './services/memory-core/SummaryService.mjs';
 import _Memory_ChromaLifecycleService from './services/memory-core/lifecycle/ChromaLifecycleService.mjs';
 import _Memory_InferenceLifecycleService from './services/memory-core/lifecycle/InferenceLifecycleService.mjs';
+import _Memory_RecorderService from './services/memory-core/MemoryCoreRecorderService.mjs';
 import Memory_ChromaManager         from './services/memory-core/managers/ChromaManager.mjs';
 import Memory_StorageRouter         from './services/memory-core/managers/StorageRouter.mjs';
 import _Memory_LifecycleService from './services/memory-core/lifecycle/SystemLifecycleService.mjs';
@@ -226,6 +227,7 @@ const Memory_InferenceLifecycleService = makeSafe(_Memory_InferenceLifecycleServ
 const Memory_HealthService = makeSafe(_Memory_HealthService, memSpec);
 const Memory_GraphService = makeSafe(_Memory_GraphService, memSpec);
 const Memory_SummaryService = makeSafe(_Memory_SummaryService, memSpec);
+const Memory_RecorderService = makeSafe(_Memory_RecorderService, memSpec);
 const Memory_TextEmbeddingService = makeSafe(_Memory_TextEmbeddingService, memSpec);
 const Memory_WakeSubscriptionService = makeSafe(_Memory_WakeSubscriptionService, memSpec);
 const Memory_TurnPresenceService = makeSafe(_Memory_TurnPresenceService, memSpec);
@@ -302,6 +304,7 @@ export {
     Memory_InferenceLifecycleService,
     Memory_GraphService,
     Memory_HealthService,
+    Memory_RecorderService,
     Memory_StorageRouter,
     Memory_SummaryService,
     Memory_TextEmbeddingService,

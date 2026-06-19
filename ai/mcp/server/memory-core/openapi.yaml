@@ -39,6 +39,8 @@ tags:
     description: Agent permission operations
   - name: TurnPresence
     description: Agent active-turn liveness interval operations
+  - name: Diagnostics
+    description: On-demand operational diagnostics
 
 paths:
   /healthcheck:
@@ -91,6 +93,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /diagnostics/tool-metrics:
+    post:
+      summary: Get Memory Core Tool Metrics
+      operationId: get_memory_core_tool_metrics
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Returns aggregate Memory Core MCP tool-call telemetry without exposing raw tool
+        arguments or results. Use this to diagnose slow or failing tools in long-running
+        local and shared deployments.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sinceMs:
+                  type: integer
+                  minimum: 1
+                  description: Lookback window in milliseconds. Defaults to the Memory Core telemetry config leaf.
+                limit:
+                  type: integer
+                  minimum: 1
+                  description: Maximum number of per-tool aggregate rows. Defaults to the Memory Core telemetry config leaf.
+      responses:
+        '200':
+          description: Aggregate Memory Core MCP tool-call metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryCoreToolMetricsResponse'
 
   /rem/pipeline-state:
     post:
@@ -1529,6 +1566,76 @@ paths:
 
 components:
   schemas:
+    MemoryCoreToolMetricsResponse:
+      type: object
+      required:
+        - status
+        - sinceMs
+        - limit
+        - totalCalls
+        - tools
+      properties:
+        status:
+          type: string
+          enum: [ok, disabled, unavailable]
+          description: Whether telemetry is available for the requested aggregate.
+          example: ok
+        sinceMs:
+          type: integer
+          description: Effective lookback window in milliseconds.
+          example: 86400000
+        limit:
+          type: integer
+          description: Effective maximum number of grouped tool rows.
+          example: 50
+        totalCalls:
+          type: integer
+          description: Total matching tool calls across all tools.
+          example: 128
+        tools:
+          type: array
+          description: Per-tool aggregate rows. Raw arguments and results are intentionally absent.
+          items:
+            type: object
+            required:
+              - tool
+              - calls
+              - failures
+            properties:
+              tool:
+                type: string
+                description: MCP operation id.
+                example: query_raw_memories
+              calls:
+                type: integer
+                description: Matching call count.
+                example: 42
+              failures:
+                type: integer
+                description: Matching calls recorded as failed.
+                example: 2
+              minDurationMs:
+                type: integer
+                nullable: true
+                description: Fastest recorded duration in milliseconds.
+                example: 12
+              avgDurationMs:
+                type: number
+                nullable: true
+                description: Average recorded duration in milliseconds.
+                example: 84.25
+              maxDurationMs:
+                type: integer
+                nullable: true
+                description: Slowest recorded duration in milliseconds.
+                example: 940
+              lastSeenAt:
+                type: string
+                format: date-time
+                nullable: true
+                description: ISO timestamp of the newest matching call.
+                example: "2026-06-19T03:30:00.000Z"
+
     RemPipelineStateResponse:
       type: object
       required:
