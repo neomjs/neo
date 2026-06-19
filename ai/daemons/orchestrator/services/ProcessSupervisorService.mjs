@@ -568,6 +568,10 @@ export class ProcessSupervisorService extends Base {
             return 0;
         }
 
+        if (task.duplicateListenerPolicy === 'defer') {
+            return 0;
+        }
+
         const listenerPids = this.listPortListeners(task.singletonPort);
         const canonicalPid = this.taskStateService.getTaskState(taskName)?.pid;
         let   reaped       = 0;

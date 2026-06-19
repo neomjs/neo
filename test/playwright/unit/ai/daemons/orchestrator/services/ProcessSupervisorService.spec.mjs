@@ -334,6 +334,21 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(probed).toBe(false);
     });
 
+    test('reapDuplicateListeners defers shared local services without touching listeners', () => {
+        const { service } = createTestService();
+        const killed = [];
+        let probed = false;
+
+        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskDefinitions.mockTask.duplicateListenerPolicy = 'defer';
+        service.listPortListeners = () => { probed = true; return [200]; };
+        service.killProcess       = pid => killed.push(pid);
+
+        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
+        expect(probed).toBe(false);
+        expect(killed).toEqual([]);
+    });
+
     test('reapDuplicateListeners reaps every matching listener when no canonical pid is tracked', () => {
         const { service } = createTestService();
         const killed = [];
