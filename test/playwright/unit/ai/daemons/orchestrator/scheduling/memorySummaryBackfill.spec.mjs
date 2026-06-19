@@ -3,6 +3,7 @@ import {
     buildNoProgressBackoffHook,
     buildMemorySummaryBackfillTrigger,
     getDueTask,
+    getPendingMemorySummaryBackfillCount,
     getPendingMemorySummaryBackfillJobs,
     getStillPendingMemorySummaryBackfillJobs,
     isNoProgressBackoffActive,
@@ -172,5 +173,26 @@ test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
         expect(taskState.noProgressBackoffReason).toBeUndefined();
         expect(taskState.noProgressBackoffAt).toBeUndefined();
         expect(taskState.noProgressPendingIds).toBeUndefined();
+    });
+
+    test('#13566: archived rows are excluded from fetch, count, and the no-progress re-check', () => {
+        const captured  = [],
+              captureDb = (rows = []) => ({
+                  prepare(sql) {
+                      captured.push(sql);
+                      return {all: () => rows, get: () => ({n: rows.length})};
+                  }
+              });
+
+        expect(getPendingMemorySummaryBackfillJobs(captureDb([{id: 'a'}]))).toEqual(['a']);
+        expect(getPendingMemorySummaryBackfillCount(captureDb([{}, {}]))).toBe(2);
+        expect(getStillPendingMemorySummaryBackfillJobs(captureDb([{id: 'a'}]), ['a'])).toEqual(['a']);
+
+        // All three pending surfaces must skip rows archived as structurally un-summarizable,
+        // so an archived no-content row stops inflating the metric + counts as backoff progress.
+        expect(captured).toHaveLength(3);
+        for (const sql of captured) {
+            expect(sql).toContain("'$.properties.archivedAt') IS NULL");
+        }
     });
 });
