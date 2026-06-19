@@ -100,6 +100,65 @@ const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
     {label: 'Patch Verdict',             token: '**Patch Verdict:**'}
 ];
 
+const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
+    '# PR Review Follow-Up Summary',
+    '**Cycle:**',
+    '### ⚓ Prior Review Anchor',
+    '### 🔁 Delta Scope',
+    '### Prior Review Anchor',
+    '### Delta Scope',
+    '### ✅ Previous Required Actions Audit',
+    '### Previous Required Actions Audit',
+    '### 🔬 Delta Depth Floor',
+    '### Delta Depth Floor',
+    '### 📊 Metrics Delta',
+    '### Metrics Delta'
+];
+
+const FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# PR Review Summary',
+    '### 🪜 Strategic-Fit Decision',
+    '### 🧭 Patch-Blind Premise Snapshot',
+    '### 🕸️ Context & Graph Linking',
+    '### 🔬 Depth Floor',
+    '### 🧠 Graph Ingestion Notes',
+    '### 📋 Required Actions',
+    '### 📊 Evaluation Metrics'
+];
+
+const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# PR Review Follow-Up Summary',
+    '**Cycle:**',
+    '### 🧭 Patch-Blind Premise Snapshot',
+    '### 🪜 Strategic-Fit Decision',
+    '### ⚓ Prior Review Anchor',
+    '### 🔁 Delta Scope',
+    '### ✅ Previous Required Actions Audit',
+    '### 🔬 Delta Depth Floor',
+    '### 📊 Metrics Delta',
+    '### 📋 Required Actions'
+];
+
+/**
+ * @summary Returns missing cycle-template skeleton anchors for review-body validation.
+ *
+ * The broad visible/invisible anchor layers catch metric and structural omissions. This
+ * layer catches skeleton-fidelity regressions: review bodies that carry semantic anchors,
+ * but rename/drop the selected template's canonical icon-bearing scaffold.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {String[]} Missing skeleton anchors, intentionally never exposed to callers.
+ */
+function getPrReviewTemplateSkeletonMisses(body) {
+    const hasFollowupShape = FOLLOWUP_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
+
+    if (hasFollowupShape) {
+        return FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(anchor => !body.includes(anchor));
+    }
+
+    return FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(anchor => !body.includes(anchor));
+}
+
 function normalizeCheckoutOptions(options) {
     if (typeof options === 'number') {
         return {pr_number: options};
@@ -566,6 +625,7 @@ class PullRequestService extends Base {
         // to compose a substitute structure.
         const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
         const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
+        const missingTemplateSkeleton = getPrReviewTemplateSkeletonMisses(body);
         const presentPremiseSnapshot  = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS .filter(anchor =>  body.includes(anchor.token));
         const missingPremiseSnapshot  = presentPremiseSnapshot.length === 0
             ? []
@@ -573,7 +633,12 @@ class PullRequestService extends Base {
                 .filter(anchor => !body.includes(anchor.token))
                 .map(anchor => anchor.label);
 
-        if (missingVisible.length > 0 || missingInvisible.length > 0 || missingPremiseSnapshot.length > 0) {
+        if (
+            missingVisible.length > 0          ||
+            missingInvisible.length > 0        ||
+            missingTemplateSkeleton.length > 0 ||
+            missingPremiseSnapshot.length > 0
+        ) {
             // Compose a message that guides toward the skill without enumerating invisible anchors.
             // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
             // full list — to reduce the "stuff just these tags" attack surface further.
