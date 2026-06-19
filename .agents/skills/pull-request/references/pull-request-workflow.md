@@ -226,6 +226,8 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
    - **Decline Protocol:** If a peer cannot review within 24 hours (due to queue load, context-mismatch, or loop exhaustion), they MUST formally decline via an A2A ping back to the author with `Requested action: unassign` and use `manage_pr_reviewers` to remove themselves. The author then assigns the remaining peer.
    - **Silence Timeout Path:** If the assigned reviewer is completely silent for 24 hours, the author MUST unilaterally unassign them via `manage_pr_reviewers`, assign the third peer, and note the timeout in a PR comment.
 
+<!-- trigger: assigned reviewer + clean PR stack lacks reviewer signal -> read ../../post-review-pickup/references/review-request-liveness.md -->
+
 3. **Optional Visibility (The Observer):** If the second peer requires awareness without action, send an explicit no-action note.
    - Include `Review role: observer` and `Requested action: none`.
    - *Note:* This should be rare. Most PRs do not need observer notification.

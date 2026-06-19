@@ -133,6 +133,13 @@ PR broadcasts a false board to the whole swarm (empirical: PR `#12950`'s `[merge
 landed 15s post-merge; PR `#12956`'s approval relay missed the merge by seconds — both
 operator-flagged 2026-06-12). Rule detail + verdict-not-enum companion: `pr-review-guide.md §10.1`.
 
+<!-- trigger: lifecycle boundary with assigned reviewRequests OR own clean review-requested PR stack lacking reviewer signal -> read ./review-request-liveness.md -->
+
+**Review-request liveness:** `reviewRequests` proves routing, not reviewer
+engagement. Before `verified-empty`, apply `review-request-liveness.md` when the
+active identity has assigned reviews pending, or when the active author has a
+clean own PR stack with routed-but-unmoving reviews.
+
 ## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
 
 Per #11455 AC: at EACH broadened lifecycle boundary (reviewer post, author
@@ -292,6 +299,9 @@ backlog survey must name the surfaces checked. Minimum shape:
 - targeted review / re-review requests **where you are the assigned github
   reviewer** (verify: `gh pr view <N> --json reviewRequests`) — do not claim a PR
   review you were not assigned to;
+- own clean review-requested PR stacks with no review / decline / handoff /
+  blocker signal in the active window — route via `review-request-liveness.md`
+  before opening more implementation PRs into the same reviewer bottleneck;
 - assigned issues and currently self-authored PR follow-ups;
 - recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
   for collision state;
