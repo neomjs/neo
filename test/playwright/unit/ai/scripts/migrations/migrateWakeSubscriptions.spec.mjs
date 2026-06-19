@@ -17,7 +17,7 @@ import {test, expect} from '@playwright/test';
 import Database       from 'better-sqlite3';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
-import {runMigration} from '../../../../../../ai/scripts/migrations/migrateWakeSubscriptions.mjs';
+import {auditWakeRoutes, runMigration} from '../../../../../../ai/scripts/migrations/migrateWakeSubscriptions.mjs';
 
 /**
  * @summary Creates the minimal SQLite graph schema used by the wake-subscription migration.
@@ -148,6 +148,70 @@ test.describe('ai/scripts/migrations/migrateWakeSubscriptions', () => {
         expect(stats.subscriptionsPatched).toBe(1);
         expect(unchanged.properties.harnessTargetMetadata).toEqual({
             appName: 'Codex'
+        });
+    });
+
+    test.describe('auditWakeRoutes (read-only #13481 audit)', () => {
+        const insertSub = (db, id, agentIdentity, harnessTargetMetadata) => insertNode(db, {
+            id,
+            data: {
+                id,
+                label     : 'WAKE_SUBSCRIPTION',
+                properties: {agentIdentity, trigger: 'SENT_TO_ME', harnessTarget: 'bridge-daemon', harnessTargetMetadata, status: 'active'}
+            }
+        });
+
+        test('flags an addressType route that resolves to no instance address (empty-address)', () => {
+            const db = new Database(':memory:');
+            createGraphSchema(db);
+            insertSub(db, 'WAKE_SUB:empty', '@neo-opus-ada', {appName: 'Claude', addressType: 'userDataDir', userDataDir: ''});
+
+            const audit = auditWakeRoutes(db);
+            expect(audit.emptyAddress.length).toBe(1);
+            expect(audit.emptyAddress[0].id).toBe('WAKE_SUB:empty');
+            expect(audit.genericNamedPeer.length).toBe(0);
+        });
+
+        test('flags a named peer on an appName-only generic route', () => {
+            const db = new Database(':memory:');
+            createGraphSchema(db);
+            insertSub(db, 'WAKE_SUB:generic', '@neo-opus-ada', {appName: 'Claude'});
+
+            const audit = auditWakeRoutes(db);
+            expect(audit.genericNamedPeer.length).toBe(1);
+            expect(audit.genericNamedPeer[0].agentIdentity).toBe('@neo-opus-ada');
+            expect(audit.emptyAddress.length).toBe(0);
+        });
+
+        test('does not flag an instance-addressed route', () => {
+            const db = new Database(':memory:');
+            createGraphSchema(db);
+            insertSub(db, 'WAKE_SUB:safe', '@neo-opus-ada', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-ada'});
+
+            const audit = auditWakeRoutes(db);
+            expect(audit.emptyAddress.length).toBe(0);
+            expect(audit.genericNamedPeer.length).toBe(0);
+            expect(audit.scanned).toBe(1);
+        });
+
+        test('does not flag a generic route owned by a non-roster identity', () => {
+            const db = new Database(':memory:');
+            createGraphSchema(db);
+            insertSub(db, 'WAKE_SUB:alice', '@alice', {appName: 'Claude'});
+
+            const audit = auditWakeRoutes(db);
+            expect(audit.genericNamedPeer.length).toBe(0);
+            expect(audit.emptyAddress.length).toBe(0);
+        });
+
+        test('treats a legacy userDataDir field as a resolvable address (not flagged)', () => {
+            const db = new Database(':memory:');
+            createGraphSchema(db);
+            insertSub(db, 'WAKE_SUB:legacy', '@neo-opus-ada', {appName: 'Claude', userDataDir: '/Users/x/.claude-ada'});
+
+            const audit = auditWakeRoutes(db);
+            expect(audit.emptyAddress.length).toBe(0);
+            expect(audit.genericNamedPeer.length).toBe(0);
         });
     });
 });

@@ -798,12 +798,22 @@ class WakeSubscriptionService extends Base {
         if (metadata.appName && !this.validAppNames.includes(metadata.appName)) {
             throw new Error(`Invalid appName '${metadata.appName}'. Must be one of: ${this.validAppNames.join(', ')}`);
         }
-        if (metadata.instanceAddress || metadata.addressType) {
-            if (!metadata.instanceAddress || !metadata.addressType) {
-                throw new Error('Shape C generic instance addressing requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType.');
+        // Instance-addressed routes — explicit addressType/instanceAddress, or the legacy
+        // userDataDir field — must RESOLVE to a complete, non-empty address. Mirror
+        // _resolvePresenceAddress (the same resolver the wake daemon dispatches through) so a legacy
+        // userDataDir row stays valid, while an addressType that resolves to no address fails closed
+        // at registration. A route that can never target an instance is the same-app cross-leak /
+        // silent-miss hazard — worse than no route at all.
+        if (metadata.instanceAddress || metadata.addressType || metadata.userDataDir) {
+            const {instanceAddress, addressType} = this._resolvePresenceAddress(metadata);
+            if (!addressType) {
+                throw new Error('Shape C instance addressing requires harnessTargetMetadata.addressType (or a legacy userDataDir).');
             }
-            if (!this.validAddressTypes.includes(metadata.addressType)) {
-                throw new Error(`Invalid addressType '${metadata.addressType}'. Must be one of: ${this.validAddressTypes.join(', ')}`);
+            if (!this.validAddressTypes.includes(addressType)) {
+                throw new Error(`Invalid addressType '${addressType}'. Must be one of: ${this.validAddressTypes.join(', ')}`);
+            }
+            if (!instanceAddress) {
+                throw new Error(`Shape C addressType '${addressType}' requires a non-empty instance address (harnessTargetMetadata.instanceAddress, or a non-empty userDataDir for the userDataDir type).`);
             }
         }
     }
