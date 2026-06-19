@@ -9,8 +9,10 @@ import {
     checkRemovedSkillFileReferences,
     checkSectionTriggers,
     checkSkillReferenceIntegrity,
+    checkSkillMarkdownNetDelta,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
+    hasSkillGrowthJustification,
     parseArgs,
     parseFrontmatter,
     parseSectionTriggers,
@@ -470,6 +472,124 @@ ${padding}
 
         const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
         expect(errors).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta fails when skill Markdown grows beyond the pointer allowance (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md',
+            'learn/agentos/notes.md'
+        ]);
+
+        const getSizeFn     = file => file.startsWith('.agents/') ? 1500 : 5000;
+        const getBaseSizeFn = file => file.startsWith('.agents/') ? 1000 : 0;
+
+        const errors = checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn);
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('Skill Markdown net grew by 500 bytes');
+        expect(errors[0]).toContain('max allowed net positive delta is 250');
+        expect(errors[0]).toContain('moving text into another skill file still counts');
+    });
+
+    test('checkSkillMarkdownNetDelta passes when additions are offset by skill Markdown reductions (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md',
+            '.agents/skills/ticket-intake/references/ticket-intake-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md', {current: 1600, base: 1000}],
+            ['.agents/skills/ticket-intake/references/ticket-intake-workflow.md', {current: 600, base: 1000}]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file).current;
+        const getBaseSizeFn = file => sizes.get(file).base;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta passes for pure reductions and deleted skill Markdown (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/post-review-pickup/references/old-rule.md',
+            '.agents/skills/ticket-intake/references/ticket-intake-workflow.md'
+        ]);
+
+        const getSizeFn     = file => file.endsWith('old-rule.md') ? null : 800;
+        const getBaseSizeFn = file => file.endsWith('old-rule.md') ? 1000 : 1000;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta does not treat a same-size skill Markdown rename as growth (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/references/new-name.md',
+            '.agents/skills/example/references/old-name.md'
+        ]);
+
+        const getSizeFn     = file => file.endsWith('old-name.md') ? null : 1000;
+        const getBaseSizeFn = file => file.endsWith('old-name.md') ? 1000 : 0;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta ignores non-skill Markdown files (#13533)', () => {
+        const changedFiles = new Set([
+            'learn/agentos/notes.md',
+            '.agents/skills/create-skill/references/skill-authoring-guide.txt'
+        ]);
+
+        const getSizeFn     = () => 1000;
+        const getBaseSizeFn = () => 0;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta blocks new-skill growth without justification (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/SKILL.md',
+            '.agents/skills/example/references/example-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/example/SKILL.md', 900],
+            ['.agents/skills/example/references/example-workflow.md', 5000]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file);
+        const getBaseSizeFn = () => 0;
+
+        const errors = checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn);
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('[skill-growth-justified: <reason>]');
+    });
+
+    test('checkSkillMarkdownNetDelta allows justified new-skill growth (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/SKILL.md',
+            '.agents/skills/example/references/example-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/example/SKILL.md', 900],
+            ['.agents/skills/example/references/example-workflow.md', 5000]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file);
+        const getBaseSizeFn = () => 0;
+
+        expect(checkSkillMarkdownNetDelta(
+            changedFiles,
+            250,
+            getSizeFn,
+            getBaseSizeFn,
+            {allowJustifiedGrowth: true}
+        )).toEqual([]);
+    });
+
+    test('hasSkillGrowthJustification requires a non-empty commit-marker reason (#13533)', () => {
+        expect(hasSkillGrowthJustification('[skill-growth-justified: new skill with retirement trigger]')).toBe(true);
+        expect(hasSkillGrowthJustification('[skill-growth-justified:]')).toBe(false);
     });
 
     test('checkSkillReferenceIntegrity flags dangling numeric section refs (#12493)', () => {
