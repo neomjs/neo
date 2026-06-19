@@ -116,7 +116,7 @@ class PermissionService extends Base {
      */
     async listPermissions({ forIdentity } = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error("Cannot list permissions: no agent identity context bound.");
+        if (!caller) throw RequestContextService.unboundIdentityError('list permissions');
 
         const targetId = forIdentity || caller;
 
