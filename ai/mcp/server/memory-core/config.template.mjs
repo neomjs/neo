@@ -5,6 +5,12 @@ import os                                        from 'os';
 import path                                      from 'path';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
 import {fileURLToPath}                           from 'url';
+import {
+    MEMORY_CORE_GRAPH_DB_ENV,
+    TURN_PRESENCE_DEFAULTS,
+    TURN_PRESENCE_ENV,
+    resolveMemoryCoreGraphPath
+} from './helpers/TurnPresenceConfig.mjs';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
@@ -164,7 +170,7 @@ class Config extends ConfigProvider {
                  * Production graph SQLite path. Declarative leaf; env override via `NEO_MEMORY_DB_PATH`.
                  * @type {string}
                  */
-                graphProd      : leaf(path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+                graphProd      : leaf(resolveMemoryCoreGraphPath({env: {}, rootDir: cwd}), MEMORY_CORE_GRAPH_DB_ENV, 'string'),
                 /**
                  * Unit-test graph path: in-memory SQLite (ephemeral, per-process). Declarative leaf.
                  * @type {string}
@@ -184,6 +190,20 @@ class Config extends ConfigProvider {
                 dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
                 bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
                 wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
+            },
+            /**
+             * Turn-presence interval writer configuration.
+             *
+             * `AGENT_TURN_PRESENCE` records are liveness intervals, not point beacons:
+             * `freshMs` is the online freshness window refreshed by start/progress writes,
+             * `ttlMs` is the hard expiry backstop, and `noteMaxChars` bounds hook diagnostics.
+             * Consumers read resolved leaves at use sites through the AiConfig Provider SSOT.
+             */
+            turnPresence: {
+                freshMs           : leaf(TURN_PRESENCE_DEFAULTS.freshMs,            TURN_PRESENCE_ENV.freshMs,            'number'),
+                ttlMs             : leaf(TURN_PRESENCE_DEFAULTS.ttlMs,              TURN_PRESENCE_ENV.ttlMs,              'number'),
+                noteMaxChars      : leaf(TURN_PRESENCE_DEFAULTS.noteMaxChars,       TURN_PRESENCE_ENV.noteMaxChars,       'number'),
+                hookWriteTimeoutMs: leaf(TURN_PRESENCE_DEFAULTS.hookWriteTimeoutMs, TURN_PRESENCE_ENV.hookWriteTimeoutMs, 'number')
             },
             /**
              * Data Schema/Table Names

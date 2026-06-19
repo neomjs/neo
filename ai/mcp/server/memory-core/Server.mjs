@@ -126,6 +126,7 @@ class Server extends BaseServer {
             'revoke_permission',
             'list_permissions',
             'manage_wake_subscription',
+            'record_turn_presence',
             'get_session_memories',
             'query_recent_turns'
         ];
