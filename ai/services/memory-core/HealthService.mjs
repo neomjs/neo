@@ -15,8 +15,9 @@ import {
     hasCoreSwarmParticipant,
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {readRecentRemRunStates} from './helpers/remRunStateStore.mjs';
-import {withTimeout}             from './helpers/withTimeout.mjs';
+import {buildSqliteHolderDiagnostics} from './helpers/harnessClassifier.mjs';
+import {readRecentRemRunStates}       from './helpers/remRunStateStore.mjs';
+import {withTimeout}                  from './helpers/withTimeout.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1695,6 +1696,23 @@ class HealthService extends Base {
      */
     async getRemPipelineState(options = {}) {
         return buildRemPipelineState(options);
+    }
+
+    /**
+     * @summary Returns an on-demand read-only diagnostic for sibling SQLite holder processes.
+     *
+     * The probe is intentionally outside the default healthcheck path: it shells out to `lsof`
+     * and walks process parent chains, which is useful for operator triage but too expensive for
+     * routine liveness. Probe failures degrade this diagnostic payload only; they do not change
+     * Memory Core health when the database itself is usable.
+     *
+     * @returns {Promise<Object>} Current SQLite holder diagnostic payload.
+     */
+    async getSqliteHolderDiagnostics() {
+        return buildSqliteHolderDiagnostics({
+            dbPath    : aiConfig.storagePaths.graph,
+            currentPid: process.pid
+        });
     }
 
     /**
