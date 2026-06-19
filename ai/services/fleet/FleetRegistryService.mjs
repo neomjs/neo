@@ -2,6 +2,7 @@ import crypto          from 'crypto';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import aiConfig        from '../../config.mjs';
 import Base            from '../../../src/core/Base.mjs';
 
 const
@@ -18,8 +19,9 @@ const
  * This is the first leaf of the Fleet Manager MVP: the `define` surface of the operator loop
  * *define agents → start/stop → repos managed under the hood*.
  *
- * An **agent definition** is `{id, githubUsername, harnessType, metadata, createdAt, updatedAt}` —
- * never a secret. The associated **credential** (a GitHub PAT) is stored separately, encrypted at
+ * An **agent definition** is `{id, githubUsername, harnessType, modelProvider, metadata, createdAt, updatedAt}` —
+ * never a secret. `modelProvider` (the agent's model-provider login) resolves via the AiConfig
+ * `modelProvider` SSOT leaf when not supplied — read-only, no service-local default shadow. The associated **credential** (a GitHub PAT) is stored separately, encrypted at
  * rest, and is the load-bearing security boundary of this service:
  *
  * **Two-hemisphere security rule** (the graduated Agent Harness design rule): the PAT is a
@@ -111,9 +113,10 @@ class FleetRegistryService extends Base {
      * @param {String} [opts.credential]        The GitHub PAT — stored Node-side encrypted; never echoed back.
      * @param {String} [opts.id=githubUsername] Stable id; pass an explicit id to register multiple instances per user.
      * @param {Object} [opts.metadata={}]       Free-form non-secret metadata.
+     * @param {String} [opts.modelProvider]     The agent's model-provider login (e.g. `openAiCompatible`, `ollama`). Resolves via the AiConfig `modelProvider` SSOT leaf when omitted — no service-local default shadow. Non-secret; carried in the public definition.
      * @returns {Object} The public agent definition (no credential).
      */
-    defineAgent({githubUsername, harnessType, credential, id, metadata={}} = {}) {
+    defineAgent({githubUsername, harnessType, credential, id, metadata={}, modelProvider} = {}) {
         if (!githubUsername) throw new Error("FleetRegistryService.defineAgent: 'githubUsername' is required.");
         if (!harnessType)    throw new Error("FleetRegistryService.defineAgent: 'harnessType' is required.");
 
@@ -131,6 +134,9 @@ class FleetRegistryService extends Base {
                 id            : agentId,
                 githubUsername,
                 harnessType,
+                // provider-login resolves via the AiConfig SSOT leaf when unset (no service-local
+                // default shadow); an explicit arg wins, else a prior value is preserved on update.
+                modelProvider : modelProvider || existing?.modelProvider || aiConfig.modelProvider,
                 metadata,
                 createdAt     : existing?.createdAt || now,
                 updatedAt     : now
