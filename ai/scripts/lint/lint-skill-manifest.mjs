@@ -1046,6 +1046,41 @@ function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getS
     return errors;
 }
 
+/**
+ * @summary Blocks net-positive skill Markdown growth beyond the pointer allowance.
+ */
+function checkSkillMarkdownNetDelta(changedFiles, maxDelta, getSizeFn, getBaseSizeFn) {
+    if (!Number.isInteger(maxDelta) || maxDelta < 0) return [];
+
+    const deltas = [];
+
+    for (const file of changedFiles) {
+        if (!file.startsWith('.agents/skills/') || !file.endsWith('.md')) continue;
+
+        const currentSize = getSizeFn(file);
+        const baseSize    = getBaseSizeFn(file);
+        const delta       = (currentSize === null ? 0 : currentSize) - baseSize;
+
+        if (delta !== 0) {
+            deltas.push({file, delta});
+        }
+    }
+
+    const netDelta = deltas.reduce((sum, entry) => sum + entry.delta, 0);
+
+    if (netDelta <= maxDelta) return [];
+
+    const details = deltas
+        .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.file.localeCompare(b.file))
+        .slice(0, 5)
+        .map(({file, delta}) => `${file} (${delta > 0 ? '+' : ''}${delta})`)
+        .join(', ');
+
+    return [
+        `Skill Markdown net grew by ${netDelta} bytes (max allowed net positive delta is ${maxDelta}). Reduce or replace existing .agents/skills Markdown so net growth stays pointer-sized; moving text into another skill file still counts. Largest deltas: ${details}`
+    ];
+}
+
 async function lint({base = null} = {}) {
     const schema       = readJson(SCHEMA_PATH);
     const manifest     = readJson(MANIFEST_PATH);
@@ -1078,6 +1113,21 @@ async function lint({base = null} = {}) {
             (file) => getBaseFileSize(base, file)
         );
         errors.push(...oversizedErrors);
+
+        const skillMarkdownDeltaFiles = new Set([...changed, ...removedFiles(base)]);
+
+        errors.push(...checkSkillMarkdownNetDelta(
+            skillMarkdownDeltaFiles,
+            maxDelta,
+            (file) => {
+                try {
+                    return statSync(path.join(ROOT_DIR, file)).size;
+                } catch(e) {
+                    return null;
+                }
+            },
+            (file) => getBaseFileSize(base, file)
+        ));
     }
 
     for (const skillName of skillDirs) {
@@ -1228,6 +1278,7 @@ export {
     checkRemovedSkillFileReferences,
     checkSectionTriggers,
     checkSkillReferenceIntegrity,
+    checkSkillMarkdownNetDelta,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
     parseSectionTriggers,
