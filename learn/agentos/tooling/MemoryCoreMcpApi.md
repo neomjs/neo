@@ -212,9 +212,9 @@ The initial implementation runs locally with no authentication. Future versions 
 
 ### Monitoring & Logging
 - **Health Checks**: The `healthcheck` tool should be monitored periodically.
-- **Request Logging**: Log all tool calls with timing information.
-- **Error Tracking**: Capture and log all errors with stack traces.
-- **Metrics**: Track memory growth, query performance, and summarization success rates.
+- **Request Logging**: Memory Core records redacted MCP tool-call telemetry with `tool`, `success`, `duration_ms`, failure stage, bounded error metadata, and payload sizes only.
+- **Error Tracking**: Dispatch, policy, and health-gate failures are recorded without raw Memory Core arguments or result JSON.
+- **Metrics**: Use `get_memory_core_tool_metrics` for on-demand per-tool call counts, failures, and latency summaries without bloating `healthcheck`.
 
 ## OpenAPI Specification
 

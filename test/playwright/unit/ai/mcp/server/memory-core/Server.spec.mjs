@@ -465,6 +465,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         const originalWakeInit = SDK.Memory_WakeSubscriptionService.init;
         const originalInferenceReady = SDK.Memory_InferenceLifecycleService.ready;
         const originalSessionReady = SDK.Memory_SessionService.ready;
+        const originalRecorderInitAsync = SDK.Memory_RecorderService.initAsync;
         const originalRecordStartupDependency = HealthService.recordStartupDependency;
         const originalSetStdioIdentityState = HealthService.setStdioIdentityState;
 
@@ -474,6 +475,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         };
         SDK.Memory_InferenceLifecycleService.ready = async () => calls.push('inferenceReady');
         SDK.Memory_SessionService.ready = async () => calls.push('sessionReady');
+        SDK.Memory_RecorderService.initAsync = async () => calls.push('toolTelemetryReady');
         HealthService.recordStartupDependency = (name, status, details) => {
             startupStates.push({name, status, error: details?.error});
         };
@@ -490,6 +492,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 'wakeInit',
                 'inferenceReady',
                 'sessionReady',
+                'toolTelemetryReady',
                 ['setStdioIdentityState', null],
                 'runHealthcheckAndLogStatus',
                 'logSiblingConcurrency',
@@ -499,12 +502,14 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(startupStates).toEqual([
                 {name: 'wake-subscription', status: 'degraded', error: 'attempt to write a readonly database'},
                 {name: 'inference-lifecycle', status: 'ready', error: undefined},
-                {name: 'session-service', status: 'ready', error: undefined}
+                {name: 'session-service', status: 'ready', error: undefined},
+                {name: 'tool-telemetry', status: 'ready', error: undefined}
             ]);
         } finally {
             SDK.Memory_WakeSubscriptionService.init = originalWakeInit;
             SDK.Memory_InferenceLifecycleService.ready = originalInferenceReady;
             SDK.Memory_SessionService.ready = originalSessionReady;
+            SDK.Memory_RecorderService.initAsync = originalRecorderInitAsync;
             HealthService.recordStartupDependency = originalRecordStartupDependency;
             HealthService.setStdioIdentityState = originalSetStdioIdentityState;
             HealthService.clearStartupDependencyState();
