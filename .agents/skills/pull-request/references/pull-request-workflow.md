@@ -200,9 +200,12 @@ Use role-routing, not naked multi-peer pings:
    The A2A must include `Review role: primary-reviewer` and
    `Requested action: use /pr-review on PR #N`. Use round-robin unless a stated
    subsystem-familiarity override applies.
-2. **SLA / decline:** primary reviewer has 24 hours. If they cannot review, they
-   A2A `Requested action: unassign` and remove themselves. If silent for 24
-   hours, author reassigns and records the timeout in a PR comment.
+2. **SLA / active-window decline:** primary reviewer has 4h max;
+   `reviewRequests` proves routing, not engagement. If clean assigned PRs stack
+   with no review/decline/handoff/blocker while reviewer is active, author sends
+   claim-or-decline A2A before more PRs. If reviewer cannot review,
+   they A2A `Requested action: unassign`; if silent 4h, author reassigns and
+   records timeout.
 3. **Observer:** no-action visibility must say `Review role: observer` and
    `Requested action: none`.
 4. **Tie-breaker:** after one full author/reviewer disagreement cycle, post

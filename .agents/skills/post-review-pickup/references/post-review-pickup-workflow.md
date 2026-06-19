@@ -257,7 +257,8 @@ blocker bug from the active lane:
 
 - targeted review / re-review requests **where you are the assigned github
   reviewer** (verify: `gh pr view <N> --json reviewRequests`) — do not claim a PR
-  review you were not assigned to;
+  review you were not assigned to; clean assigned requests need
+  review/decline/handoff/blocker before new work;
 - assigned issues and currently self-authored PR follow-ups;
 - recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
   for collision state;
