@@ -20,6 +20,7 @@ import crypto          from 'crypto';
 import Neo                  from '../../../../src/Neo.mjs';
 import * as core            from '../../../../src/core/_export.mjs';
 import FleetRegistryService from '../../../../ai/services/fleet/FleetRegistryService.mjs';
+import aiConfig             from '../../../../ai/config.mjs';
 
 const createdDirs = [];
 
@@ -69,6 +70,23 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService', () => {
         expect(def.id).toBe('neo-claude-opus');
         expect(def.credential).toBeUndefined();
         expect(JSON.stringify(def)).not.toContain('ghp_secretTokenAAA');
+    });
+
+    test('modelProvider resolves via the AiConfig SSOT leaf when unset, honors an explicit value, and is preserved on update', () => {
+        // unset -> resolves via the AiConfig modelProvider SSOT (read-only; no service-local default shadow)
+        const defaulted = FleetRegistryService.defineAgent({githubUsername: 'prov-default', harnessType: 'codex'});
+        expect(defaulted.modelProvider).toBe(aiConfig.modelProvider);
+
+        // an explicit value wins over the SSOT default
+        const explicit = FleetRegistryService.defineAgent({githubUsername: 'prov-explicit', harnessType: 'codex', modelProvider: 'ollama'});
+        expect(explicit.modelProvider).toBe('ollama');
+
+        // a prior value is preserved when the agent is re-defined without modelProvider
+        const updated = FleetRegistryService.defineAgent({githubUsername: 'prov-explicit', harnessType: 'codex'});
+        expect(updated.modelProvider).toBe('ollama');
+
+        // non-secret: the provider-login is carried in the public projection
+        expect(FleetRegistryService.getAgent('prov-explicit').modelProvider).toBe('ollama');
     });
 
     test('CRUD round-trip: define -> list -> get -> remove', () => {
