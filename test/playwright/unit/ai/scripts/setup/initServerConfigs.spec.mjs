@@ -15,13 +15,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs             from 'fs';
-import fsExtra        from 'fs-extra';
-import path           from 'path';
+import fs              from 'fs';
+import fsExtra         from 'fs-extra';
+import path            from 'path';
 
 test.describe.configure({mode: 'serial'});
 
@@ -739,5 +739,73 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
             expect(hasConfigTemplate(path.join(root, 'with-template'))).toBe(true);
             expect(hasConfigTemplate(path.join(root, 'no-template'))).toBe(false);
         });
+    });
+});
+
+test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
+    let assertConfigFresh;
+    let guardRoot;
+
+    const recordingLogger = () => {
+        const warn = [];
+        return {warn: (...args) => warn.push(args.join(' ')), entries: {warn}};
+    };
+
+    // A Tier-1 sandbox: an aiRoot dir holding a config.template.mjs + config.mjs pair.
+    const buildTier1 = ({name, templateContents, configContents}) => {
+        const root = path.join(guardRoot, name);
+        fs.mkdirSync(root, {recursive: true});
+        if (templateContents !== undefined) fs.writeFileSync(path.join(root, 'config.template.mjs'), templateContents);
+        if (configContents   !== undefined) fs.writeFileSync(path.join(root, 'config.mjs'), configContents);
+        return root;
+    };
+
+    const callGuard = async opts => {
+        let error = null;
+        try { await assertConfigFresh(opts); } catch (e) { error = e; }
+        return error;
+    };
+
+    test.beforeAll(async () => {
+        ({assertConfigFresh} = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
+        guardRoot = path.resolve(process.cwd(), 'tmp', `assert-config-fresh-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(guardRoot, {recursive: true});
+    });
+
+    test.afterAll(() => {
+        if (guardRoot && fs.existsSync(guardRoot)) fs.rmSync(guardRoot, {recursive: true, force: true});
+    });
+
+    // The template adds an env-bound leaf; a stale overlay missing it is the crash-causing class.
+    const TEMPLATE_WITH_LEAF = `export default {section: {enabled: leaf(true, 'NEO_SECTION_ENABLED', 'bool')}};\n`;
+
+    test('fails fast (throws) when the overlay is missing a leaf the template added', async () => {
+        const root  = buildTier1({name: 'stale', templateContents: TEMPLATE_WITH_LEAF, configContents: 'export default {};\n'});
+        const error = await callGuard({aiRoot: root, logger: recordingLogger()});
+
+        expect(error).not.toBeNull();
+        expect(error.message).toMatch(/Stale config overlay/);
+        expect(error.message).toContain('NEO_SECTION_ENABLED'); // names the missing leaf
+        expect(error.message).toContain('--migrate-config');     // names the fix
+    });
+
+    test('passes (no throw) when the overlay matches the template shape', async () => {
+        const root  = buildTier1({name: 'fresh', templateContents: TEMPLATE_WITH_LEAF, configContents: TEMPLATE_WITH_LEAF});
+        const error = await callGuard({aiRoot: root, logger: recordingLogger()});
+
+        expect(error).toBeNull();
+    });
+
+    test('benign drift (changed default only) warns but does NOT throw', async () => {
+        const root   = buildTier1({
+            name            : 'benign',
+            templateContents: `export default {model: leaf('a', 'NEO_MODEL', 'string')};\n`,
+            configContents  : `export default {model: leaf('b', 'NEO_MODEL', 'string')};\n`
+        });
+        const logger = recordingLogger();
+        const error  = await callGuard({aiRoot: root, logger});
+
+        expect(error).toBeNull();
+        expect(logger.entries.warn.some(w => w.includes('benign config drift'))).toBe(true);
     });
 });
