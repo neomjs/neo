@@ -4,6 +4,7 @@ import Neo from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 import AiConfig from '../../../../../../ai/config.mjs';
 import {Orchestrator} from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {ProcessSupervisorService} from '../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
 import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
@@ -14,6 +15,7 @@ import TaskStateService, { createInitialTaskState } from '../../../../../../ai/d
 
 let testOrchestratorSeq = 0;
 const TEST_DEV_SERVER_PORT = 18080;
+const TEST_NEURAL_LINK_BRIDGE_PORT = 18081;
 let savedIntervals = null;
 let savedLocalOnly = null;
 let savedCloudOnly = null;
@@ -21,6 +23,8 @@ let savedDevServer = null;
 let savedDevServerMissing = false;
 let savedGraphLogCompaction = null;
 let savedGraphLogCompactionMissing = false;
+let savedNeuralLinkBridge = null;
+let savedNeuralLinkBridgeMissing = false;
 let savedDeploymentMode = null;
 
 /**
@@ -35,11 +39,13 @@ let savedDeploymentMode = null;
  */
 function createTestOrchestrator(config = {}) {
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
-        scriptDir: '/repo/ai/scripts',
-        nodeBin  : '/node',
-        devServerPort              : config.devServerPort ?? TEST_DEV_SERVER_PORT,
-        devServerLivenessTimeoutMs : config.devServerLivenessTimeoutMs ?? 50,
-        graphLogCompactionVacuum: config.graphLogCompactionVacuum ?? false
+        scriptDir                           : '/repo/ai/scripts',
+        nodeBin                             : '/node',
+        devServerPort                       : config.devServerPort ?? TEST_DEV_SERVER_PORT,
+        devServerLivenessTimeoutMs          : config.devServerLivenessTimeoutMs ?? 50,
+        neuralLinkBridgePort                : config.neuralLinkBridgePort ?? TEST_NEURAL_LINK_BRIDGE_PORT,
+        neuralLinkBridgeLivenessTimeoutMs   : config.neuralLinkBridgeLivenessTimeoutMs ?? 50,
+        graphLogCompactionVacuum            : config.graphLogCompactionVacuum ?? false
     });
 
     const heavyMaintenanceLeasePath = config.heavyMaintenanceLeasePath
@@ -51,7 +57,7 @@ function createTestOrchestrator(config = {}) {
         writeLogFn     : () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
-    ['chroma', 'bridgeDaemon', 'devServer', 'mlx', 'lms'].forEach(name => {
+    ['chroma', 'bridgeDaemon', 'devServer', 'neuralLinkBridge', 'mlx', 'lms'].forEach(name => {
         if (TaskStateService.taskState[name]) {
             TaskStateService.taskState[name].running = true;
         }
@@ -68,6 +74,10 @@ function createTestOrchestrator(config = {}) {
     if (savedGraphLogCompaction === null) {
         savedGraphLogCompactionMissing = AiConfig.orchestrator.graphLogCompaction === undefined;
         savedGraphLogCompaction = {...(AiConfig.orchestrator.graphLogCompaction || {})};
+    }
+    if (savedNeuralLinkBridge === null) {
+        savedNeuralLinkBridgeMissing = AiConfig.orchestrator.neuralLinkBridge === undefined;
+        savedNeuralLinkBridge = {...(AiConfig.orchestrator.neuralLinkBridge || {})};
     }
     savedDeploymentMode = savedDeploymentMode ?? AiConfig.orchestrator.deploymentMode;
 
@@ -89,6 +99,7 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
     AiConfig.orchestrator.localOnly.primaryDevSyncEnabled          = config.primaryDevSyncEnabled          ?? false;
     AiConfig.orchestrator.localOnly.bridgeDaemonEnabled            = config.bridgeDaemonEnabled            ?? true;
+    AiConfig.orchestrator.localOnly.neuralLinkBridgeEnabled        = Object.hasOwn(config, 'neuralLinkBridgeEnabled') ? config.neuralLinkBridgeEnabled : true;
     // Default-disabled like primaryDevSyncEnabled: the embed-daemon lane has its own dedicated
     // test; every other test's supervision expectations stay scoped to the lanes under test.
     AiConfig.orchestrator.localOnly.embedDaemonEnabled             = config.embedDaemonEnabled             ?? false;
@@ -104,6 +115,9 @@ function createTestOrchestrator(config = {}) {
     AiConfig.setData('orchestrator.graphLogCompaction', {
         enabled: config.graphLogCompactionEnabled ?? true,
         vacuum : config.graphLogCompactionVacuum ?? false
+    });
+    AiConfig.setData('orchestrator.neuralLinkBridge', {
+        livenessProbeTimeoutMs: config.neuralLinkBridgeLivenessTimeoutMs ?? 50
     });
 
     const orchestrator = Neo.create(Orchestrator, {
@@ -170,6 +184,15 @@ test.afterEach(() => {
         savedGraphLogCompaction = null;
         savedGraphLogCompactionMissing = false;
     }
+    if (savedNeuralLinkBridge) {
+        if (savedNeuralLinkBridgeMissing) {
+            AiConfig.setData('orchestrator.neuralLinkBridge', undefined);
+        } else {
+            AiConfig.setData('orchestrator.neuralLinkBridge', {...savedNeuralLinkBridge});
+        }
+        savedNeuralLinkBridge = null;
+        savedNeuralLinkBridgeMissing = false;
+    }
     if (savedDeploymentMode !== null) {
         AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
         savedDeploymentMode = null;
@@ -189,11 +212,13 @@ function restoreConfigObject(target, prior) {
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     test('creates an isolated persisted-state envelope per task', () => {
         const state = createInitialTaskState(buildTaskDefinitions({
-            scriptDir: '/repo/ai/scripts',
-            nodeBin  : '/node'
+            scriptDir                         : '/repo/ai/scripts',
+            nodeBin                           : '/node',
+            neuralLinkBridgePort              : TEST_NEURAL_LINK_BRIDGE_PORT,
+            neuralLinkBridgeLivenessTimeoutMs : 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -605,6 +630,141 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         await new Promise(resolve => setTimeout(resolve, 0));
 
         expect(started.find(entry => entry.taskName === 'devServer')).toBeUndefined();
+    });
+
+    test('defines Neural Link Bridge as a defer-safe local shared-infra task (#13483)', () => {
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir                         : '/repo/ai/scripts',
+            nodeBin                           : '/node',
+            neuralLinkBridgePort              : 4242,
+            neuralLinkBridgeLivenessTimeoutMs : 50
+        });
+
+        expect(taskDefinitions.neuralLinkBridge).toMatchObject({
+            label                  : 'Neural Link Bridge',
+            command                : '/node',
+            args                   : [path.resolve('/repo/ai/scripts', '../mcp/server/neural-link/run-bridge.mjs')],
+            pidFileName            : 'neural-link-bridge.pid',
+            expectedCommand        : 'mcp/server/neural-link/run-bridge.mjs',
+            env                    : {NEO_NL_PORT: '4242'},
+            singletonPort          : 4242,
+            duplicateListenerPolicy: 'defer'
+        });
+        expect(typeof taskDefinitions.neuralLinkBridge.livenessProbe).toBe('function');
+    });
+
+    test('supervises Neural Link Bridge in local mode and skips it in cloud mode (#13483)', async () => {
+        const flushProbe = () => new Promise(resolve => setTimeout(resolve, 0));
+        const localStarted = [];
+        const localOrchestrator = createTestOrchestrator({
+            deploymentMode: 'local',
+            kbSyncEnabled : false
+        });
+
+        TaskStateService.taskState.neuralLinkBridge.running   = false;
+        TaskStateService.taskState.neuralLinkBridge.lastRunAt = 0;
+        localOrchestrator.taskDefinitions.neuralLinkBridge.livenessProbe = async () => false;
+        localOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            localStarted.push({taskName, reason});
+            return true;
+        };
+
+        localOrchestrator.poll();
+        await flushProbe();
+
+        expect(localStarted).toContainEqual({
+            taskName: 'neuralLinkBridge',
+            reason  : 'supervisor-restart'
+        });
+
+        const cloudStarted = [];
+        const cloudOrchestrator = createTestOrchestrator({
+            deploymentMode             : 'cloud',
+            kbSyncEnabled              : false,
+            neuralLinkBridgeEnabled    : null
+        });
+
+        TaskStateService.taskState.neuralLinkBridge.running   = false;
+        TaskStateService.taskState.neuralLinkBridge.lastRunAt = 0;
+        cloudOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            cloudStarted.push({taskName, reason});
+            return true;
+        };
+
+        cloudOrchestrator.poll();
+        await flushProbe();
+
+        expect(cloudStarted.find(entry => entry.taskName === 'neuralLinkBridge')).toBeUndefined();
+    });
+
+    test('does not kill externally owned Neural Link Bridge listeners (#13483)', () => {
+        const killed = [];
+        const supervisor = Neo.create(ProcessSupervisorService, {
+            dataDir        : '/tmp/orchestrator-test',
+            taskDefinitions: {
+                neuralLinkBridge: {
+                    label                  : 'Neural Link Bridge',
+                    pidFileName            : 'neural-link-bridge.pid',
+                    expectedCommand        : 'mcp/server/neural-link/run-bridge.mjs',
+                    singletonPort          : 4242,
+                    duplicateListenerPolicy: 'defer'
+                }
+            },
+            taskStateService: {
+                getTaskState() {
+                    return {pid: 222};
+                }
+            },
+            healthService: {recordTaskOutcome() {}},
+            writeLog     : () => {}
+        });
+
+        supervisor.listPortListeners = () => [111, 222];
+        supervisor.processCommand    = () => '/node ai/mcp/server/neural-link/run-bridge.mjs';
+        supervisor.killProcess       = pid => killed.push(pid);
+
+        expect(supervisor.reapDuplicateListeners('neuralLinkBridge')).toBe(0);
+        expect(killed).toEqual([]);
+    });
+
+    test('passes task-level environment variables to spawned children (#13483)', () => {
+        const spawned = [];
+        const taskState = {running: false, pid: null};
+        const noop = () => {};
+        const supervisor = Neo.create(ProcessSupervisorService, {
+            dataDir        : '/tmp/orchestrator-test',
+            taskDefinitions: {
+                neuralLinkBridge: {
+                    label          : 'Neural Link Bridge',
+                    command        : '/node',
+                    args           : ['/repo/ai/mcp/server/neural-link/run-bridge.mjs'],
+                    pidFileName    : 'neural-link-bridge.pid',
+                    expectedCommand: 'mcp/server/neural-link/run-bridge.mjs',
+                    env            : {NEO_NL_PORT: '4242'}
+                }
+            },
+            taskStateService: {
+                getTaskState()  { return taskState; },
+                markStarted     : noop,
+                markSpawned     : noop,
+                markCompleted   : noop,
+                markFailed      : noop,
+                markSpawnFailed : noop
+            },
+            healthService: {recordTaskOutcome() {}},
+            writeLog     : () => {},
+            spawnFn(command, args, options) {
+                spawned.push({command, args, options});
+                return {
+                    pid   : 333,
+                    stderr: {on() {}},
+                    on() {}
+                };
+            }
+        });
+
+        expect(supervisor.runTask('neuralLinkBridge', 'unit-test')).toBe(true);
+        expect(spawned[0].options.env.NEO_NL_PORT).toBe('4242');
     });
 
     test('supervises lms via the supervisor HTTP liveness probe — (re)start only when the endpoint is down (#12262 / #12090)', async () => {
