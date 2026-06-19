@@ -1596,4 +1596,115 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(emittedEvents.length).toBe(1);
         });
     });
+
+    test.describe('who_is_online (#13498 Substrate B)', () => {
+        const T0   = '2026-06-19T12:00:00.000Z',
+              T0ms = new Date(T0).getTime(),
+              iso  = ms => new Date(ms).toISOString();
+
+        function seedAgent(id, {participationStatus = 'active', family = 'claude'} = {}) {
+            GraphService.upsertNode({
+                id,
+                type      : 'AgentIdentity',
+                name      : id,
+                properties: {participationStatus, family, displayName: id}
+            });
+        }
+
+        function seedPresence(owner, {freshUntil, activeTurnId = null} = {}) {
+            GraphService.upsertNode({
+                id        : `HARNESS_PRESENCE:${owner}:test-boot`,
+                type      : 'HARNESS_PRESENCE',
+                name      : `HarnessPresence ${owner}`,
+                properties: {
+                    agentIdentity: owner,
+                    status       : 'active',
+                    activeTurnId,
+                    state        : 'unknown',
+                    lastSeenAt   : T0,
+                    freshUntil,
+                    expiresAt    : iso(new Date(freshUntil).getTime() + 5 * 60 * 1000)
+                }
+            });
+        }
+
+        test('participationStatus hard gate: benched reports offline even with fresh presence', async () => {
+            seedAgent('@neo-benched', {participationStatus: 'operator_benched'});
+            seedPresence('@neo-benched', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-benched');
+
+            expect(entry).toBeTruthy();
+            expect(entry.online).toBe(false);
+            expect(entry.participationStatus).toBe('operator_benched');
+            expect(entry.reason).toContain('benched');
+        });
+
+        test('fresh HarnessPresence corroborates online within the freshness window', async () => {
+            seedAgent('@neo-fresh');
+            seedPresence('@neo-fresh', {freshUntil: iso(T0ms + 5 * 60 * 1000), activeTurnId: 'turn-123'});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0ms + 60 * 1000)});
+            const entry    = agents.find(a => a.identity === '@neo-fresh');
+
+            expect(entry.online).toBe(true);
+            expect(entry.reason).toContain('fresh HarnessPresence');
+            expect(entry.signals.harnessPresence.activeTurnId).toBe('turn-123');
+        });
+
+        test('stale HarnessPresence reports offline past the freshness window', async () => {
+            seedAgent('@neo-stale');
+            seedPresence('@neo-stale', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0ms + 6 * 60 * 1000)});
+            const entry    = agents.find(a => a.identity === '@neo-stale');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('stale HarnessPresence');
+        });
+
+        test('no HarnessPresence reports offline (dark)', async () => {
+            seedAgent('@neo-dark');
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-dark');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('dark');
+            expect(entry.signals.harnessPresence).toBeNull();
+        });
+
+        test('beacon slot is null and beaconStatus flags Substrate A pending', async () => {
+            seedAgent('@neo-beacon');
+            seedPresence('@neo-beacon', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+
+            const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+            const entry  = result.agents.find(a => a.identity === '@neo-beacon');
+
+            expect(result.beaconStatus).toContain('Substrate A');
+            expect(entry.signals.beacon).toBeNull();
+        });
+
+        test('family filter narrows the roster', async () => {
+            seedAgent('@neo-claude-x', {family: 'claude'});
+            seedAgent('@neo-gpt-x',    {family: 'gpt'});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({family: 'gpt', now: new Date(T0)});
+            const ids      = agents.map(a => a.identity);
+
+            expect(ids).toContain('@neo-gpt-x');
+            expect(ids).not.toContain('@neo-claude-x');
+        });
+
+        test('callable through the MCP callTool dispatch (registration + openapi)', async () => {
+            seedAgent('@neo-dispatch');
+
+            const res = await callTool('who_is_online', {});
+
+            expect(Array.isArray(res.agents)).toBe(true);
+            expect(res.beaconStatus).toContain('Substrate A');
+            expect(res.agents.some(a => a.identity === '@neo-dispatch')).toBe(true);
+        });
+    });
 });

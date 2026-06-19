@@ -515,6 +515,173 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
+     * @summary Projects per-maintainer live availability — the `who_is_online` read tool.
+     *
+     * Composes the liveness layers, in precedence order:
+     * 1. **`participationStatus` hard gate** — `operator_benched` / `temporarily_unreachable`
+     *    report `online:false` regardless of any softer signal.
+     * 2. **Turn-started beacon (primary)** — the trusted per-turn beacon (`AGENT_TURN_PRESENCE`)
+     *    is not yet emitted, so this slot is inert (`signals.beacon:null`). When that writer lands,
+     *    its freshness becomes the primary active-turn proof. Stubbed, never faked: a running
+     *    harness is not a live agent, and a fail-closeable write-tool (`add_memory`) is not a
+     *    reliable liveness primary either (it false-negatives under the very load that proves life).
+     * 3. **HarnessPresence freshness (corroboration)** — the best available liveness signal until
+     *    the beacon ships: `freshUntil` (the {@link WakeSubscriptionService#harnessPresenceFreshMs}
+     *    window) still ahead of now ⇒ corroborated-online; stale or absent ⇒ probably-dark.
+     *
+     * Deliberately **advisory**: it surfaces *probably-dark* maintainers for review-routing /
+     * lane-handoff / lead-baton / wake-targeting so a request to a dark agent fails loud instead
+     * of stalling silently; it is not a hard routing gate.
+     *
+     * @param {Object} [opts]
+     * @param {String} [opts.family] Optional model-family filter (e.g. `'claude'`, `'gpt'`).
+     * @param {Date|String|Number} [opts.now=new Date()] Clock source (unit-test seam).
+     * @returns {Promise<Object>} `{generatedAt, beaconStatus, agents}` where each agent is
+     *   `{identity, name, family, participationStatus, online, reason, signals}`.
+     */
+    async whoIsOnline({family, now = new Date()} = {}) {
+        const nowMs  = this._coerceDate(now).getTime(),
+              agents = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs));
+
+        return {
+            generatedAt : new Date(nowMs).toISOString(),
+            beaconStatus: 'turn-started beacon (primary active-turn proof) pending Substrate A (the turn-presence writer); ' +
+                          'availability below is participationStatus-gated + HarnessPresence-corroborated',
+            agents
+        };
+    }
+
+    /**
+     * @summary Reads live `AgentIdentity` nodes for the liveness projection (authoritative,
+     * runtime-mutable `participationStatus`), optionally filtered by model family. Uses the same
+     * `json_extract($.label)` SQLite pattern as the presence reads so the projection reflects the
+     * durable node row, not a possibly-stripped in-memory cache stub.
+     * @param {String} [family] Optional model-family filter.
+     * @returns {Object[]} Parsed AgentIdentity node objects.
+     * @protected
+     */
+    _listAgentIdentityNodes(family) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return [];
+
+        const rows  = sqlite.prepare(`
+            SELECT data FROM Nodes
+            WHERE json_extract(data, '$.label') = 'AgentIdentity'
+        `).all();
+        const nodes = [];
+
+        for (const row of rows) {
+            let node;
+            try {
+                node = JSON.parse(row.data);
+            } catch (error) {
+                logger.warn(`[WakeSubscription] who_is_online: skipped unparseable AgentIdentity row: ${error.message}`);
+                continue;
+            }
+
+            const nodeFamily = node.properties?.family || node.properties?.modelFamily || null;
+            if (family && nodeFamily !== family) continue;
+            nodes.push(node);
+        }
+
+        return nodes;
+    }
+
+    /**
+     * @summary Projects a single AgentIdentity node to its liveness verdict via the
+     * gate → beacon → corroboration precedence.
+     * @param {Object} node Parsed AgentIdentity node.
+     * @param {Number} nowMs Clock epoch ms.
+     * @returns {Object} `{identity, name, family, participationStatus, online, reason, signals}`.
+     * @protected
+     */
+    _projectAgentLiveness(node, nowMs) {
+        const props               = node.properties || {},
+              identity            = node.id,
+              name                = node.name || props.displayName || node.id,
+              family              = props.family || props.modelFamily || null,
+              participationStatus = props.participationStatus || 'active',
+              signals             = {participationStatus, beacon: null, harnessPresence: null};
+
+        // 1. participationStatus HARD GATE — benched/unreachable overrides every softer signal.
+        if (participationStatus !== 'active') {
+            return {identity, name, family, participationStatus, online: false,
+                reason: `roster: participationStatus is '${participationStatus}' (benched / unreachable)`, signals};
+        }
+
+        // 2. Turn-started beacon (primary) — Substrate A pending; slot stays null (never faked).
+
+        // 3. HarnessPresence freshness (corroboration).
+        const presence = this._readActiveHarnessPresence(identity, nowMs);
+        signals.harnessPresence = presence;
+
+        if (!presence) {
+            return {identity, name, family, participationStatus, online: false,
+                reason: 'no live HarnessPresence (dark — process down or never connected)', signals};
+        }
+        if (!presence.fresh) {
+            return {identity, name, family, participationStatus, online: false,
+                reason: `stale HarnessPresence (last seen ${presence.lastSeenAt || 'unknown'}; process may be up but outside the freshness window)`, signals};
+        }
+
+        return {identity, name, family, participationStatus, online: true,
+            reason: 'fresh HarnessPresence corroboration (beacon-primary pending Substrate A)', signals};
+    }
+
+    /**
+     * @summary Reads an agent's most-recent active `HARNESS_PRESENCE` overlay and computes its
+     * freshness against now. Returns null when no active presence row exists (dark agent).
+     * @param {String} owner AgentIdentity node id.
+     * @param {Number} nowMs Clock epoch ms.
+     * @returns {Object|null} `{fresh, expired, activeTurnId, state, lastSeenAt, freshUntil, expiresAt}` or null.
+     * @protected
+     */
+    _readActiveHarnessPresence(owner, nowMs) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite || !owner) return null;
+
+        const rows = sqlite.prepare(`
+            SELECT data FROM Nodes
+            WHERE json_extract(data, '$.label') = 'HARNESS_PRESENCE'
+              AND json_extract(data, '$.properties.agentIdentity') = ?
+              AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+        `).all(owner);
+
+        let latest = null, latestMs = -1;
+
+        for (const row of rows) {
+            let props;
+            try {
+                props = JSON.parse(row.data).properties || {};
+            } catch (error) {
+                logger.warn(`[WakeSubscription] who_is_online: skipped unparseable HarnessPresence row: ${error.message}`);
+                continue;
+            }
+
+            const lastSeenMs = props.lastSeenAt ? new Date(props.lastSeenAt).getTime() : 0;
+            if (lastSeenMs > latestMs) {
+                latest   = props;
+                latestMs = lastSeenMs;
+            }
+        }
+
+        if (!latest) return null;
+
+        const freshUntilMs = latest.freshUntil ? new Date(latest.freshUntil).getTime() : NaN,
+              expiresAtMs  = latest.expiresAt  ? new Date(latest.expiresAt).getTime()  : NaN;
+
+        return {
+            fresh       : Number.isFinite(freshUntilMs) && freshUntilMs > nowMs,
+            expired     : Number.isFinite(expiresAtMs)  && expiresAtMs <= nowMs,
+            activeTurnId: latest.activeTurnId || null,
+            state       : latest.state || 'unknown',
+            lastSeenAt  : latest.lastSeenAt || null,
+            freshUntil  : latest.freshUntil || null,
+            expiresAt   : latest.expiresAt  || null
+        };
+    }
+
+    /**
      * @summary Resolves an AgentIdentity wake subscription template with a durable read-through fallback.
      *
      * Bootstrap sits on the restart boundary between the Memory Core graph cache and the Shape C

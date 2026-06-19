@@ -50,6 +50,7 @@ const serviceMapping = {
     list_permissions        : PermissionService      .listPermissions         .bind(PermissionService),
     manage_wake_subscription: WakeSubscriptionService.manage                  .bind(WakeSubscriptionService),
     record_turn_presence    : TurnPresenceService    .recordTurnPresence      .bind(TurnPresenceService),
+    who_is_online           : WakeSubscriptionService.whoIsOnline             .bind(WakeSubscriptionService),
     purge_session           : SessionService         .purgeSession            .bind(SessionService),
     resume_session          : SessionService         .validateSessionForResume.bind(SessionService),
     set_session_id          : SessionService         .setSessionId            .bind(SessionService)
