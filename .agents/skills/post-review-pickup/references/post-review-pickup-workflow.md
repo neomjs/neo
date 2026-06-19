@@ -258,6 +258,14 @@ happens — it is backpressure, not a quota. This is liveness, not throughput: n
 contribution-counter, no per-wake ledger, no N-PR quota; a peer doing less while
 actively working still passes.
 
+**Awareness wake triage:** handled or re-fired awareness messages are not work
+by themselves. If the live check shows the referenced artifact is already
+handled, merged, owned, or routed, and the message does not create a collision,
+blocker, review authority, or operator-routed action, acknowledge briefly or
+mark it read instead of manufacturing duplicate review or implementation work.
+This does not suppress watchdog/heartbeat driver cycles; those still run the
+lifecycle/backlog cycle above.
+
 **Driver-mode continuity:** "positive-ROI work remains" means the
 highest-available-value lane after the lifecycle queue, not the nearest
 comfortable implementation lane. When review scarcity is the bottleneck, use
