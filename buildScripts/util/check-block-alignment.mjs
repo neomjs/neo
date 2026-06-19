@@ -122,18 +122,26 @@ const
     fix   = args.includes('--fix'),
     files = args.filter(arg => arg !== '--fix');
 
-let drift = false;
+let
+    hadDrift = false,
+    hadError = false;
+
 for (const file of files) {
     try {
-        if (processFile(file, fix)) drift = true;
+        if (processFile(file, fix)) hadDrift = true;
     } catch (err) {
-        console.error(`Error processing ${file}:`, err.message);
-        drift = true;
+        console.error(`Error processing ${file}: ${err.message}`);
+        hadError = true;
     }
 }
 
-// In check mode, drift is a failure; in fix mode the drift was repaired, so exit clean.
-if (drift && !fix) {
+// A file that could NOT be processed (missing, unreadable, unwritable) is always a failure — including
+// under --fix, where a silent exit 0 would mask a repair that never happened. Alignment drift, by
+// contrast, fails only in check mode: --fix repairs it, so a clean repair exits 0.
+if (hadDrift && !fix) {
     console.error('\nBlock-alignment drift found. Run: node buildScripts/util/check-block-alignment.mjs --fix <files>');
+}
+
+if (hadError || (hadDrift && !fix)) {
     process.exit(1);
 }

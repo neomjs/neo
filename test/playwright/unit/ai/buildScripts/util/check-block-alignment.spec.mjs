@@ -86,4 +86,16 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         ].join('\n'));
         expect(run(file).status).toBe(0);
     });
+
+    test('a file that cannot be processed fails (exit 1) even under --fix — no silent exit 0', () => {
+        // Guards the cycle-1 review bug: --fix swallowed a file-processing error and exited 0, masking a
+        // repair that never happened. An unprocessable (missing) file must fail in BOTH modes.
+        const missing = path.join(tempDir, 'does-not-exist.mjs');
+
+        const fixResult = run(`--fix ${missing}`);
+        expect(fixResult.status).toBe(1);
+        expect(fixResult.output).toContain('Error processing');
+
+        expect(run(missing).status).toBe(1); // check mode also fails
+    });
 });
