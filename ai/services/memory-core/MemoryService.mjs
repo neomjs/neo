@@ -1546,6 +1546,50 @@ class MemoryService extends Base {
     }
 
     /**
+     * @summary Reversibly archives a single `AGENT_MEMORY` graph node via the `archivedAt` marker —
+     * used by the miniSummary backfill for structurally-un-summarizable rows (no Chroma content, so
+     * the embedding never landed). Graph-only: a no-content row has no Chroma metadata row to stamp.
+     * Idempotent via the `archivedAt IS NULL` guard; reversible by clearing `archivedAt`. The recall
+     * and backfill pending queries already exclude `archivedAt`, so an archived node leaves both
+     * surfaces. Mirrors {@link MemoryService#archiveMemoriesByAgentIdentity} (the by-identity
+     * dual-store primitive), narrowed to one id and the graph store.
+     * @param {Object} options
+     * @param {String} options.id           The AGENT_MEMORY node id.
+     * @param {String} [options.reason='']  Provenance, stored as `archivedReason`.
+     * @returns {Boolean} `true` if a live (not-already-archived) row was archived.
+     */
+    archiveMemoryNode({id, reason = ''} = {}) {
+        const sqlite = GraphService.db?.storage?.db;
+
+        if (!sqlite || !id) {
+            return false;
+        }
+
+        const archivedAt = new Date().toISOString(),
+              info       = sqlite.prepare(`
+                  UPDATE Nodes
+                  SET data = json_set(json_set(data, '$.properties.archivedAt', ?), '$.properties.archivedReason', ?)
+                  WHERE id = ?
+                    AND json_extract(data, '$.label') = 'AGENT_MEMORY'
+                    AND json_extract(data, '$.properties.archivedAt') IS NULL
+              `).run(archivedAt, reason, id);
+
+        // Node-cache coherence: getContextFrontier reads the in-memory node cache, which the SQL
+        // UPDATE does not touch. Mirror the marker — but only on a REAL archive (info.changes > 0),
+        // so an idempotent re-run (the DB UPDATE no-ops, keeping the original archivedAt) does not
+        // stamp a fresh timestamp on the cache and drift it from the persisted row.
+        if (info.changes > 0) {
+            const cached = GraphService.db?.nodes?.get(id);
+            if (cached?.properties) {
+                cached.properties.archivedAt     = archivedAt;
+                cached.properties.archivedReason = reason;
+            }
+        }
+
+        return info.changes > 0;
+    }
+
+    /**
      * @summary Backfills compact per-turn summaries for existing `AGENT_MEMORY` graph rows.
      *
      * Mirrors the inline {@link addMemory} enrichment path for pre-existing memories and for
@@ -1629,6 +1673,11 @@ class MemoryService extends Base {
 
             const metadata = byId.get(row.id);
             if (!metadata || (!metadata.prompt && !metadata.response)) {
+                // No recoverable content (the embedding never landed or was purged) — reversibly
+                // archive the node so it leaves the pending set AND counts as progress, instead of
+                // skipping it forever (a permanent backlog floor that also misfires the scheduler's
+                // no-progress backoff). The pending + recall queries already exclude `archivedAt`.
+                this.archiveMemoryNode({id: row.id, reason: 'no-content'});
                 missingContent++;
                 continue;
             }
