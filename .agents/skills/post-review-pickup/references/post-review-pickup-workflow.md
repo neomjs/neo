@@ -109,21 +109,9 @@ these next states before ending the turn:
 | `Request Changes` | The author owns the response cycle. Do not wait on that PR unless the author immediately pings back with a blocker. Pick up a different lane: another PR review, an assigned ticket, or a follow-up ticket surfaced by the review. |
 | `Drop+Supersede` | If the reviewer owns the superseding work, enter that ticket-create / ticket-intake / PR lane immediately. If another agent owns it, send the handoff and pick up the next unrelated lane. |
 
-If no claimable-now lane survives the survey, declare the externally-falsifiable
-`verified-empty` terminal instead of silently ending the turn, using the formal
-`lane-state:` vocabulary. You MUST explicitly output your state at the end of
-your turn:
-
-```text
-lane-state: verified-empty (backlog self-survey completed after #NNNN review; no claimable-now lane)
-```
-
-If a lane is identifiable, or if you are blocked by a human merge gate, declare it:
-
-```text
-lane-state: next-lane (picking up ticket #NNNN)
-lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
-```
+After the matrix action, emit the explicit `lane-state:` form from §2.5. If no
+claimable-now lane survives the survey, use `verified-empty` with the named
+survey; if all candidates are human-merge blocked, use `human-gate`.
 
 **PR-State Freshness Gate:** any `lane-state:`, A2A broadcast, or report that names a PR's
 review/merge status MUST be preceded by a live `gh pr view <N> --json state,mergedAt` read —
@@ -135,13 +123,9 @@ operator-flagged 2026-06-12). Rule detail + verdict-not-enum companion: `pr-revi
 
 ## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
 
-Per #11455 AC: at EACH broadened lifecycle boundary (reviewer post, author
-response, post-implementation, post-PR-open/update, post-ticket-create,
-post-blocked-resolution), the agent MUST emit an explicit `lane-state:`
-declaration before ending the turn. Silent idle without the declaration is
-deference-slip dressed as completion.
-
-Valid declarations:
+Per #11455 AC, every lifecycle boundary (reviewer post, author response,
+post-implementation, PR open/update, ticket create, blocked-state exit) emits one
+of these before the turn ends:
 
 ```text
 lane-state: next-lane (picking up ticket #NNNN)
@@ -152,16 +136,11 @@ lane-state: verified-empty (backlog self-survey completed at boundary #NNNN; no 
 lane-state: blocked-task-state (current lane hit <verified blocker>; see blocked-task-state skill)
 ```
 
-The only valid terminals are the three externally-falsifiable ones above plus
-the cycle-step `next-lane`; "holding"/"standby"/"nothing-actionable"/"idle"/bare
-`paused` and the miscited reasoned-hold are NOT expressible (§5).
-
-The declaration is the explicit substrate-signal that the agent ran the cycle
-and either selected a lane OR reached an externally-falsifiable terminal per §5.
-Without the declaration, the substrate cannot distinguish discipline from
-deference. Per the AGENTS.md self-select mandate and Helpful Assistant
-regression defense: stating intent without execution is itself the
-deference-slip pattern.
+Only `next-lane`, `human-gate`, `verified-empty`, and `blocked-task-state` are
+expressible. "Holding", "standby", "nothing actionable", "idle", bare `paused`,
+and miscited reasoned-holds are unsourced terminals (§5). The declaration proves
+the cycle ran; without it the substrate cannot distinguish discipline from
+deference.
 
 ## 2.6. Typed `lane-state` Ledger + Commitment Lease
 
@@ -248,38 +227,25 @@ broadcast-suppressed fallback below; #12632 (Discussion #12630) deleted the
 holding vocabulary and made the cycle the operating model.
 
 **Operating model — the cycle.** At every turn boundary, drain the actionable
-lifecycle queue BEFORE opening a new lane, in priority order: (1) own PR
-`REQUEST_CHANGES`/required author-response → address it; (2) designated peer
-review/re-review → review it (unless a higher-priority own author-response is
-active); (3) own PR green (CI event) → request review (event-driven; never wait
-the CI window synchronously); (4) only then → next lane. The ≤10 own-open-PR cap
-gates WHICH next-step (open-new vs drive-existing), NEVER WHETHER lifecycle work
-happens — it is backpressure, not a quota. This is liveness, not throughput: no
-contribution-counter, no per-wake ledger, no N-PR quota; a peer doing less while
-actively working still passes.
+lifecycle queue before opening a new lane: (1) own PR `REQUEST_CHANGES` or
+required author-response; (2) designated peer review/re-review, unless (1) is
+active; (3) own green PR review routing; (4) only then next lane. Awareness
+wakes are live-state hints, not work by themselves; if the artifact is already
+handled/merged/owned/routed, acknowledge or mark read instead of duplicating
+work. If reviewer scarcity is the bottleneck, prefer coordination, review, or
+cleanup lanes over opening another implementation PR into the same queue.
 
-**The ONLY legitimate turn-terminals are externally-falsifiable** (another
-observer can confirm each against repo/board/operator evidence): `verified-empty`
-(the named backlog self-survey below, zero claimable-now lane), `human-gate`
-(every candidate blocked on human-only action), and `blocked-task-state` (a
-current lane hit a verified blocker — see the `blocked-task-state` skill).
-"Claimable-now" = un-gated, non-colliding, un-blocked; a legitimately-gated
-non-empty backlog is a valid non-fire state (owned-issues-exist ≠ a step was
-available) but is NOT `verified-empty` until the survey is named.
+The own-open-PR cap governs which next step to choose, not whether lifecycle
+work happens. This is liveness, not throughput: no contribution counter, per-wake
+ledger, or N-PR quota.
 
-There is **no** sanctioned no-delta turn-terminal of "holding", "standby",
-"nothing-actionable", "idle", or a bare `paused` whose reason is not
-externally-falsifiable. A `lane-state:` whose stated reason contradicts its
-cited source (a "miscited reasoned-hold") is an unsourced terminal in disguise
-and is equally forbidden. The externally-falsifiable terminals are qualified by:
-
-1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate / broader non-conflicting backlog such as body, grid, docs, testing, or general Project work) AND found no claimable-now lane, OR all candidate lanes hit conditions 2-4 below. The survey + finding MUST be named in the `verified-empty` declaration.
-2. Every candidate lane is blocked on human-only action (`human-gate`), or a safety gate forbids continuing.
-3. The operator explicitly requested a pause (the operator message is the external falsifier).
-4. **Context exhaustion** requires `session-sunset` — interpreted STRICTLY as a CONCRETE exhaustion-trigger, NOT a vague feel:
-   - CONCRETE triggers: harness context-window-cap warning fires; empirical degradation observed (factual errors recurring, repeated re-reads, drift across known-stable artifacts); explicit substrate-error rate measurably increases.
-   - NOT context-exhaustion triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
-   - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, context-exhaustion does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
+**Legitimate turn-terminals are externally-falsifiable**: `verified-empty`
+(named backlog self-survey with zero claimable-now lanes), `human-gate` (all
+candidates blocked on human-only action), and `blocked-task-state` (current lane
+hit a verified blocker). Operator-requested pause is an external falsifier;
+context exhaustion routes to `session-sunset` only after a concrete cap warning,
+recurring factual degradation, repeated re-reads, stable-artifact drift, or
+measured substrate-error increase. Otherwise continue the cycle.
 
 ### Gated Own Lanes Are Not `verified-empty`
 
