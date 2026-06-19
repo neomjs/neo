@@ -194,6 +194,68 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /who-is-online:
+    post:
+      summary: Who Is Online
+      operationId: who_is_online
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: >
+        Reports per-maintainer live availability — "is the agent completing turns right now," not
+        "is the process up." Advisory liveness for review-routing, lane-handoff, lead-baton, and
+        wake-targeting: surfaces probably-dark maintainers so a request to a dark agent fails loud
+        instead of stalling the merge gate silently.
+
+
+        Layers (precedence): (1) participationStatus hard gate — operator_benched /
+        temporarily_unreachable report offline; (2) turn-started beacon — reserved as the future
+        primary active-turn proof, but not yet emitted, so currently an inert null slot the code never
+        reads (never faked); (3) HarnessPresence freshness — the corroboration that decides availability today.
+      tags: [Health]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family:
+                  type: string
+                  description: Optional model-family filter (e.g. 'claude', 'gpt').
+      responses:
+        '200':
+          description: Per-maintainer liveness projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  generatedAt:
+                    type: string
+                    description: ISO timestamp the projection was computed at.
+                  beaconStatus:
+                    type: string
+                    description: Status of the primary turn-started beacon signal (pending Substrate A).
+                  agents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        identity: {type: string}
+                        name: {type: string}
+                        family: {type: string, nullable: true}
+                        participationStatus: {type: string}
+                        online: {type: boolean}
+                        reason: {type: string}
+                        signals: {type: object}
+        '500':
+          description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /memories:
     post:
       summary: Add New Memory
