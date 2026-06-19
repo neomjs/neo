@@ -1654,26 +1654,21 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
         }
 
-        function seedPresence(owner, {freshUntil, activeTurnId = null} = {}) {
+        function seedActivity(owner, {timestamp = T0} = {}) {
+            // Mirrors a swarm (stdio) add_memory graph projection: an AGENT_MEMORY node carrying
+            // agentIdentity + timestamp and NO userId (→ user_id NULL → RLS-visible to every caller,
+            // as stdio-mode memories are). The who_is_online recency read keys on this node.
             GraphService.upsertNode({
-                id        : `HARNESS_PRESENCE:${owner}:test-boot`,
-                type      : 'HARNESS_PRESENCE',
-                name      : `HarnessPresence ${owner}`,
-                properties: {
-                    agentIdentity: owner,
-                    status       : 'active',
-                    activeTurnId,
-                    state        : 'unknown',
-                    lastSeenAt   : T0,
-                    freshUntil,
-                    expiresAt    : iso(new Date(freshUntil).getTime() + 5 * 60 * 1000)
-                }
+                id        : `AGENT_MEMORY:${owner}:${timestamp}`,
+                type      : 'AGENT_MEMORY',
+                name      : `Memory: ${timestamp}`,
+                properties: {agentIdentity: owner, timestamp, sessionId: 'sess-test'}
             });
         }
 
-        test('participationStatus hard gate: benched reports offline even with fresh presence', async () => {
+        test('participationStatus hard gate: benched reports offline even with fresh activity', async () => {
             seedAgent('@neo-benched', {participationStatus: 'operator_benched'});
-            seedPresence('@neo-benched', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+            seedActivity('@neo-benched', {timestamp: T0});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-benched');
@@ -1684,49 +1679,87 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.reason).toContain('benched');
         });
 
-        test('fresh HarnessPresence corroborates online within the freshness window', async () => {
-            seedAgent('@neo-fresh');
-            seedPresence('@neo-fresh', {freshUntil: iso(T0ms + 5 * 60 * 1000), activeTurnId: 'turn-123'});
+        test('fresh add_memory activity → online (recency-primary)', async () => {
+            seedAgent('@neo-active');
+            seedActivity('@neo-active', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
-            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0ms + 60 * 1000)});
-            const entry    = agents.find(a => a.identity === '@neo-fresh');
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-active');
 
             expect(entry.online).toBe(true);
-            expect(entry.reason).toContain('fresh HarnessPresence');
-            expect(entry.signals.harnessPresence.activeTurnId).toBe('turn-123');
+            expect(entry.reason).toContain('recent add_memory activity');
+            expect(entry.signals.activityRecency.fresh).toBe(true);
         });
 
-        test('stale HarnessPresence reports offline past the freshness window', async () => {
+        test('stale add_memory activity → offline (past the freshness window)', async () => {
             seedAgent('@neo-stale');
-            seedPresence('@neo-stale', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+            // last write 20 min ago — beyond the 15-min freshness window
+            seedActivity('@neo-stale', {timestamp: iso(T0ms - 20 * 60 * 1000)});
 
-            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0ms + 6 * 60 * 1000)});
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-stale');
 
             expect(entry.online).toBe(false);
-            expect(entry.reason).toContain('stale HarnessPresence');
+            expect(entry.reason).toContain('stale add_memory activity');
+            expect(entry.signals.activityRecency.fresh).toBe(false);
         });
 
-        test('no HarnessPresence reports offline (dark)', async () => {
+        test('no add_memory activity → offline (dark) + signals.activityRecency null', async () => {
             seedAgent('@neo-dark');
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-dark');
 
             expect(entry.online).toBe(false);
-            expect(entry.reason).toContain('dark');
-            expect(entry.signals.harnessPresence).toBeNull();
+            expect(entry.reason).toContain('no caller-visible add_memory activity');
+            expect(entry.signals.activityRecency).toBeNull();
         });
 
-        test('beacon slot is null and beaconStatus flags Substrate A pending', async () => {
-            seedAgent('@neo-beacon');
-            seedPresence('@neo-beacon', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+        test('tenant-scoping: a different-user_id (private) AGENT_MEMORY does NOT mark online (RLS-filtered → dark)', async () => {
+            seedAgent('@neo-other-tenant');
+            // Fresh activity, but owned by a DIFFERENT tenant: userId set (not NULL), not shared, not team —
+            // so the RLS predicate (user_id = caller OR NULL OR sharedEntity OR visibility:'team') admits none
+            // of it for a non-matching caller. The private cross-tenant activity must stay invisible.
+            GraphService.upsertNode({
+                id        : 'AGENT_MEMORY:@neo-other-tenant:private',
+                type      : 'AGENT_MEMORY',
+                name      : 'Memory: private',
+                properties: {agentIdentity: '@neo-other-tenant', timestamp: iso(T0ms - 2 * 60 * 1000), userId: 'some-other-tenant', sessionId: 'sess-test'}
+            });
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-other-tenant');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('no caller-visible add_memory activity');
+            expect(entry.signals.activityRecency).toBeNull();
+        });
+
+        test('tenant-scoping: a team-visible AGENT_MEMORY (foreign user_id) DOES mark online (RLS-admitted)', async () => {
+            seedAgent('@neo-team-vis');
+            // Foreign userId, but visibility:'team' → the RLS predicate admits it cross-caller (the shared-board path),
+            // so caller-visible activity still reads online even when its userId is not the caller's.
+            GraphService.upsertNode({
+                id        : 'AGENT_MEMORY:@neo-team-vis:teamvis',
+                type      : 'AGENT_MEMORY',
+                name      : 'Memory: teamvis',
+                properties: {agentIdentity: '@neo-team-vis', timestamp: iso(T0ms - 2 * 60 * 1000), userId: 'some-other-tenant', visibility: 'team', sessionId: 'sess-test'}
+            });
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-team-vis');
+
+            expect(entry.online).toBe(true);
+            expect(entry.signals.activityRecency.fresh).toBe(true);
+        });
+
+        test('signalStatus names the add_memory-recency signal (no beacon field)', async () => {
+            seedAgent('@neo-sig');
 
             const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
-            const entry  = result.agents.find(a => a.identity === '@neo-beacon');
 
-            expect(result.beaconStatus).toContain('Substrate A');
-            expect(entry.signals.beacon).toBeNull();
+            expect(result.signalStatus).toContain('add_memory-recency');
+            expect(result.beaconStatus).toBeUndefined();
         });
 
         test('family filter narrows the roster', async () => {
@@ -1746,7 +1779,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             const res = await callTool('who_is_online', {});
 
             expect(Array.isArray(res.agents)).toBe(true);
-            expect(res.beaconStatus).toContain('Substrate A');
+            expect(res.signalStatus).toContain('add_memory-recency');
             expect(res.agents.some(a => a.identity === '@neo-dispatch')).toBe(true);
         });
     });
