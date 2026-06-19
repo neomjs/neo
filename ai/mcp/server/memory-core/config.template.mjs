@@ -437,6 +437,20 @@ class Config extends ConfigProvider {
              */
             logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs')),
             /**
+             * @summary Retention policy for Memory Core MCP diagnostic log files.
+             *
+             * The shared logger applies this policy only to files matching the `mc-server`
+             * prefix in `logPath`. `maxFiles` counts historical files; the active current-day
+             * file is always preserved. Set `enabled=false` to delegate retention entirely to
+             * deployment infrastructure.
+             * @type {Object}
+             */
+            loggerRetention: {
+                enabled   : leaf(true, 'NEO_MEMORY_LOG_RETENTION_ENABLED', 'boolean'),
+                maxAgeDays: leaf(14, 'NEO_MEMORY_LOG_RETENTION_MAX_AGE_DAYS', 'number'),
+                maxFiles  : leaf(30, 'NEO_MEMORY_LOG_RETENTION_MAX_FILES', 'number')
+            },
+            /**
              * @summary Shared MCP logger policy for Memory Core.
              *
              * Always-on file sink plus debug-gated stderr. `flush: true` preserves the
