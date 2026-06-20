@@ -9,9 +9,9 @@ import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/se
  *
  * `HARNESS_PRESENCE` is a wake-routing overlay: it says whether a receiver route appears
  * addressable. This service records a separate `AGENT_TURN_PRESENCE` interval: a trusted harness
- * turn began, may refresh progress, and eventually expires or terminalizes. These turn-presence
- * records are NOT the `who_is_online` liveness signal — `who_is_online` derives liveness from
- * `add_memory` recency (roster-scoped); turn-presence is a separate active-turn substrate.
+ * turn began, may refresh progress, and eventually expires or terminalizes. `who_is_online` reads
+ * the newest interval as its primary liveness signal and uses completed-turn activity only as a
+ * no-beacon fallback.
  *
  * @class Neo.ai.services.memory-core.TurnPresenceService
  * @extends Neo.core.Base
@@ -177,6 +177,64 @@ class TurnPresenceService extends Base {
      */
     _getTurnPresenceProperties(nodeId) {
         return GraphService.getNodeRecord({id: nodeId})?.properties || null;
+    }
+
+    /**
+     * @summary Reads the newest turn-presence interval for an AgentIdentity, regardless of status.
+     *
+     * The liveness projection must see terminal rows too. Reading only active rows can hide a newer
+     * terminal turn behind an older active interval and incorrectly project the agent as online.
+     * @param {String} agentIdentity AgentIdentity node id.
+     * @param {Date|String|Number} [now=new Date()] Clock source.
+     * @returns {Object|null} Turn-presence payload plus `{fresh, expired, terminal}` verdict flags.
+     */
+    readLatestTurnPresence(agentIdentity, now = new Date()) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite || !agentIdentity) return null;
+
+        const nowDate = this._coerceDate(now),
+              nowMs   = nowDate.getTime();
+
+        let row;
+        try {
+            row = sqlite.prepare(`
+                SELECT data FROM Nodes
+                WHERE json_extract(data, '$.label') = 'AGENT_TURN_PRESENCE'
+                  AND json_extract(data, '$.properties.agentIdentity') = ?
+                ORDER BY COALESCE(
+                  json_extract(data, '$.properties.updatedAt'),
+                  json_extract(data, '$.properties.lastProgressAt'),
+                  json_extract(data, '$.properties.startedAt')
+                ) DESC
+                LIMIT 1
+            `).get(agentIdentity);
+        } catch {
+            return null;
+        }
+
+        if (!row?.data) return null;
+
+        let properties;
+        try {
+            properties = JSON.parse(row.data).properties || {};
+        } catch {
+            return null;
+        }
+
+        const status       = properties.status || (properties.terminalState ? 'terminal' : 'active'),
+              terminal     = status === 'terminal' || Boolean(properties.terminalState),
+              freshUntilMs = new Date(properties.freshUntil).getTime(),
+              expiresAtMs  = new Date(properties.expiresAt).getTime(),
+              fresh        = status === 'active' && Number.isFinite(freshUntilMs) && freshUntilMs > nowMs,
+              expired      = Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+
+        return {
+            ...properties,
+            status,
+            fresh,
+            expired,
+            terminal
+        };
     }
 
     /**

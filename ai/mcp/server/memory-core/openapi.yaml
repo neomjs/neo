@@ -210,10 +210,10 @@ paths:
 
         Terse by default: {summary, online[], idle[], benched[]} (identity arrays). Pass verbose:true
         for the full per-agent projection + signal description. Signal (precedence): (1) participationStatus
-        hard gate — operator_benched / temporarily_unreachable report offline; (2) add_memory-recency —
-        a rostered agent's most-recent AGENT_MEMORY write within the freshness window means recently
-        active. add_memory is the universal, deployment-agnostic activity write (no harness beacon); the
-        read is roster-scoped and graph-backed (survives an embed-drain).
+        hard gate — operator_benched / temporarily_unreachable report offline; (2) AGENT_TURN_PRESENCE
+        interval — newest fresh active turn means online, newest stale/terminal turn means offline;
+        (3) add_memory-recency fallback only when no turn-presence beacon exists yet. The read is
+        roster-scoped and graph-backed.
       tags: [Health]
       requestBody:
         required: false
@@ -250,18 +250,18 @@ paths:
                   online:
                     type: array
                     items: {type: string}
-                    description: Terse default — identities with fresh add_memory activity.
+                    description: Terse default — identities with fresh active turn presence or no-beacon fresh fallback activity.
                   idle:
                     type: array
                     items: {type: string}
-                    description: Terse default — rostered + active identities with no fresh activity.
+                    description: Terse default — rostered + active identities with no fresh liveness signal.
                   benched:
                     type: array
                     items: {type: string}
                     description: Terse default — identities whose participationStatus is not 'active'.
                   signalStatus:
                     type: string
-                    description: verbose:true only — describes the add_memory-recency signal.
+                    description: verbose:true only — describes the turn-presence-primary signal and add_memory fallback.
                   agents:
                     type: array
                     description: verbose:true only — full per-agent projection.

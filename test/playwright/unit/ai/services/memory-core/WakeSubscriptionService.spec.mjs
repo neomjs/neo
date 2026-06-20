@@ -1655,9 +1655,6 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         }
 
         function seedActivity(owner, {timestamp = T0} = {}) {
-            // Mirrors a swarm (stdio) add_memory graph projection: an AGENT_MEMORY node carrying
-            // agentIdentity + timestamp and NO userId (→ user_id NULL → RLS-visible to every caller,
-            // as stdio-mode memories are). The who_is_online recency read keys on this node.
             GraphService.upsertNode({
                 id        : `AGENT_MEMORY:${owner}:${timestamp}`,
                 type      : 'AGENT_MEMORY',
@@ -1666,9 +1663,37 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
         }
 
-        test('participationStatus hard gate: benched reports offline even with fresh activity (verbose)', async () => {
+        function seedTurnPresence(owner, {
+            turnId = 'turn',
+            status = 'active',
+            terminalState = null,
+            startedAt = iso(T0ms - 5 * 60 * 1000),
+            lastProgressAt = iso(T0ms - 2 * 60 * 1000),
+            freshUntil = iso(T0ms + 28 * 60 * 1000),
+            expiresAt = iso(T0ms + 58 * 60 * 1000),
+            updatedAt = lastProgressAt
+        } = {}) {
+            GraphService.upsertNode({
+                id        : `AGENT_TURN_PRESENCE:${owner}:${turnId}`,
+                type      : 'AGENT_TURN_PRESENCE',
+                name      : `TurnPresence ${owner}`,
+                properties: {
+                    agentIdentity: owner,
+                    turnId,
+                    startedAt,
+                    lastProgressAt,
+                    freshUntil,
+                    expiresAt,
+                    terminalState,
+                    status,
+                    updatedAt
+                }
+            });
+        }
+
+        test('participationStatus hard gate: benched reports offline even with fresh turn presence (verbose)', async () => {
             seedAgent('@neo-benched', {participationStatus: 'operator_benched'});
-            seedActivity('@neo-benched', {timestamp: T0});
+            seedTurnPresence('@neo-benched', {turnId: 'benched'});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-benched');
@@ -1677,51 +1702,124 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.online).toBe(false);
             expect(entry.participationStatus).toBe('operator_benched');
             expect(entry.reason).toContain('benched');
+            expect(entry.signals.turnPresence).toBeNull();
         });
 
-        test('fresh add_memory activity → online (recency-primary, verbose)', async () => {
+        test('fresh turn-presence beacon → online even without add_memory activity', async () => {
             seedAgent('@neo-active');
-            seedActivity('@neo-active', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+            seedTurnPresence('@neo-active', {turnId: 'fresh'});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-active');
 
             expect(entry.online).toBe(true);
-            expect(entry.reason).toContain('recent add_memory activity');
-            expect(entry.signals.activityRecency.fresh).toBe(true);
+            expect(entry.reason).toContain('fresh turn-presence interval');
+            expect(entry.signals.turnPresence.fresh).toBe(true);
+            expect(entry.signals.activityRecency).toBeNull();
         });
 
-        test('stale add_memory activity → offline (past the freshness window, verbose)', async () => {
+        test('stale active turn-presence beacon → offline even with fresh add_memory fallback activity', async () => {
             seedAgent('@neo-stale');
-            // last write 20 min ago — beyond the 15-min freshness window
-            seedActivity('@neo-stale', {timestamp: iso(T0ms - 20 * 60 * 1000)});
+            seedTurnPresence('@neo-stale', {
+                turnId        : 'stale-active',
+                lastProgressAt: iso(T0ms - 35 * 60 * 1000),
+                freshUntil    : iso(T0ms - 5 * 60 * 1000),
+                expiresAt     : iso(T0ms + 25 * 60 * 1000),
+                updatedAt     : iso(T0ms - 35 * 60 * 1000)
+            });
+            seedActivity('@neo-stale', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-stale');
 
             expect(entry.online).toBe(false);
-            expect(entry.reason).toContain('stale add_memory activity');
+            expect(entry.reason).toContain('stale turn-presence interval');
+            expect(entry.signals.turnPresence.fresh).toBe(false);
+            expect(entry.signals.activityRecency).toBeNull();
+        });
+
+        test('terminal turn-presence beacon → offline even with fresh add_memory fallback activity', async () => {
+            seedAgent('@neo-terminal');
+            seedTurnPresence('@neo-terminal', {
+                turnId       : 'terminal',
+                status       : 'terminal',
+                terminalState: 'completed',
+                updatedAt    : iso(T0ms - 60 * 1000)
+            });
+            seedActivity('@neo-terminal', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-terminal');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('turn-presence terminal');
+            expect(entry.signals.turnPresence.terminal).toBe(true);
+            expect(entry.signals.activityRecency).toBeNull();
+        });
+
+        test('newest terminal turn wins over an older active turn (never online-forever)', async () => {
+            seedAgent('@neo-newest-terminal');
+            seedTurnPresence('@neo-newest-terminal', {
+                turnId        : 'older-active',
+                lastProgressAt: iso(T0ms - 10 * 60 * 1000),
+                freshUntil    : iso(T0ms + 20 * 60 * 1000),
+                updatedAt     : iso(T0ms - 10 * 60 * 1000)
+            });
+            seedTurnPresence('@neo-newest-terminal', {
+                turnId        : 'newer-terminal',
+                status        : 'terminal',
+                terminalState : 'blocked',
+                lastProgressAt: iso(T0ms - 60 * 1000),
+                updatedAt     : iso(T0ms - 60 * 1000)
+            });
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-newest-terminal');
+
+            expect(entry.online).toBe(false);
+            expect(entry.signals.turnPresence.turnId).toBe('newer-terminal');
+            expect(entry.reason).toContain('blocked');
+        });
+
+        test('no beacon but fresh add_memory activity → online via rollout fallback', async () => {
+            seedAgent('@neo-fallback');
+            seedActivity('@neo-fallback', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-fallback');
+
+            expect(entry.online).toBe(true);
+            expect(entry.reason).toContain('add_memory fallback activity');
+            expect(entry.signals.turnPresence).toBeNull();
+            expect(entry.signals.activityRecency.fresh).toBe(true);
+        });
+
+        test('no beacon and stale add_memory fallback activity → offline', async () => {
+            seedAgent('@neo-fallback-stale');
+            seedActivity('@neo-fallback-stale', {timestamp: iso(T0ms - 20 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-fallback-stale');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('stale add_memory fallback activity');
             expect(entry.signals.activityRecency.fresh).toBe(false);
         });
 
-        test('no add_memory activity → offline (dark) + signals.activityRecency null (verbose)', async () => {
+        test('no beacon or add_memory fallback activity → offline (dark)', async () => {
             seedAgent('@neo-dark');
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-dark');
 
             expect(entry.online).toBe(false);
-            expect(entry.reason).toContain('no add_memory activity');
+            expect(entry.reason).toContain('no turn-presence beacon');
+            expect(entry.signals.turnPresence).toBeNull();
             expect(entry.signals.activityRecency).toBeNull();
         });
 
-        test('roster-scoping: an agent\'s OWN activity marks it online regardless of the user_id tenant tag', async () => {
+        test('roster-scoping fallback: own add_memory activity ignores per-caller user_id tenant tag when no beacon exists', async () => {
             seedAgent('@neo-foreign-tenant');
-            // who_is_online is a ROSTER tool: it reports each rostered agent's OWN latest activity
-            // (matched by agentIdentity), NOT per-caller tenant. Fresh activity tagged with a foreign
-            // userId therefore still marks the agent online. The prior per-caller user_id RLS here hid
-            // same-deployment teammates from each other. Cross-tenant isolation belongs at the roster
-            // scope (a tenant-scoped _listAgentIdentityNodes) for a multi-tenant cloud, tracked separately.
             GraphService.upsertNode({
                 id        : 'AGENT_MEMORY:@neo-foreign-tenant:fresh',
                 type      : 'AGENT_MEMORY',
@@ -1733,13 +1831,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             const entry    = agents.find(a => a.identity === '@neo-foreign-tenant');
 
             expect(entry.online).toBe(true);
+            expect(entry.signals.turnPresence).toBeNull();
             expect(entry.signals.activityRecency.fresh).toBe(true);
         });
 
         test('terse default: {summary, online, idle, benched} identity arrays — no per-agent essay', async () => {
             seedAgent('@neo-t-online');
-            seedActivity('@neo-t-online', {timestamp: iso(T0ms - 2 * 60 * 1000)});
-            seedAgent('@neo-t-idle');                                              // active, no activity → idle
+            seedTurnPresence('@neo-t-online', {turnId: 'terse-online'});
+            seedAgent('@neo-t-idle');
             seedAgent('@neo-t-benched', {participationStatus: 'temporarily_unreachable'});
 
             const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
@@ -1756,24 +1855,16 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('verbose:true returns the full per-agent projection + signalStatus (no terse summary)', async () => {
             seedAgent('@neo-v');
-            seedActivity('@neo-v', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+            seedTurnPresence('@neo-v', {turnId: 'verbose'});
 
             const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
 
+            expect(result.signalStatus).toContain('turn-presence-primary');
             expect(result.signalStatus).toContain('add_memory-recency');
             expect(result.beaconStatus).toBeUndefined();
             expect(result.summary).toBeUndefined();
             expect(Array.isArray(result.agents)).toBe(true);
             expect(result.agents.find(a => a.identity === '@neo-v').online).toBe(true);
-        });
-
-        test('signalStatus (verbose) names the add_memory-recency signal (no beacon field)', async () => {
-            seedAgent('@neo-sig');
-
-            const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
-
-            expect(result.signalStatus).toContain('add_memory-recency');
-            expect(result.beaconStatus).toBeUndefined();
         });
 
         test('family filter narrows the roster (verbose)', async () => {
@@ -1795,7 +1886,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(typeof res.summary).toBe('string');
             expect(Array.isArray(res.online)).toBe(true);
             expect(Array.isArray(res.idle)).toBe(true);
-            // @neo-dispatch is rostered + active but has no activity → idle
+            // @neo-dispatch is rostered + active but has no signal → idle
             expect(res.idle).toContain('@neo-dispatch');
         });
     });

@@ -7,6 +7,7 @@ import aiConfig                                                                 
 import RequestContextService, {normalizeUserId}                                                 from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                                                                                   from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
+import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 
 /**
@@ -520,15 +521,12 @@ class WakeSubscriptionService extends Base {
      * Composes the liveness layers, in precedence order:
      * 1. **`participationStatus` hard gate** — `operator_benched` / `temporarily_unreachable`
      *    report `online:false` regardless of any softer signal.
-     * 2. **`add_memory`-recency (primary)** — the deployment-agnostic activity signal
-     *    ({@link WakeSubscriptionService#_readActivityRecency}): a rostered agent's most-recent OWN
-     *    `AGENT_MEMORY` write within the freshness window ⇒ recently active ⇒ online; stale or none ⇒
-     *    dark. `add_memory` is the universal activity write every authenticated agent produces — so the
-     *    signal works identically in the swarm and a multi-tenant cloud deployment, unlike a harness
-     *    beacon (emitted only by the neo-swarm harness, inert elsewhere) or process-presence
-     *    (pid/clone-local — the "local neo activity" coupling that is not mergeable). The read is
-     *    roster-scoped (the AgentIdentity roster is the visibility boundary, not the per-caller tenant)
-     *    and graph-backed (survives an embed-drain — it reads the durable node, not Chroma).
+     * 2. **`AGENT_TURN_PRESENCE` interval (primary)** — a trusted harness turn-start/progress/terminal
+     *    beacon. Fresh active interval ⇒ online; stale or terminal newest interval ⇒ offline. This
+     *    avoids the falsified `add_memory`-as-primary false negative when a live turn cannot complete
+     *    its end-of-turn memory write.
+     * 3. **`add_memory`-recency fallback** — used only when no turn-presence beacon exists yet, preserving
+     *    rollout/backward compatibility for harnesses that have not started writing turn presence.
      *
      * Deliberately **advisory**: it surfaces *probably-dark* maintainers for review-routing /
      * lane-handoff / lead-baton / wake-targeting so a request to a dark agent fails loud instead
@@ -554,9 +552,9 @@ class WakeSubscriptionService extends Base {
         if (verbose) {
             return {
                 generatedAt,
-                signalStatus: 'add_memory-recency: per maintainer, the most-recent roster-visible AGENT_MEMORY ' +
-                              'write within the freshness window. Deployment-agnostic (add_memory is the universal ' +
-                              'activity write — no harness beacon) and graph-backed (survives an embed-drain). ' +
+                signalStatus: 'turn-presence-primary: per maintainer, the newest AGENT_TURN_PRESENCE interval ' +
+                              'is primary; fresh active means online, stale or terminal means offline. ' +
+                              'add_memory-recency is a no-beacon fallback/corroboration path only. ' +
                               'Advisory, not a hard routing gate.',
                 agents
             };
@@ -564,8 +562,8 @@ class WakeSubscriptionService extends Base {
 
         // Terse default — a "who is online?" answer, not a diagnostics book. The signalStatus essay
         // and the per-agent reason/signals live behind verbose:true so the per-call token cost stays
-        // proportional to the question. online = fresh add_memory activity; idle = rostered
-        // and active but no fresh write; benched = participationStatus not 'active'.
+        // proportional to the question. online = fresh active turn presence or no-beacon fresh fallback
+        // activity; idle = rostered and active but no fresh signal; benched = participationStatus not 'active'.
         const online  = agents.filter(agent => agent.online).map(agent => agent.identity),
               benched = agents.filter(agent => !agent.online && agent.participationStatus !== 'active').map(agent => agent.identity),
               idle    = agents.filter(agent => !agent.online && agent.participationStatus === 'active').map(agent => agent.identity);
@@ -617,7 +615,7 @@ class WakeSubscriptionService extends Base {
 
     /**
      * @summary Projects a single AgentIdentity node to its liveness verdict via the
-     * participationStatus-gate → add_memory-recency precedence.
+     * participationStatus-gate → turn-presence primary → add_memory fallback precedence.
      * @param {Object} node Parsed AgentIdentity node.
      * @param {Number} nowMs Clock epoch ms.
      * @returns {Object} `{identity, name, family, participationStatus, online, reason, signals}`.
@@ -629,7 +627,7 @@ class WakeSubscriptionService extends Base {
               name                = node.name || props.displayName || node.id,
               family              = props.family || props.modelFamily || null,
               participationStatus = props.participationStatus || 'active',
-              signals             = {participationStatus, activityRecency: null};
+              signals             = {participationStatus, turnPresence: null, activityRecency: null};
 
         // 1. participationStatus HARD GATE — benched/unreachable overrides every softer signal.
         if (participationStatus !== 'active') {
@@ -637,31 +635,47 @@ class WakeSubscriptionService extends Base {
                 reason: `roster: participationStatus is '${participationStatus}' (benched / unreachable)`, signals};
         }
 
-        // 2. add_memory-recency — the deployment-agnostic activity signal. Every authenticated agent's
-        //    memory write stamps an AGENT_MEMORY node (agentIdentity + timestamp); this rostered
-        //    agent's fresh most-recent OWN write ⇒ recently active ⇒ online. Unlike a harness beacon
-        //    (emitted only by the neo-swarm harness, inert in a multi-tenant/cloud deployment),
-        //    add_memory is universal — and the read is roster-scoped (the AgentIdentity roster is the
-        //    visibility boundary) and graph-backed (survives an embed-drain).
+        // 2. turn-presence — trusted active-turn interval. The newest interval wins even when it is
+        //    terminal: skipping terminal rows can let an older active row incorrectly read online.
+        const turnPresence = TurnPresenceService.readLatestTurnPresence(identity, nowMs);
+        signals.turnPresence = turnPresence;
+
+        if (turnPresence) {
+            if (turnPresence.terminal || turnPresence.status === 'terminal') {
+                return {identity, name, family, participationStatus, online: false,
+                    reason: `turn-presence terminal (${turnPresence.terminalState || 'terminal'} at ${turnPresence.updatedAt || turnPresence.lastProgressAt})`, signals};
+            }
+
+            if (turnPresence.expired || !turnPresence.fresh) {
+                return {identity, name, family, participationStatus, online: false,
+                    reason: `stale turn-presence interval (freshUntil ${turnPresence.freshUntil || 'unknown'})`, signals};
+            }
+
+            return {identity, name, family, participationStatus, online: true,
+                reason: `fresh turn-presence interval (last progress ${turnPresence.lastProgressAt})`, signals};
+        }
+
+        // 3. add_memory-recency fallback — preserves rollout compatibility for agents whose harness
+        //    has not started writing AGENT_TURN_PRESENCE yet. This is no longer the primary signal.
         const activity = this._readActivityRecency(identity, nowMs);
         signals.activityRecency = activity;
 
         if (!activity) {
             return {identity, name, family, participationStatus, online: false,
-                reason: 'no add_memory activity (dark — no AGENT_MEMORY write on record)', signals};
+                reason: 'no turn-presence beacon or add_memory fallback activity (dark)', signals};
         }
         if (!activity.fresh) {
             return {identity, name, family, participationStatus, online: false,
-                reason: `stale add_memory activity (last write ${activity.lastActivityAt} — none within the freshness window)`, signals};
+                reason: `stale add_memory fallback activity (last write ${activity.lastActivityAt} — none within the freshness window)`, signals};
         }
 
         return {identity, name, family, participationStatus, online: true,
-            reason: `recent add_memory activity (last write ${activity.lastActivityAt})`, signals};
+            reason: `no turn-presence beacon; recent add_memory fallback activity (last write ${activity.lastActivityAt})`, signals};
     }
 
     /**
      * @summary Reads a rostered agent's most-recent `add_memory` activity — the
-     * deployment-agnostic liveness signal that replaced the harness beacon.
+     * no-beacon fallback for the turn-presence primary liveness signal.
      *
      * Every authenticated agent's memory write stamps an `AGENT_MEMORY` graph node with
      * `agentIdentity` + `timestamp` + `userId` ({@link Neo.ai.services.memory-core.MemoryService#addMemory}).
@@ -672,8 +686,8 @@ class WakeSubscriptionService extends Base {
      * filter here would hide same-deployment teammates from each other.
      * Cross-tenant isolation for a multi-tenant cloud belongs at the roster scope (a tenant-scoped
      * `_listAgentIdentityNodes`), tracked separately. It reads the durable graph node, not Chroma, so it
-     * survives an embed-drain; and `add_memory` is the universal activity write (no harness hook, no
-     * per-deployment beacon), so the signal works identically in the swarm and a multi-tenant cloud.
+     * survives an embed-drain. It intentionally does not override a stale or terminal turn-presence
+     * interval: once a trusted beacon exists, interval/terminal semantics are authoritative.
      *
      * Freshness window: `add_memory` lands at turn boundaries (the consolidate-then-save gate), so the
      * window must exceed a typical turn to avoid marking a mid-turn agent dark — the false-negative the
