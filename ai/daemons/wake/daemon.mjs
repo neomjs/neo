@@ -85,6 +85,8 @@ const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
 const CODEX_APP_SERVER_ADAPTER   = 'codex-app-server';
 const DEFAULT_CODEX_DESKTOP_CLI_PATH = '/Applications/Codex.app/Contents/Resources/codex';
+const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
+const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const WAKE_PRIORITY_RANKS      = {
     low   : 0,
     normal: 1,
@@ -911,6 +913,12 @@ function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [],
     };
 
     const actionableCount = counts.messages + counts.tasks + counts.permissions;
+    const correlation = {
+        messageIds   : messages.map(message => message.messageId).filter(Boolean),
+        taskIds      : tasks.map(task => task.taskId).filter(Boolean),
+        permissionIds: permissions.map(permission => permission.logId).filter(Boolean),
+        heartbeatIds : heartbeats.map(heartbeat => heartbeat.logId).filter(Boolean)
+    };
 
     let scenario = 'empty';
     if (counts.heartbeats > 0 && actionableCount === 0) {
@@ -925,7 +933,7 @@ function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [],
         scenario = 'actionable';
     }
 
-    return {scenario, counts};
+    return {scenario, counts, correlation};
 }
 
 /**
@@ -947,6 +955,138 @@ function formatWakeDeliveryEvidence(evidence, {adapter, adapterSource, appName})
     return ` (scenario=${scenario}; route=${adapter}; adapterSource=${adapterSource}; app=${appName || ''}; ` +
         `counts=messages:${counts.messages || 0},tasks:${counts.tasks || 0},` +
         `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0}${submitBoundary})`;
+}
+
+/**
+ * @summary Formats stable event identifiers for post-submit turn-start correlation logs.
+ * @param {Object} evidence Scenario/count evidence from buildWakeDeliveryEvidence().
+ * @returns {String}
+ */
+function formatWakeCorrelationEvidence(evidence = {}) {
+    const correlation = evidence.correlation || {},
+          parts       = [];
+
+    if (correlation.messageIds?.length) {
+        parts.push(`messageIds=${correlation.messageIds.slice(-3).join(',')}`);
+    }
+    if (correlation.taskIds?.length) {
+        parts.push(`taskIds=${correlation.taskIds.slice(-3).join(',')}`);
+    }
+    if (correlation.permissionIds?.length) {
+        parts.push(`permissionLogIds=${correlation.permissionIds.slice(-3).join(',')}`);
+    }
+    if (correlation.heartbeatIds?.length) {
+        parts.push(`heartbeatLogIds=${correlation.heartbeatIds.slice(-3).join(',')}`);
+    }
+
+    return parts.length ? `; ${parts.join('; ')}` : '';
+}
+
+/**
+ * @summary Reads the first turn-presence interval that started after a wake submit attempt.
+ *
+ * The Codex prompt-submit hook writes `AGENT_TURN_PRESENCE` at the actual turn boundary. Terminal
+ * updates can later change `source` to `add_memory`, so source is diagnostic only. Until the wake
+ * payload carries a nonce into the prompt-submit hook, this query is timestamp-window evidence: useful
+ * for classifying no-turn-start failures, but not proof that the scripted Enter rather than a later
+ * human Enter caused a matching turn.
+ *
+ * @param {Object} sqlite better-sqlite3 handle.
+ * @param {String} agentIdentity Recipient AgentIdentity node id.
+ * @param {String} sinceIso Submit-attempt timestamp.
+ * @returns {Object|null}
+ */
+function findTurnPresenceAfter(sqlite, agentIdentity, sinceIso) {
+    const row = sqlite.prepare(`
+        SELECT data FROM Nodes
+        WHERE (
+            json_extract(data, '$.label') = 'AGENT_TURN_PRESENCE'
+            OR json_extract(data, '$.type') = 'AGENT_TURN_PRESENCE'
+        )
+          AND json_extract(data, '$.properties.agentIdentity') = ?
+          AND json_extract(data, '$.properties.startedAt') >= ?
+        ORDER BY json_extract(data, '$.properties.startedAt') ASC
+        LIMIT 1
+    `).get(agentIdentity, sinceIso);
+
+    if (!row?.data) return null;
+
+    try {
+        return JSON.parse(row.data).properties || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Schedules a bounded Codex submit-attempt observer using turn-presence rows.
+ *
+ * This is evidence-only: it does not retry, alter the submit primitive, or gate delivery. It converts
+ * `turnStartProof=live-required` into one of three durable log outcomes when the graph oracle is
+ * available: `wake-submit-started`, `wake-submit-not-started`, or `wake-submit-unknown`. The started
+ * outcome means turn presence appeared in the observation window; without a nonce it must not be
+ * over-read as human-free submit proof.
+ *
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {Date} submitAttemptedAt Timestamp immediately before the submit adapter ran.
+ * @param {Object} deliveryEvidence Scenario/count/correlation evidence.
+ * @returns {void}
+ */
+function scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEvidence = {}) {
+    const timeoutMs = CODEX_TURN_START_PROOF_TIMEOUT_MS,
+          pollMs    = Math.max(50, CODEX_TURN_START_PROOF_POLL_MS);
+
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return;
+
+    const agentIdentity = subscription.properties?.agentIdentity,
+          submitIso     = submitAttemptedAt.toISOString(),
+          deadlineAt    = Date.now() + timeoutMs,
+          correlation   = formatWakeCorrelationEvidence(deliveryEvidence);
+
+    if (!agentIdentity) {
+        writeLog('WARN',
+            `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id}: ` +
+            `missing subscription.properties.agentIdentity${correlation}`
+        );
+        return;
+    }
+
+    const poll = () => {
+        try {
+            const turn = findTurnPresenceAfter(db, agentIdentity, submitIso);
+            if (turn) {
+                const latencyMs = Math.max(0, new Date(turn.startedAt).getTime() - submitAttemptedAt.getTime());
+                writeLog('INFO',
+                    `[Wake Daemon] Turn-start proof wake-submit-started ${subscription.id} ` +
+                    `for ${agentIdentity} after ${latencyMs}ms ` +
+                    `(correlation=timestamp-window; turnId=${turn.turnId || 'unknown'}; startedAt=${turn.startedAt}; ` +
+                    `source=${turn.source || 'unknown'}${correlation})`
+                );
+                return;
+            }
+        } catch (error) {
+            writeLog('WARN',
+                `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id} ` +
+                `for ${agentIdentity}: ${error.message}${correlation}`
+            );
+            return;
+        }
+
+        if (Date.now() >= deadlineAt) {
+            writeLog('WARN',
+                `[Wake Daemon] Turn-start proof wake-submit-not-started ${subscription.id} ` +
+                `for ${agentIdentity} after ${timeoutMs}ms since ${submitIso} ` +
+                `(correlation=timestamp-window${correlation})`
+            );
+            return;
+        }
+
+        const timer = setTimeout(poll, pollMs);
+        timer.unref?.();
+    };
+
+    const timer = setTimeout(poll, pollMs);
+    timer.unref?.();
 }
 
 /**
@@ -1271,9 +1411,17 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 digest
             );
 
+            const submitAttemptedAt = new Date();
             await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName, evidenceLabel);
+            if (appName === 'Codex') {
+                scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEvidence);
+            }
         } else if (adapter === 'test') {
             writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+        } else if (adapter === 'test-codex-submit') {
+            const submitAttemptedAt = new Date();
+            writeLog('INFO', `[Wake Daemon] Submit attempted ${subscription.id} via test-codex-submit to Codex${evidenceLabel}`);
+            scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEvidence);
         } else if (adapter === 'test-fail') {
             // Deterministic delivery-failure hook for retry-path testing (no live target needed).
             // Log the attempted digest first so the coalesced retry content is observable, then throw.
