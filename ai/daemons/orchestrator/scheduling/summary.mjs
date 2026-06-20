@@ -70,10 +70,14 @@ export function getPendingSummarizationCount(db) {
  * summary artifact itself is `SESSION_SUMMARY` (`summary_<sessionId>`), while the REM projection
  * layer also creates `SESSION` nodes from Chroma summary rows (`session:<sessionId>` with
  * `properties.chromaId = summary_<sessionId>`). Minimal `SESSION` placeholders without a summary
- * Chroma id are deliberately excluded so they do not mask truly unsummarized sessions.
+ * Chroma id are deliberately excluded so they do not mask truly unsummarized sessions. Archived
+ * memories are excluded too: an archived row has no recoverable content to summarize, so it is an
+ * integrity concern, not summary-pending work — counting it would inflate the proxy with sessions
+ * the drain can never drain.
  *
- * @summary Feeds the periodic-sweep trigger reason as a graph-backed proxy, not a claim that
- * Chroma drift has drainable work. Fail-soft: returns `null` when the graph table is unavailable.
+ * @summary Feeds the periodic-sweep trigger reason as a graph-backed proxy of drainable
+ * session-summary work — un-archived sessions lacking summary evidence. Fail-soft: returns `null`
+ * when the graph table is unavailable.
  * @param {Object} db SQLite database handle.
  * @returns {Number|null}
  */
@@ -92,6 +96,12 @@ export function getPendingSessionSummaryCount(db) {
                 FROM Nodes memory
                 WHERE json_extract(memory.data, '$.label')                = 'AGENT_MEMORY'
                   AND json_extract(memory.data, '$.properties.sessionId') IS NOT NULL
+                  -- Exclude archived/orphaned sessions: an archived memory has no recoverable
+                  -- content (its vector row was GC'd or never landed), so it can never be
+                  -- summarized — it is an integrity concern, not summary-pending work. A session
+                  -- keeps counting while it has any un-archived memory node. Mirrors the
+                  -- archived-skip the miniSummary backfill fetch applies for the same reason.
+                  AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
             ),
             summary_sessions AS (
                 SELECT DISTINCT json_extract(summary.data, '$.properties.sessionId') AS sessionId

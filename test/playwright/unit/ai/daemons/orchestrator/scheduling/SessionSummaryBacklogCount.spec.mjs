@@ -13,8 +13,8 @@ setup({
     }
 });
 
-import {test, expect}              from '@playwright/test';
-import Neo                         from '../../../../../../../src/Neo.mjs';
+import {test, expect}                  from '@playwright/test';
+import Neo                             from '../../../../../../../src/Neo.mjs';
 import {getPendingSessionSummaryCount} from '../../../../../../../ai/daemons/orchestrator/scheduling/summary.mjs';
 
 /**
@@ -71,6 +71,26 @@ test.describe('orchestrator/scheduling getPendingSessionSummaryCount (#12821)', 
         // collapse the count.
         expect(after).toBe(before + 2);
         expect(after).toBeGreaterThan(0);
+    });
+
+    test('excludes archived/orphaned sessions — an archived memory is not summary-pending', () => {
+        const before = getPendingSessionSummaryCount(sqlite);
+
+        // sARCH: a single, archived memory with no summary. Its content is gone (vector row GC'd or
+        // never landed) so it can never be summarized — it must NOT inflate the pending proxy.
+        GraphService.upsertNode({id: 'bk-mem-ARCH', type: 'AGENT_MEMORY', name: 'mem arch', properties: {sessionId: 'bk-sess-ARCH', timestamp: 1, archivedAt: '2026-01-01T00:00:00.000Z', archivedReason: 'no-content'}});
+        // sLIVE: a single, un-archived, unsummarized memory — the control that DOES count, so the
+        // delta isolates the archived-exclusion rather than a flat count.
+        GraphService.upsertNode({id: 'bk-mem-LIVE', type: 'AGENT_MEMORY', name: 'mem live', properties: {sessionId: 'bk-sess-LIVE', timestamp: 1}});
+        // sMIX: one archived + one live memory node. A session still counts while it has any
+        // un-archived (summarizable) memory — only fully-orphaned sessions drop out.
+        GraphService.upsertNode({id: 'bk-mem-MIX-arch', type: 'AGENT_MEMORY', name: 'mix arch', properties: {sessionId: 'bk-sess-MIX', timestamp: 1, archivedAt: '2026-01-01T00:00:00.000Z'}});
+        GraphService.upsertNode({id: 'bk-mem-MIX-live', type: 'AGENT_MEMORY', name: 'mix live', properties: {sessionId: 'bk-sess-MIX', timestamp: 2}});
+
+        const after = getPendingSessionSummaryCount(sqlite);
+
+        // +2, not +3: sLIVE and sMIX count; the fully-archived sARCH is excluded.
+        expect(after).toBe(before + 2);
     });
 
     test('is fail-soft when the db handle is unavailable', () => {
