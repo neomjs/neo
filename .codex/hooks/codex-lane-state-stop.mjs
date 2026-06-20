@@ -15,6 +15,9 @@ import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
 
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
+import {decideStopHookAction,
+        isOperatorInLoop,
+        parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = false;
@@ -113,6 +116,21 @@ function isAssistantMessage(message) {
 }
 
 /**
+ * @summary Returns whether a message-like object represents user/operator input.
+ * @param {Object} message
+ * @returns {Boolean}
+ * @protected
+ */
+function isUserMessage(message) {
+    if (!message || typeof message !== 'object') return false;
+
+    return message.role === 'user' ||
+        message.type === 'user' ||
+        message.message?.role === 'user' ||
+        message.item?.role === 'user';
+}
+
+/**
  * @summary Extracts the last assistant text from an array of message-like records.
  * @param {Object[]} messages
  * @returns {String}
@@ -126,6 +144,28 @@ export function extractLastAssistantTextFromMessages(messages = []) {
               message = record?.message || record?.item || record;
 
         if (!isAssistantMessage(record) && !isAssistantMessage(message)) continue;
+
+        const text = extractTextFromMessage(message);
+        if (text) return text;
+    }
+
+    return '';
+}
+
+/**
+ * @summary Extracts the last user text from an array of message-like records.
+ * @param {Object[]} messages
+ * @returns {String}
+ * @protected
+ */
+export function extractLastUserTextFromMessages(messages = []) {
+    if (!Array.isArray(messages)) return '';
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const record  = messages[i],
+              message = record?.message || record?.item || record;
+
+        if (!isUserMessage(record) && !isUserMessage(message)) continue;
 
         const text = extractTextFromMessage(message);
         if (text) return text;
@@ -151,6 +191,29 @@ export function extractLastAssistantTextFromJsonl(jsonl = '') {
         try { record = JSON.parse(line); } catch { continue; }
 
         const text = extractLastAssistantTextFromMessages([record]);
+        if (text) return text;
+    }
+
+    return '';
+}
+
+/**
+ * @summary Extracts the last user text from JSONL transcript records, tolerating malformed lines.
+ * @param {String} jsonl
+ * @returns {String}
+ * @protected
+ */
+export function extractLastUserTextFromJsonl(jsonl = '') {
+    const lines = jsonl.split('\n');
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        let record;
+        try { record = JSON.parse(line); } catch { continue; }
+
+        const text = extractLastUserTextFromMessages([record]);
         if (text) return text;
     }
 
@@ -187,20 +250,27 @@ export function extractFinalAssistantText(input = {}) {
 }
 
 /**
- * @summary Converts a parse result into the lane-state terminal verdict consumed by the hook.
- * @param {{descriptor: (Object|null), parseError: (Error|null)}} outcome
- * @param {Function} validate
- * @returns {{valid: Boolean, reason: String}}
+ * @summary Resolves the best available text that prompted this Codex turn. This is the external
+ * operator-vs-wake signal; missing text fails closed to autonomous in `isOperatorInLoop`.
+ * @param {Object} [input={}]
+ * @returns {{text: String, source: String}}
  */
-export function parseOutcomeToVerdict({descriptor, parseError}, validate = validateLaneStateTerminal) {
-    if (parseError)          return {valid: false, reason: `malformed lane-state emission: ${parseError.message}`};
-    if (descriptor === null) return {valid: false, reason: 'no lane-state block emitted at turn-terminal'};
+export function extractPromptingText(input = {}) {
+    const messages = input.messages ?? input.conversation ?? input.transcript;
+    if (Array.isArray(messages)) {
+        const text = extractLastUserTextFromMessages(messages);
+        if (text.trim()) return {text, source: 'messages'};
+    }
 
-    const result = validate(descriptor);
+    const transcriptPath = input.transcript_path ?? input.transcriptPath;
+    if (transcriptPath) {
+        return {
+            text  : extractLastUserTextFromJsonl(fs.readFileSync(transcriptPath, 'utf8')),
+            source: 'transcript_path'
+        };
+    }
 
-    return result.valid
-        ? {valid: true,  reason: 'valid lane-state terminal'}
-        : {valid: false, reason: (result.violations || []).join('; ') || 'invalid lane-state terminal'};
+    return {text: '', source: 'none'};
 }
 
 /**
@@ -213,29 +283,31 @@ export function buildNoHoldReminder(verdictReason) {
 }
 
 /**
- * @summary Maps a terminal verdict to the Codex Stop action; invalid terminals are dry-run only.
+ * @summary Maps a terminal verdict to the Codex Stop action. The no-hold decision mirrors Claude:
+ * a live operator dialogue is the only allow; every autonomous turn-end would-blocks. Codex remains
+ * fail-open because block/inject support is not proven.
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
  * @param {Boolean} [options.blockInjectionSupported=CODEX_STOP_BLOCK_INJECTION_SUPPORTED]
+ * @param {Boolean} [options.operatorInLoop=false]
  * @returns {{action: ('allow'|'would-block'), reason: String}}
  */
 export function decideCodexHookAction(verdict, {
     enforcing               = false,
-    blockInjectionSupported = CODEX_STOP_BLOCK_INJECTION_SUPPORTED
+    blockInjectionSupported = CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
+    operatorInLoop          = false
 } = {}) {
-    if (verdict.valid) return {action: 'allow', reason: verdict.reason};
+    const decision = decideStopHookAction(verdict, {
+        enforcing,
+        operatorInLoop,
+        blockInjectionSupported,
+        blockUnsupportedReason: 'Codex Stop block/inject contract is not proven, so this hook remains fail-open.'
+    });
 
-    const reason = buildNoHoldReminder(verdict.reason);
+    if (decision.action === 'allow') return decision;
 
-    if (enforcing && !blockInjectionSupported) {
-        return {
-            action: 'would-block',
-            reason: `${reason} Codex Stop block/inject contract is not proven, so this hook remains fail-open.`
-        };
-    }
-
-    return {action: 'would-block', reason};
+    return {action: 'would-block', reason: buildNoHoldReminder(decision.reason)};
 }
 
 /**
@@ -258,15 +330,13 @@ export function summarizePayloadShape(payload = {}) {
  * @param {Object} input
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
- * @returns {{action: ('allow'|'would-block'), reason: String, source: String, verdict: Object}}
+ * @returns {{action: ('allow'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object}}
  */
 export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
-    if (input.stop_hook_active || input.stopHookActive) {
-        const verdict = {valid: true, reason: 'Codex Stop loop guard active'};
-        return {action: 'allow', reason: verdict.reason, source: 'loop-guard', verdict};
-    }
-
-    const {text, source} = extractFinalAssistantText(input);
+    const stopHookActive                            = !!(input.stop_hook_active || input.stopHookActive),
+          {text, source}                            = extractFinalAssistantText(input),
+          {text: promptingText, source: promptSource} = extractPromptingText(input),
+          operatorInLoop                            = isOperatorInLoop({stopHookActive, promptingText});
 
     let descriptor = null, parseError = null;
     try {
@@ -275,11 +345,12 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
         parseError = e;
     }
 
-    const verdict = parseOutcomeToVerdict({descriptor, parseError});
+    const verdict = parseOutcomeToVerdict({descriptor, parseError}, validateLaneStateTerminal);
 
     return {
-        ...decideCodexHookAction(verdict, {enforcing}),
+        ...decideCodexHookAction(verdict, {enforcing, operatorInLoop}),
         source,
+        promptSource,
         verdict
     };
 }

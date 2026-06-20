@@ -43,7 +43,12 @@ import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
 
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
+import {decideStopHookAction,
+        isOperatorInLoop,
+        parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+
+export {isOperatorInLoop, parseOutcomeToVerdict};
 
 // Enforce ONLY when the operator explicitly activates it; default is DRY-RUN (log-only, never blocks).
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
@@ -84,27 +89,6 @@ function auditLog(line) {
 }
 
 /**
- * @summary Pure mapping of a parse OUTCOME to a terminal verdict — the 3-bucket chain. A malformed
- * emission (parseLaneState threw) and an absent emission (null) are distinct idle-out failures from an
- * invalid descriptor, each with its own reason; a parsed descriptor is delegated to `validate` (the
- * real validator), whose `{valid, violations}` is mapped to the `{valid, reason}` verdict
- * `decideHookAction` consumes. Exported + unit-tested with injected outcomes (no I/O, no real parser).
- * @param {{descriptor: (Object|null), parseError: (Error|null)}} outcome
- * @param {Function} validate descriptor → {valid: Boolean, violations: String[]}
- * @returns {{valid: Boolean, reason: String}}
- */
-export function parseOutcomeToVerdict({descriptor, parseError}, validate) {
-    if (parseError)          return {valid: false, reason: `malformed lane-state emission: ${parseError.message}`};
-    if (descriptor === null) return {valid: false, reason: 'no lane-state block emitted at turn-terminal'};
-
-    const result = validate(descriptor);
-
-    return result.valid
-        ? {valid: true,  reason: 'valid lane-state terminal'}
-        : {valid: false, reason: (result.violations || []).join('; ') || 'invalid lane-state terminal'};
-}
-
-/**
  * @summary Pure decision — maps a terminal `verdict` + the mode (`enforcing`) + whether a live human
  * operator prompted this turn (`operatorInLoop`) to the Stop-hook action. The heart of the idle-out
  * mechanism; exported + unit-tested.
@@ -126,29 +110,7 @@ export function parseOutcomeToVerdict({descriptor, parseError}, validate) {
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideHookAction(verdict, enforcing, operatorInLoop = false) {
-    if (operatorInLoop) {
-        return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
-    }
-    return enforcing
-        ? {action: 'block',       reason: verdict.reason}
-        : {action: 'would-block', reason: verdict.reason};
-}
-
-/**
- * @summary Detects whether a genuine human OPERATOR prompted this turn — the one signal that makes a
- * voluntary stop legitimate (turn-taking with a human who takes the next turn). Determined externally
- * so it cannot be self-declared/gamed: a turn is operator-driven iff it is NOT a forced continuation
- * (`stop_hook_active`), its prompting message is NOT an autonomous `[WAKE]` injection, AND a prompt is
- * actually confirmable. FAIL-CLOSED: an empty / unreadable prompt is treated as autonomous (no idle
- * granted on uncertainty) — the real Stop payload always carries the transcript, so this only bites a
- * transient read-failure, which should keep working rather than idle. Pure; exported + unit-tested.
- * @param {{stopHookActive: Boolean, promptingText: String}} signals
- * @returns {Boolean}
- */
-export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
-    if (stopHookActive)        return false;                // forced continuation — no human waiting
-    if (!promptingText.trim()) return false;                // no confirmable human prompt → autonomous
-    return !/^\s*\[WAKE\]/.test(promptingText);             // [WAKE] = autonomous wake; else = operator
+    return decideStopHookAction(verdict, {enforcing, operatorInLoop, blockInjectionSupported: true});
 }
 
 // The curated no-hold-state directive injected on a block. References the always-loaded
