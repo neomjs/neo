@@ -3,6 +3,62 @@ import {pickNextCandidate}                           from './picker.mjs';
 import {evaluateStallAlarm, getEmbedDrainPendingAge} from './embedDrainLivenessWatchdog.mjs';
 
 /**
+ * Tasks that win the per-poll pick unconditionally when due. `backup` is data-safety:
+ * a missed daily backup is a data-loss exposure, so it must never sit behind a backlog-draining
+ * task. Registry order breaks ties among multiple priority-0 tasks.
+ * @type {ReadonlyArray<String>}
+ */
+export const PRIORITY_ZERO_TASKS = Object.freeze(['backup']);
+
+/**
+ * Maps a staleness-eligible task to the `context.intervals` cadence key the picker normalizes its
+ * overdue-ness against. DELIBERATELY scoped to the lease-competing heavy tasks plus the
+ * graph-dependent `golden-path` (the REM chain), and EXCLUDES the lightweight / health / continuous
+ * tasks (`swarm-heartbeat`, `embed-drain-liveness-watchdog`, `tenant-repo-sync`): those keep
+ * registry-order (a neutral staleness score of 0) so a frequently-due light task can never out-rank a
+ * heavy one and starve the heavy pipeline — the inverse of the bug this ticket fixes. Backlog-driven
+ * tasks (`summary`, `memory-summary-backfill`) have no real interval, so they share the summary-sweep
+ * cadence as a nominal denominator; that reduces their comparison to least-recently-run, which is the
+ * intended ordering (a starved backfill out-ages a constantly-running summary).
+ * @type {Readonly<Object>}
+ */
+export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
+    summary                  : 'summarySweep',
+    'memory-summary-backfill': 'summarySweep',
+    kbSync                   : 'kbSync',
+    backup                   : 'backup',
+    'graphlog-compaction'    : 'graphLogCompaction',
+    'primary-dev-sync'       : 'primaryDevSync',
+    dream                    : 'dream',
+    'golden-path'            : 'goldenPath'
+});
+
+/**
+ * @summary Builds the picker's per-candidate `{lastRunAt, cadenceMs}` staleness map.
+ *
+ * Only staleness-eligible candidates (keys of `TASK_STALENESS_CADENCE_KEY`) get an entry; the rest
+ * are omitted so the pure picker scores them a neutral `0` and they fall back to registry order.
+ *
+ * @param {Object} options
+ * @param {Array<Object>} options.candidates Due candidates from the collector.
+ * @param {Object} options.state Orchestrator task-state map (`{[taskName]: {lastRunAt}}`).
+ * @param {Object} options.intervals Resolved cadence intervals (`context.intervals`).
+ * @returns {Object} `{[taskName]: {lastRunAt, cadenceMs}}`.
+ */
+export function buildTaskStalenessMeta({candidates, state, intervals}) {
+    const taskMeta = {};
+    for (const candidate of candidates) {
+        const cadenceKey = TASK_STALENESS_CADENCE_KEY[candidate.taskName];
+        if (!cadenceKey) continue;
+        taskMeta[candidate.taskName] = {
+            lastRunAt: state?.[candidate.taskName]?.lastRunAt ?? 0,
+            cadenceMs: intervals?.[cadenceKey]
+        };
+    }
+    return taskMeta;
+}
+
+/**
  * @summary Builds the read-only context consumed by scheduling descriptors.
  * @param {Object} options Scheduling context fields.
  * @returns {Object} Uniform collector context.
@@ -126,7 +182,10 @@ export function runSchedulingPipeline({registry, context, services, runtime}) {
             runningHeavyTasks,
             isHeavyMaintenanceConflict: services.maintenanceBackpressureService.isHeavyMaintenanceConflict?.bind(
                 services.maintenanceBackpressureService
-            )
+            ),
+            now              : context.now,
+            taskMeta         : buildTaskStalenessMeta({candidates, state: context.state, intervals: context.intervals}),
+            priorityZeroTasks: PRIORITY_ZERO_TASKS
         }
     });
 
