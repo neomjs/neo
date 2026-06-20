@@ -466,19 +466,31 @@ function isWakeTargetEligible(identity) {
 }
 
 /**
- * @summary Decodes optional content embedded in heartbeat-pulse ids.
+ * Heartbeat-pulse summary sources that encode structured content in the pulse id as
+ * `<source>.<base64url-JSON>`. A plain uuid pulse (no '.') carries no summary.
+ * @type {String[]}
+ */
+const HEARTBEAT_PULSE_SUMMARY_SOURCES = ['github-notification', 'idle-out-nudge'];
+
+/**
+ * @summary Decodes optional structured content embedded in a heartbeat-pulse id, for any known
+ * summary source. Id format: `<source>.<base64url-JSON>` (e.g. `github-notification` or
+ * `idle-out-nudge`); the decoded payload's `source` must match the id prefix (format/tamper guard).
  * @param {String} pulseId
  * @returns {Object|null}
  */
 function decodeHeartbeatPulseSummary(pulseId = '') {
-    if (!pulseId.startsWith('github-notification.')) return null;
+    const separator = pulseId.indexOf('.');
+    if (separator <= 0) return null;
+
+    const source = pulseId.slice(0, separator);
+    if (!HEARTBEAT_PULSE_SUMMARY_SOURCES.includes(source)) return null;
+
     try {
-        const encoded = pulseId.slice('github-notification.'.length);
-        const parsed  = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-        if (parsed?.source !== 'github-notification') return null;
-        return parsed
+        const parsed = JSON.parse(Buffer.from(pulseId.slice(separator + 1), 'base64url').toString('utf8'));
+        return parsed?.source === source ? parsed : null;
     } catch {
-        return null
+        return null;
     }
 }
 
