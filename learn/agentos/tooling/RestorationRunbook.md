@@ -130,13 +130,14 @@ A distinct failure from §3 (FTS5) and from a full restore (§2): `npm run ai:ch
    node ai/scripts/maintenance/probeCollectionQueryHealth.mjs
    npm run ai:check-chroma-integrity -- --exportability-sample-size 2 --json
    ```
-2. Stop every writer that can reach the unified Chroma store (as in §3 step 3): Orchestrator, Memory Core, Knowledge Base, wake daemons, harness MCP server instances, and the Chroma daemon.
-3. Capture a canonical backup **and** a physical copy of the store before any mutation:
+2. Quiesce every **competing writer** — but **leave the Chroma server running** (both the backup and the repair use its API; unlike §3's file-level FTS5 repair, this does **not** stop Chroma). Stop the Orchestrator, Memory Core, Knowledge Base, wake daemons, and harness MCP server instances (the `npm run ai:server` processes) so nothing else mutates the collections during the repair.
+3. With the writers stopped (store quiescent, Chroma still up), capture the canonical SDK backup and a coarse physical rollback copy:
    ```bash
    npm run ai:backup
    cp -R .neo-ai-data/chroma/unified .neo-ai-data/chroma/unified.pre-mc-repair-<timestamp>
    ```
-4. Run the repair (opt-in; it shadow-extracts intact vectors, re-embeds the missing ids, validates the shadow collection, then promotes copy-first):
+   (`ai:backup` reads through Chroma's API, so Chroma must be up; the physical copy is a coarse rollback taken while no writers are active. `defragChromaDB` additionally takes its own private pre-promote snapshot.)
+4. Run the repair with Chroma running and no competing writers (the repair is the exclusive collection writer; opt-in — it shadow-extracts intact vectors, re-embeds the missing ids, validates the shadow collection, then promotes copy-first):
    ```bash
    node ai/scripts/maintenance/defragChromaDB.mjs --target memory-core --allow-memory-core
    ```
