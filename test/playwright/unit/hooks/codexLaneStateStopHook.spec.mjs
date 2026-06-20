@@ -12,6 +12,9 @@ import {
     extractFinalAssistantText,
     extractLastAssistantTextFromJsonl,
     extractLastAssistantTextFromMessages,
+    extractLastUserTextFromJsonl,
+    extractLastUserTextFromMessages,
+    extractPromptingText,
     summarizePayloadShape
 } from '../../../../.codex/hooks/codex-lane-state-stop.mjs';
 
@@ -30,6 +33,14 @@ test.describe('codex-lane-state-stop - contract boundary', () => {
 
         expect(result.action).toBe('would-block');
         expect(result.reason).toContain('block/inject contract is not proven');
+    });
+
+    test('a valid terminal is not a Codex stop license without a live operator prompt', () => {
+        const result = decideCodexHookAction({valid: true, reason: 'valid lane-state terminal'});
+
+        expect(result.action).toBe('would-block');
+        expect(result.reason).toContain('valid lane-state terminal');
+        expect(result.reason).toContain('No-hold reminder');
     });
 
     test('the no-hold reminder names concrete non-hold exits', () => {
@@ -77,6 +88,20 @@ test.describe('codex-lane-state-stop - input resolution', () => {
         });
     });
 
+    test('message arrays use the last user text-bearing record for operator detection', () => {
+        const text = extractLastUserTextFromMessages([
+            {role: 'user', content: 'earlier prompt'},
+            {role: 'assistant', content: 'ignore'},
+            {type: 'user', message: {role: 'user', content: [{type: 'text', text: 'latest prompt'}]}}
+        ]);
+
+        expect(text).toBe('latest prompt');
+        expect(extractPromptingText({messages: [{role: 'user', content: 'from messages'}]})).toEqual({
+            text  : 'from messages',
+            source: 'messages'
+        });
+    });
+
     test('JSONL fallback tolerates malformed lines and skips user records', () => {
         const jsonl = [
             '{ not json }',
@@ -86,15 +111,54 @@ test.describe('codex-lane-state-stop - input resolution', () => {
 
         expect(extractLastAssistantTextFromJsonl(jsonl)).toBe('answer');
     });
+
+    test('JSONL prompt fallback tolerates malformed lines and skips assistant records', () => {
+        const jsonl = [
+            '{ not json }',
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: 'answer'}}),
+            JSON.stringify({type: 'user', message: {role: 'user', content: [{type: 'text', text: '[WAKE][priority:normal] 1 events'}]}})
+        ].join('\n');
+
+        expect(extractLastUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events');
+    });
 });
 
 test.describe('codex-lane-state-stop - lane-state classification', () => {
-    test('valid representative payload allows', () => {
+    test('valid representative payload without an operator prompt would-blocks', () => {
         const result = classifyCodexStopPayload(fixture);
 
-        expect(result.action).toBe('allow');
-        expect(result.reason).toBe('valid lane-state terminal');
+        expect(result.action).toBe('would-block');
+        expect(result.reason).toContain('valid lane-state terminal');
+        expect(result.reason).toContain('No-hold reminder');
         expect(result.source).toBe('last_assistant_message');
+        expect(result.promptSource).toBe('none');
+    });
+
+    test('live operator prompt is the only valid voluntary allow', () => {
+        const result = classifyCodexStopPayload({
+            messages: [
+                {role: 'user', content: 'please finish this one check and report back'},
+                {role: 'assistant', content: fixture.last_assistant_message}
+            ]
+        });
+
+        expect(result.action).toBe('allow');
+        expect(result.reason).toContain('live operator dialogue');
+        expect(result.source).toBe('messages');
+        expect(result.promptSource).toBe('messages');
+    });
+
+    test('[WAKE] prompt is autonomous, so a valid terminal still would-blocks', () => {
+        const result = classifyCodexStopPayload({
+            messages: [
+                {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-gpt'},
+                {role: 'assistant', content: fixture.last_assistant_message}
+            ]
+        });
+
+        expect(result.action).toBe('would-block');
+        expect(result.reason).toContain('valid lane-state terminal');
+        expect(result.promptSource).toBe('messages');
     });
 
     test('absent lane-state would-block with no-hold reminder', () => {
@@ -118,14 +182,19 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.verdict.reason).toContain('malformed lane-state emission');
     });
 
-    test('Codex stop loop guard allows', () => {
+    test('Codex stop loop guard is not an allow, even with operator-like prompt text', () => {
         const result = classifyCodexStopPayload({
             stop_hook_active      : true,
-            last_assistant_message: 'no lane-state'
+            messages              : [
+                {role: 'user', content: 'please stop here'},
+                {role: 'assistant', content: fixture.last_assistant_message}
+            ]
         });
 
-        expect(result.action).toBe('allow');
-        expect(result.source).toBe('loop-guard');
+        expect(result.action).toBe('would-block');
+        expect(result.reason).toContain('valid lane-state terminal');
+        expect(result.source).toBe('messages');
+        expect(result.promptSource).toBe('messages');
     });
 });
 
@@ -166,12 +235,27 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         });
     }
 
-    test('valid fixture logs WOULD-ALLOW and writes no stdout', async () => {
+    test('valid fixture logs WOULD-BLOCK and writes no stdout', async () => {
         const {stdout, log} = await runHook(fixture);
 
         expect(stdout).toBe('');
-        expect(log).toContain('WOULD-ALLOW');
+        expect(log).toContain('WOULD-BLOCK');
         expect(log).toContain('source=last_assistant_message');
+        expect(log).toContain('valid lane-state terminal');
+    });
+
+    test('live operator prompt logs WOULD-ALLOW and writes no stdout', async () => {
+        const {stdout, log} = await runHook({
+            session_id: 'operator',
+            messages  : [
+                {role: 'user', content: 'finish this check and hand back to me'},
+                {role: 'assistant', content: fixture.last_assistant_message}
+            ]
+        });
+
+        expect(stdout).toBe('');
+        expect(log).toContain('WOULD-ALLOW');
+        expect(log).toContain('source=messages');
     });
 
     test('invalid terminal logs WOULD-BLOCK but still writes no block decision to stdout', async () => {
