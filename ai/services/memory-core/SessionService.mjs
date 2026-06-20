@@ -474,10 +474,11 @@ class SessionService extends Base {
         // Paginate — a single un-paginated .get (the prior behavior) hit Chroma's default page bound
         // and undercounted larger sessions, so the written memoryCount fell below the drift-detector's
         // paginated count and the session was re-summarized every sweep (and the summary was truncated
-        // to the first page). Advance by the actual page size and stop on an empty page, so this is
-        // correct regardless of the exact per-get bound.
+        // to the first page). Dedup by id and stop once a page adds nothing new, so this terminates and
+        // stays correct regardless of the backing collection's exact per-get bound or offset behavior.
         const memories  = {ids: [], documents: [], metadatas: []};
         const pageLimit = aiConfig.summarizationBatchLimit;
+        const seenIds   = new Set();
         let pageOffset  = 0;
 
         while (true) {
@@ -491,9 +492,20 @@ class SessionService extends Base {
 
             if (pageCount === 0) break;
 
-            memories.ids.push(...page.ids);
-            memories.documents.push(...page.documents);
-            memories.metadatas.push(...page.metadatas);
+            let addedThisPage = 0;
+
+            for (let i = 0; i < pageCount; i++) {
+                if (seenIds.has(page.ids[i])) continue;
+                seenIds.add(page.ids[i]);
+                memories.ids.push(page.ids[i]);
+                memories.documents.push(page.documents[i]);
+                memories.metadatas.push(page.metadatas[i]);
+                addedThisPage++;
+            }
+
+            // No new ids — the collection ignored offset (an offset-blind mock) or repeated the last
+            // page; either way we've gathered everything, so stop instead of looping forever.
+            if (addedThisPage === 0) break;
 
             pageOffset += pageCount;
         }
