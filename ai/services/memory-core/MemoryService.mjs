@@ -30,6 +30,19 @@ const MINI_SUMMARY_TIMEOUT_MS = 30000;
 const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = 600000;
 
 /**
+ * Of a backfill batch's `limit`, how many NEWEST rows to reserve; the remainder drains the OLDEST
+ * (aged) rows.
+ *
+ * A single newest-first (`timestamp DESC`) fetch is LIFO: every agent `add_memory` lands a fresh
+ * `miniSummary:NULL` row at the DESC top, so a newest-only batch perpetually re-summarizes fresh
+ * inflow while the aged tail (rows days old) never enters the window and starves forever.
+ * Splitting the batch converges the tail while the fresh reserve still feeds the `summary`
+ * producer→consumer soft-gate + absorbs per-turn inflow. Clamped to the run's `limit`.
+ * @type {Number}
+ */
+const MINI_SUMMARY_BACKFILL_FRESH_RESERVE = 10;
+
+/**
  * Maximum time to wait for the backfill's content-store (Chroma) metadata fetch before deferring
  * the whole batch. Usually milliseconds; the bound exists only to defeat a hung connection.
  * @type {Number}
@@ -1593,11 +1606,13 @@ class MemoryService extends Base {
      * @summary Backfills compact per-turn summaries for existing `AGENT_MEMORY` graph rows.
      *
      * Mirrors the inline {@link addMemory} enrichment path for pre-existing memories and for
-     * turns written while the summarizer was unavailable. The scan is graph-first and
-     * most-recent-first; Chroma is only joined by the selected node ids to fetch that memory's own
-     * prompt/response. Updates merge `miniSummary` into the same graph node through a
-     * tenant-preserving storage-layer merge, preserving tenant attribution (`userId`, `agentIdentity`)
-     * and every other property already present on the row.
+     * turns written while the summarizer was unavailable. The scan is graph-first and SPLIT across
+     * both ends of the backlog — a fresh reserve (newest) + an aged-drain bulk (oldest) — so the
+     * aged tail converges instead of starving behind perpetual fresh inflow (see
+     * {@link MINI_SUMMARY_BACKFILL_FRESH_RESERVE}). Chroma is only joined by the selected node ids to
+     * fetch that memory's own prompt/response. Updates merge `miniSummary` into the same graph node
+     * through a tenant-preserving storage-layer merge, preserving tenant attribution (`userId`,
+     * `agentIdentity`) and every other property already present on the row.
      *
      * Fail-soft by construction: model/provider failures leave the row unmodified so a later batch
      * can retry it. A failure for one row never aborts the batch.
@@ -1605,6 +1620,9 @@ class MemoryService extends Base {
      * @param {Object} [options]
      * @param {Number} [options.limit] Maximum rows to fetch. Defaults to
      *     `aiConfig.summarizationBatchLimit`.
+     * @param {Number} [options.freshReserve] Of `limit`, how many newest rows to reserve before the
+     *     remainder drains the oldest. Defaults to `MINI_SUMMARY_BACKFILL_FRESH_RESERVE`; clamped to
+     *     `limit`. Exposed for deterministic split-coverage tests.
      * @param {Function} [options.buildMiniSummary] Optional summarizer seam for deterministic tests.
      * @param {Number} [options.maxRunMs] Wall-clock budget for the run; defaults to
      *     `MINI_SUMMARY_BACKFILL_MAX_RUN_MS`. The loop stops starting new rows once reached and defers
@@ -1612,7 +1630,7 @@ class MemoryService extends Base {
      * @param {Function} [options.now] Clock seam (defaults to `Date.now`) for deterministic budget tests.
      * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number, runBudgetHit: Boolean}>}
      */
-    async backfillMiniSummaries({limit, buildMiniSummary, maxRunMs, now = () => Date.now()} = {}) {
+    async backfillMiniSummaries({limit, freshReserve, buildMiniSummary, maxRunMs, now = () => Date.now()} = {}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
             return {processed: 0, updated: 0, deferred: 0, missingContent: 0, runBudgetHit: false};
@@ -1625,15 +1643,31 @@ class MemoryService extends Base {
         const runBudgetMs  = Number(maxRunMs) > 0 ? Number(maxRunMs) : MINI_SUMMARY_BACKFILL_MAX_RUN_MS;
         const startedAt    = now();
 
-        const rows = sqlite.prepare(`
-            SELECT memory.id                                          AS id,
-                   json_extract(memory.data, '$.properties.timestamp') AS timestamp
+        // Split the batch across BOTH ends of the backlog. A single newest-first fetch is
+        // LIFO — fresh add_memory rows land at the DESC top, so a newest-only batch re-summarizes
+        // inflow forever while the aged tail starves. A fresh reserve (newest — feeds the summary
+        // producer→consumer soft-gate + absorbs inflow) + an aged-drain bulk (oldest — converges the
+        // starved tail). Both ends skip rows already archived as un-summarizable so the
+        // drain doesn't burn budget re-archiving them. De-dup: the windows overlap once the backlog
+        // is shallower than the limit.
+        const reserveBudget = Number.isInteger(freshReserve) && freshReserve >= 0 ? freshReserve : MINI_SUMMARY_BACKFILL_FRESH_RESERVE;
+        const reserve       = Math.min(reserveBudget, boundedLimit);
+        const drainLimit    = boundedLimit - reserve;
+
+        const orderedScan = direction => `
+            SELECT memory.id AS id
             FROM Nodes memory
             WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
               AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
-            ORDER BY json_extract(memory.data, '$.properties.timestamp') DESC, memory.id DESC
+              AND json_extract(memory.data, '$.properties.archivedAt')  IS NULL
+            ORDER BY json_extract(memory.data, '$.properties.timestamp') ${direction}, memory.id ${direction}
             LIMIT ?
-        `).all(boundedLimit);
+        `;
+        const scanIds = (direction, n) => n > 0
+            ? sqlite.prepare(orderedScan(direction)).all(n).map(row => row.id).filter(Boolean)
+            : [];
+
+        const rows = [...new Set([...scanIds('DESC', reserve), ...scanIds('ASC', drainLimit)])].map(id => ({id}));
 
         if (rows.length === 0) {
             return {processed: 0, updated: 0, deferred: 0, missingContent: 0, runBudgetHit: false};
