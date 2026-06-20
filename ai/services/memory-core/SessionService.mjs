@@ -474,8 +474,9 @@ class SessionService extends Base {
         // Paginate — a single un-paginated .get (the prior behavior) hit Chroma's default page bound
         // and undercounted larger sessions, so the written memoryCount fell below the drift-detector's
         // paginated count and the session was re-summarized every sweep (and the summary was truncated
-        // to the first page). Dedup by id and stop once a page adds nothing new, so this terminates and
-        // stays correct regardless of the backing collection's exact per-get bound or offset behavior.
+        // to the first page). Real Chroma respects offset, so this gathers the full set; dedup-by-id +
+        // stop-when-a-page-adds-nothing-new is a defensive guard that safely terminates even if a backing
+        // collection (e.g. an offset-blind mock) repeats a page, instead of looping forever.
         const memories  = {ids: [], documents: [], metadatas: []};
         const pageLimit = aiConfig.summarizationBatchLimit;
         const seenIds   = new Set();
