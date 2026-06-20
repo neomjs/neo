@@ -183,7 +183,7 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(stdout).toBe('');
         expect(log).toContain('WOULD-BLOCK');
         expect(log).toContain('block/inject contract is not proven');
-        expect(log).toContain('full-backlog survey');
+        expect(log).toContain('Unknown laneContinuation');
     });
 
     test('capture mode logs only the redacted payload shape', async () => {
