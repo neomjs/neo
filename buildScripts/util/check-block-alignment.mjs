@@ -36,15 +36,23 @@ const IMPORT_PREFIX      = 'import ';
 /**
  * @summary Splits a file's lines into maximal runs of consecutive single-line imports, returning the
  * parsed `{lineIndex, clause, source}` for each member. Any non-matching line (blank, comment,
- * multi-line-import fragment, side-effect import) ends the current run.
+ * multi-line-import fragment, side-effect import, masked template-literal content) ends the current
+ * run.
  * @param {String[]} lines
+ * @param {Boolean[]} [maskedLines]
  * @returns {Array<Array<{lineIndex: Number, clause: String, source: String}>>} runs of length ≥ 1
  */
-function collectImportRuns(lines) {
+function collectImportRuns(lines, maskedLines = []) {
     const runs    = [];
     let   current = [];
 
     lines.forEach((line, lineIndex) => {
+        if (maskedLines[lineIndex]) {
+            if (current.length > 0) runs.push(current);
+            current = [];
+            return;
+        }
+
         const match = line.match(SINGLE_LINE_IMPORT);
         if (match) {
             current.push({lineIndex, clause: match[1], source: match[2]});
@@ -74,14 +82,15 @@ function alignedImportLine({clause, source}, fromColumn) {
  * @summary Evaluates a file for import-`from` alignment drift. Pure: returns the misaligned lines and
  * the would-be-fixed line array, mutating nothing.
  * @param {String[]} lines
+ * @param {Boolean[]} [maskedLines]
  * @returns {{violations: Array<{lineIndex: Number, expectedColumn: Number, kind: String}>, fixedLines: String[]}}
  */
-function evaluateImportAlignment(lines) {
+function evaluateImportAlignment(lines, maskedLines = []) {
     const
         violations = [],
         fixedLines = lines.slice();
 
-    for (const run of collectImportRuns(lines)) {
+    for (const run of collectImportRuns(lines, maskedLines)) {
         if (run.length < 2) continue; // a lone import is not an alignment group
 
         // The `from` column = widest `import <clause>` in the run + one space.
@@ -126,16 +135,23 @@ function parsePropertyLine(line) {
 /**
  * @summary Splits lines into maximal runs of consecutive same-indent object properties (colon OR
  * shorthand). A shorthand stays in the run (keeping a block together across e.g. `now,`) but is not
- * itself aligned; an indent change, blank line, or any non-property line ends the run, so a nested
- * object re-groups at its own indent and code can never be swept in.
+ * itself aligned; an indent change, blank line, masked template-literal content, or any non-property
+ * line ends the run, so a nested object re-groups at its own indent and code can never be swept in.
  * @param {String[]} lines
+ * @param {Boolean[]} [maskedLines]
  * @returns {Array<Array<{lineIndex: Number, indent: String, kind: String, key?: String, value?: String}>>}
  */
-function collectPropertyRuns(lines) {
+function collectPropertyRuns(lines, maskedLines = []) {
     const runs    = [];
     let   current = [];
 
     lines.forEach((line, lineIndex) => {
+        if (maskedLines[lineIndex]) {
+            if (current.length > 0) runs.push(current);
+            current = [];
+            return;
+        }
+
         const property = parsePropertyLine(line);
         if (property && (current.length === 0 || property.indent === current[0].indent)) {
             current.push({lineIndex, ...property});
@@ -154,14 +170,15 @@ function collectPropertyRuns(lines) {
  * @summary Evaluates object-literal colon alignment. Within each property run, the key colons align
  * to one column = the widest key. Pure.
  * @param {String[]} lines
+ * @param {Boolean[]} [maskedLines]
  * @returns {{violations: Array<{lineIndex: Number, expectedColumn: Number, kind: String}>, fixedLines: String[]}}
  */
-function evaluateColonAlignment(lines) {
+function evaluateColonAlignment(lines, maskedLines = []) {
     const
         violations = [],
         fixedLines = lines.slice();
 
-    for (const run of collectPropertyRuns(lines)) {
+    for (const run of collectPropertyRuns(lines, maskedLines)) {
         const colonMembers = run.filter(entry => entry.kind === 'colon');
         if (colonMembers.length < 2) continue; // a lone colon property is not an alignment group
 
@@ -230,9 +247,10 @@ function opensMultilineBlock(value) {
  * consecutive declarations (`let a = …; const b = …;`) and bare assignments are deliberately NOT
  * collected — only the comma-block is an alignment group, so unrelated statements are never re-aligned.
  * @param {String[]} lines
+ * @param {Boolean[]} [maskedLines]
  * @returns {Array<Number[]>} runs of line indices (length ≥ 2)
  */
-function collectAssignmentRuns(lines) {
+function collectAssignmentRuns(lines, maskedLines = []) {
     const runs = [];
     let   i    = 0;
 
@@ -240,13 +258,13 @@ function collectAssignmentRuns(lines) {
         // The single-keyword comma-block — a lone `const`/`let`/`var` line, then its indented
         // `name = value` continuations at one deeper indent — is the only `=`-alignment unit (rule 35).
         // Separate consecutive declarations and bare assignments are NOT grouped.
-        if (LONE_KEYWORD.test(lines[i])) {
+        if (!maskedLines[i] && LONE_KEYWORD.test(lines[i])) {
             const keywordIndent = leadingWhitespace(lines[i]);
             const run           = [];
             let   runIndent     = null;
             let   j             = i + 1;
 
-            while (j < lines.length && BARE_DECL.test(lines[j])) {
+            while (j < lines.length && !maskedLines[j] && BARE_DECL.test(lines[j])) {
                 const indent = leadingWhitespace(lines[j]);
                 if (indent.length <= keywordIndent.length) break; // continuations must be deeper
                 if (runIndent === null) runIndent = indent;
@@ -272,14 +290,15 @@ function collectAssignmentRuns(lines) {
  * @summary Evaluates `=` declaration-block alignment. Within each declaration run, the `=` aligns to
  * one column = the widest left side + one space. Pure.
  * @param {String[]} lines
+ * @param {Boolean[]} [maskedLines]
  * @returns {{violations: Array<{lineIndex: Number, expectedColumn: Number, kind: String}>, fixedLines: String[]}}
  */
-function evaluateAssignmentAlignment(lines) {
+function evaluateAssignmentAlignment(lines, maskedLines = []) {
     const
         violations = [],
         fixedLines = lines.slice();
 
-    for (const run of collectAssignmentRuns(lines)) {
+    for (const run of collectAssignmentRuns(lines, maskedLines)) {
         // Align the simple-valued members only; a block-opening value keeps its `=` unaligned (house
         // style). Require ≥ 2 simple members so a lone simple declaration is not an alignment group.
         const simpleParts = run
@@ -307,6 +326,126 @@ function evaluateAssignmentAlignment(lines) {
 const EVALUATORS = [evaluateImportAlignment, evaluateColonAlignment, evaluateAssignmentAlignment];
 
 /**
+ * @summary Computes which lines contain template-literal string content, excluding JavaScript code
+ * inside `${...}` expressions. Backticks in comments, quoted strings, and escaped template content do
+ * not toggle the mask.
+ * @param {String[]} lines
+ * @returns {Boolean[]}
+ */
+function computeTemplateLiteralLineMask(lines) {
+    const
+        maskedLines = Array(lines.length).fill(false),
+        stack       = [{type: 'code'}];
+
+    let
+        inBlockComment = false,
+        stringQuote    = null,
+        stringEscape   = false,
+        templateEscape = false;
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex];
+        let   i    = 0;
+
+        while (i < line.length) {
+            const
+                ch   = line[i],
+                next = line[i + 1],
+                ctx  = stack[stack.length - 1];
+
+            if (inBlockComment) {
+                if (ch === '*' && next === '/') {
+                    inBlockComment = false;
+                    i += 2;
+                } else {
+                    i++;
+                }
+                continue;
+            }
+
+            if (stringQuote) {
+                if (stringEscape) {
+                    stringEscape = false;
+                } else if (ch === '\\') {
+                    stringEscape = true;
+                } else if (ch === stringQuote) {
+                    stringQuote = null;
+                }
+                i++;
+                continue;
+            }
+
+            if (ctx.type === 'template') {
+                if (templateEscape) {
+                    maskedLines[lineIndex] = true;
+                    templateEscape = false;
+                    i++;
+                    continue;
+                }
+
+                if (ch === '\\') {
+                    maskedLines[lineIndex] = true;
+                    templateEscape = true;
+                    i++;
+                    continue;
+                }
+
+                if (ch === '`') {
+                    stack.pop();
+                    i++;
+                    continue;
+                }
+
+                if (ch === '$' && next === '{') {
+                    stack.push({type: 'expression', braceDepth: 1});
+                    i += 2;
+                    continue;
+                }
+
+                maskedLines[lineIndex] = true;
+                i++;
+                continue;
+            }
+
+            if (ch === '/' && next === '/') break;
+
+            if (ch === '/' && next === '*') {
+                inBlockComment = true;
+                i += 2;
+                continue;
+            }
+
+            if (ch === '\'' || ch === '"') {
+                stringQuote  = ch;
+                stringEscape = false;
+                i++;
+                continue;
+            }
+
+            if (ch === '`') {
+                stack.push({type: 'template'});
+                templateEscape = false;
+                i++;
+                continue;
+            }
+
+            if (ctx.type === 'expression') {
+                if (ch === '{') {
+                    ctx.braceDepth++;
+                } else if (ch === '}') {
+                    ctx.braceDepth--;
+                    if (ctx.braceDepth === 0) stack.pop();
+                }
+            }
+
+            i++;
+        }
+    }
+
+    return maskedLines;
+}
+
+/**
  * @summary The operator-facing diagnostic for one violation. The import wording is preserved verbatim
  * (the v1 spec asserts it); colon/assignment get their own.
  * @param {String} file
@@ -331,9 +470,10 @@ function formatViolation(file, {lineIndex, expectedColumn, kind}) {
 function processFile(file, fix) {
     const allViolations = [];
     let   lines         = fs.readFileSync(file, 'utf8').split('\n');
+    const maskedLines   = computeTemplateLiteralLineMask(lines);
 
     for (const evaluate of EVALUATORS) {
-        const {violations, fixedLines} = evaluate(lines);
+        const {violations, fixedLines} = evaluate(lines, maskedLines);
         allViolations.push(...violations);
         lines = fixedLines;
     }
