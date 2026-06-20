@@ -1645,12 +1645,12 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
               T0ms = new Date(T0).getTime(),
               iso  = ms => new Date(ms).toISOString();
 
-        function seedAgent(id, {participationStatus = 'active', family = 'claude'} = {}) {
+        function seedAgent(id, {participationStatus = 'active', family = 'claude', userId} = {}) {
             GraphService.upsertNode({
                 id,
                 type      : 'AgentIdentity',
                 name      : id,
-                properties: {participationStatus, family, displayName: id}
+                properties: {participationStatus, family, displayName: id, userId}
             });
         }
 
@@ -1665,6 +1665,48 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 properties: {agentIdentity: owner, timestamp, sessionId: 'sess-test'}
             });
         }
+
+        // Tenant-scoped roster — multi-tenant cross-tenant isolation
+        test('tenant-scoped roster: a tenant sees its OWN agents + the core swarm, NOT other tenants', async () => {
+            seedAgent('@core-swarm');                        // userId undefined -> core swarm (globally visible)
+            seedAgent('@tenant-a-1', {userId: 'tenant-a'});
+            seedAgent('@tenant-a-2', {userId: 'tenant-a'});  // same-tenant teammate
+            seedAgent('@tenant-b-1', {userId: 'tenant-b'});
+
+            const result = await RequestContextService.run({userId: 'tenant-a'}, () =>
+                WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)}));
+            const ids    = result.agents.map(a => a.identity);
+
+            expect(ids).toContain('@core-swarm');     // shared baseline visible
+            expect(ids).toContain('@tenant-a-1');     // own agent
+            expect(ids).toContain('@tenant-a-2');     // same-tenant teammate NOT hidden
+            expect(ids).not.toContain('@tenant-b-1'); // cross-tenant isolated
+        });
+
+        test('tenant-scoped roster: a different tenant sees its own + core swarm, not tenant-a', async () => {
+            seedAgent('@core-swarm');
+            seedAgent('@tenant-a-1', {userId: 'tenant-a'});
+            seedAgent('@tenant-b-1', {userId: 'tenant-b'});
+
+            const result = await RequestContextService.run({userId: 'tenant-b'}, () =>
+                WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)}));
+            const ids    = result.agents.map(a => a.identity);
+
+            expect(ids).toEqual(expect.arrayContaining(['@core-swarm', '@tenant-b-1']));
+            expect(ids).not.toContain('@tenant-a-1');
+        });
+
+        test('no bound tenant (stdio swarm) -> only the core swarm surfaces, never a tenant roster', async () => {
+            seedAgent('@core-swarm');
+            seedAgent('@tenant-a-1', {userId: 'tenant-a'});
+
+            // no RequestContextService context -> getUserId() undefined -> core-swarm-only
+            const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const ids    = result.agents.map(a => a.identity);
+
+            expect(ids).toContain('@core-swarm');
+            expect(ids).not.toContain('@tenant-a-1');
+        });
 
         test('participationStatus hard gate: benched reports offline even with fresh activity (verbose)', async () => {
             seedAgent('@neo-benched', {participationStatus: 'operator_benched'});

@@ -592,10 +592,32 @@ class WakeSubscriptionService extends Base {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) return [];
 
-        const rows  = sqlite.prepare(`
-            SELECT data FROM Nodes
-            WHERE json_extract(data, '$.label') = 'AgentIdentity'
-        `).all();
+        // Tenant-scope the roster read (the who_is_online visibility boundary). A caller
+        // sees its OWN tenant's agents (properties.userId === the caller's tenant) PLUS the globally-
+        // visible core swarm (userId IS NULL — the named maintainers, seeded via upsertGlobalNode),
+        // and NOT other tenants' agents. With no bound tenant (single-tenant / stdio swarm,
+        // getUserId() falsy) only the core swarm surfaces — which IS the swarm roster. Isolation
+        // lives HERE at the roster scope; the per-identity reads downstream (_readActivityRecency,
+        // turn-presence) inherit it because they only run for rostered identities. Per-caller RLS on
+        // those reads is the WRONG layer — it would hide same-tenant teammates (see _readActivityRecency).
+        const currentUserId = RequestContextService.getUserId(),
+              params        = currentUserId ? [currentUserId] : [],
+              rosterScope   = currentUserId
+                  ? `AND (json_extract(data, '$.properties.userId') IS NULL OR json_extract(data, '$.properties.userId') = ?)`
+                  : `AND json_extract(data, '$.properties.userId') IS NULL`;
+
+        let rows;
+        try {
+            rows = sqlite.prepare(`
+                SELECT data FROM Nodes
+                WHERE json_extract(data, '$.label') = 'AgentIdentity'
+                ${rosterScope}
+            `).all(...params);
+        } catch (error) {
+            logger.warn(`[WakeSubscription] who_is_online: tenant-scoped roster read failed: ${error.message}`);
+            return [];
+        }
+
         const nodes = [];
 
         for (const row of rows) {
@@ -670,8 +692,8 @@ class WakeSubscriptionService extends Base {
      * ({@link WakeSubscriptionService#_listAgentIdentityNodes}), not the per-caller tenant: raw
      * AGENT_MEMORY is tagged with each agent's own per-agent `userId`, so a per-caller `user_id` RLS
      * filter here would hide same-deployment teammates from each other.
-     * Cross-tenant isolation for a multi-tenant cloud belongs at the roster scope (a tenant-scoped
-     * `_listAgentIdentityNodes`), tracked separately. It reads the durable graph node, not Chroma, so it
+     * Cross-tenant isolation for a multi-tenant cloud is enforced at the roster scope — the AgentIdentity
+     * roster read (`_listAgentIdentityNodes`) is tenant-scoped. It reads the durable graph node, not Chroma, so it
      * survives an embed-drain; and `add_memory` is the universal activity write (no harness hook, no
      * per-deployment beacon), so the signal works identically in the swarm and a multi-tenant cloud.
      *
@@ -695,8 +717,8 @@ class WakeSubscriptionService extends Base {
         // same-deployment teammates from each other. (getAgentIdentityNodeId
         // is explicitly "NOT for isolation" per RequestContextService, and the prior filter keyed on
         // it against the normalizeUserId'd user_id column, so it never matched own writes either.)
-        // Cross-tenant isolation for a multi-tenant cloud belongs at the roster scope (tenant-scoped
-        // _listAgentIdentityNodes), tracked separately — not by isolating roster teammates here.
+        // Cross-tenant isolation for a multi-tenant cloud is enforced at the roster scope (tenant-scoped
+        // _listAgentIdentityNodes) — not by isolating roster teammates here.
         let latest;
         try {
             const row = sqlite.prepare(`
