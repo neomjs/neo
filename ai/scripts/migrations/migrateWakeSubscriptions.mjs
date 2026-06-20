@@ -16,42 +16,22 @@
  *   node ai/scripts/migrations/migrateWakeSubscriptions.mjs --help      # print usage
  */
 
-import path from 'node:path';
+import {program}       from 'commander';
+import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import {IDENTITIES}    from '../../graph/identityRoots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRoot    = path.resolve(__dirname, '../..');
 
-function parseArgs(argv) {
-    const args = {apply: false, audit: false, db: null, help: false};
-    for (let i = 2; i < argv.length; i++) {
-        const a = argv[i];
-        if (a === '--apply')       args.apply = true;
-        else if (a === '--audit')  args.audit = true;
-        else if (a === '--help')   args.help = true;
-        else if (a === '--db')     args.db = argv[++i];
-        else {
-            console.error(`Unknown argument: ${a}`);
-            args.help = true;
-        }
-    }
-    return args;
-}
-
-function printUsage() {
-    console.log(`
-Usage: node ai/scripts/migrations/migrateWakeSubscriptions.mjs [options]
-
-Options:
-  (no flags)     Dry-run mode — print the migration plan without committing
-  --apply        Commit the migration atomically in a single transaction
-  --audit        Read-only audit — report instance-addressing-unsafe wake routes (no changes)
-  --db <path>    Override SQLite file path (default: .neo-ai-data/sqlite/memory-core-graph.sqlite)
-  --help         Print this usage message
-`);
-}
+program
+    .name('migrateWakeSubscriptions')
+    .description('Patch legacy bridge-daemon wake subscriptions onto identity-template route metadata (dry-run by default).')
+    .option('--apply', 'Commit the migration atomically in a single transaction')
+    .option('--audit', 'Read-only audit — report instance-addressing-unsafe wake routes (no changes)')
+    .option('--db <path>', 'Override the SQLite file path (default: .neo-ai-data/sqlite/memory-core-graph.sqlite)')
+    .addHelpText('after', '\n  (no flags)  Dry-run — print the migration plan without committing.');
 
 /**
  * @summary Resolves the canonical wake route template for an AgentIdentity.
@@ -254,11 +234,8 @@ function reportAudit({emptyAddress, genericNamedPeer, scanned}) {
 }
 
 async function main() {
-    const args = parseArgs(process.argv);
-    if (args.help) {
-        printUsage();
-        process.exit(0);
-    }
+    program.parse(process.argv);
+    const args = program.opts();
 
     const dbPath = args.db || path.resolve(neoRoot, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
     console.log(`[migrateWakeSubscriptions] target: ${dbPath}`);
