@@ -23,16 +23,16 @@ const block = body => '```lane-state\n' + body + '\n```',
       fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
 test.describe('codex-lane-state-stop - contract boundary', () => {
-    test('Codex block/inject is explicitly unproven, so invalid terminals stay fail-open', () => {
-        expect(CODEX_STOP_BLOCK_INJECTION_SUPPORTED).toBe(false);
+    test('Codex block/inject is active, so enforced invalid terminals block', () => {
+        expect(CODEX_STOP_BLOCK_INJECTION_SUPPORTED).toBe(true);
 
         const result = decideCodexHookAction(
             {valid: false, reason: 'no lane-state block emitted at turn-terminal'},
             {enforcing: true}
         );
 
-        expect(result.action).toBe('would-block');
-        expect(result.reason).toContain('block/inject contract is not proven');
+        expect(result.action).toBe('block');
+        expect(result.reason).toContain('no lane-state block emitted');
     });
 
     test('a valid terminal is not a Codex stop license without a live operator prompt', () => {
@@ -184,9 +184,9 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
 
     test('Codex stop loop guard is not an allow, even with operator-like prompt text', () => {
         const result = classifyCodexStopPayload({
-            stop_hook_active      : true,
-            messages              : [
-                {role: 'user', content: 'please stop here'},
+            stop_hook_active: true,
+            messages        : [
+                {role: 'user',      content: 'please stop here'},
                 {role: 'assistant', content: fixture.last_assistant_message}
             ]
         });
@@ -244,29 +244,28 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(log).toContain('valid lane-state terminal');
     });
 
-    test('live operator prompt logs WOULD-ALLOW and writes no stdout', async () => {
+    test('live operator prompt logs ALLOW and writes no stdout, even while enforcing', async () => {
         const {stdout, log} = await runHook({
             session_id: 'operator',
             messages  : [
                 {role: 'user', content: 'finish this check and hand back to me'},
                 {role: 'assistant', content: fixture.last_assistant_message}
             ]
-        });
+        }, {enforce: true});
 
         expect(stdout).toBe('');
-        expect(log).toContain('WOULD-ALLOW');
+        expect(log).toContain('ALLOW');
         expect(log).toContain('source=messages');
     });
 
-    test('invalid terminal logs WOULD-BLOCK but still writes no block decision to stdout', async () => {
+    test('enforced invalid terminal logs BLOCK and writes the block decision to stdout', async () => {
         const {stdout, log} = await runHook({
             session_id            : 'invalid',
             last_assistant_message: block('{"laneContinuation":"verified-no-lane"}')
         }, {enforce: true});
 
-        expect(stdout).toBe('');
-        expect(log).toContain('WOULD-BLOCK');
-        expect(log).toContain('block/inject contract is not proven');
+        expect(JSON.parse(stdout).decision).toBe('block');
+        expect(log).toContain('BLOCK');
         expect(log).toContain('Unknown laneContinuation');
     });
 
