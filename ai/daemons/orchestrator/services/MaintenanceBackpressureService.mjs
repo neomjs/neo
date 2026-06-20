@@ -19,6 +19,7 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'memory-summary-backfill',
     'kbSync',
+    'githubWorkflowSync',
     'backup',
     'graphlog-compaction',
     'primary-dev-sync',
@@ -116,7 +117,7 @@ export function getActiveHeavyMaintenanceTask({
     for (const taskName of heavyMaintenanceTaskNames) {
         if (taskName === excludeTaskName) continue;
         if (areHeavyMaintenanceTasksCompatible({
-            taskName: candidateTaskName,
+            taskName     : candidateTaskName,
             otherTaskName: taskName,
             compatibleHeavyMaintenanceTaskPairs
         })) continue;
@@ -401,8 +402,8 @@ export class MaintenanceBackpressureService extends Base {
      */
     getActiveHeavyMaintenanceTask({excludeTaskName = null, candidateTaskName = null} = {}) {
         return getActiveHeavyMaintenanceTask({
-            heavyMaintenanceTaskNames: this.heavyMaintenanceTaskNames,
-            taskStateService         : this.taskStateService,
+            heavyMaintenanceTaskNames          : this.heavyMaintenanceTaskNames,
+            taskStateService                   : this.taskStateService,
             excludeTaskName,
             candidateTaskName,
             compatibleHeavyMaintenanceTaskPairs: this.compatibleHeavyMaintenanceTaskPairs
@@ -505,7 +506,7 @@ export class MaintenanceBackpressureService extends Base {
 
         if (!blockingTaskName) {
             blockingTaskName = this.getActiveHeavyMaintenanceTask({
-                excludeTaskName : taskName,
+                excludeTaskName  : taskName,
                 candidateTaskName: taskName
             });
         }

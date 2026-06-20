@@ -82,6 +82,26 @@ export const TASK_REGISTRY = Object.freeze([
         }
     },
     {
+        taskName        : 'githubWorkflowSync',
+        executionKind   : 'supervised-child-process',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
+        dependencies    : [],
+        getDueTask({state, now, intervals, enables}) {
+            if (!enables.githubWorkflowSync) return null;
+            const lastRunAt  = state.githubWorkflowSync?.lastRunAt ?? 0;
+            const intervalMs = intervals.githubWorkflowSync;
+            if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
+                return {
+                    taskName: 'githubWorkflowSync',
+                    source  : 'periodic-sync',
+                    reason  : `periodic-sync:${intervalMs}`
+                };
+            }
+            return null;
+        }
+    },
+    {
         taskName        : 'backup',
         executionKind   : 'supervised-child-process',
         maintenanceClass: 'heavy',
