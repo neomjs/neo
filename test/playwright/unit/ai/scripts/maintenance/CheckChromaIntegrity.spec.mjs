@@ -1,8 +1,8 @@
-import {execFile} from 'child_process';
-import fs         from 'fs-extra';
-import os         from 'os';
-import path       from 'path';
-import {promisify} from 'util';
+import {execFile}     from 'child_process';
+import fs             from 'fs-extra';
+import os             from 'os';
+import path           from 'path';
+import {promisify}    from 'util';
 import {test, expect} from '@playwright/test';
 import {
     auditChromaVectorCoverage,
@@ -11,6 +11,7 @@ import {
     countFailedApiSteps,
     DEFAULT_STORED_EMBEDDING_EXPORTABILITY_SAMPLE_SIZE,
     DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE,
+    enumerateMetadataVectorDrift,
     normalizeExportabilitySampleSize,
     normalizeVectorCoverageSampleSize,
     probeCollection,
@@ -104,6 +105,33 @@ test.describe('checkChromaIntegrity maintenance helpers', () => {
             extraInVectorCount     : 2,
             missingFromVectorSample: ['c'],
             extraInVectorSample    : ['extra-1']
+        });
+    });
+
+    test('enumerates full metadata/vector drift ids for repair planning', () => {
+        expect(enumerateMetadataVectorDrift({
+            metadataIds: ['a', 'b', 'missing-a', 'missing-b'],
+            vectorIds  : ['a', 'extra']
+        })).toEqual({
+            allIds          : ['a', 'b', 'missing-a', 'missing-b'],
+            vectorIds       : ['a', 'extra'],
+            missingVectorIds: ['b', 'missing-a', 'missing-b'],
+            extraVectorIds  : ['extra'],
+            overlapCount    : 1
+        });
+
+        expect(compareMetadataToVectorIds({
+            metadataIds   : ['a', 'b', 'missing-a', 'missing-b'],
+            vectorIds     : ['a', 'extra'],
+            sampleSize    : 1,
+            includeFullIds: true
+        })).toMatchObject({
+            missingFromVectorSample: ['b'],
+            extraInVectorSample    : ['extra'],
+            allIds                 : ['a', 'b', 'missing-a', 'missing-b'],
+            vectorIds              : ['a', 'extra'],
+            missingVectorIds       : ['b', 'missing-a', 'missing-b'],
+            extraVectorIds         : ['extra']
         });
     });
 
@@ -307,7 +335,8 @@ test.describe('checkChromaIntegrity maintenance helpers', () => {
                 snapshotPath   : sqlitePath,
                 persistDir     : tmpDir,
                 collectionNames: ['neo-native-graph'],
-                sampleSize     : 2
+                sampleSize     : 2,
+                includeFullIds : true
             });
 
             expect(result.duplicateCollectionNames).toEqual([{
@@ -329,7 +358,10 @@ test.describe('checkChromaIntegrity maintenance helpers', () => {
                 missingFromVectorCount : 1,
                 extraInVectorCount     : 1,
                 missingFromVectorSample: ['missing'],
-                extraInVectorSample    : ['extra']
+                extraInVectorSample    : ['extra'],
+                allIds                 : ['a', 'b', 'c', 'missing'],
+                missingVectorIds       : ['missing'],
+                extraVectorIds         : ['extra']
             });
 
             const missing = result.collections.find(row => row.collectionId === 'collection-b');
@@ -341,7 +373,10 @@ test.describe('checkChromaIntegrity maintenance helpers', () => {
                 missingFromVectorCount : 1,
                 extraInVectorCount     : 0,
                 missingFromVectorSample: ['orphan'],
-                extraInVectorSample    : []
+                extraInVectorSample    : [],
+                allIds                 : ['orphan'],
+                missingVectorIds       : ['orphan'],
+                extraVectorIds         : []
             });
             expect(missing.error).toContain('Vector index metadata file not found');
         } finally {
