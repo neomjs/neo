@@ -25,10 +25,10 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 
-import logger              from '../../mcp/server/knowledge-base/logger.mjs';
-import KbAlertingService   from './KbAlertingService.mjs';
-import {fileURLToPath}     from 'node:url';
-import {assertConfigFresh} from '../../scripts/setup/initServerConfigs.mjs';
+import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
+import KbAlertingService              from './KbAlertingService.mjs';
+import {fileURLToPath, pathToFileURL} from 'node:url';
+import {assertConfigFresh}            from '../../scripts/setup/initServerConfigs.mjs';
 
 const cleanShutdown = signal => {
     logger.info(`[KbAlertingService] Received ${signal}; stopping.`);
@@ -36,16 +36,18 @@ const cleanShutdown = signal => {
     process.exit(0);
 };
 
-process.on('SIGTERM', () => cleanShutdown('SIGTERM'));
-process.on('SIGINT',  () => cleanShutdown('SIGINT'));
+// Process-entry only: register signal handlers + run the stale-overlay boot guard + start the
+// service ONLY when this daemon is the main module, never on import — preserves the process-entry
+// isolation invariant (mirrors the orchestrator daemon). The guard targets the memory-core overlay:
+// kb-* daemons read config via Memory_Config (that overlay) and own no overlay of their own.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    process.on('SIGTERM', () => cleanShutdown('SIGTERM'));
+    process.on('SIGINT',  () => cleanShutdown('SIGINT'));
 
-// Boot guard: fail fast with an actionable --migrate-config message if the consumed memory-core
-// config overlay is missing a leaf its template added, rather than crashing cryptically on an
-// undefined leaf later. kb-* daemons read config via Memory_Config (the memory-core overlay) and
-// own no overlay of their own, so this guards THAT overlay before the service boots.
-assertConfigFresh({serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))})
-    .then(() => KbAlertingService.start())
-    .catch(err => {
-        logger.error('[KbAlertingService] Daemon start failed:', err);
-        process.exit(1);
-    });
+    assertConfigFresh({serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))})
+        .then(() => KbAlertingService.start())
+        .catch(err => {
+            logger.error('[KbAlertingService] Daemon start failed:', err);
+            process.exit(1);
+        });
+}
