@@ -168,6 +168,56 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(run(file).status).toBe(0);
         });
 
+        test('template-string JSON examples are neither flagged nor fixed (#13670)', () => {
+            const file = write('prompt.mjs', [
+                'const prompt = `',
+                'Output STRICT JSON:',
+                '{',
+                '    "id": "x",',
+                '    "longName": "y"',
+                '}',
+                '`;'
+            ].join('\n'));
+            const before = fs.readFileSync(file, 'utf8');
+
+            expect(run(file).status).toBe(0);
+            expect(run('--fix', file).status).toBe(0);
+            expect(fs.readFileSync(file, 'utf8')).toBe(before);
+        });
+
+        test('template masking ignores quoted/comment backticks and preserves real object fixes (#13670)', () => {
+            const file = write('prompt-edge.mjs', [
+                'const quoted = "`";',
+                '// comment with ` must not open a template',
+                '/* block comment with ` must not open a template */',
+                'const rendered = `${(() => {',
+                '    const inner = `value ${`nested`}`;',
+                '    return inner;',
+                '})()}`;',
+                'const prompt = `',
+                'escaped \\` backtick stays content',
+                '{',
+                '    "id": "x",',
+                '    "longName": "y"',
+                '}',
+                '`;',
+                '',
+                'const config = {',
+                '    a: 1,',
+                '    longer: 2',
+                '};'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const lines = fs.readFileSync(file, 'utf8').split('\n');
+            expect(lines).toContain('    "id": "x",');
+            expect(lines).toContain('    "longName": "y"');
+            expect(lines.find(line => /^\s+a\b/.test(line))).toBe('    a     : 1,');
+            expect(lines.find(line => /^\s+longer\b/.test(line))).toBe('    longer: 2');
+            expect(run(file).status).toBe(0);
+        });
+
         test('--fix aligns a `=` declaration block (lone-keyword form) and is idempotent', () => {
             const file = write('d.mjs', [
                 'const',
