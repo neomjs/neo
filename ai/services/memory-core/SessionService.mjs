@@ -1,19 +1,19 @@
-import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import Base from '../../../src/core/Base.mjs';
-import {buildChatModel} from '../../provider/buildChatModel.mjs';
-import {invokeWithGuardrail} from './helpers/consumerFrictionHelper.mjs';
-import {withTimeout} from './helpers/withTimeout.mjs';
+import aiConfig                                      from '../../mcp/server/memory-core/config.mjs';
+import Base                                          from '../../../src/core/Base.mjs';
+import {buildChatModel}                              from '../../provider/buildChatModel.mjs';
+import {invokeWithGuardrail}                         from './helpers/consumerFrictionHelper.mjs';
+import {withTimeout}                                 from './helpers/withTimeout.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
-import crypto from 'crypto';
-import GraphService from './GraphService.mjs';
-import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
+import crypto                                        from 'crypto';
+import GraphService                                  from './GraphService.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}   from '../../graph/identityRoots.mjs';
 
 import StorageRouter from './managers/StorageRouter.mjs';
-import Json from '../../../src/util/Json.mjs';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import logger from '../../mcp/server/memory-core/logger.mjs';
+import Json          from '../../../src/util/Json.mjs';
+import fs            from 'fs';
+import path          from 'path';
+import os            from 'os';
+import logger        from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {
     SHARED_USER_ID,
     normalizeUserId,
@@ -471,10 +471,32 @@ class SessionService extends Base {
             return null;
         }
 
-        const memories = await this.memoryCollection.get({
-            where: { sessionId },
-            include: ['documents', 'metadatas']
-        });
+        // Paginate — a single un-paginated .get (the prior behavior) hit Chroma's default page bound
+        // and undercounted larger sessions, so the written memoryCount fell below the drift-detector's
+        // paginated count and the session was re-summarized every sweep (and the summary was truncated
+        // to the first page). Advance by the actual page size and stop on an empty page, so this is
+        // correct regardless of the exact per-get bound.
+        const memories  = {ids: [], documents: [], metadatas: []};
+        const pageLimit = aiConfig.summarizationBatchLimit;
+        let pageOffset  = 0;
+
+        while (true) {
+            const page      = await this.memoryCollection.get({
+                where  : {sessionId},
+                include: ['documents', 'metadatas'],
+                limit  : pageLimit,
+                offset : pageOffset
+            });
+            const pageCount = page.ids?.length || 0;
+
+            if (pageCount === 0) break;
+
+            memories.ids.push(...page.ids);
+            memories.documents.push(...page.documents);
+            memories.metadatas.push(...page.metadatas);
+
+            pageOffset += pageCount;
+        }
 
         if (memories.ids.length === 0) return null;
 
