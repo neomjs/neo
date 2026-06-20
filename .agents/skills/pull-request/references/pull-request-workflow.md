@@ -161,6 +161,9 @@ You MUST follow this exact handoff protocol:
 PR Review state (`reviewDecision: APPROVED`); a comment alone is insufficient.
 Author family is resolved from the §5 Social Name, with `author.login` fallback.
 
+A formal `reviewDecision: APPROVED` is necessary but NOT sufficient: a non-empty `reviewRequests`
+blocks merge-handoff until each requested reviewer is disposed. `validateMergeReady` encodes this.
+
 Exceptions are narrow and must be stated in the PR/review thread:
 - Micro-change: `chore` and `< 20` changed lines, or pure documentation with no runtime impact.
 - 7-day-open fallback: PR open >= 7 days and no cross-family thread engagement;
