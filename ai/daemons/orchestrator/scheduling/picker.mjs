@@ -9,7 +9,8 @@
  *   1. `filterAlreadyRunning`           — drop candidates whose task is already in `runningTasks`
  *   2. `filterExclusiveHeavyConflict`   — drop heavy candidates if a conflicting heavy is running
  *   3. `filterUnmetDependencies`        — drop candidates whose `dependencies` are in `runningTasks`
- *   4. `selectFirstCandidate`           — pick the first remaining (registry-order priority)
+ *   4. `selectByPriority`               — priority-0 (backup) → staleness-ratio among the eligible
+ *                                         (taskMeta) set → registry-order across the class boundary
  *
  * **NO state mutation.** This module reads `runningTasks` + `policyContext` but never
  * writes to `TaskStateService`, `HealthService`, or lease state. Caller is responsible
@@ -23,7 +24,11 @@
  * @param {Array<Object>} options.candidates Due candidates from `collectDueCandidates`.
  * @param {Set<String>|Array<String>} options.runningTasks Task names currently running
  *   (derived from the current task-state snapshot).
- * @param {Object} options.policyContext Additional policy state.
+ * @param {Object} options.policyContext Additional policy state. Recognized fields:
+ *   `runningHeavyTasks` (Set) + `isHeavyMaintenanceConflict` (fn) for the heavy-conflict filter;
+ *   and for the final selector: `now` (epoch ms), `taskMeta` (`{[taskName]: {lastRunAt, cadenceMs}}`),
+ *   and `priorityZeroTasks` (String[]). When `taskMeta` is absent the selector degrades to
+ *   registry-order, preserving legacy `selectFirstCandidate` behavior.
  * @returns {Object|null} The winning candidate, or null if no candidate survives the pipeline.
  */
 export function pickNextCandidate({candidates, runningTasks, policyContext = {}}) {
@@ -41,7 +46,7 @@ export function pickNextCandidate({candidates, runningTasks, policyContext = {}}
         if (remaining.length === 0) return null;
     }
 
-    return selectFirstCandidate(remaining);
+    return selectByPriority(remaining, policyContext);
 }
 
 /**
@@ -105,9 +110,85 @@ function filterUnmetDependencies(candidates, runningSet) {
 }
 
 /**
- * Selects the first candidate from the filtered list. Registry order is the priority:
- * earlier descriptors win ties. Adjust `TASK_REGISTRY` order to change priority.
+ * Selects the winning candidate by maintenance priority:
+ *   1. **Priority-0** — data-safety tasks (e.g. `backup`) win unconditionally when present,
+ *      so a daily backup is never deferred behind a backlog-draining task. Registry order
+ *      breaks ties among multiple priority-0 survivors.
+ *   2. **Staleness-ratio (eligible set only)** — among candidates carrying `taskMeta` (the
+ *      lease-competing REM chain), the most overdue by `(now - lastRunAt) / cadenceMs` is the single
+ *      eligible representative, so a weeks-stale `golden-path` or a starved `memory-summary-backfill`
+ *      outranks a just-drained `summary`. A never-run task (lastRunAt 0) scores very high.
+ *   3. **Registry order across the class boundary** — NON-eligible candidates (no `taskMeta`:
+ *      lightweight / health / continuous) keep their registry slot; the winner is the first in
+ *      registry order among the non-eligible candidates plus the one eligible representative, so a
+ *      registry-earlier non-heavy task still beats a later overdue heavy one. Strict `>` keeps the
+ *      earlier eligible candidate on equal ratios.
+ *
+ * Pure. Backward-compatible: when `policyContext.taskMeta` is absent, this degrades to
+ * registry-order `candidates[0]` — the legacy `selectFirstCandidate` behavior, so callers
+ * (and unit tests) that supply no staleness metadata are unaffected.
+ *
+ * @param {Array<Object>} candidates Filtered survivors (non-empty when called from the pipeline).
+ * @param {Object} [policyContext] `{now, taskMeta, priorityZeroTasks}` — see `pickNextCandidate`.
+ * @returns {Object|null}
  */
-function selectFirstCandidate(candidates) {
-    return candidates[0] ?? null;
+function selectByPriority(candidates, policyContext = {}) {
+    if (candidates.length === 0) return null;
+
+    const {taskMeta, now, priorityZeroTasks} = policyContext;
+
+    // Legacy / no-metadata path: registry-order priority (earlier descriptors win).
+    if (!taskMeta) return candidates[0];
+
+    // Priority-0: data-safety tasks win unconditionally; registry order among them.
+    if (Array.isArray(priorityZeroTasks) && priorityZeroTasks.length > 0) {
+        const priorityZeroWinner = candidates.find(candidate => priorityZeroTasks.includes(candidate.taskName));
+        if (priorityZeroWinner) return priorityZeroWinner;
+    }
+
+    // Staleness reorders ONLY the eligible set (candidates carrying `taskMeta` — the lease-competing
+    // REM chain). The most-overdue eligible candidate is the single eligible representative; every
+    // NON-eligible candidate keeps its registry slot, so the cross-class boundary is unchanged
+    // (a registry-earlier non-heavy task still wins over a later overdue heavy one). Strict `>`
+    // keeps the earlier eligible candidate on equal ratios (registry-order tiebreak).
+    let topEligible = null;
+    let topRatio    = -Infinity;
+
+    for (const candidate of candidates) {
+        if (!taskMeta[candidate.taskName]) continue;
+        const ratio = stalenessRatio(candidate, taskMeta, now);
+        if (ratio > topRatio) {
+            topRatio    = ratio;
+            topEligible = candidate;
+        }
+    }
+
+    // Registry-order winner among the non-eligible candidates plus the one eligible representative.
+    for (const candidate of candidates) {
+        if (!taskMeta[candidate.taskName] || candidate === topEligible) return candidate;
+    }
+
+    return candidates[0];
+}
+
+/**
+ * Overdue-relative-to-cadence score for a candidate: `(now - lastRunAt) / cadenceMs`.
+ * Higher = more starved; a never-run task (lastRunAt 0/absent) scores very high. Missing
+ * task metadata, a non-numeric `now`, or a non-positive cadence yields a neutral `0` so
+ * registry order decides rather than NaN/Infinity skewing the comparison.
+ *
+ * @param {Object} candidate Scheduling candidate (`{taskName, ...}`).
+ * @param {Object} taskMeta `{[taskName]: {lastRunAt, cadenceMs}}`.
+ * @param {Number} now Epoch milliseconds.
+ * @returns {Number}
+ */
+function stalenessRatio(candidate, taskMeta, now) {
+    const meta = taskMeta?.[candidate.taskName];
+    if (!meta || typeof now !== 'number') return 0;
+
+    const lastRunAt = typeof meta.lastRunAt === 'number' ? meta.lastRunAt : 0;
+    const cadenceMs = meta.cadenceMs;
+    if (!cadenceMs || cadenceMs <= 0) return 0;
+
+    return Math.max(0, now - lastRunAt) / cadenceMs;
 }
