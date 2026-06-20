@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import fs from 'fs/promises';
-import Neo from '../../../../src/Neo.mjs';
+import fs               from 'fs/promises';
+import Neo              from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
-import ConfigProvider from '../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS} from '../../fixtures/aiConfigDefaults.mjs';
+import ConfigProvider         from '../../../../ai/ConfigProvider.mjs';
+import {TIER1_DEFAULTS}       from '../../fixtures/aiConfigDefaults.mjs';
 import {CHROMA_TEST_DATABASE} from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
@@ -75,27 +75,27 @@ test.describe('Tier 1 Config Immutability', () => {
             requireParallelModels: TIER1_DEFAULTS.ollama.requireParallelModels
         });
         expect(Config.openAiCompatible).toMatchObject({
-            host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-            model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-            embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-            apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
-            unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
-            unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-            contentionRetryCount    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
-            contentionRetryDelayMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
-            contentionTimeoutMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
+            host                   : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+            model                  : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+            embeddingModel         : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+            apiKey                 : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
+            unloadRetryCount       : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
+            unloadRetryDelayMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+            contentionRetryCount   : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
+            contentionRetryDelayMs : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
+            contentionTimeoutMs    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
             batchEmbeddingChunkSize: Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE) || 5,
-            batchEmbeddingYieldMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
-            keep_alive              : TIER1_DEFAULTS.openAiCompatible.keep_alive,
-            requireParallelModels   : TIER1_DEFAULTS.openAiCompatible.requireParallelModels
+            batchEmbeddingYieldMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
+            keep_alive             : TIER1_DEFAULTS.openAiCompatible.keep_alive,
+            requireParallelModels  : TIER1_DEFAULTS.openAiCompatible.requireParallelModels
         });
         expect(Config.localModels).toMatchObject({
             chat: {
-                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
+                contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
                 safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000
             },
             embedding: {
-                contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
+                contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
                 safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672
             }
         });
@@ -117,7 +117,7 @@ test.describe('Tier 1 Config Immutability', () => {
         Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 11111);
 
         expect(Config.localModels.embedding).toMatchObject({
-            contextLimitTokens      : 12345,
+            contextLimitTokens       : 12345,
             safeProcessingLimitTokens: 11111
         });
         expect(Config.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072);
@@ -129,26 +129,27 @@ test.describe('Tier 1 Config Immutability', () => {
     test('ships top-level deployment and maintenance policy defaults', async () => {
         expect(Config.orchestrator.deploymentMode).toBe('local');
         expect(Config.orchestrator.intervals).toMatchObject({
-            pollMs          : 3000,
-            summarySweepMs  : 10 * 60 * 1000,
-            kbSyncMs        : 30 * 60 * 1000,
-            backupMs        : 24 * 60 * 60 * 1000,
-            graphLogCompactionMs: 24 * 60 * 60 * 1000,
-            primaryDevSyncMs: 10 * 60 * 1000,
-            dreamMs         : 60 * 60 * 1000,
-            goldenPathMs    : 60 * 60 * 1000,
-            swarmHeartbeatMs: 20 * 60 * 1000
+            pollMs                           : 3000,
+            summarySweepMs                   : 10 * 60 * 1000,
+            kbSyncMs                         : 30 * 60 * 1000,
+            backupMs                         : 24 * 60 * 60 * 1000,
+            graphLogCompactionMs             : 24 * 60 * 60 * 1000,
+            primaryDevSyncMs                 : 10 * 60 * 1000,
+            dreamMs                          : 60 * 60 * 1000,
+            goldenPathMs                     : 60 * 60 * 1000,
+            swarmHeartbeatMs                 : 20 * 60 * 1000,
+            embedDrainLivenessWatchdogCheckMs: 60 * 60 * 1000
         });
         expect(Config.orchestrator.localOnly).toEqual({
-            primaryDevSyncEnabled: null,
-            kbSyncEnabled        : null,
-            chromaDaemonEnabled  : null,
-            bridgeDaemonEnabled  : null,
-            neuralLinkBridgeEnabled: null,
-            embedDaemonEnabled   : null,
+            primaryDevSyncEnabled          : null,
+            kbSyncEnabled                  : null,
+            chromaDaemonEnabled            : null,
+            bridgeDaemonEnabled            : null,
+            neuralLinkBridgeEnabled        : null,
+            embedDaemonEnabled             : null,
             goldenPathRepoEnrichmentEnabled: null,
-            swarmHeartbeatEnabled: null,
-            wakeDispatchEnabled  : null
+            swarmHeartbeatEnabled          : null,
+            wakeDispatchEnabled            : null
         });
         expect(Config.orchestrator.devServer).toEqual({
             enabled               : null,
@@ -163,8 +164,8 @@ test.describe('Tier 1 Config Immutability', () => {
         // optional explicit-handle-list override (highest resolver precedence) — null by
         // default so the resolver falls through to `targetSource` semantics.
         expect(Config.orchestrator.swarmHeartbeat).toEqual({
-            targetSource           : 'active-a2a-participants',
-            targets                : null,
+            targetSource: 'active-a2a-participants',
+            targets     : null,
             // Wake-policy leaves: NEO_-prefixed env names bound (NEO_IDLE_THRESHOLD_MS /
             // NEO_SWARM_WAKE_COOLDOWN_SECONDS / NEO_SWARM_IDENTITIES), deployment-portable defaults.
             idleThresholdMs         : 10 * 60 * 1000,
@@ -200,13 +201,13 @@ test.describe('Tier 1 Config Immutability', () => {
 
         expect(Config.maintenance.backup).toEqual({
             intervalMs: 24 * 60 * 60 * 1000,
-            retention: {
+            retention : {
                 keepMinimum: 3,
                 maxDays    : 30
             }
         });
         expect(Config.maintenance.defrag).toEqual({
-            intervalMs: 7 * 24 * 60 * 60 * 1000,
+            intervalMs       : 7 * 24 * 60 * 60 * 1000,
             snapshotRetention: {
                 keepMinimum: 3,
                 maxDays    : 7
