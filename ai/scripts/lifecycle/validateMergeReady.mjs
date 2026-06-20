@@ -14,10 +14,13 @@
  */
 
 /**
- * `mergeStateStatus` values that are NOT mergeable (a conflict or stale base — not a strict-ready surface).
+ * The ONLY `mergeStateStatus` values that confirm a PR is mergeable. An allowlist, NOT a denylist:
+ * any other state — `DIRTY`/`BEHIND`/`BLOCKED` (a conflict / stale base) or `UNKNOWN` (GitHub has not
+ * computed mergeability yet) — fails closed, since an unconfirmed state cannot certify strict readiness.
+ * `UNSTABLE` is admitted (it is mergeable; the separate `checksGreen` gate covers CI).
  * @type {String[]}
  */
-export const NON_MERGEABLE_STATES = ['DIRTY', 'BEHIND', 'BLOCKED'];
+export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
 
 /**
  * @summary Validates whether a PR is STRICT merge-ready against the full review/merge contract.
@@ -25,7 +28,8 @@ export const NON_MERGEABLE_STATES = ['DIRTY', 'BEHIND', 'BLOCKED'];
  * Rules (all must hold for `strictMergeReady`):
  *  1. `reviewDecision === 'APPROVED'`.
  *  2. `checksGreen === true` (all required CI checks pass).
- *  3. `mergeStateStatus` is fetched AND not a non-mergeable state (DIRTY/BEHIND/BLOCKED — a conflict / stale base).
+ *  3. `mergeStateStatus` is fetched AND a confirmed-mergeable state (allowlist `CLEAN`/`UNSTABLE`); `UNKNOWN`
+ *     (mergeability not yet computed) and DIRTY/BEHIND/BLOCKED all fail closed.
  *  4. `reviewRequests` is fetched AND every explicitly-requested reviewer is disposed — i.e. `reviewRequests`
  *     minus `disposedReviewers` is empty (the reviewer-contract gate).
  *
@@ -67,8 +71,8 @@ export function validateMergeReady(pr = {}) {
 
     if (mergeStateStatus === undefined) {
         blockers.push('mergeStateStatus was not fetched — cannot certify mergeability; failing closed.');
-    } else if (NON_MERGEABLE_STATES.includes(mergeStateStatus)) {
-        blockers.push(`mergeStateStatus is '${mergeStateStatus}' (a conflict or stale base — not mergeable).`);
+    } else if (!MERGEABLE_STATES.includes(mergeStateStatus)) {
+        blockers.push(`mergeStateStatus is '${mergeStateStatus}' — not a confirmed-mergeable state (only ${MERGEABLE_STATES.join('/')} certify; DIRTY/BEHIND/BLOCKED/UNKNOWN fail closed).`);
     }
 
     if (reviewRequests === undefined) {

@@ -86,4 +86,13 @@ test.describe('validateMergeReady — strict merge-readiness contract', () => {
         });
         expect(result.strictMergeReady).toBe(true);
     });
+
+    test('UNKNOWN mergeStateStatus fails closed — GitHub has not computed mergeability (#13588 cycle-2)', () => {
+        // Allowlist: only CLEAN/UNSTABLE certify; an uncomputed UNKNOWN must NOT certify strict-ready.
+        const result = validateMergeReady({
+            reviewDecision: 'APPROVED', checksGreen: true, mergeStateStatus: 'UNKNOWN', reviewRequests: []
+        });
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.join(' ')).toContain('UNKNOWN');
+    });
 });
