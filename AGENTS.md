@@ -168,7 +168,7 @@ At turn start, you MUST check your A2A mailbox for unread messages.
 
 **Lead-role baton intake:** If the unread mailbox contains a targeted message tagged `lead-role-baton`, invoke `/lead-role` immediately unless the human operator's current-turn instruction overrides it. Validation and failure constraints mapped to §lead_role_baton_intake.
 
-**Post-lifecycle-event trigger:** After ANY discrete lifecycle event (PR review post, author response, implementation completion, PR open/update, ticket create, blocked-state resolution), invoke `/post-review-pickup` to declare the next `lane-state:` rather than silently ending the turn (#11455).
+**Post-lifecycle-event trigger:** After ANY discrete lifecycle event (PR review post, author response, implementation completion, PR open/update, ticket create, blocked-state resolution), invoke `/post-review-pickup` to declare the next `lane-state:` (emit its fenced block — `post-review-pickup`) rather than silently ending the turn (#11455).
 
 **Skill Adherence Pre-Flight (per-turn):**
 Before triggering a lifecycle skill, state in your reasoning: *"I will read the full SKILL.md and its referenced payload before drafting output."* Half-reading is empirically 3–5× more expensive than full-reading across correction cycles. Skipping the manual is the higher-cost path, not the lower-cost path.
