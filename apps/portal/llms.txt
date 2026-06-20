@@ -449,6 +449,7 @@ Here you find the full history of Neo.mjs updates.
 - [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
 - [0019 — AiConfig Reactive Provider SSOT](https://neomjs.com/raw/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md)
 - [0020 — Agent Harness Concept Anchor](https://neomjs.com/raw/learn/agentos/decisions/0020-agent-harness-concept.md)
+- [0022 — Heavy-Maintenance Scheduling Fairness](https://neomjs.com/raw/learn/agentos/decisions/0022-heavy-maintenance-scheduling-fairness.md)
 
 ## Guides
 
