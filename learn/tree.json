@@ -84,6 +84,7 @@
             {"name": "0001 — Cross-Process Cache Coherence",           "parentId": "AgentOS/Decisions",                                   "id": "agentos/decisions/0001-cross-process-cache-coherence"},
             {"name": "0019 — AiConfig Reactive Provider SSOT",         "parentId": "AgentOS/Decisions",                                   "id": "agentos/decisions/0019-aiconfig-reactive-provider-ssot"},
             {"name": "0020 — Agent Harness Concept Anchor",            "parentId": "AgentOS/Decisions",                                   "id": "agentos/decisions/0020-agent-harness-concept"},
+            {"name": "0022 — Heavy-Maintenance Scheduling Fairness",   "parentId": "AgentOS/Decisions",                                   "id": "agentos/decisions/0022-heavy-maintenance-scheduling-fairness"},
     {"name": "Guides",                                                 "parentId": null,                                 "isLeaf": false, "id": "guides", "collapsed": true},
         {"name": "Fundamentals & Core Concepts",                       "parentId": "guides",                             "isLeaf": false, "id": "guides/fundamentals", "collapsed": true},
             {"name": "Codebase Overview",                              "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/CodebaseOverview"},
