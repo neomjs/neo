@@ -29,10 +29,14 @@ export const LANE_CONTINUATIONS = ['active-lane', 'next-lane', 'blocker-routed',
  * "holding" (the idle-dodge the operator escalated on):
  *  - `peer-pending-artifact`    — a named peer owes the next step (their A2A / graph message exists);
  *  - `ticket-documented-sizing` — the lane's own ticket body documents the block / sizing;
- *  - `adr-grounded-pacing`      — an ADR's pacing / sequencing rule gates the lane.
+ *  - `adr-grounded-pacing`      — an ADR's pacing / sequencing rule gates the lane;
+ *  - `pr-pending-merge`         — a named PR gate awaiting merge (an own PR at the human merge gate, OR a
+ *    slice blocked on an unmerged dep): the PR's `mergedAt` is null. Rule 5 additionally requires its gate
+ *    to cite `field === 'mergedAt'`, reusing Rule 3's authoritative-merge-field discipline (a PR's
+ *    `state` / CLOSED is not unmerged-proof). This expresses the *canonical* owned-but-blocked shape.
  * @type {String[]}
  */
-export const OWNED_BUT_BLOCKED_REASONS = ['peer-pending-artifact', 'ticket-documented-sizing', 'adr-grounded-pacing'];
+export const OWNED_BUT_BLOCKED_REASONS = ['peer-pending-artifact', 'ticket-documented-sizing', 'adr-grounded-pacing', 'pr-pending-merge'];
 
 /**
  * Wake dispositions that answer only "engage this message?" — never "does the turn have a lane?".
@@ -56,9 +60,10 @@ export const NON_TERMINAL_DISPOSITIONS = ['awareness', 'stale', 'suppressed'];
  *     or unscoped survey fails.
  *  5. `laneContinuation='owned-but-blocked'` (owned in-flight lanes all blocked ≠ verified-no-lane) needs
  *     DUAL evidence: (a) at least one `namedGates` entry, EACH with a `blockReason` in
- *     `OWNED_BUT_BLOCKED_REASONS` (externally-verifiable, not a bare "holding"); AND (b) a full-backlog
- *     survey (`scope='full-backlog'`), proving no UNCLAIMED-claimable lane either. (Per-gate `checkedAt`
- *     is enforced by Rule 3.)
+ *     `OWNED_BUT_BLOCKED_REASONS` (externally-verifiable, not a bare "holding") — and a `pr-pending-merge`
+ *     reason additionally must cite `field === 'mergedAt'` (reusing Rule 3's authoritative-merge-field
+ *     discipline); AND (b) a full-backlog survey (`scope='full-backlog'`), proving no UNCLAIMED-claimable
+ *     lane either. (Per-gate `checkedAt` is enforced by Rule 3.)
  *
  * @param {Object} [laneState={}]
  * @param {String} [laneState.wakeDisposition] One of `actionable|awareness|stale|suppressed|incident`.
@@ -125,6 +130,8 @@ export function validateLaneStateTerminal(laneState = {}) {
                 violations.push(`owned-but-blocked gate ${gate?.ref ?? '(unnamed)'} must cite a blockReason — a bare "holding" with no externally-verifiable block is the idle-dodge.`);
             } else if (!OWNED_BUT_BLOCKED_REASONS.includes(gate.blockReason)) {
                 violations.push(`owned-but-blocked gate ${gate?.ref ?? '(unnamed)'} cites blockReason '${gate.blockReason}', not an externally-verifiable one (${OWNED_BUT_BLOCKED_REASONS.join(', ')}).`);
+            } else if (gate.blockReason === 'pr-pending-merge' && gate.field !== 'mergedAt') {
+                violations.push(`owned-but-blocked gate ${gate?.ref ?? '(unnamed)'} cites 'pr-pending-merge' but field ${gate.field ? `'${gate.field}'` : '(none)'} — pending-merge must read mergedAt (a PR's state/CLOSED is not unmerged-proof; mirrors Rule 3's merge-claim discipline).`);
             }
         }
 

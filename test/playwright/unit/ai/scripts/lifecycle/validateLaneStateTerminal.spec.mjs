@@ -163,4 +163,24 @@ test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () =
         expect(result.valid).toBe(false);
         expect(result.violations.join(' ')).toContain('at least one named in-flight lane');
     });
+
+    test('owned-but-blocked accepts pr-pending-merge when the gate cites field mergedAt (the canonical own-PR-at-gate case)', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'owned-but-blocked',
+            namedGates      : [{ref: 'PR #13602', checkedAt: NOW, blockReason: 'pr-pending-merge', field: 'mergedAt'}],
+            backlogSurvey   : {checkedAt: NOW, scope: 'full-backlog'}
+        });
+        expect(result.valid).toBe(true);
+        expect(result.violations).toEqual([]);
+    });
+
+    test('owned-but-blocked rejects pr-pending-merge that cites state instead of mergedAt', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'owned-but-blocked',
+            namedGates      : [{ref: 'PR #13602', checkedAt: NOW, blockReason: 'pr-pending-merge', field: 'state'}],
+            backlogSurvey   : {checkedAt: NOW, scope: 'full-backlog'}
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('pending-merge must read mergedAt');
+    });
 });
