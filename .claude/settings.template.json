@@ -28,5 +28,18 @@
       "Never push or commit directly to the `main` or `dev` branches. Always branch and open a pull request targeting `dev` (AGENTS.md critical gates #3 and #8). The release pipeline is the only sanctioned exception.",
       "Never write a client, customer, or partner name — or private business strategy — into any public-facing artifact: public-repo issues, pull requests, discussions, docs, or comments (AGENTS.md critical gate #9)."
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "NEO_LANE_STATE_ENFORCE=1 /usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/laneStateStopHook.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
