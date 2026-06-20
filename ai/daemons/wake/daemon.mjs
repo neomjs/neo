@@ -1320,11 +1320,17 @@ function buildWakeDigest(identity, {messages = [], tasks = [], permissions = [],
         breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
     }
     if (heartbeats.length > 0) {
-        const latest        = heartbeats[heartbeats.length - 1],
-              gitHubSummary = latest.summary?.source === 'github-notification'
-                  ? `; latest GitHub ${latest.summary.latest?.reason || 'notification'}: "${latest.summary.latest?.title || latest.summary.latest?.id || 'untitled'}"${formatPullRequestStateEcho(latest.summary)}${latest.summary.latest?.url ? ` (${latest.summary.latest.url})` : ''}`
-                  : '';
-        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${gitHubSummary})`;
+        const latest  = heartbeats[heartbeats.length - 1],
+              summary = latest.summary;
+
+        let extra = '';
+        if (summary?.source === 'github-notification') {
+            extra = `; latest GitHub ${summary.latest?.reason || 'notification'}: "${summary.latest?.title || summary.latest?.id || 'untitled'}"${formatPullRequestStateEcho(summary)}${summary.latest?.url ? ` (${summary.latest.url})` : ''}`;
+        } else if (summary?.source === 'idle-out-nudge') {
+            extra = `; idle-out nudge — ${summary.reason || 'idle'}; next: ${summary.nextAction || 'claim a lane'}`;
+        }
+
+        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${extra})`;
     }
 
     // The lifecycle-first lane directive is an IDLE-watchdog nudge — append it ONLY to pure-heartbeat

@@ -53,15 +53,15 @@
  * @see ai/scripts/lifecycle/resumeHarness.mjs     — sibling for sunset-restart case
  * @see test/playwright/unit/ai/scripts/idleOutNudge.spec.mjs
  */
-import Neo                       from '../../../src/Neo.mjs';
-import * as core                 from '../../../src/core/_export.mjs';
-import path                      from 'path';
-import {fileURLToPath}           from 'url';
-import LifecycleService          from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import GraphService              from '../../services/memory-core/GraphService.mjs';
-import WakeSubscriptionService   from '../../services/memory-core/WakeSubscriptionService.mjs';
-import RequestContextService     from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {hasOverride, readGateState} from './wakeSafetyGate.mjs';
+import Neo                                                       from '../../../src/Neo.mjs';
+import * as core                                                 from '../../../src/core/_export.mjs';
+import path                                                      from 'path';
+import {fileURLToPath}                                           from 'url';
+import LifecycleService                                          from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import GraphService                                              from '../../services/memory-core/GraphService.mjs';
+import WakeSubscriptionService                                   from '../../services/memory-core/WakeSubscriptionService.mjs';
+import RequestContextService                                     from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {hasOverride, readGateState}                              from './wakeSafetyGate.mjs';
 import {writeInflightLock, clearInflightLock, checkInflightLock} from './inflightLock.mjs';
 
 /**
@@ -119,6 +119,15 @@ export async function idleOutNudge(identity) {
 
     const sender = process.env.NEO_AGENT_IDENTITY || '@system';
 
+    // Machine-readable cycle-state carried in the pulse id (`<source>.<base64url-JSON>`) so the
+    // bridge-daemon wake digest surfaces the next lifecycle step instead of an opaque "N heartbeat
+    // pulses" — the receiver branches on the cycle without prose inference (the idle-holding fix).
+    const pulseId = `idle-out-nudge.${Buffer.from(JSON.stringify({
+        source    : 'idle-out-nudge',
+        reason    : 'idle: no recent AGENT_MEMORY while the swarm is active',
+        nextAction: 'drain the lifecycle queue (own-PR changes → designated reviews → own-PR green → request review), then claim a non-colliding backlog lane'
+    })).toString('base64url')}`;
+
     // 5. Emit Shape B heartbeat pulse. Creates an ephemeral GraphLog entry tagged
     //    as `heartbeat_pulse`; bridge-daemon's resync() picks it up + dispatches
     //    via the existing adapter set (osascript / codex-app-server / etc.).
@@ -127,7 +136,7 @@ export async function idleOutNudge(identity) {
     //    the emit no-ops (logged, not throws).
     try {
         await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
-            await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: identity});
+            await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: identity, pulseId});
         });
         console.error(`[idleOutNudge] Emitted heartbeat pulse to ${identity}`);
     } catch (err) {
