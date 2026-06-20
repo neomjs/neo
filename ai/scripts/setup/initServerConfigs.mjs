@@ -699,7 +699,11 @@ export function mergeClaudeHooks(activeSettings = {}, templateSettings = {}) {
  * enforcement) without per-repo manual management — the Claude analog of {@link initConfigs} /
  * {@link initTier1Config}. A missing active file is cloned whole from the template; an existing one
  * gets only its `hooks` block ensured ({@link mergeClaudeHooks}), preserving operator-local keys.
- * Idempotent: an already-wired settings file is a silent no-op. Runs at `npm prepare`.
+ * Idempotent: an already-wired settings file is a silent no-op. Runs at `npm prepare`. The tracked
+ * template carries `NEO_LANE_STATE_ENFORCE=1` in the Stop-hook command — the operator-directed enforce
+ * default (the forcing-function rollout: the hook blocks + injects the no-hold directive at an
+ * invalid idle-out turn-terminal, rather than only audit-logging it). Enforce is opted OUT locally by
+ * dropping that env prefix in the gitignored `.claude/settings.json`, not by changing the default.
  *
  * Distinct from the server/Tier-1 config path: Claude settings are JSON (not `.mjs`), so the regex
  * shape-drift detector does not apply — a structural `hooks`-key merge is the right primitive.
