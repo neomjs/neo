@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {test, expect}                                from '@playwright/test';
+import Neo                                           from '../../../../../../src/Neo.mjs';
+import RequestContextService                         from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from '../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
-import {drainMemoryWal}      from './util.mjs';
+import {drainMemoryWal}                              from './util.mjs';
 
 /**
  * add_memory never-fail write path (write-ahead decouple) — falsifier coverage:
@@ -252,6 +252,29 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
             expect(turn.prompt).toBe('graph-drain prompt');
             expect(turn.response).toBe('graph-drain response');
             expect(turn.thought).toBe('graph-drain thought');
+        } finally {
+            MemoryService._scheduleMemoryGraphProjection = originalSchedule;
+            MemoryService.buildMiniSummary               = originalBuildSummary;
+        }
+    });
+
+    test('the AUTHORED_BY provenance edge persists a normalized user_id (#13578)', async () => {
+        const originalSchedule     = MemoryService._scheduleMemoryGraphProjection;
+        const originalBuildSummary = MemoryService.buildMiniSummary;
+        MemoryService._scheduleMemoryGraphProjection = () => {};
+        MemoryService.buildMiniSummary               = async () => null;
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt: 'authored-by prompt', thought: 'authored-by thought', response: 'authored-by response'
+            }));
+            await MemoryService.drainPendingGraphProjections({ids: [result.id]});
+
+            // The AUTHORED_BY provenance edge: target stays the @-form author identity, but the user_id
+            // isolation column is the normalized canonical form (the write-boundary contract).
+            const authoredBy = GraphService.db.edges.items.find(e => e.type === 'AUTHORED_BY' && e.target === '@agent-wal');
+            expect(authoredBy).toBeTruthy();
+            expect(authoredBy.properties.userId).toBe('agent-wal');
         } finally {
             MemoryService._scheduleMemoryGraphProjection = originalSchedule;
             MemoryService.buildMiniSummary               = originalBuildSummary;
