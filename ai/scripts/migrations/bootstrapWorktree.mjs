@@ -5,6 +5,11 @@
  * Memory Core, knowledge-base, and bridge-daemon state is unified across worktree
  * MCP server processes — while leaving the git-tracked `concepts/` subdir untouched.
  *
+ * It also materializes the worktree's `.claude/settings.json` (the no-hold Stop hook) from the
+ * tracked `.claude/settings.template.json` via `initClaudeSettings` — the Claude analog of the
+ * config-overlay hydration, so the hook is wired in worktrees deterministically rather than
+ * relying on the `npm prepare` that `installDependencies` skips when `node_modules` already exists.
+ *
  * **Background (config copy):** `ai/config.mjs` is the Tier-1 operator overlay.
  * `ai/mcp/server/{github-workflow,knowledge-base,memory-core,neural-link}/config.mjs`
  * are gitignored per-server overlays. Fresh git worktrees under
@@ -109,13 +114,13 @@
  * @see .gitignore
  * @see {@link materializeServerConfigTemplate}
  */
-import {execFile}       from 'child_process';
-import fs               from 'fs/promises';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
-import {promisify}      from 'util';
+import {execFile}      from 'child_process';
+import fs              from 'fs/promises';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import {promisify}     from 'util';
 
-import {listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
+import {initClaudeSettings, listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -745,10 +750,10 @@ export async function classifyWorktree({
         current,
         mainCheckout: primaryMainCheckout,
         remove      : classification.remove,
-        removeArgs: ['worktree', 'remove', '--force', worktree.path],
-        status    : classification.status,
-        reason    : classification.reason,
-        dirtyStatus: classification.dirtyStatus || null
+        removeArgs  : ['worktree', 'remove', '--force', worktree.path],
+        status      : classification.status,
+        reason      : classification.reason,
+        dirtyStatus : classification.dirtyStatus || null
     };
 }
 
@@ -822,7 +827,7 @@ export async function pruneStaleWorktrees({
     }
 
     return {
-        worktrees      : classified,
+        worktrees     : classified,
         removed,
         skipped,
         totalBytes,
@@ -833,20 +838,29 @@ export async function pruneStaleWorktrees({
 }
 
 /**
- * @summary Reuses the existing bootstrap + `--link-data` hydration path for one checkout.
+ * @summary Reuses the existing bootstrap + `--link-data` hydration path for one checkout, and
+ * wires the Claude no-hold Stop hook into the worktree's `.claude/settings.json`.
+ *
+ * The Claude-settings wiring (`initClaudeSettings`) materializes the gitignored
+ * `.claude/settings.json` from the worktree's own tracked `.claude/settings.template.json` — the
+ * Claude analog of the `ai/config.mjs` / per-server overlay hydration `bootstrapWorktree` performs.
+ * Without it the Stop hook is only wired by the `npm prepare` that `installDependencies` skips when
+ * `node_modules` already exists, leaving the no-hold enforcement silently inert in worktrees.
  *
  * @param {object}   options
  * @param {string}   options.mainCheckout Canonical checkout path.
  * @param {string}   options.projectRoot Current checkout path to hydrate.
  * @param {Function} [options.log] Logger fn.
- * @returns {Promise<object>} Hydration sub-results.
+ * @param {Function} [options.wireClaudeSettings=initClaudeSettings] Claude-settings materializer; injectable for tests.
+ * @returns {Promise<object>} Hydration sub-results (`bootstrap`, `data`, `files`, `claudeSettings`).
  */
-export async function hydrateCurrentWorktree({mainCheckout, projectRoot, log = console.log}) {
-    const bootstrap = await bootstrapWorktree({mainCheckout, projectRoot, log});
-    const data      = await symlinkDataDir({mainCheckout, projectRoot, log});
-    const files     = await symlinkGitignoredFiles({mainCheckout, projectRoot, log});
+export async function hydrateCurrentWorktree({mainCheckout, projectRoot, log = console.log, wireClaudeSettings = initClaudeSettings}) {
+    const bootstrap      = await bootstrapWorktree({mainCheckout, projectRoot, log});
+    const data           = await symlinkDataDir({mainCheckout, projectRoot, log});
+    const files          = await symlinkGitignoredFiles({mainCheckout, projectRoot, log});
+    const claudeSettings = await wireClaudeSettings({claudeDir: path.join(projectRoot, '.claude'), logger: {log, warn: log}});
 
-    return {bootstrap, data, files};
+    return {bootstrap, data, files, claudeSettings};
 }
 
 /**
@@ -933,7 +947,7 @@ async function getWorktreeDirtyState({worktreePath, exec = execFileAsync}) {
         };
     } catch (error) {
         return {
-            dirty: true,
+            dirty : true,
             stdout: '',
             error
         };
@@ -1033,6 +1047,13 @@ if (isMain) {
         const result = await bootstrapWorktree({mainCheckout, projectRoot});
         const total  = result.copied.length + result.skipped.length + result.missing.length;
         console.log(`\n✓ Bootstrap complete: ${result.copied.length} copied, ${result.skipped.length} skipped, ${result.missing.length} missing (${total} total)`);
+
+        // Materialize the worktree's .claude/settings.json (the no-hold Stop hook) from its tracked
+        // settings.template.json — the Claude-settings parallel to the config hydration above, wired
+        // deterministically rather than via the npm prepare that runBuildAll's installDependencies
+        // skips when node_modules already exists.
+        const claudeSettings = await initClaudeSettings({claudeDir: path.join(projectRoot, '.claude')});
+        console.log(`✓ Claude settings: ${claudeSettings.action}`);
 
         if (linkData) {
             const symlinkResult = await symlinkDataDir({mainCheckout, projectRoot, force});
