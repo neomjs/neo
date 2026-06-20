@@ -1,15 +1,15 @@
-import {program}                      from 'commander';
-import {ChromaClient}                 from 'chromadb';
-import {execFile}                     from 'child_process';
-import fs                             from 'fs-extra';
-import os                             from 'os';
-import path                           from 'path';
-import {pathToFileURL}                from 'url';
-import {promisify}                    from 'util';
-import Neo                            from '../../../src/Neo.mjs';
-import AiConfig                       from '../../config.mjs';
-import kbConfig                       from '../../mcp/server/knowledge-base/config.mjs';
-import mcConfig                       from '../../mcp/server/memory-core/config.mjs';
+import {program}       from 'commander';
+import {ChromaClient}  from 'chromadb';
+import {execFile}      from 'child_process';
+import fs              from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import {pathToFileURL} from 'url';
+import {promisify}     from 'util';
+import Neo             from '../../../src/Neo.mjs';
+import AiConfig        from '../../config.mjs';
+import kbConfig        from '../../mcp/server/knowledge-base/config.mjs';
+import mcConfig        from '../../mcp/server/memory-core/config.mjs';
 import {
     createDynamicTextEmbeddingFunction,
     registerNeoChromaEmbeddingFunctions
@@ -357,47 +357,78 @@ export async function readVectorIndexIds({
 }
 
 /**
- * @summary Computes exact overlap and drift samples between SQLite metadata ids and HNSW vector ids.
+ * @summary Enumerates exact id overlap and drift between SQLite metadata rows and HNSW vector ids.
  * @param {Object} options
  * @param {String[]} [options.metadataIds=[]]
  * @param {String[]} [options.vectorIds=[]]
- * @param {Number} [options.sampleSize=DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE]
- * @returns {Object}
+ * @returns {{allIds: String[], vectorIds: String[], missingVectorIds: String[], extraVectorIds: String[], overlapCount: Number}}
  */
-export function compareMetadataToVectorIds({
+export function enumerateMetadataVectorDrift({
     metadataIds = [],
-    vectorIds   = [],
-    sampleSize  = DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE
+    vectorIds   = []
 } = {}) {
     const metadataSet = new Set(metadataIds),
           vectorSet   = new Set(vectorIds),
+          allIds      = [...metadataSet],
           missing     = [],
           extra       = [];
 
     let overlapCount = 0;
 
-    for (const id of metadataSet) {
+    for (const id of allIds) {
         if (vectorSet.has(id)) {
             overlapCount++;
-        } else if (missing.length < sampleSize) {
+        } else {
             missing.push(id);
         }
     }
 
     for (const id of vectorSet) {
-        if (!metadataSet.has(id) && extra.length < sampleSize) {
+        if (!metadataSet.has(id)) {
             extra.push(id);
         }
     }
 
     return {
-        metadataRowCount      : metadataSet.size,
-        vectorIndexIdCount    : vectorSet.size,
-        overlapCount,
-        missingFromVectorCount: metadataSet.size - overlapCount,
-        extraInVectorCount    : vectorSet.size - overlapCount,
-        missingFromVectorSample: missing,
-        extraInVectorSample   : extra
+        allIds,
+        vectorIds       : [...vectorSet],
+        missingVectorIds: missing,
+        extraVectorIds  : extra,
+        overlapCount
+    }
+}
+
+/**
+ * @summary Computes exact overlap counts and bounded drift samples between SQLite metadata ids and HNSW vector ids.
+ * @param {Object} options
+ * @param {String[]} [options.metadataIds=[]]
+ * @param {String[]} [options.vectorIds=[]]
+ * @param {Number} [options.sampleSize=DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE]
+ * @param {Boolean} [options.includeFullIds=false] Include full id lists for repair tooling.
+ * @returns {Object}
+ */
+export function compareMetadataToVectorIds({
+    metadataIds     = [],
+    vectorIds       = [],
+    sampleSize      = DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE,
+    includeFullIds  = false
+} = {}) {
+    const drift = enumerateMetadataVectorDrift({metadataIds, vectorIds});
+
+    return {
+        metadataRowCount       : drift.allIds.length,
+        vectorIndexIdCount     : drift.vectorIds.length,
+        overlapCount           : drift.overlapCount,
+        missingFromVectorCount : drift.missingVectorIds.length,
+        extraInVectorCount     : drift.extraVectorIds.length,
+        missingFromVectorSample: drift.missingVectorIds.slice(0, sampleSize),
+        extraInVectorSample    : drift.extraVectorIds.slice(0, sampleSize),
+        ...(includeFullIds ? {
+            allIds          : drift.allIds,
+            vectorIds       : drift.vectorIds,
+            missingVectorIds: drift.missingVectorIds,
+            extraVectorIds  : drift.extraVectorIds
+        } : {})
     }
 }
 
@@ -408,6 +439,7 @@ export function compareMetadataToVectorIds({
  * @param {String} options.persistDir
  * @param {String[]} [options.collectionNames=[]]
  * @param {Number} [options.sampleSize=DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE]
+ * @param {Boolean} [options.includeFullIds=false]
  * @param {Function} [options.execFn=execFileAsync]
  * @param {Object} [options.fsModule=fs]
  * @returns {Promise<Object>}
@@ -417,6 +449,7 @@ export async function auditChromaVectorCoverage({
     persistDir,
     collectionNames = [],
     sampleSize      = DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE,
+    includeFullIds  = false,
     execFn          = execFileAsync,
     fsModule        = fs
 } = {}) {
@@ -453,7 +486,8 @@ export async function auditChromaVectorCoverage({
               comparison = compareMetadataToVectorIds({
                   metadataIds,
                   vectorIds : vectorResult.ids,
-                  sampleSize: normalizeVectorCoverageSampleSize(sampleSize)
+                  sampleSize: normalizeVectorCoverageSampleSize(sampleSize),
+                  includeFullIds
               }),
               ok = vectorResult.ok &&
                   comparison.missingFromVectorCount === 0 &&
@@ -783,6 +817,11 @@ export async function run(argv = process.argv) {
             'Number of missing/extra ids to preview for vector coverage drift.',
             String(DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE)
         )
+        .option(
+            '--include-vector-coverage-ids',
+            'Include full metadata/vector/missing/extra id lists in vector coverage output for repair planning.',
+            false
+        )
         .option('--keep-snapshot', 'Keep the copied SQLite snapshot instead of removing the temp dir.', false)
         .option('--json', 'Print machine-readable JSON.', false)
         .parse(argv);
@@ -798,7 +837,7 @@ export async function run(argv = process.argv) {
             checks      : []
         },
         coverage: null,
-        api: null
+        api     : null
     };
 
     for (const pragma of ['quick_check', 'integrity_check']) {
@@ -811,10 +850,11 @@ export async function run(argv = process.argv) {
     if (!options.skipVectorCoverage) {
         try {
             result.coverage = await auditChromaVectorCoverage({
-                snapshotPath    : snapshot.snapshotPath,
-                persistDir      : path.dirname(sourcePath),
-                collectionNames : resolveCollectionNames(),
-                sampleSize      : normalizeVectorCoverageSampleSize(options.vectorCoverageSampleSize)
+                snapshotPath   : snapshot.snapshotPath,
+                persistDir     : path.dirname(sourcePath),
+                collectionNames: resolveCollectionNames(),
+                sampleSize     : normalizeVectorCoverageSampleSize(options.vectorCoverageSampleSize),
+                includeFullIds : Boolean(options.includeVectorCoverageIds)
             });
         } catch (error) {
             result.coverage = {
