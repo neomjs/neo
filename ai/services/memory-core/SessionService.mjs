@@ -460,7 +460,18 @@ class SessionService extends Base {
             // WAKE_SUBSCRIPTION skip misses; once the session goes quiet past the window it is
             // summarized once → counts match → no further churn. A crashed session IS idle, so the
             // eventual-consistency capture still fires once it ages past the window (no regression).
-            if (sessionData.lastActivity && (nowMs - sessionData.lastActivity) < churnCooldownMs) {
+            //
+            // Timestamp-edge hardening:
+            //   • Future-skew: a clock-drifted memory (plausible across multi-machine / multi-tenant
+            //     deployments) gives lastActivity > nowMs, so a bare `nowMs - lastActivity` is
+            //     negative — perpetually below the cooldown — which would gate the session FOREVER.
+            //     The `idleMs >= 0` guard treats a future timestamp as eligible (summarize once)
+            //     rather than permanently stuck.
+            //   • Unparseable/missing timestamp: resolveGraphTimestampMs returns null, so lastActivity
+            //     stays 0 (falsy) and bypasses this gate — fail-open, since a session we cannot time
+            //     is better summarized than stranded.
+            const idleMs = nowMs - sessionData.lastActivity;
+            if (sessionData.lastActivity && idleMs >= 0 && idleMs < churnCooldownMs) {
                 return;
             }
 
