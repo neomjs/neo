@@ -157,6 +157,7 @@ export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
 // are cross-family-convergence-fixed — refine prose, not meaning.
 const IDLE_REMINDER = `Turn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.
 Declaring a lane is NOT driving it. Do the next concrete action NOW:
+  • check your mailbox (list_messages) — new A2A or a lifecycle event may have shifted your lane
   • continue your own lane
   • open a PR
   • clear CHANGES_REQUESTED on your own PR
