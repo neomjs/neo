@@ -1,12 +1,15 @@
 import {test, expect}                            from '@playwright/test';
 import {decideHookAction, parseOutcomeToVerdict} from '../../../../.claude/hooks/laneStateStopHook.mjs';
+import {spawn}                                   from 'node:child_process';
+import fs                                        from 'node:fs';
+import os                                        from 'node:os';
+import path                                      from 'node:path';
 
 /**
- * Falsification tests for the idle-out Stop-hook pure logic. Two exported, I/O-free functions carry
- * the mechanism: `parseOutcomeToVerdict` (the 3-bucket chain — malformed / absent / validated) and
- * `decideHookAction` (verdict + enforcing → allow / would-block / block). The full end-to-end
- * falsification (spawn the hook + a real parser + validator) lands with the lane-state-terminal
- * module; these lock the decision logic now.
+ * Falsification tests for the idle-out Stop-hook. The pure layer locks the decision logic in-process
+ * (`parseOutcomeToVerdict` — the 3-bucket chain; `decideHookAction` — allow / would-block / block).
+ * The end-to-end layer spawns the REAL hook with real ```lane-state emissions and asserts the wired
+ * parser + validator (ai/scripts/lifecycle) fire through the hook I/O — the integrated seam.
  */
 test.describe('laneStateStopHook — pure idle-out decision logic', () => {
     test.describe('parseOutcomeToVerdict — the 3-bucket chain', () => {
@@ -54,5 +57,74 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(result.action).toBe('block');
             expect(result.reason).toBe('no active lane — pick one or cite a survey');
         });
+    });
+});
+
+test.describe('laneStateStopHook — end-to-end (spawned hook + real parser/validator)', () => {
+    /**
+     * @summary Spawns the real hook with a transcript fixture + a temp audit-log dir; returns
+     * `{stdout, log}` once it exits. The hook reads `transcript_path` from the stdin payload, so the
+     * real ai/scripts/lifecycle parser + validator fire through the actual hook I/O.
+     * @param {String} transcriptText
+     * @param {{enforce: Boolean}} [opts]
+     * @returns {Promise<{stdout: String, log: String}>}
+     */
+    function runHook(transcriptText, {enforce = false} = {}) {
+        return new Promise((resolve, reject) => {
+            const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
+                  transcriptPath = path.join(dir, 'transcript.txt'),
+                  env            = {...process.env, NEO_AI_DAEMON_DIR: dir};
+
+            fs.writeFileSync(transcriptPath, transcriptText);
+            if (enforce) env.NEO_LANE_STATE_ENFORCE = '1';
+
+            const proc = spawn('node', ['.claude/hooks/laneStateStopHook.mjs'], {stdio: ['pipe', 'pipe', 'pipe'], env});
+            let stdout = '';
+
+            proc.stdout.on('data', chunk => stdout += chunk);
+            proc.on('error', reject);
+            proc.on('exit', () => {
+                const logPath = path.join(dir, 'lane-state-stop-hook.log');
+                resolve({stdout, log: fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : ''});
+            });
+
+            proc.stdin.write(JSON.stringify({stop_hook_active: false, session_id: 'e2e', transcript_path: transcriptPath}));
+            proc.stdin.end();
+        });
+    }
+
+    const block = body => '```lane-state\n' + body + '\n```';
+
+    test('a VALID emission (active-lane) → WOULD-ALLOW, no block on stdout', async () => {
+        const {stdout, log} = await runHook(`On it.\n\n${block('{"laneContinuation":"active-lane"}')}`);
+        expect(log).toContain('WOULD-ALLOW');
+        expect(stdout).toBe('');
+    });
+
+    test('an INVALID emission (verified-no-lane, no full-backlog survey) → WOULD-BLOCK via Rule 4', async () => {
+        const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'));
+        expect(log).toContain('WOULD-BLOCK');
+        expect(log).toContain('full-backlog survey');
+        expect(stdout).toBe('');
+    });
+
+    test('an ABSENT emission (no lane-state block) → WOULD-BLOCK', async () => {
+        const {log} = await runHook('Just some prose, no lane-state block here.');
+        expect(log).toContain('WOULD-BLOCK');
+        expect(log).toContain('no lane-state block emitted');
+    });
+
+    test('a MALFORMED emission (block present, broken JSON) → WOULD-BLOCK, distinct from absent', async () => {
+        const {log} = await runHook(block('{laneContinuation: not valid json}'));
+        expect(log).toContain('WOULD-BLOCK');
+        expect(log).toContain('malformed');
+    });
+
+    test('ENFORCING + invalid emission → blocks: {"decision":"block"} injected on stdout', async () => {
+        const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {enforce: true});
+        expect(log).toContain('BLOCK');
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('full-backlog survey');
     });
 });

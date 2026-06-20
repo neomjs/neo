@@ -30,11 +30,10 @@
  * log for handoff false-positives, then set `NEO_LANE_STATE_ENFORCE=1` to enforce. A buggy blocking
  * hook would trap every agent's turn-end, so the dry-run → audit → enforce ramp is the safe rollout.
  *
- * SEAM (pending the lane-state-terminal module): `parseLaneState` + `validateLaneStateTerminal` are
- * stubbed against their EXACT real signatures (the stub parser returns null — the absent-bucket
- * placeholder; a meaningful dry-run audit needs the real parser). The author's bodies drop in
- * unchanged. The pure `parseOutcomeToVerdict` (3 buckets → verdict) + `decideHookAction` (verdict +
- * enforcing → action) are exported + unit-tested independently of the I/O + the stubs.
+ * SEAM: `parseLaneState` (transcript → descriptor | null | throws) + `validateLaneStateTerminal`
+ * (descriptor → {valid, violations}) are imported from `ai/scripts/lifecycle/` — pure, zero-dependency
+ * modules so this hook stays light on every turn-end. The pure `parseOutcomeToVerdict` (3 buckets →
+ * verdict) + `decideHookAction` (verdict + enforcing → action) are exported + unit-tested independently.
  *
  * @see https://code.claude.com/docs/en/hooks — Stop hook contract (stdin payload, decision:block)
  */
@@ -42,6 +41,9 @@ import fs              from 'node:fs';
 import path            from 'node:path';
 import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
+
+import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
+import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 // Enforce ONLY when the operator explicitly activates it; default is DRY-RUN (log-only, never blocks).
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
@@ -80,37 +82,6 @@ function auditLog(line) {
         // best-effort; a log-write failure must never block a turn-end
     }
 }
-
-// ---- SEAM (stubbed against the real signatures; the author's parser + validator bodies drop in) ---
-/**
- * @summary STUB — extract the structured lane-state descriptor from the LAST fenced ```lane-state
- * block in the turn transcript. Real signature (the author's body replaces this stub):
- *   - returns the descriptor `{wakeDisposition, laneContinuation, namedGates, awaitingOwnPrOnly, backlogSurvey}`
- *   - returns null when NO block is present (the ABSENT bucket)
- *   - THROWS when a block is present but its JSON is malformed (the MALFORMED bucket — distinct from absent)
- * The stub returns null (absent-bucket placeholder) so the chain is exercised without the real parser.
- * @param {String} _transcript
- * @returns {Object|null}
- * @throws {Error} when a lane-state block is present but its JSON is malformed
- * @protected
- */
-function parseLaneState(_transcript) {
-    return null; // STUB — the emission-convention parser drops in here (returns descriptor | null | throws)
-}
-
-/**
- * @summary STUB — validate a parsed lane-state descriptor. Real signature returns
- * `{valid: Boolean, violations: String[]}` (the author's validator body replaces this stub). The stub
- * treats every descriptor as valid (empty violations) so the scaffold is safe until the real validator
- * — which MUST admit the all-lanes-handed-off terminal (`verified-no-lane` + a full-backlog survey).
- * @param {Object} _descriptor
- * @returns {{valid: Boolean, violations: String[]}}
- * @protected
- */
-function validateLaneStateTerminal(_descriptor) {
-    return {valid: true, violations: []};
-}
-// ---- end SEAM ------------------------------------------------------------------------------------
 
 /**
  * @summary Pure mapping of a parse OUTCOME to a terminal verdict — the 3-bucket chain. A malformed
@@ -202,8 +173,9 @@ async function main() {
     if (action === 'block') {
         auditLog(`BLOCK (session=${session}): ${reason}`);
         // Block the stop + inject the directive — Claude uses `reason` as its next instruction.
-        process.stdout.write(JSON.stringify({decision: 'block', reason}));
-        process.exit(0);
+        // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
+        process.stdout.write(JSON.stringify({decision: 'block', reason}), () => process.exit(0));
+        return;
     }
 
     auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'WOULD-ALLOW'} (session=${session}): ${reason}`);
