@@ -34,9 +34,9 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const warn = [];
         const error = [];
         return {
-            log:   (...args) => log.push(args.join(' ')),
-            warn:  (...args) => warn.push(args.join(' ')),
-            error: (...args) => error.push(args.join(' ')),
+            log    : (...args) => log.push(args.join(' ')),
+            warn   : (...args) => warn.push(args.join(' ')),
+            error  : (...args) => error.push(args.join(' ')),
             entries: {log, warn, error}
         }
     }
@@ -807,5 +807,105 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
 
         expect(error).toBeNull();
         expect(logger.entries.warn.some(w => w.includes('benign config drift'))).toBe(true);
+    });
+});
+
+test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () => {
+    let initClaudeSettings, mergeClaudeHooks;
+    let claudeRoot;
+
+    const recordingLogger = () => {
+        const log = [], warn = [];
+        return {log: (...a) => log.push(a.join(' ')), warn: (...a) => warn.push(a.join(' ')), entries: {log, warn}};
+    };
+
+    // The tracked template the materializer reads — the Stop hook with the operator-directed
+    // enforce=1 default (the forcing-function rollout; NOT dry-run).
+    const TEMPLATE = {
+        permissions: {allow: ['mcp__neo-mjs-memory-core__healthcheck']},
+        hooks      : {
+            Stop: [{hooks: [{
+                type   : 'command',
+                command: 'NEO_LANE_STATE_ENFORCE=1 /usr/bin/env node "$(git rev-parse --show-toplevel)/.claude/hooks/laneStateStopHook.mjs"',
+                timeout: 10
+            }]}]
+        }
+    };
+
+    const buildClaudeDir = (name, {template, settings} = {}) => {
+        const dir = path.join(claudeRoot, name);
+        fs.mkdirSync(dir, {recursive: true});
+        if (template !== undefined) fs.writeFileSync(path.join(dir, 'settings.template.json'), JSON.stringify(template, null, 2));
+        if (settings !== undefined) fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify(settings, null, 2));
+        return dir;
+    };
+
+    test.beforeAll(async () => {
+        ({initClaudeSettings, mergeClaudeHooks} = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
+        claudeRoot = path.resolve(process.cwd(), 'tmp', `init-claude-settings-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(claudeRoot, {recursive: true});
+    });
+
+    test.afterAll(() => {
+        if (claudeRoot && fs.existsSync(claudeRoot)) fs.rmSync(claudeRoot, {recursive: true, force: true});
+    });
+
+    test('mergeClaudeHooks: ensures the template Stop hook, preserves other keys + non-Stop events', () => {
+        const active = {permissions: {allow: ['local-perm']}, hooks: {PreToolUse: [{hooks: []}]}};
+        const {settings, changed} = mergeClaudeHooks(active, TEMPLATE);
+
+        expect(changed).toBe(true);
+        expect(settings.permissions.allow).toEqual(['local-perm']);     // operator-local key preserved
+        expect(settings.hooks.PreToolUse).toEqual([{hooks: []}]);       // non-Stop hook event preserved
+        expect(settings.hooks.Stop).toEqual(TEMPLATE.hooks.Stop);       // Stop wired from template
+    });
+
+    test('mergeClaudeHooks: idempotent — already-wired hooks report changed=false', () => {
+        const {changed} = mergeClaudeHooks({hooks: {Stop: TEMPLATE.hooks.Stop}}, TEMPLATE);
+        expect(changed).toBe(false);
+    });
+
+    test('mergeClaudeHooks: a template without hooks is a no-op', () => {
+        const active = {permissions: {allow: ['x']}};
+        const {settings, changed} = mergeClaudeHooks(active, {permissions: {}});
+        expect(changed).toBe(false);
+        expect(settings).toBe(active);
+    });
+
+    test('initClaudeSettings: missing settings.json → clone (full template, enforce=1 command wired)', async () => {
+        const dir = buildClaudeDir('clone', {template: TEMPLATE});
+        const r   = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r.action).toBe('clone');
+
+        const written = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf-8'));
+        const command = written.hooks.Stop[0].hooks[0].command;
+        // Operator-directed default: the tracked default DOES force enforce — the forcing-function
+        // rollout. A future drift to dry-run fails this assertion.
+        expect(command).toContain('NEO_LANE_STATE_ENFORCE=1');
+        expect(command).toContain('laneStateStopHook.mjs');
+    });
+
+    test('initClaudeSettings: re-run is idempotent → silent', async () => {
+        const dir = buildClaudeDir('silent', {template: TEMPLATE});
+        await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        const r2 = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r2.action).toBe('silent');
+    });
+
+    test('initClaudeSettings: existing settings.json (perms only) → wired, local keys preserved', async () => {
+        const dir = buildClaudeDir('wired', {template: TEMPLATE, settings: {permissions: {allow: ['my-local-perm']}}});
+        const r   = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r.action).toBe('wired');
+
+        const written = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf-8'));
+        expect(written.permissions.allow).toEqual(['my-local-perm']);                      // preserved
+        expect(written.hooks.Stop[0].hooks[0].command).toContain('NEO_LANE_STATE_ENFORCE=1');
+    });
+
+    test('initClaudeSettings: no template → skip-no-template (no settings.json written)', async () => {
+        const dir = buildClaudeDir('no-template', {});
+        const r   = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r.action).toBe('skip-no-template');
+        expect(fs.existsSync(path.join(dir, 'settings.json'))).toBe(false);
     });
 });
