@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
-import path from 'path';
-import Neo from '../../../../../../../src/Neo.mjs';
+import { test, expect }                    from '@playwright/test';
+import path                                from 'path';
+import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
+import {TIER1_DEFAULTS}                    from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
@@ -249,6 +249,22 @@ test.describe('Memory Core Config (#10010)', () => {
 
         try {
             expect(freshCfg.remRunRetentionLimit).toBe(50);
+        } finally {
+            freshCfg.destroy();
+        }
+    });
+
+    test('maxSessionsPerSummarySweep defaults to 5 and parses NEO_MC_MAX_SESSIONS_PER_SUMMARY_SWEEP as a number (#13592)', () => {
+        expect(config.maxSessionsPerSummarySweep).toBe(5);
+
+        process.env.NEO_MC_MAX_SESSIONS_PER_SUMMARY_SWEEP = '3';
+
+        // Fresh isolated instance picks up the env via #applyEnvLayer at construction —
+        // never mutate the shared singleton.
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(freshCfg.maxSessionsPerSummarySweep).toBe(3);
         } finally {
             freshCfg.destroy();
         }
