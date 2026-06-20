@@ -283,12 +283,61 @@ class SQLite extends Base {
     }
 
     /**
+     * @summary Classifies a SQLite path as disposable (test-isolated) versus a live production database.
+     *
+     * Disposable = SQLite `:memory:`, an OS-temp / repo-`tmp/` path, or any `*test*` path. This is the single
+     * definition of "safe to mutate from a test", shared by `clear()`'s production-wipe guard and
+     * `assertTestWriteIsolated()` so the destructive and the write-isolation guards never drift apart.
+     * @param {String|null} [dbPath=this.dbPath]
+     * @returns {Boolean}
+     * @protected
+     */
+    isDisposableDbPath(dbPath=this.dbPath) {
+        return !dbPath || dbPath === ':memory:' || dbPath.includes('tmp') || dbPath.includes('test');
+    }
+
+    /**
+     * @summary Fail-closed guard: a test context MUST NOT write to a production graph database.
+     *
+     * The write-path twin of `clear()`'s production-wipe guard. Graph writes were otherwise unguarded, so a bare
+     * `npx playwright test` — which, unlike `playwright.config.unit.mjs`, never sets `UNIT_TEST_MODE`, so
+     * `storagePaths.graph` resolves to the live `graphProd` — would silently write test rows into the shared
+     * production graph (the live-DB orphan-bleed / backlog-corruption vector).
+     *
+     * Inserts are constant in production, so a target-path refusal (the shape that is correct for *destructive*
+     * ops in `DestructiveOperationGuard`) would break the live runtime. This therefore keys on the test
+     * **caller**, not the target: it fires only when a test runner is detected (`TEST_WORKER_INDEX`, which
+     * Playwright sets in every worker process, or `UNIT_TEST_MODE`) AND the resolved path is production-like.
+     * It is config-independent — it fires regardless of harness or config state (the prior live-collection-wipe
+     * lesson). Zero production blast: the live runtime sets neither signal, so this early-returns.
+     *
+     * @param {Object} [options]
+     * @param {String} [options.dbPath=this.dbPath] Resolved SQLite path; injectable for tests.
+     * @param {Object} [options.env=process.env]    Environment map; injectable for tests.
+     * @throws {Error} When a test context targets a production graph path.
+     * @protected
+     */
+    assertTestWriteIsolated({dbPath=this.dbPath, env=process.env}={}) {
+        const inTestRunner = env.TEST_WORKER_INDEX !== undefined || env.UNIT_TEST_MODE === 'true';
+
+        if (!inTestRunner || this.isDisposableDbPath(dbPath)) return;
+
+        throw new Error(
+            `GRAPH_WRITE_GUARD: refusing a graph write to the production database "${dbPath}" from a test ` +
+            `context (TEST_WORKER_INDEX/UNIT_TEST_MODE detected). Tests MUST run with UNIT_TEST_MODE=true, so ` +
+            `storagePaths.graph resolves to the in-memory graphTest — a bare \`npx playwright test\` would ` +
+            `otherwise pollute the live graph.`
+        );
+    }
+
+    /**
      * Maps volatile Memory Node structures directly into SQLite standard JSON buffers using Upsert topologies natively.
      * @param {Object[]} nodes
      */
     addNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare(`
             INSERT INTO Nodes (id, user_id, data)
             VALUES (?, ?, ?)
@@ -322,6 +371,7 @@ class SQLite extends Base {
     addEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare(`
             INSERT INTO Edges (id, user_id, source, target, type, data)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -357,6 +407,7 @@ class SQLite extends Base {
     removeNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare('DELETE FROM Nodes WHERE id = ?');
 
         const removeMany = this.db.transaction((nodesList) => {
@@ -376,6 +427,7 @@ class SQLite extends Base {
     removeEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare('DELETE FROM Edges WHERE id = ?');
 
         const removeMany = this.db.transaction((edgesList) => {
@@ -395,6 +447,7 @@ class SQLite extends Base {
     executeTransaction(diffLog) {
         if (!this.db || !diffLog || diffLog.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
 
         const insertNodeStmt = this.db.prepare(`
             INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
@@ -441,8 +494,9 @@ class SQLite extends Base {
         if (!this.db) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
-        // Prevent accidental test-driven wipes of non-temporary graph databases.
-        if (this.dbPath && !this.dbPath.includes('tmp') && !this.dbPath.includes('test') && this.dbPath !== ':memory:') {
+        // Prevent accidental test-driven wipes of non-temporary graph databases (shares isDisposableDbPath
+        // with assertTestWriteIsolated so the destructive- and write-guards classify prod paths identically).
+        if (!this.isDisposableDbPath()) {
             throw new Error(`FATAL: Attempted to clear a non-temporary SQLite database natively! Path: ${this.dbPath}`);
         }
 
