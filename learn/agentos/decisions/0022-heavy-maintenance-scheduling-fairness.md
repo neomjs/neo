@@ -90,7 +90,7 @@ The rejected-as-default alternatives are not deleted — they are **conditional 
 ### Negative / handoffs
 - **B′/E is conditional** — its value is gated on the live falsifier (§2.5 / AC-4); if the wait turns out to be dream-freshness, the multi-dispatch leaf is never built, and the §2.2 model ships as A + soft-gate + observability only.
 - **Soft-gate vs eventual starvation** — a soft `backfill → summary` gate that defers indefinitely if `backfill` never drains is *advisory*; the stall-gauge (AC-3) is the backstop that surfaces such a stuck chain for operator attention rather than silently deadlocking.
-- **The `alsoDispatched` second pass adds a density bound** — it must dispatch only the few cheap off-lease lanes per poll (`golden-path` / `swarm-heartbeat` / `tenant-repo-sync`), never two heavy tasks; the heavy backlog continues to drain serially on the lease.
+- **The `alsoDispatched` second pass adds a density bound** — it must dispatch only the few cheap off-lease lanes per poll (`golden-path` / `swarm-heartbeat`), never two heavy tasks; the heavy backlog continues to drain serially on the lease. (`tenant-repo-sync` is **not** in this set — per ADR-0014 it is `periodic, heavy` / resource-mutex, §2.3 — it drains on the lease, not via the cheap second pass.)
 
 ## 5. Anti-Patterns
 
