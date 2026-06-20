@@ -120,7 +120,71 @@ export function decideHookAction(verdict, enforcing) {
 }
 
 /**
- * @summary Hook entry. Resolves the Stop-hook payload → loop-guard → transcript → parse outcome →
+ * @summary Extracts plain text from a message `content` field — a string passthrough, or the joined
+ * `text` blocks of an Anthropic content-block array (skipping tool_use / thinking blocks).
+ * @param {(String|Object[]|*)} content
+ * @returns {String}
+ * @protected
+ */
+function extractTextFromContent(content) {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+        return content.filter(block => block?.type === 'text' && typeof block.text === 'string')
+            .map(block => block.text).join('\n');
+    }
+    return '';
+}
+
+/**
+ * @summary Extracts the LAST assistant message's text from a Claude Code JSONL transcript — the
+ * fallback when the Stop payload has no `last_assistant_message`. Each line is a JSON record
+ * (`{type:'assistant', message:{role, content}}`); raw JSONL is JSON-escaped, so the fence parser
+ * MUST run on this EXTRACTED text, never a raw line. Tolerant of malformed lines (skipped); returns
+ * the most recent assistant record that carries text (skipping tool_use / thinking-only records).
+ * @param {String} jsonl
+ * @returns {String}
+ * @protected
+ */
+export function extractLastAssistantTextFromJsonl(jsonl = '') {
+    const lines = jsonl.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        let record;
+        try { record = JSON.parse(line); } catch { continue; }
+
+        const message = record.message || record;
+        if ((message.role || record.type) !== 'assistant') continue;
+
+        const text = extractTextFromContent(message.content);
+        if (text) return text;
+    }
+    return '';
+}
+
+/**
+ * @summary Resolves the agent's FINAL assistant message text — the surface the lane-state block is
+ * emitted into. Prefers the Stop payload's `last_assistant_message` (already-decoded; a string or a
+ * message object); falls back to JSONL-parsing `transcript_path` for the last assistant text. Raw
+ * JSONL is escaped, so the fence parser only ever runs on this extracted text, never a raw line.
+ * @param {Object} input The Stop-hook JSON payload.
+ * @returns {String}
+ * @protected
+ */
+export function extractFinalAssistantText(input = {}) {
+    const last = input.last_assistant_message;
+    if (typeof last === 'string' && last.trim()) return last;
+    if (last && typeof last === 'object') {
+        const text = extractTextFromContent(last.content ?? last.message?.content);
+        if (text) return text;
+    }
+    if (!input.transcript_path) return '';
+    return extractLastAssistantTextFromJsonl(fs.readFileSync(input.transcript_path, 'utf8'));
+}
+
+/**
+ * @summary Hook entry. Resolves the Stop-hook payload → loop-guard → final message → parse outcome →
  * verdict → decideHookAction, then blocks+injects (enforcing) or audit-logs the would-be decision.
  * Always exits 0 on any of OUR OWN failures (bad payload, unreadable transcript, validator throw) — a
  * hook bug must never trap a turn-end. A malformed *emission* still counts (that's the agent's, not ours).
@@ -140,11 +204,14 @@ async function main() {
         process.exit(0);
     }
 
-    let transcript = '';
+    // Resolve the agent's FINAL message text (last_assistant_message, or JSONL-extracted from the
+    // transcript) — NOT the raw transcript: raw Claude JSONL is JSON-escaped, so the fence parser
+    // only matches extracted text (the runtime input boundary a cross-family review caught).
+    let finalText = '';
     try {
-        transcript = input.transcript_path ? fs.readFileSync(input.transcript_path, 'utf8') : '';
+        finalText = extractFinalAssistantText(input);
     } catch (e) {
-        // OUR failure (unreadable transcript) → never block; allow + audit.
+        // OUR failure (unreadable / unparseable transcript) → never block; allow + audit.
         auditLog(`READ-ERROR: ${e.message}; allowing stop.`);
         process.exit(0);
     }
@@ -153,7 +220,7 @@ async function main() {
     // feeds the verdict (a real block-able bucket), distinct from an absent emission (null).
     let descriptor = null, parseError = null;
     try {
-        descriptor = parseLaneState(transcript);
+        descriptor = parseLaneState(finalText);
     } catch (e) {
         parseError = e;
     }

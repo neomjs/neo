@@ -1,15 +1,19 @@
-import {test, expect}                            from '@playwright/test';
-import {decideHookAction, parseOutcomeToVerdict} from '../../../../.claude/hooks/laneStateStopHook.mjs';
-import {spawn}                                   from 'node:child_process';
-import fs                                        from 'node:fs';
-import os                                        from 'node:os';
-import path                                      from 'node:path';
+import {test, expect}                                                                             from '@playwright/test';
+import {decideHookAction, parseOutcomeToVerdict, extractFinalAssistantText,
+        extractLastAssistantTextFromJsonl}                                                       from '../../../../.claude/hooks/laneStateStopHook.mjs';
+import {spawn} from 'node:child_process';
+import fs      from 'node:fs';
+import os      from 'node:os';
+import path    from 'node:path';
+
+const block = body => '```lane-state\n' + body + '\n```';
 
 /**
- * Falsification tests for the idle-out Stop-hook. The pure layer locks the decision logic in-process
- * (`parseOutcomeToVerdict` — the 3-bucket chain; `decideHookAction` — allow / would-block / block).
- * The end-to-end layer spawns the REAL hook with real ```lane-state emissions and asserts the wired
- * parser + validator (ai/scripts/lifecycle) fire through the hook I/O — the integrated seam.
+ * Falsification tests for the idle-out Stop-hook. Three layers: (1) the pure decision logic
+ * (`parseOutcomeToVerdict` 3-bucket chain + `decideHookAction`); (2) input resolution — the agent's
+ * final message comes from the Stop payload's `last_assistant_message`, NOT the raw JSONL transcript
+ * (the runtime boundary a cross-family review caught — raw JSONL is escaped, so the fence parser must run
+ * on extracted text); (3) end-to-end — the spawned real hook against the real Stop payload shape.
  */
 test.describe('laneStateStopHook — pure idle-out decision logic', () => {
     test.describe('parseOutcomeToVerdict — the 3-bucket chain', () => {
@@ -60,22 +64,71 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
     });
 });
 
-test.describe('laneStateStopHook — end-to-end (spawned hook + real parser/validator)', () => {
+test.describe('laneStateStopHook — input resolution (last_assistant_message primary + JSONL fallback)', () => {
+    test('last_assistant_message string is used verbatim', () => {
+        const text = `On it.\n\n${block('{"laneContinuation":"active-lane"}')}`;
+        expect(extractFinalAssistantText({last_assistant_message: text})).toBe(text);
+    });
+
+    test('last_assistant_message object → joins its text content blocks (skips thinking/tool_use)', () => {
+        const input = {last_assistant_message: {content: [
+            {type: 'thinking', thinking: 'noise'},
+            {type: 'text',     text: 'final answer'}
+        ]}};
+        expect(extractFinalAssistantText(input)).toBe('final answer');
+    });
+
+    test('falls back to JSONL transcript_path when last_assistant_message is absent', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-jsonl-')),
+              p   = path.join(dir, 't.jsonl');
+        fs.writeFileSync(p, [
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: 'q'}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'the answer'}]}})
+        ].join('\n'));
+        expect(extractFinalAssistantText({transcript_path: p})).toBe('the answer');
+    });
+
+    test('extractLastAssistantTextFromJsonl: skips malformed + tool_use-only records → last text-bearing record', () => {
+        const jsonl = [
+            '{ not json }',
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'earlier text'}]}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'tool_use', id: 'x', name: 'y', input: {}}]}})
+        ].join('\n');
+        expect(extractLastAssistantTextFromJsonl(jsonl)).toBe('earlier text');
+    });
+
+    test('no assistant text → empty string (so the hook treats it as an absent emission)', () => {
+        expect(extractLastAssistantTextFromJsonl('{"type":"user","message":{"role":"user","content":"q"}}')).toBe('');
+        expect(extractFinalAssistantText({})).toBe('');
+    });
+});
+
+test.describe('laneStateStopHook — end-to-end (spawned hook against the real Stop payload)', () => {
     /**
-     * @summary Spawns the real hook with a transcript fixture + a temp audit-log dir; returns
-     * `{stdout, log}` once it exits. The hook reads `transcript_path` from the stdin payload, so the
-     * real ai/scripts/lifecycle parser + validator fire through the actual hook I/O.
-     * @param {String} transcriptText
-     * @param {{enforce: Boolean}} [opts]
+     * @summary Spawns the real hook with a Stop payload + a temp audit-log dir; returns `{stdout, log}`.
+     * Default passes the text as `last_assistant_message` (the real Stop shape); `viaJsonl` instead
+     * writes a JSONL `transcript_path` whose last assistant record carries the text (the fallback path).
+     * @param {String} finalText
+     * @param {{enforce: Boolean, viaJsonl: Boolean}} [opts]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(transcriptText, {enforce = false} = {}) {
+    function runHook(finalText, {enforce = false, viaJsonl = false} = {}) {
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
-                  transcriptPath = path.join(dir, 'transcript.txt'),
-                  env            = {...process.env, NEO_AI_DAEMON_DIR: dir};
+                  transcriptPath = path.join(dir, 'transcript.jsonl'),
+                  env            = {...process.env, NEO_AI_DAEMON_DIR: dir},
+                  payload        = {stop_hook_active: false, session_id: 'e2e'};
 
-            fs.writeFileSync(transcriptPath, transcriptText);
+            if (viaJsonl) {
+                fs.writeFileSync(transcriptPath, [
+                    JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'thinking', thinking: 'noise'}]}}),
+                    JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: finalText}]}})
+                ].join('\n') + '\n');
+                payload.transcript_path = transcriptPath;
+            } else {
+                payload.last_assistant_message = finalText;
+            }
+
             if (enforce) env.NEO_LANE_STATE_ENFORCE = '1';
 
             const proc = spawn('node', ['.claude/hooks/laneStateStopHook.mjs'], {stdio: ['pipe', 'pipe', 'pipe'], env});
@@ -88,14 +141,12 @@ test.describe('laneStateStopHook — end-to-end (spawned hook + real parser/vali
                 resolve({stdout, log: fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : ''});
             });
 
-            proc.stdin.write(JSON.stringify({stop_hook_active: false, session_id: 'e2e', transcript_path: transcriptPath}));
+            proc.stdin.write(JSON.stringify(payload));
             proc.stdin.end();
         });
     }
 
-    const block = body => '```lane-state\n' + body + '\n```';
-
-    test('a VALID emission (active-lane) → WOULD-ALLOW, no block on stdout', async () => {
+    test('a VALID emission (active-lane) via last_assistant_message → WOULD-ALLOW, no block on stdout', async () => {
         const {stdout, log} = await runHook(`On it.\n\n${block('{"laneContinuation":"active-lane"}')}`);
         expect(log).toContain('WOULD-ALLOW');
         expect(stdout).toBe('');
@@ -126,5 +177,11 @@ test.describe('laneStateStopHook — end-to-end (spawned hook + real parser/vali
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
         expect(decision.reason).toContain('full-backlog survey');
+    });
+
+    test('JSONL fallback: a valid block in the last assistant transcript record → WOULD-ALLOW', async () => {
+        const {stdout, log} = await runHook(`Done.\n\n${block('{"laneContinuation":"active-lane"}')}`, {viaJsonl: true});
+        expect(log).toContain('WOULD-ALLOW');
+        expect(stdout).toBe('');
     });
 });
