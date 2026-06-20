@@ -110,4 +110,57 @@ test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () =
         });
         expect(result.valid).toBe(true);
     });
+
+    test('owned-but-blocked passes with verifiable per-gate blocks + a full-backlog survey', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'owned-but-blocked',
+            namedGates      : [
+                {ref: 'PR #13602', checkedAt: NOW, blockReason: 'peer-pending-artifact'},
+                {ref: '#13601',    checkedAt: NOW, blockReason: 'ticket-documented-sizing'}
+            ],
+            backlogSurvey: {checkedAt: NOW, scope: 'full-backlog'}
+        });
+        expect(result.valid).toBe(true);
+        expect(result.violations).toEqual([]);
+    });
+
+    test('owned-but-blocked fails on a bare gate with no blockReason (the holding idle-dodge)', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'owned-but-blocked',
+            namedGates      : [{ref: 'PR #13602', checkedAt: NOW}],   // checkedAt but no blockReason
+            backlogSurvey   : {checkedAt: NOW, scope: 'full-backlog'}
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('must cite a blockReason');
+    });
+
+    test('owned-but-blocked fails when a blockReason is not externally-verifiable (e.g. "fresh-head")', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'owned-but-blocked',
+            namedGates      : [{ref: 'PR #13602', checkedAt: NOW, blockReason: 'fresh-head'}],
+            backlogSurvey   : {checkedAt: NOW, scope: 'full-backlog'}
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('not an externally-verifiable one');
+    });
+
+    test('owned-but-blocked fails without a full-backlog survey (owned-blocked is not no-claimable-lane)', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'owned-but-blocked',
+            namedGates      : [{ref: 'PR #13602', checkedAt: NOW, blockReason: 'peer-pending-artifact'}]
+            // no backlogSurvey
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('full-backlog survey');
+    });
+
+    test('owned-but-blocked fails with no named in-flight lane (that state is verified-no-lane)', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'owned-but-blocked',
+            namedGates      : [],
+            backlogSurvey   : {checkedAt: NOW, scope: 'full-backlog'}
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('at least one named in-flight lane');
+    });
 });

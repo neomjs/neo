@@ -28,7 +28,9 @@ export const LANE_STATE_BLOCK = /```lane-state\s*\r?\n([\s\S]*?)\r?\n```/g;
  *
  * @param {String} transcriptText The agent's final turn-terminal message text (or the transcript tail).
  * @returns {Object|null} The descriptor `{wakeDisposition, laneContinuation, namedGates, awaitingOwnPrOnly, backlogSurvey}`
- *   normalized from the LAST ```lane-state block, or `null` when no block is present.
+ *   normalized from the LAST ```lane-state block, or `null` when no block is present. `namedGates`
+ *   entries pass through whole (e.g. `{ref, checkedAt, mergeClaim, field, blockReason}`); the valid
+ *   continuation set — incl. `owned-but-blocked` — is owned by `validateLaneStateTerminal`, never here.
  * @throws {Error} When a ```lane-state block IS present but its body is not valid JSON — a
  *   present-but-malformed emission is a distinct failure the hook logs separately from an absent one.
  */
