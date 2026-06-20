@@ -87,6 +87,7 @@ const CODEX_APP_SERVER_ADAPTER   = 'codex-app-server';
 const DEFAULT_CODEX_DESKTOP_CLI_PATH = '/Applications/Codex.app/Contents/Resources/codex';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
+const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
 const WAKE_PRIORITY_RANKS      = {
     low   : 0,
     normal: 1,
@@ -950,11 +951,12 @@ function formatWakeDeliveryEvidence(evidence, {adapter, adapterSource, appName})
     const scenario       = evidence.scenario || 'unknown',
           submitBoundary = adapter === 'osascript' && appName === 'Codex'
               ? '; submitProof=attempted; turnStartProof=live-required'
-              : '';
+              : '',
+          nonceBoundary  = evidence.wakeSubmitNonce ? `; wakeSubmitNonce=${evidence.wakeSubmitNonce}` : '';
 
     return ` (scenario=${scenario}; route=${adapter}; adapterSource=${adapterSource}; app=${appName || ''}; ` +
         `counts=messages:${counts.messages || 0},tasks:${counts.tasks || 0},` +
-        `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0}${submitBoundary})`;
+        `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0}${submitBoundary}${nonceBoundary})`;
 }
 
 /**
@@ -978,8 +980,34 @@ function formatWakeCorrelationEvidence(evidence = {}) {
     if (correlation.heartbeatIds?.length) {
         parts.push(`heartbeatLogIds=${correlation.heartbeatIds.slice(-3).join(',')}`);
     }
+    if (evidence.wakeSubmitNonce) {
+        parts.push(`wakeSubmitNonce=${evidence.wakeSubmitNonce}`);
+    }
 
     return parts.length ? `; ${parts.join('; ')}` : '';
+}
+
+/**
+ * @summary Whether a delivery adapter attempts to submit a Codex prompt and therefore needs
+ * nonce-backed turn-start causality evidence.
+ * @param {Object} options
+ * @param {String} options.adapter Resolved wake adapter.
+ * @param {String} [options.appName] Target app name.
+ * @returns {Boolean}
+ */
+function isCodexSubmitProofAdapter({adapter, appName}) {
+    return appName === 'Codex' && (adapter === 'osascript' || adapter === 'test-codex-submit');
+}
+
+/**
+ * @summary Appends a hook-visible nonce to a Codex wake digest without changing wake semantics.
+ * @param {String} digest Wake digest body.
+ * @param {String} wakeSubmitNonce Per-submit correlation id.
+ * @returns {String}
+ */
+function appendCodexWakeSubmitNonce(digest, wakeSubmitNonce) {
+    if (!wakeSubmitNonce) return digest;
+    return `${digest}\n\n<!-- ${CODEX_WAKE_SUBMIT_NONCE_PREFIX}${wakeSubmitNonce} -->`;
 }
 
 /**
@@ -994,9 +1022,19 @@ function formatWakeCorrelationEvidence(evidence = {}) {
  * @param {Object} sqlite better-sqlite3 handle.
  * @param {String} agentIdentity Recipient AgentIdentity node id.
  * @param {String} sinceIso Submit-attempt timestamp.
+ * @param {Object} [options]
+ * @param {String} [options.wakeSubmitNonce] Required wake-submit nonce for causal matches.
  * @returns {Object|null}
  */
-function findTurnPresenceAfter(sqlite, agentIdentity, sinceIso) {
+function findTurnPresenceAfter(sqlite, agentIdentity, sinceIso, {wakeSubmitNonce} = {}) {
+    const params = [agentIdentity, sinceIso];
+    let nonceFilter = '';
+
+    if (wakeSubmitNonce) {
+        nonceFilter = `AND json_extract(data, '$.properties.wakeSubmitNonce') = ?`;
+        params.push(wakeSubmitNonce);
+    }
+
     const row = sqlite.prepare(`
         SELECT data FROM Nodes
         WHERE (
@@ -1005,9 +1043,10 @@ function findTurnPresenceAfter(sqlite, agentIdentity, sinceIso) {
         )
           AND json_extract(data, '$.properties.agentIdentity') = ?
           AND json_extract(data, '$.properties.startedAt') >= ?
+          ${nonceFilter}
         ORDER BY json_extract(data, '$.properties.startedAt') ASC
         LIMIT 1
-    `).get(agentIdentity, sinceIso);
+    `).get(...params);
 
     if (!row?.data) return null;
 
@@ -1024,8 +1063,8 @@ function findTurnPresenceAfter(sqlite, agentIdentity, sinceIso) {
  * This is evidence-only: it does not retry, alter the submit primitive, or gate delivery. It converts
  * `turnStartProof=live-required` into one of three durable log outcomes when the graph oracle is
  * available: `wake-submit-started`, `wake-submit-not-started`, or `wake-submit-unknown`. The started
- * outcome means turn presence appeared in the observation window; without a nonce it must not be
- * over-read as human-free submit proof.
+ * outcome is reserved for a nonce-correlated turn-presence row; timestamp-window-only matches are
+ * ambiguous because a later human Enter can create the same active-turn evidence.
  *
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {Date} submitAttemptedAt Timestamp immediately before the submit adapter ran.
@@ -1041,7 +1080,8 @@ function scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEv
     const agentIdentity = subscription.properties?.agentIdentity,
           submitIso     = submitAttemptedAt.toISOString(),
           deadlineAt    = Date.now() + timeoutMs,
-          correlation   = formatWakeCorrelationEvidence(deliveryEvidence);
+          correlation   = formatWakeCorrelationEvidence(deliveryEvidence),
+          wakeSubmitNonce = deliveryEvidence.wakeSubmitNonce;
 
     if (!agentIdentity) {
         writeLog('WARN',
@@ -1050,17 +1090,36 @@ function scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEv
         );
         return;
     }
+    if (!wakeSubmitNonce) {
+        writeLog('WARN',
+            `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id} ` +
+            `for ${agentIdentity}: missing wakeSubmitNonce${correlation}`
+        );
+        return;
+    }
 
     const poll = () => {
         try {
-            const turn = findTurnPresenceAfter(db, agentIdentity, submitIso);
+            const turn = findTurnPresenceAfter(db, agentIdentity, submitIso, {wakeSubmitNonce});
             if (turn) {
                 const latencyMs = Math.max(0, new Date(turn.startedAt).getTime() - submitAttemptedAt.getTime());
                 writeLog('INFO',
                     `[Wake Daemon] Turn-start proof wake-submit-started ${subscription.id} ` +
                     `for ${agentIdentity} after ${latencyMs}ms ` +
-                    `(correlation=timestamp-window; turnId=${turn.turnId || 'unknown'}; startedAt=${turn.startedAt}; ` +
+                    `(correlation=nonce; turnId=${turn.turnId || 'unknown'}; startedAt=${turn.startedAt}; ` +
                     `source=${turn.source || 'unknown'}${correlation})`
+                );
+                return;
+            }
+
+            const ambiguousTurn = findTurnPresenceAfter(db, agentIdentity, submitIso);
+            if (ambiguousTurn) {
+                const latencyMs = Math.max(0, new Date(ambiguousTurn.startedAt).getTime() - submitAttemptedAt.getTime());
+                writeLog('WARN',
+                    `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id} ` +
+                    `for ${agentIdentity} after ${latencyMs}ms ` +
+                    `(correlation=timestamp-window-without-nonce; turnId=${ambiguousTurn.turnId || 'unknown'}; ` +
+                    `startedAt=${ambiguousTurn.startedAt}; source=${ambiguousTurn.source || 'unknown'}${correlation})`
                 );
                 return;
             }
@@ -1076,7 +1135,7 @@ function scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEv
             writeLog('WARN',
                 `[Wake Daemon] Turn-start proof wake-submit-not-started ${subscription.id} ` +
                 `for ${agentIdentity} after ${timeoutMs}ms since ${submitIso} ` +
-                `(correlation=timestamp-window${correlation})`
+                `(correlation=nonce${correlation})`
             );
             return;
         }
@@ -1127,7 +1186,10 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
     const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
     const adapter       = meta.adapter || defaultAdapter;
     const adapterSource = meta.adapter ? 'metadata' : 'platform-default';
-    const evidenceLabel = formatWakeDeliveryEvidence(deliveryEvidence, {adapter, adapterSource, appName: meta.appName});
+    const wakeSubmitNonce = isCodexSubmitProofAdapter({adapter, appName: meta.appName}) ? crypto.randomUUID() : null;
+    const dispatchDigest  = wakeSubmitNonce ? appendCodexWakeSubmitNonce(digest, wakeSubmitNonce) : digest;
+    const proofEvidence   = wakeSubmitNonce ? {...deliveryEvidence, wakeSubmitNonce} : deliveryEvidence;
+    const evidenceLabel   = formatWakeDeliveryEvidence(proofEvidence, {adapter, adapterSource, appName: meta.appName});
 
     // Serialize execution to prevent focus collisions (Electron-Paradox defense)
     deliveryPromise = deliveryPromise.then(async () => {
@@ -1146,12 +1208,12 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
         }
 
         if (addressType === 'webhookUrl') {
-            await deliverViaWebhookUrl(subscription, digest, instanceAddress);
+            await deliverViaWebhookUrl(subscription, dispatchDigest, instanceAddress);
             return;
         }
 
         if (adapter === CODEX_APP_SERVER_ADAPTER) {
-            await deliverViaCodexAppServer(subscription, digest, evidenceLabel);
+            await deliverViaCodexAppServer(subscription, dispatchDigest, evidenceLabel);
             return;
         }
 
@@ -1159,7 +1221,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
             const tmuxSession = addressType === 'tmuxSession' && instanceAddress
                 ? instanceAddress
                 : meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
-            await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
+            await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, dispatchDigest, 'C-m']);
             writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}${evidenceLabel}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName;
@@ -1408,24 +1470,24 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 '-e', '    error errMsg',
                 '-e', '  end try',
                 '-e', 'end run',
-                digest
+                dispatchDigest
             );
 
             const submitAttemptedAt = new Date();
             await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName, evidenceLabel);
             if (appName === 'Codex') {
-                scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEvidence);
+                scheduleCodexTurnStartProof(subscription, submitAttemptedAt, proofEvidence);
             }
         } else if (adapter === 'test') {
-            writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+            writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${dispatchDigest}`);
         } else if (adapter === 'test-codex-submit') {
             const submitAttemptedAt = new Date();
             writeLog('INFO', `[Wake Daemon] Submit attempted ${subscription.id} via test-codex-submit to Codex${evidenceLabel}`);
-            scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEvidence);
+            scheduleCodexTurnStartProof(subscription, submitAttemptedAt, proofEvidence);
         } else if (adapter === 'test-fail') {
             // Deterministic delivery-failure hook for retry-path testing (no live target needed).
             // Log the attempted digest first so the coalesced retry content is observable, then throw.
-            writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${digest}`);
+            writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
             throw new Error('test-fail adapter: simulated delivery failure');
         } else {
             writeLog('ERROR', `[Wake Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);

@@ -1,16 +1,76 @@
-import {readFileSync} from 'node:fs';
-import {randomUUID} from 'node:crypto';
+import {readFileSync}                 from 'node:fs';
+import {randomUUID}                   from 'node:crypto';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {
     resolveMemoryCoreGraphPath,
     resolveTurnPresenceRuntimeConfig
 } from '../../ai/mcp/server/memory-core/helpers/TurnPresenceConfig.mjs';
 
+const WAKE_SUBMIT_NONCE_PATTERN = /NEO_WAKE_SUBMIT_NONCE:([0-9a-fA-F-]{36})/;
+
 function normalizeAgentIdentity(value) {
     if (!value || typeof value !== 'string') return null;
     const trimmed = value.trim();
     if (!trimmed) return null;
     return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
+function normalizeWakeSubmitNonce(value) {
+    if (!value || typeof value !== 'string') return null;
+
+    const trimmed = value.trim();
+    return /^[0-9a-fA-F-]{36}$/.test(trimmed) ? trimmed.toLowerCase() : null;
+}
+
+/**
+ * @summary Extracts a wake-submit nonce from a Codex hook payload or raw prompt text.
+ * @param {*} value Hook payload value.
+ * @param {Number} [depth=0] Recursion guard for nested payloads.
+ * @returns {String|null}
+ */
+export function extractWakeSubmitNonce(value, depth = 0) {
+    if (depth > 8 || value == null) return null;
+
+    if (typeof value === 'string') {
+        const match = value.match(WAKE_SUBMIT_NONCE_PATTERN);
+        return normalizeWakeSubmitNonce(match?.[1]);
+    }
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const nonce = extractWakeSubmitNonce(item, depth + 1);
+            if (nonce) return nonce;
+        }
+        return null;
+    }
+
+    if (typeof value === 'object') {
+        for (const item of Object.values(value)) {
+            const nonce = extractWakeSubmitNonce(item, depth + 1);
+            if (nonce) return nonce;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @summary Reads the Codex hook event payload from stdin when Codex provides one.
+ * @param {Object} [options]
+ * @param {NodeJS.ReadStream} [options.stdin=process.stdin]
+ * @returns {Promise<String>}
+ */
+export function readHookPayload({stdin = process.stdin} = {}) {
+    if (stdin.isTTY) return Promise.resolve('');
+
+    return new Promise((resolve, reject) => {
+        let data = '';
+
+        stdin.setEncoding('utf8');
+        stdin.on('data',  chunk => data += chunk);
+        stdin.on('end',   ()    => resolve(data));
+        stdin.on('error', reject);
+    });
 }
 
 async function withTimeout(promise, timeoutMs) {
@@ -33,11 +93,13 @@ async function withTimeout(promise, timeoutMs) {
  * @param {Object} options
  * @param {Object} [options.env=process.env] Environment source.
  * @param {String} [options.rootDir] Repository root.
+ * @param {*} [options.hookPayload] Codex hook payload used to extract a wake-submit nonce.
  * @returns {Promise<void>|undefined}
  */
 export async function recordTurnStarted({
     env = process.env,
-    rootDir = fileURLToPath(new URL('../../', import.meta.url))
+    rootDir = fileURLToPath(new URL('../../', import.meta.url)),
+    hookPayload
 } = {}) {
     const agentIdentity = normalizeAgentIdentity(env.NEO_AGENT_IDENTITY);
     if (!agentIdentity) return;
@@ -47,14 +109,15 @@ export async function recordTurnStarted({
 
     return withTimeout(writeTurnStarted({
         agentIdentity,
-        dbPath: resolveMemoryCoreGraphPath({env, rootDir}),
+        dbPath         : resolveMemoryCoreGraphPath({env, rootDir}),
         freshMs,
         noteMaxChars,
-        ttlMs
+        ttlMs,
+        wakeSubmitNonce: extractWakeSubmitNonce(hookPayload)
     }), timeoutMs);
 }
 
-async function writeTurnStarted({agentIdentity, dbPath, freshMs, noteMaxChars, ttlMs}) {
+async function writeTurnStarted({agentIdentity, dbPath, freshMs, noteMaxChars, ttlMs, wakeSubmitNonce}) {
     const {default: Database} = await import('better-sqlite3');
     const db = new Database(dbPath, {fileMustExist: true});
 
@@ -87,7 +150,8 @@ async function writeTurnStarted({agentIdentity, dbPath, freshMs, noteMaxChars, t
                       note,
                       updatedAt     : nowIso,
                       userId        : agentIdentity,
-                      sharedEntity  : false
+                      sharedEntity  : false,
+                      ...(wakeSubmitNonce ? {wakeSubmitNonce} : {})
                   }
               };
 
@@ -111,7 +175,21 @@ export function readCodexContext() {
 }
 
 async function main() {
-    await recordTurnStarted().catch(() => {});
+    let hookPayload = '';
+    try {
+        const rawPayload = await readHookPayload();
+        if (rawPayload) {
+            try {
+                hookPayload = JSON.parse(rawPayload);
+            } catch {
+                hookPayload = rawPayload;
+            }
+        }
+    } catch {
+        // Fail-soft hook: absence of parseable stdin only drops nonce correlation, not context loading.
+    }
+
+    await recordTurnStarted({hookPayload}).catch(() => {});
 
     const context = readCodexContext();
 
