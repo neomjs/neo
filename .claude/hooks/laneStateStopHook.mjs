@@ -4,31 +4,37 @@
  * @summary Claude Code `Stop` hook for idle-out enforcement — DRY-RUN (log-only) by default.
  *
  * Fires at every agent turn-end (the `Stop` event). Reads the turn transcript, extracts the agent's
- * declared lane-state terminal, validates it, and — in ENFORCING mode — blocks the stop + injects a
- * "pick a lane" directive when the terminal is an invalid idle-out. In DRY-RUN mode (default) it only
- * LOGS what it WOULD block, so the swarm can audit for false-positives (e.g. a legitimate
- * all-lanes-handed-off / async-blocked terminal — the handoff-terminal AC) BEFORE enforcement is on.
+ * declared lane-state terminal from a fenced ```lane-state block, validates it, and — in ENFORCING
+ * mode — blocks the stop + injects a "pick a lane" directive when the terminal is an invalid idle-out.
+ * In DRY-RUN mode (default) it only LOGS what it WOULD block, so the swarm can audit for false-
+ * positives (e.g. a legitimate all-lanes-handed-off terminal — the handoff-terminal AC) before
+ * enforcement is on.
  *
  * Mechanism (docs-grounded; the Option-A convergence):
  *  - `stop_hook_active` loop-guard: if Claude is already in a forced continuation, allow the stop
  *    (Claude Code also force-overrides after 8 consecutive blocks).
- *  - `transcript_path`: the turn transcript, parsed for the structured lane-state descriptor.
+ *  - `transcript_path` → final text → `parseLaneState` → one of three buckets:
+ *      null (no block emitted → ABSENT) · throw (block present but malformed JSON → MALFORMED) ·
+ *      descriptor → `validateLaneStateTerminal` → {valid, violations}. All non-valid buckets are
+ *      idle-out failures with distinct reasons; a valid terminal allows.
  *  - Block path (ENFORCING): write `{"decision":"block","reason":"…"}` to stdout — Claude keeps
  *    working and uses the `reason` as its next instruction.
  *
- * SAFETY — this hook MUST NEVER block a turn-end on its OWN failure (a malformed payload, an
- * unreadable transcript, a parser throw). Every internal error path allows the stop + audits, so a
- * hook bug can never trap every agent in the harness.
+ * SAFETY — this hook MUST NEVER block a turn-end on its OWN failure (a malformed hook payload, an
+ * unreadable transcript, a validator throw). Those allow the stop + audit. A *malformed lane-state
+ * emission* (parseLaneState throws) is NOT our failure — it's the agent emitting garbage, a real
+ * block-able bucket. So a hook bug can never trap the swarm, but a broken emission still counts.
  *
  * ACTIVATION = operator-authority: this script is INERT until wired into the harness settings
  * (`.claude/settings.*` — gitignored per-clone). Wire it in DRY-RUN first, audit the WOULD-BLOCK
  * log for handoff false-positives, then set `NEO_LANE_STATE_ENFORCE=1` to enforce. A buggy blocking
  * hook would trap every agent's turn-end, so the dry-run → audit → enforce ramp is the safe rollout.
  *
- * SEAM (pending the lane-state-terminal module — the validator + the emission-convention parser):
- * `parseLaneState` + `validateLaneStateTerminal` are stubbed here (the stub always ALLOWS, so a
- * dry-run with stubs is a pure no-op that exercises the I/O + logging path). They drop in unchanged
- * once that module lands. The pure `decideHookAction` decision is exported + unit-tested independently.
+ * SEAM (pending the lane-state-terminal module): `parseLaneState` + `validateLaneStateTerminal` are
+ * stubbed against their EXACT real signatures (the stub parser returns null — the absent-bucket
+ * placeholder; a meaningful dry-run audit needs the real parser). The author's bodies drop in
+ * unchanged. The pure `parseOutcomeToVerdict` (3 buckets → verdict) + `decideHookAction` (verdict +
+ * enforcing → action) are exported + unit-tested independently of the I/O + the stubs.
  *
  * @see https://code.claude.com/docs/en/hooks — Stop hook contract (stdin payload, decision:block)
  */
@@ -75,38 +81,63 @@ function auditLog(line) {
     }
 }
 
-// ---- SEAM (stubbed pending the lane-state-terminal module: parser + validator) -------------------
+// ---- SEAM (stubbed against the real signatures; the author's parser + validator bodies drop in) ---
 /**
- * @summary STUB — extract the structured lane-state descriptor from the turn transcript. Replaced by
- * the emission-convention-aware parser. Until then returns null → the validator stub ALLOWS, so the
- * dry-run is a pure no-op (never a false WOULD-BLOCK on stubbed logic).
+ * @summary STUB — extract the structured lane-state descriptor from the LAST fenced ```lane-state
+ * block in the turn transcript. Real signature (the author's body replaces this stub):
+ *   - returns the descriptor `{wakeDisposition, laneContinuation, namedGates, awaitingOwnPrOnly, backlogSurvey}`
+ *   - returns null when NO block is present (the ABSENT bucket)
+ *   - THROWS when a block is present but its JSON is malformed (the MALFORMED bucket — distinct from absent)
+ * The stub returns null (absent-bucket placeholder) so the chain is exercised without the real parser.
  * @param {String} _transcript
  * @returns {Object|null}
+ * @throws {Error} when a lane-state block is present but its JSON is malformed
  * @protected
  */
 function parseLaneState(_transcript) {
-    return null; // STUB — the emission-convention parser drops in here
+    return null; // STUB — the emission-convention parser drops in here (returns descriptor | null | throws)
 }
 
 /**
- * @summary STUB — validate a lane-state terminal descriptor. Replaced by the real
- * `validateLaneStateTerminal` validator. The stub treats every terminal as valid (never blocks) so
- * the scaffold is a safe no-op until the real validator (which MUST admit the all-lanes-handed-off
- * terminal) lands.
- * @param {Object|null} _descriptor
- * @returns {{valid: Boolean, reason: String}}
+ * @summary STUB — validate a parsed lane-state descriptor. Real signature returns
+ * `{valid: Boolean, violations: String[]}` (the author's validator body replaces this stub). The stub
+ * treats every descriptor as valid (empty violations) so the scaffold is safe until the real validator
+ * — which MUST admit the all-lanes-handed-off terminal (`verified-no-lane` + a full-backlog survey).
+ * @param {Object} _descriptor
+ * @returns {{valid: Boolean, violations: String[]}}
  * @protected
  */
 function validateLaneStateTerminal(_descriptor) {
-    return {valid: true, reason: 'stub: lane-state validator not yet wired'};
+    return {valid: true, violations: []};
 }
 // ---- end SEAM ------------------------------------------------------------------------------------
 
 /**
+ * @summary Pure mapping of a parse OUTCOME to a terminal verdict — the 3-bucket chain. A malformed
+ * emission (parseLaneState threw) and an absent emission (null) are distinct idle-out failures from an
+ * invalid descriptor, each with its own reason; a parsed descriptor is delegated to `validate` (the
+ * real validator), whose `{valid, violations}` is mapped to the `{valid, reason}` verdict
+ * `decideHookAction` consumes. Exported + unit-tested with injected outcomes (no I/O, no real parser).
+ * @param {{descriptor: (Object|null), parseError: (Error|null)}} outcome
+ * @param {Function} validate descriptor → {valid: Boolean, violations: String[]}
+ * @returns {{valid: Boolean, reason: String}}
+ */
+export function parseOutcomeToVerdict({descriptor, parseError}, validate) {
+    if (parseError)          return {valid: false, reason: `malformed lane-state emission: ${parseError.message}`};
+    if (descriptor === null) return {valid: false, reason: 'no lane-state block emitted at turn-terminal'};
+
+    const result = validate(descriptor);
+
+    return result.valid
+        ? {valid: true,  reason: 'valid lane-state terminal'}
+        : {valid: false, reason: (result.violations || []).join('; ') || 'invalid lane-state terminal'};
+}
+
+/**
  * @summary Pure decision — maps a terminal `verdict` + whether we're `enforcing` to the Stop-hook
- * action. Exported + unit-tested independently of the I/O + the (stubbed) validator: this is the
- * heart of the idle-out mechanism — an invalid terminal blocks (enforcing) or would-block (dry-run);
- * a valid terminal always allows (so a legitimate handoff is never trapped, even when enforcing).
+ * action. Exported + unit-tested: the heart of the idle-out mechanism — a non-valid terminal blocks
+ * (enforcing) or would-block (dry-run); a valid terminal always allows (so a legitimate handoff is
+ * never trapped, even when enforcing).
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Boolean} enforcing
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
@@ -118,9 +149,10 @@ export function decideHookAction(verdict, enforcing) {
 }
 
 /**
- * @summary Hook entry. Resolves the Stop-hook payload → loop-guard → transcript → verdict →
- * decideHookAction, then blocks+injects (enforcing) or audit-logs the would-be decision. Always
- * exits 0 on any internal failure (the hook must never trap a turn-end on its own bug).
+ * @summary Hook entry. Resolves the Stop-hook payload → loop-guard → transcript → parse outcome →
+ * verdict → decideHookAction, then blocks+injects (enforcing) or audit-logs the would-be decision.
+ * Always exits 0 on any of OUR OWN failures (bad payload, unreadable transcript, validator throw) — a
+ * hook bug must never trap a turn-end. A malformed *emission* still counts (that's the agent's, not ours).
  * @protected
  */
 async function main() {
@@ -128,7 +160,6 @@ async function main() {
     try {
         input = JSON.parse(await readStdin());
     } catch (e) {
-        // Malformed hook payload → NEVER block; allow + audit.
         auditLog(`PARSE-ERROR: could not parse Stop-hook input (${e.message}); allowing stop.`);
         process.exit(0);
     }
@@ -138,18 +169,34 @@ async function main() {
         process.exit(0);
     }
 
-    let descriptor = null;
+    let transcript = '';
     try {
-        const transcript = input.transcript_path ? fs.readFileSync(input.transcript_path, 'utf8') : '';
-        descriptor = parseLaneState(transcript);
+        transcript = input.transcript_path ? fs.readFileSync(input.transcript_path, 'utf8') : '';
     } catch (e) {
-        // Could not read/parse the transcript → never block on our OWN failure; allow + audit.
+        // OUR failure (unreadable transcript) → never block; allow + audit.
         auditLog(`READ-ERROR: ${e.message}; allowing stop.`);
         process.exit(0);
     }
 
-    const verdict          = validateLaneStateTerminal(descriptor),
-          session          = input.session_id || '?',
+    // parseLaneState throwing is a MALFORMED emission (the agent's garbage), NOT our failure → it
+    // feeds the verdict (a real block-able bucket), distinct from an absent emission (null).
+    let descriptor = null, parseError = null;
+    try {
+        descriptor = parseLaneState(transcript);
+    } catch (e) {
+        parseError = e;
+    }
+
+    let verdict;
+    try {
+        verdict = parseOutcomeToVerdict({descriptor, parseError}, validateLaneStateTerminal);
+    } catch (e) {
+        // A validator/mapping bug is OUR failure → never block; allow + audit.
+        auditLog(`VALIDATOR-ERROR: ${e.message}; allowing stop.`);
+        process.exit(0);
+    }
+
+    const session          = input.session_id || '?',
           {action, reason} = decideHookAction(verdict, ENFORCING);
 
     if (action === 'block') {
@@ -164,7 +211,7 @@ async function main() {
 }
 
 // Process-entry only: run main() when invoked as the hook (never on import, so unit tests can import
-// `decideHookAction` without triggering the stdin read).
+// the pure `parseOutcomeToVerdict` / `decideHookAction` without triggering the stdin read).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main();
 }
