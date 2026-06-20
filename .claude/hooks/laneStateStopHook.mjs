@@ -105,34 +105,67 @@ export function parseOutcomeToVerdict({descriptor, parseError}, validate) {
 }
 
 /**
- * @summary Pure decision — maps a terminal `verdict` + whether we're `enforcing` to the Stop-hook
- * action. Exported + unit-tested: the heart of the idle-out mechanism — a non-valid terminal blocks
- * (enforcing) or would-block (dry-run); a valid terminal always allows (so a legitimate handoff is
- * never trapped, even when enforcing).
+ * @summary Pure decision — maps a terminal `verdict` + the mode (`enforcing`) + whether a live human
+ * operator prompted this turn (`operatorInLoop`) to the Stop-hook action. The heart of the idle-out
+ * mechanism; exported + unit-tested.
+ *
+ * The ONE legitimate voluntary stop is a **live operator dialogue** — this turn directly replied to a
+ * genuine human-operator message, so the human takes the next turn (turn-taking, not idling). That is
+ * `operatorInLoop`, and it ALWAYS allows. `operatorInLoop` is determined EXTERNALLY (the prompting
+ * message type — see the entry `main`), never self-declared, so it cannot be gamed.
+ *
+ * Every OTHER turn-end is an idle-out. A "valid" lane-state terminal is a declaration, not a license
+ * to stop (the announce-without-execute loophole the prior `verdict.valid → allow` branch left open).
+ * ENFORCE refuses it (block); DRY-RUN previews it (would-block, the false-positive audit path). The
+ * `verdict` no longer gates the action — it only supplies the `reason` for the injected directive and
+ * the external substance record. The only autonomous stop is a hard external limit (Claude Code's
+ * consecutive-block force-override, context-sunset, or an operator halt).
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Boolean} enforcing
+ * @param {Boolean} [operatorInLoop=false] True iff a genuine human-operator message prompted this turn.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
-export function decideHookAction(verdict, enforcing) {
-    if (verdict.valid) return {action: 'allow',       reason: verdict.reason};
-    if (enforcing)     return {action: 'block',       reason: verdict.reason};
-    return             {action: 'would-block', reason: verdict.reason};
+export function decideHookAction(verdict, enforcing, operatorInLoop = false) {
+    if (operatorInLoop) {
+        return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
+    }
+    return enforcing
+        ? {action: 'block',       reason: verdict.reason}
+        : {action: 'would-block', reason: verdict.reason};
+}
+
+/**
+ * @summary Detects whether a genuine human OPERATOR prompted this turn — the one signal that makes a
+ * voluntary stop legitimate (turn-taking with a human who takes the next turn). Determined externally
+ * so it cannot be self-declared/gamed: a turn is operator-driven iff it is NOT a forced continuation
+ * (`stop_hook_active`), its prompting message is NOT an autonomous `[WAKE]` injection, AND a prompt is
+ * actually confirmable. FAIL-CLOSED: an empty / unreadable prompt is treated as autonomous (no idle
+ * granted on uncertainty) — the real Stop payload always carries the transcript, so this only bites a
+ * transient read-failure, which should keep working rather than idle. Pure; exported + unit-tested.
+ * @param {{stopHookActive: Boolean, promptingText: String}} signals
+ * @returns {Boolean}
+ */
+export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
+    if (stopHookActive)        return false;                // forced continuation — no human waiting
+    if (!promptingText.trim()) return false;                // no confirmable human prompt → autonomous
+    return !/^\s*\[WAKE\]/.test(promptingText);             // [WAKE] = autonomous wake; else = operator
 }
 
 // The curated no-hold-state directive injected on a block. References the always-loaded
 // L3_No_Hold_State stance + carries a self-sufficient operational core (the lifecycle ladder + the
 // named-lane teeth-test) so it redirects without assuming a live L3 lookup. The wording's semantics
 // are cross-family-convergence-fixed — refine prose, not meaning.
-const IDLE_REMINDER = `Blocked — L3_No_Hold_State: there is no hold state.
-Name the next concrete action that is YOURS to take now:
+const IDLE_REMINDER = `Turn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.
+Declaring a lane is NOT driving it. Do the next concrete action NOW:
   • continue your own lane
+  • open a PR
   • clear CHANGES_REQUESTED on your own PR
-  • do an assigned review that advances a named lane
+  • review a peer's PR that advances a named lane
   • or claim a new high-value lane
 Teeth-test: does this advance a NAMED lane right now? If you can't name the lane, it isn't driving.
 Collaboration (review · ideation · A2A) counts ONLY when it advances a named lane AND ends with a return to your own lane or an explicit lane-swap — it is an interruption, not a replacement for your own PRs.
 Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
-The only real stop is a hard external limit: context-sunset or an operator halt.`;
+The only stop is a hard external limit: context-sunset, an operator halt, or a live operator reply.`;
 
 /**
  * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (the actionable
@@ -190,6 +223,33 @@ export function extractLastAssistantTextFromJsonl(jsonl = '') {
 }
 
 /**
+ * @summary Extracts the LAST user message's text from a Claude Code JSONL transcript — the message
+ * that PROMPTED the current turn. Used to classify the prompt as a genuine operator turn vs an
+ * autonomous `[WAKE]` injection. Skips tool_result records (no text blocks); tolerant of malformed
+ * lines. Mirrors {@link extractLastAssistantTextFromJsonl}.
+ * @param {String} jsonl
+ * @returns {String}
+ * @protected
+ */
+export function extractLastUserTextFromJsonl(jsonl = '') {
+    const lines = jsonl.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        let record;
+        try { record = JSON.parse(line); } catch { continue; }
+
+        const message = record.message || record;
+        if ((message.role || record.type) !== 'user') continue;
+
+        const text = extractTextFromContent(message.content);
+        if (text) return text;
+    }
+    return '';
+}
+
+/**
  * @summary Resolves the agent's FINAL assistant message text — the surface the lane-state block is
  * emitted into. Prefers the Stop payload's `last_assistant_message` (already-decoded; a string or a
  * message object); falls back to JSONL-parsing `transcript_path` for the last assistant text. Raw
@@ -225,11 +285,6 @@ async function main() {
         process.exit(0);
     }
 
-    // Loop-safety: if Claude is already in a forced continuation from a prior block, allow the stop.
-    if (input.stop_hook_active) {
-        process.exit(0);
-    }
-
     // Resolve the agent's FINAL message text (last_assistant_message, or JSONL-extracted from the
     // transcript) — NOT the raw transcript: raw Claude JSONL is JSON-escaped, so the fence parser
     // only matches extracted text (the runtime input boundary a cross-family review caught).
@@ -241,6 +296,20 @@ async function main() {
         auditLog(`READ-ERROR: ${e.message}; allowing stop.`);
         process.exit(0);
     }
+
+    // The ONE legitimate voluntary stop is a live operator dialogue — determined EXTERNALLY (the
+    // prompting message type), never self-declared. A `stop_hook_active` forced continuation OR a
+    // `[WAKE]` autonomous prompt is not a human turn → no voluntary stop. A transcript read-failure
+    // here is OUR failure → fall back to the stop_hook_active signal alone (never trap on a read error).
+    let promptingText = '';
+    try {
+        if (input.transcript_path) {
+            promptingText = extractLastUserTextFromJsonl(fs.readFileSync(input.transcript_path, 'utf8'));
+        }
+    } catch (e) {
+        // best-effort; isOperatorInLoop falls back to stop_hook_active when promptingText is empty
+    }
+    const operatorInLoop = isOperatorInLoop({stopHookActive: !!input.stop_hook_active, promptingText});
 
     // parseLaneState throwing is a MALFORMED emission (the agent's garbage), NOT our failure → it
     // feeds the verdict (a real block-able bucket), distinct from an absent emission (null).
@@ -261,7 +330,7 @@ async function main() {
     }
 
     const session          = input.session_id || '?',
-          {action, reason} = decideHookAction(verdict, ENFORCING);
+          {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop);
 
     if (action === 'block') {
         auditLog(`BLOCK (session=${session}): ${reason}`);
@@ -273,7 +342,7 @@ async function main() {
         return;
     }
 
-    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'WOULD-ALLOW'} (session=${session}): ${reason}`);
+    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}): ${reason}`);
     process.exit(0);
 }
 

@@ -1,6 +1,6 @@
-import {test, expect}                                                                             from '@playwright/test';
-import {composeBlockDirective, decideHookAction, parseOutcomeToVerdict, extractFinalAssistantText,
-        extractLastAssistantTextFromJsonl}                                                       from '../../../../.claude/hooks/laneStateStopHook.mjs';
+import {test, expect}                                                                              from '@playwright/test';
+import {composeBlockDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
+        extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -9,11 +9,14 @@ import path    from 'node:path';
 const block = body => '```lane-state\n' + body + '\n```';
 
 /**
- * Falsification tests for the idle-out Stop-hook. Three layers: (1) the pure decision logic
- * (`parseOutcomeToVerdict` 3-bucket chain + `decideHookAction`); (2) input resolution — the agent's
- * final message comes from the Stop payload's `last_assistant_message`, NOT the raw JSONL transcript
- * (the runtime boundary a cross-family review caught — raw JSONL is escaped, so the fence parser must run
- * on extracted text); (3) end-to-end — the spawned real hook against the real Stop payload shape.
+ * Falsification tests for the idle-out Stop-hook. Layers: (1) the pure decision logic
+ * (`parseOutcomeToVerdict` 3-bucket chain + `decideHookAction` + `isOperatorInLoop`); (2) input
+ * resolution — final assistant text + the prompting user message come from the Stop payload /
+ * transcript, not raw JSONL lines (raw JSONL is escaped); (3) end-to-end — the spawned real hook.
+ *
+ * The decision rule: there is NO valid voluntary stop except a live operator dialogue. A
+ * "valid" lane-state terminal is a declaration, not a license to stop — enforce REFUSES it. The one
+ * allow is `operatorInLoop`, determined EXTERNALLY (the prompting message type), never self-declared.
  */
 test.describe('laneStateStopHook — pure idle-out decision logic', () => {
     test.describe('parseOutcomeToVerdict — the 3-bucket chain', () => {
@@ -44,40 +47,62 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
         });
     });
 
-    test.describe('decideHookAction — enforce / dry-run', () => {
-        test('a VALID terminal always ALLOWS — dry-run AND enforcing (never traps a legit handoff)', () => {
-            expect(decideHookAction({valid: true, reason: 'ok'}, false).action).toBe('allow');
-            expect(decideHookAction({valid: true, reason: 'ok'}, true).action).toBe('allow');
+    test.describe('decideHookAction — operator-dialogue is the only allow (#13649)', () => {
+        test('VALID + no operator → BLOCK (enforce) / WOULD-BLOCK (dry-run) — the loophole is closed', () => {
+            expect(decideHookAction({valid: true, reason: 'ok'}, true,  false).action).toBe('block');
+            expect(decideHookAction({valid: true, reason: 'ok'}, false, false).action).toBe('would-block');
         });
 
-        test('an INVALID terminal WOULD-BLOCK in dry-run — logs the would-be block, never blocks', () => {
-            const result = decideHookAction({valid: false, reason: 'no active lane'}, false);
+        test('operatorInLoop ALWAYS allows — a live human takes the next turn (enforce AND dry-run)', () => {
+            expect(decideHookAction({valid: false, reason: 'x'}, true,  true).action).toBe('allow');
+            expect(decideHookAction({valid: true,  reason: 'x'}, false, true).action).toBe('allow');
+        });
+
+        test('INVALID + no operator → BLOCK when enforcing — the reason is carried through to inject', () => {
+            const result = decideHookAction({valid: false, reason: 'no active lane — pick one or drive'}, true, false);
+            expect(result.action).toBe('block');
+            expect(result.reason).toBe('no active lane — pick one or drive');
+        });
+
+        test('INVALID + no operator → WOULD-BLOCK in dry-run — previews, never blocks', () => {
+            const result = decideHookAction({valid: false, reason: 'no active lane'}, false, false);
             expect(result.action).toBe('would-block');
             expect(result.reason).toBe('no active lane');
         });
+    });
 
-        test('an INVALID terminal BLOCKS when enforcing — the reason is carried through to inject', () => {
-            const result = decideHookAction({valid: false, reason: 'no active lane — pick one or cite a survey'}, true);
-            expect(result.action).toBe('block');
-            expect(result.reason).toBe('no active lane — pick one or cite a survey');
+    test.describe('isOperatorInLoop — the external, non-self-declared stop signal', () => {
+        test('stop_hook_active (forced continuation) → false', () => {
+            expect(isOperatorInLoop({stopHookActive: true, promptingText: 'do X'})).toBe(false);
+        });
+
+        test('a [WAKE] autonomous prompt → false', () => {
+            expect(isOperatorInLoop({stopHookActive: false, promptingText: '[WAKE][priority:normal] 1 events for @neo-opus-grace'})).toBe(false);
+        });
+
+        test('an empty / unconfirmable prompt → false (FAIL-CLOSED: no idle on uncertainty)', () => {
+            expect(isOperatorInLoop({stopHookActive: false, promptingText: ''})).toBe(false);
+            expect(isOperatorInLoop({stopHookActive: false, promptingText: '   '})).toBe(false);
+        });
+
+        test('a genuine operator message → true', () => {
+            expect(isOperatorInLoop({stopHookActive: false, promptingText: 'please do X, then report'})).toBe(true);
         });
     });
 
     test.describe('composeBlockDirective — the injected no-hold-state directive', () => {
-        test('carries the curated reminder (L3 stance + lifecycle + teeth-test) AND the trigger cause', () => {
+        test('carries the curated reminder (L3 stance + teeth-test + lifecycle) AND the trigger cause', () => {
             const directive = composeBlockDirective('no lane-state block emitted at turn-terminal');
-            // The actionable WHAT-to-do: the L3 stance + the named-lane teeth-test + the lifecycle ladder.
             expect(directive).toContain('L3_No_Hold_State');
             expect(directive).toContain('there is no hold state');
             expect(directive).toContain('advance a NAMED lane');
             expect(directive).toContain('Passive waiting');
-            // The WHY-blocked: the specific trigger cause, preserved for context.
             expect(directive).toContain('no lane-state block emitted at turn-terminal');
         });
     });
 });
 
-test.describe('laneStateStopHook — input resolution (last_assistant_message primary + JSONL fallback)', () => {
+test.describe('laneStateStopHook — input resolution (assistant final text + prompting user message)', () => {
     test('last_assistant_message string is used verbatim', () => {
         const text = `On it.\n\n${block('{"laneContinuation":"active-lane"}')}`;
         expect(extractFinalAssistantText({last_assistant_message: text})).toBe(text);
@@ -110,6 +135,16 @@ test.describe('laneStateStopHook — input resolution (last_assistant_message pr
         expect(extractLastAssistantTextFromJsonl(jsonl)).toBe('earlier text');
     });
 
+    test('extractLastUserTextFromJsonl: returns the LAST user text record (skips assistant + tool_result)', () => {
+        const jsonl = [
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: 'first operator message'}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'reply'}]}}),
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: [{type: 'tool_result', tool_use_id: 'x', content: 'r'}]}}),
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: '[WAKE][priority:normal] 1 events'}})
+        ].join('\n');
+        expect(extractLastUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events');
+    });
+
     test('no assistant text → empty string (so the hook treats it as an absent emission)', () => {
         expect(extractLastAssistantTextFromJsonl('{"type":"user","message":{"role":"user","content":"q"}}')).toBe('');
         expect(extractFinalAssistantText({})).toBe('');
@@ -119,22 +154,23 @@ test.describe('laneStateStopHook — input resolution (last_assistant_message pr
 test.describe('laneStateStopHook — end-to-end (spawned hook against the real Stop payload)', () => {
     /**
      * @summary Spawns the real hook with a Stop payload + a temp audit-log dir; returns `{stdout, log}`.
-     * Default passes the text as `last_assistant_message` (the real Stop shape); `viaJsonl` instead
-     * writes a JSONL `transcript_path` whose last assistant record carries the text (the fallback path).
+     * `promptingText` (when set) writes a `transcript_path` whose last USER record carries it — the
+     * operator-vs-wake classification surface. Otherwise the final text rides `last_assistant_message`
+     * with no transcript → no confirmable prompt → fail-closed autonomous.
      * @param {String} finalText
-     * @param {{enforce: Boolean, viaJsonl: Boolean}} [opts]
+     * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean}} [opts]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(finalText, {enforce = false, viaJsonl = false} = {}) {
+    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false} = {}) {
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
                   transcriptPath = path.join(dir, 'transcript.jsonl'),
                   env            = {...process.env, NEO_AI_DAEMON_DIR: dir},
-                  payload        = {stop_hook_active: false, session_id: 'e2e'};
+                  payload        = {stop_hook_active: stopHookActive, session_id: 'e2e'};
 
-            if (viaJsonl) {
+            if (promptingText !== null) {
                 fs.writeFileSync(transcriptPath, [
-                    JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'thinking', thinking: 'noise'}]}}),
+                    JSON.stringify({type: 'user',      message: {role: 'user',      content: promptingText}}),
                     JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: finalText}]}})
                 ].join('\n') + '\n');
                 payload.transcript_path = transcriptPath;
@@ -159,47 +195,51 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         });
     }
 
-    test('a VALID emission (active-lane) via last_assistant_message → WOULD-ALLOW, no block on stdout', async () => {
-        const {stdout, log} = await runHook(`On it.\n\n${block('{"laneContinuation":"active-lane"}')}`);
-        expect(log).toContain('WOULD-ALLOW');
+    const validTerminal = `On it.\n\n${block('{"laneContinuation":"active-lane"}')}`;
+
+    test('LIVE OPERATOR dialogue (genuine prompt) → ALLOW even with a bare prose terminal', async () => {
+        const {stdout, log} = await runHook('Done — over to you.', {enforce: true, promptingText: 'please do X, then report'});
+        expect(log).toContain('ALLOW');
         expect(stdout).toBe('');
     });
 
-    test('an INVALID emission (verified-no-lane — a retired continuation) → WOULD-BLOCK as unknown', async () => {
-        const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'));
+    test('loophole closed: a VALID terminal with NO operator prompt → WOULD-BLOCK (dry-run)', async () => {
+        const {stdout, log} = await runHook(validTerminal);
         expect(log).toContain('WOULD-BLOCK');
-        expect(log).toContain('Unknown laneContinuation');
         expect(stdout).toBe('');
     });
 
-    test('an ABSENT emission (no lane-state block) → WOULD-BLOCK', async () => {
+    test('ENFORCE + VALID terminal + WAKE prompt → BLOCK (a valid block is not a stop-license)', async () => {
+        const {stdout, log} = await runHook(validTerminal, {enforce: true, promptingText: '[WAKE][priority:normal] 1 events'});
+        expect(log).toContain('BLOCK');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('an ABSENT emission (no operator) → WOULD-BLOCK (dry-run)', async () => {
         const {log} = await runHook('Just some prose, no lane-state block here.');
         expect(log).toContain('WOULD-BLOCK');
         expect(log).toContain('no lane-state block emitted');
     });
 
-    test('a MALFORMED emission (block present, broken JSON) → WOULD-BLOCK, distinct from absent', async () => {
+    test('a MALFORMED emission → WOULD-BLOCK, distinct from absent', async () => {
         const {log} = await runHook(block('{laneContinuation: not valid json}'));
         expect(log).toContain('WOULD-BLOCK');
         expect(log).toContain('malformed');
     });
 
-    test('ENFORCING + invalid emission → blocks: {"decision":"block"} injects the curated directive + the cause', async () => {
-        const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {enforce: true});
+    test('ENFORCE + invalid emission + autonomous prompt → BLOCK: injects the curated directive + cause', async () => {
+        const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {enforce: true, promptingText: '[WAKE] 1 event'});
         expect(log).toContain('BLOCK');
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
-        // The injected reason is the curated no-hold-state directive ...
         expect(decision.reason).toContain('there is no hold state');
         expect(decision.reason).toContain('advance a NAMED lane');
-        // ... plus the specific trigger cause for context (post-#13630: verified-no-lane is a retired
-        // continuation, so the cause is the validator's unknown-continuation violation, not a survey rule).
         expect(decision.reason).toContain('Unknown laneContinuation');
     });
 
-    test('JSONL fallback: a valid block in the last assistant transcript record → WOULD-ALLOW', async () => {
-        const {stdout, log} = await runHook(`Done.\n\n${block('{"laneContinuation":"active-lane"}')}`, {viaJsonl: true});
-        expect(log).toContain('WOULD-ALLOW');
-        expect(stdout).toBe('');
+    test('stop_hook_active (forced continuation) + enforce → BLOCK (keeps refusing, no auto-allow)', async () => {
+        const {stdout, log} = await runHook(validTerminal, {enforce: true, promptingText: 'please do X', stopHookActive: true});
+        expect(log).toContain('BLOCK');
+        expect(JSON.parse(stdout).decision).toBe('block');
     });
 });
