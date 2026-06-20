@@ -34,6 +34,30 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
         expect(result.stdout).toContain('[lint-skill-manifest] OK');
     });
 
+    test('no-base success names the skipped byte-delta gates, not an indistinguishable bare OK (#13595)', () => {
+        const result = spawnSync('node', [scriptPath], {
+            cwd     : process.cwd(),
+            encoding: 'utf8'
+        });
+
+        expect(result.status, result.stderr).toBe(0);
+        // the false-green guard: a no-base run must name the skipped gates, not read as a full pass
+        expect(result.stdout).toContain('byte-delta gates skipped');
+        expect(result.stdout).toContain('--base origin/dev');
+        expect(result.stdout.trim()).not.toBe('[lint-skill-manifest] OK');
+    });
+
+    test('--base success keeps the bare OK unchanged, no skipped-gates notice (#13595)', () => {
+        const result = spawnSync('node', [scriptPath, '--base', 'HEAD'], {
+            cwd     : process.cwd(),
+            encoding: 'utf8'
+        });
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout).toContain('[lint-skill-manifest] OK');
+        expect(result.stdout).not.toContain('byte-delta gates skipped');
+    });
+
     test('frontmatter parser preserves colon-bearing description text', () => {
         const parsed = parseFrontmatter(`---\nname: test-skill\ndescription: Short: description\n---\n# Body\n`, 'fixture/SKILL.md');
 
@@ -118,15 +142,15 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
+                routerByteBudget     : 12,
                 payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 broken: {
-                    name                : 'broken',
-                    routerByteBudget    : 12,
+                    name                 : 'broken',
+                    routerByteBudget     : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
@@ -147,7 +171,7 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
+                routerByteBudget     : 12,
                 payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: [],
@@ -155,13 +179,13 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             },
             skills: {
                 extra: {
-                    name                : 'extra',
-                    description         : 'has extra key',
-                    routerByteBudget    : 12,
+                    name                 : 'extra',
+                    description          : 'has extra key',
+                    routerByteBudget     : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: [],
-                    extraSkill          : true
+                    extraSkill           : true
                 }
             },
             extraRoot: true
@@ -182,16 +206,16 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
+                routerByteBudget     : 12,
                 payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 optional: {
-                    name                : 'optional',
-                    description         : 'relationship field omitted intentionally',
-                    routerByteBudget    : 12,
+                    name                 : 'optional',
+                    description          : 'relationship field omitted intentionally',
+                    routerByteBudget     : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
@@ -217,9 +241,9 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
-                perFilePayloadBudget: 25000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
+                perFilePayloadBudget : 25000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
@@ -240,18 +264,18 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 'monolith-skill': {
-                    name                : 'monolith-skill',
-                    description         : 'temporary override for migration-period monolith',
-                    routerByteBudget    : 12,
-                    payloadBudget       : 80000,
-                    perFilePayloadBudget: 66000,
+                    name                 : 'monolith-skill',
+                    description          : 'temporary override for migration-period monolith',
+                    routerByteBudget     : 12,
+                    payloadBudget        : 80000,
+                    perFilePayloadBudget : 66000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
                 }
@@ -272,9 +296,9 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
-                perFilePayloadBudget: 0,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
+                perFilePayloadBudget : 0,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
@@ -287,18 +311,18 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 'bad-budget': {
-                    name                : 'bad-budget',
-                    description         : 'negative budget',
-                    routerByteBudget    : 12,
-                    payloadBudget       : 80000,
-                    perFilePayloadBudget: -100,
+                    name                 : 'bad-budget',
+                    description          : 'negative budget',
+                    routerByteBudget     : 12,
+                    payloadBudget        : 80000,
+                    perFilePayloadBudget : -100,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
                 }
@@ -355,17 +379,17 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 'legacy-skill': {
-                    name                : 'legacy-skill',
-                    description         : 'pre-#11320 manifest entry without perFilePayloadBudget',
-                    routerByteBudget    : 12,
-                    payloadBudget       : 80000,
+                    name                 : 'legacy-skill',
+                    description          : 'pre-#11320 manifest entry without perFilePayloadBudget',
+                    routerByteBudget     : 12,
+                    payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
                 }
