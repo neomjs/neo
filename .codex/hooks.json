@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.codex/hooks/codex-lane-state-stop.mjs\"",
+            "command": "NEO_CODEX_LANE_STATE_ENFORCE=1 /usr/bin/env node \"$(git rev-parse --show-toplevel)/.codex/hooks/codex-lane-state-stop.mjs\"",
             "timeout": 10,
             "statusMessage": "Checking Codex lane state"
           }

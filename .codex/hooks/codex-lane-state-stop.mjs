@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
  * @module .codex/hooks/codex-lane-state-stop
- * @summary Codex `Stop` hook for no-hold lane-state reminders, dry-run and fail-open.
+ * @summary Codex `Stop` hook for no-hold lane-state enforcement.
  *
- * Codex documents `Stop` command hooks, but the current public hook contract does not document a
- * Claude-style `{"decision":"block"}` stop-blocking protocol. This hook therefore proves the
- * transport layer conservatively: it runs at Stop, resolves the final assistant text, reuses the
- * existing lane-state parser/validator seam, and audit-logs what it would block. It never writes a
- * blocking decision to stdout until a future ticket proves Codex block/inject semantics.
+ * Codex runs this hook at the turn-end `Stop` event. The adapter resolves the final assistant text,
+ * reuses the shared lane-state parser/validator seam, and emits the Claude-compatible
+ * `{"decision":"block","reason":...}` directive when enforcement is enabled and no live operator
+ * dialogue is present. Hook-internal failures still fail open and audit so a buggy hook never traps
+ * every turn-end.
  */
 import fs              from 'node:fs';
 import path            from 'node:path';
@@ -20,7 +20,7 @@ import {decideStopHookAction,
         parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
-export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = false;
+export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
 
 const LOG_DIR = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'codex-lane-state-hook');
 
@@ -284,14 +284,14 @@ export function buildNoHoldReminder(verdictReason) {
 
 /**
  * @summary Maps a terminal verdict to the Codex Stop action. The no-hold decision mirrors Claude:
- * a live operator dialogue is the only allow; every autonomous turn-end would-blocks. Codex remains
- * fail-open because block/inject support is not proven.
+ * a live operator dialogue is the only allow; every autonomous turn-end blocks when enforcement is
+ * enabled.
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
  * @param {Boolean} [options.blockInjectionSupported=CODEX_STOP_BLOCK_INJECTION_SUPPORTED]
  * @param {Boolean} [options.operatorInLoop=false]
- * @returns {{action: ('allow'|'would-block'), reason: String}}
+ * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideCodexHookAction(verdict, {
     enforcing               = false,
@@ -306,6 +306,7 @@ export function decideCodexHookAction(verdict, {
     });
 
     if (decision.action === 'allow') return decision;
+    if (decision.action === 'block') return {action: 'block', reason: buildNoHoldReminder(decision.reason)};
 
     return {action: 'would-block', reason: buildNoHoldReminder(decision.reason)};
 }
@@ -330,7 +331,7 @@ export function summarizePayloadShape(payload = {}) {
  * @param {Object} input
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
- * @returns {{action: ('allow'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object}}
+ * @returns {{action: ('allow'|'block'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object}}
  */
 export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
     const stopHookActive                            = !!(input.stop_hook_active || input.stopHookActive),
@@ -356,7 +357,7 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
 }
 
 /**
- * @summary Codex Stop hook entrypoint; logs would-block decisions and always exits successfully.
+ * @summary Codex Stop hook entrypoint; emits block decisions when enforcing and otherwise exits successfully.
  * @protected
  */
 async function main() {
@@ -382,8 +383,15 @@ async function main() {
         process.exit(0);
     }
 
-    const session = input.session_id || input.sessionId || '?',
-          prefix  = result.action === 'allow' ? 'WOULD-ALLOW' : 'WOULD-BLOCK';
+    const session = input.session_id || input.sessionId || '?';
+
+    if (result.action === 'block') {
+        auditLog(`BLOCK (session=${session}, source=${result.source}): ${result.reason}`);
+        process.stdout.write(JSON.stringify({decision: 'block', reason: result.reason}), () => process.exit(0));
+        return;
+    }
+
+    const prefix = result.action === 'allow' ? 'ALLOW' : 'WOULD-BLOCK';
 
     auditLog(`${prefix} (session=${session}, source=${result.source}): ${result.reason}`);
     process.exit(0);
