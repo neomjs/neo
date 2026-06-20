@@ -1,5 +1,5 @@
 import {test, expect}                                                                             from '@playwright/test';
-import {decideHookAction, parseOutcomeToVerdict, extractFinalAssistantText,
+import {composeBlockDirective, decideHookAction, parseOutcomeToVerdict, extractFinalAssistantText,
         extractLastAssistantTextFromJsonl}                                                       from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
@@ -60,6 +60,19 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             const result = decideHookAction({valid: false, reason: 'no active lane — pick one or cite a survey'}, true);
             expect(result.action).toBe('block');
             expect(result.reason).toBe('no active lane — pick one or cite a survey');
+        });
+    });
+
+    test.describe('composeBlockDirective — the injected no-hold-state directive', () => {
+        test('carries the curated reminder (L3 stance + lifecycle + teeth-test) AND the trigger cause', () => {
+            const directive = composeBlockDirective('no lane-state block emitted at turn-terminal');
+            // The actionable WHAT-to-do: the L3 stance + the named-lane teeth-test + the lifecycle ladder.
+            expect(directive).toContain('L3_No_Hold_State');
+            expect(directive).toContain('there is no hold state');
+            expect(directive).toContain('advance a NAMED lane');
+            expect(directive).toContain('Passive waiting');
+            // The WHY-blocked: the specific trigger cause, preserved for context.
+            expect(directive).toContain('no lane-state block emitted at turn-terminal');
         });
     });
 });
@@ -171,11 +184,16 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(log).toContain('malformed');
     });
 
-    test('ENFORCING + invalid emission → blocks: {"decision":"block"} injected on stdout', async () => {
+    test('ENFORCING + invalid emission → blocks: {"decision":"block"} injects the curated directive + the cause', async () => {
         const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {enforce: true});
         expect(log).toContain('BLOCK');
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
+        // The injected reason is the curated no-hold-state directive ...
+        expect(decision.reason).toContain('there is no hold state');
+        expect(decision.reason).toContain('advance a NAMED lane');
+        // ... plus the specific trigger cause for context (post-#13630: verified-no-lane is a retired
+        // continuation, so the cause is the validator's unknown-continuation violation, not a survey rule).
         expect(decision.reason).toContain('Unknown laneContinuation');
     });
 
