@@ -6,6 +6,7 @@ import {withTimeout}                                 from './helpers/withTimeout
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import crypto                                        from 'crypto';
 import GraphService                                  from './GraphService.mjs';
+import {capSessionsForSweep}                         from './capSessionsForSweep.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}   from '../../graph/identityRoots.mjs';
 
 import StorageRouter from './managers/StorageRouter.mjs';
@@ -1393,7 +1394,13 @@ ${sessionContent}
                     logger.info(`[SessionService] Skipping session ${sessionId} - active lease held by another instance or already completed.`);
                 }
             } else {
-                const sessionsToSummarize = await this.findSessionsToSummarize();
+                // Cap the per-sweep drain so the child releases the heavy-maintenance lease after a
+                // small batch — the fair picker then interleaves dream / golden-path / backfill rather
+                // than waiting out the whole drift list. The next sweep re-derives the remainder.
+                const sessionsToSummarize = capSessionsForSweep(
+                    await this.findSessionsToSummarize(),
+                    aiConfig.maxSessionsPerSummarySweep
+                );
 
                 // Hardware concurrency scaling
                 let batchSize;

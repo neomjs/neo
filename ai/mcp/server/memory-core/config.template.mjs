@@ -122,6 +122,15 @@ class Config extends ConfigProvider {
              */
             summarizationBatchLimit: leaf(2000),
             /**
+             * Maximum sessions one summary sweep drains before the child exits + releases the
+             * heavy-maintenance lease, so the fair picker interleaves dream / golden-path / backfill
+             * frequently instead of waiting out a whole drift batch. The drift sweep self-continues
+             * (the next sweep re-derives the remainder), so this chunks the work, never drops it. A
+             * small default keeps holds short.
+             * @type {number}
+             */
+            maxSessionsPerSummarySweep: leaf(5, 'NEO_MC_MAX_SESSIONS_PER_SUMMARY_SWEEP', 'number'),
+            /**
              * Maximum number of undigested sessions the REM pipeline processes per cycle.
              * Keeps each sleep pass bounded even when the query batch is larger.
              * @type {number}
