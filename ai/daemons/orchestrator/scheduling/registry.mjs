@@ -1,12 +1,12 @@
-import {getDueTask as getSummaryDueTask}             from './summary.mjs';
-import {getDueTask as getBackupDueTask}              from './backup.mjs';
-import {getDueTask as getDreamDueTask}               from './dream.mjs';
-import {getDueTask as getGraphLogCompactionDueTask}  from './graphLogCompaction.mjs';
-import {getDueTask as getGoldenPathDueTask}          from './goldenPath.mjs';
-import {getDueTask as getMemorySummaryBackfillDueTask} from './memorySummaryBackfill.mjs';
-import {getDueTask as getPrimaryDevSyncDueTask}      from './primaryDevSync.mjs';
-import {getDueTask as getSwarmHeartbeatDueTask}      from './swarmHeartbeat.mjs';
-import {getDueTask as getTenantRepoSyncDueTask}      from './tenantRepoSync.mjs';
+import {getDueTask as getSummaryDueTask}                    from './summary.mjs';
+import {getDueTask as getBackupDueTask}                     from './backup.mjs';
+import {getDueTask as getDreamDueTask}                      from './dream.mjs';
+import {getDueTask as getGraphLogCompactionDueTask}         from './graphLogCompaction.mjs';
+import {getDueTask as getGoldenPathDueTask}                 from './goldenPath.mjs';
+import {getDueTask as getMemorySummaryBackfillDueTask}      from './memorySummaryBackfill.mjs';
+import {getDueTask as getPrimaryDevSyncDueTask}             from './primaryDevSync.mjs';
+import {getDueTask as getSwarmHeartbeatDueTask}             from './swarmHeartbeat.mjs';
+import {getDueTask as getTenantRepoSyncDueTask}             from './tenantRepoSync.mjs';
 import {getDueTask as getEmbedDrainLivenessWatchdogDueTask} from './embedDrainLivenessWatchdog.mjs';
 
 /**
@@ -106,7 +106,7 @@ export const TASK_REGISTRY = Object.freeze([
                 state,
                 now,
                 graphLogCompactionIntervalMs: intervals.graphLogCompaction,
-                enabled                      : enables.graphLogCompaction
+                enabled                     : enables.graphLogCompaction
             });
         }
     },
@@ -193,7 +193,7 @@ export const TASK_REGISTRY = Object.freeze([
         dependencies    : [],
         getDueTask({state, now, intervals, hooks}) {
             return (hooks.embedDrainLivenessWatchdogGetDueTask || getEmbedDrainLivenessWatchdogDueTask)({
-                state: state['embed-drain-liveness-watchdog'] ?? {},
+                state                            : state['embed-drain-liveness-watchdog'] ?? {},
                 now,
                 embedDrainLivenessWatchdogCheckMs: intervals.embedDrainLivenessWatchdogCheck
             });

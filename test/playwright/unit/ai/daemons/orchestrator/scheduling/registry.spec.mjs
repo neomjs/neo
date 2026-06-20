@@ -1,5 +1,5 @@
-import {test, expect} from '@playwright/test';
-import {TASK_REGISTRY} from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
+import {test, expect}                         from '@playwright/test';
+import {TASK_REGISTRY}                        from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
 import {DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES} from '../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 
 const VALID_EXECUTION_KINDS = ['supervised-child-process', 'service-runner', 'in-process-async', 'local-only-service', 'health-check'];

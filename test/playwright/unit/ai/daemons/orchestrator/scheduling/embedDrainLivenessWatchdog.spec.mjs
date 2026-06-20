@@ -1,7 +1,7 @@
-import {test, expect}   from '@playwright/test';
-import {mkdtemp, rm}    from 'fs/promises';
-import os               from 'os';
-import path             from 'path';
+import {test, expect} from '@playwright/test';
+import {mkdtemp, rm}  from 'fs/promises';
+import os             from 'os';
+import path           from 'path';
 
 import {appendWalEmbedMarker, appendWalMemory} from '../../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
 import {
@@ -244,9 +244,9 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
     /** Runs exactly the watchdog lane through the pipeline (it is the only due candidate). */
     async function runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime}) {
         const context = buildSchedulingContext({
-            db       : {},
-            state    : taskStateService.getState(),
-            now      : Date.now(),
+            db   : {},
+            state: taskStateService.getState(),
+            now  : Date.now(),
             // Only the watchdog cadence is enabled; force it due via a huge elapsed window.
             intervals: {embedDrainLivenessWatchdogCheck: 1},
             enables  : {},
@@ -366,7 +366,7 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
         const taskStateService = makeTaskStateService();
 
         const services = {
-            healthService: { recordTaskOutcome() { throw new Error('health record blew up'); } },
+            healthService                 : { recordTaskOutcome() { throw new Error('health record blew up'); } },
             maintenanceBackpressureService: {
                 getActiveHeavyMaintenanceTask() { return null; },
                 isHeavyMaintenanceTask() { return false; },
@@ -378,7 +378,7 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
         };
 
         const context = buildSchedulingContext({
-            db: {}, state: taskStateService.getState(), now: Date.now(),
+            db       : {}, state: taskStateService.getState(), now: Date.now(),
             intervals: {embedDrainLivenessWatchdogCheck: 1}, enables: {}, hooks: {}
         });
 

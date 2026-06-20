@@ -1,5 +1,5 @@
-import path from 'path';
-import net  from 'net';
+import path            from 'path';
+import net             from 'net';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -106,8 +106,8 @@ export function buildTaskDefinitions({
 
     const tasks = {
         chroma: {
-            label          : 'chroma daemon',
-            command        : 'chroma',
+            label  : 'chroma daemon',
+            command: 'chroma',
             // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir
             // — the SSOT that KB/MC configs + defragChromaDB read — under the standard
             // cwd==repoRoot. Kept as a relative literal here (not SSOT-sourced) for daemon-launch
@@ -129,9 +129,9 @@ export function buildTaskDefinitions({
         },
         ...(hasDevServerPort ? {
             devServer: {
-                label                  : 'local dev-server',
-                command                : nodeBin,
-                args                   : [
+                label  : 'local dev-server',
+                command: nodeBin,
+                args   : [
                     path.resolve(scriptDir, '../../node_modules/webpack/bin/webpack.js'),
                     'serve',
                     '-c',
@@ -204,9 +204,9 @@ export function buildTaskDefinitions({
             expectedCommand: 'backup.mjs'
         },
         'graphlog-compaction': {
-            label          : 'GraphLog compaction',
-            command        : nodeBin,
-            args           : [
+            label  : 'GraphLog compaction',
+            command: nodeBin,
+            args   : [
                 path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
                 '--apply',
                 ...(graphLogCompactionVacuum ? ['--vacuum'] : [])
@@ -320,13 +320,13 @@ export function buildTaskDefinitions({
                 }
 
                 return ensureLmsModelsLoaded({
-                    host           : lmsHost,
-                    models         : requiredModels,
-                    contextLengths : lmsContextLengths,
-                    allowPartial   : true,
-                    attempts       : providerReadiness?.attempts,
-                    delayMs        : providerReadiness?.delayMs,
-                    timeoutMs      : providerReadiness?.timeoutMs
+                    host          : lmsHost,
+                    models        : requiredModels,
+                    contextLengths: lmsContextLengths,
+                    allowPartial  : true,
+                    attempts      : providerReadiness?.attempts,
+                    delayMs       : providerReadiness?.delayMs,
+                    timeoutMs     : providerReadiness?.timeoutMs
                 });
             }
         };

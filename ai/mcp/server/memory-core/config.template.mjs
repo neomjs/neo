@@ -187,8 +187,8 @@ class Config extends ConfigProvider {
              * Durable wake-daemon watermarks consumed by GraphLog maintenance.
              */
             wakeDaemon: {
-                dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
-                bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
+                dataDir                       : leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
+                bridgeLastSyncIdPath          : leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
                 wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
             },
             /**
@@ -211,10 +211,10 @@ class Config extends ConfigProvider {
              * re-deriving defaults outside the Provider SSOT.
              */
             toolTelemetry: {
-                enabled: leaf(true, 'NEO_MC_TOOL_TELEMETRY_ENABLED', 'boolean'),
-                errorMaxChars: leaf(512, 'NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS', 'number'),
+                enabled          : leaf(true, 'NEO_MC_TOOL_TELEMETRY_ENABLED', 'boolean'),
+                errorMaxChars    : leaf(512, 'NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS', 'number'),
                 aggregateWindowMs: leaf(DAY_MS, 'NEO_MC_TOOL_TELEMETRY_WINDOW_MS', 'number'),
-                aggregateLimit: leaf(50, 'NEO_MC_TOOL_TELEMETRY_LIMIT', 'number')
+                aggregateLimit   : leaf(50, 'NEO_MC_TOOL_TELEMETRY_LIMIT', 'number')
             },
             /**
              * Data Schema/Table Names

@@ -88,7 +88,7 @@ function parseKeepAlive(value, fallback) {
  */
 export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     backupPath: process.env.NEO_BACKUP_PATH || path.resolve(neoRootDir, '.neo-ai-data/backups'),
-    auth: {
+    auth      : {
         host              : process.env.NEO_AUTH_HOST || null,
         port              : Number(process.env.NEO_AUTH_PORT) || 8080,
         realm             : process.env.NEO_AUTH_REALM || 'master',
@@ -100,7 +100,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     modelProvider    : process.env.NEO_MODEL_PROVIDER || 'openAiCompatible',
     graphProvider    : process.env.NEO_GRAPH_PROVIDER || 'openAiCompatible',
     embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible',
-    ollama: {
+    ollama           : {
         host                 : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
         model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
         embeddingModel       : process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
@@ -108,34 +108,34 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         requireParallelModels: Number(process.env.NEO_OLLAMA_REQUIRE_PARALLEL_MODELS) || 2
     },
     openAiCompatible: {
-        host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-        embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-        apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
-        unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
-        unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-        contentionRetryCount    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
-        contentionRetryDelayMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
-        contentionTimeoutMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
+        host                   : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+        model                  : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+        embeddingModel         : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+        apiKey                 : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
+        unloadRetryCount       : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
+        unloadRetryDelayMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+        contentionRetryCount   : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
+        contentionRetryDelayMs : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
+        contentionTimeoutMs    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
         batchEmbeddingChunkSize: Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE) || 5,
-        batchEmbeddingYieldMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
-        keep_alive              : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
-        requireParallelModels   : Number(process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS) || 2
+        batchEmbeddingYieldMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
+        keep_alive             : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
+        requireParallelModels  : Number(process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS) || 2
     },
     localModels: {
         chat: {
-            contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
+            contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
             safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000
         },
         embedding: {
-            contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
+            contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
             safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672
         }
     },
     vectorDimension: Number(process.env.NEO_VECTOR_DIMENSION) || 4096,
     modelName      : 'gemini-3.5-flash',
     embeddingModel : 'gemini-embedding-001',
-    engines: {
+    engines        : {
         chroma: {
             dataDir: path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'),
             host   : process.env.NEO_CHROMA_HOST || 'localhost',
@@ -149,15 +149,15 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             timeoutMs: Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS) || 3000
         },
         intervals: {
-            pollMs           : 3000,
-            summarySweepMs   : 10 * 60 * 1000,
-            kbSyncMs         : 30 * 60 * 1000,
-            backupMs         : DAY_MS,
-            primaryDevSyncMs : 10 * 60 * 1000,
-            tenantRepoSyncMs : 30 * 60 * 1000,
-            dreamMs          : HOUR_MS,
-            goldenPathMs     : HOUR_MS,
-            swarmHeartbeatMs : 20 * 60 * 1000,
+            pollMs                           : 3000,
+            summarySweepMs                   : 10 * 60 * 1000,
+            kbSyncMs                         : 30 * 60 * 1000,
+            backupMs                         : DAY_MS,
+            primaryDevSyncMs                 : 10 * 60 * 1000,
+            tenantRepoSyncMs                 : 30 * 60 * 1000,
+            dreamMs                          : HOUR_MS,
+            goldenPathMs                     : HOUR_MS,
+            swarmHeartbeatMs                 : 20 * 60 * 1000,
             embedDrainLivenessWatchdogCheckMs: HOUR_MS
         }
     }

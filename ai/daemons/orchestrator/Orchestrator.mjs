@@ -1,40 +1,40 @@
 // Class bootstrap belongs to `daemon.mjs`; this consumed class relies on global Neo.
-import fs                          from 'fs-extra';
-import {spawn}                     from 'child_process';
-import net                         from 'net';
-import path                        from 'path';
-import Base                        from '../../../src/core/Base.mjs';
-import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
-import AiConfig                    from '../../config.mjs';
-import neuralLinkConfig            from '../../mcp/server/neural-link/config.mjs';
-import {buildLmsPreloadConfig}     from '../../services/graph/providerReadinessHelper.mjs';
-import HealthService               from '../../services/memory-core/HealthService.mjs';
-import SQLite                      from '../../graph/storage/SQLite.mjs';
+import fs                      from 'fs-extra';
+import {spawn}                 from 'child_process';
+import net                     from 'net';
+import path                    from 'path';
+import Base                    from '../../../src/core/Base.mjs';
+import ClassSystemUtil         from '../../../src/util/ClassSystem.mjs';
+import AiConfig                from '../../config.mjs';
+import neuralLinkConfig        from '../../mcp/server/neural-link/config.mjs';
+import {buildLmsPreloadConfig} from '../../services/graph/providerReadinessHelper.mjs';
+import HealthService           from '../../services/memory-core/HealthService.mjs';
+import SQLite                  from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 } from './services/MaintenanceBackpressureService.mjs';
-import PrimaryRepoSyncService from './services/PrimaryRepoSyncService.mjs';
-import TenantRepoSyncService             from './services/TenantRepoSyncService.mjs';
-import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary.mjs';
-import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
-import {getDueTask as graphLogCompactionGetDueTaskImport} from './scheduling/graphLogCompaction.mjs';
-import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
-import {getDueTask as goldenPathGetDueTaskImport} from './scheduling/goldenPath.mjs';
-import {getDueTask as dreamGetDueTaskImport}          from './scheduling/dream.mjs';
+import PrimaryRepoSyncService                                     from './services/PrimaryRepoSyncService.mjs';
+import TenantRepoSyncService                                      from './services/TenantRepoSyncService.mjs';
+import {getDueTask as summaryGetDueTaskImport}                    from './scheduling/summary.mjs';
+import {getDueTask as backupGetDueTaskImport}                     from './scheduling/backup.mjs';
+import {getDueTask as graphLogCompactionGetDueTaskImport}         from './scheduling/graphLogCompaction.mjs';
+import {getDueTask as primaryDevSyncGetDueTaskImport}             from './scheduling/primaryDevSync.mjs';
+import {getDueTask as goldenPathGetDueTaskImport}                 from './scheduling/goldenPath.mjs';
+import {getDueTask as dreamGetDueTaskImport}                      from './scheduling/dream.mjs';
 import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport} from './scheduling/embedDrainLivenessWatchdog.mjs';
-import memoryCoreConfig                  from '../../mcp/server/memory-core/config.mjs';
-import MailboxService                    from '../../services/memory-core/MailboxService.mjs';
-import WakeSubscriptionService           from '../../services/memory-core/WakeSubscriptionService.mjs';
-import RequestContextService             from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {normalizeAgentIdentityNodeId}    from '../../scripts/lifecycle/resumeHarness.mjs';
-import TaskStateService                  from './services/TaskStateService.mjs';
-import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
-import DreamService                      from './services/DreamService.mjs';
-import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
-import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
-import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
-import {TASK_REGISTRY}                   from './scheduling/registry.mjs';
+import memoryCoreConfig                                           from '../../mcp/server/memory-core/config.mjs';
+import MailboxService                                             from '../../services/memory-core/MailboxService.mjs';
+import WakeSubscriptionService                                    from '../../services/memory-core/WakeSubscriptionService.mjs';
+import RequestContextService                                      from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {normalizeAgentIdentityNodeId}                             from '../../scripts/lifecycle/resumeHarness.mjs';
+import TaskStateService                                           from './services/TaskStateService.mjs';
+import ProcessSupervisorService                                   from './services/ProcessSupervisorService.mjs';
+import DreamService                                               from './services/DreamService.mjs';
+import SwarmHeartbeatService                                      from './services/SwarmHeartbeatService.mjs';
+import GoldenPathSynthesizer                                      from '../../services/graph/GoldenPathSynthesizer.mjs';
+import {getDueTask as tenantRepoSyncGetDueTaskImport}             from './scheduling/tenantRepoSync.mjs';
+import {TASK_REGISTRY}                                            from './scheduling/registry.mjs';
 import {
     buildOrchestratorSchedulingOptions,
     runSchedulingPipeline
@@ -103,16 +103,16 @@ function resolveCloudOnlyEnabled(key) {
  */
 export class Orchestrator extends Base {
     static config = {
-        className: 'Neo.ai.daemons.Orchestrator',
-        singleton: true,
-        processSupervisorService_: null,
+        className                      : 'Neo.ai.daemons.Orchestrator',
+        singleton                      : true,
+        processSupervisorService_      : null,
         maintenanceBackpressureService_: MaintenanceBackpressureService,
-        dataDir_: DEFAULT_DATA_DIR,
-        taskDefinitions_: null,
-        taskStateService_: TaskStateService,
-        healthService_: HealthService,
-        spawnFn_: spawn,
-        heavyMaintenanceLeasePath_: null
+        dataDir_                       : DEFAULT_DATA_DIR,
+        taskDefinitions_               : null,
+        taskStateService_              : TaskStateService,
+        healthService_                 : HealthService,
+        spawnFn_                       : spawn,
+        heavyMaintenanceLeasePath_     : null
     }
 
     primaryRepoSyncService   = PrimaryRepoSyncService
@@ -298,23 +298,23 @@ export class Orchestrator extends Base {
         const lmsPreloadConfig = this.lmsPreloadConfig;
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
-            nodeBin                            : options.nodeBin || process.argv[0],
-            chromaPort                         : AiConfig.engines.chroma.port,
-            devServerPort                      : AiConfig.orchestrator.devServer.port,
-            devServerLivenessTimeoutMs         : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
-            neuralLinkBridgePort               : neuralLinkConfig.port,
-            neuralLinkBridgeLivenessTimeoutMs  : this.neuralLinkBridgeLivenessTimeoutMs,
-            mlxEnabled                         : this.mlxEnabled,
-            mlxModel                           : AiConfig.orchestrator.mlx.model,
-            mlxPort                            : AiConfig.orchestrator.mlx.port,
-            lmsEnabled                         : this.lmsEnabled,
-            lmsModel                           : AiConfig.orchestrator.lms.model,
-            lmsModels                          : lmsPreloadConfig.models,
-            lmsHost                            : AiConfig.openAiCompatible.host,
-            lmsPort                            : AiConfig.orchestrator.lms.port,
-            lmsContextLengths                  : lmsPreloadConfig.contextLengths,
-            providerReadiness                  : AiConfig.orchestrator.providerReadiness,
-            graphLogCompactionVacuum           : AiConfig.orchestrator.graphLogCompaction.vacuum
+            nodeBin                          : options.nodeBin || process.argv[0],
+            chromaPort                       : AiConfig.engines.chroma.port,
+            devServerPort                    : AiConfig.orchestrator.devServer.port,
+            devServerLivenessTimeoutMs       : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
+            neuralLinkBridgePort             : neuralLinkConfig.port,
+            neuralLinkBridgeLivenessTimeoutMs: this.neuralLinkBridgeLivenessTimeoutMs,
+            mlxEnabled                       : this.mlxEnabled,
+            mlxModel                         : AiConfig.orchestrator.mlx.model,
+            mlxPort                          : AiConfig.orchestrator.mlx.port,
+            lmsEnabled                       : this.lmsEnabled,
+            lmsModel                         : AiConfig.orchestrator.lms.model,
+            lmsModels                        : lmsPreloadConfig.models,
+            lmsHost                          : AiConfig.openAiCompatible.host,
+            lmsPort                          : AiConfig.orchestrator.lms.port,
+            lmsContextLengths                : lmsPreloadConfig.contextLengths,
+            providerReadiness                : AiConfig.orchestrator.providerReadiness,
+            graphLogCompactionVacuum         : AiConfig.orchestrator.graphLogCompaction.vacuum
         });
 
         this.dbPath                    = options.dbPath   || DEFAULT_DB_PATH;

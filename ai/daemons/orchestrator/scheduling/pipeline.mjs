@@ -1,5 +1,5 @@
-import {collectDueCandidates}                  from './collector.mjs';
-import {pickNextCandidate}                      from './picker.mjs';
+import {collectDueCandidates}                        from './collector.mjs';
+import {pickNextCandidate}                           from './picker.mjs';
 import {evaluateStallAlarm, getEmbedDrainPendingAge} from './embedDrainLivenessWatchdog.mjs';
 
 /**
@@ -28,16 +28,16 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             state    : orchestrator.taskStateService.getState(),
             now,
             intervals: {
-                summarySweep          : config.orchestrator.intervals.summarySweepMs,
-                kbSync                : config.orchestrator.intervals.kbSyncMs,
-                backup                : config.orchestrator.intervals.backupMs,
-                graphLogCompaction    : config.orchestrator.intervals.graphLogCompactionMs,
-                primaryDevSync        : config.orchestrator.intervals.primaryDevSyncMs,
-                tenantRepoSync        : config.orchestrator.tenantRepoSync.sweepCadenceMs,
-                dream                 : config.orchestrator.intervals.dreamMs,
-                dreamOverflowThreshold: config.orchestrator.intervals.dreamOverflowThreshold,
-                goldenPath            : config.orchestrator.intervals.goldenPathMs,
-                swarmHeartbeat        : config.orchestrator.intervals.swarmHeartbeatMs,
+                summarySweep                   : config.orchestrator.intervals.summarySweepMs,
+                kbSync                         : config.orchestrator.intervals.kbSyncMs,
+                backup                         : config.orchestrator.intervals.backupMs,
+                graphLogCompaction             : config.orchestrator.intervals.graphLogCompactionMs,
+                primaryDevSync                 : config.orchestrator.intervals.primaryDevSyncMs,
+                tenantRepoSync                 : config.orchestrator.tenantRepoSync.sweepCadenceMs,
+                dream                          : config.orchestrator.intervals.dreamMs,
+                dreamOverflowThreshold         : config.orchestrator.intervals.dreamOverflowThreshold,
+                goldenPath                     : config.orchestrator.intervals.goldenPathMs,
+                swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
                 embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs
             },
             enables: {
@@ -48,40 +48,40 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 swarmHeartbeat    : orchestrator.swarmHeartbeatEnabled
             },
             hooks: {
-                log                       : orchestrator.writeLog.bind(orchestrator),
-                summaryGetDueTask         : orchestrator.summaryGetDueTask,
-                backupGetDueTask          : orchestrator.backupGetDueTask,
-                graphLogCompactionGetDueTask: orchestrator.graphLogCompactionGetDueTask,
-                primaryDevSyncGetDueTask  : orchestrator.primaryDevSyncGetDueTask,
-                tenantRepoSyncGetDueTask  : orchestrator.tenantRepoSyncGetDueTask,
-                dreamGetDueTask           : orchestrator.dreamGetDueTask,
-                goldenPathGetDueTask      : orchestrator.goldenPathGetDueTask,
-                swarmHeartbeatGetDueTask  : orchestrator.swarmHeartbeatGetDueTask,
-                swarmHeartbeatInitFailed  : !!orchestrator.swarmHeartbeatService.initFailed,
+                log                                 : orchestrator.writeLog.bind(orchestrator),
+                summaryGetDueTask                   : orchestrator.summaryGetDueTask,
+                backupGetDueTask                    : orchestrator.backupGetDueTask,
+                graphLogCompactionGetDueTask        : orchestrator.graphLogCompactionGetDueTask,
+                primaryDevSyncGetDueTask            : orchestrator.primaryDevSyncGetDueTask,
+                tenantRepoSyncGetDueTask            : orchestrator.tenantRepoSyncGetDueTask,
+                dreamGetDueTask                     : orchestrator.dreamGetDueTask,
+                goldenPathGetDueTask                : orchestrator.goldenPathGetDueTask,
+                swarmHeartbeatGetDueTask            : orchestrator.swarmHeartbeatGetDueTask,
+                swarmHeartbeatInitFailed            : !!orchestrator.swarmHeartbeatService.initFailed,
                 embedDrainLivenessWatchdogGetDueTask: orchestrator.embedDrainLivenessWatchdogGetDueTask
             }
         }),
         services: {
-            dreamService                 : orchestrator.dreamService,
-            goldenPathSynthesizer        : orchestrator.goldenPathSynthesizer,
-            healthService                : orchestrator.healthService,
-            maintenanceBackpressureService: orchestrator.maintenanceBackpressureService,
-            primaryRepoSyncService       : orchestrator.primaryRepoSyncService,
-            processSupervisorService     : orchestrator.processSupervisorService,
-            swarmHeartbeatService        : orchestrator.swarmHeartbeatService,
-            taskStateService             : orchestrator.taskStateService,
-            tenantRepoSyncService        : orchestrator.tenantRepoSyncService,
+            dreamService                     : orchestrator.dreamService,
+            goldenPathSynthesizer            : orchestrator.goldenPathSynthesizer,
+            healthService                    : orchestrator.healthService,
+            maintenanceBackpressureService   : orchestrator.maintenanceBackpressureService,
+            primaryRepoSyncService           : orchestrator.primaryRepoSyncService,
+            processSupervisorService         : orchestrator.processSupervisorService,
+            swarmHeartbeatService            : orchestrator.swarmHeartbeatService,
+            taskStateService                 : orchestrator.taskStateService,
+            tenantRepoSyncService            : orchestrator.tenantRepoSyncService,
             embedDrainLivenessAlarmDispatcher: orchestrator.embedDrainLivenessAlarmDispatcher
         },
         runtime: {
-            goldenPathRepoEnrichmentEnabled: orchestrator.goldenPathRepoEnrichmentEnabled,
-            primaryDevSyncRootsConfig      : orchestrator.primaryDevSyncRootsConfig,
-            tenantRepoSyncGlobalCadenceMs  : config.orchestrator.intervals.tenantRepoSyncMs,
-            tenantRepoSyncJitterRatio      : config.orchestrator.tenantRepoSync.jitterRatio,
-            embedDrainLivenessWatchdogWalDir     : orchestrator.embedDrainLivenessWatchdogWalDir,
-            embedDrainLivenessWatchdogThresholdMs: orchestrator.embedDrainLivenessWatchdogThresholdMs,
+            goldenPathRepoEnrichmentEnabled       : orchestrator.goldenPathRepoEnrichmentEnabled,
+            primaryDevSyncRootsConfig             : orchestrator.primaryDevSyncRootsConfig,
+            tenantRepoSyncGlobalCadenceMs         : config.orchestrator.intervals.tenantRepoSyncMs,
+            tenantRepoSyncJitterRatio             : config.orchestrator.tenantRepoSync.jitterRatio,
+            embedDrainLivenessWatchdogWalDir      : orchestrator.embedDrainLivenessWatchdogWalDir,
+            embedDrainLivenessWatchdogThresholdMs : orchestrator.embedDrainLivenessWatchdogThresholdMs,
             embedDrainLivenessWatchdogAlarmEnabled: orchestrator.embedDaemonEnabled,
-            writeLog                       : orchestrator.writeLog.bind(orchestrator)
+            writeLog                              : orchestrator.writeLog.bind(orchestrator)
         }
     };
 }
@@ -121,8 +121,8 @@ export function runSchedulingPipeline({registry, context, services, runtime}) {
 
     const winner = pickNextCandidate({
         candidates,
-        runningTasks  : runningTaskNames,
-        policyContext : {
+        runningTasks : runningTaskNames,
+        policyContext: {
             runningHeavyTasks,
             isHeavyMaintenanceConflict: services.maintenanceBackpressureService.isHeavyMaintenanceConflict?.bind(
                 services.maintenanceBackpressureService
@@ -132,7 +132,7 @@ export function runSchedulingPipeline({registry, context, services, runtime}) {
 
     if (winner) {
         executeCandidate({
-            candidate: winner,
+            candidate      : winner,
             activeHeavyTask: {
                 name: services.maintenanceBackpressureService.getActiveHeavyMaintenanceTask({
                     candidateTaskName: winner.taskName
@@ -284,9 +284,9 @@ function executeSupervisedCandidate({candidate, activeHeavyTask, services}) {
     const {taskName, trigger} = candidate;
     return executeWithMaintenance({
         taskName,
-        reason      : trigger.reason,
-        onSuccess   : trigger.onSuccess,
-        executeFn   : services.processSupervisorService.runTask.bind(services.processSupervisorService),
+        reason                        : trigger.reason,
+        onSuccess                     : trigger.onSuccess,
+        executeFn                     : services.processSupervisorService.runTask.bind(services.processSupervisorService),
         activeHeavyTask,
         maintenanceBackpressureService: services.maintenanceBackpressureService
     });
@@ -325,9 +325,9 @@ function executeServiceRunnerCandidate({candidate, activeHeavyTask, services, ru
     }
 
     return executeWithMaintenance({
-        taskName    : candidate.taskName,
-        reason      : candidate.trigger.reason,
-        onSuccess   : candidate.trigger.onSuccess,
+        taskName                      : candidate.taskName,
+        reason                        : candidate.trigger.reason,
+        onSuccess                     : candidate.trigger.onSuccess,
         executeFn,
         activeHeavyTask,
         maintenanceBackpressureService: services.maintenanceBackpressureService
@@ -336,7 +336,7 @@ function executeServiceRunnerCandidate({candidate, activeHeavyTask, services, ru
 
 function executeInProcessCandidate({candidate, activeHeavyTask, services, runtime}) {
     const runners = {
-        dream: (taskName, reason) => runDreamTask({taskName, reason, services}),
+        dream        : (taskName, reason) => runDreamTask({taskName, reason, services}),
         'golden-path': (taskName, reason) => runGoldenPathTask({
             taskName,
             reason,
@@ -361,7 +361,7 @@ function executeInProcessCandidate({candidate, activeHeavyTask, services, runtim
         return services.maintenanceBackpressureService.executeWithGoldenPathDependencyGate({
             taskName: candidate.taskName,
             executeFn,
-            reason: candidate.trigger.reason,
+            reason  : candidate.trigger.reason,
             activeHeavyTask
         });
     }
@@ -371,9 +371,9 @@ function executeInProcessCandidate({candidate, activeHeavyTask, services, runtim
     }
 
     return executeWithMaintenance({
-        taskName    : candidate.taskName,
-        reason      : candidate.trigger.reason,
-        onSuccess   : candidate.trigger.onSuccess,
+        taskName                      : candidate.taskName,
+        reason                        : candidate.trigger.reason,
+        onSuccess                     : candidate.trigger.onSuccess,
         executeFn,
         activeHeavyTask,
         maintenanceBackpressureService: services.maintenanceBackpressureService
@@ -572,18 +572,18 @@ async function runEmbedDrainLivenessWatchdogTask({taskName, reason, services, ru
         if (stalled) {
             services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
                 ...details,
-                stalledSince: stalledSince === null ? null : new Date(stalledSince).toISOString(),
+                stalledSince   : stalledSince === null ? null : new Date(stalledSince).toISOString(),
                 oldestTimestamp: oldestTimestamp === null ? null : new Date(oldestTimestamp).toISOString()
             });
 
             if (shouldAlarm && runtime.embedDrainLivenessWatchdogAlarmEnabled) {
                 await dispatchEmbedDrainStallAlarm({
-                    dispatcher  : services.embedDrainLivenessAlarmDispatcher,
-                    ageMs       : oldestAgeMs,
+                    dispatcher: services.embedDrainLivenessAlarmDispatcher,
+                    ageMs     : oldestAgeMs,
                     pendingCount,
                     thresholdMs,
                     stalledSince,
-                    writeLog    : runtime.writeLog
+                    writeLog  : runtime.writeLog
                 });
             }
         } else {

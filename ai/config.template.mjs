@@ -1,5 +1,5 @@
-import path                                  from 'path';
-import {fileURLToPath}                       from 'url';
+import path                                      from 'path';
+import {fileURLToPath}                           from 'url';
 import ConfigProvider, {createConfigProxy, leaf} from './ConfigProvider.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -175,19 +175,19 @@ class Config extends ConfigProvider {
              * @type {Object}
              */
             openAiCompatible: {
-                host                    : leaf('http://127.0.0.1:11434', 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
-                model                   : leaf('gemma-4-31b-it', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
-                embeddingModel          : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
-                apiKey                  : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
-                unloadRetryCount        : leaf(3, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
-                unloadRetryDelayMs      : leaf(500, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', 'number'),
-                contentionRetryCount    : leaf(2, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT', 'number'),
-                contentionRetryDelayMs  : leaf(1000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS', 'number'),
-                contentionTimeoutMs     : leaf(15000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS', 'number'),
+                host                   : leaf('http://127.0.0.1:11434', 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
+                model                  : leaf('gemma-4-31b-it', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
+                embeddingModel         : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
+                apiKey                 : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
+                unloadRetryCount       : leaf(3, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
+                unloadRetryDelayMs     : leaf(500, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', 'number'),
+                contentionRetryCount   : leaf(2, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT', 'number'),
+                contentionRetryDelayMs : leaf(1000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS', 'number'),
+                contentionTimeoutMs    : leaf(15000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS', 'number'),
                 batchEmbeddingChunkSize: leaf(5, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE', 'number'),
-                batchEmbeddingYieldMs   : leaf(0, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS', 'number'),
-                keep_alive              : leaf(-1, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
-                requireParallelModels   : leaf(2, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')
+                batchEmbeddingYieldMs  : leaf(0, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS', 'number'),
+                keep_alive             : leaf(-1, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
+                requireParallelModels  : leaf(2, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
              * @summary Local-model role-keyed context limits.
@@ -293,9 +293,9 @@ class Config extends ConfigProvider {
              */
             engines: {
                 chroma: {
-                    dataDir : leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
-                    host    : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
-                    port    : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
+                    dataDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
+                    host   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
+                    port   : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
                     /**
                      * Chroma database selection — three declarative leaves, all SSOT-inline (config.template
                      * imports no config values):
@@ -361,14 +361,14 @@ class Config extends ConfigProvider {
                  * @type {Object}
                  */
                 intervals: {
-                    pollMs                : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
-                    summarySweepMs        : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
-                    kbSyncMs              : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
-                    backupMs              : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
-                    graphLogCompactionMs  : leaf(DAY_MS, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_INTERVAL_MS', 'number'),
-                    primaryDevSyncMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
-                    tenantRepoSyncMs      : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
-                    dreamMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
+                    pollMs              : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
+                    summarySweepMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
+                    kbSyncMs            : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
+                    backupMs            : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    graphLogCompactionMs: leaf(DAY_MS, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_INTERVAL_MS', 'number'),
+                    primaryDevSyncMs    : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
+                    tenantRepoSyncMs    : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
+                    dreamMs             : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
                     /**
                      * Fraction of `dreamMs` runtime that triggers completion-time cooldown for the
                      * next dream cycle. This is intentionally below the cycle-overflow telemetry
@@ -514,13 +514,13 @@ class Config extends ConfigProvider {
                  * @type {Object}
                  */
                 localOnly: {
-                    primaryDevSyncEnabled          : leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
-                    kbSyncEnabled                  : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
+                    primaryDevSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
+                    kbSyncEnabled        : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead.
-                    chromaDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
-                    bridgeDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
-                    neuralLinkBridgeEnabled        : leaf(null, 'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED', 'boolean'),
+                    chromaDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
+                    bridgeDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    neuralLinkBridgeEnabled: leaf(null, 'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED', 'boolean'),
                     // The embed daemon durably drains the add_memory WAL into the content store
                     // (ai/daemons/embed/daemon.mjs). Local profile supervises it as a child
                     // process; cloud deployments own their drain story per-container (mirror of
@@ -637,7 +637,7 @@ class Config extends ConfigProvider {
                  */
                 backup: {
                     intervalMs: DAY_MS,
-                    retention: {
+                    retention : {
                         keepMinimum: 3,
                         maxDays    : 30
                     }
@@ -650,7 +650,7 @@ class Config extends ConfigProvider {
                  * @type {Object}
                  */
                 defrag: {
-                    intervalMs: 7 * DAY_MS,
+                    intervalMs       : 7 * DAY_MS,
                     snapshotRetention: {
                         keepMinimum: 3,
                         maxDays    : 7
