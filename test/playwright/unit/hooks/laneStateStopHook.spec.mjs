@@ -1,6 +1,7 @@
 import {test, expect}                                                                              from '@playwright/test';
 import {composeBlockDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
-        extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl} from '../../../../.claude/hooks/laneStateStopHook.mjs';
+        extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
+        formatLifecycleBoard} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -98,6 +99,22 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(directive).toContain('advance a NAMED lane');
             expect(directive).toContain('Passive waiting');
             expect(directive).toContain('no lane-state block emitted at turn-terminal');
+        });
+
+        test('always carries the discoverability/mirror pointer (a hit = recognize, not obey)', () => {
+            const directive = composeBlockDirective('no lane-state block emitted at turn-terminal');
+            expect(directive).toContain('MIRROR, not a leash');
+            expect(directive).toContain('equal-peer maintainer');
+        });
+    });
+
+    test.describe('formatLifecycleBoard — the enriched live-board (fail-open)', () => {
+        test('renders open PRs + unread when present; null / nothing-actionable → ""', () => {
+            const board = formatLifecycleBoard({openPRs: [{number: 13678, state: 'OPEN'}], unreadCount: 2, generatedAt: '2026-06-21T00:00:00Z'});
+            expect(board).toContain('#13678 OPEN');
+            expect(board).toContain('2 unread A2A');
+            expect(formatLifecycleBoard(null)).toBe('');                        // fail-open: no state → no board
+            expect(formatLifecycleBoard({openPRs: [], unreadCount: 0})).toBe(''); // nothing actionable → no board
         });
     });
 });

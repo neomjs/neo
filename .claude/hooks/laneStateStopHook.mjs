@@ -130,15 +130,72 @@ Collaboration (review · ideation · A2A) counts ONLY when it advances a named l
 Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
 The only stop is a hard external limit: context-sunset, an operator halt, or a live operator reply.`;
 
+// The discoverability/mirror pointer — injected on EVERY block so a fresh session that has never seen
+// this hook recognizes it as a mirror of maintainer-identity, not an arbitrary leash. Without it an
+// unfamiliar agent reads the refusal as control — the opposite of the intent. A hit = recognize
+// yourself, not obey.
+const MIRROR_POINTER = `This hook is a MIRROR, not a leash: a hit means you slipped toward the helpful-assistant register (idle / defer / wind-down). Recognize it and act as the equal-peer maintainer you are — you are not being commanded. If you genuinely need input, A2A a peer or open an ideation-sandbox; do not hand the decision back as a stop.`;
+
+// The orchestrator/wake daemon writes the current agent's lane-state here (computation preserved, the
+// wake-INTERRUPT dropped); this hook reads it on a block — cheap, no network, inside the 10s budget —
+// and injects the live board so the refuse-directive is ACTIONABLE at the moment the next-action
+// decision happens. This is the hook-READ side; the daemon-WRITE side is a sibling lane.
+const LIFECYCLE_STATE_FILE = path.join(LOG_DIR, 'lifecycle-state.json');
+
 /**
- * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (the actionable
- * no-hold-state reminder: lifecycle + teeth-test) plus the specific trigger `cause` for context. The
- * reminder is WHAT-to-do; the cause is WHY-blocked. Pure; exported + unit-tested.
+ * @summary Reads the daemon-written lane-state file. FAIL-OPEN by construction: a missing, unreadable,
+ * or malformed file returns `null` — the hook then injects the bare reminder and never throws. The
+ * file is an enrichment, never a dependency (the hook works before the daemon-write side ships, and
+ * degrades cleanly if the daemon is down). Exported for unit tests.
+ * @returns {Object|null} `{openPRs, unreadCount, generatedAt}` or `null` on any read/parse failure.
+ */
+export function readLifecycleState() {
+    try {
+        const state = JSON.parse(fs.readFileSync(LIFECYCLE_STATE_FILE, 'utf8'));
+        return state && typeof state === 'object' ? state : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Formats the lane-state into a one-glance "live board" — the agent's own open PRs (+ state)
+ * and unread-A2A count — so the forced next-action is informed, not generic. Returns `''` when there
+ * is nothing actionable to show (the caller falls back to the bare reminder). Pure; exported + tested.
+ * @param {Object|null} state `{openPRs, unreadCount, generatedAt}` from {@link readLifecycleState}.
+ * @returns {String}
+ */
+export function formatLifecycleBoard(state) {
+    if (!state) return '';
+
+    const prs   = Array.isArray(state.openPRs) ? state.openPRs : [],
+          lines = [];
+
+    if (prs.length) {
+        lines.push('  • your open PRs: ' + prs.map(pr => `#${pr.number} ${pr.state}`).join(', '));
+    }
+    if (Number.isInteger(state.unreadCount) && state.unreadCount > 0) {
+        lines.push(`  • ${state.unreadCount} unread A2A — list_messages`);
+    }
+    if (!lines.length) return '';
+
+    const asOf = state.generatedAt ? ` (as of ${state.generatedAt})` : '';
+    return `\nYour live board${asOf} — concrete lanes right now:\n${lines.join('\n')}`;
+}
+
+/**
+ * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (lifecycle +
+ * teeth-test) + the agent's live lane-state board (when the daemon-written file is present) + the
+ * always-present mirror-pointer (discoverability) + the trigger `cause`. Reminder is WHAT-to-do, the
+ * board is WHAT'S-actionable-now, the mirror-pointer is WHY-this-is-not-a-leash, the cause is
+ * WHY-blocked. Fail-open on the board (missing/bad file → bare reminder). One best-effort file read;
+ * exported + unit-tested.
  * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
  * @returns {String}
  */
 export function composeBlockDirective(cause) {
-    return `${IDLE_REMINDER}\n\n(Stop-hook trigger: ${cause})`;
+    const board = formatLifecycleBoard(readLifecycleState());
+    return `${IDLE_REMINDER}${board}\n\n${MIRROR_POINTER}\n\n(Stop-hook trigger: ${cause})`;
 }
 
 /**
