@@ -1,19 +1,19 @@
-import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import Base from '../../../src/core/Base.mjs';
-import {buildChatModel} from '../../provider/buildChatModel.mjs';
-import {invokeWithGuardrail} from './helpers/consumerFrictionHelper.mjs';
-import {withTimeout} from './helpers/withTimeout.mjs';
+import aiConfig                                      from '../../mcp/server/memory-core/config.mjs';
+import Base                                          from '../../../src/core/Base.mjs';
+import {buildChatModel}                              from '../../provider/buildChatModel.mjs';
+import {invokeWithGuardrail}                         from './helpers/consumerFrictionHelper.mjs';
+import {withTimeout}                                 from './helpers/withTimeout.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
-import crypto from 'crypto';
-import GraphService from './GraphService.mjs';
-import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
+import crypto                                        from 'crypto';
+import GraphService                                  from './GraphService.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}   from '../../graph/identityRoots.mjs';
 
 import StorageRouter from './managers/StorageRouter.mjs';
-import Json from '../../../src/util/Json.mjs';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import logger from '../../mcp/server/memory-core/logger.mjs';
+import Json          from '../../../src/util/Json.mjs';
+import fs            from 'fs';
+import path          from 'path';
+import os            from 'os';
+import logger        from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {
     SHARED_USER_ID,
     normalizeUserId,
@@ -471,10 +471,45 @@ class SessionService extends Base {
             return null;
         }
 
-        const memories = await this.memoryCollection.get({
-            where: { sessionId },
-            include: ['documents', 'metadatas']
-        });
+        // Paginate — a single un-paginated .get (the prior behavior) hit Chroma's default page bound
+        // and undercounted larger sessions, so the written memoryCount fell below the drift-detector's
+        // paginated count and the session was re-summarized every sweep (and the summary was truncated
+        // to the first page). Real Chroma respects offset, so this gathers the full set; dedup-by-id +
+        // stop-when-a-page-adds-nothing-new is a defensive guard that safely terminates even if a backing
+        // collection (e.g. an offset-blind mock) repeats a page, instead of looping forever.
+        const memories  = {ids: [], documents: [], metadatas: []};
+        const pageLimit = aiConfig.summarizationBatchLimit;
+        const seenIds   = new Set();
+        let pageOffset  = 0;
+
+        while (true) {
+            const page      = await this.memoryCollection.get({
+                where  : {sessionId},
+                include: ['documents', 'metadatas'],
+                limit  : pageLimit,
+                offset : pageOffset
+            });
+            const pageCount = page.ids?.length || 0;
+
+            if (pageCount === 0) break;
+
+            let addedThisPage = 0;
+
+            for (let i = 0; i < pageCount; i++) {
+                if (seenIds.has(page.ids[i])) continue;
+                seenIds.add(page.ids[i]);
+                memories.ids.push(page.ids[i]);
+                memories.documents.push(page.documents[i]);
+                memories.metadatas.push(page.metadatas[i]);
+                addedThisPage++;
+            }
+
+            // No new ids — the collection ignored offset (an offset-blind mock) or repeated the last
+            // page; either way we've gathered everything, so stop instead of looping forever.
+            if (addedThisPage === 0) break;
+
+            pageOffset += pageCount;
+        }
 
         if (memories.ids.length === 0) return null;
 
