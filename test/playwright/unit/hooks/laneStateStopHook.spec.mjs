@@ -18,7 +18,7 @@ const block = body => '```lane-state\n' + body + '\n```';
 test.describe('laneStateStopHook — pure idle-out decision logic', () => {
     test.describe('parseOutcomeToVerdict — the 3-bucket chain', () => {
         const alwaysValid   = () => ({valid: true,  violations: []}),
-              alwaysInvalid = () => ({valid: false, violations: ['Rule 4: verified-no-lane without a full-backlog survey']});
+              alwaysInvalid = () => ({valid: false, violations: ['invalid lane-state terminal']});
 
         test('MALFORMED emission (parseLaneState threw) → invalid, with the parse error in the reason', () => {
             const verdict = parseOutcomeToVerdict({descriptor: null, parseError: new Error('Unexpected token }')}, alwaysValid);
@@ -38,9 +38,9 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
         });
 
         test('a parsed descriptor — INVALID → invalid verdict carrying the validator violations', () => {
-            const verdict = parseOutcomeToVerdict({descriptor: {laneContinuation: 'verified-no-lane'}, parseError: null}, alwaysInvalid);
+            const verdict = parseOutcomeToVerdict({descriptor: {laneContinuation: 'active-lane'}, parseError: null}, alwaysInvalid);
             expect(verdict.valid).toBe(false);
-            expect(verdict.reason).toContain('Rule 4');
+            expect(verdict.reason).toContain('invalid lane-state terminal');
         });
     });
 
@@ -152,10 +152,10 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(stdout).toBe('');
     });
 
-    test('an INVALID emission (verified-no-lane, no full-backlog survey) → WOULD-BLOCK via Rule 4', async () => {
+    test('an INVALID emission (verified-no-lane — a retired continuation) → WOULD-BLOCK as unknown', async () => {
         const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'));
         expect(log).toContain('WOULD-BLOCK');
-        expect(log).toContain('full-backlog survey');
+        expect(log).toContain('Unknown laneContinuation');
         expect(stdout).toBe('');
     });
 
@@ -176,7 +176,7 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(log).toContain('BLOCK');
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
-        expect(decision.reason).toContain('full-backlog survey');
+        expect(decision.reason).toContain('Unknown laneContinuation');
     });
 
     test('JSONL fallback: a valid block in the last assistant transcript record → WOULD-ALLOW', async () => {

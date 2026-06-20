@@ -56,42 +56,16 @@ test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () =
         expect(result.valid).toBe(true);
     });
 
-    test('verified-no-lane fails on an own-PR/own-epic slice (no full-backlog survey)', () => {
-        const result = validateLaneStateTerminal({
-            laneContinuation: 'verified-no-lane',
-            backlogSurvey   : {checkedAt: NOW, scope: 'own-pr'}
-        });
-        expect(result.valid).toBe(false);
-        expect(result.violations.join(' ')).toContain('full-backlog');
-    });
-
-    test('verified-no-lane fails when no survey is cited at all', () => {
+    test('verified-no-lane is retired — now rejected as an unknown (non-driving) continuation', () => {
         const result = validateLaneStateTerminal({laneContinuation: 'verified-no-lane'});
         expect(result.valid).toBe(false);
-        expect(result.violations.join(' ')).toContain('full-backlog survey');
-    });
-
-    test('verified-no-lane passes with a named full-backlog survey + checkedAt', () => {
-        const result = validateLaneStateTerminal({
-            laneContinuation: 'verified-no-lane',
-            backlogSurvey   : {checkedAt: NOW, scope: 'full-backlog'}
-        });
-        expect(result.valid).toBe(true);
+        expect(result.violations.join(' ')).toContain("Unknown laneContinuation 'verified-no-lane'");
     });
 
     test('an unknown laneContinuation (e.g. "holding") fails', () => {
         const result = validateLaneStateTerminal({laneContinuation: 'holding'});
         expect(result.valid).toBe(false);
         expect(result.violations.join(' ')).toContain("Unknown laneContinuation 'holding'");
-    });
-
-    test('verified-no-lane fails when the survey is unscoped (the no-scope loophole)', () => {
-        const result = validateLaneStateTerminal({
-            laneContinuation: 'verified-no-lane',
-            backlogSurvey   : {checkedAt: NOW}   // checkedAt but no scope → not a proven full-backlog survey
-        });
-        expect(result.valid).toBe(false);
-        expect(result.violations.join(' ')).toContain('full-backlog survey scope');
     });
 
     test('a named gate claiming merge state must cite field mergedAt, not state', () => {

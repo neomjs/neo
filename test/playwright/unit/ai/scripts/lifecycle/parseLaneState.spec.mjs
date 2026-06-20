@@ -38,15 +38,14 @@ test.describe('parseLaneState — fenced lane-state block extraction', () => {
     });
 
     test('the LAST block wins when multiple are present', () => {
-        const text = '```lane-state\n{"laneContinuation":"active-lane"}\n```\n...later...\n```lane-state\n{"laneContinuation":"verified-no-lane","backlogSurvey":{"checkedAt":"t","scope":"full-backlog"}}\n```';
-        expect(parseLaneState(text).laneContinuation).toBe('verified-no-lane');
+        const text = '```lane-state\n{"laneContinuation":"active-lane"}\n```\n...later...\n```lane-state\n{"laneContinuation":"blocker-routed"}\n```';
+        expect(parseLaneState(text).laneContinuation).toBe('blocker-routed');
     });
 
     test('normalizes missing optional fields to safe defaults', () => {
         const d = parseLaneState('```lane-state\n{"laneContinuation":"next-lane"}\n```');
         expect(d.namedGates).toEqual([]);
         expect(d.awaitingOwnPrOnly).toBe(false);
-        expect(d.backlogSurvey).toBe(null);
     });
 
     test('round-trips into validateLaneStateTerminal — the hook seam end-to-end (#12633)', () => {
