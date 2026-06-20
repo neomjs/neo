@@ -324,9 +324,18 @@ class SessionService extends Base {
      * -   **Parallel / Crash Path:** Session A crashes after adding 5 memories. Summary has 10, DB has 15.
      *     Next startup sees Mismatch. Re-summarizes to capture the lost 5 memories.
      *
+     * 4.  **Churn-gate:** A session whose newest memory is within the swarm idle window
+     *     (`swarmHeartbeat.idleThresholdMs`) is still actively receiving turns; its DB count climbs
+     *     every turn while the last summary's count lags, so it trips the Case-B mismatch on *every*
+     *     sweep. Such sessions are skipped until they go quiet, collapsing the re-summarization ratio
+     *     toward ~1 (measured churn before the gate: 7 sessions re-summarized 16-22×/day).
+     *
+     * @param {Object} [options]
+     * @param {Number|Date|String} [options.now=Date.now()] Clock source (testable; also threaded to
+     *   `getExternallyActiveSessionIds` so a sweep uses one consistent clock).
      * @returns {Promise<String[]>} List of Session IDs requiring summarization.
      */
-    async findSessionsToSummarize() {
+    async findSessionsToSummarize({now = Date.now()} = {}) {
         // 1. Get metadata for memories — all-time scope. (The prior 30-day window was an obsolete
         // boot/healthcheck-timeout safeguard from when MC summarized on server boot.)
         const limit = aiConfig.summarizationBatchLimit;
@@ -379,8 +388,12 @@ class SessionService extends Base {
             }
 
             sessions[m.sessionId].count++;
-            if (m.timestamp && m.timestamp > sessions[m.sessionId].lastActivity) {
-                sessions[m.sessionId].lastActivity = m.timestamp;
+            // Normalize to epoch-ms (numeric, numeric-string, ISO, and the legacy `Memory: <iso>`
+            // name formats are all in play) so lastActivity is a reliable clock for the churn-gate
+            // below — mirrors getExternallyActiveSessionIds' resolution.
+            const tsMs = this.resolveGraphTimestampMs(m.timestamp, m.name);
+            if (tsMs !== null && tsMs > sessions[m.sessionId].lastActivity) {
+                sessions[m.sessionId].lastActivity = tsMs;
             }
         });
 
@@ -423,19 +436,35 @@ class SessionService extends Base {
         });
 
         // 4. Determine candidates
-        const externallyActiveSessionIds = this.getExternallyActiveSessionIds();
+        const nowMs = typeof now === 'number' ? now : new Date(now).getTime();
+        // Re-summary churn-gate threshold. Reuses the swarm idle definition — one idle
+        // concept, no new config leaf. A session whose newest memory is within this window
+        // is still actively receiving turns, so summarizing it now is stale-on-write and re-churns.
+        const churnCooldownMs = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
+        const externallyActiveSessionIds = this.getExternallyActiveSessionIds({now: nowMs});
         const sessionsToUpdate = [];
 
         Object.keys(sessions).forEach(sessionId => {
             const sessionData = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
-            // Explicitly exclude sessions that are still active in this process or another
-            // live harness. Stale/crashed sessions fall back into the self-healing drift path.
+            // Skip the in-process current session (it summarizes on its own sunset).
             if (sessionId === this.currentSessionId) {
                 return;
             }
 
+            // PRIMARY churn-gate: an actively-growing session trips the Case-B count mismatch
+            // below on EVERY sweep (measured: 7 sessions re-summarized 16-22×/day while holding the
+            // heavy-maintenance lease). Graph-truth via the memory timestamp closes the gap the
+            // WAKE_SUBSCRIPTION skip misses; once the session goes quiet past the window it is
+            // summarized once → counts match → no further churn. A crashed session IS idle, so the
+            // eventual-consistency capture still fires once it ages past the window (no regression).
+            if (sessionData.lastActivity && (nowMs - sessionData.lastActivity) < churnCooldownMs) {
+                return;
+            }
+
+            // Secondary cross-harness skip — now largely subsumed by the idle-gate above; retained as
+            // defense-in-depth pending the follow-up cleanup (idle-gate ⊇ this for fresh rows).
             if (externallyActiveSessionIds.has(sessionId)) {
                 logger.info(`[SessionService] Skipping externally active session ${sessionId} during drift detection.`);
                 return;
