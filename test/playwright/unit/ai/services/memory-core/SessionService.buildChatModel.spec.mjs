@@ -13,8 +13,8 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import fs             from 'fs-extra';
+import {test, expect}        from '@playwright/test';
+import fs                    from 'fs-extra';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import * as core             from '../../../../../../src/core/_export.mjs';
 import InteractiveBatchQueue from '../../../../../../ai/provider/InteractiveBatchQueue.mjs';
@@ -50,9 +50,9 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     test('modelProvider=ollama returns generateContent wrapping native Ollama provider', async () => {
         const captured = [];
         const fakeOllama = {
-            host         : 'fake://injected',
-            modelName    : 'fake-injected',
-            keepAlive    : null,
+            host     : 'fake://injected',
+            modelName: 'fake-injected',
+            keepAlive: null,
             async generate(promptText) {
                 captured.push({promptText, host: this.host, modelName: this.modelName, keepAlive: this.keepAlive});
                 return {content: 'fake-content-for: ' + promptText, raw: {message: {content: 'fake-content-for: ' + promptText}}};
@@ -60,9 +60,9 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         };
 
         const model = buildChatModel({
-            modelProvider          : 'ollama',
-            ollamaConfig           : {host: 'http://ollama.test', model: 'test-gemma', embeddingModel: null, keep_alive: -1},
-            ollamaProviderFactory  : (cfg) => {
+            modelProvider        : 'ollama',
+            ollamaConfig         : {host: 'http://ollama.test', model: 'test-gemma', embeddingModel: null, keep_alive: -1},
+            ollamaProviderFactory: (cfg) => {
                 fakeOllama.host      = cfg.host;
                 fakeOllama.modelName = cfg.modelName;
                 fakeOllama.keepAlive = cfg.keepAlive;
@@ -104,9 +104,9 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         // Pass a mutable ollamaConfig ref so we can change it between invocations.
         const ollamaConfig = {host: 'http://v1.test', model: 'model-v1', keep_alive: -1};
         const model = buildChatModel({
-            modelProvider         : 'ollama',
+            modelProvider        : 'ollama',
             ollamaConfig,
-            ollamaProviderFactory : () => fakeOllama
+            ollamaProviderFactory: () => fakeOllama
         });
 
         await model.generateContent('first');
@@ -240,10 +240,10 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         const fakeGemini = {generateContent: async () => ({response: {text: () => 'gemini-mock'}})};
         const factoryCalls = [];
         const model = buildChatModel({
-            modelProvider       : 'gemini',
-            geminiApiKey        : 'gem-key',
-            geminiModelName     : 'gemini-pro',
-            geminiClientFactory : (apiKey, modelName) => {
+            modelProvider      : 'gemini',
+            geminiApiKey       : 'gem-key',
+            geminiModelName    : 'gemini-pro',
+            geminiClientFactory: (apiKey, modelName) => {
                 factoryCalls.push({apiKey, modelName});
                 return fakeGemini;
             }
@@ -399,7 +399,7 @@ test.describe('SessionService summary provenance (#10292)', () => {
         expect(authoredByEdges[0][0]).toBe(result.summaryId);
         expect(authoredByEdges[0][1]).toBe('@neo-gpt');
         expect(authoredByEdges[0][4]).toMatchObject({
-            userId          : '@neo-gpt',
+            userId          : 'neo-gpt',
             sharedEntity    : true,
             provenancePolicy: 'most-restrictive-source'
         });

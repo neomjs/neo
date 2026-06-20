@@ -1,12 +1,12 @@
-import crypto                 from 'crypto';
-import fs                     from 'fs-extra';
-import path                   from 'path';
-import Base                   from '../../../src/core/Base.mjs';
-import GraphService           from './GraphService.mjs';
-import aiConfig               from '../../mcp/server/memory-core/config.mjs';
-import RequestContextService  from '../../mcp/server/shared/services/RequestContextService.mjs';
-import logger                 from '../../mcp/server/memory-core/logger.mjs';
-import CoalescingEngineService from './CoalescingEngineService.mjs';
+import crypto                                                                                   from 'crypto';
+import fs                                                                                       from 'fs-extra';
+import path                                                                                     from 'path';
+import Base                                                                                     from '../../../src/core/Base.mjs';
+import GraphService                                                                             from './GraphService.mjs';
+import aiConfig                                                                                 from '../../mcp/server/memory-core/config.mjs';
+import RequestContextService, {normalizeUserId}                                                 from '../../mcp/server/shared/services/RequestContextService.mjs';
+import logger                                                                                   from '../../mcp/server/memory-core/logger.mjs';
+import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 
 /**
@@ -374,9 +374,9 @@ class WakeSubscriptionService extends Base {
 
         // Create new subscription from template.
         const result = await this.subscribe({
-            trigger: template.trigger,
-            filters: template.filters || {},
-            harnessTarget: template.harnessTarget,
+            trigger              : template.trigger,
+            filters              : template.filters || {},
+            harnessTarget        : template.harnessTarget,
             harnessTargetMetadata: mergedMetadata
         });
 
@@ -425,7 +425,7 @@ class WakeSubscriptionService extends Base {
         const wakePolicy  = this.validWakePolicies.includes(presence.wakePolicy) ? presence.wakePolicy : 'next_turn';
 
         const properties = {
-            agentIdentity: owner,
+            agentIdentity  : owner,
             subscriptionId,
             state,
             activeTurnId   : presence.activeTurnId || null,
@@ -441,7 +441,7 @@ class WakeSubscriptionService extends Base {
             expiresAt      : new Date(nowDate.getTime() + this.harnessPresenceTtlMs).toISOString(),
             updatedAt      : nowIso,
             status         : 'active',
-            userId         : owner,
+            userId         : normalizeUserId(owner),
             sharedEntity   : false
         };
 
@@ -722,7 +722,7 @@ class WakeSubscriptionService extends Base {
         return {
             lastActivityAt: new Date(lastMs).toISOString(),
             ageMs,
-            fresh: ageMs >= 0 && ageMs <= freshMs
+            fresh         : ageMs >= 0 && ageMs <= freshMs
         };
     }
 
@@ -868,16 +868,16 @@ class WakeSubscriptionService extends Base {
         }
 
         const properties = {
-            agentIdentity: owner,
+            agentIdentity        : owner,
             trigger,
             filters,
             harnessTarget,
             harnessTargetMetadata: finalMetadata,
-            createdAt    : now,
-            updatedAt    : now,
-            userId       : owner,
-            sharedEntity : false,
-            status       : 'active'
+            createdAt            : now,
+            updatedAt            : now,
+            userId               : normalizeUserId(owner),
+            sharedEntity         : false,
+            status               : 'active'
         };
 
         GraphService.upsertNode({

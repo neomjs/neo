@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import fs                    from 'fs-extra';
-import path                  from 'path';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import path           from 'path';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 import                            '../../../../../../src/manager/Instance.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
@@ -138,6 +138,25 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
         expect(sentBy).toBe('@alice');
         expect(sentTo).toBe('@bob');
+    });
+
+    test('addMessage stamps the normalized canonical user_id, keeping @-form only as the sender label (#13578)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({ to: '@bob', subject: 'Canon', body: 'body' });
+        });
+
+        const node = GraphService.db.nodes.get(res.messageId);
+        // The user_id isolation column is the normalized form (no @); `from` stays the @-form sender label.
+        expect(node.properties.userId).toBe('alice');
+        expect(node.properties.from).toBe('@alice');
+
+        // The pre-set mailbox edges carry the normalized user_id too (they bypass upsertNode's default stamp).
+        const sentByEdge = GraphService.db.edges.items.find(e => e.source === res.messageId && e.type === 'SENT_BY');
+        expect(sentByEdge.properties.userId).toBe('alice');
     });
 
     test('addMessage throws when a required SENT_TO routing edge is culled (#10284)', async () => {
@@ -383,16 +402,16 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         let msgId;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to: '@bob',
-                subject: 'Rich semantics',
-                body: 'body',
-                priority: 'high',
+                to             : '@bob',
+                subject        : 'Rich semantics',
+                body           : 'body',
+                priority       : 'high',
                 originSessionId: 'SESSION:123',
                 relatedSessions: ['SESSION:456'],
-                relatedTickets: ['ISSUE:10168'],
-                inReplyTo: 'MESSAGE:abc',
-                partOfThread: 'THREAD:xyz',
-                taggedConcepts: ['CONCEPT:test']
+                relatedTickets : ['ISSUE:10168'],
+                inReplyTo      : 'MESSAGE:abc',
+                partOfThread   : 'THREAD:xyz',
+                taggedConcepts : ['CONCEPT:test']
             });
             msgId = res.messageId;
             expect(res.priority).toBe('high');
@@ -420,11 +439,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         let msgId;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to             : '@alice',
-                subject        : 'Sunset handover',
-                body           : 'handover payload',
-                taggedConcepts : ['sunset-protocol-handover'],
-                wakeSuppressed : true
+                to            : '@alice',
+                subject       : 'Sunset handover',
+                body          : 'handover payload',
+                taggedConcepts: ['sunset-protocol-handover'],
+                wakeSuppressed: true
             });
             msgId = res.messageId;
 
@@ -451,18 +470,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await expect(MailboxService.addMessage({
-                to             : '@bob',
-                subject        : '[review][REQUEST_CHANGES] #13290 — close-target gate',
-                body           : 'This must wake the PR author.',
-                wakeSuppressed : true
+                to            : '@bob',
+                subject       : '[review][REQUEST_CHANGES] #13290 — close-target gate',
+                body          : 'This must wake the PR author.',
+                wakeSuppressed: true
             })).rejects.toThrow(/Cannot suppress wake for actionable direct lifecycle subject/);
 
             await expect(MailboxService.addMessage({
-                to             : '@bob',
-                subject        : 'urgent direct escalation',
-                body           : 'High-priority direct messages must wake.',
-                priority       : 'high',
-                wakeSuppressed : true
+                to            : '@bob',
+                subject       : 'urgent direct escalation',
+                body          : 'High-priority direct messages must wake.',
+                priority      : 'high',
+                wakeSuppressed: true
             })).rejects.toThrow(/Cannot suppress wake for high-priority direct message/);
         });
 
@@ -479,26 +498,26 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const baton = await MailboxService.addMessage({
-                to             : '@bob',
-                subject        : '[handoff] Lead Role Baton',
-                body           : 'fromLead: @alice\ntoLead: @bob',
-                taggedConcepts : ['lead-role-baton'],
-                wakeSuppressed : true
+                to            : '@bob',
+                subject       : '[handoff] Lead Role Baton',
+                body          : 'fromLead: @alice\ntoLead: @bob',
+                taggedConcepts: ['lead-role-baton'],
+                wakeSuppressed: true
             });
 
             const audit = await MailboxService.addMessage({
-                to             : '@bob',
-                subject        : '[alert] critical: errorRate 0.9 over threshold 0.1 (tenant tenant-x)',
-                body           : 'KB audit alert.',
-                priority       : 'high',
-                wakeSuppressed : true
+                to            : '@bob',
+                subject       : '[alert] critical: errorRate 0.9 over threshold 0.1 (tenant tenant-x)',
+                body          : 'KB audit alert.',
+                priority      : 'high',
+                wakeSuppressed: true
             });
 
             const awareness = await MailboxService.addMessage({
-                to             : 'AGENT:*',
-                subject        : '[lane-claim] #13295 — non-overlapping awareness',
-                body           : 'Broadcast awareness only.',
-                wakeSuppressed : true
+                to            : 'AGENT:*',
+                subject       : '[lane-claim] #13295 — non-overlapping awareness',
+                body          : 'Broadcast awareness only.',
+                wakeSuppressed: true
             });
 
             expect((await MailboxService.getMessage({ messageId: baton.messageId })).wakeSuppressed).toBe(true);
@@ -820,9 +839,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
     test('#13091: countMessages excludes archived per-recipient broadcasts by default', async () => {
         const
-            senderIdentity    = '@neo-mailbox-archive-broadcast-sender',
-            archivedIdentity  = '@neo-mailbox-archive-broadcast-recipient',
-            unreadIdentity    = '@neo-mailbox-archive-broadcast-unread';
+            senderIdentity   = '@neo-mailbox-archive-broadcast-sender',
+            archivedIdentity = '@neo-mailbox-archive-broadcast-recipient',
+            unreadIdentity   = '@neo-mailbox-archive-broadcast-unread';
 
         GraphService.upsertNode({ id: senderIdentity,   type: 'AgentIdentity', name: 'ArchiveBroadcastSender',    properties: { accountType: 'agent' } });
         GraphService.upsertNode({ id: archivedIdentity, type: 'AgentIdentity', name: 'ArchiveBroadcastRecipient', properties: { accountType: 'agent' } });
@@ -1448,9 +1467,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         test('#13091: buildMailboxDelta excludes archived per-recipient broadcasts', async () => {
             const
-                senderIdentity    = '@neo-mailbox-delta-broadcast-sender',
-                archivedIdentity  = '@neo-mailbox-delta-broadcast-recipient',
-                unreadIdentity    = '@neo-mailbox-delta-broadcast-unread';
+                senderIdentity   = '@neo-mailbox-delta-broadcast-sender',
+                archivedIdentity = '@neo-mailbox-delta-broadcast-recipient',
+                unreadIdentity   = '@neo-mailbox-delta-broadcast-unread';
 
             GraphService.upsertNode({ id: senderIdentity,   type: 'AgentIdentity', name: 'DeltaBroadcastSender',    properties: { accountType: 'agent' } });
             GraphService.upsertNode({ id: archivedIdentity, type: 'AgentIdentity', name: 'DeltaBroadcastRecipient', properties: { accountType: 'agent' } });
@@ -1548,9 +1567,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         test('resolves AGENT:<family>/<model> alias when exactly one AgentIdentity matches', async () => {
             // Seed an AgentIdentity with a unique modelFamily so the alias-resolve path can hit.
             GraphService.upsertNode({
-                id: '@neo-test-agent',
-                type: 'AgentIdentity',
-                name: 'Test Agent',
+                id        : '@neo-test-agent',
+                type      : 'AgentIdentity',
+                name      : 'Test Agent',
                 properties: { modelFamily: 'testfamily', accountType: 'agent' }
             });
 
@@ -1587,15 +1606,15 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             // Seed two AgentIdentities with the same modelFamily so the alias-resolve path
             // finds multiple candidates and rejects rather than picking arbitrarily.
             GraphService.upsertNode({
-                id: '@neo-test-a',
-                type: 'AgentIdentity',
-                name: 'Test A',
+                id        : '@neo-test-a',
+                type      : 'AgentIdentity',
+                name      : 'Test A',
                 properties: { modelFamily: 'multifam', accountType: 'agent' }
             });
             GraphService.upsertNode({
-                id: '@neo-test-b',
-                type: 'AgentIdentity',
-                name: 'Test B',
+                id        : '@neo-test-b',
+                type      : 'AgentIdentity',
+                name      : 'Test B',
                 properties: { modelFamily: 'multifam', accountType: 'agent' }
             });
 
@@ -1820,22 +1839,22 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
                 ]
             },
             metadata: {
-                sessionId: 'session-abc-123',
+                sessionId     : 'session-abc-123',
                 relatedTickets: ['#10334', '#10311'],
-                parentTask: null
+                parentTask    : null
             },
             expectedOutput: { shape: 'review', locationHint: 'post as PR comment' },
-            budget: { deadline: '2026-04-30T00:00:00Z', maxTokens: 8000 },
-            expiresAt: '2026-04-30T00:00:00Z'
+            budget        : { deadline: '2026-04-30T00:00:00Z', maxTokens: 8000 },
+            expiresAt     : '2026-04-30T00:00:00Z'
         };
 
         let msgId;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to: '@bob',
+                to     : '@bob',
                 subject: 'Task delegation',
-                body: 'See task envelope',
-                task: taskPayload
+                body   : 'See task envelope',
+                task   : taskPayload
             });
             msgId = res.messageId;
         });
@@ -2079,12 +2098,12 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
     test('addMessage and transitionTask enforce state enum validation', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await expect(MailboxService.addMessage({
-                to: '@bob', subject: 'task', body: 'body',
+                to  : '@bob', subject: 'task', body: 'body',
                 task: { state: 'InvalidState' }
             })).rejects.toThrow(/Invalid task state: InvalidState/);
 
             const res = await MailboxService.addMessage({
-                to: '@bob', subject: 'task', body: 'body',
+                to  : '@bob', subject: 'task', body: 'body',
                 task: { state: 'Submitted' }
             });
 
@@ -2099,7 +2118,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         // Alice creates task for Bob
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to: '@bob', subject: 'task', body: 'body',
+                to  : '@bob', subject: 'task', body: 'body',
                 task: { state: 'Submitted' }
             });
             msgId = res.messageId;
@@ -2137,7 +2156,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         let msg2Id;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to: '@bob', subject: 'task2', body: 'body',
+                to  : '@bob', subject: 'task2', body: 'body',
                 task: { state: 'Submitted' }
             });
             msg2Id = res.messageId;
@@ -2151,7 +2170,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         let msg3Id;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to: '@bob', subject: 'task3', body: 'body',
+                to  : '@bob', subject: 'task3', body: 'body',
                 task: { state: 'Submitted' }
             });
             msg3Id = res.messageId;
@@ -2168,7 +2187,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         let msgId;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to: '@bob', subject: 'task', body: 'body',
+                to  : '@bob', subject: 'task', body: 'body',
                 task: { state: 'Submitted' }
             });
             msgId = res.messageId;
@@ -2198,7 +2217,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         // Broadcast task -> ANY agent could potentially be assignee
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({
-                to: 'AGENT:*', subject: 'task', body: 'body',
+                to  : 'AGENT:*', subject: 'task', body: 'body',
                 task: { state: 'Submitted' }
             });
             msgId = res.messageId;

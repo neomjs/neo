@@ -131,7 +131,7 @@ class SessionService extends Base {
 
         return {
             sourceAgentIdentities: [...sourceAgentIdentities],
-            sourceTrustTier     : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
+            sourceTrustTier      : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
             unclassifiedSourceCount
         };
     }
@@ -170,11 +170,11 @@ class SessionService extends Base {
         }
 
         this.model = buildChatModel({
-            modelProvider          : aiConfig.modelProvider,
-            openAiCompatibleConfig : aiConfig.openAiCompatible,
-            ollamaConfig           : aiConfig.ollama,
-            geminiApiKey           : process.env.GEMINI_API_KEY,
-            geminiModelName        : aiConfig.modelName
+            modelProvider         : aiConfig.modelProvider,
+            openAiCompatibleConfig: aiConfig.openAiCompatible,
+            ollamaConfig          : aiConfig.ollama,
+            geminiApiKey          : process.env.GEMINI_API_KEY,
+            geminiModelName       : aiConfig.modelName
         });
     }
 
@@ -711,11 +711,11 @@ ${sessionContent}
         const summaryMetadata = {
             sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
             title, category, quality, productivity, impact, complexity,
-            technologies: (technologies || []).join(','),
-            participatingAgents: participatingAgents.join(','),
-            models: models.join(','),
+            technologies         : (technologies || []).join(','),
+            participatingAgents  : participatingAgents.join(','),
+            models               : models.join(','),
             totalToolCalls,
-            toolsUsed: Array.from(allToolsUsed).join(','),
+            toolsUsed            : Array.from(allToolsUsed).join(','),
             sourceAgentIdentities: sourceProvenance.sourceAgentIdentities.join(','),
             sourceTrustTier      : sourceProvenance.sourceTrustTier,
             provenancePolicy     : 'most-restrictive-source',
@@ -729,19 +729,19 @@ ${sessionContent}
         if (userId) summaryMetadata.userId = userId;
 
         await this.sessionsCollection.upsert({
-            ids: [summaryId],
+            ids      : [summaryId],
             documents: [summary],
             metadatas: [summaryMetadata]
         });
 
         // --- 1. Topological Ingestion (Graph Mapping) ---
         GraphService.upsertNode({
-            id: summaryId,
-            type: 'SESSION_SUMMARY',
-            name: title,
-            description: `${category} session by ${participatingAgents.join(', ')}`,
+            id              : summaryId,
+            type            : 'SESSION_SUMMARY',
+            name            : title,
+            description     : `${category} session by ${participatingAgents.join(', ')}`,
             semanticVectorId: summaryId,
-            properties: {
+            properties      : {
                 sessionId,
                 sourceAgentIdentities: sourceProvenance.sourceAgentIdentities,
                 sourceTrustTier      : sourceProvenance.sourceTrustTier,
@@ -761,7 +761,7 @@ ${sessionContent}
         for (const agentIdentity of graphAgentIdentities) {
             GraphService.linkNodes(summaryId, agentIdentity, 'AUTHORED_BY', 1.0, {
                 timestamp,
-                userId          : agentIdentity,
+                userId          : normalizeUserId(agentIdentity),
                 sharedEntity    : true,
                 provenancePolicy: 'most-restrictive-source'
             });
@@ -863,13 +863,13 @@ ${sessionContent}
                             const planMetadata = {
                                 sessionId,
                                 timestamp: stats.mtimeMs,
-                                type: 'implementation_plan',
-                                source: 'antigravity'
+                                type     : 'implementation_plan',
+                                source   : 'antigravity'
                             };
                             if (planUserId) planMetadata.userId = planUserId;
 
                             await this.memoryCollection.upsert({
-                                ids: [artifactId],
+                                ids      : [artifactId],
                                 metadatas: [planMetadata],
                                 documents: [content]
                             });
@@ -879,10 +879,10 @@ ${sessionContent}
 
                         // Tie it structurally into Graph
                         GraphService.upsertNode({
-                            id: artifactId,
-                            type: 'IMPLEMENTATION_PLAN',
-                            name: `Antigravity Plan (${convId})`,
-                            description: `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
+                            id              : artifactId,
+                            type            : 'IMPLEMENTATION_PLAN',
+                            name            : `Antigravity Plan (${convId})`,
+                            description     : `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
                             semanticVectorId: artifactId
                         });
 
@@ -919,7 +919,7 @@ ${sessionContent}
         if (RequestContextService.getSessionId()) {
             return {
                 error: 'Cannot manually override request-scoped sessions. Manage session identity via Mcp-Session-Id header.',
-                code: 'REQUEST_SCOPED_SESSION_ACTIVE'
+                code : 'REQUEST_SCOPED_SESSION_ACTIVE'
             };
         }
 
@@ -1001,8 +1001,8 @@ ${sessionContent}
 
                     if (row.status === 'completed') {
                         return {
-                            error: 'Session has been finalized via summarization. Resuming would append to a closed-book session; start fresh instead.',
-                            code: 'SESSION_FINALIZED',
+                            error              : 'Session has been finalized via summarization. Resuming would append to a closed-book session; start fresh instead.',
+                            code               : 'SESSION_FINALIZED',
                             sessionId,
                             summarizationStatus: 'completed'
                         };
@@ -1010,11 +1010,11 @@ ${sessionContent}
 
                     if (row.status === 'in_progress' && row.expires_at > Date.now()) {
                         return {
-                            error: 'Session is currently being summarized by another worker (lease active). Retry shortly or start fresh.',
-                            code: 'SESSION_BUSY',
+                            error              : 'Session is currently being summarized by another worker (lease active). Retry shortly or start fresh.',
+                            code               : 'SESSION_BUSY',
                             sessionId,
                             summarizationStatus: 'in_progress',
-                            leaseExpiresAt: new Date(row.expires_at).toISOString()
+                            leaseExpiresAt     : new Date(row.expires_at).toISOString()
                         };
                     }
                     // status === 'pending' / 'failed' / expired 'in_progress': resumable below.
@@ -1101,7 +1101,7 @@ ${sessionContent}
         if (memoryCount === 0 && summarizationStatus === 'none') {
             return {
                 error: 'No session found with the supplied ID. Either the session never existed or its data has been purged.',
-                code: 'SESSION_NOT_FOUND',
+                code : 'SESSION_NOT_FOUND',
                 sessionId
             };
         }
@@ -1109,7 +1109,7 @@ ${sessionContent}
         return {
             success: true,
             sessionId,
-            status: 'resumable',
+            status : 'resumable',
             memoryCount,
             lastActivityAt,
             summarizationStatus
@@ -1428,9 +1428,9 @@ ${sessionContent}
         } catch (error) {
             logger.error('[SessionService] Error during session summarization:', error);
             return {
-                error: 'Session summarization failed',
+                error  : 'Session summarization failed',
                 message: error.message,
-                code: 'SUMMARIZATION_ERROR'
+                code   : 'SUMMARIZATION_ERROR'
             };
         }
     }
@@ -1511,9 +1511,9 @@ ${sessionContent}
         } catch (error) {
             logger.error(`[SessionService] Error purging session ${sessionId}:`, error);
             return {
-                error: 'Failed to purge session',
+                error  : 'Failed to purge session',
                 message: error.message,
-                code: 'PURGE_SESSION_ERROR'
+                code   : 'PURGE_SESSION_ERROR'
             };
         }
     }
