@@ -264,8 +264,13 @@ blocker bug from the active lane:
 - assigned issues and currently self-authored PR follow-ups;
 - recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
   for collision state;
-- open unassigned current-epic or recently surfaced substrate lanes;
+- open unassigned current-epic / substrate lanes — exclude `not-code-ready`
+  and `epic` parents (`-label:not-code-ready -label:epic`);
 - broader non-conflicting backlog if the current-epic surface is empty.
+
+Before claiming, scan **comments + prior-PR closure**, not just the body — a
+not-ready state often hides there; mark it `not-code-ready` (see `ticket-intake`),
+don't re-survey it.
 
 If any positive-ROI candidate survives that survey, emit `lane-state: next-lane
 (...)` and start the intake/claim path. If none survives, broaden to
