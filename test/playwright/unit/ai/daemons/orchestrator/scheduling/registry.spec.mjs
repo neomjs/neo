@@ -1,9 +1,9 @@
-import {test, expect} from '@playwright/test';
-import {TASK_REGISTRY} from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
+import {test, expect}                         from '@playwright/test';
+import {TASK_REGISTRY}                        from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
 import {DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES} from '../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 
-const VALID_EXECUTION_KINDS = ['supervised-child-process', 'service-runner', 'in-process-async', 'local-only-service'];
-const VALID_MAINTENANCE_CLASSES = ['continuous', 'heavy', 'graph-dependent', 'lightweight-signal', 'local-only'];
+const VALID_EXECUTION_KINDS = ['supervised-child-process', 'service-runner', 'in-process-async', 'local-only-service', 'health-check'];
+const VALID_MAINTENANCE_CLASSES = ['continuous', 'heavy', 'graph-dependent', 'lightweight-signal', 'local-only', 'health-monitor'];
 const VALID_BACKPRESSURE = ['none', 'exclusive-heavy', 'after-heavy'];
 
 test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
@@ -45,6 +45,16 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
             'primary-dev-sync', 'tenant-repo-sync', 'dream',
             'golden-path', 'swarm-heartbeat'
         ]));
+    });
+
+    test('embed-drain-liveness-watchdog is registered as a read-only, no-backpressure health-check (#13551)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'embed-drain-liveness-watchdog');
+        expect(descriptor, 'embed-drain-liveness-watchdog is registered').toBeTruthy();
+        expect(descriptor.executionKind).toBe('health-check');
+        expect(descriptor.maintenanceClass).toBe('health-monitor');
+        // Read-only lightweight check: it must never take a heavy lease or be gated by backpressure.
+        expect(descriptor.backpressure).toBe('none');
+        expect(descriptor.dependencies).toEqual([]);
     });
 
     test('cloud-deployable graph lanes are registered once Orchestrator.poll() consumes the registry', () => {

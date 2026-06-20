@@ -1,12 +1,13 @@
-import {getDueTask as getSummaryDueTask}             from './summary.mjs';
-import {getDueTask as getBackupDueTask}              from './backup.mjs';
-import {getDueTask as getDreamDueTask}               from './dream.mjs';
-import {getDueTask as getGraphLogCompactionDueTask}  from './graphLogCompaction.mjs';
-import {getDueTask as getGoldenPathDueTask}          from './goldenPath.mjs';
-import {getDueTask as getMemorySummaryBackfillDueTask} from './memorySummaryBackfill.mjs';
-import {getDueTask as getPrimaryDevSyncDueTask}      from './primaryDevSync.mjs';
-import {getDueTask as getSwarmHeartbeatDueTask}      from './swarmHeartbeat.mjs';
-import {getDueTask as getTenantRepoSyncDueTask}      from './tenantRepoSync.mjs';
+import {getDueTask as getSummaryDueTask}                    from './summary.mjs';
+import {getDueTask as getBackupDueTask}                     from './backup.mjs';
+import {getDueTask as getDreamDueTask}                      from './dream.mjs';
+import {getDueTask as getGraphLogCompactionDueTask}         from './graphLogCompaction.mjs';
+import {getDueTask as getGoldenPathDueTask}                 from './goldenPath.mjs';
+import {getDueTask as getMemorySummaryBackfillDueTask}      from './memorySummaryBackfill.mjs';
+import {getDueTask as getPrimaryDevSyncDueTask}             from './primaryDevSync.mjs';
+import {getDueTask as getSwarmHeartbeatDueTask}             from './swarmHeartbeat.mjs';
+import {getDueTask as getTenantRepoSyncDueTask}             from './tenantRepoSync.mjs';
+import {getDueTask as getEmbedDrainLivenessWatchdogDueTask} from './embedDrainLivenessWatchdog.mjs';
 
 /**
  * Coordinator-descriptor registry for the Orchestrator scheduling pipeline.
@@ -105,7 +106,7 @@ export const TASK_REGISTRY = Object.freeze([
                 state,
                 now,
                 graphLogCompactionIntervalMs: intervals.graphLogCompaction,
-                enabled                      : enables.graphLogCompaction
+                enabled                     : enables.graphLogCompaction
             });
         }
     },
@@ -181,6 +182,20 @@ export const TASK_REGISTRY = Object.freeze([
                 state                   : state['swarm-heartbeat'] ?? {},
                 now,
                 swarmHeartbeatIntervalMs: intervals.swarmHeartbeat
+            });
+        }
+    },
+    {
+        taskName        : 'embed-drain-liveness-watchdog',
+        executionKind   : 'health-check',
+        maintenanceClass: 'health-monitor',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.embedDrainLivenessWatchdogGetDueTask || getEmbedDrainLivenessWatchdogDueTask)({
+                state                            : state['embed-drain-liveness-watchdog'] ?? {},
+                now,
+                embedDrainLivenessWatchdogCheckMs: intervals.embedDrainLivenessWatchdogCheck
             });
         }
     }

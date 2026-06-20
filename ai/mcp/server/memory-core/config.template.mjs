@@ -187,8 +187,8 @@ class Config extends ConfigProvider {
              * Durable wake-daemon watermarks consumed by GraphLog maintenance.
              */
             wakeDaemon: {
-                dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
-                bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
+                dataDir                       : leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
+                bridgeLastSyncIdPath          : leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
                 wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
             },
             /**
@@ -211,10 +211,10 @@ class Config extends ConfigProvider {
              * re-deriving defaults outside the Provider SSOT.
              */
             toolTelemetry: {
-                enabled: leaf(true, 'NEO_MC_TOOL_TELEMETRY_ENABLED', 'boolean'),
-                errorMaxChars: leaf(512, 'NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS', 'number'),
+                enabled          : leaf(true, 'NEO_MC_TOOL_TELEMETRY_ENABLED', 'boolean'),
+                errorMaxChars    : leaf(512, 'NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS', 'number'),
                 aggregateWindowMs: leaf(DAY_MS, 'NEO_MC_TOOL_TELEMETRY_WINDOW_MS', 'number'),
-                aggregateLimit: leaf(50, 'NEO_MC_TOOL_TELEMETRY_LIMIT', 'number')
+                aggregateLimit   : leaf(50, 'NEO_MC_TOOL_TELEMETRY_LIMIT', 'number')
             },
             /**
              * Data Schema/Table Names
@@ -359,6 +359,18 @@ class Config extends ConfigProvider {
                  * @type {number}
                  */
                 backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number'),
+                /**
+                 * Stall threshold for the embed-drain liveness watchdog: when the OLDEST un-embedded
+                 * WAL record is older than this, the (orchestrator-hosted, read-only) watchdog raises a
+                 * one-shot alarm. Conservative default of 6h — hours, NOT days: the whole point is to
+                 * catch a silently-stalled drain same-session, not after a week (the silent drain-death
+                 * incident went ~8 days unnoticed). It must exceed the worst-case healthy drain latency
+                 * (per-turn saves arrive minutes apart; the drain polls every `pollIntervalMs`) so a
+                 * healthy backlog never false-alarms. `<= 0` disables alarming. The watchdog only READS
+                 * the WAL — it never touches the never-fail `add_memory` write path.
+                 * @type {number}
+                 */
+                embedDrainStallThresholdMs: leaf(6 * 60 * 60 * 1000, 'NEO_MEMORY_WAL_EMBED_DRAIN_STALL_THRESHOLD_MS', 'number'),
                 /**
                  * Hosts the WAL drain loop INSIDE the memory-core server process — the
                  * containerized / single-process deployment shape (dockerized MC, npx-neo-app
