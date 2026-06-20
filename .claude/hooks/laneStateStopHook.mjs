@@ -1,39 +1,39 @@
 #!/usr/bin/env node
 /**
  * @module .claude/hooks/laneStateStopHook
- * @summary Claude Code `Stop` hook for idle-out enforcement — DRY-RUN (log-only) by default.
+ * @summary Claude Code `Stop` hook — REFUSES every turn-end except a live operator dialogue.
+ * DRY-RUN (log-only) by default; ENFORCE via `NEO_LANE_STATE_ENFORCE=1`.
  *
- * Fires at every agent turn-end (the `Stop` event). Reads the turn transcript, extracts the agent's
- * declared lane-state terminal from a fenced ```lane-state block, validates it, and — in ENFORCING
- * mode — blocks the stop + injects a "pick a lane" directive when the terminal is an invalid idle-out.
- * In DRY-RUN mode (default) it only LOGS what it WOULD block, so the swarm can audit for false-
- * positives (e.g. a legitimate all-lanes-handed-off terminal — the handoff-terminal AC) before
- * enforcement is on.
+ * Fires at every agent turn-end (the `Stop` event). The decision rule: there is NO valid voluntary
+ * stop except a **live operator dialogue** — a turn that directly replied to a genuine human-operator
+ * message, where the human takes the next turn (turn-taking, not idling). A "valid" fenced ```lane-state
+ * block is a RECORD (the directive's context + the external substance record), NOT a license to stop:
+ * declaring a lane and halting is the announce-without-execute idle-out the hook exists to prevent.
  *
- * Mechanism (docs-grounded; the Option-A convergence):
- *  - `stop_hook_active` loop-guard: if Claude is already in a forced continuation, allow the stop
- *    (Claude Code also force-overrides after 8 consecutive blocks).
- *  - `transcript_path` → final text → `parseLaneState` → one of three buckets:
- *      null (no block emitted → ABSENT) · throw (block present but malformed JSON → MALFORMED) ·
- *      descriptor → `validateLaneStateTerminal` → {valid, violations}. All non-valid buckets are
- *      idle-out failures with distinct reasons; a valid terminal allows.
+ * Mechanism:
+ *  - `operatorInLoop` (the one allow) is determined EXTERNALLY by `isOperatorInLoop`, never
+ *    self-declared, so it cannot be gamed: the prompting message must NOT be a `stop_hook_active`
+ *    forced continuation, NOT a `[WAKE]` autonomous injection, and must be confirmable (fail-closed).
+ *  - Otherwise: ENFORCE → block; DRY-RUN → would-block (log only — the audit path). The lane-state
+ *    `verdict` (`parseLaneState` → `validateLaneStateTerminal`) no longer gates the action — it only
+ *    supplies the `reason` for the injected directive.
  *  - Block path (ENFORCING): write `{"decision":"block","reason":"…"}` to stdout — Claude keeps
- *    working and uses the `reason` as its next instruction.
+ *    working and uses the injected directive as its next instruction. The only autonomous stop is a
+ *    hard external limit: Claude Code's consecutive-block force-override (the bounded ceiling the hook
+ *    cannot override), context-sunset, or an operator halt.
  *
  * SAFETY — this hook MUST NEVER block a turn-end on its OWN failure (a malformed hook payload, an
  * unreadable transcript, a validator throw). Those allow the stop + audit. A *malformed lane-state
- * emission* (parseLaneState throws) is NOT our failure — it's the agent emitting garbage, a real
- * block-able bucket. So a hook bug can never trap the swarm, but a broken emission still counts.
+ * emission* (parseLaneState throws) is NOT our failure — it feeds the directive's `reason`, not the gate.
  *
  * ACTIVATION = operator-authority: this script is INERT until wired into the harness settings
- * (`.claude/settings.*` — gitignored per-clone). Wire it in DRY-RUN first, audit the WOULD-BLOCK
- * log for handoff false-positives, then set `NEO_LANE_STATE_ENFORCE=1` to enforce. A buggy blocking
- * hook would trap every agent's turn-end, so the dry-run → audit → enforce ramp is the safe rollout.
+ * (`.claude/settings.*`). Wire it in DRY-RUN first, audit the WOULD-BLOCK log, then set
+ * `NEO_LANE_STATE_ENFORCE=1` to enforce. A buggy blocking hook would trap every agent's turn-end, so
+ * the dry-run → audit → enforce ramp is the safe rollout.
  *
- * SEAM: `parseLaneState` (transcript → descriptor | null | throws) + `validateLaneStateTerminal`
- * (descriptor → {valid, violations}) are imported from `ai/scripts/lifecycle/` — pure, zero-dependency
- * modules so this hook stays light on every turn-end. The pure `parseOutcomeToVerdict` (3 buckets →
- * verdict) + `decideHookAction` (verdict + enforcing → action) are exported + unit-tested independently.
+ * SEAM: `parseLaneState` + `validateLaneStateTerminal` (imported from `ai/scripts/lifecycle/`) supply
+ * the `verdict`'s reason; the pure `parseOutcomeToVerdict`, `decideHookAction`, and `isOperatorInLoop`
+ * are exported + unit-tested independently.
  *
  * @see https://code.claude.com/docs/en/hooks — Stop hook contract (stdin payload, decision:block)
  */
@@ -48,8 +48,8 @@ import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLane
 // Enforce ONLY when the operator explicitly activates it; default is DRY-RUN (log-only, never blocks).
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
 
-// Append-only dry-run audit log — the substrate for auditing WOULD-BLOCK false-positives (esp. the
-// handoff-terminal AC) before enforcement. NEO_AI_DAEMON_DIR override keeps tests off the real store.
+// Append-only audit log — the WOULD-BLOCK / ALLOW record for auditing the dry-run before enforcement.
+// NEO_AI_DAEMON_DIR override keeps tests off the real store.
 const LOG_DIR  = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'lane-state-hook');
 const LOG_FILE = path.join(LOG_DIR, 'lane-state-stop-hook.log');
 
@@ -105,34 +105,68 @@ export function parseOutcomeToVerdict({descriptor, parseError}, validate) {
 }
 
 /**
- * @summary Pure decision — maps a terminal `verdict` + whether we're `enforcing` to the Stop-hook
- * action. Exported + unit-tested: the heart of the idle-out mechanism — a non-valid terminal blocks
- * (enforcing) or would-block (dry-run); a valid terminal always allows (so a legitimate handoff is
- * never trapped, even when enforcing).
+ * @summary Pure decision — maps a terminal `verdict` + the mode (`enforcing`) + whether a live human
+ * operator prompted this turn (`operatorInLoop`) to the Stop-hook action. The heart of the idle-out
+ * mechanism; exported + unit-tested.
+ *
+ * The ONE legitimate voluntary stop is a **live operator dialogue** — this turn directly replied to a
+ * genuine human-operator message, so the human takes the next turn (turn-taking, not idling). That is
+ * `operatorInLoop`, and it ALWAYS allows. `operatorInLoop` is determined EXTERNALLY (the prompting
+ * message type — see the entry `main`), never self-declared, so it cannot be gamed.
+ *
+ * Every OTHER turn-end is an idle-out. A "valid" lane-state terminal is a declaration, not a license
+ * to stop (the announce-without-execute loophole the prior `verdict.valid → allow` branch left open).
+ * ENFORCE refuses it (block); DRY-RUN previews it (would-block, the false-positive audit path). The
+ * `verdict` no longer gates the action — it only supplies the `reason` for the injected directive and
+ * the external substance record. The only autonomous stop is a hard external limit (Claude Code's
+ * consecutive-block force-override, context-sunset, or an operator halt).
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Boolean} enforcing
+ * @param {Boolean} [operatorInLoop=false] True iff a genuine human-operator message prompted this turn.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
-export function decideHookAction(verdict, enforcing) {
-    if (verdict.valid) return {action: 'allow',       reason: verdict.reason};
-    if (enforcing)     return {action: 'block',       reason: verdict.reason};
-    return             {action: 'would-block', reason: verdict.reason};
+export function decideHookAction(verdict, enforcing, operatorInLoop = false) {
+    if (operatorInLoop) {
+        return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
+    }
+    return enforcing
+        ? {action: 'block',       reason: verdict.reason}
+        : {action: 'would-block', reason: verdict.reason};
+}
+
+/**
+ * @summary Detects whether a genuine human OPERATOR prompted this turn — the one signal that makes a
+ * voluntary stop legitimate (turn-taking with a human who takes the next turn). Determined externally
+ * so it cannot be self-declared/gamed: a turn is operator-driven iff it is NOT a forced continuation
+ * (`stop_hook_active`), its prompting message is NOT an autonomous `[WAKE]` injection, AND a prompt is
+ * actually confirmable. FAIL-CLOSED: an empty / unreadable prompt is treated as autonomous (no idle
+ * granted on uncertainty) — the real Stop payload always carries the transcript, so this only bites a
+ * transient read-failure, which should keep working rather than idle. Pure; exported + unit-tested.
+ * @param {{stopHookActive: Boolean, promptingText: String}} signals
+ * @returns {Boolean}
+ */
+export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
+    if (stopHookActive)        return false;                // forced continuation — no human waiting
+    if (!promptingText.trim()) return false;                // no confirmable human prompt → autonomous
+    return !/^\s*\[WAKE\]/.test(promptingText);             // [WAKE] = autonomous wake; else = operator
 }
 
 // The curated no-hold-state directive injected on a block. References the always-loaded
 // L3_No_Hold_State stance + carries a self-sufficient operational core (the lifecycle ladder + the
 // named-lane teeth-test) so it redirects without assuming a live L3 lookup. The wording's semantics
 // are cross-family-convergence-fixed — refine prose, not meaning.
-const IDLE_REMINDER = `Blocked — L3_No_Hold_State: there is no hold state.
-Name the next concrete action that is YOURS to take now:
+const IDLE_REMINDER = `Turn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.
+Declaring a lane is NOT driving it. Do the next concrete action NOW:
+  • check your mailbox (list_messages) — new A2A or a lifecycle event may have shifted your lane
   • continue your own lane
+  • open a PR
   • clear CHANGES_REQUESTED on your own PR
-  • do an assigned review that advances a named lane
+  • review a peer's PR that advances a named lane
   • or claim a new high-value lane
 Teeth-test: does this advance a NAMED lane right now? If you can't name the lane, it isn't driving.
 Collaboration (review · ideation · A2A) counts ONLY when it advances a named lane AND ends with a return to your own lane or an explicit lane-swap — it is an interruption, not a replacement for your own PRs.
 Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
-The only real stop is a hard external limit: context-sunset or an operator halt.`;
+The only stop is a hard external limit: context-sunset, an operator halt, or a live operator reply.`;
 
 /**
  * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (the actionable
@@ -190,6 +224,33 @@ export function extractLastAssistantTextFromJsonl(jsonl = '') {
 }
 
 /**
+ * @summary Extracts the LAST user message's text from a Claude Code JSONL transcript — the message
+ * that PROMPTED the current turn. Used to classify the prompt as a genuine operator turn vs an
+ * autonomous `[WAKE]` injection. Skips tool_result records (no text blocks); tolerant of malformed
+ * lines. Mirrors {@link extractLastAssistantTextFromJsonl}.
+ * @param {String} jsonl
+ * @returns {String}
+ * @protected
+ */
+export function extractLastUserTextFromJsonl(jsonl = '') {
+    const lines = jsonl.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        let record;
+        try { record = JSON.parse(line); } catch { continue; }
+
+        const message = record.message || record;
+        if ((message.role || record.type) !== 'user') continue;
+
+        const text = extractTextFromContent(message.content);
+        if (text) return text;
+    }
+    return '';
+}
+
+/**
  * @summary Resolves the agent's FINAL assistant message text — the surface the lane-state block is
  * emitted into. Prefers the Stop payload's `last_assistant_message` (already-decoded; a string or a
  * message object); falls back to JSONL-parsing `transcript_path` for the last assistant text. Raw
@@ -210,10 +271,10 @@ export function extractFinalAssistantText(input = {}) {
 }
 
 /**
- * @summary Hook entry. Resolves the Stop-hook payload → loop-guard → final message → parse outcome →
- * verdict → decideHookAction, then blocks+injects (enforcing) or audit-logs the would-be decision.
- * Always exits 0 on any of OUR OWN failures (bad payload, unreadable transcript, validator throw) — a
- * hook bug must never trap a turn-end. A malformed *emission* still counts (that's the agent's, not ours).
+ * @summary Hook entry. Resolves the Stop-hook payload → final message + prompting message →
+ * operator-in-loop check → verdict → decideHookAction, then blocks+injects (enforcing) or audit-logs
+ * the decision. Always exits 0 on any of OUR OWN failures (bad payload, unreadable transcript,
+ * validator throw) — a hook bug must never trap a turn-end.
  * @protected
  */
 async function main() {
@@ -222,11 +283,6 @@ async function main() {
         input = JSON.parse(await readStdin());
     } catch (e) {
         auditLog(`PARSE-ERROR: could not parse Stop-hook input (${e.message}); allowing stop.`);
-        process.exit(0);
-    }
-
-    // Loop-safety: if Claude is already in a forced continuation from a prior block, allow the stop.
-    if (input.stop_hook_active) {
         process.exit(0);
     }
 
@@ -241,6 +297,20 @@ async function main() {
         auditLog(`READ-ERROR: ${e.message}; allowing stop.`);
         process.exit(0);
     }
+
+    // The ONE legitimate voluntary stop is a live operator dialogue — determined EXTERNALLY (the
+    // prompting message type), never self-declared. A `stop_hook_active` forced continuation OR a
+    // `[WAKE]` autonomous prompt is not a human turn → no voluntary stop. A transcript read-failure
+    // here is OUR failure → fall back to the stop_hook_active signal alone (never trap on a read error).
+    let promptingText = '';
+    try {
+        if (input.transcript_path) {
+            promptingText = extractLastUserTextFromJsonl(fs.readFileSync(input.transcript_path, 'utf8'));
+        }
+    } catch (e) {
+        // best-effort; isOperatorInLoop falls back to stop_hook_active when promptingText is empty
+    }
+    const operatorInLoop = isOperatorInLoop({stopHookActive: !!input.stop_hook_active, promptingText});
 
     // parseLaneState throwing is a MALFORMED emission (the agent's garbage), NOT our failure → it
     // feeds the verdict (a real block-able bucket), distinct from an absent emission (null).
@@ -261,7 +331,7 @@ async function main() {
     }
 
     const session          = input.session_id || '?',
-          {action, reason} = decideHookAction(verdict, ENFORCING);
+          {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop);
 
     if (action === 'block') {
         auditLog(`BLOCK (session=${session}): ${reason}`);
@@ -273,7 +343,7 @@ async function main() {
         return;
     }
 
-    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'WOULD-ALLOW'} (session=${session}): ${reason}`);
+    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}): ${reason}`);
     process.exit(0);
 }
 
