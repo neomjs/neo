@@ -276,4 +276,48 @@ test.describe('orchestrator/scheduling/picker (#11862 Sub 18)', () => {
         const winner = pickNextCandidate({candidates, runningTasks: [], policyContext: {now: 1_000_000}});
         expect(winner.taskName).toBe('summary');
     });
+
+    test('#13586 cross-class: a registry-earlier non-heavy candidate beats an overdue heavy one', () => {
+        // Review falsifier: a continuous task registry-earlier than an overdue heavy one keeps its
+        // slot — non-heavy behavior is unchanged (staleness reorders only the eligible/heavy set).
+        const now = 1_000_000;
+        const candidates = [
+            makeCandidate('tenant-repo-sync', {maintenanceClass: 'continuous'}),
+            makeCandidate('dream',            {maintenanceClass: 'heavy'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : [],
+            policyContext: {
+                now,
+                priorityZeroTasks: ['backup'],
+                taskMeta         : {dream: {lastRunAt: 0, cadenceMs: 600_000}}  // only dream eligible + overdue
+            }
+        });
+        expect(winner.taskName).toBe('tenant-repo-sync');
+    });
+
+    test('#13586 cross-class: heavy still reorders among heavy with a registry-later non-heavy present', () => {
+        // summary + dream (both eligible) reorder; tenant-repo-sync (non-eligible) is registry-later,
+        // so the eligible representative (the staler dream) still wins.
+        const now = 1_000_000;
+        const candidates = [
+            makeCandidate('summary',          {maintenanceClass: 'heavy'}),
+            makeCandidate('dream',            {maintenanceClass: 'heavy'}),
+            makeCandidate('tenant-repo-sync', {maintenanceClass: 'continuous'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : [],
+            policyContext: {
+                now,
+                priorityZeroTasks: ['backup'],
+                taskMeta         : {
+                    summary: {lastRunAt: now - 60_000, cadenceMs: 600_000},  // fresh
+                    dream  : {lastRunAt: 0,            cadenceMs: 600_000}    // stale → eligible rep
+                }
+            }
+        });
+        expect(winner.taskName).toBe('dream');
+    });
 });

@@ -9,8 +9,8 @@
  *   1. `filterAlreadyRunning`           — drop candidates whose task is already in `runningTasks`
  *   2. `filterExclusiveHeavyConflict`   — drop heavy candidates if a conflicting heavy is running
  *   3. `filterUnmetDependencies`        — drop candidates whose `dependencies` are in `runningTasks`
- *   4. `selectByPriority`               — priority-0 (backup / data-safety) → staleness-ratio
- *                                         (overdue ÷ cadence) → registry-order fallback + tiebreak
+ *   4. `selectByPriority`               — priority-0 (backup) → staleness-ratio among the eligible
+ *                                         (taskMeta) set → registry-order across the class boundary
  *
  * **NO state mutation.** This module reads `runningTasks` + `policyContext` but never
  * writes to `TaskStateService`, `HealthService`, or lease state. Caller is responsible
@@ -114,10 +114,15 @@ function filterUnmetDependencies(candidates, runningSet) {
  *   1. **Priority-0** — data-safety tasks (e.g. `backup`) win unconditionally when present,
  *      so a daily backup is never deferred behind a backlog-draining task. Registry order
  *      breaks ties among multiple priority-0 survivors.
- *   2. **Staleness-ratio** — otherwise the most overdue survivor by `(now - lastRunAt) / cadenceMs`
- *      wins, so a weeks-stale `golden-path` or a starved `memory-summary-backfill` outranks a
- *      just-drained `summary`. A never-run task (lastRunAt 0) scores very high and is picked up.
- *   3. **Registry order** — the array-index fallback + strict-greater tiebreak (earlier wins ties).
+ *   2. **Staleness-ratio (eligible set only)** — among candidates carrying `taskMeta` (the
+ *      lease-competing REM chain), the most overdue by `(now - lastRunAt) / cadenceMs` is the single
+ *      eligible representative, so a weeks-stale `golden-path` or a starved `memory-summary-backfill`
+ *      outranks a just-drained `summary`. A never-run task (lastRunAt 0) scores very high.
+ *   3. **Registry order across the class boundary** — NON-eligible candidates (no `taskMeta`:
+ *      lightweight / health / continuous) keep their registry slot; the winner is the first in
+ *      registry order among the non-eligible candidates plus the one eligible representative, so a
+ *      registry-earlier non-heavy task still beats a later overdue heavy one. Strict `>` keeps the
+ *      earlier eligible candidate on equal ratios.
  *
  * Pure. Backward-compatible: when `policyContext.taskMeta` is absent, this degrades to
  * registry-order `candidates[0]` — the legacy `selectFirstCandidate` behavior, so callers
@@ -141,20 +146,29 @@ function selectByPriority(candidates, policyContext = {}) {
         if (priorityZeroWinner) return priorityZeroWinner;
     }
 
-    // Staleness-ratio: most-overdue-relative-to-cadence wins; registry order breaks ties
-    // (strict `>` keeps the earlier candidate on equal ratios).
-    let best      = candidates[0];
-    let bestRatio = stalenessRatio(best, taskMeta, now);
+    // Staleness reorders ONLY the eligible set (candidates carrying `taskMeta` — the lease-competing
+    // REM chain). The most-overdue eligible candidate is the single eligible representative; every
+    // NON-eligible candidate keeps its registry slot, so the cross-class boundary is unchanged
+    // (a registry-earlier non-heavy task still wins over a later overdue heavy one). Strict `>`
+    // keeps the earlier eligible candidate on equal ratios (registry-order tiebreak).
+    let topEligible = null;
+    let topRatio    = -Infinity;
 
-    for (let i = 1; i < candidates.length; i++) {
-        const ratio = stalenessRatio(candidates[i], taskMeta, now);
-        if (ratio > bestRatio) {
-            best      = candidates[i];
-            bestRatio = ratio;
+    for (const candidate of candidates) {
+        if (!taskMeta[candidate.taskName]) continue;
+        const ratio = stalenessRatio(candidate, taskMeta, now);
+        if (ratio > topRatio) {
+            topRatio    = ratio;
+            topEligible = candidate;
         }
     }
 
-    return best;
+    // Registry-order winner among the non-eligible candidates plus the one eligible representative.
+    for (const candidate of candidates) {
+        if (!taskMeta[candidate.taskName] || candidate === topEligible) return candidate;
+    }
+
+    return candidates[0];
 }
 
 /**
