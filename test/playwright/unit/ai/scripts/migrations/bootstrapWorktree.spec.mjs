@@ -30,6 +30,7 @@ import path            from 'path';
  */
 test.describe('ai/scripts/bootstrapWorktree', () => {
     let bootstrapWorktree;
+    let hydrateCurrentWorktree;
     let symlinkDataDir;
     let symlinkGitignoredFiles;
     let installDependencies;
@@ -55,6 +56,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     test.beforeAll(async () => {
         const mod               = await import('../../../../../../ai/scripts/migrations/bootstrapWorktree.mjs');
         bootstrapWorktree        = mod.bootstrapWorktree;
+        hydrateCurrentWorktree   = mod.hydrateCurrentWorktree;
         symlinkDataDir           = mod.symlinkDataDir;
         symlinkGitignoredFiles   = mod.symlinkGitignoredFiles;
         installDependencies      = mod.installDependencies;
@@ -984,9 +986,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             const result = await pruneStaleWorktrees({
                 projectRoot: fakeMainCheckout,
                 currentPath: paths.current,
-                dryRun    : true,
+                dryRun     : true,
                 exec,
-                getSize: async p => ({
+                getSize    : async p => ({
                     [paths.current] : 1024,
                     [paths.stale]   : 2048,
                     [paths.unmerged]: 3072,
@@ -1020,7 +1022,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 projectRoot: fakeMainCheckout,
                 currentPath: paths.current,
                 exec,
-                getSize: async p => ({
+                getSize    : async p => ({
                     [paths.current] : 1024,
                     [paths.stale]   : 2048,
                     [paths.unmerged]: 3072,
@@ -1060,7 +1062,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 currentPath : paths.current,
                 includeDirty: true,
                 exec,
-                getSize: async p => ({
+                getSize     : async p => ({
                     [paths.current] : 1024,
                     [paths.stale]   : 2048,
                     [paths.unmerged]: 3072,
@@ -1096,9 +1098,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 projectRoot: fakeMainCheckout,
                 currentPath: paths.current,
                 exec,
-                getSize: async () => 1,
-                hydrate: async () => ({ok: true}),
-                log: () => {}
+                getSize    : async () => 1,
+                hydrate    : async () => ({ok: true}),
+                log        : () => {}
             });
 
             const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
@@ -1121,9 +1123,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 currentPath  : paths.current,
                 worktreesRoot: fakeMainCheckout,
                 exec,
-                getSize: async () => 1,
-                hydrate: async () => ({ok: true}),
-                log: () => {}
+                getSize      : async () => 1,
+                hydrate      : async () => ({ok: true}),
+                log          : () => {}
             });
 
             const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
@@ -1146,8 +1148,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             await pruneStaleWorktrees({
                 projectRoot: fakeMainCheckout,
                 exec,
-                getSize: async () => 1,
-                hydrate: async args => {
+                getSize    : async () => 1,
+                hydrate    : async args => {
                     hydrated.push(args);
                     return {ok: true};
                 },
@@ -1160,6 +1162,55 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 ['worktree', 'remove', '--force', paths.unmerged]
             ]);
             expect(hydrated[0].projectRoot).toBe(fakeMainCheckout);
+        });
+    });
+
+    // --------------------------------------------------------------------------------
+    // hydrateCurrentWorktree — wires the Claude no-hold Stop hook into the worktree's
+    // .claude/settings.json via initClaudeSettings (the Claude analog of the config-overlay
+    // hydration). Without it the Stop hook is only wired by the npm prepare that
+    // installDependencies skips when node_modules exists — leaving the no-hold enforcement
+    // silently inert in worktrees.
+    // --------------------------------------------------------------------------------
+    test.describe('#13681 hydrateCurrentWorktree wires the Claude Stop hook', () => {
+        test('calls the Claude-settings materializer with the worktree .claude dir', async () => {
+            const calls = [];
+            const spy   = async (opts) => { calls.push(opts); return {action: 'wired'}; };
+
+            const result = await hydrateCurrentWorktree({
+                mainCheckout      : fakeMainCheckout,
+                projectRoot       : fakeWorktree,
+                log               : () => {},
+                wireClaudeSettings: spy
+            });
+
+            expect(calls).toHaveLength(1);
+            expect(calls[0].claudeDir).toBe(path.join(fakeWorktree, '.claude'));
+            expect(result.claudeSettings).toEqual({action: 'wired'});
+        });
+
+        test('real initClaudeSettings materializes the Stop hook from the tracked template', async () => {
+            // Seed the worktree's tracked .claude/settings.template.json (the canonical Stop-hook
+            // wiring); the default (real) initClaudeSettings must clone it into .claude/settings.json.
+            const template = {
+                hooks: {Stop: [{hooks: [{type: 'command', command: 'node .claude/hooks/laneStateStopHook.mjs', timeout: 10}]}]}
+            };
+            await fs.ensureDir(path.join(fakeWorktree, '.claude'));
+            await fs.writeFile(
+                path.join(fakeWorktree, '.claude', 'settings.template.json'),
+                JSON.stringify(template, null, 2) + '\n', 'utf-8'
+            );
+
+            const result = await hydrateCurrentWorktree({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.claudeSettings.action).toBe('clone');
+
+            const settings = JSON.parse(await fs.readFile(path.join(fakeWorktree, '.claude', 'settings.json'), 'utf-8'));
+            expect(settings.hooks.Stop[0].hooks[0].command).toContain('laneStateStopHook.mjs');
         });
     });
 });
