@@ -270,10 +270,11 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
             }));
             await MemoryService.drainPendingGraphProjections({ids: [result.id]});
 
-            // The AUTHORED_BY provenance edge: target stays the @-form author identity, but the user_id
-            // isolation column is the normalized canonical form (the write-boundary contract).
-            const authoredBy = GraphService.db.edges.items.find(e => e.type === 'AUTHORED_BY' && e.target === '@agent-wal');
+            // The AUTHORED_BY provenance edge for THIS write (source === result.id, not an earlier serial
+            // edge): target stays the @-form author identity, but the user_id column is the normalized form.
+            const authoredBy = GraphService.db.edges.items.find(e => e.type === 'AUTHORED_BY' && e.source === result.id);
             expect(authoredBy).toBeTruthy();
+            expect(authoredBy.target).toBe('@agent-wal');
             expect(authoredBy.properties.userId).toBe('agent-wal');
         } finally {
             MemoryService._scheduleMemoryGraphProjection = originalSchedule;
