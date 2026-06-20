@@ -6,11 +6,11 @@
  * data for CI and governance checks; this script enforces one-way consistency
  * plus local substrate-budget and harness-symlink invariants.
  */
-import fs from 'fs/promises';
+import fs                                                            from 'fs/promises';
 import {existsSync, lstatSync, readFileSync, readlinkSync, statSync} from 'fs';
-import path from 'path';
-import {execFileSync} from 'child_process';
-import {fileURLToPath} from 'url';
+import path                                                          from 'path';
+import {execFileSync}                                                from 'child_process';
+import {fileURLToPath}                                               from 'url';
 
 const __filename    = fileURLToPath(import.meta.url);
 const __dirname     = path.dirname(__filename);
@@ -254,7 +254,7 @@ function parseSectionTriggers(text) {
         if (triggerMatch) {
             index.push({
                 anchor,
-                trigger: triggerMatch[1].trim(),
+                trigger    : triggerMatch[1].trim(),
                 subRulePath: triggerMatch[2].trim(),
                 bodySizeBytes
             });
@@ -700,7 +700,7 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {change
                 validateSectionRef({
                     sourceRelPath,
                     lineNo,
-                    target: sectionRef.target,
+                    target    : sectionRef.target,
                     sectionRef: sectionRef.sectionRef,
                     index,
                     errors
@@ -717,7 +717,7 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {change
                 validateSectionRef({
                     sourceRelPath,
                     lineNo,
-                    target: match[1],
+                    target    : match[1],
                     sectionRef: match[2],
                     index,
                     errors
@@ -1277,7 +1277,11 @@ async function main() {
         process.exit(1);
     }
 
-    console.log('[lint-skill-manifest] OK');
+    if (options.base) {
+        console.log('[lint-skill-manifest] OK');
+    } else {
+        console.log('[lint-skill-manifest] OK (structural checks only — byte-delta gates skipped; run with --base origin/dev, as CI does, to check the <=250 per-file + net skill-Markdown growth budgets)');
+    }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
