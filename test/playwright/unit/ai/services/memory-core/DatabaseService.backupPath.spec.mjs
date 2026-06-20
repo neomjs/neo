@@ -15,12 +15,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs             from 'fs';
-import path           from 'path';
+import fs              from 'fs';
+import path            from 'path';
 
 // Serial mode: see DatabaseService.backup.spec.mjs for rationale (singleton mutation
 // across beforeAll/afterAll; local-DX safeguard — CI already uses workers:1).
@@ -92,10 +92,65 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
         });
 
         expect(result.message).toMatch(/Exported 1 memories, 1 summaries/);
+        expect(result.count).toBe(2);
+        expect(result.memories.exported).toBe(1);
+        expect(result.memories.expected).toBe(1);
+        expect(result.summaries.exported).toBe(1);
+        expect(result.summaries.expected).toBe(1);
 
         const produced = fs.readdirSync(tmpDir).filter(f => f.endsWith('.jsonl')).sort();
         expect(produced.length).toBe(2);
         expect(produced.some(f => f.startsWith('memory-backup-'))).toBe(true);
         expect(produced.some(f => f.startsWith('summaries-backup-'))).toBe(true);
+    });
+
+    test('fails loudly when corrupt vector ids make a collection export partial (#13496)', async () => {
+        const partialDir = path.join(tmpDir, `partial-${Date.now()}`);
+        fs.mkdirSync(partialDir, {recursive: true});
+
+        const rows = [
+            {id: 'mem-ok',      embedding: [0.1], metadata: {t: 'prompt'}, document: 'ok'},
+            {id: 'mem-corrupt', embedding: [0.2], metadata: {t: 'prompt'}, document: 'corrupt'}
+        ];
+
+        const partialCollection = {
+            name : 'fake-memories-partial',
+            count: async () => rows.length,
+            get  : async ({ids, include = [], limit, offset = 0} = {}) => {
+                if (ids) {
+                    const row = rows.find(item => item.id === ids[0]);
+                    if (row.id === 'mem-corrupt') throw new Error('Error finding id');
+
+                    return {
+                        ids       : [row.id],
+                        documents : [row.document],
+                        metadatas : [row.metadata],
+                        embeddings: [row.embedding]
+                    }
+                }
+
+                if (include.length === 0) return {ids: rows.map(r => r.id)};
+
+                throw new Error('batch embedding materialization failed');
+            }
+        };
+
+        Memory_StorageRouter.getMemoryCollection = async () => partialCollection;
+
+        await expect(Memory_DatabaseService.manageDatabaseBackup({
+            action    : 'export',
+            include   : ['memories'],
+            backupPath: partialDir
+        })).rejects.toThrow(/DATABASE_EXPORT_ERROR: PARTIAL_COLLECTION_EXPORT: fake-memories-partial exported 1\/2/);
+
+        const produced = fs.readdirSync(partialDir).filter(f => f.startsWith('memory-backup-'));
+        expect(produced.length).toBe(1);
+
+        const exportedLines = fs.readFileSync(path.join(partialDir, produced[0]), 'utf8')
+            .split('\n')
+            .filter(Boolean);
+        expect(exportedLines).toHaveLength(1);
+        expect(exportedLines[0]).toContain('mem-ok');
+        expect(exportedLines[0]).not.toContain('mem-corrupt');
     });
 });

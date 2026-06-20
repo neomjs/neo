@@ -15,12 +15,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs             from 'fs';
-import path           from 'path';
+import fs              from 'fs';
+import path            from 'path';
 
 // Serial mode: this file mutates KB + MC singleton collection accessors across
 // beforeAll/afterAll. Serial ordering within this file prevents local multi-worker
@@ -131,6 +131,12 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
 
         expect(result.subsystems.concepts).toEqual({copied: 2});
         expect(result.subsystems.trajectories).toEqual({copied: 1});
+        expect(result.subsystems.mc.count).toBe(2);
+
+        const mcIntegrity = result.meta.integrity.find(check => check.subsystem === 'mc');
+        expect(mcIntegrity.status).toBe('pass');
+        expect(mcIntegrity.sourceCount).toBe(2);
+        expect(mcIntegrity.bundleCount).toBe(2);
 
         // graph subfolder exists but GraphService.db is not wired in unit-test mode,
         // so no graph-backup file is emitted. This is the documented "source has no data"
@@ -167,11 +173,11 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         fs.writeFileSync(sentToCullSource, '{"culled":"msg-1"}\n{"culled":"msg-2"}\n');
 
         const result = await runBackup({
-            bundleRoot            : altBundleRoot,
+            bundleRoot          : altBundleRoot,
             conceptsSourceDir,
             trajectoriesSourceFile,
-            sentToCullSourceFile  : sentToCullSource,
-            logger                : silentLogger
+            sentToCullSourceFile: sentToCullSource,
+            logger              : silentLogger
         });
 
         expect(fs.existsSync(path.join(altBundleRoot, 'mailbox'))).toBe(true);
@@ -184,11 +190,11 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         const altBundleRoot = path.join(workRoot, 'bundle-meta-schema');
 
         await runBackup({
-            bundleRoot            : altBundleRoot,
+            bundleRoot          : altBundleRoot,
             conceptsSourceDir,
             trajectoriesSourceFile,
-            sentToCullSourceFile  : path.join(workRoot, 'does-not-exist-cull.jsonl'),
-            logger                : silentLogger
+            sentToCullSourceFile: path.join(workRoot, 'does-not-exist-cull.jsonl'),
+            logger              : silentLogger
         });
 
         const metaPath = path.join(altBundleRoot, 'bundle-meta.json');
