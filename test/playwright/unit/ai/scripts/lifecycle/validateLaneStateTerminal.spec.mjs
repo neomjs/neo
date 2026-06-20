@@ -84,4 +84,30 @@ test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () =
         expect(result.valid).toBe(false);
         expect(result.violations.join(' ')).toContain("Unknown laneContinuation 'holding'");
     });
+
+    test('verified-no-lane fails when the survey is unscoped (the no-scope loophole)', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'verified-no-lane',
+            backlogSurvey   : {checkedAt: NOW}   // checkedAt but no scope → not a proven full-backlog survey
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('full-backlog survey scope');
+    });
+
+    test('a named gate claiming merge state must cite field mergedAt, not state', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'next-lane',
+            namedGates      : [{ref: 'PR #12619', checkedAt: NOW, mergeClaim: true, field: 'state'}]
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('must read mergedAt');
+    });
+
+    test('a merge-claim gate citing field mergedAt passes', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'next-lane',
+            namedGates      : [{ref: 'PR #12619', checkedAt: NOW, mergeClaim: true, field: 'mergedAt'}]
+        });
+        expect(result.valid).toBe(true);
+    });
 });
