@@ -116,6 +116,28 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(formatLifecycleBoard(null)).toBe('');                        // fail-open: no state → no board
             expect(formatLifecycleBoard({openPRs: [], unreadCount: 0})).toBe(''); // nothing actionable → no board
         });
+
+        test('fail-open on malformed SHAPE — never throws inside the hook path (#13680 / @neo-gpt)', () => {
+            // gpt's exact falsifier: a parsed-but-malformed object must degrade to "", not crash the formatter.
+            expect(() => formatLifecycleBoard({openPRs: [null], unreadCount: 0})).not.toThrow();
+            expect(formatLifecycleBoard({openPRs: [null], unreadCount: 0})).toBe('');
+            expect(formatLifecycleBoard({openPRs: 'not-an-array'})).toBe('');     // non-array openPRs
+            expect(formatLifecycleBoard({openPRs: [{}]})).toBe('');               // numberless entry → skipped
+            expect(formatLifecycleBoard('garbage')).toBe('');                     // non-object state
+        });
+
+        test('partial validity — renders valid PRs, silently skips malformed entries', () => {
+            const board = formatLifecycleBoard({openPRs: [null, {number: 13680, state: 'OPEN'}, {}], unreadCount: 2});
+            expect(board).toContain('#13680 OPEN'); // the one valid entry survives the null + {} neighbors
+            expect(board).toContain('2 unread A2A');
+            expect(board).not.toContain('undefined'); // no "#undefined" / "undefined"-state leakage
+        });
+
+        test('PR state is optional — a numbered entry without state renders cleanly (no "undefined")', () => {
+            const board = formatLifecycleBoard({openPRs: [{number: 13680}], unreadCount: 0});
+            expect(board).toContain('#13680');
+            expect(board).not.toContain('undefined');
+        });
     });
 });
 

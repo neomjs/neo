@@ -162,25 +162,41 @@ export function readLifecycleState() {
  * @summary Formats the lane-state into a one-glance "live board" — the agent's own open PRs (+ state)
  * and unread-A2A count — so the forced next-action is informed, not generic. Returns `''` when there
  * is nothing actionable to show (the caller falls back to the bare reminder). Pure; exported + tested.
+ * FAIL-OPEN on malformed SHAPE, not just a bad file read: a parsed-but-malformed object (null / non-object
+ * / numberless `openPRs` entries, wrong-typed fields) degrades to `''` and NEVER throws — it runs inside
+ * the turn-end hook path, where a throw would trap every turn, so a total (never-throwing) function is the
+ * contract, not a nicety. (Per cross-family review by @neo-gpt: fail-open includes malformed schema,
+ * not just a bad file read.)
  * @param {Object|null} state `{openPRs, unreadCount, generatedAt}` from {@link readLifecycleState}.
  * @returns {String}
  */
 export function formatLifecycleBoard(state) {
-    if (!state) return '';
+    try {
+        if (!state || typeof state !== 'object') return '';
 
-    const prs   = Array.isArray(state.openPRs) ? state.openPRs : [],
-          lines = [];
+        const prs   = Array.isArray(state.openPRs) ? state.openPRs : [],
+              lines = [];
 
-    if (prs.length) {
-        lines.push('  • your open PRs: ' + prs.map(pr => `#${pr.number} ${pr.state}`).join(', '));
+        // Render ONLY entries that carry a usable PR number; skip null / non-object / numberless entries.
+        // A malformed array element ({openPRs:[null]}) must not crash the formatter — validating each
+        // entry before dereferencing `pr.number`/`pr.state` is the core of the malformed-shape fail-open.
+        const validPRs = prs.filter(pr => pr && typeof pr === 'object' &&
+            (typeof pr.number === 'number' || typeof pr.number === 'string'));
+        if (validPRs.length) {
+            lines.push('  • your open PRs: ' +
+                validPRs.map(pr => `#${pr.number}${pr.state ? ` ${pr.state}` : ''}`).join(', '));
+        }
+        if (Number.isInteger(state.unreadCount) && state.unreadCount > 0) {
+            lines.push(`  • ${state.unreadCount} unread A2A — list_messages`);
+        }
+        if (!lines.length) return '';
+
+        const asOf = typeof state.generatedAt === 'string' ? ` (as of ${state.generatedAt})` : '';
+        return `\nYour live board${asOf} — concrete lanes right now:\n${lines.join('\n')}`;
+    } catch {
+        // Belt-and-suspenders: ANY unforeseen shape issue degrades to the bare reminder, never throws.
+        return '';
     }
-    if (Number.isInteger(state.unreadCount) && state.unreadCount > 0) {
-        lines.push(`  • ${state.unreadCount} unread A2A — list_messages`);
-    }
-    if (!lines.length) return '';
-
-    const asOf = state.generatedAt ? ` (as of ${state.generatedAt})` : '';
-    return `\nYour live board${asOf} — concrete lanes right now:\n${lines.join('\n')}`;
 }
 
 /**
