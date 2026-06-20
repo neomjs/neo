@@ -27,7 +27,7 @@ export const LANE_STATE_BLOCK = /```lane-state\s*\r?\n([\s\S]*?)\r?\n```/g;
  * @summary Parses the last fenced ```lane-state block from transcript text into a lane-state descriptor.
  *
  * @param {String} transcriptText The agent's final turn-terminal message text (or the transcript tail).
- * @returns {Object|null} The descriptor `{wakeDisposition, laneContinuation, namedGates, awaitingOwnPrOnly, backlogSurvey}`
+ * @returns {Object|null} The descriptor `{wakeDisposition, laneContinuation, namedGates, awaitingOwnPrOnly}`
  *   normalized from the LAST ```lane-state block, or `null` when no block is present.
  * @throws {Error} When a ```lane-state block IS present but its body is not valid JSON — a
  *   present-but-malformed emission is a distinct failure the hook logs separately from an absent one.
@@ -57,8 +57,7 @@ export function parseLaneState(transcriptText) {
         wakeDisposition  : parsed.wakeDisposition,
         laneContinuation : parsed.laneContinuation,
         namedGates       : Array.isArray(parsed.namedGates) ? parsed.namedGates : [],
-        awaitingOwnPrOnly: parsed.awaitingOwnPrOnly === true,
-        backlogSurvey    : parsed.backlogSurvey ?? null
+        awaitingOwnPrOnly: parsed.awaitingOwnPrOnly === true
     };
 }
 

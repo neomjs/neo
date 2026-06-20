@@ -5,18 +5,21 @@
  * The wake-disposition vs lane-continuation discipline is repeatedly lost to disciplined-sounding
  * terminal prose: a wake correctly classified as low-action, then a turn that ends "standing by"
  * while naming an already-merged PR as a live gate. This validator mechanically rejects stale gate
- * names and own-slice `verified-no-lane` claims. It deliberately validates ONLY the author-provided
- * terminal evidence — it does not compute claimable work, count contributions, or enforce external
- * liveness (that is the separate, deferred external-enforcement layer).
+ * names and non-driving terminals. It deliberately validates ONLY the author-provided terminal
+ * evidence — it does not compute claimable work, count contributions, or enforce external liveness
+ * (that is the separate, deferred external-enforcement layer).
  *
  * @module Neo.ai.scripts.lifecycle.validateLaneStateTerminal
  */
 
 /**
- * The lane-continuation states that answer "may the turn end?".
+ * The lane-continuation states that answer "may the turn end?" — all three are DRIVING continuations.
+ * Per §no_hold_state there is no hold state: the only valid turn-state is on / jumped-to a high-value
+ * lane. The survey-idle terminal `verified-no-lane` was retired — under "high-value work is infinite"
+ * it is ~never honestly true, and the `L3_No_Hold_State` firewall brands it a manufactured idle.
  * @type {String[]}
  */
-export const LANE_CONTINUATIONS = ['active-lane', 'next-lane', 'blocker-routed', 'verified-no-lane'];
+export const LANE_CONTINUATIONS = ['active-lane', 'next-lane', 'blocker-routed'];
 
 /**
  * Wake dispositions that answer only "engage this message?" — never "does the turn have a lane?".
@@ -35,15 +38,12 @@ export const NON_TERMINAL_DISPOSITIONS = ['awareness', 'stale', 'suppressed'];
  *  3. Every named PR/issue gate must cite a same-turn `checkedAt` (stale gate names are not evidence);
  *     a gate flagged `mergeClaim` must cite `field === 'mergedAt'` (reading a PR's `state`/CLOSED is
  *     not merge proof — a closed PR may be un-merged).
- *  4. `laneContinuation='verified-no-lane'` must cite a NAMED full-backlog survey artifact with a
- *     `checkedAt` AND `scope === 'full-backlog'` — an own-PR-only, own-epic-only, or unscoped survey fails.
  *
  * @param {Object} [laneState={}]
  * @param {String} [laneState.wakeDisposition] One of `actionable|awareness|stale|suppressed|incident`.
- * @param {String} [laneState.laneContinuation] One of `active-lane|next-lane|blocker-routed|verified-no-lane`.
+ * @param {String} [laneState.laneContinuation] One of `active-lane|next-lane|blocker-routed`.
  * @param {Object[]} [laneState.namedGates] Named PR/issue gates this terminal cites: `[{ref, checkedAt, mergeClaim?, field?}]`.
  * @param {Boolean} [laneState.awaitingOwnPrOnly] True when the only cited lane is an own PR awaiting merge/review/CI.
- * @param {Object} [laneState.backlogSurvey] `{checkedAt, scope}` backing a `verified-no-lane` claim; `scope` must be `'full-backlog'`.
  * @returns {{valid: Boolean, violations: String[]}} `valid` is true when no rule is violated.
  */
 export function validateLaneStateTerminal(laneState = {}) {
@@ -51,8 +51,7 @@ export function validateLaneStateTerminal(laneState = {}) {
         wakeDisposition,
         laneContinuation,
         namedGates        = [],
-        awaitingOwnPrOnly = false,
-        backlogSurvey     = null
+        awaitingOwnPrOnly = false
     } = laneState;
 
     const violations = [];
@@ -80,15 +79,6 @@ export function validateLaneStateTerminal(laneState = {}) {
             violations.push(`Named gate ${gate?.ref ?? '(unnamed)'} must cite a same-turn checkedAt — a stale gate name is not evidence.`);
         } else if (gate.mergeClaim && gate.field !== 'mergedAt') {
             violations.push(`Named gate ${gate.ref ?? '(unnamed)'} claims merge state but cites field ${gate.field ? `'${gate.field}'` : '(none)'} — a merge claim must read mergedAt (a PR's state/CLOSED is not merge proof).`);
-        }
-    }
-
-    // Rule 4 — verified-no-lane needs a named full-backlog survey; an unscoped survey is not full-backlog.
-    if (laneContinuation === 'verified-no-lane') {
-        if (!backlogSurvey?.checkedAt) {
-            violations.push('verified-no-lane must cite a named full-backlog survey artifact (e.g. list_issues / gh issue list) with a checkedAt.');
-        } else if (backlogSurvey.scope !== 'full-backlog') {
-            violations.push(`verified-no-lane requires a full-backlog survey scope (got ${backlogSurvey.scope ? `'${backlogSurvey.scope}'` : 'no scope'}) — own-PR-only / own-epic-only / unscoped surveys fail.`);
         }
     }
 
