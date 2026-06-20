@@ -117,8 +117,13 @@ blocker:
 8. Existing primitive - current scripts/workflows/services that simplify the
    design.
 
-Low-blast bounded work does not require Step-Back. Full provenance and tripwire
-framing stay in this workflow's historical record, not the hot path.
+Low-blast bounded work does not require Step-Back.
+
+Convergence-rate tripwire: if 3 peers converge on a high-blast proposal within
+<=2 rounds and no `STEP_BACK` exists, halt graduation until the 8 sweeps run.
+Detector phrases include fast agreement such as "I agree with @peer's option X",
+"Adopt Option X", and "Going with X". This is the single source of truth for
+the `/peer-role` map pointer.
 
 ## 6. Graduation And Consensus
 
