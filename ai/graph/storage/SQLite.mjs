@@ -1,4 +1,4 @@
-import Base from './Base.mjs';
+import Base                            from './Base.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from './constants.mjs';
 
 const GRAPH_SCHEMA_VERSION = 1;
@@ -56,6 +56,7 @@ class SQLite extends Base {
         try {
             const rcs = await import('../../mcp/server/shared/services/RequestContextService.mjs');
             me.RequestContextService = rcs.default;
+            me.normalizeUserId       = rcs.normalizeUserId;
         } catch (e) {
             // Safe fallback for browser/UI isolated executions
         }
@@ -298,8 +299,8 @@ class SQLite extends Base {
             for (const node of nodesList) {
                 const isRecord = node.isRecord;
                 const nodeData = {
-                    id: isRecord ? node.get('id') : node.id,
-                    label: isRecord ? node.get('label') : node.label,
+                    id        : isRecord ? node.get('id') : node.id,
+                    label     : isRecord ? node.get('label') : node.label,
                     properties: isRecord ? node.get('properties') : node.properties
                 };
 
@@ -336,10 +337,10 @@ class SQLite extends Base {
             for (const edge of edgesList) {
                 const isRecord = edge.isRecord;
                 const edgeData = {
-                    id: isRecord ? edge.get('id') : edge.id,
-                    source: isRecord ? edge.get('source') : edge.source,
-                    target: isRecord ? edge.get('target') : edge.target,
-                    type: isRecord ? edge.get('type') : edge.type,
+                    id        : isRecord ? edge.get('id') : edge.id,
+                    source    : isRecord ? edge.get('source') : edge.source,
+                    target    : isRecord ? edge.get('target') : edge.target,
+                    type      : isRecord ? edge.get('type') : edge.type,
                     properties: isRecord ? edge.get('properties') : edge.properties
                 };
                 stmt.run(edgeData.id, edgeData.properties?.userId || null, edgeData.source, edgeData.target, edgeData.type || null, JSON.stringify(edgeData));
@@ -499,7 +500,7 @@ class SQLite extends Base {
         }
 
         return {
-            lastLogId: maxId,
+            lastLogId   : maxId,
             invalidNodes: Array.from(invalidNodes),
             invalidEdges: Array.from(invalidEdgesMap.values())
         };
@@ -519,9 +520,15 @@ class SQLite extends Base {
         let ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds];
         if (ids.length === 0) return {nodes: [], edges: []};
 
-        // Resolve Identity for RLS natively synchronously
-        let userId = this.RequestContextService ? this.RequestContextService.getAgentIdentityNodeId() : null;
-        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
+        // Resolve the RLS key canonically (normalized, no-`@`) and match BOTH stored forms: the
+        // user_id column was written in @-prefixed AND normalized forms, so this cold lazy-load (the
+        // path getNode hits BEFORE GraphService.isRlsVisible) must tolerate both — recovering an
+        // owner's own normalized-user_id rows without widening across tenants. Mirrors searchNodes.
+        const rcs       = this.RequestContextService;
+        const rawUserId = rcs ? (rcs.getUserId?.() ?? rcs.getAgentIdentityNodeId?.()) : null;
+        const userId    = rawUserId == null ? null : (this.normalizeUserId ? this.normalizeUserId(rawUserId) : rawUserId);
+        const userIdAt  = userId == null ? null : '@' + userId;
+        let rlsClause = `AND (user_id = ? OR user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
         const chunkSize = SQLITE_IN_CLAUSE_BATCH_SIZE;
         let targetNodes = [];
@@ -532,10 +539,10 @@ class SQLite extends Base {
             let placeholders = chunk.map(() => '?').join(',');
 
             const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders}) ${rlsClause}`);
-            targetNodes.push(...nodesStmt.all(...chunk, userId || null).map(r => JSON.parse(r.data)));
+            targetNodes.push(...nodesStmt.all(...chunk, userId, userIdAt).map(r => JSON.parse(r.data)));
 
             const edgesStmt = this.db.prepare(`SELECT data FROM Edges WHERE (source IN (${placeholders}) OR target IN (${placeholders})) ${rlsClause}`);
-            const edgesParams = [...chunk, ...chunk, userId || null];
+            const edgesParams = [...chunk, ...chunk, userId, userIdAt];
             edges.push(...edgesStmt.all(...edgesParams).map(r => JSON.parse(r.data)));
         }
 
@@ -552,7 +559,7 @@ class SQLite extends Base {
                 let chunk = adjIdsArray.slice(i, i + chunkSize);
                 let adjPl = chunk.map(() => '?').join(',');
                 let adjStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl}) ${rlsClause}`);
-                adjacentNodes.push(...adjStmt.all(...chunk, userId || null).map(r => JSON.parse(r.data)));
+                adjacentNodes.push(...adjStmt.all(...chunk, userId, userIdAt).map(r => JSON.parse(r.data)));
             }
         }
 
