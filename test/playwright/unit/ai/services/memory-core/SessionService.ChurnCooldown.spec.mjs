@@ -142,4 +142,32 @@ test.describe('SessionService.findSessionsToSummarize — churn-gate (#13637)', 
         }
         expect(selections).toBe(0);
     });
+
+    test('a future-skewed session stays eligible — never perpetually gated (timestamp-edge hardening)', async () => {
+        wire({
+            // lastActivity is in the FUTURE (clock drift): `nowMs - lastActivity` is negative, so a
+            // bare `< cooldown` check is ALWAYS true → pre-fix the session was gated forever. The
+            // `idleMs >= 0` guard makes a future timestamp eligible (summarize once) instead.
+            'future-skew': {count: 5, lastActivityMs: NOW + 60_000, summaryCount: 2} // 1 min in the FUTURE + mismatch
+        });
+
+        expect(await svc.findSessionsToSummarize({now: NOW})).toContain('future-skew');
+    });
+
+    test('a session with an unparseable timestamp fails open (eligible), not stranded', async () => {
+        // resolveGraphTimestampMs cannot parse the timestamp → lastActivity stays 0 (falsy), so the
+        // gate's `sessionData.lastActivity && ...` short-circuits and the session stays eligible.
+        svc.memoryCollection.get = async ({offset = 0, limit} = {}) => {
+            const rows = [{sessionId: 'bad-ts', timestamp: 'not-a-timestamp'}, {sessionId: 'bad-ts', timestamp: 'also-bad'}];
+            const page = rows.slice(offset, offset + limit);
+            return {ids: page.map((_, i) => `m${offset + i}`), metadatas: page};
+        };
+        svc.sessionsCollection.get = async ({offset = 0, limit} = {}) => {
+            const rows = [{sessionId: 'bad-ts', memoryCount: 99}]; // count mismatch (2 != 99) → Case B
+            const page = rows.slice(offset, offset + limit);
+            return {ids: page.map(r => `summary_${r.sessionId}`), metadatas: page};
+        };
+
+        expect(await svc.findSessionsToSummarize({now: NOW})).toContain('bad-ts');
+    });
 });
