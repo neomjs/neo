@@ -32,13 +32,14 @@ import * as core             from '../../../src/core/_export.mjs';
 import InstanceManager       from '../../../src/manager/Instance.mjs';
 import AiConfig              from '../../config.mjs';
 import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
+import {assertConfigFresh}   from '../../scripts/setup/initServerConfigs.mjs';
 import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 
-import fs                           from 'fs-extra';
-import path                         from 'path';
-import { fileURLToPath }            from 'url';
-import { constants as fsConstants } from 'fs';
-import { spawn, execSync }          from 'child_process';
+import fs                               from 'fs-extra';
+import path                             from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { constants as fsConstants }     from 'fs';
+import { spawn, execSync }              from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,11 +72,14 @@ import {
 import {clampWatermark, filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
 import {IDENTITIES}                                        from '../../graph/identityRoots.mjs';
 
-const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
-const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
-const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
-const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'wake-daemon.log');
-const WOKEN_WATERMARK_FILE     = path.join(DAEMON_DATA_DIR, 'woken-watermark.json');
+// Config-derived paths + PID_FILE (below) are declared here but ASSIGNED in initConfigDerivedState()
+// (called from the guarded main(), never at module-load): a stale memory-core overlay would otherwise
+// crash these derefs with a cryptic `undefined` at import, before assertConfigFresh can report it.
+let DB_PATH;
+let DAEMON_DATA_DIR;
+let STATE_FILE;
+let LOG_FILE;
+let WOKEN_WATERMARK_FILE;
 const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
@@ -95,9 +99,6 @@ const identityParticipationById = new Map(
             identity.properties?.participationStatus || 'active'
         ])
 );
-
-// Ensure daemon data dir exists
-fs.ensureDirSync(DAEMON_DATA_DIR);
 
 /**
  * @summary Loads the persisted per-subscription woken-watermark map, tolerant of a missing or
@@ -137,7 +138,7 @@ function persistWokenWatermark() {
  * with — does not replace — the `readAt` reconcile + the heavy-delta defer.
  * @type {Object<String, Number>}
  */
-let wokenWatermark = loadWokenWatermark();
+let wokenWatermark = {};  // loaded from disk in initConfigDerivedState() (after WOKEN_WATERMARK_FILE is assigned)
 
 /**
  * Rotates `wake-daemon.log` if its mtime falls on a calendar day different from today's.
@@ -223,10 +224,7 @@ function writeLog(level, message) {
     }
 }
 
-// One-shot prune at startup; reaper for archived logs older than retention window
-pruneOldLogs();
-
-const PID_FILE = path.join(DAEMON_DATA_DIR, 'wake-daemon.pid');
+let PID_FILE;  // assigned in initConfigDerivedState() (← DAEMON_DATA_DIR); the one-shot log prune runs there too
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function enforceSingleton() {
@@ -1502,8 +1500,35 @@ async function deliverViaWebhookUrl(subscription, digest, webhookUrl) {
     writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via webhookUrl POST`);
 }
 
+/**
+ * @summary Assigns the config-derived module-scope paths (DB_PATH / DAEMON_DATA_DIR / STATE_FILE /
+ * LOG_FILE / WOKEN_WATERMARK_FILE / PID_FILE) + runs their one-shot startup side-effects (data-dir
+ * ensure, archived-log prune, woken-watermark load). Deferred out of module-load so the
+ * assertConfigFresh guard in main() can fail-fast on a stale memory-core overlay BEFORE any
+ * `memoryCoreConfig` deref crashes with a cryptic `undefined` (the stale-overlay fail-fast class).
+ * @protected
+ */
+function initConfigDerivedState() {
+    DB_PATH              = memoryCoreConfig.storagePaths.graph;
+    DAEMON_DATA_DIR      = memoryCoreConfig.wakeDaemon.dataDir;
+    STATE_FILE           = path.join(DAEMON_DATA_DIR, 'lastSyncId');
+    LOG_FILE             = path.join(DAEMON_DATA_DIR, 'wake-daemon.log');
+    WOKEN_WATERMARK_FILE = path.join(DAEMON_DATA_DIR, 'woken-watermark.json');
+    PID_FILE             = path.join(DAEMON_DATA_DIR, 'wake-daemon.pid');
+
+    fs.ensureDirSync(DAEMON_DATA_DIR);     // data dir must exist before any state-file write
+    pruneOldLogs();                        // one-shot reaper for archived logs older than retention
+    wokenWatermark = loadWokenWatermark(); // restore the durable per-subscription woken high-water marks
+}
+
 // Start loop
 async function main() {
+    // Fail-fast on a stale memory-core config overlay with the actionable --migrate-config message,
+    // BEFORE initConfigDerivedState() derefs memoryCoreConfig.
+    await assertConfigFresh({serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))});
+
+    initConfigDerivedState();
+
     await enforceSingleton();
 
     db = initializeDatabase(DB_PATH);
@@ -1516,4 +1541,12 @@ async function main() {
     pollLoop();
 }
 
-main();
+// Process-entry only: run the boot guard + start the daemon ONLY when this file is the main module,
+// never on import — preserves the process-entry isolation invariant (mirrors the kb-* daemons). On a
+// stale overlay assertConfigFresh exits 1 with the actionable message; other startup errors → stderr + exit 1.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main().catch(err => {
+        process.stderr.write(`[Wake Daemon] Daemon start failed: ${err && err.stack ? err.stack : err}\n`);
+        process.exit(1);
+    });
+}
