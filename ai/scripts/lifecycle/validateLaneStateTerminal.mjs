@@ -32,16 +32,18 @@ export const NON_TERMINAL_DISPOSITIONS = ['awareness', 'stale', 'suppressed'];
  *     `laneContinuation` is required.
  *  2. `laneContinuation='active-lane'` may not be only an own PR awaiting merge/review/CI (a
  *     background watch); that resolves to `next-lane` unless there is concrete author work on it.
- *  3. Every named PR/issue gate must cite a same-turn `checkedAt` (stale gate names are not evidence).
+ *  3. Every named PR/issue gate must cite a same-turn `checkedAt` (stale gate names are not evidence);
+ *     a gate flagged `mergeClaim` must cite `field === 'mergedAt'` (reading a PR's `state`/CLOSED is
+ *     not merge proof — a closed PR may be un-merged).
  *  4. `laneContinuation='verified-no-lane'` must cite a NAMED full-backlog survey artifact with a
- *     `checkedAt` — an own-PR-only or own-epic-only survey fails.
+ *     `checkedAt` AND `scope === 'full-backlog'` — an own-PR-only, own-epic-only, or unscoped survey fails.
  *
  * @param {Object} [laneState={}]
  * @param {String} [laneState.wakeDisposition] One of `actionable|awareness|stale|suppressed|incident`.
  * @param {String} [laneState.laneContinuation] One of `active-lane|next-lane|blocker-routed|verified-no-lane`.
- * @param {Object[]} [laneState.namedGates] Named PR/issue gates this terminal cites: `[{ref, checkedAt}]`.
+ * @param {Object[]} [laneState.namedGates] Named PR/issue gates this terminal cites: `[{ref, checkedAt, mergeClaim?, field?}]`.
  * @param {Boolean} [laneState.awaitingOwnPrOnly] True when the only cited lane is an own PR awaiting merge/review/CI.
- * @param {Object} [laneState.backlogSurvey] `{checkedAt, scope}` — the survey backing a `verified-no-lane` claim.
+ * @param {Object} [laneState.backlogSurvey] `{checkedAt, scope}` backing a `verified-no-lane` claim; `scope` must be `'full-backlog'`.
  * @returns {{valid: Boolean, violations: String[]}} `valid` is true when no rule is violated.
  */
 export function validateLaneStateTerminal(laneState = {}) {
@@ -72,19 +74,21 @@ export function validateLaneStateTerminal(laneState = {}) {
         violations.push('active-lane cannot be only an own PR awaiting merge/review/CI (a background watch) — it resolves to next-lane unless there is concrete author work on that PR this turn.');
     }
 
-    // Rule 3 — named gates need a same-turn checkedAt.
+    // Rule 3 — named gates need a same-turn checkedAt; a merge claim must read the authoritative field.
     for (const gate of namedGates) {
         if (!gate?.checkedAt) {
             violations.push(`Named gate ${gate?.ref ?? '(unnamed)'} must cite a same-turn checkedAt — a stale gate name is not evidence.`);
+        } else if (gate.mergeClaim && gate.field !== 'mergedAt') {
+            violations.push(`Named gate ${gate.ref ?? '(unnamed)'} claims merge state but cites field ${gate.field ? `'${gate.field}'` : '(none)'} — a merge claim must read mergedAt (a PR's state/CLOSED is not merge proof).`);
         }
     }
 
-    // Rule 4 — verified-no-lane needs a named full-backlog survey.
+    // Rule 4 — verified-no-lane needs a named full-backlog survey; an unscoped survey is not full-backlog.
     if (laneContinuation === 'verified-no-lane') {
         if (!backlogSurvey?.checkedAt) {
             violations.push('verified-no-lane must cite a named full-backlog survey artifact (e.g. list_issues / gh issue list) with a checkedAt.');
-        } else if (backlogSurvey.scope && backlogSurvey.scope !== 'full-backlog') {
-            violations.push(`verified-no-lane survey scope '${backlogSurvey.scope}' is too narrow — a full-backlog survey is required (own-PR-only / own-epic-only slices fail).`);
+        } else if (backlogSurvey.scope !== 'full-backlog') {
+            violations.push(`verified-no-lane requires a full-backlog survey scope (got ${backlogSurvey.scope ? `'${backlogSurvey.scope}'` : 'no scope'}) — own-PR-only / own-epic-only / unscoped surveys fail.`);
         }
     }
 
