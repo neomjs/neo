@@ -1226,11 +1226,12 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 // Codex Desktop can leave composer-side UI (mention/autocomplete/completion popovers)
                 // active after a pasted A2A digest such as `from @neo-opus-ada)`. Escape closes that
                 // transient UI so the following Enter submits the prompt instead of being consumed
-                // by the composer. Keep this Codex-scoped; other harnesses already have validated
-                // Enter behavior and should not inherit an untested pre-submit key.
+                // by the composer. The longer post-Escape settle is Codex-scoped: operator
+                // samples show human-delayed Enter succeeds after the scripted Enter is
+                // intermittently consumed, so do not shorten this back to the generic key delay.
                 ...(appName === 'Codex' ? [
                     '-e', '      key code 53',
-                    '-e', '      delay 0.1'
+                    '-e', '      delay 0.45'
                 ] : []),
                 '-e', '      key code 36',
                 '-e', '      delay 1.0',
