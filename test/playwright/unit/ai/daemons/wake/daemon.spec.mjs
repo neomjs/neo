@@ -108,7 +108,8 @@ function insertTurnPresence(db, {
     agentId,
     turnId = 'turn_' + crypto.randomUUID(),
     startedAt = new Date().toISOString(),
-    source = 'codex-user-prompt-submit'
+    source = 'codex-user-prompt-submit',
+    wakeSubmitNonce
 }) {
     const nodeId = `AGENT_TURN_PRESENCE:${agentId}:${turnId}`;
 
@@ -122,11 +123,16 @@ function insertTurnPresence(db, {
             lastProgressAt: startedAt,
             status        : 'active',
             terminalState : null,
-            source
+            source,
+            ...(wakeSubmitNonce ? {wakeSubmitNonce} : {})
         }
     }));
 
     return {nodeId, turnId};
+}
+
+function extractWakeSubmitNonce(output) {
+    return output.match(/wakeSubmitNonce=([0-9a-f-]{36})/)?.[1] || null;
 }
 
 test.describe('Wake Daemon', () => {
@@ -319,12 +325,14 @@ test.describe('Wake Daemon', () => {
             const onData = data => {
                 output += data.toString();
 
-                if (!insertedPresence && output.includes(`Submit attempted ${subId}`)) {
+                const wakeSubmitNonce = extractWakeSubmitNonce(output);
+                if (!insertedPresence && wakeSubmitNonce && output.includes(`Submit attempted ${subId}`)) {
                     insertedPresence = true;
                     insertTurnPresence(db, {
                         agentId,
                         turnId   : 'started-proof',
-                        startedAt: new Date().toISOString()
+                        startedAt: new Date().toISOString(),
+                        wakeSubmitNonce
                     });
                 }
 
@@ -347,8 +355,75 @@ test.describe('Wake Daemon', () => {
         const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
         expect(logContents).toContain(`Submit attempted ${subId} via test-codex-submit to Codex`);
         expect(logContents).toContain(`Turn-start proof wake-submit-started ${subId}`);
+        expect(logContents).toContain('correlation=nonce');
         expect(logContents).toContain('turnId=started-proof');
         expect(logContents).toContain(`messageIds=${msgId}`);
+        expect(logContents).toMatch(/wakeSubmitNonce=[0-9a-f-]{36}/);
+    });
+
+    test('#13636: Codex timestamp-only turn presence is ambiguous, not causal started proof', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-ambiguous';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'test-codex-submit',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH                    : DB_PATH,
+                NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '3000',
+                WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
+            }
+        });
+
+        let output = '';
+        let insertedPresence = false;
+
+        const proofPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex ambiguous turn-start proof')), 10000);
+            const onData = data => {
+                output += data.toString();
+
+                if (!insertedPresence && output.includes(`Submit attempted ${subId}`)) {
+                    insertedPresence = true;
+                    insertTurnPresence(db, {
+                        agentId,
+                        turnId   : 'timestamp-only-proof',
+                        startedAt: new Date().toISOString()
+                    });
+                }
+
+                if (output.includes('wake-submit-unknown') && output.includes('timestamp-window-without-nonce')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Codex Ambiguous Turn Presence'});
+
+        await proofPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain(`Turn-start proof wake-submit-unknown ${subId}`);
+        expect(logContents).toContain('correlation=timestamp-window-without-nonce');
+        expect(logContents).toContain('turnId=timestamp-only-proof');
+        expect(logContents).not.toContain(`Turn-start proof wake-submit-started ${subId}`);
     });
 
     test('#13480: Codex submit attempts log not-started when turn presence does not appear', async () => {
@@ -402,7 +477,9 @@ test.describe('Wake Daemon', () => {
         const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
         expect(logContents).toContain(`Submit attempted ${subId} via test-codex-submit to Codex`);
         expect(logContents).toContain(`Turn-start proof wake-submit-not-started ${subId}`);
+        expect(logContents).toContain('correlation=nonce');
         expect(logContents).toContain(`messageIds=${msgId}`);
+        expect(logContents).toMatch(/wakeSubmitNonce=[0-9a-f-]{36}/);
     });
 
     test('#13077: a failed wake delivery is retried, then capped with a terminal error', async () => {
