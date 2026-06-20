@@ -666,10 +666,87 @@ export async function assertConfigFresh({serverPath, aiRoot = aiDir, logger = co
     }
 }
 
+/**
+ * @summary Pure merge that ensures the template's `hooks` block is present in the active Claude
+ * settings object, preserving every other key (permissions, autoMode, operator-local edits) and any
+ * non-`Stop` hook events. Template hook events overwrite same-named active events (the template owns
+ * the canonical hook wiring); other active events are kept. Returns the merged settings plus a
+ * `changed` flag so an idempotent re-run is a no-op write.
+ *
+ * @param {Object} [activeSettings={}]   Parsed `.claude/settings.json` (or `{}` when absent).
+ * @param {Object} [templateSettings={}] Parsed `.claude/settings.template.json`.
+ * @returns {{settings: Object, changed: Boolean}}
+ */
+export function mergeClaudeHooks(activeSettings = {}, templateSettings = {}) {
+    const templateHooks = templateSettings.hooks;
+
+    if (!templateHooks || Object.keys(templateHooks).length === 0) {
+        return {settings: activeSettings, changed: false};
+    }
+
+    const mergedHooks = {...(activeSettings.hooks || {}), ...templateHooks};
+
+    if (JSON.stringify(activeSettings.hooks || {}) === JSON.stringify(mergedHooks)) {
+        return {settings: activeSettings, changed: false};
+    }
+
+    return {settings: {...activeSettings, hooks: mergedHooks}, changed: true};
+}
+
+/**
+ * @summary Materializes the tracked `.claude/settings.template.json` into the gitignored
+ * `.claude/settings.json` so every clone self-wires the Claude Stop hook (no-hold lane-state
+ * enforcement) without per-repo manual management — the Claude analog of {@link initConfigs} /
+ * {@link initTier1Config}. A missing active file is cloned whole from the template; an existing one
+ * gets only its `hooks` block ensured ({@link mergeClaudeHooks}), preserving operator-local keys.
+ * Idempotent: an already-wired settings file is a silent no-op. Runs at `npm prepare`. The tracked
+ * template carries `NEO_LANE_STATE_ENFORCE=1` in the Stop-hook command — the operator-directed enforce
+ * default (the forcing-function rollout: the hook blocks + injects the no-hold directive at an
+ * invalid idle-out turn-terminal, rather than only audit-logging it). Enforce is opted OUT locally by
+ * dropping that env prefix in the gitignored `.claude/settings.json`, not by changing the default.
+ *
+ * Distinct from the server/Tier-1 config path: Claude settings are JSON (not `.mjs`), so the regex
+ * shape-drift detector does not apply — a structural `hooks`-key merge is the right primitive.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.claudeDir] `.claude/` dir; defaults to `<repo>/.claude`. Override for tests.
+ * @param {Object} [options.logger=console] Log sink; injectable for tests.
+ * @returns {Promise<{action: String}>} `action` is one of `clone` / `wired` / `silent` / `skip-no-template`.
+ */
+export async function initClaudeSettings({claudeDir = path.join(cwd, '.claude'), logger = console} = {}) {
+    const templatePath = path.join(claudeDir, 'settings.template.json');
+    const activePath   = path.join(claudeDir, 'settings.json');
+
+    if (!fs.existsSync(templatePath)) {
+        logger.warn('[Neo AI] .claude/settings.template.json not found; skipping Claude settings initialization.');
+        return {action: 'skip-no-template'};
+    }
+
+    const templateSettings = JSON.parse(await fs.readFile(templatePath, 'utf-8'));
+
+    if (!fs.existsSync(activePath)) {
+        await fs.writeFile(activePath, JSON.stringify(templateSettings, null, 2) + '\n', 'utf-8');
+        logger.log('[Neo AI] .claude/settings.json missing. Materialized from template (Stop hook wired).');
+        return {action: 'clone'};
+    }
+
+    const activeSettings      = JSON.parse(await fs.readFile(activePath, 'utf-8'));
+    const {settings, changed} = mergeClaudeHooks(activeSettings, templateSettings);
+
+    if (!changed) {
+        return {action: 'silent'};
+    }
+
+    await fs.writeFile(activePath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    logger.log('[Neo AI] Wired the Claude Stop hook into .claude/settings.json (auto-materialized from template).');
+    return {action: 'wired'};
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
     (async () => {
         await initTier1Config();
         await initConfigs();
+        await initClaudeSettings();
     })().catch(err => {
         console.error('[Neo AI] Failed to initialize configs:', err);
         process.exit(1);
