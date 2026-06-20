@@ -12,14 +12,16 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
           embedFn           = async docs => docs.map(() => [0.1, 0.2]);
 
     function makeSeams({coverage, extractResults}) {
-        const calls = {audit: [], extract: [], promote: []};
+        const calls = {audit: [], extract: [], promote: [], clearState: [], writeState: []};
 
         return {
             calls,
-            client   : {getCollection: async ({name}) => ({_name: name})},
-            auditFn  : async args => { calls.audit.push(args);   return coverage; },
-            extractFn: async args => { calls.extract.push(args); return extractResults[args.collection._name]; },
-            promoteFn: async args => { calls.promote.push(args); return {promoted: args.collectionName}; }
+            client      : {getCollection: async ({name}) => ({_name: name})},
+            auditFn     : async args => { calls.audit.push(args);   return coverage; },
+            extractFn   : async args => { calls.extract.push(args); return extractResults[args.collection._name]; },
+            promoteFn   : async args => { calls.promote.push(args); return {promoted: args.collectionName}; },
+            clearStateFn: async args => { calls.clearState.push(args); },
+            writeStateFn: async args => { calls.writeState.push(args); }
         };
     }
 
@@ -32,11 +34,11 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
                   'mc-memory': {data: {ids: ['a', 'b', 'c'], embeddings: [[1], [2], [3]], documents: ['', '', ''], metadatas: [{}, {}, {}]}, unrecoverable: [], counts: {total: 3, intact: 2, reEmbedded: 1, unrecoverable: 0}},
                   'mc-graph' : {data: {ids: ['x'], embeddings: [[9]], documents: [''], metadatas: [{}]},             unrecoverable: [], counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
               },
-              {calls, client, auditFn, extractFn, promoteFn} = makeSeams({coverage, extractResults});
+              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory', 'mc-graph'], snapshotPath: '/snap', persistDir: '/persist',
-            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, log: () => {}
+            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
         });
 
         // exactly one enumeration call, uncapped (includeFullIds), over the requested collections
@@ -53,6 +55,10 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
         expect(calls.promote[0].data.ids).toEqual(['a', 'b', 'c']);
         expect(results).toHaveLength(2);
         expect(results.every(r => r.promotion && !r.aborted)).toBe(true);
+
+        // clean success CLEARS the durable marker (no rerun-poisoning); the aborted marker is never written
+        expect(calls.clearState).toEqual([{statePath: '/state'}]);
+        expect(calls.writeState).toHaveLength(0);
     });
 
     test('fail-loud: unrecoverable rows abort that collection promotion (no silent drop)', async () => {
@@ -60,17 +66,27 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
               extractResults = {
                   'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
               },
-              {calls, client, auditFn, extractFn, promoteFn} = makeSeams({coverage, extractResults});
+              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
-            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, log: () => {}
+            embedFn, embeddingFunction, statePath: '/state', stateBase: {targetName: 'memory-core'},
+            auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
         });
 
         expect(calls.promote).toHaveLength(0);              // never promoted
         expect(results[0].aborted).toBe(true);
         expect(results[0].unrecoverable).toEqual(['b']);
         expect(results[0].counts.unrecoverable).toBe(1);
+
+        // an aborted repair NEVER clears the marker; it rewrites an explicit aborted marker so the next run
+        // blocks as DEFRAG_INCOMPLETE_STATE with an accurate diagnostic
+        expect(calls.clearState).toHaveLength(0);
+        expect(calls.writeState).toHaveLength(1);
+        expect(calls.writeState[0].statePath).toBe('/state');
+        expect(calls.writeState[0].state.phase).toBe('memory-core-repair-aborted');
+        expect(calls.writeState[0].state.targetName).toBe('memory-core');
+        expect(calls.writeState[0].state.aborted).toEqual(['mc-memory']);
     });
 
     test('throws when the enumeration returns no coverage row for a requested collection', async () => {
@@ -80,6 +96,22 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
             embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, log: () => {}
         })).rejects.toThrow(/no coverage row for 'mc-memory'/);
+    });
+
+    test('omitting statePath skips all state-marker ops (no marker lifecycle without a path)', async () => {
+        const coverage = {collections: [{name: 'mc-memory', allIds: ['a'], missingVectorIds: []}]},
+              extractResults = {
+                  'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: [], counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
+              },
+              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+
+        await repairMemoryCoreCollectionsViaFullEnumeration({
+            client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
+            embedFn, embeddingFunction, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+        });
+
+        expect(calls.clearState).toHaveLength(0);
+        expect(calls.writeState).toHaveLength(0);
     });
 });
 
