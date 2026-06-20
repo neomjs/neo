@@ -142,6 +142,12 @@ Only `next-lane` is the normal turn-boundary state for this skill. "Holding",
 The declaration proves the cycle ran; without it the substrate cannot
 distinguish discipline from deference.
 
+**Machine seam (the Stop-hook input contract):** the prose line above is for
+humans; the `laneStateStopHook` also validates a fenced ` ```lane-state ` JSON
+block — emit it as the last block of every turn-terminal or the hook blocks the
+turn. Full schema, rules, and examples →
+[`./lane-state-emission-contract.md`](./lane-state-emission-contract.md).
+
 ## 2.6. Typed `lane-state` Ledger + Commitment Lease
 
 Lineage: #12506 / Discussion #12501. The `lane-state:` declaration also acts as
