@@ -1,8 +1,8 @@
-import crypto                from 'crypto';
-import Base                  from '../../../src/core/Base.mjs';
-import GraphService          from './GraphService.mjs';
-import aiConfig              from '../../mcp/server/memory-core/config.mjs';
-import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
+import crypto                                   from 'crypto';
+import Base                                     from '../../../src/core/Base.mjs';
+import GraphService                             from './GraphService.mjs';
+import aiConfig                                 from '../../mcp/server/memory-core/config.mjs';
+import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
 
 /**
  * @summary Graph-backed active-turn presence writer for agent liveness beacons.
@@ -114,18 +114,18 @@ class TurnPresenceService extends Base {
               properties = {
                   ...current,
                   agentIdentity,
-                  turnId: targetTurnId,
+                  turnId        : targetTurnId,
                   startedAt,
                   lastProgressAt: nowIso,
-                  freshUntil: new Date(nowDate.getTime() + freshMs).toISOString(),
-                  expiresAt : new Date(nowDate.getTime() + ttlMs).toISOString(),
-                  terminalState: action === 'terminal' ? terminalState : null,
-                  status: action === 'terminal' ? 'terminal' : 'active',
+                  freshUntil    : new Date(nowDate.getTime() + freshMs).toISOString(),
+                  expiresAt     : new Date(nowDate.getTime() + ttlMs).toISOString(),
+                  terminalState : action === 'terminal' ? terminalState : null,
+                  status        : action === 'terminal' ? 'terminal' : 'active',
                   source,
-                  note: typeof note === 'string' ? note.slice(0, aiConfig.turnPresence.noteMaxChars) : null,
-                  updatedAt: nowIso,
-                  userId: agentIdentity,
-                  sharedEntity: false
+                  note          : typeof note === 'string' ? note.slice(0, aiConfig.turnPresence.noteMaxChars) : null,
+                  updatedAt     : nowIso,
+                  userId        : normalizeUserId(agentIdentity),   // canonical isolation key (no @-form); agentIdentity above stays the @-form label
+                  sharedEntity  : false
               };
 
         GraphService.upsertNode({
@@ -140,7 +140,7 @@ class TurnPresenceService extends Base {
             ...properties,
             status: 'recorded',
             action,
-            id: nodeId
+            id    : nodeId
         };
     }
 

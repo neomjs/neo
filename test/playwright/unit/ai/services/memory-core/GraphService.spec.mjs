@@ -289,6 +289,25 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
     });
 
+    test('upsertNode stamps the normalized canonical user_id, not the @-form node id (#13578)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+        RequestContextService.getAgentIdentityNodeId = () => '@tenant-writer';
+
+        try {
+            await GraphService.upsertNode({id: 'write-canon-node', label: 'TestNode'});
+            await new Promise(resolve => setTimeout(resolve, 50));   // let the Store → SQLite projection flush
+
+            // The persisted user_id COLUMN (what RLS filters on) must be the normalized form, never the @-form.
+            const row = GraphService.db.storage.db.prepare('SELECT user_id FROM Nodes WHERE id = ?').get('write-canon-node');
+            expect(row?.user_id).toBe('tenant-writer');
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
+
     test('preBriefSession should hydrate episodic context through getNeighbors semanticVectorId', async () => {
         await GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
         await GraphService.upsertNode({id: 'MemoryA', name: 'Session Summary', semanticVectorId: 'summary-vector-1'});
@@ -859,12 +878,12 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             await GraphService.upsertNode({id: 'tenant-a-node-2', type: 'TEST', name: 'tenant-a', properties: {}});
             await GraphService.linkNodesAsync('tenant-a-node-1', 'tenant-a-node-2', 'RELATES_TO', 1.0);
 
-            // Assert: Nodes and edges are stamped
+            // Assert: nodes and edges are stamped with the normalized canonical user_id (no @-form)
             let node1 = GraphService.db.nodes.get('tenant-a-node-1');
-            expect(node1.properties.userId).toBe('@identity-a');
+            expect(node1.properties.userId).toBe('identity-a');
 
             let edge = GraphService.db.edges.items.find(e => e.source === 'tenant-a-node-1' && e.target === 'tenant-a-node-2');
-            expect(edge.properties.userId).toBe('@identity-a');
+            expect(edge.properties.userId).toBe('identity-a');
 
             // Wait for DB to sync memory to disk (flush mutations if any are async, though upsert is sync RAM + async disk?)
             // upsertNode pushes to RAM and then directly calls storage.addNodes() synchronously.

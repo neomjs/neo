@@ -367,8 +367,8 @@ test.describe('GraphService — global system-node provisioning (write-side null
         requester.value = '@tenant-a';
         GraphService.upsertNode({id: 'leaky', type: 'System', name: 'Leaky'});
 
-        // Baseline: without the helper the node is bound to @tenant-a and hidden from @tenant-b.
-        expect(GraphService.db.nodes.get('leaky').properties.userId).toBe('@tenant-a');
+        // Baseline: without the helper the node is bound to tenant-a (normalized) and hidden from @tenant-b.
+        expect(GraphService.db.nodes.get('leaky').properties.userId).toBe('tenant-a');
 
         requester.value = '@tenant-b';
         expect(GraphService.getNode({id: 'leaky'})).toBeNull();
@@ -399,10 +399,10 @@ test.describe('GraphService — global system-node provisioning (write-side null
         requester.value = '@tenant-a';
         GraphService.upsertGlobalNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'Frontier'});
         GraphService.upsertGlobalNode({id: 'Neo-Master-Architecture', type: 'System', name: 'Primer'});
-        GraphService.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);  // plain → edge stamped @tenant-a
+        GraphService.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);  // plain → edge stamped tenant-a (normalized)
 
         // Baseline: the node is global, but the tenant-stamped edge hides the primer from topology.
-        expect(GraphService.db.edges.getByIndex('source', 'frontier')[0].properties.userId).toBe('@tenant-a');
+        expect(GraphService.db.edges.getByIndex('source', 'frontier')[0].properties.userId).toBe('tenant-a');
 
         requester.value = '@tenant-b';
         const ids = GraphService.getContextFrontier({depth: 2}).strategicNeighbors.map(n => n.id);

@@ -46,6 +46,12 @@ function isRlsVisible(entity, requesterUserId) {
  * node id explicitly NOT for isolation, used only as a fallback when no userId is bound. Returning the
  * normalized form lets the RLS predicate match an owner's own nodes regardless of the (historically
  * inconsistent) stored `user_id` form.
+ *
+ * Namespace-disjointness invariant (per Grace's identity-boundary review): the only id this collapses
+ * is `@X`↔`X` (one agent's two stamping forms). It therefore assumes tenant userIds and agent
+ * identities occupy DISJOINT namespaces — a tenant userId equal to an agent identity sans-`@` (e.g.
+ * tenant `neo-opus-grace` vs agent `@neo-opus-grace`) would normalize-collide and cross the boundary.
+ * This holds today (tenant ids are gitlab / SHARED_USER_ID-shaped, never `@neo-*`).
  * @param {Object|null|undefined} rcs The request-bound RequestContextService.
  * @returns {String|null} Normalized userId, or null when no identity is bound.
  */
@@ -254,7 +260,8 @@ class GraphService extends Base {
 
         let node = this.db.nodes.get(id);
 
-        let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
+        // Stamp the canonical normalized isolation key (mirrors the RLS read boundary) — never the @-form node id.
+        let currentUserId = resolveRlsUserId(this.db.storage?.RequestContextService) ?? undefined;
 
         if (node) {
             const currentLabel = node.isRecord ? node.get('label') : node.label;
@@ -418,7 +425,8 @@ class GraphService extends Base {
                                                            AND type = ?`);
             const existing = stmt.get(source, target, relationship);
 
-            let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
+            // Stamp the canonical normalized isolation key (mirrors the RLS read boundary) — never the @-form node id.
+            let currentUserId = resolveRlsUserId(this.db.storage?.RequestContextService) ?? undefined;
             let edgeProperties = {weight, ...properties};
             if (currentUserId !== undefined && edgeProperties.userId === undefined) {
                 edgeProperties.userId = currentUserId;
