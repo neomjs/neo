@@ -118,7 +118,9 @@ real system defect, file or route the bug ticket, then continue lane selection.
 review/merge status MUST first run live `gh pr view <N> --json state,mergedAt,baseRefName`;
 wakes are hints, not cache. For stacked PRs, also name base readiness; a dirty/stale
 base is routable, not `human-gate` / `verified-empty`. Relay the review body's §9 verdict,
-not the flattened enum.
+not the flattened enum. Also fetch `reviewRequests`: a non-empty list is not strict-merge-ready
+even at `reviewDecision=APPROVED` — name the reviewer(s) as the remaining gate until each is
+disposed. `validateMergeReady` (ai/scripts/lifecycle) encodes this contract.
 
 ## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
 
