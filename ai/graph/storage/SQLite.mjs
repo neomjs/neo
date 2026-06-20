@@ -1,5 +1,6 @@
-import Base                            from './Base.mjs';
-import { SQLITE_IN_CLAUSE_BATCH_SIZE } from './constants.mjs';
+import Base                                           from './Base.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE }                from './constants.mjs';
+import { isDisposableStorePath, isTestRunnerContext } from '../../services/shared/storeWriteGuard.mjs';
 
 const GRAPH_SCHEMA_VERSION = 1;
 const GRAPH_SCHEMA_VERSION_ID = 'graph';
@@ -285,15 +286,16 @@ class SQLite extends Base {
     /**
      * @summary Classifies a SQLite path as disposable (test-isolated) versus a live production database.
      *
-     * Disposable = SQLite `:memory:`, an OS-temp / repo-`tmp/` path, or any `*test*` path. This is the single
-     * definition of "safe to mutate from a test", shared by `clear()`'s production-wipe guard and
-     * `assertTestWriteIsolated()` so the destructive and the write-isolation guards never drift apart.
+     * Delegates to the Agent-OS-wide `storeWriteGuard.isDisposableStorePath` classifier — one definition of
+     * "safe to mutate from a test" (`:memory:`, an OS-temp / repo-`tmp/`, or any `*test*` path) shared across
+     * the graph store and the file-stores so no per-store classifier drifts. Used here by both `clear()`'s
+     * production-wipe guard and `assertTestWriteIsolated()`.
      * @param {String|null} [dbPath=this.dbPath]
      * @returns {Boolean}
      * @protected
      */
     isDisposableDbPath(dbPath=this.dbPath) {
-        return !dbPath || dbPath === ':memory:' || dbPath.includes('tmp') || dbPath.includes('test');
+        return isDisposableStorePath(dbPath);
     }
 
     /**
@@ -318,9 +320,7 @@ class SQLite extends Base {
      * @protected
      */
     assertTestWriteIsolated({dbPath=this.dbPath, env=process.env}={}) {
-        const inTestRunner = env.TEST_WORKER_INDEX !== undefined || env.UNIT_TEST_MODE === 'true';
-
-        if (!inTestRunner || this.isDisposableDbPath(dbPath)) return;
+        if (!isTestRunnerContext(env) || this.isDisposableDbPath(dbPath)) return;
 
         throw new Error(
             `GRAPH_WRITE_GUARD: refusing a graph write to the production database "${dbPath}" from a test ` +
