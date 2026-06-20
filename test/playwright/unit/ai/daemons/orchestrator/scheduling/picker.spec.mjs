@@ -1,10 +1,10 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}      from '@playwright/test';
 import {pickNextCandidate} from '../../../../../../../ai/daemons/orchestrator/scheduling/picker.mjs';
 
 function makeCandidate(taskName, descriptorOverrides = {}) {
     return {
         taskName,
-        trigger: {reason: `${taskName}-test`},
+        trigger   : {reason: `${taskName}-test`},
         descriptor: {
             taskName,
             executionKind   : 'in-process-async',
@@ -49,8 +49,8 @@ test.describe('orchestrator/scheduling/picker (#11862 Sub 18)', () => {
         ];
         const winner = pickNextCandidate({
             candidates,
-            runningTasks  : ['backup'],
-            policyContext : {runningHeavyTasks: new Set(['backup'])}
+            runningTasks : ['backup'],
+            policyContext: {runningHeavyTasks: new Set(['backup'])}
         });
         // backup filtered out by filterAlreadyRunning
         // kbSync filtered out by filterExclusiveHeavyConflict (backup heavy in runningHeavyTasks)
@@ -103,8 +103,8 @@ test.describe('orchestrator/scheduling/picker (#11862 Sub 18)', () => {
         ];
         const winner = pickNextCandidate({
             candidates,
-            runningTasks  : [],
-            policyContext : {runningHeavyTasks: new Set()}
+            runningTasks : [],
+            policyContext: {runningHeavyTasks: new Set()}
         });
         expect(winner.taskName).toBe('backup');
     });
@@ -157,5 +157,123 @@ test.describe('orchestrator/scheduling/picker (#11862 Sub 18)', () => {
         ];
         const winner = pickNextCandidate({candidates, runningTasks: []});
         expect(winner.taskName).toBe('first');
+    });
+
+    // --- priority-0 (backup) + staleness-ratio selector ---
+
+    test('#13586 priority-0: backup wins unconditionally over a registry-earlier, fresher task', () => {
+        const now = 1_000_000;
+        const candidates = [
+            makeCandidate('summary', {maintenanceClass: 'heavy'}),
+            makeCandidate('backup',  {maintenanceClass: 'heavy'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : [],
+            policyContext: {
+                now,
+                priorityZeroTasks: ['backup'],
+                taskMeta         : {
+                    summary: {lastRunAt: now - 1_000, cadenceMs: 600_000},      // just ran
+                    backup : {lastRunAt: now - 1_000, cadenceMs: 86_400_000}    // also fresh, but prio-0
+                }
+            }
+        });
+        expect(winner.taskName).toBe('backup');
+    });
+
+    test('#13586 priority-0 beats a hugely-stale non-prio-zero task', () => {
+        const now = 1_000_000_000;
+        const candidates = [
+            makeCandidate('memory-summary-backfill', {maintenanceClass: 'heavy'}),
+            makeCandidate('backup',                   {maintenanceClass: 'heavy'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : [],
+            policyContext: {
+                now,
+                priorityZeroTasks: ['backup'],
+                taskMeta         : {
+                    'memory-summary-backfill': {lastRunAt: 0,            cadenceMs: 600_000},     // never run, hugely stale
+                    backup                   : {lastRunAt: now - 1_000,  cadenceMs: 86_400_000}   // fresh
+                }
+            }
+        });
+        expect(winner.taskName).toBe('backup');
+    });
+
+    test('#13586 staleness-ratio: a weeks-stale golden-path outranks a just-drained summary', () => {
+        const WEEK = 7 * 24 * 60 * 60 * 1000;
+        const now  = 10 * WEEK;
+        const candidates = [
+            makeCandidate('summary',     {maintenanceClass: 'heavy'}),
+            makeCandidate('golden-path', {maintenanceClass: 'graph-dependent'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : [],
+            policyContext: {
+                now,
+                priorityZeroTasks: ['backup'],
+                taskMeta         : {
+                    summary      : {lastRunAt: now - 60_000,     cadenceMs: 600_000},        // ~0.1 overdue
+                    'golden-path': {lastRunAt: now - 3 * WEEK,   cadenceMs: 60 * 60 * 1000}  // ~500 overdue
+                }
+            }
+        });
+        expect(winner.taskName).toBe('golden-path');
+    });
+
+    test('#13586 staleness-ratio: a starved (never-run) backfill outranks a just-drained summary', () => {
+        const now = 1_000_000_000;
+        const candidates = [
+            makeCandidate('summary',                  {maintenanceClass: 'heavy'}),
+            makeCandidate('memory-summary-backfill',  {maintenanceClass: 'heavy'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : [],
+            policyContext: {
+                now,
+                priorityZeroTasks: ['backup'],
+                taskMeta         : {
+                    summary                  : {lastRunAt: now - 60_000, cadenceMs: 600_000},
+                    'memory-summary-backfill': {lastRunAt: 0,            cadenceMs: 600_000}   // never run → huge ratio
+                }
+            }
+        });
+        expect(winner.taskName).toBe('memory-summary-backfill');
+    });
+
+    test('#13586 staleness-ratio: registry order breaks ties on equal ratios (strict-greater)', () => {
+        const now = 1_000_000;
+        const candidates = [
+            makeCandidate('alpha', {maintenanceClass: 'heavy'}),
+            makeCandidate('beta',  {maintenanceClass: 'heavy'})
+        ];
+        const winner = pickNextCandidate({
+            candidates,
+            runningTasks : [],
+            policyContext: {
+                now,
+                priorityZeroTasks: [],
+                taskMeta         : {
+                    alpha: {lastRunAt: now - 300_000, cadenceMs: 600_000},  // identical ratio
+                    beta : {lastRunAt: now - 300_000, cadenceMs: 600_000}
+                }
+            }
+        });
+        expect(winner.taskName).toBe('alpha');
+    });
+
+    test('#13586 backward-compat: policyContext without taskMeta falls back to registry-order', () => {
+        const candidates = [
+            makeCandidate('summary', {maintenanceClass: 'heavy'}),
+            makeCandidate('backup',  {maintenanceClass: 'heavy'})
+        ];
+        // taskMeta absent → legacy registry-order (summary first) preserved even though backup exists.
+        const winner = pickNextCandidate({candidates, runningTasks: [], policyContext: {now: 1_000_000}});
+        expect(winner.taskName).toBe('summary');
     });
 });
