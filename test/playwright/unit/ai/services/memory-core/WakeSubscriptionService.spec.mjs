@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import crypto                from 'crypto';
-import fs                    from 'fs-extra';
-import path                  from 'path';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import crypto         from 'crypto';
+import fs             from 'fs-extra';
+import path           from 'path';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 
 // Stub Neo.get to keep data-record boot behavior from masking wake-subscription coverage.
 // The setup regression is outside this spec's delivery contract.
@@ -126,17 +126,17 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 harnessTargetMetadata,
                 createdAt,
                 updatedAt,
-                userId      : owner,
-                sharedEntity: false,
+                userId       : owner,
+                sharedEntity : false,
                 status
             }
         };
         const edgeId = `EDGE:${crypto.randomUUID()}`;
         const edge = {
-            id    : edgeId,
-            source: owner,
-            target: subscriptionId,
-            type  : 'SUBSCRIBES_TO',
+            id        : edgeId,
+            source    : owner,
+            target    : subscriptionId,
+            type      : 'SUBSCRIBES_TO',
             properties: {
                 weight: 1,
                 userId: owner
@@ -158,13 +158,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         test('creates new subscription from identity template', async () => {
             // Give Alice a template
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -184,13 +184,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('bootstraps a volatile HarnessPresence overlay from boot address metadata (#12422)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -234,13 +234,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         test('returns existing subscription if it matches template (idempotent)', async () => {
             // Give Alice a template
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -258,33 +258,33 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('bootId mismatch plus dead pid retires stale HarnessPresence before upsert (#12422)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
             });
 
             GraphService.upsertNode({
-                id  : 'HARNESS_PRESENCE:@alice:old-boot',
-                type: 'HARNESS_PRESENCE',
-                name: 'HarnessPresence @alice',
+                id        : 'HARNESS_PRESENCE:@alice:old-boot',
+                type      : 'HARNESS_PRESENCE',
+                name      : 'HarnessPresence @alice',
                 properties: {
-                    agentIdentity: '@alice',
+                    agentIdentity : '@alice',
                     subscriptionId: 'WAKE_SUB:old',
-                    state        : 'idle',
-                    wakePolicy   : 'immediate',
-                    source       : 'mcp-client',
-                    bootId       : 'old-boot',
-                    pid          : 999999,
-                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
-                    expiresAt    : '2026-06-04T00:10:00.000Z',
-                    status       : 'active'
+                    state         : 'idle',
+                    wakePolicy    : 'immediate',
+                    source        : 'mcp-client',
+                    bootId        : 'old-boot',
+                    pid           : 999999,
+                    lastSeenAt    : '2026-06-04T00:00:00.000Z',
+                    expiresAt     : '2026-06-04T00:10:00.000Z',
+                    status        : 'active'
                 }
             });
 
@@ -307,32 +307,32 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('TTL backstop retires HarnessPresence even without a pid (#12422)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
             });
 
             GraphService.upsertNode({
-                id  : 'HARNESS_PRESENCE:@alice:expired-boot',
-                type: 'HARNESS_PRESENCE',
-                name: 'HarnessPresence @alice',
+                id        : 'HARNESS_PRESENCE:@alice:expired-boot',
+                type      : 'HARNESS_PRESENCE',
+                name      : 'HarnessPresence @alice',
                 properties: {
-                    agentIdentity: '@alice',
+                    agentIdentity : '@alice',
                     subscriptionId: 'WAKE_SUB:expired',
-                    state        : 'idle',
-                    wakePolicy   : 'immediate',
-                    source       : 'mcp-client',
-                    bootId       : 'expired-boot',
-                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
-                    expiresAt    : '2026-06-04T00:10:00.000Z',
-                    status       : 'active'
+                    state         : 'idle',
+                    wakePolicy    : 'immediate',
+                    source        : 'mcp-client',
+                    bootId        : 'expired-boot',
+                    lastSeenAt    : '2026-06-04T00:00:00.000Z',
+                    expiresAt     : '2026-06-04T00:10:00.000Z',
+                    status        : 'active'
                 }
             });
 
@@ -352,19 +352,19 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('recovers template from durable AgentIdentity row when cache is stale', async () => {
             GraphService.upsertNode({
-                id: '@neo-gpt',
-                type: 'AgentIdentity',
-                name: 'Codex',
+                id        : '@neo-gpt',
+                type      : 'AgentIdentity',
+                name      : 'Codex',
                 properties: {
-                    displayName: 'Codex',
-                    modelFamily: 'gpt',
+                    displayName         : 'Codex',
+                    modelFamily         : 'gpt',
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: {
-                            adapter: 'osascript',
-                            appName: 'Codex',
-                            tabShortcut: null,
+                            adapter     : 'osascript',
+                            appName     : 'Codex',
+                            tabShortcut : null,
                             focusSeedKey: 'r'
                         }
                     }
@@ -409,13 +409,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         test('reconciles duplicate active subscriptions at bootstrap, keeping newest (#11182)', async () => {
             // Give Alice a template
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -424,18 +424,18 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             // Seed 2 active subscriptions for @alice with identical route-tuple but
             // different creation times; only the newest route should remain active.
             const older = insertDurableSubscription({
-                subscriptionId: 'WAKE_SUB:older-uuid',
-                owner         : '@alice',
+                subscriptionId       : 'WAKE_SUB:older-uuid',
+                owner                : '@alice',
                 harnessTargetMetadata: {appName: 'Antigravity'},
-                createdAt     : '2026-05-08T17:57:00.000Z',
-                updatedAt     : '2026-05-08T17:57:00.000Z'
+                createdAt            : '2026-05-08T17:57:00.000Z',
+                updatedAt            : '2026-05-08T17:57:00.000Z'
             });
             const newer = insertDurableSubscription({
-                subscriptionId: 'WAKE_SUB:newer-uuid',
-                owner         : '@alice',
+                subscriptionId       : 'WAKE_SUB:newer-uuid',
+                owner                : '@alice',
                 harnessTargetMetadata: {appName: 'Antigravity'},
-                createdAt     : '2026-05-10T17:09:00.000Z',
-                updatedAt     : '2026-05-10T17:09:00.000Z'
+                createdAt            : '2026-05-10T17:09:00.000Z',
+                updatedAt            : '2026-05-10T17:09:00.000Z'
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -461,13 +461,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('reconciler is idempotent on canonical single-active state (#11182)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -494,13 +494,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('reconciler retires N-1 when 3+ duplicates exist, keeping newest (#11182)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -545,13 +545,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             // harnessTarget + appName), not flatten by owner. Two legitimate routes
             // for the same agent must BOTH survive.
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -595,13 +595,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('reconciler ignores already-retired or inactive subscriptions (#11182)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -708,8 +708,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test('subscribe rejects non-canonical appName', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             await expect(WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'antigravity'}
             })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude, Codex");
         });
@@ -721,7 +721,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 trigger              : 'SENT_TO_ME',
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
-                    appName: 'Antigravity',
+                    appName        : 'Antigravity',
                     instanceAddress: '4242'
                 }
             })).rejects.toThrow('Shape C instance addressing requires harnessTargetMetadata.addressType');
@@ -734,9 +734,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 trigger              : 'SENT_TO_ME',
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
-                    appName: 'Antigravity',
+                    appName        : 'Antigravity',
                     instanceAddress: 'frontmost',
-                    addressType: 'frontmost'
+                    addressType    : 'frontmost'
                 }
             })).rejects.toThrow("Invalid addressType 'frontmost'. Must be one of: userDataDir, pid, tmuxSession, webhookUrl");
         });
@@ -788,8 +788,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test('subscribe accepts canonical appName Antigravity', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'Antigravity'}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
@@ -799,8 +799,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test('subscribe accepts canonical appName Claude', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'Claude'}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
@@ -810,8 +810,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test('subscribe accepts canonical appName Codex', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'Codex'}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
@@ -1321,7 +1321,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 // mcp-notifications bypasses coalescing window and pushes immediately
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME',
+                    trigger      : 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications'
                 });
             });
@@ -1352,7 +1352,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME',
+                    trigger      : 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications'
                 });
             });
@@ -1546,9 +1546,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME',
+                    trigger      : 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications',
-                    filters: { priority: 'high' }
+                    filters      : { priority: 'high' }
                 });
             });
 
