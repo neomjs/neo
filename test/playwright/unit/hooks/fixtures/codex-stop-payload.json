@@ -1,0 +1,7 @@
+{
+  "_contractNote": "Representative Codex Stop hook payload for unit tests. Codex documents Stop command hooks, but not a stable block/inject decision contract; the live hook can log a redacted payload shape with NEO_CODEX_LANE_STATE_CAPTURE=1.",
+  "event": "Stop",
+  "session_id": "codex-stop-fixture",
+  "cwd": "/repo",
+  "last_assistant_message": "Continuing the active Codex lane.\n\n```lane-state\n{\"laneContinuation\":\"active-lane\",\"namedGates\":[{\"ref\":\"codex-stop-hook-parity\",\"checkedAt\":\"2026-06-20T13:20:00.000Z\"}],\"awaitingOwnPrOnly\":false}\n```"
+}
