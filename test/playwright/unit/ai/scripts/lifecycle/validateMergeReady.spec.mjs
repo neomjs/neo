@@ -65,4 +65,25 @@ test.describe('validateMergeReady — strict merge-readiness contract', () => {
         });
         expect(result.strictMergeReady).toBe(true);
     });
+
+    test('fails CLOSED when reviewRequests was not fetched (undefined, not [])', () => {
+        // The omission false-positive: APPROVED + green + CLEAN but reviewRequests never queried.
+        const result = validateMergeReady({reviewDecision: 'APPROVED', checksGreen: true, mergeStateStatus: 'CLEAN'});
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.join(' ')).toContain('reviewRequests was not fetched');
+    });
+
+    test('fails CLOSED when mergeStateStatus was not fetched', () => {
+        const result = validateMergeReady({reviewDecision: 'APPROVED', checksGreen: true, reviewRequests: []});
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.join(' ')).toContain('mergeStateStatus was not fetched');
+    });
+
+    test('an empty-array reviewRequests (fetched-and-empty) does NOT fail closed', () => {
+        // [] is the explicit "fetched, none outstanding" assertion — distinct from undefined.
+        const result = validateMergeReady({
+            reviewDecision: 'APPROVED', checksGreen: true, mergeStateStatus: 'CLEAN', reviewRequests: []
+        });
+        expect(result.strictMergeReady).toBe(true);
+    });
 });

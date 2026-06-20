@@ -24,25 +24,30 @@ export const NON_MERGEABLE_STATES = ['DIRTY', 'BEHIND', 'BLOCKED'];
  *
  * Rules (all must hold for `strictMergeReady`):
  *  1. `reviewDecision === 'APPROVED'`.
- *  2. `checksGreen` (all required CI checks pass).
- *  3. `mergeStateStatus` is not a non-mergeable state (DIRTY/BEHIND/BLOCKED — a conflict / stale base).
- *  4. Every explicitly-requested reviewer in `reviewRequests` is disposed — i.e. `reviewRequests`
+ *  2. `checksGreen === true` (all required CI checks pass).
+ *  3. `mergeStateStatus` is fetched AND not a non-mergeable state (DIRTY/BEHIND/BLOCKED — a conflict / stale base).
+ *  4. `reviewRequests` is fetched AND every explicitly-requested reviewer is disposed — i.e. `reviewRequests`
  *     minus `disposedReviewers` is empty (the reviewer-contract gate).
+ *
+ * Fail-CLOSED contract: `checksGreen`, `mergeStateStatus`, and `reviewRequests` that were NOT fetched
+ * (`undefined`) each block readiness — an un-queried field cannot certify a green surface, and an
+ * omitted `reviewRequests` must never be read as "no outstanding reviewers". Pass `reviewRequests: []`
+ * to assert it was fetched-and-empty.
  *
  * @param {Object} [pr={}]
  * @param {String} [pr.reviewDecision] GitHub flattened review decision (`APPROVED` | `CHANGES_REQUESTED` | `REVIEW_REQUIRED` | null).
- * @param {Boolean} [pr.checksGreen] True when all required CI checks pass.
- * @param {String} [pr.mergeStateStatus] GitHub mergeStateStatus (`CLEAN` | `UNSTABLE` | `DIRTY` | `BEHIND` | `BLOCKED` | ...).
- * @param {String[]} [pr.reviewRequests] Logins of still-requested reviewers (the explicit author/operator contract).
+ * @param {Boolean} [pr.checksGreen] True when all required CI checks pass; `undefined` (not fetched) fails closed.
+ * @param {String} [pr.mergeStateStatus] GitHub mergeStateStatus (`CLEAN` | `UNSTABLE` | `DIRTY` | `BEHIND` | `BLOCKED` | ...); `undefined` (not fetched) fails closed.
+ * @param {String[]} [pr.reviewRequests] Logins of still-requested reviewers (the explicit author/operator contract); `undefined` (not fetched) fails closed, `[]` asserts fetched-and-empty.
  * @param {String[]} [pr.disposedReviewers] Requested reviewers already disposed (formal review / visible step-out / unrequest).
  * @returns {{strictMergeReady: Boolean, blockers: String[]}}
  */
 export function validateMergeReady(pr = {}) {
     const {
         reviewDecision,
-        checksGreen       = false,
+        checksGreen,
         mergeStateStatus,
-        reviewRequests    = [],
+        reviewRequests,
         disposedReviewers = []
     } = pr;
 
@@ -51,16 +56,28 @@ export function validateMergeReady(pr = {}) {
     if (reviewDecision !== 'APPROVED') {
         blockers.push(`reviewDecision is '${reviewDecision ?? 'none'}', not APPROVED.`);
     }
-    if (!checksGreen) {
-        blockers.push('not all required CI checks are green.');
+
+    // Fail CLOSED on un-fetched fields: a field that was never queried cannot certify readiness,
+    // so an omitted reviewRequests/mergeStateStatus must block — never silently pass as "no problem".
+    if (checksGreen !== true) {
+        blockers.push(checksGreen === undefined
+            ? 'checksGreen was not fetched — cannot certify CI; failing closed.'
+            : 'not all required CI checks are green.');
     }
-    if (mergeStateStatus && NON_MERGEABLE_STATES.includes(mergeStateStatus)) {
+
+    if (mergeStateStatus === undefined) {
+        blockers.push('mergeStateStatus was not fetched — cannot certify mergeability; failing closed.');
+    } else if (NON_MERGEABLE_STATES.includes(mergeStateStatus)) {
         blockers.push(`mergeStateStatus is '${mergeStateStatus}' (a conflict or stale base — not mergeable).`);
     }
 
-    const outstanding = reviewRequests.filter(reviewer => !disposedReviewers.includes(reviewer));
-    if (outstanding.length > 0) {
-        blockers.push(`outstanding requested reviewer(s) [${outstanding.join(', ')}] — an explicit reviewer contract is not strict-merge-ready until each is disposed (formal review, visible step-out, or unrequest); an A2A approval does not clear the slot.`);
+    if (reviewRequests === undefined) {
+        blockers.push('reviewRequests was not fetched — cannot certify the reviewer contract is disposed; failing closed.');
+    } else {
+        const outstanding = reviewRequests.filter(reviewer => !disposedReviewers.includes(reviewer));
+        if (outstanding.length > 0) {
+            blockers.push(`outstanding requested reviewer(s) [${outstanding.join(', ')}] — an explicit reviewer contract is not strict-merge-ready until each is disposed (formal review, visible step-out, or unrequest); an A2A approval does not clear the slot.`);
+        }
     }
 
     return {strictMergeReady: blockers.length === 0, blockers};
