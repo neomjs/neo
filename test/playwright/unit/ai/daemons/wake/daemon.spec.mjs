@@ -104,6 +104,31 @@ function insertMessageWake(db, {agentId, subject = 'Addressed Wake Event'}) {
     return {msgId, edgeId};
 }
 
+function insertTurnPresence(db, {
+    agentId,
+    turnId = 'turn_' + crypto.randomUUID(),
+    startedAt = new Date().toISOString(),
+    source = 'codex-user-prompt-submit'
+}) {
+    const nodeId = `AGENT_TURN_PRESENCE:${agentId}:${turnId}`;
+
+    db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(nodeId, JSON.stringify({
+        id        : nodeId,
+        label     : 'AGENT_TURN_PRESENCE',
+        properties: {
+            agentIdentity : agentId,
+            turnId,
+            startedAt,
+            lastProgressAt: startedAt,
+            status        : 'active',
+            terminalState : null,
+            source
+        }
+    }));
+
+    return {nodeId, turnId};
+}
+
 test.describe('Wake Daemon', () => {
     let db;
     let daemonProcess;
@@ -258,6 +283,126 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toMatch(/\[PID:\d+\]/);                                       // PID prefix
         expect(logContents).toMatch(/\[INFO\]/);                                          // level prefix
         expect(logContents).toContain('[Wake Daemon Test Adapter] Delivered');          // Same delivery line as stdout
+    });
+
+    test('#13480: Codex submit attempts log turn-start proof when turn presence appears', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-started';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'test-codex-submit',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH                    : DB_PATH,
+                NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '3000',
+                WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
+            }
+        });
+
+        let output = '';
+        let insertedPresence = false;
+        let msgId;
+
+        const proofPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex turn-start proof')), 10000);
+            const onData = data => {
+                output += data.toString();
+
+                if (!insertedPresence && output.includes(`Submit attempted ${subId}`)) {
+                    insertedPresence = true;
+                    insertTurnPresence(db, {
+                        agentId,
+                        turnId   : 'started-proof',
+                        startedAt: new Date().toISOString()
+                    });
+                }
+
+                if (output.includes('wake-submit-started')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        ({msgId} = insertMessageWake(db, {agentId, subject: 'Codex Turn Presence Proof'}));
+
+        await proofPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain(`Submit attempted ${subId} via test-codex-submit to Codex`);
+        expect(logContents).toContain(`Turn-start proof wake-submit-started ${subId}`);
+        expect(logContents).toContain('turnId=started-proof');
+        expect(logContents).toContain(`messageIds=${msgId}`);
+    });
+
+    test('#13480: Codex submit attempts log not-started when turn presence does not appear', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-not-started';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'test-codex-submit',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH                    : DB_PATH,
+                NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '300',
+                WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
+            }
+        });
+
+        let output = '';
+        let msgId;
+
+        const proofPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex not-started proof')), 10000);
+            const onData = data => {
+                output += data.toString();
+                if (output.includes('wake-submit-not-started')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        ({msgId} = insertMessageWake(db, {agentId, subject: 'Codex Missing Turn Presence'}));
+
+        await proofPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain(`Submit attempted ${subId} via test-codex-submit to Codex`);
+        expect(logContents).toContain(`Turn-start proof wake-submit-not-started ${subId}`);
+        expect(logContents).toContain(`messageIds=${msgId}`);
     });
 
     test('#13077: a failed wake delivery is retried, then capped with a terminal error', async () => {
