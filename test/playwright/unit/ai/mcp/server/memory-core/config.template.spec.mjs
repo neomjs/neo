@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
-import path from 'path';
-import Neo from '../../../../../../../src/Neo.mjs';
+import { test, expect }                    from '@playwright/test';
+import path                                from 'path';
+import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
+import {TIER1_DEFAULTS}                    from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
@@ -236,6 +236,17 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.collections.memory).toBe(config.collections.memoryTest);
         expect(config.collections.session).toBe(config.collections.sessionTest);
         expect(config.collections.graph).toBe('neo-native-graph');
+    });
+
+    test('handoffFilePath resolves by construction to a disposable test path under the useTestDatabase toggle (#13663)', () => {
+        // The leaf was split into *Prod/*Test + a formula gated on storagePaths.useTestDatabase, so an
+        // offline GoldenPathSynthesizer run under the unit suite (UNIT_TEST_MODE=true) writes a
+        // disposable handoff — never clobbering the TRACKED resources/content/sandman_handoff.md.
+        expect(config.storagePaths.useTestDatabase).toBe(true);
+        expect(config.handoffFilePathProd).toContain('resources/content/sandman_handoff.md');
+        expect(config.handoffFilePathTest).toContain('.neo-ai-data/sandman_handoff-test.md');
+        expect(config.handoffFilePath).toBe(config.handoffFilePathTest);
+        expect(config.handoffFilePath).not.toContain('resources/content/sandman_handoff.md');
     });
 
     test('remRunRetentionLimit defaults to 200 and parses NEO_REM_RUN_RETENTION_LIMIT as a number (#12123)', () => {

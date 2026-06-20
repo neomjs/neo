@@ -387,9 +387,15 @@ class Config extends ConfigProvider {
             },
             /**
              * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
+             * Resolved BY CONSTRUCTION via the `handoffFilePath` formula from the canonical
+             * `storagePaths.useTestDatabase` (UNIT_TEST_MODE) toggle — so an offline
+             * `GoldenPathSynthesizer` run under a test harness writes a disposable handoff, never
+             * clobbering the tracked `resources/content/sandman_handoff.md`. Consumers read the
+             * single resolved `handoffFilePath` value unchanged.
              * @type {string}
              */
-            handoffFilePath: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md')),
+            handoffFilePathProd: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md')),
+            handoffFilePathTest: leaf(path.resolve(cwd, '.neo-ai-data/sandman_handoff-test.md')),
             /**
              * Stale-assignment idle threshold used by `GoldenPathSynthesizer` when rendering
              * Sandman handoff candidates. Defaults to the ticket-intake 7-day reassignment rule.
@@ -597,7 +603,11 @@ class Config extends ConfigProvider {
             'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
             'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
             'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd,
-            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd
+            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd,
+            // handoffFilePath is a top-level leaf (no group of its own); gate it on the canonical
+            // storagePaths.useTestDatabase toggle (every useTestDatabase leaf is the same UNIT_TEST_MODE
+            // signal) so a test run never writes the tracked resources/content/sandman_handoff.md.
+            'handoffFilePath'    : data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest    : data.handoffFilePathProd
         }
     }
 }
