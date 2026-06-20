@@ -13,14 +13,14 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
+import {test, expect}                              from '@playwright/test';
+import Neo                                         from '../../../../../../src/Neo.mjs';
+import * as core                                   from '../../../../../../src/core/_export.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../../../../../ai/graph/identityRoots.mjs';
-import MemoryService         from '../../../../../../ai/services/memory-core/MemoryService.mjs';
-import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
-import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
-import {drainMemoryWal}      from './util.mjs';
+import MemoryService                               from '../../../../../../ai/services/memory-core/MemoryService.mjs';
+import StorageRouter                               from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import RequestContextService                       from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {drainMemoryWal}                            from './util.mjs';
 
 /**
  * Validates the AGENT_MEMORY graph node payload structure to prevent hollow-success regressions
@@ -168,7 +168,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
         expect(authoredBy[1]).toBe('@neo-gpt');
         expect(authoredBy[3]).toBe(1.0);
         expect(authoredBy[4]).toMatchObject({
-            userId      : '@neo-gpt',
+            userId      : 'neo-gpt',
             sharedEntity: true
         });
 
