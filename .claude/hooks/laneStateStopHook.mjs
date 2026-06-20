@@ -119,6 +119,32 @@ export function decideHookAction(verdict, enforcing) {
     return             {action: 'would-block', reason: verdict.reason};
 }
 
+// The curated no-hold-state directive injected on a block. References the always-loaded
+// L3_No_Hold_State stance + carries a self-sufficient operational core (the lifecycle ladder + the
+// named-lane teeth-test) so it redirects without assuming a live L3 lookup. The wording's semantics
+// are cross-family-convergence-fixed — refine prose, not meaning.
+const IDLE_REMINDER = `Blocked — L3_No_Hold_State: there is no hold state.
+Name the next concrete action that is YOURS to take now:
+  • continue your own lane
+  • clear CHANGES_REQUESTED on your own PR
+  • do an assigned review that advances a named lane
+  • or claim a new high-value lane
+Teeth-test: does this advance a NAMED lane right now? If you can't name the lane, it isn't driving.
+Collaboration (review · ideation · A2A) counts ONLY when it advances a named lane AND ends with a return to your own lane or an explicit lane-swap — it is an interruption, not a replacement for your own PRs.
+Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
+The only real stop is a hard external limit: context-sunset or an operator halt.`;
+
+/**
+ * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (the actionable
+ * no-hold-state reminder: lifecycle + teeth-test) plus the specific trigger `cause` for context. The
+ * reminder is WHAT-to-do; the cause is WHY-blocked. Pure; exported + unit-tested.
+ * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
+ * @returns {String}
+ */
+export function composeBlockDirective(cause) {
+    return `${IDLE_REMINDER}\n\n(Stop-hook trigger: ${cause})`;
+}
+
 /**
  * @summary Extracts plain text from a message `content` field — a string passthrough, or the joined
  * `text` blocks of an Anthropic content-block array (skipping tool_use / thinking blocks).
@@ -239,9 +265,11 @@ async function main() {
 
     if (action === 'block') {
         auditLog(`BLOCK (session=${session}): ${reason}`);
-        // Block the stop + inject the directive — Claude uses `reason` as its next instruction.
+        // Block the stop + inject the curated no-hold-state directive — Claude uses the injected
+        // `reason` as its next instruction; the audit log keeps the terse trigger cause.
         // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
-        process.stdout.write(JSON.stringify({decision: 'block', reason}), () => process.exit(0));
+        const directive = composeBlockDirective(reason);
+        process.stdout.write(JSON.stringify({decision: 'block', reason: directive}), () => process.exit(0));
         return;
     }
 
