@@ -1,11 +1,12 @@
-import path         from 'path';
-import aiConfig     from '../../mcp/server/memory-core/config.mjs';
-import logger       from '../../mcp/server/memory-core/logger.mjs';
-import Base         from '../../../src/core/Base.mjs';
-import CoreDatabase from '../../../ai/graph/Database.mjs';
-import SQLite       from '../../../ai/graph/storage/SQLite.mjs';
-import { IDENTITIES } from '../../../ai/graph/identityRoots.mjs';
-import fsExtra       from 'fs-extra';
+import path                from 'path';
+import aiConfig            from '../../mcp/server/memory-core/config.mjs';
+import logger              from '../../mcp/server/memory-core/logger.mjs';
+import Base                from '../../../src/core/Base.mjs';
+import CoreDatabase        from '../../../ai/graph/Database.mjs';
+import SQLite              from '../../../ai/graph/storage/SQLite.mjs';
+import { IDENTITIES }      from '../../../ai/graph/identityRoots.mjs';
+import { normalizeUserId } from '../../mcp/server/shared/services/RequestContextService.mjs';
+import fsExtra             from 'fs-extra';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -27,11 +28,30 @@ function isRlsVisible(entity, requesterUserId) {
     const properties  = (entity.isRecord ? entity.get('properties') : entity.properties) || {},
           ownerUserId = properties.userId;
 
-    return ownerUserId == null              ||
-           ownerUserId === requesterUserId  ||
-           properties.sharedEntity === 1    ||
-           properties.sharedEntity === true ||
+    // Compare canonical-to-canonical: the stored owner key (`properties.userId`) exists in BOTH the
+    // `@`-prefixed (getAgentIdentityNodeId) and normalized (normalizeUserId(getUserId)) forms across
+    // node types, while `requesterUserId` is resolved canonically (resolveRlsUserId). Normalizing the
+    // owner key here matches an agent's OWN nodes regardless of which form they were stored in, and
+    // never widens across tenants (distinct tenants normalize to distinct ids).
+    return ownerUserId == null                              ||
+           normalizeUserId(ownerUserId) === requesterUserId ||
+           properties.sharedEntity === 1                    ||
+           properties.sharedEntity === true                 ||
            properties.visibility === 'team';
+}
+
+/**
+ * Resolves the canonical (normalized, no-`@`) RLS tenant key for the acting request. The isolation
+ * key is the userId (`RequestContextService.getUserId`); `getAgentIdentityNodeId` is an `@`-prefixed
+ * node id explicitly NOT for isolation, used only as a fallback when no userId is bound. Returning the
+ * normalized form lets the RLS predicate match an owner's own nodes regardless of the (historically
+ * inconsistent) stored `user_id` form.
+ * @param {Object|null|undefined} rcs The request-bound RequestContextService.
+ * @returns {String|null} Normalized userId, or null when no identity is bound.
+ */
+function resolveRlsUserId(rcs) {
+    const raw = rcs?.getUserId?.() ?? rcs?.getAgentIdentityNodeId?.() ?? null;
+    return raw == null ? null : normalizeUserId(raw);
 }
 
 /**
@@ -589,9 +609,9 @@ class GraphService extends Base {
         let systemNode = this.db.nodes.get('_SYSTEM_STATE');
         if (!systemNode) {
             this.upsertGlobalNode({
-                id: '_SYSTEM_STATE',
-                type: 'SYSTEM_CLOCK',
-                name: 'Global System Clock',
+                id         : '_SYSTEM_STATE',
+                type       : 'SYSTEM_CLOCK',
+                name       : 'Global System Clock',
                 description: 'Tracks algorithmic time intervals for global physics.'
             });
             systemNode = this.db.nodes.get('_SYSTEM_STATE');
@@ -660,7 +680,7 @@ class GraphService extends Base {
 
         // RLS: the node Store is a process-wide cache — re-check visibility at the
         // return boundary so a cross-requester cache-warmed node is not leaked.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
         if (!isRlsVisible(node, rlsUserId)) {
             return null;
         }
@@ -703,7 +723,7 @@ class GraphService extends Base {
 
         // RLS: the node Store is a process-wide cache — re-check visibility at the
         // return boundary so a cross-requester cache-warmed node is not leaked.
-        const rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        const rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
         if (!isRlsVisible(node, rlsUserId)) {
             return null;
         }
@@ -752,7 +772,7 @@ class GraphService extends Base {
 
         // RLS: resolve the requester once; do not expose the vicinity of a node the
         // requester cannot see, and filter each neighbor by node + edge visibility.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null,
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService),
             rootNode  = this.db.nodes.get(id);
 
         if (!rootNode || !isRlsVisible(rootNode, rlsUserId)) {
@@ -799,9 +819,12 @@ class GraphService extends Base {
 
         let q = `%${query.toLowerCase()}%`;
 
-        let userId = this.db.storage.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : null;
+        const userId = resolveRlsUserId(this.db.storage?.RequestContextService);
 
-        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
+        // Match the canonical (no-`@`) key AND its `@`-prefixed legacy form — the user_id column was
+        // written in both (see isRlsVisible) — so own-private rows stay visible to their owner
+        // regardless of stored form, without widening to other tenants.
+        let rlsClause = `AND (user_id = ? OR user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
         const stmt = this.db.storage.db.prepare(`
             SELECT data FROM Nodes
@@ -813,7 +836,7 @@ class GraphService extends Base {
         `);
 
         let matches = [];
-        const rows = stmt.all(q, q, q, userId || null);
+        const rows = stmt.all(q, q, q, userId, userId == null ? null : '@' + userId);
         for (const row of rows) {
             let node = JSON.parse(row.data);
             matches.push({
@@ -845,7 +868,7 @@ class GraphService extends Base {
 
         // RLS: the frontier anchor is shared, but its strategic neighbors may be
         // tenant-private — filter them at the return boundary.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
 
         const topology = {
             frontier          : {
@@ -906,7 +929,7 @@ class GraphService extends Base {
 
         // RLS: the node Store is a process-wide cache — re-check the cache-resident
         // root and every traversed node at the return boundary.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
         if (!isRlsVisible(rootNode, rlsUserId)) {
             logger.info(`[GraphService] Node ${nodeId} not visible to the active requester.`);
             return null;
@@ -1121,7 +1144,7 @@ class GraphService extends Base {
 
         if (!sqliteDb || !dbPath) {
             return {
-                available: false, memoryNodes: 0, sessionNodes: 0,
+                available  : false, memoryNodes: 0, sessionNodes: 0,
                 sqliteBytes: 0, sqliteWalBytes: 0, sqliteShmBytes: 0,
                 measuredAt, error: 'Graph SQLite storage is unavailable.'
             };
@@ -1168,7 +1191,7 @@ class GraphService extends Base {
             return census;
         } catch (e) {
             return {
-                available: false, memoryNodes: 0, sessionNodes: 0,
+                available  : false, memoryNodes: 0, sessionNodes: 0,
                 sqliteBytes: 0, sqliteWalBytes: 0, sqliteShmBytes: 0,
                 measuredAt, error: e?.message || String(e)
             };
