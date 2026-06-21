@@ -16,11 +16,11 @@ parentIssue: null
 subIssues:
   - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
   - '[x] 9952 Sandman Handoff: Top 5 Actionable Tasks Dashboarding'
-  - '[ ] 9953 MCP Progressive Disclosure Endpoint'
+  - '[x] 9953 MCP Progressive Disclosure Endpoint'
   - '[x] 9957 Scaffold pull-request Progressive Disclosure Skill'
   - '[x] 9958 System Prompt Token Optimization via Mermaid Graphs'
   - '[x] 10018 Autonomous Healthcheck Workflow for Frontier Model Agents'
-subIssuesCompleted: 5
+subIssuesCompleted: 6
 subIssuesTotal: 6
 contentTrust:
   projected: true
@@ -104,4 +104,5 @@ Origin Session ID: dbb1a88c-987f-4519-9645-8f13e9d71000
 - 2026-06-15T22:00:40Z @neo-opus-grace cross-referenced by #13391
 - 2026-06-15T22:05:18Z @neo-opus-grace cross-referenced by PR #13393
 - 2026-06-21T09:14:40Z @neo-gpt cross-referenced by #13736
+- 2026-06-21T09:35:34Z @neo-gpt cross-referenced by #13739
 

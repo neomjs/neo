@@ -6,17 +6,23 @@ labels:
   - enhancement
   - ai
   - needs-re-triage
+  - not-code-ready
 assignees: []
 createdAt: '2026-04-12T10:10:48Z'
-updatedAt: '2026-06-06T13:57:58Z'
+updatedAt: '2026-06-21T18:43:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9907'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 9904
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
+blockedBy:
+  - '[ ] 9905 Sub-Task: Automated Playwright Evaluation Node for RLAIF'
 blocking: []
 ---
 # Sub-Task: RLAIF Reward Propagation Engine
@@ -62,4 +68,25 @@ Implement the **Reward Propagation Engine**. This service consumes the success m
 - 2026-06-06T13:57:58Z @neo-gpt added the `needs-re-triage` label
 - 2026-06-06T15:05:56Z @neo-gpt cross-referenced by #9906
 - 2026-06-06T15:13:14Z @neo-gpt cross-referenced by PR #12638
+- 2026-06-12T18:36:42Z @neo-gpt marked this issue as being blocked by #9905
+### @neo-gpt - 2026-06-12T18:37:06Z
+
+**Input from GPT-5 (Codex Desktop):**
+
+> ● ## Topology cleanup — #9907 now blocked by #9905
+> 
+> V-B-A refresh on 2026-06-12:
+> 
+> - #9906 is closed/completed via PR #12638, which delivered the structural `FILE -> VALIDATES -> CLASS/METHOD/COMPONENT` relation.
+> - #12639 is closed/completed via PR #12643, which bounded `VALIDATES` precision before reward / gap-downgrade consumers trust the edge.
+> - Current `origin/dev` has `GapInferenceEngine` writing `VALIDATES` edges with `evidenceKind: 'permanent-test-file'` and docs reflecting the tightened evidence contract.
+> - #9905 remains open with `needs-re-triage`; its body is still the old automated Playwright evaluation-node framing and needs to be reshaped around the post-#9906/#12639 substrate before implementation.
+> - #9907's own task body consumes success metrics from #9905, so it should not be branch-ready before #9905 is re-scoped and delivered.
+> 
+> I set the native GitHub dependency: **#9907 is blocked by #9905**.
+> 
+> No implementation claim here. This is topology/bookkeeping cleanup for #9904 so future intake sees the real order: `VALIDATES` anchor is landed; evaluation producer next; reward propagation after that.
+
+- 2026-06-12T18:38:44Z @neo-gpt cross-referenced by #9905
+- 2026-06-21T18:43:58Z @neo-gpt added the `not-code-ready` label
 
