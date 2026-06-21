@@ -7,11 +7,15 @@ import {redactSensitiveContent} from '../../../../../../../ai/services/github-wo
  * the fail-SAFE contract (non-string / non-array / malformed pairs never throw or partially mangle).
  */
 test.describe('ai/services/github-workflow/shared/redactSensitiveContent', () => {
-    test('applies ordered literal deny-pairs (handle before substring)', () => {
-        const pairs = [['@kmunk-acme', 'a partner contributor'], ['Acme', 'Client'], ['acme', 'client']];
-        const input = 'Hi @kmunk-acme, the Acme migration and acme work are tracked.';
+    test('applies ordered deny-pairs (handle before substring), case-insensitively', () => {
+        const pairs = [['@kmunk-acme', 'a partner contributor'], ['acme', 'CLIENT']];
+        const input = 'Acme migration, acme work, ACME, and @kmunk-acme filed it.';
         expect(redactSensitiveContent(input, pairs))
-            .toBe('Hi a partner contributor, the Client migration and client work are tracked.');
+            .toBe('CLIENT migration, CLIENT work, CLIENT, and a partner contributor filed it.');
+    });
+
+    test('case-insensitive — one pair catches every case variant of a term', () => {
+        expect(redactSensitiveContent('Acme ACME acme aCmE', [['acme', 'X']])).toBe('X X X X');
     });
 
     test('literal replacement — no regex metachar interpretation', () => {

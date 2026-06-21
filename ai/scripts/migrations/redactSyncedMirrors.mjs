@@ -11,7 +11,7 @@
  *   - pass deny-pairs in order: longest / handle terms BEFORE their substrings.
  */
 import {readFileSync, writeFileSync} from 'fs';
-import {execSync}                    from 'child_process';
+import {execFileSync}                from 'child_process';
 import {redactSensitiveContent}      from '../../services/github-workflow/shared/redactSensitiveContent.mjs';
 
 const root      = 'resources/content';
@@ -29,7 +29,9 @@ if (!denyPairs.length) {
 const candidates = new Set();
 for (const [from] of denyPairs) {
     try {
-        execSync(`git grep -Iil --fixed-strings ${JSON.stringify(from)} -- ${root}`, {encoding: 'utf8'})
+        // execFileSync with argv (NOT a shell string) so a configured term is DATA, never executed —
+        // `-e <from>` passes the literal pattern as an argument, immune to shell metachars/substitution.
+        execFileSync('git', ['grep', '-Iil', '--fixed-strings', '-e', from, '--', root], {encoding: 'utf8'})
             .split('\n').filter(Boolean).forEach(file => candidates.add(file));
     } catch {
         // git grep exits 1 when there is no match — nothing to collect for this term.

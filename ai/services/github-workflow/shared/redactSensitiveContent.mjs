@@ -9,8 +9,9 @@
  */
 
 /**
- * @summary Applies ordered, literal `from → to` deny-pairs to `text`. Literal (not regex) so there are
- * no metachar surprises; ordered so a longer term / handle (e.g. `@kmunk-foo`) is redacted BEFORE its
+ * @summary Applies ordered, case-INSENSITIVE literal `from → to` deny-pairs to `text`. Each `from` is
+ * regex-escaped (no metachar surprises) and matched case-insensitively, so ONE pair catches every case
+ * variant of a term. Ordered so a longer term / handle (e.g. `@kmunk-foo`) is redacted BEFORE its
  * substring (`foo`) — pass the longest/handle terms first. Fail-SAFE: a non-string `text`, a non-array
  * `denyPairs`, or a malformed pair is returned/skipped unchanged (never throws, never partially mangles).
  * @param {String} text The content to redact.
@@ -26,7 +27,10 @@ export function redactSensitiveContent(text, denyPairs = []) {
         if (!Array.isArray(pair) || pair.length !== 2) continue;
         const [from, to] = pair;
         if (typeof from !== 'string' || !from || typeof to !== 'string') continue;
-        out = out.split(from).join(to);
+        // literal (regex-escaped → no metachar surprises) + CASE-INSENSITIVE, so ONE pair catches every
+        // case variant of the term (a lower-case deny term still redacts a capitalized occurrence).
+        const pattern = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        out = out.replace(new RegExp(pattern, 'gi'), to);
     }
     return out;
 }
