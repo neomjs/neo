@@ -231,7 +231,7 @@ test.describe('Memory Core Config (#10010)', () => {
         // sanctioned form: declarative Prod/Test leaves + a formula, never an inline-env leaf ternary).
         expect(config.storagePaths.useTestDatabase).toBe(true);
         expect(config.handoffFilePathProd).toContain('resources/content/sandman_handoff.md');
-        expect(config.handoffFilePathTest).toContain('.neo-ai-data/test/sandman_handoff.md');
+        expect(config.handoffFilePathTest).toContain('neo-sandman-handoff-test-'); // per-worker-unique OS-temp file (fullyParallel race-safe)
         expect(config.handoffFilePath).toBe(config.handoffFilePathTest);
         expect(config.handoffFilePath).not.toContain('resources/content/sandman_handoff.md');
     });

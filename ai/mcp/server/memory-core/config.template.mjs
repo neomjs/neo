@@ -41,6 +41,13 @@ const testSessionCollection = `test-session-${Date.now()}-${Math.random().toStri
 // unit tests never touch the repo-local `.neo-ai-data/memory-wal` production path.
 const testMemoryWalDir = path.join(os.tmpdir(), `neo-memory-wal-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
 
+// Per-worker-unique handoff test file under the OS temp root (same isolation rationale as the WAL
+// test dir): fullyParallel workers never share the handoff write target, and unit runs never touch
+// the tracked resources/content/sandman_handoff.md production file. The formula resolves this by
+// construction under UNIT_TEST_MODE — specs must NOT mutate aiConfig.handoffFilePath (the B4
+// singleton-mutation anti-pattern this isolation removes).
+const testHandoffFile = path.join(os.tmpdir(), `neo-sandman-handoff-test-${Date.now()}-${Math.random().toString(36).substring(7)}.md`);
+
 /**
  * @summary Configuration manager for the Memory Core MCP server.
  *
@@ -403,11 +410,12 @@ class Config extends ConfigProvider {
              */
             handoffFilePathProd: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md'), 'NEO_HANDOFF_FILE_PATH', 'string'),
             /**
-             * Unit-test handoff path — under gitignored `.neo-ai-data/`, so test-mode writes stay off
-             * the tracked production file. Declarative leaf; test-mode resolved by construction.
+             * Unit-test handoff path — a per-worker-unique file under the OS temp root (see
+             * `testHandoffFile`), so fullyParallel workers never share a write target and test-mode
+             * writes stay off the tracked production file. Declarative leaf; test-mode by construction.
              * @type {string}
              */
-            handoffFilePathTest: leaf(path.resolve(cwd, '.neo-ai-data/test/sandman_handoff.md'), 'NEO_HANDOFF_FILE_PATH_TEST', 'string'),
+            handoffFilePathTest: leaf(testHandoffFile, 'NEO_HANDOFF_FILE_PATH_TEST', 'string'),
             /**
              * Stale-assignment idle threshold used by `GoldenPathSynthesizer` when rendering
              * Sandman handoff candidates. Defaults to the ticket-intake 7-day reassignment rule.
