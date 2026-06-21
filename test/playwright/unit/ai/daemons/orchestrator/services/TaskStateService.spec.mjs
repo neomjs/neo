@@ -91,6 +91,27 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         expect(stateData.mockTask.lastErrorAt).toEqual(expect.any(String));
     });
 
+    test('markSkipped clears running state without recording a new success (#13767)', () => {
+        const { service, stateFile } = createTestService();
+
+        service.markStarted('mockTask', 'successful-run');
+        service.markCompleted('mockTask');
+
+        const previousStateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        const previousSuccessAt = previousStateData.mockTask.lastSuccessAt;
+
+        service.markStarted('mockTask', 'deferred-run');
+        service.markSkipped('mockTask');
+
+        const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+
+        expect(stateData.mockTask.running).toBe(false);
+        expect(stateData.mockTask.pid).toBe(null);
+        expect(stateData.mockTask.lastExitCode).toBe(null);
+        expect(stateData.mockTask.lastReason).toBe('deferred-run');
+        expect(stateData.mockTask.lastSuccessAt).toBe(previousSuccessAt);
+    });
+
     test('adoptRunning sets state without immediately writing to disk', () => {
         const { service, stateFile } = createTestService();
 
