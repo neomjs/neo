@@ -1046,29 +1046,41 @@ class GoldenPathSynthesizer extends Base {
     /**
      * @summary Renders the Consolidation Gaps section — undigested sessions made visible.
      *
-     * Consolidation-liveness: the dream must **visibly record** sessions it has NOT
-     * digested, never silently. A fresh handoff over an undigested
-     * backlog reads healthy ("health-green-but-map-lying") unless the gap is surfaced — a
-     * lost walk must be *visibly* lost. Queries the summary collection for
-     * `graphDigested !== true` and renders the count + a bounded sample. Visibility-only:
-     * no routing change. Returns '' when the collection query fails (defensive) — but NOT
-     * when zero are undigested: a "0 undigested" line is itself the honest all-clear.
+     * Consolidation-liveness: the dream must **visibly record** sessions it has NOT digested,
+     * never silently. A fresh handoff over an undigested backlog reads healthy
+     * ("health-green-but-map-lying") unless the gap is surfaced — a lost walk must be *visibly*
+     * lost. Queries the summary collection for `graphDigested !== true` and renders the count +
+     * a bounded sample. Visibility-only: no routing change.
+     *
+     * **Failure must not read as healthy.** A thrown query OR a malformed (non-array) response
+     * renders an explicit `Status UNKNOWN` state — never blank and never a `0 undigested`
+     * all-clear (which would be the exact false-green this section exists to prevent). A valid
+     * empty response IS a real all-clear, but reports the checked-count so "0 checked" is
+     * distinguishable from "0 undigested of N".
      *
      * @param {Object} summaryColl Summary Chroma collection (exposes async `.get`).
      * @param {Object} [options]
      * @param {Number} [options.limit=5] Max undigested sessions to sample.
-     * @returns {Promise<String>} The rendered section, or '' on query failure.
+     * @returns {Promise<String>} The rendered section (always non-empty — gap, all-clear, or unknown).
      */
     static async renderConsolidationGapsSection(summaryColl, {limit = 5} = {}) {
+        const header = `\n## Consolidation Gaps\n\n*Consolidation-liveness: sessions the dream has NOT yet laid as trails. A lost walk is visibly lost, never silently absent — a fresh handoff must not read healthy over an undigested backlog.*\n\n`;
+
         let raw;
         try {
             raw = await summaryColl.get({include: ['metadatas']});
         } catch (e) {
-            return '';
+            // A failed query must NOT read as healthy — surface an explicit unknown state.
+            return `${header}❓ **Status UNKNOWN** — the summary collection query failed (\`${e.message}\`); consolidation health could not be determined. This is NOT an all-clear.\n`;
         }
 
-        const metas      = Array.isArray(raw?.metadatas) ? raw.metadatas : [],
-              ids        = Array.isArray(raw?.ids) ? raw.ids : [],
+        // A malformed response (no metadata array) is unknown, NOT zero-undigested.
+        if (!raw || !Array.isArray(raw.metadatas)) {
+            return `${header}❓ **Status UNKNOWN** — the summary collection returned a malformed response (no metadata array); consolidation health could not be determined. This is NOT an all-clear.\n`;
+        }
+
+        const metas      = raw.metadatas,
+              ids        = Array.isArray(raw.ids) ? raw.ids : [],
               undigested = [];
 
         for (let i = 0; i < metas.length; i++) {
@@ -1080,15 +1092,11 @@ class GoldenPathSynthesizer extends Base {
             }
         }
 
-        let section = `\n## Consolidation Gaps\n\n`;
-        section += `*Consolidation-liveness (ADR 0023): sessions the dream has NOT yet laid as trails. A lost walk is visibly lost, never silently absent — a fresh handoff must not read healthy over an undigested backlog.*\n\n`;
-
         if (undigested.length === 0) {
-            section += `✅ 0 sessions undigested — consolidation is current.\n`;
-            return section
+            return `${header}✅ 0 sessions undigested — consolidation is current (${metas.length} session(s) checked).\n`;
         }
 
-        section += `⚠️ **${undigested.length} session(s) undigested** (\`graphDigested !== true\`)`;
+        let section = `${header}⚠️ **${undigested.length} session(s) undigested** (\`graphDigested !== true\`)`;
         section += undigested.length > limit ? `, showing ${limit}:\n` : `:\n`;
 
         for (const item of undigested.slice(0, limit)) {

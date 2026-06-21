@@ -1035,6 +1035,29 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const section = await Synthesizer.renderConsolidationGapsSection(collection);
         expect(section).toContain('0 sessions undigested')
     });
+
+    test('renderConsolidationGapsSection renders Status UNKNOWN when the query throws — never a false all-clear (#13809)', async () => {
+        const
+            Synthesizer = GoldenPathSynthesizer.constructor,
+            collection  = {get: async () => { throw new Error('chroma unavailable'); }};
+
+        const section = await Synthesizer.renderConsolidationGapsSection(collection);
+        expect(section).toContain('## Consolidation Gaps');
+        expect(section).toContain('Status UNKNOWN');
+        expect(section).toContain('NOT an all-clear');
+        expect(section).not.toContain('0 sessions undigested') // the false-green this section exists to prevent
+    });
+
+    test('renderConsolidationGapsSection renders Status UNKNOWN on a malformed response — never a false all-clear (#13809)', async () => {
+        const
+            Synthesizer = GoldenPathSynthesizer.constructor,
+            collection  = {get: async () => ({})}; // malformed: no metadatas array
+
+        const section = await Synthesizer.renderConsolidationGapsSection(collection);
+        expect(section).toContain('Status UNKNOWN');
+        expect(section).toContain('malformed');
+        expect(section).not.toContain('0 sessions undigested') // a non-array response must not read as zero-undigested
+    });
 });
 
 test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from canonical @identity', () => {
