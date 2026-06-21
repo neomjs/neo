@@ -1,4 +1,6 @@
-import fs from 'fs';
+import fs                    from 'fs';
+import {execFileSync}        from 'node:child_process';
+import {getStagedAddedLines} from './stagedDiff.mjs';
 
 /**
  * @module buildScripts/util/check-block-alignment
@@ -467,7 +469,7 @@ function formatViolation(file, {lineIndex, expectedColumn, kind}) {
  * @param {Boolean} fix
  * @returns {Boolean} whether the file had (check) or had-and-fixed (fix) drift.
  */
-function processFile(file, fix) {
+function processFile(file, fix, gitRoot = null) {
     const allViolations = [];
     let   lines         = fs.readFileSync(file, 'utf8').split('\n');
     const maskedLines   = computeTemplateLiteralLineMask(lines);
@@ -483,19 +485,42 @@ function processFile(file, fix) {
     if (fix) {
         fs.writeFileSync(file, lines.join('\n'), 'utf8');
         console.log(`Aligned ${allViolations.length} line(s) in ${file}`);
-    } else {
-        for (const violation of allViolations.sort((a, b) => a.lineIndex - b.lineIndex)) {
-            console.error(formatViolation(file, violation));
-        }
+        return true;
+    }
+
+    // Staged (pre-commit) check mode: report only drift the author introduced on staged-added lines,
+    // so a grandfathered misalignment on an untouched line never blocks an unrelated commit. Fail
+    // CLOSED: a null detection (git read failure) reports the whole file rather than suppressing drift.
+    // (gitRoot is set only in --staged check mode; --fix always rewrites whole-file.)
+    const added    = gitRoot ? getStagedAddedLines(file, gitRoot) : null;
+    const reported = added ? allViolations.filter(v => added.has(v.lineIndex + 1)) : allViolations;
+
+    if (reported.length === 0) return false;
+
+    for (const violation of reported.sort((a, b) => a.lineIndex - b.lineIndex)) {
+        console.error(formatViolation(file, violation));
     }
 
     return true;
 }
 
 const
-    args  = process.argv.slice(2),
-    fix   = args.includes('--fix'),
-    files = args.filter(arg => arg !== '--fix');
+    args   = process.argv.slice(2),
+    fix    = args.includes('--fix'),
+    staged = args.includes('--staged'),
+    files  = args.filter(arg => arg !== '--fix' && arg !== '--staged');
+
+// --staged (pre-commit) mode: resolve the repo root once so processFile can scope check-mode drift to
+// the author's staged-added lines. Fail-closed: a rev-parse failure → null gitRoot → whole-file (drift
+// is never suppressed by a git failure). Only meaningful in check mode; --fix always rewrites whole-file.
+let gitRoot = null;
+if (staged && !fix) {
+    try {
+        gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {encoding: 'utf8'}).trim();
+    } catch (e) {
+        gitRoot = null;
+    }
+}
 
 let
     hadDrift = false,
@@ -503,7 +528,7 @@ let
 
 for (const file of files) {
     try {
-        if (processFile(file, fix)) hadDrift = true;
+        if (processFile(file, fix, gitRoot)) hadDrift = true;
     } catch (err) {
         console.error(`Error processing ${file}: ${err.message}`);
         hadError = true;
