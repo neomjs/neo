@@ -1341,7 +1341,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
     });
 
-    test('runs memory miniSummary backfill while kbSync is already running (#13358)', () => {
+    test('defers memory miniSummary backfill while kbSync is already running — compatible-pair reverted (#13358)', () => {
         const outcomes = [];
         const started  = [];
 
@@ -1381,11 +1381,14 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         orchestrator.poll();
 
-        expect(started).toContainEqual({
+        // Regression revert: kbSync + memory-summary-backfill are no longer a compatible pair, so the
+        // backfill is DEFERRED (serialized) while kbSync runs rather than racing concurrently — the
+        // inherited-token race is what skipped kb-sync's embedding for days.
+        expect(started).not.toContainEqual({
             taskName: 'memory-summary-backfill',
             reason  : 'pending-memory-minisummary:3647'
         });
-        expect(outcomes).not.toContainEqual({
+        expect(outcomes).toContainEqual({
             taskName: 'memory-summary-backfill',
             status  : 'skipped',
             details : expect.objectContaining({
