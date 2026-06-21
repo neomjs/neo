@@ -13,17 +13,22 @@
  * reach that bypass; this guard is the config-INDEPENDENT defense-in-depth that fires regardless of harness.
  */
 
+import os from 'node:os';
+
 /**
  * @summary Classifies a store path as disposable (test-isolated) versus a live production store.
  *
- * Disposable = SQLite `:memory:`, an OS-temp / repo-`tmp/` path, or any `*test*` path. The broad substring
- * match deliberately mirrors the graph store's `clear()` production-wipe guard so the destructive- and
- * write-isolation guards classify production paths identically.
+ * Disposable = SQLite `:memory:`, a path under `os.tmpdir()` (the canonical OS temp dir — macOS's
+ * `/var/folders/.../T` carries no `tmp`/`test` substring, so this prefix arm is load-bearing for any
+ * file-store guard whose tests use `os.tmpdir()`), a repo-`tmp/` path, or any `*test*` path. This shared
+ * classifier is what the graph store's `clear()` production-wipe guard also consults, so the destructive-
+ * and write-isolation guards classify production paths identically.
  * @param {String|null} storePath
  * @returns {Boolean}
  */
 export function isDisposableStorePath(storePath) {
-    return !storePath || storePath === ':memory:' || storePath.includes('tmp') || storePath.includes('test');
+    return !storePath || storePath === ':memory:' || storePath.includes('tmp') ||
+        storePath.includes('test') || storePath.startsWith(os.tmpdir());
 }
 
 /**
