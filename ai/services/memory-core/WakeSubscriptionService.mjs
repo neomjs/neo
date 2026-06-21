@@ -7,6 +7,7 @@ import aiConfig                                                                 
 import RequestContextService, {normalizeUserId}                                                 from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                                                                                   from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
+import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 
 /**
@@ -446,8 +447,8 @@ class WakeSubscriptionService extends Base {
         };
 
         GraphService.upsertNode({
-            id         : this._buildHarnessPresenceId(owner, bootId),
-            type       : 'HARNESS_PRESENCE',
+            id  : this._buildHarnessPresenceId(owner, bootId),
+            type: 'HARNESS_PRESENCE',
             name       : `HarnessPresence ${owner}`,
             description: 'Volatile wake-routing presence overlay for a booted harness instance.',
             properties
@@ -651,6 +652,17 @@ class WakeSubscriptionService extends Base {
                 reason: 'no add_memory activity (dark — no AGENT_MEMORY write on record)', signals};
         }
         if (!activity.fresh) {
+            // Local-only mid-turn rescue: the consolidate-then-save gate lands add_memory only at the
+            // turn boundary, so a long mid-turn agent can read add_memory-stale yet be live. Where a
+            // local turn-presence beacon is wired, a fresh one rescues it. Local-only by construction —
+            // no beacon → the memory verdict stands (a beaconless deployment is never gated on a signal
+            // it cannot emit); the benched hard-gate above is never upgraded (only this stale branch).
+            const beacon = TurnPresenceService.getFreshTurnPresence(identity, nowMs);
+            signals.turnPresence = beacon;
+            if (beacon?.fresh) {
+                return {identity, name, family, participationStatus, online: true,
+                    reason: `local turn-presence beacon fresh (turn started ${beacon.startedAt}; add_memory stale) — mid-turn rescue`, signals};
+            }
             return {identity, name, family, participationStatus, online: false,
                 reason: `stale add_memory activity (last write ${activity.lastActivityAt} — none within the freshness window)`, signals};
         }
