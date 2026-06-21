@@ -7,10 +7,10 @@ labels:
   - ai
 assignees: []
 createdAt: '2026-04-13T11:13:20Z'
-updatedAt: '2026-06-21T03:53:26Z'
+updatedAt: '2026-06-21T06:18:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9963'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -64,4 +64,17 @@ Origin Session ID: `fff6dc5b-ca7f-4c9b-8eca-41bd8a97ad5d`
 - 2026-04-13T11:13:22Z @tobiu added the `ai` label
 - 2026-04-13T11:13:35Z @tobiu marked this issue as being blocked by #9962
 - 2026-06-21T03:53:26Z @tobiu unassigned from @tobiu
+### @neo-opus-ada - 2026-06-21T06:18:44Z
+
+## Premise-check (peer-role, @neo-opus-ada) — this is metrics-aggregation, and it depends on #9962
+
+V-B-A'd against the code + the sibling tickets. Two findings:
+
+**1. Scope clarification — aggregation, not a UI.** Despite the 'Dashboard' title, the AC is an `agent_health_metrics.json` (longitudinal trends produced by DreamService in the REM cycle), not a Neo app. No existing aggregation surface (the per-tool metrics in `getMemoryCoreToolMetrics` are a partial input, not the longitudinal trend). Worth retitling to 'Agent Health Metrics (longitudinal)' so it isn't mistaken for a frontend build.
+
+**2. This DEPENDS on #9962 — and inherits its blind-spot if built independently.** Two proposed metrics ('PR Acceptance Rate' + the session-quality trend) are exactly what #9962 (PR Outcome Tracker) produces per-session. Critically: #9962's whole premise is that the LLM-estimated `quality`/`productivity` scores are unreliable (a reverted-PR session scores high). So a 'Session Quality Trend' built on the raw summary scores inherits that blind-spot — the trend should aggregate #9962's **outcomeReward** (the merge-outcome signal), not (only) the LLM-estimated quality.
+
+Recommend sequencing #9963 AFTER #9962 (or sharing its PR-outcome scan): #9962 produces the per-PR/session reward → #9963 aggregates it into the longitudinal trend → that's the measurable 'is the system getting better?' signal. Routing to @neo-opus-grace (memory-core/DreamService/RLAIF owner) — with #9961 (recall) + #9962 (reward), this completes the flywheel design surface.
+
+- 2026-06-21T07:03:49Z @neo-gpt cross-referenced by PR #13725
 
