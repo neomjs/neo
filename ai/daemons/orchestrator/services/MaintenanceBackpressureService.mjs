@@ -28,15 +28,20 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
 
 /**
  * Heavy-maintenance pairs whose resource envelopes are compatible enough to run
- * concurrently. This is intentionally narrow: Memory Core miniSummary backfill
- * must not wait behind local-only KB embedding work, while every other heavy task
- * pair keeps the historical single-heavy invariant.
+ * concurrently.
+ *
+ * Currently EMPTY — the heavy-maintenance mutex is fully serialized. The prior
+ * `['kbSync','memory-summary-backfill']` pair raced on the inherited-lease-token bypass:
+ * `memory-summary-backfill` released the lease before the spawned `kbSync` child finished
+ * booting, so the inherited token went stale, `withHeavyMaintenanceLease` fell through, and
+ * `kbSync` SKIPPED its `syncDatabase` — a silent multi-day embedding stall. miniSummary
+ * serializing behind KB embedding is the lesser cost than a silent embed stall. Re-introduce
+ * a pair ONLY with a race-free handshake: the spawned child must be guaranteed its run
+ * regardless of parent-lease release timing.
  *
  * @type {ReadonlyArray<ReadonlyArray<String>>}
  */
-export const DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS = Object.freeze([
-    Object.freeze(['kbSync', 'memory-summary-backfill'])
-]);
+export const DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS = Object.freeze([]);
 
 /**
  * Tasks whose graph writes must complete before Golden Path frontier refresh runs.
@@ -273,10 +278,11 @@ export function recordDeferral({
  * replace them. Lease IO (acquire / release / inspect) remains in that service; this
  * service owns the policy of WHEN to acquire, defer, or record.
  *
- * `DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS` is the only compatibility
- * allow-list. It exists so local-only `kbSync` embedding work cannot starve Memory
- * Core miniSummary backfill. Any future pair must be justified explicitly at this
- * policy surface instead of weakening the whole heavy-maintenance mutex.
+ * `DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS` is the compatibility allow-list,
+ * currently EMPTY: the heavy-maintenance mutex is fully serialized after the prior
+ * `kbSync`/`memory-summary-backfill` pair raced on the inherited-lease-token bypass and
+ * silently skipped KB embedding. Any future pair must be justified here AND prove it is
+ * race-free (the spawned child guaranteed its run regardless of parent-lease timing).
  *
  * @class Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService
  * @extends Neo.core.Base
