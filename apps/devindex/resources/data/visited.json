@@ -16505,6 +16505,7 @@
   "repo:cpp-best-practices/cppbestpractices",
   "repo:cpp-best-practices/gui_starter_template",
   "repo:cpp-tutor/learnmoderncpp-tutorial",
+  "repo:cppcheck-opensource/cppcheck",
   "repo:cppla/ServerStatus",
   "repo:cpplint/cpplint",
   "repo:cpq/bare-metal-programming-guide",
