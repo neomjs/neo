@@ -129,8 +129,8 @@ class TurnPresenceService extends Base {
               };
 
         GraphService.upsertNode({
-            id         : nodeId,
-            type       : 'AGENT_TURN_PRESENCE',
+            id  : nodeId,
+            type: 'AGENT_TURN_PRESENCE',
             name       : `TurnPresence ${agentIdentity}`,
             description: 'Bounded active-turn liveness interval emitted by a trusted harness hook.',
             properties
@@ -142,6 +142,34 @@ class TurnPresenceService extends Base {
             action,
             id    : nodeId
         };
+    }
+
+    /**
+     * @summary Public liveness read — the newest fresh active turn-presence beacon for an agent, or null.
+     *
+     * The LOCAL-ONLY corroboration primitive for `who_is_online`: where a turn-presence beacon is wired,
+     * a fresh one rescues a mid-turn agent whose last `add_memory` write has aged past the recency
+     * window — the consolidate-then-save gate lands the memory only at the turn boundary, so a long
+     * mid-turn agent can read `add_memory`-stale yet be live. Returns `null` when no beacon exists, so a
+     * beaconless deployment's memory-recency verdict is never gated on a signal it cannot emit.
+     *
+     * @param {String} agentIdentity AgentIdentity node id.
+     * @param {String|Date|Number} [now=new Date()] Clock source.
+     * @returns {{turnId: String, startedAt: String, lastProgressAt: String, fresh: Boolean}|null}
+     */
+    getFreshTurnPresence(agentIdentity, now = new Date()) {
+        if (!agentIdentity) return null;
+
+        const nowDate = this._coerceDate(now),
+              turnId  = this._findNewestActiveTurnId(agentIdentity, nowDate);
+        if (!turnId) return null;
+
+        const props = this._getTurnPresenceProperties(this._buildTurnPresenceId(agentIdentity, turnId));
+        if (!props) return null;
+
+        const fresh = !!props.freshUntil && this._coerceDate(props.freshUntil).getTime() > nowDate.getTime();
+
+        return {turnId, startedAt: props.startedAt, lastProgressAt: props.lastProgressAt, fresh};
     }
 
     /**
