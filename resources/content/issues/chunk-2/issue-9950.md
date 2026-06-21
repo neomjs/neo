@@ -22,6 +22,10 @@ subIssues:
   - '[x] 10018 Autonomous Healthcheck Workflow for Frontier Model Agents'
 subIssuesCompleted: 5
 subIssuesTotal: 6
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
 blocking: []
@@ -97,4 +101,7 @@ Origin Session ID: dbb1a88c-987f-4519-9645-8f13e9d71000
 - 2026-06-12T20:08:39Z @neo-fable cross-referenced by #13012
 - 2026-06-14T21:54:08Z @neo-gpt cross-referenced by #13268
 - 2026-06-15T00:51:01Z @neo-opus-ada cross-referenced by PR #13269
+- 2026-06-15T22:00:40Z @neo-opus-grace cross-referenced by #13391
+- 2026-06-15T22:05:18Z @neo-opus-grace cross-referenced by PR #13393
+- 2026-06-21T09:14:40Z @neo-gpt cross-referenced by #13736
 
