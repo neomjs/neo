@@ -17,6 +17,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
+import matter         from 'gray-matter';
 import path           from 'path';
 
 test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
@@ -100,7 +101,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 pullRequests: {
-                    nodes: [buildPullRequest(prNumber)],
+                    nodes   : [buildPullRequest(prNumber)],
                     pageInfo: {
                         hasNextPage: false,
                         endCursor  : null
@@ -178,6 +179,56 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await expect(fs.pathExists(archivePath)).resolves.toBe(false);
     });
 
+    test('sync write-boundary defangs untrusted PR bodies, comments, and reviews before local markdown persistence (#13691)', async () => {
+        const prNumber = 3292;
+        const pr       = buildPullRequest(prNumber);
+
+        pr.author = {login: 'external-pr-author'};
+        pr.body   = 'External PR root body https://pr-root.example/landing';
+        pr.comments = {nodes: [{
+            id       : 'PC_external',
+            author   : {login: 'external-commenter'},
+            body     : 'External PR comment https://pr-comment.example/payload',
+            createdAt: '2026-05-02T01:00:00Z'
+        }, {
+            id       : 'PC_trusted',
+            author   : {login: 'neo-gpt'},
+            body     : 'Trusted maintainer link remains raw https://github.com/neomjs/neo',
+            createdAt: '2026-05-02T02:00:00Z'
+        }]};
+        pr.reviews = {nodes: [{
+            id       : 'PRR_external',
+            author   : {login: 'external-reviewer'},
+            body     : 'External review body https://pr-review.example/payload',
+            state    : 'COMMENTED',
+            createdAt: '2026-05-02T03:00:00Z'
+        }]};
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [pr],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats      = await PullRequestSyncer.syncPullRequests({pulls: {}});
+        const targetPath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        const parsed     = matter(await fs.readFile(targetPath, 'utf8'));
+
+        expect(stats.synced).toEqual([prNumber]);
+        expect(parsed.data.contentTrust.projected).toBe(true);
+        expect(parsed.data.contentTrust.quarantined).toBe(3);
+        expect(parsed.content).toContain('[QUARANTINED_URL: pr-root.example]');
+        expect(parsed.content).toContain('[QUARANTINED_URL: pr-comment.example]');
+        expect(parsed.content).toContain('[QUARANTINED_URL: pr-review.example]');
+        expect(parsed.content).not.toContain('https://pr-root.example');
+        expect(parsed.content).not.toContain('https://pr-comment.example');
+        expect(parsed.content).not.toContain('https://pr-review.example');
+        expect(parsed.content).toContain('https://github.com/neomjs/neo');
+    });
+
     test('routeByMilestone=true only routes semver milestones into already-cut archive buckets', async () => {
         const missingBucketPr = buildPullRequest(3289);
         missingBucketPr.milestone = {title: 'v99.0.0'};
@@ -252,7 +303,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         // DESC and stops paginating at the cached high-water mark. Pre-fix it scanned the full corpus.
         const metadata = {
             lastSync: '2026-05-01T00:00:00Z',
-            pulls: {
+            pulls   : {
                 9001: {state: 'MERGED', updatedAt: '2026-05-01T00:00:00Z', path: 'resources/content/archive/pulls/v12.0.0/chunk-1/pr-9001.md'}
             }
         };
@@ -357,9 +408,9 @@ function buildPullRequest(number) {
         headRefName: 'feature',
         baseRefName: 'dev',
         url        : `https://github.com/neomjs/neo/pull/${number}`,
-        body       : 'Merged body',
-        milestone  : null,
-        comments   : {nodes: []},
-        reviews    : {nodes: []}
+        body     : 'Merged body',
+        milestone: null,
+        comments : {nodes: []},
+        reviews  : {nodes: []}
     }
 }

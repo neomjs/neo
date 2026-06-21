@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect}             from '@playwright/test';
-import Neo                        from '../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../src/core/_export.mjs';
-import {TRUST_TIERS}              from '../../../../../../ai/graph/identityRoots.mjs';
-import {projectConversationTrust} from '../../../../../../ai/services/github-workflow/shared/conversationTrust.mjs';
+import {test, expect}                                                                  from '@playwright/test';
+import Neo                                                                             from '../../../../../../src/Neo.mjs';
+import * as core                                                                       from '../../../../../../src/core/_export.mjs';
+import {TRUST_TIERS}                                                                   from '../../../../../../ai/graph/identityRoots.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust, projectConversationTrust} from '../../../../../../ai/services/github-workflow/shared/conversationTrust.mjs';
 
 /**
  * @summary Read-boundary trust-projection fixtures — the pure helper + its wiring into the three
@@ -134,6 +134,37 @@ test.describe('Neo.ai.services.github-workflow.shared.conversationTrust — pure
         projectConversationTrust(conversation);
 
         expect(conversation).toEqual(snapshot)
+    });
+
+    test('standalone authored-node projection reuses an injected summary accumulator', () => {
+        const summary = createContentTrustSummary();
+
+        const projectedRoot = projectAuthoredNodeTrust({
+            id    : 'root',
+            author: {login: 'external-writer'},
+            body  : 'Architecture note with product seed: Memorly. More at https://payload.example/path'
+        }, {
+            summary,
+            path               : 'body',
+            productNameDenylist: ['Memorly']
+        });
+
+        const projectedTrusted = projectAuthoredNodeTrust({
+            id    : 'trusted',
+            author: {login: 'neo-gpt'},
+            body  : 'Trusted maintainer reference stays raw: https://github.com/neomjs/neo'
+        }, {
+            summary,
+            path               : 'comment:trusted',
+            productNameDenylist: ['Memorly']
+        });
+
+        expect(projectedRoot.contentTrust).toBe(summary);
+        expect(projectedRoot.node.body).toContain('[QUARANTINED_URL: payload.example]');
+        expect(projectedRoot.node.body).toContain('[external product name redacted]');
+        expect(projectedTrusted.node.body).toContain('https://github.com/neomjs/neo');
+        expect(summary.projected).toBe(true);
+        expect(summary.quarantined).toBe(2)
     });
 });
 

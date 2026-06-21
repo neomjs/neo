@@ -1,5 +1,5 @@
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import path                                        from 'path';
+import {fileURLToPath}                             from 'url';
 import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
 
 const __filename     = fileURLToPath(import.meta.url);
@@ -154,6 +154,13 @@ class Config extends ConfigProvider {
                  * @type {{numbers: Number[], authors: String[]}}
                  */
                 discussionDenylist: leaf({numbers: [], authors: []}),
+                /**
+                 * Product names to redact from untrusted GitHub-authored content when the content-trust
+                 * sanitizer projects sync/write-boundary Markdown. Empty by default; policy values belong
+                 * in local config, not in syncer code.
+                 * @type {string[]}
+                 */
+                productNameDenylist: leaf([]),
                 /**
                  * The date from which to start synchronizing issues and releases.
                  * @type {string}
