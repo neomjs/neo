@@ -516,9 +516,16 @@ export async function releaseHeavyMaintenanceLease({
  * on stale-recovery telemetry. From the wrapper-caller's perspective, all three
  * cases normalize to `{status: 'completed', acquired: true, ...}` (or inherited).
  *
+ * EXCEPTION — the stale **inherited-token** case is the one recovery signal that IS
+ * surfaced to the wrapper-caller (as `previousStatus: 'inherited-token-stale'` on the
+ * return, per @returns below). A lost inheritance must never be misread as success, so
+ * unlike the internal stale/malformed recovery above it is promoted to a first-class
+ * return marker — not internal-only telemetry.
+ *
  * @param {Function} task Async task to execute when the lease is acquired. Receives the acquisition descriptor as its single argument (`{status, acquired, lease}`).
  * @param {Object} options Lease acquisition options forwarded to `acquireHeavyMaintenanceLease` (owner, reason, metadata, leasePath, staleAfterMs, pid, token, fsModule, now).
- * @returns {Promise<Object>} `{status, acquired, lease, result}` on completion; `{status: 'held', acquired: false, lease}` on contention.
+ * @param {Function} [options.onInheritedTokenStale] Observability hook fired once when this child inherited a token (`NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`) but the live lease no longer carries it (the parent released before the child checked). Default: a stderr warn (`warnInheritedTokenStale`) — a deliberately loud default, because per-caller wiring across the 6+ maintenance callers is the exact discipline whose lapse caused the original silent-skip regression; override with a no-op for silence. The deferral is ALSO surfaced structurally via the `previousStatus` return marker below, independent of this hook.
+ * @returns {Promise<Object>} `{status, acquired, lease, result}` on completion; `{status: 'held', acquired: false, lease}` on contention. When a set inherited token was found stale, the return additionally carries `previousStatus: 'inherited-token-stale'` (on either the held or completed shape) — the structural guarantee that a lost-inheritance deferral can never be misread as an ordinary success.
  * @see acquireHeavyMaintenanceLease
  * @see releaseHeavyMaintenanceLease
  * @see ai/scripts/runners/runSandman.mjs — canonical consumer pattern
@@ -550,6 +557,10 @@ export async function withHeavyMaintenanceLease(task, options = {}) {
         // skip — a 'held' result masked as "completed" is what stalled kb-sync embedding for days.
         // Surface it (hook + a distinct previousStatus) so callers can never mistake an inherited-but-lost
         // deferral for success. The acquire-or-defer itself is unchanged — the mutex is preserved.
+        // The hook DEFAULTS to a loud stderr warn (not a no-op): with 6+ maintenance callers, a no-op
+        // default + per-caller opt-in is the fragile discipline whose lapse caused the original silent-skip
+        // regression — loud-by-default is the safer floor. The `previousStatus` return marker is the
+        // hook-independent structural guarantee.
         inheritedTokenStale = true;
         (options.onInheritedTokenStale ?? warnInheritedTokenStale)({inheritedToken, current});
     }
