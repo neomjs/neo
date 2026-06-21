@@ -43,6 +43,65 @@ function insertNode(db, node) {
 }
 
 /**
+ * @summary Inserts an AgentIdentity fixture with a bridge-daemon subscription template.
+ * @param {Object} db Open better-sqlite3 connection.
+ * @param {String} id Agent identity id.
+ * @param {Object} harnessTargetMetadata Route metadata template.
+ */
+function insertAgentIdentity(db, id, harnessTargetMetadata) {
+    insertNode(db, {
+        id,
+        data: {
+            id,
+            label     : 'AgentIdentity',
+            properties: {
+                subscriptionTemplate: {
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'bridge-daemon',
+                    harnessTargetMetadata
+                }
+            }
+        }
+    });
+}
+
+/**
+ * @summary Inserts a WAKE_SUBSCRIPTION fixture owned by an agent identity.
+ * @param {Object} db Open better-sqlite3 connection.
+ * @param {Object} config Subscription fixture config.
+ */
+function insertSubscription(db, config) {
+    const {
+        id,
+        agentIdentity,
+        harnessTargetMetadata,
+        createdAt,
+        updatedAt,
+        filters,
+        status = 'active',
+        trigger = 'SENT_TO_ME'
+    } = config;
+
+    insertNode(db, {
+        id,
+        data: {
+            id,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity,
+                trigger,
+                filters,
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata,
+                status,
+                createdAt,
+                updatedAt
+            }
+        }
+    });
+}
+
+/**
  * @summary Reads and parses a graph node fixture by id.
  * @param {Object} db Open better-sqlite3 connection.
  * @param {String} id Node id.
@@ -57,41 +116,17 @@ test.describe('ai/scripts/migrations/migrateWakeSubscriptions', () => {
         const db = new Database(':memory:');
         createGraphSchema(db);
 
-        insertNode(db, {
-            id  : '@neo-gpt',
-            data: {
-                id        : '@neo-gpt',
-                label     : 'AgentIdentity',
-                properties: {
-                    subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
-                        harnessTargetMetadata: {
-                            appName: 'Codex'
-                        }
-                    }
-                }
-            }
-        });
-        insertNode(db, {
-            id  : 'WAKE_SUB:codex-legacy',
-            data: {
-                id        : 'WAKE_SUB:codex-legacy',
-                label     : 'WAKE_SUBSCRIPTION',
-                properties: {
-                    agentIdentity: '@neo-gpt',
-                    trigger: 'SENT_TO_ME',
-                    harnessTarget: 'bridge-daemon',
-                    harnessTargetMetadata: {
-                        appName: 'Codex',
-                        focusSeedKey: 'r'
-                    },
-                    status: 'active'
-                }
+        insertAgentIdentity(db, '@neo-gpt', {appName: 'Codex'});
+        insertSubscription(db, {
+            id                   : 'WAKE_SUB:codex-legacy',
+            agentIdentity        : '@neo-gpt',
+            harnessTargetMetadata: {
+                appName: 'Codex',
+                focusSeedKey: 'r'
             }
         });
 
-        const stats = runMigration(db, true);
+        const stats = runMigration(db, {apply: true, cleanupGenericNamedPeer: false});
         const migrated = getNode(db, 'WAKE_SUB:codex-legacy');
 
         expect(stats.subscriptionsPatched).toBe(1);
@@ -107,42 +142,20 @@ test.describe('ai/scripts/migrations/migrateWakeSubscriptions', () => {
         const db = new Database(':memory:');
         createGraphSchema(db);
 
-        insertNode(db, {
-            id  : '@neo-gpt',
-            data: {
-                id        : '@neo-gpt',
-                label     : 'AgentIdentity',
-                properties: {
-                    subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
-                        harnessTargetMetadata: {
-                            adapter: 'codex-app-server',
-                            appName: 'Codex',
-                            tabShortcut: null
-                        }
-                    }
-                }
-            }
+        insertAgentIdentity(db, '@neo-gpt', {
+            adapter: 'codex-app-server',
+            appName: 'Codex',
+            tabShortcut: null
         });
-        insertNode(db, {
-            id  : 'WAKE_SUB:codex-dry-run',
-            data: {
-                id        : 'WAKE_SUB:codex-dry-run',
-                label     : 'WAKE_SUBSCRIPTION',
-                properties: {
-                    agentIdentity: '@neo-gpt',
-                    trigger: 'SENT_TO_ME',
-                    harnessTarget: 'bridge-daemon',
-                    harnessTargetMetadata: {
-                        appName: 'Codex'
-                    },
-                    status: 'active'
-                }
+        insertSubscription(db, {
+            id                   : 'WAKE_SUB:codex-dry-run',
+            agentIdentity        : '@neo-gpt',
+            harnessTargetMetadata: {
+                appName: 'Codex'
             }
         });
 
-        const stats = runMigration(db, false);
+        const stats = runMigration(db, {apply: false, cleanupGenericNamedPeer: false});
         const unchanged = getNode(db, 'WAKE_SUB:codex-dry-run');
 
         expect(stats.subscriptionsPatched).toBe(1);
@@ -151,15 +164,97 @@ test.describe('ai/scripts/migrations/migrateWakeSubscriptions', () => {
         });
     });
 
-    test.describe('auditWakeRoutes (read-only #13481 audit)', () => {
-        const insertSub = (db, id, agentIdentity, harnessTargetMetadata) => insertNode(db, {
-            id,
-            data: {
-                id,
-                label     : 'WAKE_SUBSCRIPTION',
-                properties: {agentIdentity, trigger: 'SENT_TO_ME', harnessTarget: 'bridge-daemon', harnessTargetMetadata, status: 'active'}
+    test('dry-run reports generic named-peer cleanup without mutating durable route rows (#13744)', () => {
+        const db = new Database(':memory:');
+        createGraphSchema(db);
+        insertAgentIdentity(db, '@neo-opus-ada', {appName: 'Claude'});
+        insertSubscription(db, {
+            id                   : 'WAKE_SUB:ada-generic',
+            agentIdentity        : '@neo-opus-ada',
+            harnessTargetMetadata: {appName: 'Claude'},
+            updatedAt            : '2026-06-21T10:00:00.000Z'
+        });
+
+        const stats     = runMigration(db, {apply: false, now: '2026-06-21T12:00:00.000Z'}),
+              unchanged = getNode(db, 'WAKE_SUB:ada-generic');
+
+        expect(stats.genericDefaultMarked).toBe(1);
+        expect(stats.genericDuplicatesRetired).toBe(0);
+        expect(stats.genericNamedPeerUnresolved).toBe(1);
+        expect(unchanged.properties.harnessTargetMetadata).toEqual({appName: 'Claude'});
+        expect(unchanged.properties.status).toBe('active');
+    });
+
+    test('apply marks a generic named-peer keeper as default-instance and retires duplicate rows (#13744)', () => {
+        const db = new Database(':memory:');
+        createGraphSchema(db);
+        insertAgentIdentity(db, '@neo-opus-ada', {appName: 'Claude'});
+        insertSubscription(db, {
+            id                   : 'WAKE_SUB:ada-old',
+            agentIdentity        : '@neo-opus-ada',
+            harnessTargetMetadata: {appName: 'Claude'},
+            filters              : {channel: 'direct'},
+            updatedAt            : '2026-06-21T09:00:00.000Z'
+        });
+        insertSubscription(db, {
+            id                   : 'WAKE_SUB:ada-new',
+            agentIdentity        : '@neo-opus-ada',
+            harnessTargetMetadata: {appName: 'Claude'},
+            filters              : {channel: 'direct'},
+            updatedAt            : '2026-06-21T10:00:00.000Z'
+        });
+
+        const now   = '2026-06-21T12:00:00.000Z',
+              stats = runMigration(db, {apply: true, now});
+
+        const keeper  = getNode(db, 'WAKE_SUB:ada-new'),
+              retired = getNode(db, 'WAKE_SUB:ada-old'),
+              audit   = auditWakeRoutes(db);
+
+        expect(stats.genericDefaultMarked).toBe(1);
+        expect(stats.genericDuplicatesRetired).toBe(1);
+        expect(stats.genericNamedPeerUnresolved).toBe(0);
+        expect(keeper.properties.harnessTargetMetadata).toMatchObject({
+            appName        : 'Claude',
+            defaultInstance: true,
+            routeResolution: 'default-instance',
+            routeResolvedAt: now,
+            routeResolvedBy: 'migrateWakeSubscriptions#genericNamedPeer'
+        });
+        expect(keeper.properties.harnessTargetMetadata.userDataDir).toBeUndefined();
+        expect(keeper.properties.harnessTargetMetadata.instanceAddress).toBeUndefined();
+        expect(keeper.properties.status).toBe('active');
+        expect(retired.properties.status).toBe('inactive');
+        expect(retired.properties.retiredReason).toBe('duplicate generic named-peer default-instance route (#13744)');
+        expect(audit.genericNamedPeer).toEqual([]);
+        expect(audit.defaultInstance).toEqual([{id: 'WAKE_SUB:ada-new', agentIdentity: '@neo-opus-ada', appName: 'Claude'}]);
+    });
+
+    test('does not default-mark instance-addressed named-peer routes during generic cleanup (#13744)', () => {
+        const db = new Database(':memory:');
+        createGraphSchema(db);
+        insertAgentIdentity(db, '@neo-opus-ada', {appName: 'Claude'});
+        insertSubscription(db, {
+            id                   : 'WAKE_SUB:ada-instance',
+            agentIdentity        : '@neo-opus-ada',
+            harnessTargetMetadata: {
+                appName        : 'Claude',
+                addressType    : 'userDataDir',
+                instanceAddress: '/tmp/test-claude-ada'
             }
         });
+
+        const stats = runMigration(db, {apply: true, now: '2026-06-21T12:00:00.000Z'}),
+              route = getNode(db, 'WAKE_SUB:ada-instance');
+
+        expect(stats.genericDefaultMarked).toBe(0);
+        expect(stats.genericDuplicatesRetired).toBe(0);
+        expect(stats.genericNamedPeerUnresolved).toBe(0);
+        expect(route.properties.harnessTargetMetadata.defaultInstance).toBeUndefined();
+    });
+
+    test.describe('auditWakeRoutes (read-only #13481 audit)', () => {
+        const insertSub = (db, id, agentIdentity, harnessTargetMetadata) => insertSubscription(db, {id, agentIdentity, harnessTargetMetadata});
 
         test('flags an addressType route that resolves to no instance address (empty-address)', () => {
             const db = new Database(':memory:');
@@ -181,6 +276,16 @@ test.describe('ai/scripts/migrations/migrateWakeSubscriptions', () => {
             expect(audit.genericNamedPeer.length).toBe(1);
             expect(audit.genericNamedPeer[0].agentIdentity).toBe('@neo-opus-ada');
             expect(audit.emptyAddress.length).toBe(0);
+        });
+
+        test('reports an explicitly default-marked named-peer route separately from unresolved generic findings', () => {
+            const db = new Database(':memory:');
+            createGraphSchema(db);
+            insertSub(db, 'WAKE_SUB:default', '@neo-opus-ada', {appName: 'Claude', defaultInstance: true, routeResolution: 'default-instance'});
+
+            const audit = auditWakeRoutes(db);
+            expect(audit.genericNamedPeer.length).toBe(0);
+            expect(audit.defaultInstance).toEqual([{id: 'WAKE_SUB:default', agentIdentity: '@neo-opus-ada', appName: 'Claude'}]);
         });
 
         test('does not flag an instance-addressed route', () => {
