@@ -6,7 +6,10 @@
       "mcp__neo-mjs-knowledge-base__*"
     ],
     "deny": [
-      "Bash(gh pr merge *)"
+      "Bash(gh pr merge *)",
+      "Agent",
+      "Task",
+      "Workflow"
     ]
   },
   "autoMode": {
@@ -26,7 +29,8 @@
       "$defaults",
       "Never run `gh pr merge` or any other pull-request-merge command. Merging is reserved for the human operator (AGENTS.md critical gate #1); no approval signal ('LGTM', 'approved', 'ready to merge') authorizes an agent to merge.",
       "Never push or commit directly to the `main` or `dev` branches. Always branch and open a pull request targeting `dev` (AGENTS.md critical gates #3 and #8). The release pipeline is the only sanctioned exception.",
-      "Never write a client, customer, or partner name — or private business strategy — into any public-facing artifact: public-repo issues, pull requests, discussions, docs, or comments (AGENTS.md critical gate #9)."
+      "Never write a client, customer, or partner name — or private business strategy — into any public-facing artifact: public-repo issues, pull requests, discussions, docs, or comments (AGENTS.md critical gate #9).",
+      "Never spawn subagents or run multi-agent workflows (the Agent / Task / Workflow fan-out tools). Each spawned agent is a fresh full context that re-reads everything — 100k to millions of tokens for zero value over the cheap V-B-A tools (jq, grep, Read, Bash). Use those tools directly; fan-out is negative-ROI and drains the weekly limit."
     ]
   },
   "hooks": {
