@@ -70,6 +70,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one GitHub Workflow MCP tool.
+      tags: [Repository]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /labels:
     get:
       summary: List Repository Labels
@@ -292,6 +336,7 @@ paths:
     get:
       summary: Get Conversation (Issue or PR)
       operationId: get_conversation
+      x-neo-tool-summary: Fetch a pull request or issue conversation with optional comment-window selectors.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -663,6 +708,7 @@ paths:
     post:
       summary: Manage PR Review (Create or Update — atomic body + formal-state in one call)
       operationId: manage_pr_review
+      x-neo-tool-summary: Create or update one formal PR review with body and review state validation.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1435,6 +1481,7 @@ paths:
     post:
       summary: Manage Issue Relationships (Parent-Child and Blocked-By)
       operationId: update_issue_relationship
+      x-neo-tool-summary: Create, replace, or remove issue parent-child and blocked-by relationships.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false

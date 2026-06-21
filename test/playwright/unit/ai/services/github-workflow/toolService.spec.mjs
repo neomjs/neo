@@ -387,6 +387,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
             'get_conversation',
             'get_discussion_conversation',
             'get_local_issue_by_id',
+            'get_mcp_tool_handbook',
             'get_pull_request_diff',
             'get_viewer_permission',
             'healthcheck',

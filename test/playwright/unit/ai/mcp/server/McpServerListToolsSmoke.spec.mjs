@@ -324,13 +324,53 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('unmigrated servers keep their existing list description behavior (#13268)', async () => {
         const
-            server     = servers.find(item => item.name === 'github-workflow'),
+            server     = servers.find(item => item.name === 'memory-core'),
             {tools}    = await listTools(server),
-            tool       = tools.find(item => item.name === 'update_issue_relationship'),
+            tool       = tools.find(item => item.name === 'resume_session'),
             operations = getOperationsById(server);
 
-        expect(tool.description).toBe(operations.update_issue_relationship.description);
+        expect(tool.description).toBe(operations.resume_session.description);
         expect(tool.description.length).toBeGreaterThan(120);
+    });
+
+    test('github-workflow exposes compact list descriptions plus lazy-loaded handbook detail (#13736)', async () => {
+        const
+            server        = servers.find(item => item.name === 'github-workflow'),
+            {tools}       = await listTools(server),
+            byName        = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl     = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}    = await import(moduleUrl),
+            handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'update_issue_relationship'}),
+            missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            relationship  = byName.update_issue_relationship,
+            conversation  = byName.get_conversation,
+            review        = byName.manage_pr_review,
+            handbookTool  = byName.get_mcp_tool_handbook;
+
+        expect(handbookTool.description.length).toBeLessThanOrEqual(120);
+        expect(handbookTool.annotations.readOnlyHint).toBe(true);
+        expect(relationship.description).toBe('Create, replace, or remove issue parent-child and blocked-by relationships.');
+        expect(relationship.description).not.toContain('Run `sync_all`');
+        expect(conversation.description).toBe('Fetch a pull request or issue conversation with optional comment-window selectors.');
+        expect(review.description).toBe('Create or update one formal PR review with body and review state validation.');
+
+        for (const tool of tools) {
+            expect(tool.description.length, `github-workflow.${tool.name} description is not compact`).toBeLessThanOrEqual(120);
+        }
+
+        expect(handbook).toMatchObject({
+            toolId: 'update_issue_relationship',
+            found : true,
+            source: 'description'
+        });
+        expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('Run `sync_all` to update local markdown files');
+
+        expect(missing).toEqual({
+            toolId: 'missing_tool',
+            found : false,
+            code  : 'TOOL_NOT_FOUND',
+            message: 'Tool "missing_tool" does not exist in this MCP server.'
+        });
     });
 
     test('neural-link embedded-harness projection lists only default-visible tier tools (#13084)', async () => {
