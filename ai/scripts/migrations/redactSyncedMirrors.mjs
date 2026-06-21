@@ -14,8 +14,10 @@ import {readFileSync, writeFileSync} from 'fs';
 import {execFileSync}                from 'child_process';
 import {redactSensitiveContent}      from '../../services/github-workflow/shared/redactSensitiveContent.mjs';
 
-const root      = 'resources/content';
-const denyPairs = process.argv.slice(2).map(arg => {
+const root       = 'resources/content';
+const args       = process.argv.slice(2);
+const allowTerms = args.filter(a => a.startsWith('allow:')).map(a => a.slice(6)).filter(Boolean);
+const denyPairs  = args.filter(a => !a.startsWith('allow:')).map(arg => {
     const i = arg.indexOf('=');
     return i === -1 ? null : [arg.slice(0, i), arg.slice(i + 1)];
 }).filter(Boolean);
@@ -41,7 +43,7 @@ for (const [from] of denyPairs) {
 let changed = 0;
 for (const file of candidates) {
     const before = readFileSync(file, 'utf8');
-    const after  = redactSensitiveContent(before, denyPairs);
+    const after  = redactSensitiveContent(before, denyPairs, allowTerms);
     if (after !== before) {
         writeFileSync(file, after);
         changed++;

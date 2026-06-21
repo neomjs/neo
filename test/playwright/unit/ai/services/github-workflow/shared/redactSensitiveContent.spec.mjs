@@ -43,4 +43,18 @@ test.describe('ai/services/github-workflow/shared/redactSensitiveContent', () =>
     test('no deny-pairs → text unchanged', () => {
         expect(redactSensitiveContent('untouched', [])).toBe('untouched');
     });
+
+    test('allowlist preserves a handle that CONTAINS a deny term (the operator handle exception)', () => {
+        const pairs = [['acme', 'the client']];
+        const allow = ['kmunk-acme'];
+        const input = 'Acme work by @kmunk-acme and acme deploys.';
+        expect(redactSensitiveContent(input, pairs, allow))
+            .toBe('the client work by @kmunk-acme and the client deploys.');
+    });
+
+    test('the sentinel never collides with real digits-in-text', () => {
+        // guards against a space-sentinel bug: a numeric body must survive untouched
+        expect(redactSensitiveContent('version 3 of 12 builds', [['acme', 'X']], ['kmunk-acme']))
+            .toBe('version 3 of 12 builds');
+    });
 });
