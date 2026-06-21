@@ -132,6 +132,7 @@ test.describe('Tier 1 Config Immutability', () => {
             pollMs                           : 3000,
             summarySweepMs                   : 10 * 60 * 1000,
             kbSyncMs                         : 30 * 60 * 1000,
+            githubWorkflowSyncMs             : 30 * 60 * 1000,
             backupMs                         : 24 * 60 * 60 * 1000,
             graphLogCompactionMs             : 24 * 60 * 60 * 1000,
             primaryDevSyncMs                 : 10 * 60 * 1000,
@@ -143,6 +144,7 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.orchestrator.localOnly).toEqual({
             primaryDevSyncEnabled          : null,
             kbSyncEnabled                  : null,
+            githubWorkflowSyncEnabled      : null,
             chromaDaemonEnabled            : null,
             bridgeDaemonEnabled            : null,
             neuralLinkBridgeEnabled        : null,

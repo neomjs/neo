@@ -59,6 +59,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
             'dream',
+            'githubWorkflowSync',
             'graphlog-compaction',
             'kbSync',
             'memory-summary-backfill',
@@ -111,23 +112,23 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
     test('areHeavyMaintenanceTasksCompatible is symmetric and deny-by-default', () => {
         expect(areHeavyMaintenanceTasksCompatible({
-            taskName: 'kbSync',
-            otherTaskName: 'memory-summary-backfill',
+            taskName                           : 'kbSync',
+            otherTaskName                      : 'memory-summary-backfill',
             compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
         })).toBe(true);
         expect(areHeavyMaintenanceTasksCompatible({
-            taskName: 'memory-summary-backfill',
-            otherTaskName: 'kbSync',
+            taskName                           : 'memory-summary-backfill',
+            otherTaskName                      : 'kbSync',
             compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
         })).toBe(true);
         expect(areHeavyMaintenanceTasksCompatible({
-            taskName: 'summary',
-            otherTaskName: 'kbSync',
+            taskName                           : 'summary',
+            otherTaskName                      : 'kbSync',
             compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
         })).toBe(false);
         expect(areHeavyMaintenanceTasksCompatible({
-            taskName: 'kbSync',
-            otherTaskName: 'kbSync',
+            taskName                           : 'kbSync',
+            otherTaskName                      : 'kbSync',
             compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
         })).toBe(false);
     });
@@ -157,16 +158,16 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
     test('getActiveHeavyMaintenanceTask ignores compatible running heavy task for a candidate', () => {
         expect(getActiveHeavyMaintenanceTask({
-            heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
-            taskStateService         : buildTaskStateService({kbSync: {running: true}}),
-            candidateTaskName        : 'memory-summary-backfill',
+            heavyMaintenanceTaskNames          : DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+            taskStateService                   : buildTaskStateService({kbSync: {running: true}}),
+            candidateTaskName                  : 'memory-summary-backfill',
             compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
         })).toBeNull();
 
         expect(getActiveHeavyMaintenanceTask({
-            heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
-            taskStateService         : buildTaskStateService({summary: {running: true}, kbSync: {running: true}}),
-            candidateTaskName        : 'memory-summary-backfill',
+            heavyMaintenanceTaskNames          : DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+            taskStateService                   : buildTaskStateService({summary: {running: true}, kbSync: {running: true}}),
+            candidateTaskName                  : 'memory-summary-backfill',
             compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
         })).toBe('summary');
     });
@@ -235,22 +236,22 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         recordDeferral({
             deferralLogKeys,
-            taskName       : 'kbSync',
-            reasonCode     : 'heavy-maintenance-backpressure',
-            reasonText     : 'periodic-sync:1800000',
+            taskName        : 'kbSync',
+            reasonCode      : 'heavy-maintenance-backpressure',
+            reasonText      : 'periodic-sync:1800000',
             blockingTaskName: 'summary',
-            taskDefinitions: {summary: {label: 'Sunset summary'}, kbSync: {label: 'KB sync'}},
+            taskDefinitions : {summary: {label: 'Sunset summary'}, kbSync: {label: 'KB sync'}},
             writeLog,
             healthService
         });
         // Repeat — must dedupe the log line but still emit an outcome each time
         recordDeferral({
             deferralLogKeys,
-            taskName       : 'kbSync',
-            reasonCode     : 'heavy-maintenance-backpressure',
-            reasonText     : 'periodic-sync:1800000',
+            taskName        : 'kbSync',
+            reasonCode      : 'heavy-maintenance-backpressure',
+            reasonText      : 'periodic-sync:1800000',
             blockingTaskName: 'summary',
-            taskDefinitions: {summary: {label: 'Sunset summary'}, kbSync: {label: 'KB sync'}},
+            taskDefinitions : {summary: {label: 'Sunset summary'}, kbSync: {label: 'KB sync'}},
             writeLog,
             healthService
         });
@@ -317,11 +318,11 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         recordDeferral({
             deferralLogKeys,
-            taskName       : 'golden-path',
-            reasonCode     : 'golden-path-dependency-backpressure',
+            taskName  : 'golden-path',
+            reasonCode: 'golden-path-dependency-backpressure',
             reasonText     : `periodic-golden-path:1800000`,
             blockingTaskName: 'dream',
-            taskDefinitions: {
+            taskDefinitions : {
                 ['golden-path']: {label: 'Golden Path'},
                 ['dream']      : {label: 'Dream cycle'}
             },
@@ -337,9 +338,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         // No healthService → must not throw
         expect(() => recordDeferral({
             deferralLogKeys,
-            taskName       : 'kbSync',
-            reasonCode     : 'heavy-maintenance-backpressure',
-            reasonText     : 'periodic-sync',
+            taskName        : 'kbSync',
+            reasonCode      : 'heavy-maintenance-backpressure',
+            reasonText      : 'periodic-sync',
             blockingTaskName: 'summary'
         })).not.toThrow();
     });
@@ -360,9 +361,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         const activeHeavyTask = {name: null};
         const result = service.acquireLeaseAndExecute({
-            taskName       : NON_HEAVY_TASK_NAME,
-            executeFn      : (taskName, reason) => { executions.push({taskName, reason}); return true; },
-            reason         : 'periodic-heartbeat',
+            taskName : NON_HEAVY_TASK_NAME,
+            executeFn: (taskName, reason) => { executions.push({taskName, reason}); return true; },
+            reason   : 'periodic-heartbeat',
             activeHeavyTask
         });
 
@@ -383,9 +384,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         const activeHeavyTask = {name: 'summary'};
         const result = service.acquireLeaseAndExecute({
-            taskName       : 'kbSync',
-            executeFn      : () => { throw new Error('should not execute'); },
-            reason         : 'periodic-sync',
+            taskName : 'kbSync',
+            executeFn: () => { throw new Error('should not execute'); },
+            reason   : 'periodic-sync',
             activeHeavyTask
         });
 
@@ -437,9 +438,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         const activeHeavyTask = {name: null};
         const result = service.acquireLeaseAndExecute({
-            taskName       : 'backup',
-            executeFn      : () => { throw new Error('should not execute'); },
-            reason         : 'periodic-sweep',
+            taskName : 'backup',
+            executeFn: () => { throw new Error('should not execute'); },
+            reason   : 'periodic-sweep',
             activeHeavyTask
         });
 
@@ -513,9 +514,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         const activeHeavyTask = {name: null};
         const result = service.acquireLeaseAndExecute({
-            taskName       : 'kbSync',
-            executeFn      : () => false, // task self-declined → still must release
-            reason         : 'periodic-sync',
+            taskName : 'kbSync',
+            executeFn: () => false, // task self-declined → still must release
+            reason   : 'periodic-sync',
             activeHeavyTask
         });
 
@@ -535,9 +536,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         const activeHeavyTask = {name: null};
         const result = service.acquireLeaseAndExecute({
-            taskName       : 'kbSync',
-            executeFn      : async () => 'work-done',
-            reason         : 'periodic-sync',
+            taskName : 'kbSync',
+            executeFn: async () => 'work-done',
+            reason   : 'periodic-sync',
             activeHeavyTask
         });
 
