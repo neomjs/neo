@@ -29,6 +29,10 @@ test.describe('Neo.ai.daemons.services.AdrIngestor', () => {
 
     let tmpRoot;
     let decisionsDir;
+    let StorageRouter;
+    let upsertedDocs = [];
+    let embeddedStore = new Map();
+    let _originalGetGraphCollection;
 
     let originalWarn;
     let warnMessages = [];
@@ -47,6 +51,7 @@ test.describe('Neo.ai.daemons.services.AdrIngestor', () => {
         AdrIngestor            = (await import('../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        StorageRouter          = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
 
         // Reactive provider SSOT: under UNIT_TEST_MODE the Memory Core config resolves
         // storagePaths.graph to `:memory:` by construction. Do not mutate the shared AiConfig
@@ -87,10 +92,31 @@ test.describe('Neo.ai.daemons.services.AdrIngestor', () => {
         logger.warn  = (...args) => {
             warnMessages.push(args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' '));
         };
+
+        // Stub the graph collection so the embed-write records documents WITHOUT invoking the
+        // real embedder (which would otherwise embed every ADR and time the corpus ingest out).
+        upsertedDocs                = [];
+        _originalGetGraphCollection = StorageRouter.getGraphCollection;
+
+        embeddedStore.clear();
+        StorageRouter.getGraphCollection = async () => ({
+            get   : async ({ids = []}) => {
+                const out = {ids: [], metadatas: []};
+                for (const id of ids) {
+                    if (embeddedStore.has(id)) { out.ids.push(id); out.metadatas.push(embeddedStore.get(id)); }
+                }
+                return out;
+            },
+            upsert: async ({ids, documents, metadatas}) => {
+                ids.forEach((id, i) => embeddedStore.set(id, metadatas[i]));
+                upsertedDocs.push({ids, documents, metadatas});
+            }
+        });
     });
 
     test.afterEach(() => {
         if (originalWarn) logger.warn = originalWarn;
+        if (_originalGetGraphCollection) StorageRouter.getGraphCollection = _originalGetGraphCollection;
 
         if (tmpRoot && fs.existsSync(tmpRoot)) {
             try { fs.rmSync(tmpRoot, {recursive: true}); } catch (e) {}
@@ -140,6 +166,60 @@ Body.
         expect(node.properties.source).toBe('learn/agentos/decisions/0099-test-decision.md');
         expect(node.properties.supersedes).toEqual(['old decision', 'obsolete note']);
         expect(node.properties.payloadHash).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    test('should embed each ADR document into the graph collection (idempotent)', async () => {
+        writeAdr('0099-test-decision.md', `
+# ADR 0099: Test Decision Shape
+
+| **Status** | Proposed |
+
+Body content for embedding.
+        `);
+
+        await AdrIngestor.syncAdrsToGraph(syncOptions());
+
+        // The ADR document is upserted into the graph collection → semantically queryable.
+        const adrUpsert = upsertedDocs.find(u => u.ids[0] === 'adr-0099');
+        expect(adrUpsert).toBeTruthy();
+        expect(adrUpsert.documents[0]).toContain('Test Decision Shape');
+        expect(adrUpsert.metadatas[0].type).toBe('ADR');
+        expect(adrUpsert.metadatas[0].hash).toMatch(/^[a-f0-9]{32}$/); // md5 content hash
+
+        // The SQLite node carries semanticVectorId → the node knows it is embedded (not detached).
+        expect(GraphService.db.nodes.get('adr-0099').properties.semanticVectorId).toBe('adr-0099');
+
+        // Idempotent: a re-sync of unchanged content (node + body) writes no new vector.
+        upsertedDocs.length = 0;
+        await AdrIngestor.syncAdrsToGraph(syncOptions());
+        expect(upsertedDocs.find(u => u.ids[0] === 'adr-0099')).toBeFalsy();
+    });
+
+    test('should re-embed on a body-only edit even when payloadHash (metadata) is unchanged', async () => {
+        writeAdr('0099-test-decision.md', `
+# ADR 0099: Test Decision Shape
+
+| **Status** | Proposed |
+
+Original body.
+        `);
+        await AdrIngestor.syncAdrsToGraph(syncOptions());
+
+        // Edit ONLY the body (title/status/metadata unchanged → payloadHash identical).
+        upsertedDocs.length = 0;
+        writeAdr('0099-test-decision.md', `
+# ADR 0099: Test Decision Shape
+
+| **Status** | Proposed |
+
+Completely different body content.
+        `);
+        await AdrIngestor.syncAdrsToGraph(syncOptions());
+
+        // The vector MUST update — the old guard skipped before the md5 check, stranding a stale vector.
+        const reEmbed = upsertedDocs.find(u => u.ids[0] === 'adr-0099');
+        expect(reEmbed).toBeTruthy();
+        expect(reEmbed.documents[0]).toContain('different body content');
     });
 
     test('should emit only deterministic ADR 0006 edge taxonomy rows', async () => {
