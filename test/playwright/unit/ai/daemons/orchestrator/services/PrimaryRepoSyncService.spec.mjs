@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
-import Neo       from '../../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../../src/core/_export.mjs';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
 import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_ENV_VAR,
     isConfigTemplateChangePath,
@@ -196,9 +196,9 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(result).toEqual({
             status : 'skipped',
             details: {
-                reasonCode: 'not-dev-branch',
+                reasonCode : 'not-dev-branch',
                 primaryRoot: '/primary/neo',
-                branch: 'feature'
+                branch     : 'feature'
             }
         });
     });
@@ -771,10 +771,10 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(result).toEqual({
             status : 'skipped',
             details: {
-                reasonCode: 'local-divergence',
+                reasonCode : 'local-divergence',
                 primaryRoot: '/primary/neo',
-                behind: 1,
-                files: ['ai/daemons/Orchestrator.mjs']
+                behind     : 1,
+                files      : ['ai/daemons/Orchestrator.mjs']
             }
         });
         expect(execStub.calls.map(call => call.args[0])).not.toContain('pull');
@@ -804,15 +804,15 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         const outcomes = [];
 
         const result = PrimaryRepoSyncService.runTask({
-            reason          : 'periodic-sweep:600000',
+            reason       : 'periodic-sweep:600000',
             taskStateService,
-            healthService   : {
+            healthService: {
                 recordTaskOutcome(taskName, status, details) {
                     outcomes.push({taskName, status, details});
                 }
             },
-            writeLog        : () => {},
-            execFileSyncFn  : createExecStub([{
+            writeLog      : () => {},
+            execFileSyncFn: createExecStub([{
                 cmd   : 'git',
                 args  : ['worktree', 'list', '--porcelain'],
                 output: 'worktree /primary/neo\n'
@@ -931,6 +931,85 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
                 reason: 'cascaded-from-primary-dev-sync',
                 parent: 'primary-dev-sync'
             })
+        });
+    });
+
+    test('runKbSync cascade lease-held stdout records skipped, not false-green completed (#13791)', () => {
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        // Child exited 0 but emitted a deferral outcome on stdout (the emit side).
+        const execFileSyncFn = createExecStub([{
+            cmd   : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args  : ['run', 'ai:sync-kb'],
+            output: JSON.stringify({deferred: true, reason: 'heavy-maintenance-lease-held', holder: {owner: 'summary'}})
+        }]);
+
+        PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+        // The cascade must classify a deferred run as skipped (not completed) — the telemetry-lie fix.
+        expect(taskStateService.events).toEqual([
+            ['started', 'kbSync', 'cascaded-from-primary-dev-sync'],
+            ['skipped', 'kbSync']
+        ]);
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'kbSync',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                reasonCode: 'heavy-maintenance-lease-held',
+                parent    : 'primary-dev-sync'
+            })
+        });
+    });
+
+    test('runKbSync parses the deferral outcome through the npm-run banner (last-JSON-line scan, #13791)', () => {
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        // `npm run` prepends a banner; the outcome JSON is the last line — the scan must still find it.
+        const execFileSyncFn = createExecStub([{
+            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args: ['run', 'ai:sync-kb'],
+            output: `\n> neo@10.0.0 ai:sync-kb\n> node syncKnowledgeBase.mjs\n\n${JSON.stringify({deferred: true, reason: 'heavy-maintenance-lease-held'})}\n`
+        }]);
+
+        PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+        expect(taskStateService.events).toContainEqual(['skipped', 'kbSync']);
+        expect(outcomes[1]).toMatchObject({status: 'skipped', details: expect.objectContaining({reasonCode: 'heavy-maintenance-lease-held'})});
+    });
+
+    test('runKbSync cascade real sync (deferred:false) records completed with embed counts (#13791)', () => {
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        const execFileSyncFn = createExecStub([{
+            cmd   : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args  : ['run', 'ai:sync-kb'],
+            output: JSON.stringify({deferred: false, added: 2566, deleted: 1513})
+        }]);
+
+        PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+        expect(taskStateService.events).toContainEqual(['completed', 'kbSync']);
+        expect(taskStateService.events).not.toContainEqual(['skipped', 'kbSync']);
+        // The child's success details (embed/delete counts) must propagate into the completed outcome.
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'kbSync',
+            status  : 'completed',
+            details : expect.objectContaining({added: 2566, deleted: 1513})
         });
     });
 

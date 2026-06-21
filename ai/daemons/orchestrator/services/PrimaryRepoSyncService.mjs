@@ -300,11 +300,11 @@ class PrimaryRepoSyncService extends Base {
         try {
             return this.syncDevRoot({
                 root,
-                rootKey: 'root',
+                rootKey          : 'root',
                 execFileSyncFn,
                 writeLog,
                 fetchBeforeBranch: true,
-                runKbSync: false,
+                runKbSync        : false,
                 taskStateService,
                 healthService
             });
@@ -335,14 +335,14 @@ class PrimaryRepoSyncService extends Base {
         const skipped   = rootResults.filter(result => result.status === 'skipped').length;
         const status    = completed > 0 ? 'completed' : failed > 0 ? 'failed' : 'skipped';
         const details   = {
-            mode: 'configured-roots',
+            mode     : 'configured-roots',
             primaryRoot,
             rootCount: rootResults.length,
             completed,
             skipped,
             failed,
-            roots: rootResults,
-            kbSync: false
+            roots    : rootResults,
+            kbSync   : false
         };
 
         const kbSyncRequired = rootResults.some(result => result.status === 'completed' && result.kbSyncRequired !== false);
@@ -581,14 +581,31 @@ class PrimaryRepoSyncService extends Base {
         }
 
         try {
-            execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], spawnOptions);
+            const stdout  = execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], spawnOptions) || '';
+            const outcome = this.parseCascadeOutcome(stdout);
 
-            taskStateService?.markCompleted?.('kbSync');
-            healthService?.recordTaskOutcome?.('kbSync', 'completed', {
-                reason,
-                parent     : parentTaskName,
-                completedAt: new Date().toISOString()
-            });
+            if (outcome?.deferred === true && outcome.reason) {
+                // Lease-held cascade kb-sync → `skipped`, not a false-green `completed` (the
+                // deferred-as-completed class): a deferred run did no embedding, so it must not
+                // refresh kbSync's lastSuccessAt the way a real sync does.
+                taskStateService?.markSkipped?.('kbSync');
+                healthService?.recordTaskOutcome?.('kbSync', 'skipped', {
+                    reason,
+                    parent    : parentTaskName,
+                    reasonCode: outcome.reason,
+                    skippedAt : new Date().toISOString()
+                });
+            } else {
+                taskStateService?.markCompleted?.('kbSync');
+                // Propagate the child's success details (e.g. embed/delete counts) so the cascade
+                // telemetry matches the task path; outcome is null on the legacy no-JSON path → spreads nothing.
+                healthService?.recordTaskOutcome?.('kbSync', 'completed', {
+                    reason,
+                    parent     : parentTaskName,
+                    completedAt: new Date().toISOString(),
+                    ...(outcome || {})
+                });
+            }
         } catch (e) {
             taskStateService?.markFailed?.('kbSync', e.status || 1);
             healthService?.recordTaskOutcome?.('kbSync', 'failed', {
@@ -599,6 +616,30 @@ class PrimaryRepoSyncService extends Base {
             });
             throw e;
         }
+    }
+
+    /**
+     * @summary Extracts the child's structured outcome from cascade stdout, tolerating the
+     * `npm run` banner by scanning for the last line that JSON-parses to an object. Returns
+     * null when no JSON outcome line is present (e.g. a child that only emitted human-readable
+     * logs), so the caller falls through to the `completed` classification — preserving the
+     * pre-outcome-emit behavior and making this forward-compatible with the child emit side.
+     * @param {String} stdout Captured child stdout.
+     * @returns {Object|null} Parsed outcome envelope, or null when none is found.
+     */
+    parseCascadeOutcome(stdout) {
+        const lines = String(stdout || '').split('\n');
+        for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i].trim();
+            if (!line.startsWith('{')) continue;
+            try {
+                const parsed = JSON.parse(line);
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch {
+                // Not the JSON outcome line; keep scanning upward.
+            }
+        }
+        return null;
     }
 
     /**
