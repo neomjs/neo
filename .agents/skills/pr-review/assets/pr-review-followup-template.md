@@ -15,6 +15,7 @@
 *   **Inputs Read Before Patch:** [Prior review anchor / author response / changed-file list / current `dev` source / source-of-authority substrate checked before treating the delta as evidence.]
 *   **Expected Solution Shape:** [1-3 sentences naming the expected delta shape, what boundary this must NOT hardcode, and what test isolation should exist.]
 *   **Patch Verdict:** [Matches / improves / contradicts the expected shape, with the evidence that confirmed or changed your premise.]
+*   **Premise Coherence:** [Does this delta's premise cohere with our core values — verify-before-assert · friction→gold · flat-peer-team · no-hold · the four pillars? A specific verdict naming the value ("coheres: ..." / "conflicts: ..."), NOT a bare yes/no. OR a scoped "N/A — no value-surface (scope: ...)". A green checklist over a wrong premise is theater.]
 
 ---
 
