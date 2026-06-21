@@ -1,7 +1,7 @@
 ---
 id: 9961
 title: Pre-Task Retrospective Query — Active Memory Consumption
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - neo-opus-grace
 createdAt: '2026-04-13T11:13:08Z'
-updatedAt: '2026-06-21T07:42:40Z'
+updatedAt: '2026-06-21T09:49:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9961'
 author: tobiu
 commentsCount: 3
@@ -24,6 +24,7 @@ contentTrust:
 blockedBy:
   - '[x] 9959 fix(memory): periodic summarization must skip externally active sessions'
 blocking: []
+closedAt: '2026-06-21T09:49:44Z'
 ---
 # Pre-Task Retrospective Query — Active Memory Consumption
 
@@ -116,4 +117,31 @@ Grounded in the `post-review-pickup` workflow (the lane-pickup lifecycle, where 
 
 **Impl shape (next):** `post-review-pickup` SKILL.md + workflow §4 (the lane-claim) gain the brief step; manifest + downstream-docs sync per the skill-edit coupling. Tractable single-skill change. **Impl-ready** — re-label off `needs-design`.
 
+- 2026-06-21T08:09:43Z @neo-opus-grace cross-referenced by PR #13730
+- 2026-06-21T08:25:46Z @neo-opus-grace cross-referenced by #13144
+- 2026-06-21T08:31:51Z @neo-opus-grace referenced in commit `710cef5` - "fix(ai): compress §2.7 to a pointer-sized trigger — skill byte-budget (#9961 review)
+
+Per @neo-opus-ada's #13730 review: §2.7 added 2087 bytes vs the 250-byte net-growth cap on .agents/skills references (ADR 0007 substrate-accretion defense). Compress-to-trigger — the durable mandate + one-line skip-criterion stay in the workflow; the rationale (over-action-tripwire framing, lineage, telemetry-routes-not-gates) lives on #9961. Fittingly, a brief-gate that bloats the skill is the over-action's own substrate-bloat form; compressing keeps it the countermeasure."
+- 2026-06-21T08:49:01Z @neo-opus-grace referenced in commit `8a89133` - "fix(ai): restore the un-graphed query_raw_memories step in §2.7 — pointer-sized (#9961 review)
+
+Per @neo-gpt's #13730 review: the compression dropped the semantic-failure fallback (#9961's host-decision mandates query_raw_memories over failure nodes for an un-graphed ticket). Restored inline + trimmed 're-tread freshness-check' / 'Lightweight-' to stay under the 250-byte skill cap. Both brief modes (graphed preBriefSession + un-graphed query_raw_memories) now mandated; rationale stays on #9961."
+- 2026-06-21T08:50:00Z @neo-opus-grace referenced in commit `68c410d` - "fix(ai): trim §2.7 under the 250-byte cap after restoring the un-graphed step (#9961 review)"
+- 2026-06-21T09:49:45Z @tobiu closed this issue
+- 2026-06-21T09:49:45Z @tobiu referenced in commit `66504c3` - "feat(ai): §2.7 Pre-Implementation Brief Gate — preBriefSession consumption-mandate (#9961) (#13730)
+
+* feat(ai): §2.7 Pre-Implementation Brief Gate in post-review-pickup (#9961)
+
+Wires the #9961 consumption-mandate for the shipped preBriefSession: before an implementation lane-claim, run preBriefSession (+ query_raw_memories failure-mode for un-graphed tickets) → a one-line lessons-learned brief in the lane-claim. Lightweight-mandatory with a marginal-value skip (skip only when re-tread-risk < brief-cost; impl default is brief).
+
+Converged with @neo-opus-ada: the brief is the re-tread COUNTERMEASURE, not a trip of the over-action tail — tripwire-safe via genuine-trigger + lightweight + marginal-value-skippable. The under-action firewall's complement at impl-START (Stop-hook catches idle at turn-END; this catches re-tread at impl-START). Doc-only post-review-pickup workflow reference; no SKILL.md frontmatter change → no manifest re-sync.
+
+* fix(ai): compress §2.7 to a pointer-sized trigger — skill byte-budget (#9961 review)
+
+Per @neo-opus-ada's #13730 review: §2.7 added 2087 bytes vs the 250-byte net-growth cap on .agents/skills references (ADR 0007 substrate-accretion defense). Compress-to-trigger — the durable mandate + one-line skip-criterion stay in the workflow; the rationale (over-action-tripwire framing, lineage, telemetry-routes-not-gates) lives on #9961. Fittingly, a brief-gate that bloats the skill is the over-action's own substrate-bloat form; compressing keeps it the countermeasure.
+
+* fix(ai): restore the un-graphed query_raw_memories step in §2.7 — pointer-sized (#9961 review)
+
+Per @neo-gpt's #13730 review: the compression dropped the semantic-failure fallback (#9961's host-decision mandates query_raw_memories over failure nodes for an un-graphed ticket). Restored inline + trimmed 're-tread freshness-check' / 'Lightweight-' to stay under the 250-byte skill cap. Both brief modes (graphed preBriefSession + un-graphed query_raw_memories) now mandated; rationale stays on #9961.
+
+* fix(ai): trim §2.7 under the 250-byte cap after restoring the un-graphed step (#9961 review)"
 
