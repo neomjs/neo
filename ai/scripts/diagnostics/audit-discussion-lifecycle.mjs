@@ -31,7 +31,9 @@ const OPEN_SCOPE_RES = [
     /\bremains\b/i,
     /\bstill pending\b/i,
     /\bnot yet\b/i,
-    /\bnext cycle\b/i
+    /\bnext cycle\b/i,
+    /\bnot proposed for graduation\b/i,
+    /\bseeding only\b/i
 ];
 
 const CANDIDATE_ORDER = {
@@ -194,6 +196,30 @@ function hasGraduatedMarker(body) {
 }
 
 /**
+ * @param {String} body
+ * @returns {Boolean}
+ */
+function hasResolvedDispositionMarker(body) {
+    return body.split(/\r?\n/).some(line => {
+        if (!RESOLVED_RE.test(line)) {
+            return false
+        }
+
+        if (/(before any|graduates when|graduation criteria|candidate|ready-to-graduate)/i.test(line)) {
+            return false
+        }
+
+        const normalized = line
+            .replace(/^[>\s#*-]+/, '')
+            .replace(/[*`]/g, '')
+            .trim();
+
+        return /^\[RESOLVED_TO_AC\]/i.test(normalized) ||
+            /^(OQ\d+|Open Question\b)[^[]*\[RESOLVED_TO_AC\]/i.test(normalized)
+    })
+}
+
+/**
  * @param {Object} discussion
  * @param {Object} options
  * @param {Date} options.now
@@ -228,7 +254,7 @@ function classifyDiscussion(discussion, {now, staleDays}) {
         }
     }
 
-    if (RESOLVED_RE.test(body) && !hasOpenScope(body)) {
+    if (hasResolvedDispositionMarker(body) && !hasOpenScope(body)) {
         return {
             ...base,
             kind  : 'resolved-only-review',
@@ -532,6 +558,22 @@ function runSelfTest() {
             body     : '[RESOLVED_TO_AC] OQ1\n[OQ_RESOLUTION_PENDING] OQ2'
         },
         {
+            number   : 6,
+            title    : 'instructional resolved marker',
+            category : 'Ideas',
+            closed   : false,
+            updatedAt: '2026-06-01T00:00:00Z',
+            body     : 'A STEP_BACK sweep is required before any `[RESOLVED_TO_AC]` / graduation.\n\nSeeding only.'
+        },
+        {
+            number   : 7,
+            title    : 'resolved only',
+            category : 'Ideas',
+            closed   : false,
+            updatedAt: '2026-06-01T00:00:00Z',
+            body     : '[RESOLVED_TO_AC] OQ1 resolved.\nAll scope complete.'
+        },
+        {
             number   : 3,
             title    : 'stale',
             category : 'Ideas',
@@ -554,7 +596,7 @@ function runSelfTest() {
 
     const kinds = result.candidates.map(candidate => `${candidate.number}:${candidate.kind}`);
 
-    if (result.scanned !== 5 || kinds.join(',') !== '1:graduated-open,3:stale-open') {
+    if (result.scanned !== 7 || kinds.join(',') !== '1:graduated-open,7:resolved-only-review,3:stale-open') {
         throw new Error(`Self-test failed: ${JSON.stringify({scanned: result.scanned, kinds})}`);
     }
 
