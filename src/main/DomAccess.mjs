@@ -29,10 +29,10 @@ const
     ],
 
     modifierKeys = {
-        Shift   : 1,
-        Alt     : 1,
-        Meta    : 1,
-        Control : 1
+        Shift  : 1,
+        Alt    : 1,
+        Meta   : 1,
+        Control: 1
     };
 
 /**
@@ -180,15 +180,29 @@ class DomAccess extends Base {
      * @param {String} [data.src=true]
      */
     addScript(data) {
-        let script = document.createElement('script');
-
         if (!data.hasOwnProperty('async')) {
             data.async = true
         }
 
-        Object.assign(script, data);
+        this.createAndAppendElement('script', data)
+    }
 
-        document.head.appendChild(script)
+    /**
+     * Shared DOM-element factory: creates an element of the given tag, assigns the props onto it via
+     * Object.assign, and appends it to document.head. The common primitive behind addScript() and
+     * loadScript() (loadStylesheet() can adopt it in a follow-up). Returns the element for any
+     * post-append work the caller needs.
+     * @param {String} tag The element tag, e.g. 'script'.
+     * @param {Object} props Properties assigned onto the element.
+     * @returns {Element} The created + appended element.
+     */
+    createAndAppendElement(tag, props) {
+        const element = document.createElement(tag);
+
+        Object.assign(element, props);
+        document.head.appendChild(element);
+
+        return element
     }
 
     /**
@@ -232,8 +246,8 @@ class DomAccess extends Base {
             result = data.result = myRect.alignTo(align);
 
         Object.assign(style, {
-            top       : 0,
-            left      : 0,
+            top : 0,
+            left: 0,
             transform : `translate(${result.x}px,${result.y}px)`
         });
 
@@ -538,19 +552,13 @@ class DomAccess extends Base {
      * @returns {Promise<unknown>}
      */
     loadScript(src, opts={defer:true}) {
-        let script;
-
         return new Promise((resolve, reject) => {
-            script = document.createElement('script');
-
-            Object.assign(script, {
+            this.createAndAppendElement('script', {
                 ...opts,
                 onerror: reject,
                 onload : resolve,
                 src
-            });
-
-            document.head.appendChild(script)
+            })
         })
     }
 
