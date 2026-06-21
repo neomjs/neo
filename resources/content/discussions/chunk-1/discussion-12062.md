@@ -6,7 +6,7 @@ title: >-
 author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-27T00:36:15Z'
-updatedAt: '2026-05-27T01:45:48Z'
+updatedAt: '2026-06-21T13:52:01Z'
 closed: false
 closedAt: null
 contentTrust:
@@ -355,7 +355,7 @@ The graph reset (May-16 backup restore) preserved durable `WAKE_SUBSCRIPTION` no
 - **OQ4** `[RESOLVED_TO_AC]`: `GraphService.decayGlobalTopology()` placement = inside the unified REM method as cycle-finalization step (24-hour Algorithmic Lock handles cadence implicitly). MUST honor §2.10 active-control-plane safety AC.
 - **OQ5** `[DEFERRED_WITH_TIMELINE: Sub 3 design call]`: `'golden-path'` task `createGoldenPathExecutor(...)` special pattern handling — Sub 3 decides during unified method implementation.
 - **OQ6** `[DEFERRED_WITH_TIMELINE: Sub 4 design call]`: minimum-viable CLI shape post-delegation; Sub 4 implements with mode-selector pattern per OQ1 + OQ2.
-- **OQ7** `[OQ_RESOLUTION_PENDING]`: cloud-deployment safety (`dryRun` / `nullableProvider`) — the tenant's first-deployment empirical data needed before AC can be drafted. Defer to post-deployment-readiness review.
+- **OQ7** `[OQ_RESOLUTION_PENDING]`: cloud-deployment safety (`dryRun` / `nullableProvider`) — private deployment first-deployment empirical data needed before AC can be drafted. Defer to post-deployment-readiness review.
 - **OQ8** `[DEFERRED_WITH_TIMELINE: post-SSOT-Sub-7-implementation]`: cross-epic dependency with Sub #11829 wake-driver substrate; revisit after Sub 7 (hierarchical summarization) shape settles.
 - **★ OQ9** `[GRADUATED_TO_TICKET: Sub 1]`: silent-failure root cause across all 13 hypotheses. MUST land first per GPT migration blast-radius sweep ordering.
 - **★ OQ10** `[GRADUATED_TO_TICKET: Sub 2]`: 5-axis measurement + observability primitive. ChromaManager/GraphService helpers for axis B/C/D/E counts. Operator-visible per-cycle telemetry of all 5 axes.

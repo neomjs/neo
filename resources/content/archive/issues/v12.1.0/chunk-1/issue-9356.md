@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-06T09:10:21Z'
-updatedAt: '2026-03-15T22:34:39Z'
+updatedAt: '2026-06-21T14:08:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9356'
 author: kmunk-klarso
 commentsCount: 1
@@ -15,6 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 closedAt: '2026-03-15T22:29:21Z'
