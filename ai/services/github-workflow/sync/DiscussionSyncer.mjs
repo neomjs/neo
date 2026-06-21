@@ -1,14 +1,14 @@
-import aiConfig                     from '../../../mcp/server/github-workflow/config.mjs';
-import Base                         from '../../../../src/core/Base.mjs';
-import crypto                       from 'crypto';
-import fs                           from 'fs/promises';
-import logger                       from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                       from 'gray-matter';
-import path                         from 'path';
-import GraphqlService               from '../GraphqlService.mjs';
-import ReleaseNotesSyncer           from './ReleaseNotesSyncer.mjs';
-import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
-import contentPath                  from '../shared/contentPath.mjs';
+import aiConfig                                                       from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                           from '../../../../src/core/Base.mjs';
+import crypto                                                         from 'crypto';
+import fs                                                             from 'fs/promises';
+import logger                                                         from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                         from 'gray-matter';
+import path                                                           from 'path';
+import GraphqlService                                                 from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                             from './ReleaseNotesSyncer.mjs';
+import {FETCH_DISCUSSIONS_FOR_SYNC, FETCH_SINGLE_DISCUSSION_FOR_SYNC} from '../queries/discussionQueries.mjs';
+import contentPath                                                    from '../shared/contentPath.mjs';
 import {
     createContentIndexEntry,
     updateContentIndex
@@ -475,6 +475,94 @@ class DiscussionSyncer extends Base {
             logger.info(`✨ Interacted and synced ${stats.count} modified discussions to disk.`);
         } else {
             logger.info(`✅ Synced 0 discussions (all up to date).`);
+        }
+
+        return stats;
+    }
+
+    /**
+     * @summary Force-refetches specific discussions from GitHub, bypassing the delta-by-`updatedAt`
+     * gate, and re-renders their local Markdown mirrors from current GitHub state.
+     *
+     * The bulk {@link #syncDiscussions} path is delta-gated and discussion mirrors are pull-only, so a
+     * mirror that drifted for a reason that does NOT bump `updatedAt` is never re-pulled. This is the
+     * single recovery primitive: it fetches each discussion via {@link FETCH_SINGLE_DISCUSSION_FOR_SYNC},
+     * re-renders via {@link #renderDiscussionMarkdown}, writes the file, and mutates the passed
+     * `metadata` in place. The caller persists metadata afterwards. Mirrors
+     * `PullRequestSyncer#refetchPullsByNumber` / `IssueSyncer#refetchIssuesByNumber`.
+     *
+     * @param {Array<Number>|Set<Number>} numbers The discussion numbers to refetch.
+     * @param {Object} metadata The sync metadata object (mutated in place).
+     * @param {Object} [indexMutations=null] Optional accumulator for `_index.json` updates.
+     * @returns {Promise<{refetched: {count: Number, discussions: Number[]}, errors: Array<{discussionNumber: Number, error: String}>}>}
+     */
+    async refetchDiscussionsByNumber(numbers, metadata, indexMutations = null) {
+        const stats = {refetched: {count: 0, discussions: []}, errors: []};
+        const list  = [...numbers];
+
+        for (const discussionNumber of list) {
+            try {
+                const data = await GraphqlService.query(
+                    FETCH_SINGLE_DISCUSSION_FOR_SYNC,
+                    {
+                        owner      : aiConfig.owner,
+                        repo       : aiConfig.repo,
+                        number     : discussionNumber,
+                        maxComments: 50,
+                        maxReplies : 20
+                    },
+                    true
+                );
+
+                const discussion = data.repository.discussion;
+                if (!discussion) {
+                    logger.warn(`Discussion #${discussionNumber} not found on GitHub, skipping refetch`);
+                    continue;
+                }
+
+                const planBuckets = this.#planBuckets(metadata, [discussion]);
+                const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
+                if (!targetPath) {
+                    if (indexMutations) {
+                        indexMutations.remove.push({type: 'discussions', id: discussionNumber});
+                    }
+                    continue;
+                }
+
+                const content     = this.#renderDiscussionMarkdown(discussion);
+                const contentHash = this.#calculateContentHash(content);
+
+                await fs.mkdir(path.dirname(targetPath), {recursive: true});
+                await fs.writeFile(targetPath, content, 'utf-8');
+
+                stats.refetched.count++;
+                stats.refetched.discussions.push(discussionNumber);
+                logger.debug(`✅ Refetched discussion #${discussionNumber}`);
+
+                metadata.discussions[discussionNumber] = {
+                    number  : discussion.number,
+                    closed  : discussion.closed,
+                    closedAt: discussion.closedAt,
+                    contentHash,
+                    path    : this.#relativePath(targetPath)
+                };
+
+                if (indexMutations) {
+                    const plan = planBuckets.get(discussionNumber);
+                    indexMutations.upsert.push(createContentIndexEntry({
+                        issueSyncConfig,
+                        type     : 'discussions',
+                        id       : discussionNumber,
+                        filePath : this.#resolvePath(this.#relativePath(targetPath)),
+                        itemIndex: plan ? plan.itemIndex : 0,
+                        version  : plan?.version || null,
+                        bucket   : null
+                    }));
+                }
+            } catch (e) {
+                logger.error(`Failed to refetch discussion #${discussionNumber}: ${e.message}`);
+                stats.errors.push({discussionNumber, error: e.message});
+            }
         }
 
         return stats;
