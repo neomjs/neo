@@ -515,6 +515,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
         '* **Expected Solution Shape:** preserve the selected review template skeleton.',
         '* **Patch Verdict:** matches the expected shape.',
+        '* **Premise Coherence:** coheres: a substrate validator fix; flat-peer-team / facilitator-not-delegator unaffected.',
         '',
         '### 🕸️ Context & Graph Linking',
         '* **Target Epic / Issue ID:** Resolves #11273',
@@ -554,6 +555,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '* **Inputs Read Before Patch:** prior review, author response, changed-file list.',
         '* **Expected Solution Shape:** narrow delta preserves prior approval anchors.',
         '* **Patch Verdict:** matches the expected delta.',
+        '* **Premise Coherence:** coheres: a narrow delta; no value-surface change.',
         '',
         '### 🪜 Strategic-Fit Decision',
         '- **Decision**: Approve',
@@ -864,6 +866,11 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         // structural-only-stuffing IS rejected without naming the invisible anchors in test prose.
         const stuffedBody = [
             'Approval granted.',
+            // Premise snapshot complete, so the structural-skeleton miss (not the premise) is the isolated failure.
+            '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
+            '* **Expected Solution Shape:** preserve the selected review template skeleton.',
+            '* **Patch Verdict:** matches the expected shape.',
+            '* **Premise Coherence:** coheres: a stuffing-regression fixture; no value-surface.',
             '[ARCH_ALIGNMENT]: 100',
             '[CONTENT_COMPLETENESS]: 100',
             '[EXECUTION_QUALITY]: 100',
@@ -914,6 +921,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             '* **Inputs Read Before Patch:** ticket, changed-file list, current dev source.',
             '* **Expected Solution Shape:** preserve the selected review template skeleton.',
             '* **Patch Verdict:** matches the expected shape.',
+            '* **Premise Coherence:** coheres: a plain-heading regression fixture; no value-surface.',
             '',
             '### Context & Graph Linking',
             '* **Target Epic / Issue ID:** Resolves #13547',
@@ -1069,9 +1077,9 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(graphqlCallCount).toBe(2);
     });
 
-    test('#12448: accepts complete optional premise snapshot during add-first migration', async () => {
-        // Premise-snapshot anchors are optional-first: old review bodies still pass,
-        // but migrated templates may emit all three fields together before a later enforcement PR.
+    test('#12448: accepts a complete required premise snapshot (all four fields)', async () => {
+        // The premise snapshot is REQUIRED: a body carrying all four bold-label fields passes
+        // (here via VALID_REVIEW_BODY, which now includes the Premise Coherence field).
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
@@ -1102,9 +1110,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     });
 
     test('#12448: rejects partial premise snapshot without making a GitHub call', async () => {
-        // Omit-all remains valid in the add-optional phase, but once the snapshot appears it must
-        // include the complete three-field shape. A partial snapshot is the exact theater risk the
-        // migration is meant to expose.
+        // All four premise fields are now REQUIRED. A partial snapshot (here: only Inputs Read
+        // Before Patch) is the exact back-rationalization theater the required gate is meant to expose.
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
@@ -1155,7 +1162,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
         expect(result.missing_visible).toEqual([]);
-        expect(result.missing_premise_snapshot).toEqual(['Expected Solution Shape', 'Patch Verdict']);
+        expect(result.missing_premise_snapshot).toEqual(['Expected Solution Shape', 'Patch Verdict', 'Premise Coherence']);
         expect(result.message).toContain('Premise snapshot note');
         expect(graphqlCallCount).toBe(0);
     });

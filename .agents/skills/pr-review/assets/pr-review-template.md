@@ -25,6 +25,7 @@ Per §9 Strategic-Fit Step-Back:
 *   **Inputs Read Before Patch:** [Ticket / issue, changed-file list, current `dev` source, sibling precedent, source-of-authority substrate read before treating the patch as evidence.]
 *   **Expected Solution Shape:** [1-3 sentences: expected surface, simplest acceptable shape, what boundary this must NOT hardcode, and what test isolation should exist.]
 *   **Patch Verdict:** [Matches / improves / contradicts the expected shape, with the specific diff/source evidence that confirmed or changed your premise.]
+*   **Premise Coherence:** [Does this PR's premise cohere with our core values — verify-before-assert · friction→gold · flat-peer-team · no-hold · the four pillars? A specific verdict naming the value ("coheres: lead stays facilitator-not-delegator" / "conflicts: adds surveillance vs flat-peer-team"), NOT a bare yes/no. OR a scoped "N/A — no value-surface (scope: ...)" for a trivial PR. A green checklist over a wrong premise is theater.]
 
 ---
 
