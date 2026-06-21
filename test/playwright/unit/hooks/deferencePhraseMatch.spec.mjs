@@ -17,7 +17,7 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
 
     test('matches each tight phrase case-insensitively', () => {
         expect(matchDeferencePhrase('WOULD YOU LIKE ME TO open the PR?')).toBe('would you like me to');
-        expect(matchDeferencePhrase('I can take it unless you want it.')).toBe('unless you');
+        expect(matchDeferencePhrase('I can take it unless you want me elsewhere.')).toBe('unless you want me');
         expect(matchDeferencePhrase('Want me to start the refactor?')).toBe('want me to');
         expect(matchDeferencePhrase('Your call on the branch cut.')).toBe('your call');
         expect(matchDeferencePhrase('Your move.')).toBe('your move');
@@ -29,6 +29,12 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('Happy to take the next lane.')).toBeNull();
         expect(matchDeferencePhrase('No rush on the merge.')).toBeNull();
         expect(matchDeferencePhrase('Whenever you want to merge is fine.')).toBeNull();
+    });
+
+    test('does not match technical substring collisions', () => {
+        expect(matchDeferencePhrase('The fix routes through your callback handler.')).toBeNull();
+        expect(matchDeferencePhrase('The test fails unless you mock the system clock.')).toBeNull();
+        expect(matchDeferencePhrase('Restored your moved files to their original paths.')).toBeNull();
     });
 
     test('operator-dialogue carve skips the phrase match', () => {
