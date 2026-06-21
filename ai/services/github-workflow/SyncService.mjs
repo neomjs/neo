@@ -284,8 +284,14 @@ class SyncService extends Base {
                         await this.commitRebaseAndPushGeneratedContent(cwd);
                         return;
                     } catch (error) {
-                        if (!error.generatedSyncDeliveryFailure || attempt >= maxAttempts) {
+                        if (!error.generatedSyncDeliveryFailure) {
                             logger.error('[SyncService] Auto-commit and push failed:', error.message);
+                            return;
+                        }
+
+                        if (attempt >= maxAttempts) {
+                            logger.error(`[SyncService] Auto-push exhausted ${maxAttempts} attempts; recovering checkout before giving up: ${error.message}`);
+                            await this.recoverGeneratedContentCheckout(cwd);
                             return;
                         }
 
