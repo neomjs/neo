@@ -597,10 +597,13 @@ class PrimaryRepoSyncService extends Base {
                 });
             } else {
                 taskStateService?.markCompleted?.('kbSync');
+                // Propagate the child's success details (e.g. embed/delete counts) so the cascade
+                // telemetry matches the task path; outcome is null on the legacy no-JSON path → spreads nothing.
                 healthService?.recordTaskOutcome?.('kbSync', 'completed', {
                     reason,
                     parent     : parentTaskName,
-                    completedAt: new Date().toISOString()
+                    completedAt: new Date().toISOString(),
+                    ...(outcome || {})
                 });
             }
         } catch (e) {

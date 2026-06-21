@@ -987,6 +987,32 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(outcomes[1]).toMatchObject({status: 'skipped', details: expect.objectContaining({reasonCode: 'heavy-maintenance-lease-held'})});
     });
 
+    test('runKbSync cascade real sync (deferred:false) records completed with embed counts (#13791)', () => {
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        const execFileSyncFn = createExecStub([{
+            cmd   : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args  : ['run', 'ai:sync-kb'],
+            output: JSON.stringify({deferred: false, added: 2566, deleted: 1513})
+        }]);
+
+        PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+        expect(taskStateService.events).toContainEqual(['completed', 'kbSync']);
+        expect(taskStateService.events).not.toContainEqual(['skipped', 'kbSync']);
+        // The child's success details (embed/delete counts) must propagate into the completed outcome.
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'kbSync',
+            status  : 'completed',
+            details : expect.objectContaining({added: 2566, deleted: 1513})
+        });
+    });
+
     test('runKbSync annotates cascade-failure path with markFailed + outcome + rethrow (#11520 AC3 failure)', () => {
         const taskStateService = createTaskStateService();
         const outcomes         = [];
