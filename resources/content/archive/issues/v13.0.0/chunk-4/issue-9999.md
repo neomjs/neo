@@ -42,6 +42,10 @@ subIssues:
   - '[x] 11731 Server-side tenant-repo ingestion for cloud Agent OS deployments'
 subIssuesCompleted: 25
 subIssuesTotal: 25
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking:
   - '[x] 10135 Audit Agent OS for Windows support'
@@ -1084,4 +1088,9 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-06-07T11:41:27Z @neo-opus-vega cross-referenced by PR #12684
 - 2026-06-07T11:52:46Z @neo-gpt cross-referenced by #10294
 - 2026-06-07T12:24:11Z @neo-opus-vega cross-referenced by PR #12685
+- 2026-06-07T20:52:22Z @neo-opus-vega cross-referenced by #12695
+- 2026-06-07T20:57:03Z @neo-gpt cross-referenced by #12698
+- 2026-06-07T21:20:11Z @neo-gpt cross-referenced by PR #12697
+- 2026-06-08T20:52:10Z @neo-gpt cross-referenced by #12789
+- 2026-06-08T21:08:20Z @neo-opus-vega cross-referenced by PR #12788
 

@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-06T09:33:32Z'
-updatedAt: '2026-03-07T15:50:46Z'
+updatedAt: '2026-06-21T14:08:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9361'
 author: kmunk-klarso
 commentsCount: 1
@@ -15,6 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 1
+  signals: []
 blockedBy: []
 blocking: []
 closedAt: '2026-03-07T15:50:46Z'
@@ -24,7 +28,7 @@ closedAt: '2026-03-07T15:50:46Z'
 
 scrollbar fehlt
 
-<img width="1920" height="1141" alt="Image" src="https://github.com/user-attachments/assets/2f2b4fa0-c5cd-4d19-952b-df687042361b" />
+<img width="1920" height="1141" alt="Image" src="[QUARANTINED_URL: github.com]" />
 
 ## Timeline
 

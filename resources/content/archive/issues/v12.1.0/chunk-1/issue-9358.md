@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-06T09:19:32Z'
-updatedAt: '2026-03-07T11:20:53Z'
+updatedAt: '2026-06-21T14:08:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9358'
 author: kmunk-klarso
 commentsCount: 2
@@ -15,13 +15,17 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 1
+  signals: []
 blockedBy: []
 blocking: []
 closedAt: '2026-03-07T11:20:53Z'
 ---
 # Google Windows Covid 19 Helix
 
-<img width="254" height="243" alt="Image" src="https://github.com/user-attachments/assets/63d6ee76-ea89-451a-a9ec-bb82ed03fa44" />
+<img width="254" height="243" alt="Image" src="[QUARANTINED_URL: github.com]" />
 
 
 ## Timeline

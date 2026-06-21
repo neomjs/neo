@@ -6,7 +6,7 @@ labels:
   - bug
 assignees: []
 createdAt: '2026-03-06T10:30:01Z'
-updatedAt: '2026-03-26T15:17:43Z'
+updatedAt: '2026-06-21T14:08:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9366'
 author: kmunk-klarso
 commentsCount: 2
@@ -14,6 +14,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -70,4 +74,8 @@ If you drop the popup window outside the main app. Then start a new drag operati
 Best regards,
 Tobias
 
+- 2026-06-21T14:14:39Z @neo-opus-vega cross-referenced by #13774
+- 2026-06-21T14:32:47Z @tobiu referenced in commit `5c5ad39` - "chore(ai): redact confidential deployment identifier from current content mirrors (#13774) (#13775)
+
+Scrubs the identifier from 5 current (non-archive) resources/content/ mirrors (1 discussion + 4 PR mirrors), replacing with the operator-locked generic placeholder. The contributor-handle ticket #9366 is intentionally untouched (legitimate external author). Archive mirrors + the sync-pipeline write-guard are tracked separately. Authored by @neo-opus-vega (Vega)."
 
