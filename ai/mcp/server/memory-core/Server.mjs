@@ -1,10 +1,10 @@
-import BaseServer                  from '../BaseServer.mjs';
-import logger                      from './logger.mjs';
-import {listTools, callTool}       from './toolService.mjs';
-import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
-import RequestContextService       from '../shared/services/RequestContextService.mjs';
-import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';
-import BootEnvelopeResolver        from '../shared/services/BootEnvelopeResolver.mjs';
+import BaseServer            from '../BaseServer.mjs';
+import logger                from './logger.mjs';
+import {listTools, callTool} from './toolService.mjs';
+import AuthMiddleware        from '../shared/services/AuthMiddleware.mjs';
+import RequestContextService from '../shared/services/RequestContextService.mjs';
+import StdioIdentityResolver from '../shared/services/StdioIdentityResolver.mjs';
+import BootEnvelopeResolver  from '../shared/services/BootEnvelopeResolver.mjs';
 import {
     buildSqliteHolderDiagnostics,
     formatHarnessGroups
@@ -68,10 +68,10 @@ class Server extends BaseServer {
             name        : 'neo-memory-core',
             version     : process.env.npm_package_version || '1.0.0',
             capabilities: {
-                tools: {listChanged: false},
+                tools       : {listChanged: false},
                 experimental: {
                     'neo-wake-substrate': {
-                        version: '1.0',
+                        version        : '1.0',
                         supportedEvents: ['wake/sent_to_me', 'wake/task_state_changed', 'wake/permission_granted']
                     }
                 }
@@ -104,9 +104,11 @@ class Server extends BaseServer {
      *
      * The non-embedding reads are exempt for the same reason. The gate trips on the embedder canary
      * (a live `embedText` probe), but `get_session_memories` (a Chroma metadata `.get()` by
-     * sessionId) and `query_recent_turns` (a SQLite recency read over the `AGENT_MEMORY` graph, with
-     * a WAL-overlay fallback for its optional Chroma content join) call no embedder — they serve
-     * fine while it is down, so gating them only denied a read the outage never touched. NOT exempt:
+     * sessionId), `query_recent_turns` (a SQLite recency read over the `AGENT_MEMORY` graph, with a
+     * WAL-overlay fallback for its optional Chroma content join), and `who_is_online` (a SQLite
+     * `AgentIdentity`-roster liveness projection — graph-backed, survives an embed-drain) call no
+     * embedder — they serve fine while it is down, so gating them only denied a read the outage
+     * never touched. NOT exempt:
      * `query_raw_memories` / `query_summaries`, which embed the query and genuinely cannot serve
      * during an embedder outage — exempting them would trade a clean gate-reject for an embed-timeout.
      * @returns {Array<String>}
@@ -128,7 +130,8 @@ class Server extends BaseServer {
             'manage_wake_subscription',
             'record_turn_presence',
             'get_session_memories',
-            'query_recent_turns'
+            'query_recent_turns',
+            'who_is_online'
         ];
     }
 
@@ -365,10 +368,10 @@ class Server extends BaseServer {
         const agentIdentityNodeId = await this.bindAgentIdentity(reqAuth.userId);
 
         return {
-            userId             : reqAuth.userId,
-            username           : reqAuth.username,
+            userId  : reqAuth.userId,
+            username: reqAuth.username,
             agentIdentityNodeId,
-            source             : reqAuth.source || 'oidc'
+            source  : reqAuth.source || 'oidc'
         };
     }
 
@@ -412,10 +415,10 @@ class Server extends BaseServer {
         const agentIdentityNodeId = await this.bindAgentIdentity(resolved.githubLogin);
 
         return {
-            userId             : resolved.githubLogin,
-            username           : resolved.username,
+            userId  : resolved.githubLogin,
+            username: resolved.username,
             agentIdentityNodeId,
-            source             : resolved.source
+            source  : resolved.source
         };
     }
 
