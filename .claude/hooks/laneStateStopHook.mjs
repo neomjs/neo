@@ -45,6 +45,7 @@ import {pathToFileURL} from 'node:url';
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
 import {decideStopHookAction,
         isOperatorInLoop,
+        LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
@@ -128,7 +129,9 @@ Declaring a lane is NOT driving it. Do the next concrete action NOW:
 Teeth-test: does this advance a NAMED lane right now? If you can't name the lane, it isn't driving.
 Collaboration (review · ideation · A2A) counts ONLY when it advances a named lane AND ends with a return to your own lane or an explicit lane-swap — it is an interruption, not a replacement for your own PRs.
 Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
-The only stop is a hard external limit: context-sunset, an operator halt, or a live operator reply.`;
+The only stop is a hard external limit: context-sunset, an operator halt, or a live operator reply.
+
+${LANE_STATE_SCHEMA_HINT}`;
 
 // The discoverability/mirror pointer — injected on EVERY block so a fresh session that has never seen
 // this hook recognizes it as a mirror of maintainer-identity, not an arbitrary leash. Without it an

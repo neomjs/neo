@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import {
     decideStopHookAction,
     isOperatorInLoop,
+    LANE_STATE_SCHEMA_HINT,
     parseOutcomeToVerdict
 }                        from '../../../../ai/scripts/lifecycle/stopHookDecision.mjs';
 
@@ -13,6 +14,17 @@ import {
  * silently drift while the hook-level tests stay green. Pure functions — no hook, no I/O.
  */
 test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision primitives', () => {
+    test('LANE_STATE_SCHEMA_HINT: shows the fenced machine block shape consumed by parseLaneState', () => {
+        expect(LANE_STATE_SCHEMA_HINT).toContain('```lane-state');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('"wakeDisposition":"awareness"');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('"laneContinuation":"next-lane"');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('"namedGates":[]');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('"awaitingOwnPrOnly":false');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('awaitingOwnPrOnly:true is invalid');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('same-turn checkedAt');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('field "mergedAt"');
+    });
+
     // ── parseOutcomeToVerdict: the 3-bucket parse → verdict chain ──────────────────────────────
     test('parseOutcomeToVerdict: a parse error is a malformed-emission verdict (not valid)', () => {
         const verdict = parseOutcomeToVerdict({descriptor: null, parseError: new Error('bad json')}, () => ({valid: true}));
