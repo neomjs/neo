@@ -48,6 +48,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one Neural Link MCP tool.
+      tags: [Health]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /check_namespace:
     post:
       summary: Checks if a namespace exists in the current environment.
