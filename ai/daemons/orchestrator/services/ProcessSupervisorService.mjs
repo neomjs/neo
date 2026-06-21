@@ -3,6 +3,8 @@ import fs from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';
 
+const DEFAULT_STDOUT_JSON_MAX_BYTES = 65536;
+
 /**
  * @class Neo.ai.daemons.services.ProcessSupervisorService
  * @extends Neo.core.Base
@@ -348,14 +350,18 @@ export class ProcessSupervisorService extends Base {
         this.writeLog?.('INFO', `[ProcessSupervisor] Starting ${task.label} (${reason}).`);
 
         let child;
+        const stdoutCapture = this.createStdoutJsonCapture(task);
         try {
             const env = task.env || options.env
                 ? {...process.env, ...(task.env || {}), ...(options.env || {})}
                 : process.env;
-            child = this.spawnFn(task.command, task.args, {stdio: ['ignore', 'ignore', 'pipe'], env});
+            child = this.spawnFn(task.command, task.args, {stdio: stdoutCapture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'pipe'], env});
 
             child.stderr?.on('data', data => {
                 this.writeChildStderr(task, data);
+            });
+            child.stdout?.on('data', data => {
+                this.captureStdoutJsonChunk(stdoutCapture, data);
             });
         } catch (e) {
             this.taskStateService.markSpawnFailed(taskName);
@@ -403,12 +409,33 @@ export class ProcessSupervisorService extends Base {
                 this.recordTaskOutcome(taskName, 'failed', {reason, phase, error: error.message});
             } else if (code === 0) {
                 try {
-                    const completedAt = new Date().toISOString();
+                    const completedAt   = new Date().toISOString();
+                    const stdoutOutcome = this.parseCapturedStdoutJson(stdoutCapture);
+                    const disposition   = this.classifySuccessfulChildOutcome(taskName, stdoutOutcome.outcome);
+
                     onSuccess?.();
-                    this.taskStateService.markCompleted(taskName);
-                    this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} completed successfully.`);
-                    if (readinessOutcome !== 'degraded') {
-                        this.recordTaskOutcome(taskName, 'completed', {reason, code, completedAt});
+
+                    if (disposition.status === 'skipped') {
+                        this.taskStateService.markSkipped(taskName);
+                        this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} skipped (${disposition.reasonCode}).`);
+                        this.recordTaskOutcome(taskName, 'skipped', {
+                            reason,
+                            code,
+                            reasonCode: disposition.reasonCode,
+                            skippedAt : completedAt,
+                            ...stdoutOutcome.details
+                        });
+                    } else {
+                        this.taskStateService.markCompleted(taskName);
+                        this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} completed successfully.`);
+                        if (readinessOutcome !== 'degraded') {
+                            this.recordTaskOutcome(taskName, 'completed', {
+                                reason,
+                                code,
+                                completedAt,
+                                ...stdoutOutcome.details
+                            });
+                        }
                     }
                 } catch (e) {
                     this.taskStateService.markFailed(taskName, null);
@@ -477,6 +504,133 @@ export class ProcessSupervisorService extends Base {
         }
 
         return true;
+    }
+
+    /**
+     * Creates the bounded stdout buffer for task definitions with a JSON outcome contract.
+     * @param {Object} task Task definition.
+     * @returns {Object|null}
+     */
+    createStdoutJsonCapture(task) {
+        if (!task.captureStdoutJson) {
+            return null;
+        }
+
+        return {
+            chunks  : [],
+            overflow: false,
+            bytes   : 0,
+            maxBytes: task.stdoutJsonMaxBytes || DEFAULT_STDOUT_JSON_MAX_BYTES
+        };
+    }
+
+    /**
+     * Buffers stdout for opted-in JSON outcome tasks without allowing unbounded child output.
+     * @param {Object|null} capture Active stdout capture state.
+     * @param {Buffer|String} data Child stdout chunk.
+     * @returns {void}
+     */
+    captureStdoutJsonChunk(capture, data) {
+        if (!capture || capture.overflow) {
+            return;
+        }
+
+        const chunk = Buffer.isBuffer(data) ? data : Buffer.from(String(data));
+        capture.bytes += chunk.length;
+
+        if (capture.bytes > capture.maxBytes) {
+            capture.overflow = true;
+            capture.chunks.length = 0;
+            return;
+        }
+
+        capture.chunks.push(chunk);
+    }
+
+    /**
+     * Parses the opted-in child stdout JSON and converts parse failures into bounded details.
+     * @param {Object|null} capture Active stdout capture state.
+     * @returns {{details: Object, outcome: Object|null}}
+     */
+    parseCapturedStdoutJson(capture) {
+        if (!capture) {
+            return {details: {}, outcome: null};
+        }
+
+        if (capture.overflow) {
+            return {
+                details: {
+                    stdoutJsonBytes   : capture.bytes,
+                    stdoutJsonMaxBytes: capture.maxBytes,
+                    stdoutJsonOverflow: true
+                },
+                outcome: null
+            };
+        }
+
+        const stdout = Buffer.concat(capture.chunks).toString('utf8').trim();
+
+        if (!stdout) {
+            return {details: {stdoutJsonMissing: true}, outcome: null};
+        }
+
+        try {
+            const outcome = JSON.parse(stdout);
+            return {
+                details: this.buildChildOutcomeDetails(outcome),
+                outcome
+            };
+        } catch (e) {
+            return {
+                details: {
+                    stdoutJsonParseError: e.message,
+                    stdoutJsonBytes     : Buffer.byteLength(stdout, 'utf8')
+                },
+                outcome: null
+            };
+        }
+    }
+
+    /**
+     * Flattens child outcome fields into task health details without overwriting scheduler fields.
+     * @param {Object} outcome Parsed child stdout JSON.
+     * @returns {Object}
+     */
+    buildChildOutcomeDetails(outcome) {
+        const details = {childOutcome: outcome};
+
+        for (const [key, value] of Object.entries(outcome)) {
+            details[key === 'reason' ? 'childReason' : key] = value;
+        }
+
+        return details;
+    }
+
+    /**
+     * Classifies successful child exits whose structured outcome is actually a deferred/no-op.
+     * @param {String} taskName Task key.
+     * @param {Object|null} outcome Parsed child stdout JSON.
+     * @returns {Object}
+     */
+    classifySuccessfulChildOutcome(taskName, outcome) {
+        if (taskName !== 'memory-summary-backfill' || !outcome) {
+            return {status: 'completed'};
+        }
+
+        if (outcome.deferred === true && outcome.reason) {
+            return {status: 'skipped', reasonCode: outcome.reason};
+        }
+
+        const processed      = Number(outcome.processed || 0);
+        const updated        = Number(outcome.updated || 0);
+        const deferred       = Number(outcome.deferred || 0);
+        const missingContent = Number(outcome.missingContent || 0);
+
+        if (processed > 0 && updated === 0 && missingContent === 0 && deferred > 0) {
+            return {status: 'skipped', reasonCode: 'all-deferred'};
+        }
+
+        return {status: 'completed'};
     }
 
     /**
