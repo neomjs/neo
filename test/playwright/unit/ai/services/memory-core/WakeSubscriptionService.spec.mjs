@@ -1721,6 +1721,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.online).toBe(false);
             expect(entry.reason).toContain('stale add_memory activity');
             expect(entry.signals.activityRecency.fresh).toBe(false);
+            expect(entry.signals.turnPresence).toBeNull(); // no beacon → the rescue is a no-op, base verdict stands
         });
 
         test('stale add_memory but FRESH turn-presence beacon → online (local mid-turn rescue, verbose)', async () => {
