@@ -1,5 +1,5 @@
-import {test, expect}    from '@playwright/test';
-import {parseAddedLines} from '../../../../../../buildScripts/util/stagedDiff.mjs';
+import {test, expect}                         from '@playwright/test';
+import {getStagedAddedLines, parseAddedLines} from '../../../../../../buildScripts/util/stagedDiff.mjs';
 
 test.describe('buildScripts/util/stagedDiff.parseAddedLines (#13717)', () => {
     test('returns an empty set for empty diff text', () => {
@@ -21,5 +21,13 @@ test.describe('buildScripts/util/stagedDiff.parseAddedLines (#13717)', () => {
 
     test('pure-deletion hunk (+c,0) adds nothing', () => {
         expect([...parseAddedLines('@@ -5,2 +4,0 @@\n-gone\n-gone2')]).toEqual([]);
+    });
+});
+
+test.describe('buildScripts/util/stagedDiff.getStagedAddedLines (#13717)', () => {
+    test('returns null (not an empty set) on git failure so the caller falls back to whole-file', () => {
+        // A non-repo cwd makes `git diff` fail; null is the fail-closed signal (detection unavailable),
+        // which the archaeology filter treats as "flag all findings" rather than suppressing them.
+        expect(getStagedAddedLines('any.mjs', '/nonexistent-neo-archaeology-dir')).toBeNull();
     });
 });

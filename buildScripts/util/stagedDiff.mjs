@@ -1,4 +1,4 @@
-import {execSync} from 'node:child_process';
+import {execFileSync} from 'node:child_process';
 
 /**
  * @summary Parses unified-diff text (`git diff --unified=0`) into the set of ADDED line numbers.
@@ -42,19 +42,24 @@ export function parseAddedLines(diffText) {
  * @summary Returns the staged-ADDED line numbers for a file (the `+` side of `git diff --cached`).
  *
  * Lets pre-commit hygiene checks scope findings to the author's own change rather than
- * re-flagging grandfathered issues on untouched lines. Returns an empty set on any git failure;
- * the caller treats an empty set as "no added-line info" and should fall back to whole-file.
+ * re-flagging grandfathered issues on untouched lines.
+ *
+ * Uses `execFileSync` with an argv array (no shell) so a filename containing quotes or spaces
+ * cannot break the command into a silently-empty diff — that would fail OPEN in the hygiene
+ * filter (a missing diff suppressing real findings). On any detection failure this returns
+ * `null` (not an empty set), which the caller MUST treat as "fall back to whole-file scanning"
+ * — fail CLOSED: a diff-read failure must never suppress a ticket-ref finding.
  *
  * @param {String} file    Path to the staged file.
  * @param {String} gitRoot Repository root (cwd for the git invocation).
- * @returns {Set<Number>} 1-based staged-added line numbers.
+ * @returns {Set<Number>|null} 1-based staged-added line numbers, or `null` if detection failed.
  */
 export function getStagedAddedLines(file, gitRoot) {
     try {
-        const diff = execSync(`git diff --cached --unified=0 -- "${file}"`, {cwd: gitRoot, encoding: 'utf-8'});
+        const diff = execFileSync('git', ['diff', '--cached', '--unified=0', '--', file], {cwd: gitRoot, encoding: 'utf-8'});
 
         return parseAddedLines(diff);
     } catch (e) {
-        return new Set();
+        return null;
     }
 }
