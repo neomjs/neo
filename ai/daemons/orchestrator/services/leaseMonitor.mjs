@@ -50,9 +50,10 @@ export function createLeaseMonitor({
 
     return {
         /**
-         * @summary One monitor pass. Returns a terminal action tag for observability + tests. Never
-         * throws: a failed lease-read or cpu-sample is fail-SAFE (returns without releasing — the
-         * watchdog must never force-release on missing/bad data).
+         * @summary One monitor pass. Returns a terminal action tag for observability + tests. Never throws:
+         * a failed lease-read, cpu-sample, OR release/record seam is fail-SAFE — a bad/non-finite sample
+         * RESETS the idle window (never bridges a gap into a false consecutive-idle run) and a release/record
+         * exception returns `release-failed` without breaking the orchestrator loop. Never force-releases on bad data.
          * @returns {Promise<Object>} A terminal action tag — `{action}` plus `pid`/`owner` when a holder was seen.
          */
         async tick() {
@@ -71,29 +72,42 @@ export function createLeaseMonitor({
 
             const {pid, owner} = lease;
 
+            // A bad or non-finite cpu sample RESETS the per-pid idle window (history.delete) — it must NOT
+            // be silently dropped while the prior window survives, which would bridge a gap into a false
+            // 'consecutive-idle' run (the 0,0,0,NaN,0 false-positive). Fail-SAFE: never release on bad data.
             let cpu;
             try {
                 cpu = await sampleCpuPercent(pid);
             } catch {
+                history.delete(pid);
                 return {action: 'sample-failed', pid};
             }
-            if (!Number.isFinite(cpu)) return {action: 'sample-failed', pid};
+            if (!Number.isFinite(cpu)) {
+                history.delete(pid);
+                return {action: 'sample-failed', pid};
+            }
 
             const samples = [...(history.get(pid) || []), cpu].slice(-maxHistory);
             history.set(pid, samples);
 
             if (isHungLeaseHolder({cpuPercentSamples: samples, idleThresholdPct, minConsecutiveIdle})) {
-                await releaseLease(lease);
-                // A hung holder RAN (it held the lease) but stalled — that is a FAILURE, not a skip
-                // (skipped = never ran). Honoring the typed-outcome vocabulary separation: a force-released
-                // hung holder records 'failed', so it is not collapsed into a green-looking skipped no-op.
-                recordOutcome(owner, 'failed', {
-                    reason      : 'watchdog-released-hung-holder',
-                    failurePhase: 'hung-lease-holder',
-                    pid,
-                    idleSamples : samples.length,
-                    releasedAt  : new Date().toISOString()
-                });
+                // The no-throw contract: a release/record seam exception must NOT break the orchestrator
+                // loop. On failure keep the history (a still-hung holder is retried next tick) + report it.
+                try {
+                    await releaseLease(lease);
+                    // A hung holder RAN (it held the lease) but stalled — that is a FAILURE, not a skip
+                    // (skipped = never ran). Honoring the typed-outcome vocabulary separation: a force-released
+                    // hung holder records 'failed', so it is not collapsed into a green-looking skipped no-op.
+                    recordOutcome(owner, 'failed', {
+                        reason      : 'watchdog-released-hung-holder',
+                        failurePhase: 'hung-lease-holder',
+                        pid,
+                        idleSamples : samples.length,
+                        releasedAt  : new Date().toISOString()
+                    });
+                } catch {
+                    return {action: 'release-failed', pid, owner};
+                }
                 history.delete(pid);
                 return {action: 'released-hung', pid, owner};
             }

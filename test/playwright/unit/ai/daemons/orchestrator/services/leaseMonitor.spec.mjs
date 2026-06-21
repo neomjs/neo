@@ -90,4 +90,43 @@ test.describe('ai/daemons/orchestrator/services/leaseMonitor — createLeaseMoni
         for (let t = 0; t < 5; t++) await monitor.tick();
         expect(released).toHaveLength(0);
     });
+
+    test('a bad sample RESETS the idle window — 0,0,0,NaN,0 does NOT release (the gap is not bridged)', async () => {
+        const released = [], cpuSeq = [0, 0, 0, NaN, 0]; // the NaN must break the consecutive-idle run
+        let i = 0;
+        const monitor = createLeaseMonitor({
+            inspectLease    : async () => leaseOf(11),
+            sampleCpuPercent: async () => cpuSeq[i++],
+            releaseLease    : async l => released.push(l),
+            recordOutcome   : () => {}
+        });
+        let last;
+        for (let t = 0; t < 5; t++) last = await monitor.tick();
+        expect(released).toHaveLength(0); // only 1 valid idle sample survives the NaN reset
+        expect(last.action).toBe('monitoring');
+    });
+
+    test('no-throw contract: a releaseLease exception returns release-failed (never breaks the loop)', async () => {
+        const monitor = createLeaseMonitor({
+            inspectLease    : async () => leaseOf(13),
+            sampleCpuPercent: async () => 0,
+            releaseLease    : async () => { throw new Error('release seam failed'); },
+            recordOutcome   : () => {}
+        });
+        let last;
+        for (let t = 0; t < 4; t++) last = await monitor.tick(); // resolves, does not throw
+        expect(last.action).toBe('release-failed');
+    });
+
+    test('no-throw contract: a recordOutcome exception returns release-failed (never breaks the loop)', async () => {
+        const monitor = createLeaseMonitor({
+            inspectLease    : async () => leaseOf(17),
+            sampleCpuPercent: async () => 0,
+            releaseLease    : async () => {},
+            recordOutcome   : () => { throw new Error('record seam failed'); }
+        });
+        let last;
+        for (let t = 0; t < 4; t++) last = await monitor.tick();
+        expect(last.action).toBe('release-failed');
+    });
 });
