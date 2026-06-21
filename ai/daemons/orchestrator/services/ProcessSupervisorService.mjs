@@ -613,21 +613,27 @@ export class ProcessSupervisorService extends Base {
      * @returns {Object}
      */
     classifySuccessfulChildOutcome(taskName, outcome) {
-        if (taskName !== 'memory-summary-backfill' || !outcome) {
+        if (!outcome) {
             return {status: 'completed'};
         }
 
+        // Generic deferred-outcome contract: any captureStdoutJson task that emits {deferred:true, reason}
+        // (kbSync / memory-summary-backfill held behind the heavy-maintenance lease) is a 'skipped' run,
+        // not a silent 'completed' — the honest-telemetry fix so a days-long embedding stall is not invisible.
         if (outcome.deferred === true && outcome.reason) {
             return {status: 'skipped', reasonCode: outcome.reason};
         }
 
-        const processed      = Number(outcome.processed || 0);
-        const updated        = Number(outcome.updated || 0);
-        const deferred       = Number(outcome.deferred || 0);
-        const missingContent = Number(outcome.missingContent || 0);
+        // memory-summary-backfill-specific: a batch that processed rows but updated none (all deferred).
+        if (taskName === 'memory-summary-backfill') {
+            const processed      = Number(outcome.processed || 0);
+            const updated        = Number(outcome.updated || 0);
+            const deferred       = Number(outcome.deferred || 0);
+            const missingContent = Number(outcome.missingContent || 0);
 
-        if (processed > 0 && updated === 0 && missingContent === 0 && deferred > 0) {
-            return {status: 'skipped', reasonCode: 'all-deferred'};
+            if (processed > 0 && updated === 0 && missingContent === 0 && deferred > 0) {
+                return {status: 'skipped', reasonCode: 'all-deferred'};
+            }
         }
 
         return {status: 'completed'};

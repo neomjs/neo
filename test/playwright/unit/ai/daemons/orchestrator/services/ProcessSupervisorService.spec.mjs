@@ -27,6 +27,14 @@ function createTestService() {
             pidFileName      : 'memory-summary-backfill.pid',
             expectedCommand  : 'backfill-memory-summaries.mjs',
             captureStdoutJson: true
+        },
+        kbSync: {
+            label            : 'knowledge base sync',
+            command          : 'node',
+            args             : ['syncKnowledgeBase.mjs'],
+            pidFileName      : 'kb-sync.pid',
+            expectedCommand  : 'syncKnowledgeBase.mjs',
+            captureStdoutJson: true
         }
     };
 
@@ -301,6 +309,35 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(taskOutcomes).toContainEqual(expect.objectContaining({
             status  : 'skipped',
             taskName: 'memory-summary-backfill',
+            details : expect.objectContaining({
+                reasonCode : 'heavy-maintenance-lease-held',
+                childReason: 'heavy-maintenance-lease-held',
+                deferred   : true
+            })
+        }));
+    });
+
+    test('#13784: kbSync lease-held stdout marks skipped with child reason (generalized deferred classifier)', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild = createManualChild();
+
+        service.spawnFn = () => manualChild.child;
+
+        expect(service.runTask('kbSync', 'periodic-sync:3600000')).toBe(true);
+        manualChild.writeStdout(JSON.stringify({
+            deferred: true,
+            reason  : 'heavy-maintenance-lease-held',
+            lease   : {owner: 'summary'}
+        }));
+        manualChild.close(0);
+
+        // The generic deferred-outcome contract now applies to kbSync (not just memory-summary-backfill):
+        // a lease-held kb-sync is classified 'skipped', ending the silent 'completed' telemetry-lie.
+        expect(stateCalls).toContainEqual({action: 'skipped', taskName: 'kbSync'});
+        expect(stateCalls).not.toContainEqual({action: 'completed', taskName: 'kbSync'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'skipped',
+            taskName: 'kbSync',
             details : expect.objectContaining({
                 reasonCode : 'heavy-maintenance-lease-held',
                 childReason: 'heavy-maintenance-lease-held',

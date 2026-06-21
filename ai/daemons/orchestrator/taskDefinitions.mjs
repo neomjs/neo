@@ -193,11 +193,12 @@ export function buildTaskDefinitions({
             maxRuntimeMs     : 900000
         },
         kbSync: {
-            label          : 'knowledge base sync',
-            command        : nodeBin,
-            args           : [path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')],
-            pidFileName    : 'kb-sync.pid',
-            expectedCommand: 'syncKnowledgeBase.mjs'
+            label            : 'knowledge base sync',
+            command          : nodeBin,
+            args             : [path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')],
+            pidFileName      : 'kb-sync.pid',
+            expectedCommand  : 'syncKnowledgeBase.mjs',
+            captureStdoutJson: true
         },
         githubWorkflowSync: {
             label          : 'github workflow sync',

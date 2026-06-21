@@ -20,9 +20,11 @@ async function syncKnowledgeBase() {
     KB_Config.setEnvOverride('NEO_DEBUG', true);
     const staleStrategy   = process.env.NEO_KB_STALE_STRATEGY || undefined;
 
-    console.log('⏳ Initializing Knowledge Base Services...');
+    // Progress → stderr; stdout is reserved for the single JSON outcome line the orchestrator's
+    // captureStdoutJson channel parses (so a deferred/held run is classified 'skipped', not 'completed').
+    console.error('⏳ Initializing Knowledge Base Services...');
     if (staleStrategy) {
-        console.log(`   Using explicit stale strategy: ${staleStrategy}`);
+        console.error(`   Using explicit stale strategy: ${staleStrategy}`);
     }
 
     // Run the full sync under the shared heavy-maintenance lease so this CLI cannot
@@ -32,19 +34,19 @@ async function syncKnowledgeBase() {
     try {
         outcome = await withHeavyMaintenanceLease(
             async () => {
-                console.log('   Waiting for Lifecycle Service...');
+                console.error('   Waiting for Lifecycle Service...');
                 await KB_LifecycleService.ready();
-                console.log('   Lifecycle Service Ready. Database should be running.');
+                console.error('   Lifecycle Service Ready. Database should be running.');
 
-                console.log('   Waiting for Chroma Manager...');
+                console.error('   Waiting for Chroma Manager...');
                 await KB_ChromaManager.ready();
-                console.log('   Chroma Manager Ready.');
+                console.error('   Chroma Manager Ready.');
 
-                console.log('   Waiting for Database Service...');
+                console.error('   Waiting for Database Service...');
                 await KB_DatabaseService.ready();
-                console.log('   Database Service Ready.');
+                console.error('   Database Service Ready.');
 
-                console.log('✅ Services Ready. Starting Synchronization...');
+                console.error('✅ Services Ready. Starting Synchronization...');
 
                 // Execute the full sync (create + embed). `NEO_KB_STALE_STRATEGY=shadow-swap`
                 // opts into the shadow-swap stale-data strategy; default CLI sync remains unchanged.
@@ -59,12 +61,20 @@ async function syncKnowledgeBase() {
 
     if (outcome.status === 'held') {
         const held = outcome.lease;
-        console.log(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
-        console.log('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
+        console.error(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
+        console.error('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
+        // Emit the structured deferral outcome on stdout so the orchestrator classifies this run as
+        // 'skipped' (not the silent 'completed' telemetry-lie) — matches backfill-memory-summaries.mjs.
+        console.log(JSON.stringify({
+            deferred: true,
+            reason  : 'heavy-maintenance-lease-held',
+            lease   : {owner: held.owner, reason: held.reason, pid: held.pid, acquiredAt: held.acquiredAt}
+        }));
         process.exit(0);
     }
 
-    console.log('✅ Synchronization Complete:', outcome.result);
+    console.error('✅ Synchronization Complete:', outcome.result);
+    console.log(JSON.stringify({success: true, ...(outcome.result || {})}));
     process.exit(0);
 }
 
