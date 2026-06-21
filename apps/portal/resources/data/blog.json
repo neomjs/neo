@@ -2,6 +2,22 @@
     "data": [
         {
             "collapsed": false,
+            "id": "2026",
+            "isLeaf": false,
+            "name": "2026",
+            "parentId": null,
+            "path": null
+        },
+        {
+            "date": "2026-06-18",
+            "id": "blog/cross-family-verification",
+            "isLeaf": true,
+            "name": "Your AI Agent Grades Its Own Homework. Mine Gets Checked by a Rival Lab.",
+            "parentId": "2026",
+            "path": "learn/blog/cross-family-verification.md"
+        },
+        {
+            "collapsed": false,
             "id": "2025",
             "isLeaf": false,
             "name": "2025",
