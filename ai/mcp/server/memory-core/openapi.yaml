@@ -94,6 +94,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one Memory Core MCP tool.
+      tags: [Health]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /diagnostics/tool-metrics:
     post:
       summary: Get Memory Core Tool Metrics
@@ -198,6 +242,7 @@ paths:
     post:
       summary: Who Is Online
       operationId: who_is_online
+      x-neo-tool-summary: Report recent maintainer activity for review routing and lane handoffs.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -287,6 +332,7 @@ paths:
       summary: Add New Memory
       operationId: add_memory
       x-pass-as-object: true
+      x-neo-tool-summary: Persist one consolidated turn memory for the active agent session.
       description: |
         Stores a new agent interaction (prompt, thought, response) as a memory.
 
@@ -418,6 +464,7 @@ paths:
       summary: Query Recent Turns
       operationId: query_recent_turns
       x-pass-as-object: true
+      x-neo-tool-summary: Recall recent turns chronologically for recovery or handoff.
       x-annotations:
         readOnlyHint: true
       description: |
@@ -750,6 +797,7 @@ paths:
       summary: Validate session resumability
       operationId: resume_session
       x-pass-as-object: true
+      x-neo-tool-summary: Validate whether a session id is safe to resume.
       x-annotations:
         readOnlyHint: true
       description: |
@@ -1171,6 +1219,7 @@ paths:
       summary: Send Message
       operationId: add_message
       x-pass-as-object: true
+      x-neo-tool-summary: Send an A2A message to one peer or an agent broadcast.
       description: |
         Sends an A2A message to a specific agent identity or broadcast (*).
       tags: [Mailbox]
@@ -1238,6 +1287,7 @@ paths:
       summary: List Messages
       operationId: list_messages
       x-pass-as-object: true
+      x-neo-tool-summary: List incoming or historical A2A mailbox messages.
       description: |
         Lists incoming messages for the active agent context.
       tags: [Mailbox]
@@ -1533,6 +1583,7 @@ paths:
       summary: Record Turn Presence
       operationId: record_turn_presence
       x-pass-as-object: true
+      x-neo-tool-summary: Record active-turn liveness for the current agent session.
       description: |
         Records a bounded `AGENT_TURN_PRESENCE` interval for the request-bound AgentIdentity.
         This is the turn-start/progress/terminal writer surface for #13498 Substrate A.
