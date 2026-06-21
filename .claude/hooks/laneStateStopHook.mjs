@@ -43,6 +43,8 @@ import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
 
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
+import {buildDeferenceReminder,
+        detectDeferencePhrase}     from '../../ai/scripts/lifecycle/deferencePhraseMatch.mjs';
 import {decideStopHookAction,
         isOperatorInLoop,
         parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
@@ -223,6 +225,15 @@ export function composeBlockDirective(cause) {
 }
 
 /**
+ * @summary Composes the directive injected when an autonomous turn ends in deferential phrasing.
+ * @param {String} phrase Matched deference phrase.
+ * @returns {String}
+ */
+export function composeDeferenceDirective(phrase) {
+    return buildDeferenceReminder(phrase);
+}
+
+/**
  * @summary Extracts plain text from a message `content` field — a string passthrough, or the joined
  * `text` blocks of an Anthropic content-block array (skipping tool_use / thinking blocks).
  * @param {(String|Object[]|*)} content
@@ -354,6 +365,24 @@ async function main() {
         // best-effort; isOperatorInLoop falls back to stop_hook_active when promptingText is empty
     }
     const operatorInLoop = isOperatorInLoop({stopHookActive: !!input.stop_hook_active, promptingText});
+
+    const deferencePhrase = detectDeferencePhrase(finalText, {operatorInLoop});
+    if (deferencePhrase) {
+        const reason  = `deference phrase "${deferencePhrase}" at turn-terminal`,
+              session = input.session_id || '?';
+
+        if (ENFORCING) {
+            auditLog(`BLOCK (session=${session}): ${reason}`);
+            process.stdout.write(JSON.stringify({
+                decision: 'block',
+                reason  : composeDeferenceDirective(deferencePhrase)
+            }), () => process.exit(0));
+            return;
+        }
+
+        auditLog(`WOULD-BLOCK (session=${session}): ${reason}`);
+        process.exit(0);
+    }
 
     // parseLaneState throwing is a MALFORMED emission (the agent's garbage), NOT our failure → it
     // feeds the verdict (a real block-able bucket), distinct from an absent emission (null).
