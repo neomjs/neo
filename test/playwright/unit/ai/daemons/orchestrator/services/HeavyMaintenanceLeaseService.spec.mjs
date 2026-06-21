@@ -475,10 +475,11 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         try {
             const result = await withHeavyMaintenanceLease(() => 'fresh-acquire', {
                 leasePath,
-                owner       : 'kbSync',
+                owner                : 'kbSync',
                 now,
-                staleAfterMs: 60000,
-                token       : 'child-token'
+                staleAfterMs         : 60000,
+                token                : 'child-token',
+                onInheritedTokenStale: () => {} // AC8a hits the stale-inherited fall-through; pin no-op so the default warn does not leak into the suite
             });
 
             expect(result).toMatchObject({
@@ -642,9 +643,10 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 taskRan = true;
             }, {
                 leasePath,
-                owner: 'kbSync',
-                now  : t1,
-                token: 'child-token'
+                owner                : 'kbSync',
+                now                  : t1,
+                token                : 'child-token',
+                onInheritedTokenStale: () => {} // AC8c hits the stale-inherited fall-through; pin no-op so the default warn does not leak
             });
 
             expect(result).toMatchObject({
