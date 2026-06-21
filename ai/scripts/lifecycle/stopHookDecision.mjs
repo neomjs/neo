@@ -6,6 +6,7 @@
  *
  * @module Neo.ai.scripts.lifecycle.stopHookDecision
  */
+import {buildDeferenceReminder, detectDeferencePhrase} from './deferencePhraseMatch.mjs';
 
 /**
  * Compact runtime hint for the fenced JSON block consumed by `parseLaneState`. Prose `lane-state:`
@@ -82,4 +83,39 @@ export function decideStopHookAction(verdict, {
         : verdict.reason;
 
     return {action: 'would-block', reason};
+}
+
+/**
+ * @summary Builds the shared Stop-hook directive for autonomous deference-register slips.
+ * @param {String|null} phrase Matched deference phrase, if known.
+ * @returns {String}
+ */
+export function buildDeferenceStopHookDirective(phrase = null) {
+    return buildDeferenceReminder(phrase);
+}
+
+/**
+ * @summary Shared deference-register Stop-hook decision. Returns `null` when no autonomous
+ * deference slip exists; otherwise maps the match to the same dry-run/enforcing action for every
+ * Stop-hook adapter. Operator dialogue is carved before matching, so adapters cannot drift on that
+ * business rule.
+ * @param {String} text Assistant final-turn text.
+ * @param {Object} [options]
+ * @param {Boolean} [options.enforcing=false]
+ * @param {Boolean} [options.operatorInLoop=false]
+ * @returns {{action: ('block'|'would-block'), reason: String, phrase: String}|null}
+ */
+export function decideDeferenceStopHookAction(text = '', {
+    enforcing      = false,
+    operatorInLoop = false
+} = {}) {
+    const phrase = detectDeferencePhrase(text, {operatorInLoop});
+
+    if (!phrase) return null;
+
+    return {
+        action: enforcing ? 'block' : 'would-block',
+        reason: buildDeferenceStopHookDirective(phrase),
+        phrase
+    };
 }

@@ -43,9 +43,9 @@ import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
 
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
-import {buildDeferenceReminder,
-        detectDeferencePhrase}     from '../../ai/scripts/lifecycle/deferencePhraseMatch.mjs';
-import {decideStopHookAction,
+import {buildDeferenceStopHookDirective,
+        decideDeferenceStopHookAction,
+        decideStopHookAction,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
@@ -233,7 +233,7 @@ export function composeBlockDirective(cause) {
  * @returns {String}
  */
 export function composeDeferenceDirective(phrase) {
-    return buildDeferenceReminder(phrase);
+    return buildDeferenceStopHookDirective(phrase);
 }
 
 /**
@@ -369,16 +369,16 @@ async function main() {
     }
     const operatorInLoop = isOperatorInLoop({stopHookActive: !!input.stop_hook_active, promptingText});
 
-    const deferencePhrase = detectDeferencePhrase(finalText, {operatorInLoop});
-    if (deferencePhrase) {
-        const reason  = `deference phrase "${deferencePhrase}" at turn-terminal`,
+    const deferenceDecision = decideDeferenceStopHookAction(finalText, {operatorInLoop, enforcing: ENFORCING});
+    if (deferenceDecision) {
+        const reason  = `deference phrase "${deferenceDecision.phrase}" at turn-terminal`,
               session = input.session_id || '?';
 
-        if (ENFORCING) {
+        if (deferenceDecision.action === 'block') {
             auditLog(`BLOCK (session=${session}): ${reason}`);
             process.stdout.write(JSON.stringify({
                 decision: 'block',
-                reason  : composeDeferenceDirective(deferencePhrase)
+                reason  : deferenceDecision.reason
             }), () => process.exit(0));
             return;
         }

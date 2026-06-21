@@ -15,13 +15,12 @@ import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
 
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
-import {decideStopHookAction,
+import {decideDeferenceStopHookAction,
+        decideStopHookAction,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
-import {buildDeferenceReminder,
-        detectDeferencePhrase}     from '../../ai/scripts/lifecycle/deferencePhraseMatch.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
 
@@ -336,7 +335,7 @@ export function summarizePayloadShape(payload = {}) {
  * @param {Object} input
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
- * @returns {{action: ('allow'|'block'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object}}
+ * @returns {{action: ('allow'|'block'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object, phrase: (String|undefined)}}
  */
 export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
     const stopHookActive                            = !!(input.stop_hook_active || input.stopHookActive),
@@ -344,13 +343,11 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
           {text: promptingText, source: promptSource} = extractPromptingText(input),
           operatorInLoop                            = isOperatorInLoop({stopHookActive, promptingText});
 
-    // Deference-register check (mirrors the Claude hook): an autonomous turn-end in helpful-assistant
-    // phrasing is a soft block, runs BEFORE lane-state parsing and reuses the operatorInLoop carve.
-    const deferencePhrase = detectDeferencePhrase(text, {operatorInLoop});
-    if (deferencePhrase) {
+    // Deference-register check: shared decision, adapter-owned payload/source metadata.
+    const deferenceDecision = decideDeferenceStopHookAction(text, {operatorInLoop, enforcing});
+    if (deferenceDecision) {
         return {
-            action : enforcing ? 'block' : 'would-block',
-            reason : buildDeferenceReminder(deferencePhrase),
+            ...deferenceDecision,
             source,
             promptSource,
             verdict: null

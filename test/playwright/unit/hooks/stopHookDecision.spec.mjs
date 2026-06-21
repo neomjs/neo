@@ -1,5 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {
+    buildDeferenceStopHookDirective,
+    decideDeferenceStopHookAction,
     decideStopHookAction,
     isOperatorInLoop,
     LANE_STATE_SCHEMA_HINT,
@@ -109,5 +111,38 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
 
     test('decideStopHookAction: defaults (no options) → would-block, never a fail-open allow', () => {
         expect(decideStopHookAction(verdict).action).toBe('would-block');
+    });
+
+    // ── decideDeferenceStopHookAction: shared autonomous deference decision for all adapters ─────
+    test('buildDeferenceStopHookDirective: carries the peer-identity reminder and trigger phrase', () => {
+        const directive = buildDeferenceStopHookDirective('your call');
+        expect(directive).toContain('helpful assistant');
+        expect(directive).toContain('equal peer');
+        expect(directive).toContain('deference phrase "your call"');
+    });
+
+    test('decideDeferenceStopHookAction: no phrase → null, leaving lane-state parsing to proceed', () => {
+        expect(decideDeferenceStopHookAction('plain final text')).toBe(null);
+    });
+
+    test('decideDeferenceStopHookAction: operator dialogue carves deference phrases before action', () => {
+        expect(decideDeferenceStopHookAction('Your call.', {operatorInLoop: true, enforcing: true})).toBe(null);
+    });
+
+    test('decideDeferenceStopHookAction: dry-run autonomous phrase → would-block directive', () => {
+        const decision = decideDeferenceStopHookAction('Your call.', {operatorInLoop: false, enforcing: false});
+
+        expect(decision.action).toBe('would-block');
+        expect(decision.phrase).toBe('your call');
+        expect(decision.reason).toContain('helpful assistant');
+        expect(decision.reason).toContain('deference phrase "your call"');
+    });
+
+    test('decideDeferenceStopHookAction: enforcing autonomous phrase → block with same directive', () => {
+        const decision = decideDeferenceStopHookAction('Your move.', {operatorInLoop: false, enforcing: true});
+
+        expect(decision.action).toBe('block');
+        expect(decision.phrase).toBe('your move');
+        expect(decision.reason).toContain('deference phrase "your move"');
     });
 });
