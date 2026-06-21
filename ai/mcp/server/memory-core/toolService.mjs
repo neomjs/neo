@@ -18,6 +18,7 @@ const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
 const serviceMapping = {
     add_memory              : MemoryService          .addMemory               .bind(MemoryService),
+    get_mcp_tool_handbook   : toolId => toolService.getToolHandbook(toolId),
     // `SummaryService.deleteAllSummaries` stays as the tenant-safe internal primitive (the
     // multi-tenant scoped-delete guard + future gated cleanups reuse it) but is deliberately
     // NOT agent-callable: a mass-destructive op does not belong on the MCP surface, and any
@@ -60,8 +61,10 @@ const serviceMapping = {
 };
 
 const toolService = Neo.create(ToolService, {
+    compactToolDescriptions    : true,
     openApiFilePath,
-    serviceMapping
+    serviceMapping,
+    toolListDescriptionMaxLength: 120
 });
 
 const _callTool = toolService.callTool.bind(toolService);
