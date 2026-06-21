@@ -153,7 +153,7 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 
 **Pre-flight guard:** The escalation ladder evaluation must be explicitly surfaced in the turn-boundary Pre-Flight reasoning statement per #11160.
 
-**Boundary:** Tactical subagents/tools inside a single harness (browser-subagent, code-execution subagent, etc.) when operator explicitly requests them OR local workflow supports them = fine and encouraged for mechanical efficiency. The prohibition is strictly against mapping named Neo maintainers into parent/worker hierarchy. Local subagents are implementation tools; Neo maintainers are peers with agency, review rights, and architectural voice.
+**Boundary:** Fan-out (multiple parallel subagents) + official Workflows are ABSOLUTE-FORBID (negative-ROI token-burn the hybrid-GraphRAG V-B-A tools obviate; config-denied). A SINGLE tactical subagent is permitted ONLY on the operator's explicit in-session permission (rare). The prohibition still bans mapping named Neo maintainers into a parent/worker hierarchy; maintainers are peers with agency, review rights, and architectural voice.
 
 **Mandate:** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify the orchestrator-worker drift by reviewing this anchor + Discussion #11026. Local harness subagent/tool calls do NOT trigger the anchor read.
 
