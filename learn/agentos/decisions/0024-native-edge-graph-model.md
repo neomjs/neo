@@ -35,7 +35,7 @@ Three layers. Source-of-truth in the right column (so this snapshot is re-verifi
 | **Work** | `SESSION`, `MEMORY`, `ARTIFACT_PLAN`, `ARTIFACT_TASK`, `ISSUE`, `STRATEGY` | `VALID_TYPES` + GitHub / session sync |
 | **System** | `SYSTEM_ANCHOR`, `[Frontier]`, `AgentIdentity`, `MESSAGE`, `WAKE_SUBSCRIPTION` | operational (`GraphService`, `MailboxService`, `IdentitySchema` — ADR 0018) |
 
-The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`); an unrecognized extracted type defaults to `CONCEPT`. `ADR` is added **deterministically** by `AdrIngestor` (no LLM inference), so decision records are graph-queryable without widening the extractor enum (ADR 0006).
+The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`); an unrecognized extracted type defaults to `CONCEPT`. `ADR` is added **deterministically** by `AdrIngestor` (no LLM inference), so decision records are graph-queryable without widening the extractor enum (ADR 0006). (`SYSTEM_ANCHOR` is grouped under System for its operational role but is itself one of the 14 `VALID_TYPES` — both LLM-extractable and operational.)
 
 ### 2.3 Edge types
 
@@ -49,7 +49,7 @@ The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`);
 | **Provenance / semantic** | `TAGGED_CONCEPT` (1.0 curated / 0.8 auto), `MENTIONED_IN`, `AUTHORED_BY`, `SUPERSEDES`, `OBSOLETES`, `DUPLICATE` | REM extraction + `TopologyInferenceEngine` | yes |
 | **Work / lifecycle** | `BLOCKED_BY`, `CONTAINED_PLAN`, `IMPLEMENTATION_PLAN`, `SESSION_*`, `EVALUATED_BY` | sync + lifecycle services | yes |
 | **Mailbox / A2A** | `DELIVERED_TO`, `SENT_BY`, `SENT_TO` | `MailboxService` | yes |
-| **Permission (auth, RLS)** | `CAN_REPLY_TO`, `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF`, `PERMISSION_GRANTED` | `PERMISSION_EDGE_TYPES` (`heartbeatPulseEvaluator:42`) | n/a (auth) |
+| **Permission (auth, RLS)** | enum (3): `CAN_REPLY_TO`, `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF` · observed: `CAN_READ_SESSIONS_OF`, `PERMISSION_GRANTED` | `PERMISSION_EDGE_TYPES` = the 3 enum (`heartbeatPulseEvaluator:42`); the 2 observed are used but not in the enum | n/a (auth) |
 | **Active steering** | `STRATEGIC_PIVOT` | `mutate_frontier` (`GraphService.mutateFrontier`) | yes |
 
 The four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`, `PERMISSION_EDGE_TYPES`) are **authoritative**; the remaining families are **observed-in-use** across the MC / graph / ingestion services. Converging these into one canonical edge-type registry is a follow-up (§6).
