@@ -9,19 +9,18 @@ import ViewportController from '../childapps/widget/view/ViewportController.mjs'
  * @summary The first-widget work-area hosted in the cockpit as a dashboard-mountable composite.
  *
  * Hosts the first-widget subtree — the bounded chat-intake, the evidence pane, and the stage a live grid
- * is created INTO — as a single unit inside the main `apps/agentos` cockpit's `dashboard.Container`,
- * rather than a separate child app. The subtree's coupling is carried verbatim from the childapp viewport
- * so the insert-observer {@link AgentOSWidget.view.ViewportController controller} resolves its sibling
- * `getReference` wiring (`evidence-pane`, `widget-stage`, `first-widget-grid`, the intake fields) in-tree:
- * it boots the first grid through the `add → insert` seam and projects the inserted grid into the evidence
- * pane App-Worker-locally — the same projection an external Neural-Link `create_component` into the stage
- * drives. App-Worker-local projection is why the evidence updates whether the grid renders inline here (S1)
- * or, once the stage pops to its own window (S2), across that window boundary.
+ * is created INTO — as a single unit inside the main `apps/agentos` cockpit's `dashboard.Container`. The
+ * subtree's coupling is carried verbatim from the childapp viewport so the insert-observer
+ * {@link AgentOSWidget.view.ViewportController controller} resolves its sibling `getReference` wiring
+ * (`evidence-pane`, `widget-stage`, `first-widget-grid`, the intake fields) in-tree: it boots the first
+ * grid through the `add → insert` seam and projects the inserted grid into the evidence pane
+ * App-Worker-locally.
  *
- * This is the relocation HOST. The follow-ups: physically moving the subtree files out of the childapp into
- * this view (this composite currently reuses them in place to keep the diff focused + the existing unit/e2e
- * suites green), and the S2 cross-window detach — both need a running harness with trusted-pointer drag,
- * un-verifiable headless.
+ * This is an S1 **internal** visual host — NOT the full relocation, and NOT an external `create_component`
+ * target. This panel's stage carries no fixed external id; the childapp viewport retains the sole external
+ * target, so there is no duplicate consumed-surface contract. The single-owner relocation (physically move
+ * the subtree out of the childapp + reduce its shell) and the S2 cross-window detach are a tracked
+ * follow-up — both need a running harness with trusted-pointer drag, un-verifiable headless.
  */
 class FirstWidgetPanel extends Container {
     static config = {
@@ -59,9 +58,8 @@ class FirstWidgetPanel extends Container {
             reference: 'evidence-pane'
         }, {
             ntype    : 'container',
-            // the fixed, known id an external agent can `create_component` a widget INTO — the same mount
-            // point the in-app bootstrap uses; both fire the projected `insert`
-            id       : 'widget-stage',
+            // the live-grid stage — resolved by the controller via `getReference`, NOT a fixed external id.
+            // The childapp viewport keeps the sole external `create_component` target (no duplicate contract).
             reference: 'widget-stage',
             cls      : ['agent-os-widget-stage'],
             flex     : 1,
