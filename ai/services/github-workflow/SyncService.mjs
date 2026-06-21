@@ -99,10 +99,23 @@ class SyncService extends Base {
     }
 
     /**
-     * The main public entry point for the synchronization process.
+     * @summary Executes a git command inside the sync checkout.
+     * @param {String} command Git command to run.
+     * @param {String} cwd Working directory for the command.
+     * @returns {Promise<{stdout: String, stderr: String}>}
+     */
+    async execGit(command, cwd) {
+        return execAsync(command, {cwd});
+    }
+
+    /**
+     * @summary Emits the generated GitHub Workflow content and derived Portal artifacts.
      *
-     * This method orchestrates the entire bi-directional sync workflow in a specific order
-     * to ensure data integrity and minimize conflicts:
+     * This method orchestrates the generated-content half of the full sync in a specific order
+     * to ensure data integrity and minimize conflicts. It is intentionally separated from the
+     * git delivery step so a failed rebase can reset the checkout, re-emit the generated files,
+     * and retry without leaving the repository mid-rebase.
+     *
      * 1.  Loads the persistent metadata from the last sync via `MetadataManager`.
      * 2.  Fetches and caches GitHub release data via `ReleaseNotesSyncer`.
      * 3.  Reconciles closed issue locations (archives stale issues) via `IssueSyncer`.
@@ -115,12 +128,10 @@ class SyncService extends Base {
      *     per-syncer cache populations survive `MetadataManager.save`.
      * 10. Caches releases in `newMetadata` for next run.
      * 11. Saves the updated, pruned metadata to disk via `MetadataManager`.
-     * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
-     * information about all operations performed during the sync.
+     * 12. Rebuilds Portal content indexes and SEO artifacts from the emitted content.
+     * @returns {Promise<object>} Statistics for the emitted generated content.
      */
-    async runFullSync() {
-        const startTime = new Date();
-
+    async emitGeneratedContentAndDerive() {
         const metadata = await MetadataManager.load();
 
         // 1. Fetch releases first, as they are needed for issue archiving
@@ -179,48 +190,137 @@ class SyncService extends Base {
 
         await this.rebuildContentIndexesAndSeo();
 
+        return {
+            reconcileStats,
+            pullReconcileStats,
+            pushStats,
+            pullStats,
+            releaseStats,
+            discussionStats,
+            pullStats2
+        };
+    }
+
+    /**
+     * @summary Commits, rebases, and pushes generated GitHub Workflow content changes.
+     * @param {String} cwd Git checkout root.
+     * @returns {Promise<Boolean>} `true` when a generated-data commit was pushed.
+     */
+    async commitRebaseAndPushGeneratedContent(cwd) {
+        const {stdout} = await this.execGit(`git status --porcelain ${generatedSyncStatusPaths}`, cwd);
+        const lines    = stdout.trim().split('\n').filter(Boolean);
+
+        if (lines.length === 0) {
+            return false;
+        }
+
+        const onlyMetaChanged = lines.every(line => line.endsWith('.sync-metadata.json'));
+
+        if (onlyMetaChanged) {
+            logger.info('[SyncService] Only metadata changed. Rolling back metadata.');
+            await this.execGit('git restore resources/content/.sync-metadata.json', cwd);
+            return false;
+        }
+
+        logger.info('[SyncService] Detected real content changes. Committing and pushing.');
+        await this.execGit(`git add ${generatedSyncStatusPaths}`, cwd);
+        const {stdout: stagedStdout} = await this.execGit('git diff --cached --name-only', cwd);
+        const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
+            !isGeneratedSyncFile(file)
+        );
+
+        if (nonSyncFiles.length > 0) {
+            throw new Error(`Automated sync commit rejected: non-sync files are staged: ${nonSyncFiles.join(', ')}`);
+        }
+
+        // Automated generated-data commits bypass Husky; hooks are human-lane guards.
+        await this.execGit('git commit --no-verify -m "chore: ticket sync [skip ci]"', cwd);
+
+        try {
+            await this.execGit('git pull --rebase --autostash', cwd);
+            await this.execGit('git push', cwd);
+        } catch (error) {
+            error.generatedSyncDeliveryFailure = true;
+            throw error;
+        }
+
+        logger.info('[SyncService] Successfully pushed changes to GitHub.');
+
+        return true;
+    }
+
+    /**
+     * @summary Restores the generated-data checkout to the latest remote `dev` after delivery failure.
+     * @param {String} cwd Git checkout root.
+     * @returns {Promise<void>}
+     */
+    async recoverGeneratedContentCheckout(cwd) {
+        try {
+            await this.execGit('git rebase --abort', cwd);
+        } catch (error) {
+            logger.warn(`[SyncService] git rebase --abort did not complete: ${error.message}`);
+        }
+
+        await this.execGit('git fetch origin dev:refs/remotes/origin/dev', cwd);
+        await this.execGit('git reset --hard origin/dev', cwd);
+    }
+
+    /**
+     * @summary Delivers generated GitHub Workflow content to git with bounded rebase recovery.
+     * @param {Function} rerunEmission Re-emits generated content after a reset.
+     * @param {Number}   [maxAttempts=2] Maximum commit/rebase/push attempts.
+     * @returns {Promise<void>}
+     */
+    async autoPushGeneratedContent({rerunEmission, maxAttempts = 2}) {
         if (aiConfig.pushToRepoAfterSync) {
             const {permission} = await RepositoryService.getViewerPermission();
             const writePermissions = ['ADMIN', 'MAINTAIN', 'WRITE'];
 
             if (writePermissions.includes(permission)) {
-                try {
-                    const cwd = aiConfig.projectRoot;
-                    const {stdout} = await execAsync(`git status --porcelain ${generatedSyncStatusPaths}`, {cwd});
-                    const lines = stdout.trim().split('\n').filter(Boolean);
+                const cwd = aiConfig.projectRoot;
 
-                    if (lines.length > 0) {
-                        const onlyMetaChanged = lines.every(line => line.endsWith('.sync-metadata.json'));
-
-                        if (onlyMetaChanged) {
-                            logger.info('[SyncService] Only metadata changed. Rolling back metadata.');
-                            await execAsync('git restore resources/content/.sync-metadata.json', {cwd});
-                        } else {
-                            logger.info('[SyncService] Detected real content changes. Committing and pushing.');
-                            await execAsync(`git add ${generatedSyncStatusPaths}`, {cwd});
-                            const {stdout: stagedStdout} = await execAsync('git diff --cached --name-only', {cwd});
-                            const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
-                                !isGeneratedSyncFile(file)
-                            );
-
-                            if (nonSyncFiles.length > 0) {
-                                throw new Error(`Automated sync commit rejected: non-sync files are staged: ${nonSyncFiles.join(', ')}`);
-                            }
-
-                            // Automated generated-data commits bypass Husky; hooks are human-lane guards.
-                            await execAsync('git commit --no-verify -m "chore: ticket sync [skip ci]"', {cwd});
-                            await execAsync('git pull --rebase --autostash', {cwd});
-                            await execAsync('git push', {cwd});
-                            logger.info('[SyncService] Successfully pushed changes to GitHub.');
+                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                    try {
+                        await this.commitRebaseAndPushGeneratedContent(cwd);
+                        return;
+                    } catch (error) {
+                        if (!error.generatedSyncDeliveryFailure) {
+                            logger.error('[SyncService] Auto-commit and push failed:', error.message);
+                            return;
                         }
+
+                        if (attempt >= maxAttempts) {
+                            logger.error(`[SyncService] Auto-push exhausted ${maxAttempts} attempts; recovering checkout before giving up: ${error.message}`);
+                            await this.recoverGeneratedContentCheckout(cwd);
+                            return;
+                        }
+
+                        logger.warn(`[SyncService] Auto-push attempt ${attempt} failed; aborting rebase, resetting to origin/dev, and re-emitting generated content before retry: ${error.message}`);
+                        await this.recoverGeneratedContentCheckout(cwd);
+                        await rerunEmission();
                     }
-                } catch (error) {
-                    logger.error('[SyncService] Auto-commit and push failed:', error.message);
                 }
             } else {
                 logger.info(`[SyncService] Skipping auto-push. Viewer permission '${permission}' lacks write access.`);
             }
         }
+    }
+
+    /**
+     * The main public entry point for the synchronization process.
+     *
+     * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
+     * information about all operations performed during the sync.
+     */
+    async runFullSync() {
+        const startTime = new Date();
+        let syncStats   = await this.emitGeneratedContentAndDerive();
+
+        await this.autoPushGeneratedContent({
+            rerunEmission: async () => {
+                syncStats = await this.emitGeneratedContentAndDerive();
+            }
+        });
 
         // Stage 2: Ingest into Native Graph Database
         try {
@@ -241,14 +341,14 @@ class SyncService extends Base {
         const durationMs = endTime - startTime;
 
         const finalStats = {
-            reconciled     : reconcileStats,
-            reconciledPulls: pullReconcileStats,
-            pushed         : pushStats,
-            pulled      : pullStats.pulled,
-            dropped     : pullStats.dropped,
-            releases    : releaseStats,
-            discussions : discussionStats,
-            pulls       : pullStats2
+            reconciled     : syncStats.reconcileStats,
+            reconciledPulls: syncStats.pullReconcileStats,
+            pushed         : syncStats.pushStats,
+            pulled         : syncStats.pullStats.pulled,
+            dropped        : syncStats.pullStats.dropped,
+            releases       : syncStats.releaseStats,
+            discussions    : syncStats.discussionStats,
+            pulls          : syncStats.pullStats2
         };
 
         const timing = {
