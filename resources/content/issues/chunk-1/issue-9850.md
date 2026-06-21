@@ -8,14 +8,18 @@ labels:
   - ai
 assignees: []
 createdAt: '2026-04-10T08:34:12Z'
-updatedAt: '2026-04-10T08:34:12Z'
+updatedAt: '2026-06-21T13:44:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9850'
 author: tobiu
 commentsCount: 0
-parentIssue: null
+parentIssue: 13383
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -58,7 +62,7 @@ The biggest visibility gap for Neo.mjs is the fundamental "what is it?" question
    - SSG+ vnode content takeover (SEO without sacrificing SPA architecture)
    - Neural Link (AI-native runtime introspection)
    - Agent OS (autonomous self-improving framework)
-   - The Klarso migration: enterprise-grade QT→Web proof of concept
+   - An enterprise-grade QT→Web migration proof of concept
 
 ### Distribution Strategy
 
@@ -81,10 +85,14 @@ Same as Neural Link blog post:
 - [ ] Cross-posted to dev.to
 - [ ] Contains working demo links and benchmark reproductions
 
+
 ## Timeline
 
 - 2026-04-10T08:34:13Z @tobiu added the `documentation` label
 - 2026-04-10T08:34:13Z @tobiu added the `Blog Post` label
 - 2026-04-10T08:34:13Z @tobiu added the `ai` label
 - 2026-04-20T02:07:08Z @tobiu cross-referenced by #10120
+- 2026-06-15T18:48:51Z @neo-opus-vega cross-referenced by #13383
+- 2026-06-15T18:49:40Z @neo-opus-vega added parent issue #13383
+- 2026-06-15T23:02:27Z @neo-opus-vega cross-referenced by #13394
 

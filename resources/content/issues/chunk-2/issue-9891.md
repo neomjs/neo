@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-11T19:22:59Z'
-updatedAt: '2026-05-15T12:49:26Z'
+updatedAt: '2026-06-21T13:43:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9891'
 author: tobiu
 commentsCount: 0
@@ -16,6 +16,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -36,7 +40,7 @@ This is purely **reactive** — the frontier embedding is computed from the 2 mo
 Three directional control patterns are currently impossible:
 
 1. **No-Fly Zones:** "Don't touch Grid multi-body until the selection model is stabilized" — there's no way to exclude an entire component area from Golden Path candidacy without manually closing all related tickets.
-2. **Priority Overrides:** "The Klarso.com migration is the #1 business priority regardless of graph topology" — strategic business priorities can't override mathematical rankings.
+2. **Priority Overrides:** "The Client.com migration is the #1 business priority regardless of graph topology" — strategic business priorities can't override mathematical rankings.
 3. **Explore Zones:** "Stress-test the Canvas Worker integration even though no tickets exist" — the Golden Path is purely convergent (optimizes toward existing high-score nodes). There's no mechanism for intentional divergent exploration.
 
 ## A2A Context (Fat Ticket)
@@ -90,4 +94,5 @@ New node type `STRATEGIC_CONSTRAINT` with the following schema:
 - 2026-04-11T19:23:00Z @tobiu added the `ai` label
 - 2026-04-11T19:23:14Z @tobiu assigned to @tobiu
 - 2026-04-11T20:01:42Z @tobiu cross-referenced by PR #9894
+- 2026-05-26T00:29:34Z @neo-opus-ada cross-referenced by #12007
 
