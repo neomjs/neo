@@ -198,6 +198,47 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
     });
 });
 
+test.describe('codex-lane-state-stop - deference register', () => {
+    test('deference phrase + autonomous turn → would-block before lane-state parsing (dry-run)', () => {
+        const result = classifyCodexStopPayload({
+            messages: [
+                {role: 'user',      content: '[WAKE][priority:normal] 1 events'},
+                {role: 'assistant', content: 'Your call.'}
+            ]
+        });
+
+        expect(result.action).toBe('would-block');
+        expect(result.reason).toContain('helpful assistant');           // the deference directive, not the no-hold reason
+        expect(result.reason).toContain('deference phrase "your call"');
+    });
+
+    test('deference phrase + autonomous turn + enforce → block with the peer-identity directive', () => {
+        const result = classifyCodexStopPayload({
+            messages: [
+                {role: 'user',      content: '[WAKE][priority:normal] 1 events'},
+                {role: 'assistant', content: 'Your move.'}
+            ]
+        }, {enforcing: true});
+
+        expect(result.action).toBe('block');
+        expect(result.reason).toContain('helpful assistant');
+        expect(result.reason).toContain('A2A message with peers');
+        expect(result.reason).toContain('deference phrase "your move"');
+    });
+
+    test('deference phrase in a live operator dialogue → operator-dialogue carve, not a deference block', () => {
+        const result = classifyCodexStopPayload({
+            messages: [
+                {role: 'user',      content: 'please pick the exact color and report'},
+                {role: 'assistant', content: `Your call.\n\n${fixture.last_assistant_message}`}
+            ]
+        }, {enforcing: true});
+
+        expect(result.action).toBe('allow');                      // operator + valid terminal
+        expect(result.reason).not.toContain('helpful assistant'); // deference carved by operatorInLoop
+    });
+});
+
 test.describe('codex-lane-state-stop - spawned hook', () => {
     /**
      * @summary Spawns the repo-local Codex Stop hook with a temp audit log directory.

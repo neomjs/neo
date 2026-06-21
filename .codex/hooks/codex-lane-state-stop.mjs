@@ -19,6 +19,8 @@ import {decideStopHookAction,
         isOperatorInLoop,
         parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {buildDeferenceReminder,
+        detectDeferencePhrase}     from '../../ai/scripts/lifecycle/deferencePhraseMatch.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
 
@@ -338,6 +340,19 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
           {text, source}                            = extractFinalAssistantText(input),
           {text: promptingText, source: promptSource} = extractPromptingText(input),
           operatorInLoop                            = isOperatorInLoop({stopHookActive, promptingText});
+
+    // Deference-register check (mirrors the Claude hook): an autonomous turn-end in helpful-assistant
+    // phrasing is a soft block, runs BEFORE lane-state parsing and reuses the operatorInLoop carve.
+    const deferencePhrase = detectDeferencePhrase(text, {operatorInLoop});
+    if (deferencePhrase) {
+        return {
+            action : enforcing ? 'block' : 'would-block',
+            reason : buildDeferenceReminder(deferencePhrase),
+            source,
+            promptSource,
+            verdict: null
+        };
+    }
 
     let descriptor = null, parseError = null;
     try {
