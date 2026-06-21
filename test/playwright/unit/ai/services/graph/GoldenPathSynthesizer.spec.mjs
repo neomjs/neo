@@ -495,6 +495,39 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent.indexOf('## Silent Threads')).toBeLessThan(handoffContent.indexOf('## Computed Golden Path'));
     });
 
+    test('synthesizeGoldenPath scopes the candidate-pool query to ISSUE vectors', async () => {
+        const originalGetGraphCollection    = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection  = StorageRouter.getSummaryCollection;
+        const originalEmbedText             = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs          = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible              = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate              = OpenAiCompatible.prototype.generate;
+        const issuesDir                     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-pool-scope-'));
+        let capturedWhere                   = 'UNSET';
+        aiConfig.vectorDimension = 2;
+
+        StorageRouter.getGraphCollection    = async () => ({query: async args => { capturedWhere = args.where; return {ids: [[]], distances: [[]]}; }});
+        StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['mock document']})});
+        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now: new Date('2026-05-28T00:00:00Z')});
+        } finally {
+            StorageRouter.getGraphCollection    = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection  = originalGetSummaryCollection;
+            TextEmbeddingService.embedText      = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs  = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        // The candidate pool must be scoped to ISSUE vectors; without the filter the top-20 is
+        // dominated by the CONCEPT/ADR/GUIDES population and the state='OPEN' intersection is empty.
+        expect(capturedWhere).toEqual({type: 'ISSUE'})
+    });
+
     test('synthesizeGoldenPath surfaces current incidents and filters non-actionable computed recommendations', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;

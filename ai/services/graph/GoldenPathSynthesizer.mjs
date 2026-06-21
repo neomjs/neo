@@ -1174,7 +1174,12 @@ class GoldenPathSynthesizer extends Base {
         try {
             const semanticResults = await graphColl.query({
                 queryEmbeddings: [frontierEmbedding],
-                nResults       : 20
+                nResults       : 20,
+                // Scope the candidate pool to actionable ISSUE vectors. Without this, the top-20 is
+                // taken across ALL embedded node types (the CONCEPT + ADR/GUIDES meta dominate), so the
+                // downstream state='OPEN' intersection yields zero open issues and the Computed Golden
+                // Path renders empty even when fresh open issues exist.
+                where          : {type: 'ISSUE'}
             });
             if (semanticResults && semanticResults.ids && semanticResults.ids.length > 0) {
                 semanticIds = semanticResults.ids[0];
