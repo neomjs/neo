@@ -20,16 +20,16 @@ Diagrams (Mermaid) earn their place only when they carry information the prose c
 
 Every claim about the *outside world* — a competitor, a quote, a statistic, a "first / most / fastest" — needs a real, linked source you have **verified**, before publish.
 
-- **An authority's verbal statement is NOT a citable source.** "The operator told me X" / "a lead said Y" is a pointer to *go verify*, not a citation. (On #13486 the claim that OpenClaw "got the most stars fastest" went in as fact → RC'd; the fix was to WebSearch it, confirm it across outlets, and cite *those*.)
+- **An authority's verbal statement is NOT a citable source.** "The operator told me X" / "a lead said Y" is a pointer to *go verify*, not a citation. (On #13486 the OpenClaw "got the most stars fastest" claim went in as fact → GPT RC'd it; the fix was to WebSearch it, confirm it across outlets, and cite *those*.)
 - **Verify, then cite the verification.** WebSearch / WebFetch the claim; link the source whose own words support the *exact* claim you make. Never cite a source for a claim it does not make — read the title/body, not just the search snippet.
 - **If you can't source it, cut it.** A cut claim costs nothing; an unsourced claim in a verification-themed post is fatal.
 - **Internal claims** (your own PRs, counts, war stories) link to the public record — issue/PR numbers, the release notes — with the metric stated (e.g. "GitHub's count, since the prior release").
 
 ## 3. Kill the Three Over-Claim Flavors
 
-A claim can be literally true yet imply something false. Audit every claim for *implication*, not just literal accuracy. The three flavors #13486 surfaced, each caught by a different reviewer:
+A claim can be literally true yet imply something false. Audit every claim for *implication*, not just literal accuracy. The three flavors #13486's cross-family review surfaced (recounted from the actual cycle — see the Empirical Anchor):
 
-1. **Unsourced superlative** — "the most / first / fastest X." Source the exact ranking, or soften / cut. (OpenClaw "most stars, fastest ever" — cut until sourced, then re-added *attributed* to the outlets.)
+1. **Unsourced superlative** — "the most / first / fastest X." Source the exact ranking, or soften / cut. (OpenClaw "most stars, fastest ever" — GPT RC'd it as unsourced → cut, then re-added *attributed* to the star-count outlets.)
 2. **Universal quantifier** — "*all* N are X." One counterexample disproves it, and a skeptic will find it. Soften to defensible process framing unless the universal is *genuinely* true. ("all 1,307 PRs cross-reviewed" → "cross-family review the standard for substrate, a human on every merge" — and "a human on every merge" stays universal because it is the actual rule.)
 3. **Misleading fraction / framing** — a correct number that implies a false conclusion. ("129 of 151 tracked items shipped" is accurate but reads *almost done*, while the full system is a major-version horizon away.) Reframe so the *impression* matches reality.
 
