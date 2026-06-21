@@ -76,8 +76,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
 
         expect(waitResult).toMatchObject({
-            running : false,
-            attempts: 3,
+            running  : false,
+            attempts : 3,
             timeoutMs: 0
         });
         expect(waitResult.elapsedMs).toBeGreaterThanOrEqual(0);
@@ -117,7 +117,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             ready: async () => calls.push({type: 'lifecycle-ready'})
         };
         const dreamService = {
-            ready: async () => calls.push({type: 'dream-ready'}),
+            ready          : async () => calls.push({type: 'dream-ready'}),
             executeRemCycle: async options => {
                 calls.push({type: 'execute-rem-cycle', options});
                 return {
@@ -263,7 +263,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             config: {
                 graphProvider: 'ollama',
                 modelProvider: 'openAiCompatible',
-                ollama: {
+                ollama       : {
                     host                 : 'http://ollama.test',
                     model                : 'gemma4:31b',
                     embeddingModel       : 'qwen3-embedding',
@@ -286,8 +286,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const warnings = [];
         const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
             config: {
-                graphProvider: 'openAiCompatible',
-                modelProvider: 'gemini',
+                graphProvider   : 'openAiCompatible',
+                modelProvider   : 'gemini',
                 openAiCompatible: {
                     host                 : 'http://oai.test',
                     model                : 'gemma-4-31b-it',
@@ -295,9 +295,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                     requireParallelModels: 2
                 }
             },
-            timeoutMs                     : 25,
-            fetchOpenAiCompatibleModels   : async () => ['gemma-4-31b-it', 'text-embedding-qwen3-embedding-8b'],
-            log                           : {warn: (...args) => warnings.push(args)}
+            timeoutMs                  : 25,
+            fetchOpenAiCompatibleModels: async () => ['gemma-4-31b-it', 'text-embedding-qwen3-embedding-8b'],
+            log                        : {warn: (...args) => warnings.push(args)}
         });
 
         expect(result).toMatchObject({
@@ -313,7 +313,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const warnings = [];
         const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
             config: {
-                graphProvider: 'openAiCompatible',
+                graphProvider   : 'openAiCompatible',
                 openAiCompatible: {
                     host          : 'http://oai.test',
                     model         : 'gemma-4-31b-it',
@@ -335,7 +335,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             let fetched = false;
             const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
                 config: {
-                    graphProvider: 'openAiCompatible',
+                    graphProvider   : 'openAiCompatible',
                     openAiCompatible: {
                         host          : 'http://oai.test',
                         model         : 'gemma-4-31b-it',
@@ -367,11 +367,11 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         ];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
-            host     : 'http://127.0.0.1:1234',
-            models   : ['chat-model', 'embedding-model'],
-            attempts : 3,
-            delayMs  : 0,
-            timeoutMs: 50,
+            host         : 'http://127.0.0.1:1234',
+            models       : ['chat-model', 'embedding-model'],
+            attempts     : 3,
+            delayMs      : 0,
+            timeoutMs    : 50,
             fetchModelIds: async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
             loadModel    : async model => loads.push(model),
             log          : {info: () => {}}
@@ -379,9 +379,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(loads).toEqual(['chat-model', 'embedding-model']);
         expect(result).toMatchObject({
-            ready       : true,
-            loadedModels: ['chat-model', 'embedding-model'],
-            requiredModels: ['chat-model', 'embedding-model'],
+            ready          : true,
+            loadedModels   : ['chat-model', 'embedding-model'],
+            requiredModels : ['chat-model', 'embedding-model'],
             availableModels: ['chat-model', 'embedding-model']
         });
     });
@@ -390,11 +390,11 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const loads = [];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
-            host     : 'http://127.0.0.1:1234',
-            models   : ['chat-model', 'embedding-model'],
-            attempts : 1,
-            delayMs  : 0,
-            timeoutMs: 50,
+            host         : 'http://127.0.0.1:1234',
+            models       : ['chat-model', 'embedding-model'],
+            attempts     : 1,
+            delayMs      : 0,
+            timeoutMs    : 50,
             fetchModelIds: async () => ['chat-model', 'embedding-model'],
             loadModel    : async model => loads.push(model)
         });
@@ -421,9 +421,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             // ready with zero loadModel calls, leaving any modelfile-default loaded
             // context window in place. With the fix, context-configured models are
             // force-included in the load set.
-            fetchModelIds : async () => ['chat-model', 'embedding-model'],
-            loadModel     : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
-            log           : {info: () => {}}
+            fetchModelIds: async () => ['chat-model', 'embedding-model'],
+            loadModel    : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
+            log          : {info: () => {}}
         });
 
         expect(loadCalls).toEqual([
@@ -442,8 +442,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         ];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
-            host          : 'http://127.0.0.1:1234',
-            models        : ['chat-model', 'embedding-model'],
+            host  : 'http://127.0.0.1:1234',
+            models: ['chat-model', 'embedding-model'],
             // Only chat has a configured context-length; embedding must still load as missing
             contextLengths: {'chat-model': 262144},
             attempts      : 2,
@@ -505,15 +505,15 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         ];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
-            host            : 'http://127.0.0.1:1234',
-            models          : ['chat-model', 'embedding-model'],
-            contextLengths  : {'chat-model': 262144, 'embedding-model': 32768},
-            allowPartial    : true,
-            attempts        : 2,
-            delayMs         : 0,
-            timeoutMs       : 50,
-            fetchModelIds   : async () => modelSnapshots.shift() || ['embedding-model'],
-            loadModel       : async (model, options) => {
+            host          : 'http://127.0.0.1:1234',
+            models        : ['chat-model', 'embedding-model'],
+            contextLengths: {'chat-model': 262144, 'embedding-model': 32768},
+            allowPartial  : true,
+            attempts      : 2,
+            delayMs       : 0,
+            timeoutMs     : 50,
+            fetchModelIds : async () => modelSnapshots.shift() || ['embedding-model'],
+            loadModel     : async (model, options) => {
                 loadCalls.push({model, contextLength: options?.contextLength});
                 if (model === 'chat-model') {
                     throw new Error('LM Studio rejected 262K chat load');
@@ -594,8 +594,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         ];
 
         const result = await providerReadinessHelper.ensureOllamaModelsReady({
-            host                 : 'http://ollama.test',
-            roles                : [{
+            host : 'http://ollama.test',
+            roles: [{
                 providerRole: 'modelProvider',
                 role        : 'chat',
                 model       : 'gemma4:31b'
@@ -638,9 +638,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             }
         }]);
         expect(result).toMatchObject({
-            ready                : true,
-            provider             : 'ollama',
-            warmedModels         : [{
+            ready       : true,
+            provider    : 'ollama',
+            warmedModels: [{
                 model       : 'gemma4:31b',
                 role        : 'chat',
                 providerRole: 'modelProvider'
@@ -658,8 +658,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('ensureOllamaModelsReady returns degraded when one native role cannot be warmed (#12285)', async () => {
         const warnings = [];
         const result = await providerReadinessHelper.ensureOllamaModelsReady({
-            host                 : 'http://ollama.test',
-            roles                : [{
+            host : 'http://ollama.test',
+            roles: [{
                 providerRole: 'modelProvider',
                 role        : 'chat',
                 model       : 'gemma4:31b'
@@ -701,8 +701,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('ensureOllamaModelsReady does not require inactive role models (#12285)', async () => {
         const result = await providerReadinessHelper.ensureOllamaModelsReady({
-            host                 : 'http://ollama.test',
-            roles                : [{
+            host : 'http://ollama.test',
+            roles: [{
                 providerRole: 'graphProvider',
                 role        : 'chat',
                 model       : 'gemma4:31b'
@@ -834,7 +834,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             modelProvider    : 'gemini',
             graphProvider    : 'openAiCompatible',
             embeddingProvider: 'openAiCompatible',
-            openAiCompatible: {
+            openAiCompatible : {
                 model         : 'gemma-4-31b-it',
                 embeddingModel: 'text-embedding-qwen3-embedding-8b'
             },
@@ -852,9 +852,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 'text-embedding-qwen3-embedding-8b'
             ],
             contextLengths: {
-                'gemma-4-31b-it'                  : 262144,
+                'gemma-4-31b-it'                   : 262144,
                 'text-embedding-qwen3-embedding-8b': 32768
-            }
+            },
+            parallels: {}
         });
     });
 
@@ -863,7 +864,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             modelProvider    : 'gemini',
             graphProvider    : 'ollama',
             embeddingProvider: 'ollama',
-            ollama: {
+            ollama           : {
                 host                 : 'http://ollama.test',
                 model                : 'gemma4:31b',
                 embeddingModel       : 'qwen3-embedding',
@@ -899,7 +900,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             modelProvider    : 'openAiCompatible',
             graphProvider    : 'openAiCompatible',
             embeddingProvider: 'openAiCompatible',
-            ollama: {
+            ollama           : {
                 host                 : 'http://ollama.test',
                 model                : 'gemma4:31b',
                 embeddingModel       : 'qwen3-embedding',
@@ -924,8 +925,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('resolves readiness target from graphProvider instead of generic modelProvider', () => {
         expect(runSandmanModule.getGraphProviderReadinessTarget({
-            modelProvider : 'gemini',
-            graphProvider : 'openAiCompatible',
+            modelProvider   : 'gemini',
+            graphProvider   : 'openAiCompatible',
             openAiCompatible: {
                 host : 'http://127.0.0.1:13090',
                 model: 'mlx-community/gemma-4'
@@ -940,9 +941,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
 
         expect(runSandmanModule.getGraphProviderReadinessTarget({
-            modelProvider : 'gemini',
-            graphProvider : 'ollama',
-            ollama        : {
+            modelProvider: 'gemini',
+            graphProvider: 'ollama',
+            ollama       : {
                 host : 'http://127.0.0.1:11434/',
                 model: 'gemma4:31b'
             }
@@ -956,8 +957,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
 
         expect(runSandmanModule.getGraphProviderReadinessTarget({
-            modelProvider : 'ollama',
-            graphProvider : 'openAiCompatible',
+            modelProvider   : 'ollama',
+            graphProvider   : 'openAiCompatible',
             openAiCompatible: {
                 host : 'http://127.0.0.1:13091',
                 model: 'mlx-community/gemma-4'
@@ -977,8 +978,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('records a durable provider-timeout breadcrumb without leaking secrets', async () => {
         const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
             config: {
-                modelProvider: 'openAiCompatible',
-                graphProvider: 'openAiCompatible',
+                modelProvider   : 'openAiCompatible',
+                graphProvider   : 'openAiCompatible',
                 openAiCompatible: {
                     host          : 'http://127.0.0.1:11435',
                     model         : 'mlx-community/test-model',
@@ -1041,8 +1042,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('unsupported graphProvider fails before readiness polling', async () => {
         const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
             config: {
-                modelProvider : 'gemini',
-                graphProvider : 'gemini',
+                modelProvider   : 'gemini',
+                graphProvider   : 'gemini',
                 openAiCompatible: {
                     apiKey: 'must-not-be-logged'
                 }
@@ -1056,11 +1057,11 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(result.message).toContain("Unsupported Sandman graph provider 'gemini'");
         expect(result.diagnostic).toMatchObject({
-            reason        : 'UNSUPPORTED_GRAPH_PROVIDER',
-            graphProvider : 'gemini',
-            supported     : false,
-            host          : null,
-            endpoint      : null
+            reason       : 'UNSUPPORTED_GRAPH_PROVIDER',
+            graphProvider: 'gemini',
+            supported    : false,
+            host         : null,
+            endpoint     : null
         });
     });
 
@@ -1080,9 +1081,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         };
         const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
             config: {
-                modelProvider : 'ollama',
-                graphProvider : 'ollama',
-                ollama        : {
+                modelProvider: 'ollama',
+                graphProvider: 'ollama',
+                ollama       : {
                     host          : 'http://ollama.test',
                     model         : 'gemma4:31b',
                     embeddingModel: 'qwen3-embedding'
@@ -1093,14 +1094,14 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
 
         expect(diagnostic).toMatchObject({
-            event         : 'runSandman.provider_model_residency_degraded',
-            reason        : 'PROVIDER_MODEL_RESIDENCY_DEGRADED',
-            provider      : 'ollama',
-            graphProvider : 'ollama',
-            host          : 'http://ollama.test',
-            endpoint      : '/api/tags',
+            event        : 'runSandman.provider_model_residency_degraded',
+            reason       : 'PROVIDER_MODEL_RESIDENCY_DEGRADED',
+            provider     : 'ollama',
+            graphProvider: 'ollama',
+            host         : 'http://ollama.test',
+            endpoint     : '/api/tags',
             capacity,
-            nextAction    : capacity.warning
+            nextAction   : capacity.warning
         });
 
         const result = await runSandmanModule.recordProviderReadinessFailure(diagnostic, {
@@ -1124,7 +1125,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         const result = await runSandmanModule.runSandman({
             dreamService: {
-                ready: async () => calls.push('dream.ready'),
+                ready          : async () => calls.push('dream.ready'),
                 executeRemCycle: async options => {
                     calls.push(['executeRemCycle', options]);
                     return {status: 'completed', sessionsProcessed: 2};
@@ -1179,7 +1180,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         const result = await runSandmanModule.runSandman({
             dreamService: {
-                ready: async () => {},
+                ready          : async () => {},
                 executeRemCycle: async () => ({
                     status: 'failed',
                     error : {message: 'simulated REM failure'}

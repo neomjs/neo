@@ -1,10 +1,10 @@
-import {test, expect} from '@playwright/test';
-import fs   from 'fs/promises';
-import path from 'path';
+import {test, expect}  from '@playwright/test';
+import fs              from 'fs/promises';
+import path            from 'path';
 import {fileURLToPath} from 'url';
-import Neo       from '../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../src/core/_export.mjs';
-import AiConfig from '../../../../../../ai/config.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import AiConfig        from '../../../../../../ai/config.mjs';
 import {
     Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
@@ -66,14 +66,14 @@ function createMinimalOrchestrator() {
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
 
     return Neo.create(Orchestrator, {
-        dataDir                  : '/tmp/orchestrator-test',
-        stateFile                : '/tmp/orchestrator-test/state.json',
-        logFile                  : null,
+        dataDir  : '/tmp/orchestrator-test',
+        stateFile: '/tmp/orchestrator-test/state.json',
+        logFile  : null,
         heavyMaintenanceLeasePath: `/tmp/orchestrator-test/heavy-maintenance-lease-${process.pid}-${++invariantSeq}.json`,
         taskDefinitions,
-        taskStateService         : TaskStateService,
-        healthService            : {recordTaskOutcome() {}},
-        spawnFn                  : () => { throw new Error('spawnFn not expected'); }
+        taskStateService: TaskStateService,
+        healthService   : {recordTaskOutcome() {}},
+        spawnFn         : () => { throw new Error('spawnFn not expected'); }
     });
 }
 
@@ -252,7 +252,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             modelProvider    : 'gemini',
             graphProvider    : 'ollama',
             embeddingProvider: 'openAiCompatible',
-            openAiCompatible: {
+            openAiCompatible : {
                 model         : 'shared-model',
                 embeddingModel: 'shared-model'
             },
@@ -262,14 +262,15 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             }
         })).toEqual({
             models        : ['shared-model'],
-            contextLengths: {'shared-model': 8192}
+            contextLengths: {'shared-model': 8192},
+            parallels     : {}
         });
 
         expect(buildLmsPreloadConfig({
             modelProvider    : 'openAiCompatible',
             graphProvider    : 'ollama',
             embeddingProvider: 'gemini',
-            openAiCompatible: {
+            openAiCompatible : {
                 model         : 'chat-model',
                 embeddingModel: 'embedding-model'
             },
@@ -279,10 +280,29 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             }
         })).toEqual({
             models        : ['chat-model'],
-            contextLengths: {'chat-model': 262144}
+            contextLengths: {'chat-model': 262144},
+            parallels     : {}
         })
     });
 
+    test('buildLmsPreloadConfig threads localModels.chat.parallel into a chat-only parallels map (#13700)', () => {
+        const result = buildLmsPreloadConfig({
+            modelProvider    : 'openAiCompatible',
+            graphProvider    : 'openAiCompatible',
+            embeddingProvider: 'openAiCompatible',
+            openAiCompatible : {
+                model         : 'gemma-4-31b-it',
+                embeddingModel: 'qwen3-embedding'
+            },
+            localModels: {
+                chat     : {contextLimitTokens: 131072, parallel: 1},
+                embedding: {contextLimitTokens: 32768}
+            }
+        });
+        // Chat-only: the configured slot count is keyed by the chat model id; the embedding model is
+        // intentionally absent (it keeps the lms default). Distinct from requireParallelModels.
+        expect(result.parallels).toEqual({'gemma-4-31b-it': 1});
+    });
 
 });
 
