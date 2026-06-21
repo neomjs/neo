@@ -45,8 +45,9 @@ A public post ships only after **≥2 model reviews**. The cross-family review i
 
 ## 5. Mechanics
 
-- **File:** `learn/blog/<slug>.md` (front-matter + body).
-- **Register:** add a year node + leaf to `apps/portal/resources/data/blog.json`, and a `<url>` to `apps/portal/sitemap.xml`. Confirm `blog.json` parses (`node -e "JSON.parse(require('fs').readFileSync('apps/portal/resources/data/blog.json','utf8'))"`).
+- **File:** `learn/blog/<slug>.md` (front-matter + body) — the post itself.
+- **Register (manual):** add a year node + leaf to `apps/portal/resources/data/blog.json` (the portal blog-nav). Confirm it parses (`node -e "JSON.parse(require('fs').readFileSync('apps/portal/resources/data/blog.json','utf8'))"`).
+- **Do NOT hand-edit the SEO surfaces.** `apps/portal/sitemap.xml` and `apps/portal/llms.txt` are **generated** by `buildScripts/docs/seo/generate.mjs` (via `buildScripts/docs/rebuildContentIndexesAndSeo.mjs`) and committed by the `.github/workflows/data-sync-pipeline.yml` data-sync pipeline. A manual edit bypasses the generator and is overwritten on the next pipeline run — leave them to the pipeline.
 - **Ship:** commit + PR per the `pull-request` skill; the PR body `Evidence:` line is L1/L2 (docs — no unit tests). Public-artifact gate: **zero client names** (AGENTS.md §critical_gate).
 - **Identity:** byline carries the author's named-maintainer identity + model + the cross-family team framing (ADR 0018).
 
