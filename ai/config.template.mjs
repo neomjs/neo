@@ -233,7 +233,15 @@ class Config extends ConfigProvider {
                  */
                 chat: {
                     contextLimitTokens       : leaf(131072, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(100000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
+                    safeProcessingLimitTokens: leaf(100000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number'),
+                    // lms `--parallel` request-slot count for the chat model. Each slot holds an
+                    // independent KV cache at contextLimitTokens, so the count MULTIPLIES the chat
+                    // worker's resident RAM. Default 1: the chat roles (graph extraction / session
+                    // summary / miniSummary) are lease-serialized, so concurrent demand is 1 and any
+                    // slots beyond the first are idle KV bloat. PER-MODEL knob, distinct from
+                    // requireParallelModels (how many DISTINCT models stay co-resident); both the chat
+                    // and embedding models stay loaded regardless of this value.
+                    parallel                 : leaf(1, 'NEO_LOCAL_MODELS_CHAT_PARALLEL', 'number')
                 },
                 /**
                  * @summary Embedding-model context limits in tokens.
