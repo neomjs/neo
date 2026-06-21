@@ -234,7 +234,7 @@
             "node ./buildScripts/util/check-shorthand.mjs",
             "node ./buildScripts/util/check-jsdoc-types.mjs",
             "node ./buildScripts/util/check-ticket-archaeology.mjs",
-            "node ./buildScripts/util/check-block-alignment.mjs"
+            "node ./buildScripts/util/check-block-alignment.mjs --staged"
         ],
         "test/**/*.mjs": [
             "node ./buildScripts/util/check-aiconfig-test-mutation.mjs"

@@ -295,3 +295,57 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         });
     });
 });
+
+/**
+ * Real-git integration for the --staged diff-scope. In lint-staged (pre-commit) mode the check
+ * reports only drift on the author's staged-ADDED lines — a grandfathered misalignment on an
+ * untouched line must not block an unrelated commit — reusing the shared stagedDiff helper.
+ */
+test.describe('check-block-alignment.mjs --staged diff-scope (#13720)', () => {
+    let stagedDir;
+
+    const git = (...a) => execFileSync('git', a, {cwd: stagedDir, stdio: 'ignore'});
+
+    const runStaged = (file) => {
+        try {
+            return {status: 0, output: execFileSync('node', [scriptPath, '--staged', file], {cwd: stagedDir, encoding: 'utf8', stdio: 'pipe'})};
+        } catch (error) {
+            return {status: error.status, output: (error.stderr || '') + (error.stdout || '')};
+        }
+    };
+
+    test.beforeEach(() => {
+        stagedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-blockalign-staged-'));
+        git('init');
+        git('config', 'user.email', 'test@example.com');
+        git('config', 'user.name', 'Test User');
+    });
+
+    test.afterEach(() => {
+        fs.rmSync(stagedDir, {recursive: true, force: true});
+    });
+
+    test('does NOT flag a grandfathered misalignment on an untouched line', () => {
+        const file = path.join(stagedDir, 'src.mjs');
+        // Two misaligned imports (line 1 drifts), committed = grandfathered.
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        git('add', 'src.mjs');
+        git('commit', '-m', 'init');
+        // Stage an unrelated added line (line 3); the grandfathered drift on line 1 stays untouched.
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\nexport const x = 1;\n", 'utf8');
+        git('add', 'src.mjs');
+
+        expect(runStaged('src.mjs').status).toBe(0);
+    });
+
+    test('flags a misalignment on a staged-ADDED line', () => {
+        const file = path.join(stagedDir, 'src.mjs');
+        // New file: both misaligned imports are staged-added, so line 1's drift is in scope.
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        git('add', 'src.mjs');
+
+        const r = runStaged('src.mjs');
+        expect(r.status).toBe(1);
+        expect(r.output).toContain('Misaligned');
+    });
+});
