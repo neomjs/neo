@@ -1006,6 +1006,43 @@ class GoldenPathSynthesizer extends Base {
         return JSON.parse(rawPrData);
     }
 
+    /**
+     * @summary Reads the N most-recent session summaries by timestamp metadata (newest-first).
+     *
+     * ChromaDB `.get` has no `ORDER BY`, so `.get({limit})` returns storage-order — which anchored the
+     * Frontier Baseline Vector to arbitrary (often oldest) summaries, starving the Computed Golden Path
+     * of current work. This reads summary metadatas, sorts by the summary timestamp, and reads back only
+     * the most-recent N documents. The frontier must reflect CURRENT work because the semantic pillar is
+     * the designed pathway for surfacing new (correctly low-structural-weight) issues.
+     *
+     * @param {Object} collection Summary Chroma collection (exposes async `.get`).
+     * @param {Number} n Number of most-recent summaries to return.
+     * @returns {Promise<{documents: String[]}>} The N most-recent summary documents, newest-first.
+     */
+    static async getRecentSummaryDocuments(collection, n) {
+        const meta      = await collection.get({include: ['metadatas']});
+        const resolveTs = m => {
+            const raw = m?.timestamp ?? m?.lastActivity ?? m?.updatedAt ?? m?.createdAt;
+            return Number.isFinite(Number(raw)) ? Number(raw) : (Date.parse(raw) || 0);
+        };
+
+        const recentIds = (meta?.ids || [])
+            .map((id, idx) => ({id, ts: resolveTs(meta.metadatas?.[idx])}))
+            .sort((a, b) => b.ts - a.ts)
+            .slice(0, Math.max(0, n))
+            .map(entry => entry.id);
+
+        if (recentIds.length === 0) {
+            return {documents: []};
+        }
+
+        const recent = await collection.get({ids: recentIds, include: ['documents']});
+        // Chroma `.get({ids})` does not preserve request order — re-key to the recency ranking.
+        const byId = new Map((recent?.ids || []).map((id, idx) => [id, recent.documents?.[idx]]));
+
+        return {documents: recentIds.map(id => byId.get(id)).filter(doc => doc !== undefined && doc !== null)};
+    }
+
     async synthesizeGoldenPath({
         repoEnrichmentEnabled = true,
         issuesDir = path.resolve(__dirname, '../../../resources/content/issues'),
@@ -1028,10 +1065,12 @@ class GoldenPathSynthesizer extends Base {
             return;
         }
 
-        // Generate the Frontier Baseline Vector using the most recent session memory
+        // Generate the Frontier Baseline Vector from the N MOST-RECENT session summaries.
+        // (Was `summaryColl.get({limit:2})` — storage-order, not recency — which anchored the frontier
+        // to arbitrary/old summaries so recent work never ranked into the candidate pool.)
         let frontierEmbedding = null;
         try {
-            const recent = await summaryColl.get({ limit: 2, include: ['documents'] });
+            const recent = await this.constructor.getRecentSummaryDocuments(summaryColl, 2);
 
             let frontierText = "Neo.mjs Active Strategic Context: ";
             if (recent && recent.documents && recent.documents.length > 0) {
