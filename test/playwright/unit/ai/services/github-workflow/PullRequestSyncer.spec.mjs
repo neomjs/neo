@@ -393,6 +393,66 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         expect(stats.count).toBe(0);
         await expect(fs.pathExists(activePath)).resolves.toBe(true);    // untouched (fail-safe skip)
     });
+    test('refetchPullsByNumber force-re-renders a stale PR mirror, bypassing the delta/hash gate (#13794)', async () => {
+        const prNumber = 9876;
+
+        // The mirror is cached as current (matching updatedAt) with a STALE contentHash — the bulk
+        // delta-sync would skip it (updatedAt unchanged AND hash compare). refetchPullsByNumber must
+        // force a re-render from live GitHub state regardless.
+        const metadata = {
+            pulls: {
+                [prNumber]: {
+                    state      : 'MERGED',
+                    updatedAt  : '2026-05-02T00:00:00Z',
+                    contentHash: 'STALE-HASH',
+                    path       : `resources/content/pulls/chunk-1/pr-${prNumber}.md`
+                }
+            }
+        };
+
+        // No release published after the merge → the PR resolves to the ACTIVE bucket.
+        ReleaseNotesSyncer.sortedReleases = [];
+
+        let capturedQuery = null;
+        let capturedVars  = null;
+        GraphqlService.query = async (query, vars) => {
+            capturedQuery = query;
+            capturedVars  = vars;
+
+            return {repository: {pullRequest: buildPullRequest(prNumber)}};
+        };
+
+        const stats = await PullRequestSyncer.refetchPullsByNumber([prNumber], metadata);
+
+        // Used the single-PR query with the right number — not the bulk pagination query.
+        expect(capturedQuery).toContain('FetchSinglePullForSync');
+        expect(capturedVars.prNumber).toBe(prNumber);
+
+        // Re-rendered + written to the active bucket.
+        expect(stats.refetched).toEqual({count: 1, pulls: [prNumber]});
+        const targetPath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+
+        const parsed = matter(await fs.readFile(targetPath, 'utf8'));
+        expect(parsed.data.number).toBe(prNumber);
+
+        // Metadata refreshed with the live hash (no longer the stale one) + the resolved path.
+        expect(metadata.pulls[prNumber].contentHash).not.toBe('STALE-HASH');
+        expect(metadata.pulls[prNumber].state).toBe('MERGED');
+        expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+    });
+
+    test('refetchPullsByNumber skips a PR that no longer exists on GitHub (#13794)', async () => {
+        const prNumber = 4242;
+        const metadata = {pulls: {}};
+
+        GraphqlService.query = async () => ({repository: {pullRequest: null}});
+
+        const stats = await PullRequestSyncer.refetchPullsByNumber([prNumber], metadata);
+
+        expect(stats.refetched).toEqual({count: 0, pulls: []});
+        expect(metadata.pulls[prNumber]).toBeUndefined();
+    });
 });
 
 function buildPullRequest(number) {
