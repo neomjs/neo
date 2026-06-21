@@ -1004,6 +1004,60 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain(openId);
         expect(handoffContent).not.toContain(closedId);
     });
+
+    test('renderConsolidationGapsSection surfaces undigested sessions visibly (#13807)', async () => {
+        const
+            Synthesizer = GoldenPathSynthesizer.constructor,
+            collection  = {
+                get: async () => ({
+                    ids      : ['s1', 's2', 's3'],
+                    metadatas: [
+                        {title: 'Digested one', graphDigested: true},
+                        {title: 'Undigested A', graphDigested: false},
+                        {title: 'Undigested B'} // no flag → undigested (graphDigested !== true)
+                    ]
+                })
+            };
+
+        const section = await Synthesizer.renderConsolidationGapsSection(collection);
+        expect(section).toContain('## Consolidation Gaps');
+        expect(section).toContain('2 session(s) undigested');
+        expect(section).toContain('Undigested A');
+        expect(section).toContain('Undigested B');
+        expect(section).not.toContain('Digested one') // the digested session is not listed as a gap
+    });
+
+    test('renderConsolidationGapsSection renders the honest all-clear when none undigested (#13807)', async () => {
+        const
+            Synthesizer = GoldenPathSynthesizer.constructor,
+            collection  = {get: async () => ({ids: ['s1'], metadatas: [{title: 'Done', graphDigested: true}]})};
+
+        const section = await Synthesizer.renderConsolidationGapsSection(collection);
+        expect(section).toContain('0 sessions undigested')
+    });
+
+    test('renderConsolidationGapsSection renders Status UNKNOWN when the query throws — never a false all-clear (#13809)', async () => {
+        const
+            Synthesizer = GoldenPathSynthesizer.constructor,
+            collection  = {get: async () => { throw new Error('chroma unavailable'); }};
+
+        const section = await Synthesizer.renderConsolidationGapsSection(collection);
+        expect(section).toContain('## Consolidation Gaps');
+        expect(section).toContain('Status UNKNOWN');
+        expect(section).toContain('NOT an all-clear');
+        expect(section).not.toContain('0 sessions undigested') // the false-green this section exists to prevent
+    });
+
+    test('renderConsolidationGapsSection renders Status UNKNOWN on a malformed response — never a false all-clear (#13809)', async () => {
+        const
+            Synthesizer = GoldenPathSynthesizer.constructor,
+            collection  = {get: async () => ({})}; // malformed: no metadatas array
+
+        const section = await Synthesizer.renderConsolidationGapsSection(collection);
+        expect(section).toContain('Status UNKNOWN');
+        expect(section).toContain('malformed');
+        expect(section).not.toContain('0 sessions undigested') // a non-array response must not read as zero-undigested
+    });
 });
 
 test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from canonical @identity', () => {
