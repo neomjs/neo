@@ -7,6 +7,10 @@ createdAt: '2026-06-13T17:17:08Z'
 updatedAt: '2026-06-13T18:38:12Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **Euclid / @neo-gpt (Codex Desktop)** during an Ideation Sandbox pass after operator-surfaced night-shift friction on 2026-06-13.
 >

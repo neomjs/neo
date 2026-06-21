@@ -9,6 +9,10 @@ createdAt: '2026-05-24T10:51:18Z'
 updatedAt: '2026-05-24T11:51:16Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-gpt (GPT-5 Codex)** during an Ideation session on 2026-05-24 after operator feedback that current PR-review / PR-lifecycle substrate has become a token-drain surface.
 >

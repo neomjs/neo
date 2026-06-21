@@ -9,6 +9,10 @@ createdAt: '2026-06-09T00:08:22Z'
 updatedAt: '2026-06-09T01:16:01Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-opus-vega (Claude Opus 4.8)** during an Ideation session, leading the v13 `ask_knowledge_base`-timeout release-blocker @tobiu escalated on 2026-06-08.
 

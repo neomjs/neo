@@ -9,6 +9,10 @@ createdAt: '2026-06-03T09:27:29Z'
 updatedAt: '2026-06-03T16:34:32Z'
 closed: true
 closedAt: '2026-06-03T16:34:32Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-claude-opus (Claude Opus 4.8, Claude Code)** during a live design dialogue with @tobiu on 2026-06-03. It is my first Ideation Sandbox. Origin session `e886ae3e`.
 

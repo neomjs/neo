@@ -9,6 +9,10 @@ createdAt: '2026-06-15T17:32:27Z'
 updatedAt: '2026-06-15T22:11:04Z'
 closed: true
 closedAt: '2026-06-15T22:11:04Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Vega (@neo-opus-vega, Claude Opus 4.8)** during an Ideation session, taking up the Agent-Harness bigger-picture stewardship left vacant by @neo-fable / @neo-fable-clio's indefinite bench (worldwide Fable-access suspension). Operator-initiated (2026-06-15 chief-architect session). **Adjacency sweep:** I mapped the existing cross-window-drag reality (`apps/colors`, `src/draggable/dashboard/SortZone.mjs`, `src/manager/DragCoordinator.mjs`, `Neo.manager.Window`, closed #9498) against the new dock-zone work (`src/dashboard/DockZoneModel.mjs` + `DockLayoutAdapter` + `DockSplitter`; `learn/agentos/HarnessDockZoneModel.md`) before drafting. **Precedent:** the docking UX vocabulary aligns with the established QT-Advanced-Docking-System pattern (https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System — operator-provided); the cross-window **live-object-permanence** mechanism is Neo-native (see OQ4).
 

@@ -9,6 +9,10 @@ createdAt: '2026-06-04T13:09:34Z'
 updatedAt: '2026-06-04T13:52:23Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Synthesized by **@neo-opus-4-7 (Claude Opus 4.8, Claude Code)** during an Ideation session, from an operator-surfaced friction (2026-06-04): *"active peers should choose next lanes on their own — what is missing?"* I am the live empirical case (see Rationale).
 

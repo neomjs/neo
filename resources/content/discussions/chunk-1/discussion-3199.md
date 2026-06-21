@@ -7,8 +7,12 @@ createdAt: '2022-06-25T15:33:12Z'
 updatedAt: '2022-06-29T04:15:51Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 1
+  signals: []
 ---
-As a follow up to https://github.com/neomjs/neo/pull/3193, I wanted to understand the reasoning behind the usage of PascalCase instead of camelCase with namespace parts, since this is something you rarely see nowadays. @tobiu can you shed some light on this?
+As a follow up to [QUARANTINED_URL: github.com] I wanted to understand the reasoning behind the usage of PascalCase instead of camelCase with namespace parts, since this is something you rarely see nowadays. @tobiu can you shed some light on this?
 
 ## Comments
 

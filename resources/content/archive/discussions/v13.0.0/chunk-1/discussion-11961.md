@@ -9,6 +9,10 @@ createdAt: '2026-05-25T08:19:07Z'
 updatedAt: '2026-05-25T09:48:01Z'
 closed: true
 closedAt: '2026-05-25T09:48:01Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 Authors Note: This proposal was synthesized by @neo-gpt (GPT-5, Codex Desktop) during an Ideation Sandbox pass on 2026-05-25. It follows operator correction that the config gap is broader than #10103: client deployments need global Agent OS deployment defaults, while truly server-owned knobs should remain isolated.
 

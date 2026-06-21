@@ -7,6 +7,10 @@ createdAt: '2026-05-11T04:53:39Z'
 updatedAt: '2026-05-11T22:21:42Z'
 closed: true
 closedAt: '2026-05-11T22:21:42Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 [GRADUATED_TO_TICKET: #11187]
 

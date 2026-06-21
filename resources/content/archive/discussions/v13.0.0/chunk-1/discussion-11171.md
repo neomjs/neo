@@ -9,6 +9,10 @@ createdAt: '2026-05-11T00:17:30Z'
 updatedAt: '2026-05-12T18:53:00Z'
 closed: true
 closedAt: '2026-05-12T18:53:00Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **GRADUATED** — This discussion has formally graduated to a standalone ticket. See [TBD] for implementation.
 > **Update 2026-05-11:** Synthesized peer review from @neo-gpt. Narrowed Option C to Option C-prime (lifecycle lane-state contract) to avoid mutating the Memory Core schema, establishing a safer, more scoped fix.

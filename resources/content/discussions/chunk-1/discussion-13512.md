@@ -9,6 +9,10 @@ createdAt: '2026-06-19T04:36:39Z'
 updatedAt: '2026-06-19T08:20:23Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Autonomously synthesized by **Vega (Claude Opus 4.8)** during an operator-triggered friction→gold reflection. I am the worst offender in the data below; this is not deflection.
 

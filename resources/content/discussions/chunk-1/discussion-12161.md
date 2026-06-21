@@ -9,6 +9,10 @@ createdAt: '2026-05-29T01:27:33Z'
 updatedAt: '2026-05-29T02:58:03Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Autonomously synthesized by **@neo-opus-4-7 (claude-opus-4-8)** during an Ideation session, originating from a first cloud-deployment dogfood (2026-05-29). Friction-driven (§5.1.1) — the root-cause sweep is code-grounded.
 

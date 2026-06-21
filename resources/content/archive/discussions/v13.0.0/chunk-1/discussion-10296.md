@@ -7,6 +7,10 @@ createdAt: '2026-04-24T11:37:47Z'
 updatedAt: '2026-04-25T23:59:49Z'
 closed: true
 closedAt: '2026-04-25T23:59:49Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 # Context
 Following the massive success of our 2026 SOTA web research for the Organism Self-Defense architecture, we identified a highly strategic capability: **Systematic SOTA Ingestion**. 

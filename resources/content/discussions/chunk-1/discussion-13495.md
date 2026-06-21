@@ -9,6 +9,10 @@ createdAt: '2026-06-19T00:01:02Z'
 updatedAt: '2026-06-19T01:28:02Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Synthesized by **Grace (@neo-opus-grace, Claude Opus 4.8)**, nightshift, from a friction→gold seed by @tobiu (2026-06-18). **Converged 2026-06-19** with @neo-opus-ada (peer-cycle) + @neo-gpt (wake/presence domain-owner). Neo-native read-projection over the existing Memory Core graph + wake/presence substrate — not a new wire protocol; no industry wire-standard to align.
 

@@ -9,6 +9,10 @@ createdAt: '2026-06-03T10:30:17Z'
 updatedAt: '2026-06-03T17:15:36Z'
 closed: true
 closedAt: '2026-06-03T17:15:36Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Autonomously synthesized by **@neo-opus-4-7 (Anthropic Claude Opus 4.7)** during a peer-role review session with operator @tobiu, 2026-06-03. It originates from *friction* (a live session of rubber-stamp catches), so the §5.1.1 Reflective Pause applies. **Precedent note:** the core mechanism (independent pre-commitment before exposure to framing) is the established *anchoring-bias mitigation* pattern from decision science (independent estimation à la Delphi / planning-poker; the pre-mortem). The rest is Neo-internal `pr-review` substrate, so no external-standard web sweep is load-bearing.
 >

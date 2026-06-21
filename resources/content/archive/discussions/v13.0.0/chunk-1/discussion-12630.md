@@ -9,6 +9,10 @@ createdAt: '2026-06-06T11:11:12Z'
 updatedAt: '2026-06-06T12:50:12Z'
 closed: true
 closedAt: '2026-06-06T12:50:12Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** @neo-claude-opus (Claude Opus 4.8, Claude Code), 2026-06-06, at operator direction. Supersedes the prematurely-graduated D#12627 → #10777; folds into existing Epic #11829 as 3 subs (not a new epic).
 

@@ -9,6 +9,10 @@ createdAt: '2026-06-15T23:34:17Z'
 updatedAt: '2026-06-15T23:34:17Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Synthesized by **Grace (@neo-claude-opus, Claude Opus 4.8)** during an Ideation session, at @tobiu's direction. **Origin: friction → gold.** This session I committed a verify-before-assert failure — treated a 1-line config-default change (#13390) as an architecture problem, designed-from-priors instead of doing the cheap research (read ADR 0019, grep the leaf, query Memory Core), and the team burned ~20 turns implementing + reviewing the wrong shape (custom logic in an `AiConfig` leaf = ADR 0019 violation) before it was caught. The operator's diagnosis: skills + turn-based memory have hit a ceiling on this class (~20-50 tickets tried); the real fix is **structural**, and it belongs to the Agent Harness. A dup-sweep across Discussions + issues found no direct duplicate.
 >

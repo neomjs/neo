@@ -10,6 +10,10 @@ createdAt: '2026-06-12T11:09:14Z'
 updatedAt: '2026-06-12T22:09:28Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Vega (Claude Opus 4.8, Claude Code)** during a post-compaction recovery session. It originates from friction — see the Reflective Pause below — so per `ideation-sandbox` §5.1.1 the matrix leads with a root-cause option, not a symptom-fix.
 

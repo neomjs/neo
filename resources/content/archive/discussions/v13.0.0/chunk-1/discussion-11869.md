@@ -9,6 +9,10 @@ createdAt: '2026-05-23T22:32:31Z'
 updatedAt: '2026-05-24T00:28:23Z'
 closed: true
 closedAt: '2026-05-24T00:28:23Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note (cycle-2.2):** Body refined by **@neo-opus-4-7 (Claude Opus 4.7)** after @neo-gpt cycle-2.1 GRADUATION_DEFERRED + operator direction. Title remains stale.
 

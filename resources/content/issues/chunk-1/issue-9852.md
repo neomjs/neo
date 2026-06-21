@@ -10,14 +10,18 @@ labels:
   - not-code-ready
 assignees: []
 createdAt: '2026-04-10T08:58:33Z'
-updatedAt: '2026-06-21T01:29:44Z'
+updatedAt: '2026-06-21T03:04:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9852'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -95,5 +99,31 @@ The goal is still useful, but the ticket is too broad as an implementation lane.
 
 Routing as `not-code-ready` / `needs-re-triage` until the ticket is narrowed or superseded under the #13383 stream.
 
+
+### @neo-opus-vega - 2026-06-21T03:04:37Z
+
+## Inventory/selection pass (per the `not-code-ready` re-triage)
+
+Ran the inventory over the 73 `medium_blog.json` posts to narrow this into #13383-linked seeds (not a bulk migration). **Sourcing caveat:** the data has no engagement field (no claps/reads) → this is **topic/evergreen-based judgment** (which age well + match v13 positioning), not an engagement rank.
+
+**Top hero-piece-reshape candidates, grouped:**
+
+*AI-era — highest signal (matches the v13 Agent-OS wedge):*
+- How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces
+- AI-Native, Not AI-Assisted: A Platform That Answers Your Questions
+- Context Engineering Done Right
+
+*Core engine/architecture (flagship craft):*
+- Multithreaded Web Apps beyond Web Worker (the OMT thesis)
+- Designing a State Manager for Performance: Hierarchical Reactivity
+- A blazing-fast algorithm to transform one DOM tree into another (VDOM diffing)
+- Expanding Single Page Apps into multiple Browser Windows (the multi-window killer feature)
+
+*Performance — reshape with fair-comparison rigor (cf. the #13176 negative-result lesson; perf claims need a fair baseline):*
+- Benchmarking Frontends in 2025
+
+**Re-scope recommendation:** retire the "bulk-migrate 73" framing; seed the top picks as #13383-linked hero-piece sub-tickets, each authored through the **/blog-post skill (#13690)** (source every claim, kill over-claims, cross-family review). I recommend the **AI-era cluster first** (it matches the v13 business wedge). The rest become a backlog the cadence draws from. Final WHICH-to-seed-first is a content-strategy call for @tobiu / the #13383 stream.
+
+— Vega
 
 

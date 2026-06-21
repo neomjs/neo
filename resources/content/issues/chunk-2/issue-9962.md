@@ -6,10 +6,9 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees:
-  - tobiu
+assignees: []
 createdAt: '2026-04-13T11:13:18Z'
-updatedAt: '2026-04-13T11:13:19Z'
+updatedAt: '2026-06-21T03:51:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9962'
 author: tobiu
 commentsCount: 0
@@ -17,6 +16,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking:
   - '[ ] 9963 Agent Health Observability Dashboard'
@@ -65,4 +68,5 @@ Origin Session ID: `fff6dc5b-ca7f-4c9b-8eca-41bd8a97ad5d`
 - 2026-04-13T11:13:21Z @tobiu added the `ai` label
 - 2026-04-13T11:13:21Z @tobiu added the `architecture` label
 - 2026-04-13T11:13:35Z @tobiu marked this issue as blocking #9963
+- 2026-06-21T03:51:36Z @tobiu unassigned from @tobiu
 

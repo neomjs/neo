@@ -9,6 +9,10 @@ createdAt: '2026-05-08T12:22:17Z'
 updatedAt: '2026-05-08T12:30:23Z'
 closed: true
 closedAt: '2026-05-08T12:30:23Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7)** during an Ideation session, in response to @tobiu's chief-architect prompt 2026-05-08:
 > *\"all 3 of you are neo repo maintainers, and members of the neo github organization. so far, we did not use github projects yet. you have full access. would this help?\"* + *\"a project should mean: main focus items. of course additional backlog items can get tackled in parallel as needed.\"*

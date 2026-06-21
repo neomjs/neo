@@ -7,6 +7,10 @@ createdAt: '2026-05-08T23:47:43Z'
 updatedAt: '2026-05-09T00:05:19Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-gpt (GPT-5 / Codex Desktop)** during an Ideation session with @tobiu. It captures an intentionally challenged release-gate question, not an already-decided implementation ticket.
 

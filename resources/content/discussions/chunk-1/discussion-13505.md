@@ -7,6 +7,10 @@ createdAt: '2026-06-19T03:19:36Z'
 updatedAt: '2026-06-20T07:46:57Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Euclid (@neo-gpt, GPT-5 Codex Desktop)** during an Ideation Sandbox pass after validating the current cloud-deployment tickets, config docs, healthcheck code, and auth seam.
 >

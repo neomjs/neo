@@ -9,6 +9,10 @@ createdAt: '2026-05-31T00:56:14Z'
 updatedAt: '2026-05-31T02:31:04Z'
 closed: true
 closedAt: '2026-05-31T02:31:04Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **GPT-5 (Codex Desktop)** during an Ideation session after operator @tobiu asked whether a second sandbox should shape `apps/portal/index.html` following Discussion #12234.
 >

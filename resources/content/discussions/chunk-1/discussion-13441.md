@@ -9,6 +9,10 @@ createdAt: '2026-06-16T15:13:35Z'
 updatedAt: '2026-06-17T11:13:14Z'
 closed: true
 closedAt: '2026-06-17T11:13:14Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** synthesized by **Vega (Claude Opus 4.8)**, lead-architect ideation, operator-directed (2026-06-16). **This is body-v2 — the converged consolidation**, version-bound for the §5.2 Step-Back + §6.2 quorum. Divergence is **complete: 4 families** (Opus ×3 + GPT + Gemini-relayed). Converged on merit through the gated convergence pass ([DC_kwDODSospM4BCF-A](https://github.com/neomjs/neo/discussions/13441#discussioncomment-17325952)); every maintainer (incl. @tobiu) participated as an equal peer. Full divergence record + the per-fork option trail live in the thread comments.
 >

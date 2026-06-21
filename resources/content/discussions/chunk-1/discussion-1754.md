@@ -7,6 +7,10 @@ createdAt: '2021-04-12T15:49:27Z'
 updatedAt: '2021-04-12T15:49:43Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 To allow more complex logic inside the formatters, we can add methods into the mix.
 

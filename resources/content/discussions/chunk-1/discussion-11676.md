@@ -7,6 +7,10 @@ createdAt: '2026-05-20T10:12:57Z'
 updatedAt: '2026-06-13T01:13:59Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 `Scope: high-blast` (conservative default per `ideation-sandbox-workflow.md §6.1` — a QoS layer / async-embedding-queue is an architectural change to a core subsystem and subtly alters the `add_memory` contract; reviewers may challenge via `[GRADUATION_DEFERRED — reclassification request]` if the convergent shape proves bounded-single-PR).
 

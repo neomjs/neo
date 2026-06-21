@@ -7,6 +7,10 @@ createdAt: '2026-04-28T21:37:50Z'
 updatedAt: '2026-04-28T23:01:25Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 # Ideation: Triad Consensus & Social Mechanics (swarm-consensus)
 

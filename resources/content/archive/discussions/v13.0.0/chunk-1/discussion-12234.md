@@ -7,6 +7,10 @@ createdAt: '2026-05-30T22:36:54Z'
 updatedAt: '2026-05-31T02:19:12Z'
 closed: true
 closedAt: '2026-05-31T02:19:12Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **`[GRADUATED_TO_TICKET]` 2026-05-31** → ADR 0018 §2.7 OD-1 amended (canonical apex); machine-spec emitted to rollout Epic #12225. Full cross-family triad. Final apex wording authored by operator @tobiu.
 

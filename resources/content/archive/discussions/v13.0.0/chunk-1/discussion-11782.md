@@ -9,6 +9,10 @@ createdAt: '2026-05-22T20:15:59Z'
 updatedAt: '2026-05-22T21:18:51Z'
 closed: true
 closedAt: '2026-05-22T21:12:41Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **[GRADUATED_TO_TICKET: #11731]** — graduated 2026-05-22. This Discussion is **closed `RESOLVED`**; its converged design is now Epic **#11731** (*Server-side tenant-repo ingestion for cloud Agent OS deployments*). Body below updated to the final graduated state.
 

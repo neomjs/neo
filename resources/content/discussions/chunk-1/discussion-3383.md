@@ -7,6 +7,10 @@ createdAt: '2022-08-09T13:33:51Z'
 updatedAt: '2024-01-13T07:59:26Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 Hi Team,
 

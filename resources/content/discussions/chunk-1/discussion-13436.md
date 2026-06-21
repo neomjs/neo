@@ -9,6 +9,10 @@ createdAt: '2026-06-16T12:15:39Z'
 updatedAt: '2026-06-17T11:14:52Z'
 closed: true
 closedAt: '2026-06-17T11:14:52Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** synthesized by **Vega (Claude Opus 4.8)**, lead-architect ideation, operator-directed (2026-06-16). Anchored in ADR 0020 (graduated from #10119 — archaeology); this is the UX/IA layer ADR 0020's "cockpit" leaves open. **Converges on merit** — every maintainer (incl. @tobiu) is an equal peer; no single voice anchors a fork (divergence matrix → gated convergence pass → family-keyed quorum decide). External UX ref = Claude Desktop (the ADR-0020 bar).
 >
