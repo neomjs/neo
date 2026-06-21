@@ -1,5 +1,10 @@
-import {test, expect}                    from '@playwright/test';
-import {extractComment, findTicketRefs}  from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
+import {test, expect}                       from '@playwright/test';
+import {execFileSync}                       from 'node:child_process';
+import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir}                             from 'node:os';
+import path                                 from 'node:path';
+import {extractComment, findTicketRefs}     from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
+import {getStagedAddedLines}                from '../../../../../../buildScripts/util/stagedDiff.mjs';
 
 /**
  * Self-test for the ticket-archaeology guard: the mechanical replacement for the discipline-only
@@ -67,5 +72,76 @@ test.describe('check-ticket-archaeology guard', () => {
         const state = {inBlock: false};
         extractComment('/** opens */', state);
         expect(state.inBlock).toBe(false)
+    });
+});
+
+/**
+ * Real-git integration for the staged-mode diff-scope. Exercises the exact filter
+ * composition main() runs in argv-files mode — findTicketRefs scoped to getStagedAddedLines —
+ * against a real staged repo, without invoking the commander CLI (the tempDir has no node_modules).
+ * Covers: refs scoped to staged-added lines, grandfathered refs on untouched lines NOT re-flagged,
+ * a quoted filename (the shell-interpolation fail-open regression), and the null fail-closed path.
+ */
+test.describe('check-ticket-archaeology staged-mode diff-scope (#13717)', () => {
+    let tempDir;
+
+    const git = (...args) => execFileSync('git', args, {cwd: tempDir, stdio: 'ignore'});
+
+    const stagedHits = (content, file) => {
+        const added = getStagedAddedLines(file, tempDir);
+        return findTicketRefs(content).filter(({line}) => !added || added.has(line));
+    };
+
+    test.beforeEach(() => {
+        tempDir = mkdtempSync(path.join(tmpdir(), 'neo-archaeology-staged-'));
+        git('init');
+        git('config', 'user.email', 'test@example.com');
+        git('config', 'user.name', 'Test User');
+    });
+
+    test.afterEach(() => {
+        rmSync(tempDir, {recursive: true, force: true});
+    });
+
+    test('scopes a flagged ref to a staged-ADDED line', () => {
+        const content = '// see #12345\nexport const a = 1;\n';
+        writeFileSync(path.join(tempDir, 'src.mjs'), content);
+        git('add', 'src.mjs');
+
+        expect(stagedHits(content, 'src.mjs').map(h => h.line)).toEqual([1]);
+    });
+
+    test('does NOT flag a grandfathered ref on an untouched line', () => {
+        const filePath = path.join(tempDir, 'src.mjs');
+        writeFileSync(filePath, '// legacy ref #11111\nexport const a = 1;\n');
+        git('add', 'src.mjs');
+        git('commit', '-m', 'init');
+
+        const content = '// legacy ref #11111\nexport const a = 1;\nexport const b = 2;\n';
+        writeFileSync(filePath, content);
+        git('add', 'src.mjs');
+
+        // findTicketRefs still sees the legacy ref on line 1, but it is not a staged-added line → dropped.
+        expect(findTicketRefs(content).map(h => h.line)).toEqual([1]);
+        expect(stagedHits(content, 'src.mjs')).toEqual([]);
+    });
+
+    test('fails CLOSED on a quoted filename — execFileSync reads the diff so the added ref stays scoped in', () => {
+        const name    = 'a"b.mjs';
+        const content = '// added ref #12345\nexport const a = 1;\n';
+        writeFileSync(path.join(tempDir, name), content);
+        git('add', name);
+
+        // The old shell-interpolated git command broke on the quote (empty diff → fail-open);
+        // execFileSync (argv array) reads it correctly, so the added ref stays flagged.
+        expect(stagedHits(content, name).map(h => h.line)).toEqual([1]);
+    });
+
+    test('fails CLOSED when detection is unavailable — null added-lines flags every finding', () => {
+        const content = '// see #12345\nexport const a = 1;\n';
+        const added   = getStagedAddedLines('nope.mjs', '/nonexistent-neo-dir');
+
+        expect(added).toBeNull();
+        expect(findTicketRefs(content).filter(({line}) => !added || added.has(line)).map(h => h.line)).toEqual([1]);
     });
 });
