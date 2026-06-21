@@ -47,7 +47,7 @@ class GeminiProvider extends Base {
      */
     mapToolSchema(tool) {
         // Deep clone to avoid mutating original schema
-        const parameters = JSON.parse(JSON.stringify(tool.inputSchema || { type: 'object', properties: {} }));
+        const parameters = Neo.clone(tool.inputSchema || { type: 'object', properties: {} }, true);
 
         const uppercaseTypes = (obj) => {
             if (obj && typeof obj === 'object') {
