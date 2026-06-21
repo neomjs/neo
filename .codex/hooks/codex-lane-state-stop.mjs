@@ -17,6 +17,7 @@ import {pathToFileURL} from 'node:url';
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
 import {decideStopHookAction,
         isOperatorInLoop,
+        LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 import {buildDeferenceReminder,
@@ -281,7 +282,9 @@ export function extractPromptingText(input = {}) {
  * @returns {String}
  */
 export function buildNoHoldReminder(verdictReason) {
-    return `No-hold reminder: ${verdictReason}. There is no hold state: continue concrete work on the active lane, perform an assigned review that advances a named lane, or pick a fresh claimable lane. Passive waiting is not a terminal.`;
+    return `No-hold reminder: ${verdictReason}. There is no hold state: continue concrete work on the active lane, perform an assigned review that advances a named lane, or pick a fresh claimable lane. Passive waiting is not a terminal.
+
+${LANE_STATE_SCHEMA_HINT}`;
 }
 
 /**

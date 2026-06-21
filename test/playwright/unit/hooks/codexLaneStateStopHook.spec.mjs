@@ -51,6 +51,19 @@ test.describe('codex-lane-state-stop - contract boundary', () => {
         expect(reason).toContain('Passive waiting is not a terminal');
     });
 
+    test('the no-hold reminder shows the fenced lane-state JSON schema', () => {
+        const reason = buildNoHoldReminder('no lane-state block emitted at turn-terminal');
+
+        expect(reason).toContain('```lane-state');
+        expect(reason).toContain('"wakeDisposition":"awareness"');
+        expect(reason).toContain('"laneContinuation":"next-lane"');
+        expect(reason).toContain('"namedGates":[]');
+        expect(reason).toContain('"awaitingOwnPrOnly":false');
+        expect(reason).toContain('awaitingOwnPrOnly:true is invalid');
+        expect(reason).toContain('same-turn checkedAt');
+        expect(reason).toContain('field "mergedAt"');
+    });
+
     test('payload shape capture is redacted to field names and value types', () => {
         expect(summarizePayloadShape({
             session_id            : 's',
