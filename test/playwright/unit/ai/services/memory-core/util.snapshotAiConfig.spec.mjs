@@ -61,21 +61,22 @@ test.describe('Neo.ai test-isolation — snapshotAiConfig on the real aiConfig P
     });
 
     test('restores an existing leaf on the real Provider singleton via the set trap', () => {
-        // handoffFilePath is a declared scalar leaf, not a storage/DB path, so this
-        // snapshot→mutate→restore round-trip cannot bleed test state into a live DB (B4). restore()
-        // runs in `finally`, so the shared singleton returns to its captured value even if the
-        // mid-flight assertion throws.
-        const original = aiConfig.handoffFilePath,
-              restore  = snapshotAiConfig(aiConfig, ['handoffFilePath']);
+        // handoffFilePathProd is a declared scalar leaf (the formula's prod input), not a storage/DB
+        // path, so this snapshot→mutate→restore round-trip cannot bleed test state into a live DB
+        // (B4). The active `handoffFilePath` is now a read-only computed formula, so the set trap is
+        // exercised on its writable underlying leaf. restore() runs in `finally`, so the shared
+        // singleton returns to its captured value even if the mid-flight assertion throws.
+        const original = aiConfig.handoffFilePathProd,
+              restore  = snapshotAiConfig(aiConfig, ['handoffFilePathProd']);
 
         try {
-            aiConfig.handoffFilePath = '/tmp/__neo_probe_handoff__.md';
-            expect(aiConfig.handoffFilePath).toBe('/tmp/__neo_probe_handoff__.md') // set trap wrote through
+            aiConfig.handoffFilePathProd = '/tmp/__neo_probe_handoff__.md';
+            expect(aiConfig.handoffFilePathProd).toBe('/tmp/__neo_probe_handoff__.md') // set trap wrote through
         } finally {
             restore()
         }
 
-        expect(aiConfig.handoffFilePath).toBe(original) // get trap reads the restored value
+        expect(aiConfig.handoffFilePathProd).toBe(original) // get trap reads the restored value
     });
 
     test('refuses an absent leaf it cannot undo, instead of returning a leaky restore', () => {

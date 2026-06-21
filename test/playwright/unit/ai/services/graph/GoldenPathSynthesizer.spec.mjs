@@ -13,13 +13,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
-import os             from 'os';
-import child_process  from 'child_process';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import fs                    from 'fs';
+import path                  from 'path';
+import os                    from 'os';
+import child_process         from 'child_process';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
@@ -63,8 +63,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const testDbPath = path.join(tmpDir, testDbName);
         aiConfig.storagePaths.graph = testDbPath;
 
-        tmpHandoffFile = path.join(tmpDir, `mock_sandman_handoff_${process.pid}_${Date.now()}.md`);
-        aiConfig.handoffFilePath = tmpHandoffFile;
+        // Read the resolved per-worker test handoff path (a computed formula under UNIT_TEST_MODE);
+        // the writer targets the same resolved path, so the read-backs match. Mutating
+        // aiConfig.handoffFilePath would NOT write through the formula (a read-only computed leaf).
+        tmpHandoffFile = aiConfig.handoffFilePath;
 
         const GoldenPathSynthesizerModule = await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs');
         GoldenPathSynthesizer = GoldenPathSynthesizerModule.default;
@@ -132,11 +134,11 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
 
         expect(Synthesizer.getCoreSwarmAgentFamilies()).toMatchObject({
-            'neo-opus-grace' : 'claude',
+            'neo-opus-grace': 'claude',
             'neo-gemini-pro': 'gemini',
-            'neo-gpt'           : 'gpt',
-            'neo-opus-ada'      : 'claude',
-            'neo-opus-vega'     : 'claude'
+            'neo-gpt'       : 'gpt',
+            'neo-opus-ada'  : 'claude',
+            'neo-opus-vega' : 'claude'
         });
 
         expect(Synthesizer.getAgentLogins()).toEqual(expect.arrayContaining([
@@ -207,15 +209,15 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         // Mock gh pr list output
         const mockPrData = [
             {
-                number: 11178,
-                url: "https://github.com/neomjs/neo/pull/11178",
-                author: { login: "neo-gemini-pro" },
-                title: "feat(ai): Automate PR Cycle State Extraction",
-                body: "lane-state: AWAITING_REVIEW\nCycle 2",
-                createdAt: "2026-05-11T00:00:00Z",
-                headRefOid: "abcdef1234567890",
+                number        : 11178,
+                url           : "https://github.com/neomjs/neo/pull/11178",
+                author        : { login: "neo-gemini-pro" },
+                title         : "feat(ai): Automate PR Cycle State Extraction",
+                body          : "lane-state: AWAITING_REVIEW\nCycle 2",
+                createdAt     : "2026-05-11T00:00:00Z",
+                headRefOid    : "abcdef1234567890",
                 reviewRequests: [{ login: "neo-opus-ada" }],
-                reviews: [
+                reviews       : [
                     { state: "CHANGES_REQUESTED", body: "Needs more scope reduction.", submittedAt: "2026-05-11T00:00:00Z", author: {login: "neo-opus-ada"} }
                 ],
                 comments: []
@@ -483,8 +485,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             createdAt: `2026-05-${String(number).padStart(2, '0')}T00:00:00Z`,
             headRefOid: `sha-${number}`,
             reviewRequests: [],
-            reviews: number === 6 ? [{state: 'APPROVED', body: 'LGTM', submittedAt: '2026-05-06T01:00:00Z', author: {login: 'neo-opus-ada'}}] : [],
-            comments: []
+            reviews       : number === 6 ? [{state: 'APPROVED', body: 'LGTM', submittedAt: '2026-05-06T01:00:00Z', author: {login: 'neo-opus-ada'}}] : [],
+            comments      : []
         }));
 
         try {
@@ -545,8 +547,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
     test('renderStaleAssignmentCandidatesSection caps noisy local issue sync output', () => {
         const candidates = Array.from({length: 3}, (_, index) => ({
-            assignees     : ['neo-gpt'],
-            daysIdle      : 10 + index,
+            assignees: ['neo-gpt'],
+            daysIdle : 10 + index,
             lastActivityAt: `2026-05-0${index + 1}T00:00:00.000Z`,
             lastActivityBy: 'neo-gpt',
             number        : 9200 + index,
@@ -682,11 +684,11 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         try {
             const candidates = buildSilentThreadCandidates({
                 issuesDir,
-                now        : new Date('2026-05-28T00:00:00Z'),
-                goldenIds  : new Set(['issue-9304']),
+                now         : new Date('2026-05-28T00:00:00Z'),
+                goldenIds   : new Set(['issue-9304']),
                 graphService: null,
-                minScore   : 14,
-                thresholdMs: 14 * 24 * 60 * 60 * 1000
+                minScore    : 14,
+                thresholdMs : 14 * 24 * 60 * 60 * 1000
             });
 
             expect(candidates.map(candidate => candidate.number)).toEqual([9307, 9301]);
@@ -794,17 +796,17 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const closedId = `discussion-closed-${Date.now()}`;
 
         GraphService.upsertNode({
-            id: openId,
-            type: 'DISCUSSION',
-            name: 'Open Discussion Fixture',
-            state: 'OPEN',
+            id        : openId,
+            type      : 'DISCUSSION',
+            name      : 'Open Discussion Fixture',
+            state     : 'OPEN',
             properties: {state: 'OPEN', title: 'Open Discussion Fixture'}
         });
         GraphService.upsertNode({
-            id: closedId,
-            type: 'DISCUSSION',
-            name: 'Closed Discussion Fixture',
-            state: 'CLOSED',
+            id        : closedId,
+            type      : 'DISCUSSION',
+            name      : 'Closed Discussion Fixture',
+            state     : 'CLOSED',
             properties: {state: 'CLOSED', title: 'Closed Discussion Fixture', closed: true}
         });
 
@@ -840,10 +842,10 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
 
     // `@`-stripped login → modelFamily, matching getCoreSwarmAgentFamilies().
     const agentFamilies = {
-        'neo-gpt'        : 'gpt',
+        'neo-gpt'       : 'gpt',
         'neo-opus-grace': 'claude',
-        'neo-opus-ada'   : 'claude',
-        'neo-opus-vega'  : 'claude'
+        'neo-opus-ada'  : 'claude',
+        'neo-opus-vega' : 'claude'
     };
 
     test.beforeAll(async () => {
