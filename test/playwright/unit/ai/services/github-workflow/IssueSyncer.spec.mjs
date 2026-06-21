@@ -18,6 +18,7 @@ import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
+import matter          from 'gray-matter';
 import path            from 'path';
 
 /**
@@ -200,6 +201,56 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
+    });
+
+    test('sync write-boundary defangs untrusted issue bodies and comments before local markdown persistence (#13691)', async () => {
+        const externalComment = buildComment(1);
+        externalComment.id     = 'IC_external';
+        externalComment.author = {login: 'external-reviewer'};
+        externalComment.body   = 'Useful critique, then a watering-hole URL: https://comment.example/payload';
+
+        const trustedComment = buildComment(2);
+        trustedComment.id     = 'IC_trusted';
+        trustedComment.author = {login: 'neo-gpt'};
+        trustedComment.body   = 'Trusted maintainer source link stays raw: https://github.com/neomjs/neo';
+
+        const mockIssue = buildMockIssue({
+            number       : 42045,
+            title        : 'Mock issue — contentTrust sync persistence #13691',
+            timelineFirst: [externalComment, trustedComment],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        mockIssue.author = {login: 'external-author'};
+        mockIssue.body   = 'External root payload with URL https://root.example/landing';
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(mockIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {issues: {}};
+        const stats    = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+
+        expect(stats.refetched.count).toBe(1);
+        expect(stats.errors).toHaveLength(0);
+
+        const writtenPath = path.resolve(aiConfig.projectRoot, metadata.issues[mockIssue.number].path);
+        const written     = await fs.readFile(writtenPath, 'utf-8');
+        const parsed      = matter(written);
+
+        expect(parsed.data.contentTrust.projected).toBe(true);
+        expect(parsed.data.contentTrust.quarantined).toBe(2);
+
+        expect(parsed.content).toContain('[QUARANTINED_URL: root.example]');
+        expect(parsed.content).toContain('[QUARANTINED_URL: comment.example]');
+        expect(parsed.content).not.toContain('https://root.example');
+        expect(parsed.content).not.toContain('https://comment.example');
+
+        expect(parsed.content).toContain('https://github.com/neomjs/neo');
     });
 
     test('closed-post-latest-release issue lands in active when no archive-version applies (#11360 supersedes #11288 unversioned-target scenario)', async () => {
@@ -458,11 +509,11 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         GraphqlService.query = async (query) => {
             if (query.includes('FetchIssuesForSync')) {
                 return {
-                    rateLimit: { cost: 1, remaining: 4999, resetAt: '2026-05-13T11:00:00Z' },
+                    rateLimit : { cost: 1, remaining: 4999, resetAt: '2026-05-13T11:00:00Z' },
                     repository: {
                         issues: {
                             pageInfo: { hasNextPage: false, endCursor: null },
-                            nodes: [structuredClone(mockIssue)]
+                            nodes   : [structuredClone(mockIssue)]
                         }
                     }
                 };
@@ -485,13 +536,13 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const metadata = {
             issues: {
                 [mockIssue.number]: {
-                    state: 'CLOSED',
-                    path: originalOldPath,
-                    updatedAt: '2026-05-12T10:00:00Z',
-                    closedAt: '2026-05-12T10:00:00Z', // original date
-                    milestone: null, // original milestone
-                    title: mockIssue.title,
-                    contentHash: 'somehash',
+                    state        : 'CLOSED',
+                    path         : originalOldPath,
+                    updatedAt    : '2026-05-12T10:00:00Z',
+                    closedAt     : '2026-05-12T10:00:00Z', // original date
+                    milestone    : null, // original milestone
+                    title        : mockIssue.title,
+                    contentHash  : 'somehash',
                     commentsTotal: 0
                 }
             }
@@ -538,11 +589,11 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         GraphqlService.query = async (query) => {
             if (query.includes('FetchIssuesForSync')) {
                 return {
-                    rateLimit: { cost: 1, remaining: 4999, resetAt: '2026-05-13T11:00:00Z' },
+                    rateLimit : { cost: 1, remaining: 4999, resetAt: '2026-05-13T11:00:00Z' },
                     repository: {
                         issues: {
                             pageInfo: { hasNextPage: false, endCursor: null },
-                            nodes: [structuredClone(mockIssueDropped), structuredClone(mockIssueStored)]
+                            nodes   : [structuredClone(mockIssueDropped), structuredClone(mockIssueStored)]
                         }
                     }
                 };
@@ -606,8 +657,8 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
                     source    : null // deleted source
                 }
             ],
-            hasNextPage  : false,
-            endCursor    : null
+            hasNextPage: false,
+            endCursor  : null
         });
 
         GraphqlService.query = async (query) => {
@@ -649,19 +700,19 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // This test exercises EVERY nullable frontmatter site simultaneously ("ghost issue")
         // to prevent future whack-a-mole regressions.
         const ghostIssue = {
-            number   : 42044,
-            title    : null, // null title
-            body     : 'Mock body for ghost issue regression #11481.',
-            state    : 'CLOSED',
-            createdAt: '2026-05-16T17:00:00Z',
-            updatedAt: '2026-05-16T18:00:00Z',
-            closedAt : '2026-05-16T17:30:00Z',
-            url      : 'https://github.com/neomjs/neo/issues/42044',
-            author   : null, // deleted GitHub user (Ghost) — the empirical crash
-            labels   : {nodes: [null, {name: null}, {name: 'bug'}]}, // null entries + null-name + valid
-            assignees: {nodes: [null, {login: null}, {login: 'tobiu'}]}, // same shape: null entries + null-login + valid
-            milestone: null,
-            parent   : null,
+            number          : 42044,
+            title           : null, // null title
+            body            : 'Mock body for ghost issue regression #11481.',
+            state           : 'CLOSED',
+            createdAt       : '2026-05-16T17:00:00Z',
+            updatedAt       : '2026-05-16T18:00:00Z',
+            closedAt        : '2026-05-16T17:30:00Z',
+            url             : 'https://github.com/neomjs/neo/issues/42044',
+            author          : null, // deleted GitHub user (Ghost) — the empirical crash
+            labels          : {nodes: [null, {name: null}, {name: 'bug'}]}, // null entries + null-name + valid
+            assignees       : {nodes: [null, {login: null}, {login: 'tobiu'}]}, // same shape: null entries + null-login + valid
+            milestone       : null,
+            parent          : null,
             subIssues       : {nodes: [null, {state: 'OPEN', number: 100, title: null}, {state: 'CLOSED', number: 101, title: 'valid sub'}]},
             subIssuesSummary: {total: 2, completed: 1, percentCompleted: 50},
             blockedBy       : {nodes: [null, {state: 'OPEN', number: 200, title: null}]},
@@ -789,23 +840,23 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const metadata = {
             issues: {
                 [issueAMigrationShape.number]: {
-                    state       : 'CLOSED',
-                    path        : issueAOldRelPath,
-                    updatedAt   : '2026-05-14T10:00:00Z',
-                    closedAt    : '2026-05-15T10:00:00Z',
-                    milestone   : null,
-                    title       : issueAMigrationShape.title,
-                    contentHash : 'hashA',
+                    state        : 'CLOSED',
+                    path         : issueAOldRelPath,
+                    updatedAt    : '2026-05-14T10:00:00Z',
+                    closedAt     : '2026-05-15T10:00:00Z',
+                    milestone    : null,
+                    title        : issueAMigrationShape.title,
+                    contentHash  : 'hashA',
                     commentsTotal: 0
                 },
                 [issueBSemverShift.number]: {
-                    state       : 'CLOSED',
-                    path        : issueBOldRelPath,
-                    updatedAt   : '2026-05-14T10:00:00Z',
-                    closedAt    : '2026-05-15T10:00:00Z',
-                    milestone   : null,
-                    title       : issueBSemverShift.title,
-                    contentHash : 'hashB',
+                    state        : 'CLOSED',
+                    path         : issueBOldRelPath,
+                    updatedAt    : '2026-05-14T10:00:00Z',
+                    closedAt     : '2026-05-15T10:00:00Z',
+                    milestone    : null,
+                    title        : issueBSemverShift.title,
+                    contentHash  : 'hashB',
                     commentsTotal: 0
                 }
             }
@@ -912,13 +963,13 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const metadata = {
             issues: {
                 [issueUnchangedAtCanonicalBucket.number]: {
-                    state       : 'CLOSED',
-                    path        : issueRelPath,
-                    updatedAt   : '2025-11-29T11:44:14Z',
-                    closedAt    : '2025-11-29T11:41:17Z',
-                    milestone   : null, // KEY: legacy entry with no milestone data
-                    title       : issueUnchangedAtCanonicalBucket.title,
-                    contentHash : 'hashUnchanged',
+                    state        : 'CLOSED',
+                    path         : issueRelPath,
+                    updatedAt    : '2025-11-29T11:44:14Z',
+                    closedAt     : '2025-11-29T11:41:17Z',
+                    milestone    : null, // KEY: legacy entry with no milestone data
+                    title        : issueUnchangedAtCanonicalBucket.title,
+                    contentHash  : 'hashUnchanged',
                     commentsTotal: 0
                 }
             }
@@ -983,7 +1034,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         const metadata = {
             lastSync: '2026-01-01T00:00:00Z',
-            issues: {
+            issues  : {
                 [N]: {state: 'CLOSED', updatedAt: ts, closedAt: ts, milestone: 'v12.0.0', path: cachedRel, contentHash: 'h', commentsTotal: 0}
             }
         };
@@ -1019,7 +1070,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         const metadata = {
             releases: {},
-            issues: {
+            issues  : {
                 [N]: {state: 'CLOSED', closedAt: '2024-09-15T00:00:00Z', updatedAt: '2024-09-15T00:00:00Z', milestone: null, path: wrongRel, contentHash: 'h'}
             }
         };
@@ -1065,7 +1116,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         const metadata = {
             releases: {},
-            issues: {[N]: {state: 'CLOSED', closedAt: '2024-09-15T00:00:00Z', updatedAt: '2024-09-15T00:00:00Z', milestone: null, path: wrongRel, contentHash: 'h'}}
+            issues  : {[N]: {state: 'CLOSED', closedAt: '2024-09-15T00:00:00Z', updatedAt: '2024-09-15T00:00:00Z', milestone: null, path: wrongRel, contentHash: 'h'}}
         };
 
         try {
@@ -1114,8 +1165,8 @@ function buildCrossRef(i) {
     return {
         __typename: 'CrossReferencedEvent',
         createdAt : `2026-04-19T11:${minute}:00Z`,
-        actor     : {login: 'tobiu'},
-        source    : {__typename: 'Issue', number: 10000 + i}
+        actor : {login: 'tobiu'},
+        source: {__typename: 'Issue', number: 10000 + i}
     };
 }
 
@@ -1133,11 +1184,11 @@ function buildMockIssue({number, title, timelineFirst, hasNextPage, endCursor}) 
         updatedAt: '2026-04-19T12:00:00Z',
         closedAt : null,
         url      : `https://github.com/neomjs/neo/issues/${number}`,
-        author   : {login: 'tobiu'},
-        labels   : {nodes: [{name: 'bug'}]},
-        assignees: {nodes: [{login: 'tobiu'}]},
-        milestone: null,
-        parent   : null,
+        author          : {login: 'tobiu'},
+        labels          : {nodes: [{name: 'bug'}]},
+        assignees       : {nodes: [{login: 'tobiu'}]},
+        milestone       : null,
+        parent          : null,
         subIssues       : {nodes: []},
         subIssuesSummary: {total: 0, completed: 0, percentCompleted: 0},
         blockedBy       : {nodes: []},

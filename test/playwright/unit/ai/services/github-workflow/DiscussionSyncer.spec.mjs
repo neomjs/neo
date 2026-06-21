@@ -13,11 +13,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs-extra';
-import path           from 'path';
+import {test, expect}               from '@playwright/test';
+import Neo                          from '../../../../../../src/Neo.mjs';
+import * as core                    from '../../../../../../src/core/_export.mjs';
+import fs                           from 'fs-extra';
+import matter                       from 'gray-matter';
+import path                         from 'path';
 import {FETCH_DISCUSSIONS_FOR_SYNC} from '../../../../../../ai/services/github-workflow/queries/discussionQueries.mjs';
 
 test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
@@ -79,7 +80,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [discussion],
+                    nodes   : [discussion],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -94,11 +95,11 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);
         expect(metadata.discussions[24001].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
         expect(index).toContainEqual({
-            type: 'discussions',
-            id: 24001,
-            version: null,
+            type       : 'discussions',
+            id         : 24001,
+            version    : null,
             chunkNumber: 1,
-            path: path.join('discussions', 'chunk-1', 'discussion-24001.md')
+            path       : path.join('discussions', 'chunk-1', 'discussion-24001.md')
         });
 
         const content = await fs.readFile(targetPath, 'utf8');
@@ -116,21 +117,21 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         const discussion = buildDiscussion(24003, {
             category: 'Q&A',
             comments: {nodes: [{
-                author: {login: 'neo-answer'},
-                body: 'Accepted answer body.',
+                author   : {login: 'neo-answer'},
+                body     : 'Accepted answer body.',
                 createdAt: '2026-05-02T01:00:00Z',
-                isAnswer: true,
-                replies: {nodes: []}
+                isAnswer : true,
+                replies  : {nodes: []}
             }, {
-                author: {login: 'neo-thread'},
-                body: 'Regular follow-up.',
+                author   : {login: 'neo-thread'},
+                body     : 'Regular follow-up.',
                 createdAt: '2026-05-02T02:00:00Z',
-                isAnswer: false,
-                replies: {nodes: [{
-                    author: {login: 'neo-reply-answer'},
-                    body: 'Nested accepted answer.',
+                isAnswer : false,
+                replies  : {nodes: [{
+                    author   : {login: 'neo-reply-answer'},
+                    body     : 'Nested accepted answer.',
                     createdAt: '2026-05-02T03:00:00Z',
-                    isAnswer: true
+                    isAnswer : true
                 }]}
             }]}
         });
@@ -138,7 +139,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [discussion],
+                    nodes   : [discussion],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -168,12 +169,12 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     test('emits structured reply markers that preserve parent comment identity', async () => {
         const discussion = buildDiscussion(24005, {
             comments: {nodes: [{
-                author: {login: 'neo-parent'},
-                body: 'Parent comment body.',
+                author   : {login: 'neo-parent'},
+                body     : 'Parent comment body.',
                 createdAt: '2026-05-02T01:00:00Z',
-                replies: {nodes: [{
+                replies  : {nodes: [{
                     author: {login: 'neo-child'},
-                    body: [
+                    body  : [
                         'Reply body.',
                         '',
                         '### Inner heading remains reply markdown.'
@@ -186,7 +187,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [discussion],
+                    nodes   : [discussion],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -210,21 +211,72 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         ].join('\n'));
     });
 
+    test('sync write-boundary defangs untrusted discussion bodies, comments, and replies before local markdown persistence (#13691)', async () => {
+        const discussionNumber = 24006;
+        const discussion = buildDiscussion(discussionNumber, {
+            comments: {nodes: [{
+                id       : 'DC_external',
+                author   : {login: 'external-commenter'},
+                body     : 'External discussion comment https://discussion-comment.example/payload',
+                createdAt: '2026-05-02T01:00:00Z',
+                replies  : {nodes: [{
+                    id       : 'DCR_external',
+                    author   : {login: 'external-replier'},
+                    body     : 'External discussion reply https://discussion-reply.example/payload',
+                    createdAt: '2026-05-02T02:00:00Z'
+                }]}
+            }, {
+                id       : 'DC_trusted',
+                author   : {login: 'neo-gpt'},
+                body     : 'Trusted discussion link remains raw https://github.com/neomjs/neo',
+                createdAt: '2026-05-02T03:00:00Z',
+                replies  : {nodes: []}
+            }]}
+        });
+
+        discussion.author = {login: 'external-discussion-author'};
+        discussion.body   = 'External discussion root https://discussion-root.example/landing';
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes   : [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats      = await DiscussionSyncer.syncDiscussions({discussions: {}});
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', `discussion-${discussionNumber}.md`);
+        const parsed     = matter(await fs.readFile(targetPath, 'utf8'));
+
+        expect(stats.synced).toEqual([discussionNumber]);
+        expect(parsed.data.contentTrust.projected).toBe(true);
+        expect(parsed.data.contentTrust.quarantined).toBe(3);
+        expect(parsed.content).toContain('[QUARANTINED_URL: discussion-root.example]');
+        expect(parsed.content).toContain('[QUARANTINED_URL: discussion-comment.example]');
+        expect(parsed.content).toContain('[QUARANTINED_URL: discussion-reply.example]');
+        expect(parsed.content).not.toContain('https://discussion-root.example');
+        expect(parsed.content).not.toContain('https://discussion-comment.example');
+        expect(parsed.content).not.toContain('https://discussion-reply.example');
+        expect(parsed.content).toContain('https://github.com/neomjs/neo');
+    });
+
     test('does not add answer markers for regular non-Q&A comments', async () => {
         const discussion = buildDiscussion(24004, {
             category: 'General',
             comments: {nodes: [{
-                author: {login: 'neo-comment'},
-                body: 'Regular discussion comment.',
+                author   : {login: 'neo-comment'},
+                body     : 'Regular discussion comment.',
                 createdAt: '2026-05-02T01:00:00Z',
-                replies: {nodes: []}
+                replies  : {nodes: []}
             }]}
         });
 
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [discussion],
+                    nodes   : [discussion],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -241,14 +293,14 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 
     test('writes archived discussions through contentPath and maintains _index.json', async () => {
         const discussion = buildDiscussion(24002, {
-            closed: true,
+            closed  : true,
             closedAt: '2026-05-01T00:00:00Z'
         });
 
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [discussion],
+                    nodes   : [discussion],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -263,11 +315,11 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);
         expect(metadata.discussions[24002].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
         expect(index).toContainEqual({
-            type: 'discussions',
-            id: 24002,
-            version: 'v13.0.0',
+            type       : 'discussions',
+            id         : 24002,
+            version    : 'v13.0.0',
             chunkNumber: 1,
-            path: path.join('archive', 'discussions', 'v13.0.0', 'chunk-1', 'discussion-24002.md')
+            path       : path.join('archive', 'discussions', 'v13.0.0', 'chunk-1', 'discussion-24002.md')
         });
 
         const content = await fs.readFile(targetPath, 'utf8');
@@ -320,7 +372,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     test('delta cutoff stops discussion pagination once a batch predates the cached high-water mark (#12190)', async () => {
         // Mirror of the PR/issue delta: order UPDATED_AT DESC + stop at the cached high-water mark.
         const metadata = {
-            lastSync: '2026-05-01T00:00:00Z',
+            lastSync   : '2026-05-01T00:00:00Z',
             discussions: {
                 9001: {updatedAt: '2026-05-01T00:00:00Z', path: 'resources/content/discussions/chunk-1/discussion-9001.md'}
             }
@@ -351,7 +403,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [allowed, denied],
+                    nodes   : [allowed, denied],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -381,7 +433,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [denied],
+                    nodes   : [denied],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -402,7 +454,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [discussion],
+                    nodes   : [discussion],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -431,7 +483,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [buildDiscussion(25006, {closed: false})],
+                    nodes   : [buildDiscussion(25006, {closed: false})],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -462,7 +514,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 discussions: {
-                    nodes: [discussion],
+                    nodes   : [discussion],
                     pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
@@ -489,11 +541,11 @@ function buildDiscussion(number, config = {}) {
     return {
         number,
         title: `Discussion ${number}`,
-        body : 'Discussion body',
+        body     : 'Discussion body',
         closed,
         closedAt,
-        author: {login: 'neo-test'},
-        category: {name: category},
+        author   : {login: 'neo-test'},
+        category : {name: category},
         createdAt: '2026-05-01T00:00:00Z',
         updatedAt: '2026-05-02T00:00:00Z',
         comments
