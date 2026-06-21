@@ -274,8 +274,8 @@ export function acquireHeavyMaintenanceLeaseSync({
     try {
         writeLeaseFileSync(leasePath, lease, fsModule);
         return {
-            status: current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
-            acquired: true,
+            status        : current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
+            acquired      : true,
             previousStatus: current.status,
             lease
         };
@@ -377,8 +377,8 @@ export async function acquireHeavyMaintenanceLease({
     try {
         await writeLeaseFile(leasePath, lease, fsModule);
         return {
-            status: current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
-            acquired: true,
+            status        : current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
+            acquired      : true,
             previousStatus: current.status,
             lease
         };
@@ -525,48 +525,80 @@ export async function releaseHeavyMaintenanceLease({
  */
 export async function withHeavyMaintenanceLease(task, options = {}) {
     const inheritedToken = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+    let inheritedTokenStale = false;
 
     if (inheritedToken) {
         const current = await inspectHeavyMaintenanceLease({
-            leasePath: options.leasePath,
-            fsModule : options.fsModule,
-            now      : options.now,
+            leasePath : options.leasePath,
+            fsModule  : options.fsModule,
+            now       : options.now,
             isPidAlive: options.isPidAlive
         });
 
         if (current.active && current.lease && current.lease.token === inheritedToken) {
             const acquisition = {status: 'inherited', acquired: false, lease: current.lease};
             return {
-                status: 'inherited',
+                status  : 'inherited',
                 acquired: false,
-                lease : current.lease,
-                result: await task(acquisition)
+                lease   : current.lease,
+                result  : await task(acquisition)
             };
         }
+
+        // Inherited token set but STALE: the parent released its lease before this child checked. The
+        // child was approved to run under inheritance, so the fall-through below must never be a silent
+        // skip — a 'held' result masked as "completed" is what stalled kb-sync embedding for days.
+        // Surface it (hook + a distinct previousStatus) so callers can never mistake an inherited-but-lost
+        // deferral for success. The acquire-or-defer itself is unchanged — the mutex is preserved.
+        inheritedTokenStale = true;
+        (options.onInheritedTokenStale ?? warnInheritedTokenStale)({inheritedToken, current});
     }
 
     const acquisition = await acquireHeavyMaintenanceLease(options);
 
     if (!acquisition.acquired) {
-        return acquisition;
+        return inheritedTokenStale ? {...acquisition, previousStatus: 'inherited-token-stale'} : acquisition;
     }
 
     try {
         return {
-            status: 'completed',
+            status  : 'completed',
             acquired: true,
-            lease : acquisition.lease,
+            lease   : acquisition.lease,
+            ...(inheritedTokenStale && {previousStatus: 'inherited-token-stale'}),
             result: await task(acquisition)
         };
     } finally {
         await releaseHeavyMaintenanceLease({
-            token    : acquisition.lease.token,
-            leasePath: options.leasePath,
-            fsModule : options.fsModule,
-            now      : options.now,
+            token     : acquisition.lease.token,
+            leasePath : options.leasePath,
+            fsModule  : options.fsModule,
+            now       : options.now,
             isPidAlive: options.isPidAlive
         });
     }
+}
+
+/**
+ * @summary Default observability for a stale inherited heavy-maintenance lease token.
+ *
+ * Fires when a child was spawned with `NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN` but the live lease
+ * no longer carries that token (the parent released it before the child checked). The child was approved
+ * to run under inheritance; without this signal the subsequent acquire-or-defer can end in a silent skip
+ * masked as "completed". Override via `options.onInheritedTokenStale` (tests inject a spy).
+ *
+ * @param {Object} info
+ * @param {String} info.inheritedToken The stale token the child inherited.
+ * @param {Object} info.current Current lease inspection result.
+ * @returns {void}
+ */
+function warnInheritedTokenStale({inheritedToken, current}) {
+    console.warn(
+        '[HeavyMaintenanceLeaseService] inherited lease token is stale (parent released before child ' +
+        'checked) — falling through to self-acquire; a deferral here is observable, not a silent skip. ' +
+        `tokenPrefix=${String(inheritedToken).slice(0, 8)} currentOwner=${current?.lease?.owner ?? 'none'} ` +
+        `currentStatus=${current?.status ?? 'none'}`
+    );
 }
 
 /**
@@ -620,9 +652,9 @@ export class HeavyMaintenanceLeaseService extends Base {
      */
     inspect(options = {}) {
         return inspectHeavyMaintenanceLease({
-            leasePath: options.leasePath ?? this.leasePath,
-            fsModule : options.fsModule  ?? this.fsModule,
-            now      : options.now       ?? new Date(),
+            leasePath : options.leasePath ?? this.leasePath,
+            fsModule  : options.fsModule  ?? this.fsModule,
+            now       : options.now       ?? new Date(),
             isPidAlive: options.isPidAlive
         });
     }

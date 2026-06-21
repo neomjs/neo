@@ -521,14 +521,16 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
 
         let taskRan = false;
+        const staleHookCalls = [];
         try {
             const result = await withHeavyMaintenanceLease(() => {
                 taskRan = true;
             }, {
                 leasePath,
-                owner: 'kbSync',
+                owner                : 'kbSync',
                 now,
-                token: 'child-token'
+                token                : 'child-token',
+                onInheritedTokenStale: info => staleHookCalls.push(info)
             });
 
             expect(result).toMatchObject({
@@ -537,6 +539,12 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 lease   : {owner: 'summary', token: 'real-active-token'}
             });
             expect(taskRan).toBe(false);
+            // Hardening: this is the exact silent-skip scenario (stale inherited token + lease held).
+            // The deferral must be OBSERVABLE — a distinct previousStatus + the stale hook fired — so it
+            // can never again masquerade as a "completed" multi-day stall.
+            expect(result.previousStatus).toBe('inherited-token-stale');
+            expect(staleHookCalls).toHaveLength(1);
+            expect(staleHookCalls[0]).toMatchObject({inheritedToken: 'spurious-stale-token'});
         } finally {
             if (original === undefined) {
                 delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
@@ -716,7 +724,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     test('default singleton delegates to the reusable helpers', async () => {
         const leasePath = createLeasePath('service');
         const service   = Neo.create(HeavyMaintenanceLeaseService, {
-            leasePath_: leasePath,
+            leasePath_   : leasePath,
             staleAfterMs_: 60000
         });
 
