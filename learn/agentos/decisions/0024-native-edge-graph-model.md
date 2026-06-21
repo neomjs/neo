@@ -94,11 +94,13 @@ flowchart LR
 
 The graph is **actively operated** via Memory Core MCP tools — the "active hybrid GraphRAG." Agents do not merely read the handoff; they query and mutate the live substrate:
 
-| Mode | Tools |
+| Mode | Tools (operate on the graph) |
 |---|---|
-| **Read** | `get_node`, `get_neighbors`, `get_context_frontier`, `get_rem_pipeline_state`, `get_session_memories` |
-| **Query** | `query_hybrid_graph` (graph + vector), `search_nodes`, `query_summaries`, `query_raw_memories`, `query_recent_turns` |
-| **Write** | `add_memory`, `add_message` (→ async auto-concept extraction), `mutate_frontier` (→ `STRATEGIC_PIVOT`), `grant_permission` / `revoke_permission`, `transition_task` |
+| **Read** | `get_node`, `get_neighbors`, `get_context_frontier`, `get_rem_pipeline_state` (consolidation-state observability) |
+| **Query** | `search_nodes` (graph nodes by query); `query_hybrid_graph` — the **graph ⊕ vector bridge** (joins graph structure with the §2.6 Chroma vectors) |
+| **Write** | `add_memory`, `add_message` (→ async auto-concept extraction into the graph), `mutate_frontier` (→ `STRATEGIC_PIVOT`), `grant_permission` / `revoke_permission`, `transition_task` |
+
+**Episodic recall is a DISTINCT layer — NOT the graph-structure interface.** `query_summaries` and `query_raw_memories` are **Chroma semantic search** over the §2.6 vector store's summary / raw-memory collections; they do **not** touch the SQLite graph. `query_recent_turns` is the recency axis over graph turn-nodes; `get_session_memories` is by-session episodic retrieval. Only `query_hybrid_graph` bridges graph structure into the Chroma vectors — which is why *it*, not the pure-Chroma search tools, is the graph's query primitive.
 
 `mutate_frontier` is the **active-steering** primitive (ADR 0023 sub-decision e): an agent injects a high-weight `STRATEGIC_PIVOT` edge from `[Frontier]` when priorities pivot — legitimate **because it decays** (it is *scent*, not a *fact*; see §2.3). The `[Frontier]` node itself is `SYSTEM_TENET`-anchored (protected); its pivot edges are not.
 
