@@ -273,9 +273,42 @@ export function parseArgs(argv = []) {
 }
 
 /**
+ * @summary Builds the read-only runtime used by `--dry-run`, avoiding GraphService's writable
+ * SQLite initialization while preserving the same summary-collection scan inputs.
  * @returns {Promise<Object>}
  */
-export async function createRuntime() {
+export async function createDryRunRuntime() {
+    await import('../../../src/Neo.mjs');
+    await import('../../../src/core/_export.mjs');
+
+    const {default: aiConfig}      = await import('../../mcp/server/memory-core/config.mjs');
+    const {default: ChromaManager} = await import('../../services/memory-core/managers/ChromaManager.mjs');
+    const {default: Database}      = await import('better-sqlite3');
+
+    await ChromaManager.initAsync();
+
+    const
+        summaryCollection = await ChromaManager.getSummaryCollection(),
+        graphDb           = new Database(aiConfig.storagePaths.graph, {
+            readonly     : true,
+            fileMustExist: true
+        });
+
+    return {
+        graphDb,
+        summaryCollection,
+        cleanup() {
+            graphDb.close();
+        }
+    }
+}
+
+/**
+ * @summary Builds the writable repair runtime used by `--apply`, where GraphService and
+ * MemorySessionIngestor are required to backfill SESSION projections.
+ * @returns {Promise<Object>}
+ */
+export async function createApplyRuntime() {
     await import('../../../src/Neo.mjs');
     await import('../../../src/core/_export.mjs');
 
@@ -305,6 +338,24 @@ export async function createRuntime() {
     }
 }
 
+/**
+ * @summary Selects the dry-run or apply runtime after CLI argument parsing.
+ * @param {Object} [options]
+ * @param {Boolean} [options.apply=false]
+ * @param {Object} [factories]
+ * @param {Function} [factories.dryRunRuntimeFactory]
+ * @param {Function} [factories.applyRuntimeFactory]
+ * @returns {Promise<Object>}
+ */
+export function createRuntime({
+    apply = false
+} = {}, {
+    dryRunRuntimeFactory = createDryRunRuntime,
+    applyRuntimeFactory  = createApplyRuntime
+} = {}) {
+    return (apply ? applyRuntimeFactory : dryRunRuntimeFactory)()
+}
+
 export function usage() {
     return [
         'Usage: node ai/scripts/maintenance/repairUnprojectedSessions.mjs [--dry-run|--apply] [--limit N|all] [--batch-size N] [--include-undigested]',
@@ -325,6 +376,8 @@ export async function runCli(argv = process.argv.slice(2), {
     stdout         = console.log,
     stderr         = console.error
 } = {}) {
+    let runtime;
+
     try {
         const options = parseArgs(argv);
 
@@ -333,8 +386,9 @@ export async function runCli(argv = process.argv.slice(2), {
             return 0
         }
 
-        const runtime = await runtimeFactory();
-        const result  = await repairUnprojectedSessions({...runtime, ...options});
+        runtime = await runtimeFactory(options);
+
+        const result = await repairUnprojectedSessions({...runtime, ...options});
 
         stdout(JSON.stringify(result, null, 2));
 
@@ -342,6 +396,14 @@ export async function runCli(argv = process.argv.slice(2), {
     } catch (error) {
         stderr(`[repairUnprojectedSessions] ${error.message}`);
         return 2
+    } finally {
+        if (runtime?.cleanup) {
+            try {
+                await runtime.cleanup();
+            } catch (error) {
+                stderr(`[repairUnprojectedSessions] cleanup failed: ${error.message}`);
+            }
+        }
     }
 }
 
