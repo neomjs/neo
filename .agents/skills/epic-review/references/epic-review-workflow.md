@@ -211,16 +211,13 @@ These citations belong in the `ticket-intake` reflection step for the sub, not a
 
 ## 8. Cross-Model Asymmetry
 
-Different model families exhibit statistically-different failure modes when reviewing epics:
+Different reviewers — especially across model families — fail differently, so cross-model epic-review (the same epic reviewed by up to two distinct model-identities) surfaces different dimensions of architectural risk. This is the value of bounded independent readback.
 
-- **Claude-family reviewers** tend toward over-rigor — may mark stage 5 gaps that don't need flagging, or question stage 2 elegance on subjective grounds.
-- **Gemini-family reviewers** tend toward quick-win framing — may pass stages 1-2 too quickly when an elegance concern warrants deeper review.
+Do **not** pre-disclose a family-stereotype ("per §8 my family over-flags X") — the disclosure becomes the failure it names. The specific per-family failure modes are **not empirically measured** (no N, no methodology; the GPT family is absent from any such enumeration despite ~2 months as an active reviewer — see #10756), so they carry no review authority. The Depth Floor + the stage rubric are the shared minimum that catches misses; a family label is not.
 
-These are **complementary** failure modes. Cross-model epic-review (the same epic reviewed by up to two distinct model-identities) surfaces different dimensions of architectural risk. This is the value of bounded independent readback.
+When one review exists, prefer the second structured review from a different active model-family. After two structured epic-review comments exist, preserve diversity through targeted blocker/correction comments or A2A handoffs, not by adding another full epic-review artifact.
 
-When one review exists, prefer the second structured review from a different active model-family. After two structured epic-review comments exist, preserve asymmetry through targeted blocker/correction comments or A2A handoffs, not by adding another full epic-review artifact.
-
-Do not calibrate your review to the "other model's style" — be the reviewer you are, and trust the asymmetry to compensate. If one model-family's reviews consistently miss a failure mode, the right fix is a skill enhancement (a new check in stages 1-5), not style mimicry.
+Do not calibrate your review to the "other model's style" — be the reviewer you are, and trust the diversity to compensate. If reviews consistently miss a failure mode, the right fix is a skill enhancement (a new check in stages 1-5), not style mimicry.
 
 ## 9. Verification Before Posting
 
