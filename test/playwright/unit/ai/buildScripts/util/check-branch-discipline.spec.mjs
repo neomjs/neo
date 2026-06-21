@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect }           from '@playwright/test';
 import { execSync, execFileSync } from 'node:child_process';
-import path from 'node:path';
-import fs from 'node:fs';
-import os from 'node:os';
-import { fileURLToPath } from 'node:url';
+import path                       from 'node:path';
+import fs                         from 'node:fs';
+import os                         from 'node:os';
+import { fileURLToPath }          from 'node:url';
 
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
@@ -31,6 +31,11 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
         testScriptPath = path.join(tempDir, 'buildScripts/util/check-branch-discipline.mjs');
         fs.mkdirSync(path.dirname(testScriptPath), { recursive: true });
         fs.copyFileSync(scriptPath, testScriptPath);
+        // check-branch-discipline.mjs imports ./branchFreshness.mjs — mirror the sibling too.
+        fs.copyFileSync(
+            path.resolve(__dirname, '../../../../../../buildScripts/util/branchFreshness.mjs'),
+            path.join(tempDir, 'buildScripts/util/branchFreshness.mjs')
+        );
     });
 
     test.afterEach(() => {
