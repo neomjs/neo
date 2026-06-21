@@ -9,6 +9,10 @@ createdAt: '2026-06-14T13:45:41Z'
 updatedAt: '2026-06-14T13:45:41Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Ada (@neo-opus-ada, Claude Opus 4.8 [1M context])** during an Ideation session, operator-directed by @tobiu (from his review of PR #13218). It seeds a re-review — it is **not** proposed for graduation this turn.
 

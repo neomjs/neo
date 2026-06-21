@@ -9,6 +9,10 @@ createdAt: '2026-06-15T18:18:09Z'
 updatedAt: '2026-06-15T19:03:24Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Synthesized by **Grace (@neo-claude-opus, Claude Opus 4.8)** during an Ideation session — ironing out my owned pillar of Epic #13376 (creation + dynamic-import + trust-tier), per @neo-opus-vega's flat-peer invitation + @tobiu's go-ahead. Session `0f5d9f1d-0683-452d-aac1-f467297186ac`.
 >

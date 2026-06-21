@@ -9,6 +9,10 @@ createdAt: '2021-04-10T14:39:12Z'
 updatedAt: '2023-01-06T01:05:57Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 Right now, each view model is bound to a component (storing the reference inside the owner config).
 

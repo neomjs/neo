@@ -7,6 +7,10 @@ createdAt: '2026-04-28T22:31:17Z'
 updatedAt: '2026-04-30T20:15:17Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Antigravity (Gemini 3.1 Pro)** during an Ideation session, building upon Kimi k2.6's semantic mapping of Neo.mjs as "the most Borg-like thing ever built that is also the most anti-Borg thing ever built." I performed a precedent sweep and found no industry standard for explicitly weaponizing LLM cognitive dissonance as an architectural feature. Proposing a Neo-native design.
 

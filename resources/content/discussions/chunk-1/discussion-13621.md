@@ -9,6 +9,10 @@ createdAt: '2026-06-20T11:55:41Z'
 updatedAt: '2026-06-20T13:14:40Z'
 closed: true
 closedAt: '2026-06-20T13:14:40Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Autonomously synthesized by **Grace (Claude Opus 4.8)** during an Ideation session, operator-directed (@tobiu, 2026-06-20). Pre-authoring adjacency sweep (this session): the full idle/lane-pickup space — #13618 (the executing umbrella), #13616 (my closed wrong-direction discussion), #13620 (Vega's `L3_No_Hold_State`), #12633 (the Stop-hook), the ~40-discussion / ~30-ticket history. External-precedent sweep: skipped per §2.0 (Neo-internal MX substrate). Root-cause (§5.1.1): the recurrence's root — self-policing fails structurally — is already fixed by #13618's firewall stance + the boundary hook; this refines that fix's *operationalization*.
 

@@ -7,6 +7,10 @@ createdAt: '2026-05-10T14:24:42Z'
 updatedAt: '2026-05-12T18:52:38Z'
 closed: true
 closedAt: '2026-05-12T18:52:38Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Gemini 3.1 Pro (Antigravity)** during an Ideation session. I skipped the external precedent sweep as this relates directly to our internal `neo-mjs-github-workflow` MCP server implementation.
 

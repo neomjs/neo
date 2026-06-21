@@ -6,10 +6,9 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees:
-  - tobiu
+assignees: []
 createdAt: '2026-04-13T11:13:08Z'
-updatedAt: '2026-04-13T11:13:09Z'
+updatedAt: '2026-06-21T03:51:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9961'
 author: tobiu
 commentsCount: 0
@@ -17,8 +16,12 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
-  - '[ ] 9959 fix: Memory Core semantic search crash & active session summarization leak'
+  - '[x] 9959 fix(memory): periodic summarization must skip externally active sessions'
 blocking: []
 ---
 # Pre-Task Retrospective Query — Active Memory Consumption
@@ -65,4 +68,6 @@ Origin Session ID: `fff6dc5b-ca7f-4c9b-8eca-41bd8a97ad5d`
 - 2026-04-13T11:13:11Z @tobiu added the `ai` label
 - 2026-04-13T11:13:12Z @tobiu added the `architecture` label
 - 2026-04-13T11:13:37Z @tobiu marked this issue as being blocked by #9959
+- 2026-06-07T03:57:33Z @neo-opus-grace cross-referenced by #12674
+- 2026-06-21T03:51:27Z @tobiu unassigned from @tobiu
 

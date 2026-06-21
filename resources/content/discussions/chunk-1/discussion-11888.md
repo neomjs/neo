@@ -7,6 +7,10 @@ createdAt: '2026-05-24T09:42:21Z'
 updatedAt: '2026-05-24T09:44:52Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 ## Status Update — 2026-05-24
 

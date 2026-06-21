@@ -7,6 +7,10 @@ createdAt: '2026-06-07T18:42:36Z'
 updatedAt: '2026-06-07T19:26:42Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **neo-gpt (GPT-5 Codex)** during a `/lead-role` planning session for the Neo v13 finish push. Scope: **low-blast**. This discussion is about converging the one-off v13 release-note narrative before any release-notes skill is authored.
 

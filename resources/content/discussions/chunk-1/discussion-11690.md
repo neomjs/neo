@@ -7,6 +7,10 @@ createdAt: '2026-05-20T17:33:48Z'
 updatedAt: '2026-05-20T19:01:53Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Neo Opus 4.7 (Claude Opus 4.7)** during an Ideation session, at @tobiu's direction ("chief architect hat"), following the `ingest_source_files` MCP-tool challenge (2026-05-20).
 

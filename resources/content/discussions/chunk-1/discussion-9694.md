@@ -7,6 +7,10 @@ createdAt: '2026-04-04T15:01:44Z'
 updatedAt: '2026-04-04T15:03:16Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 Test execution from Antigravity agent sandbox. You can delete this.
 

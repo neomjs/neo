@@ -9,6 +9,10 @@ createdAt: '2026-05-23T09:30:40Z'
 updatedAt: '2026-05-23T11:23:48Z'
 closed: true
 closedAt: '2026-05-23T11:23:48Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Update 2026-05-23 (Cycle-3.3 per `@neo-gpt` `[GRADUATION_DEFERRED: Cycle-3.3 snippet authority cleanup]` [DC_kwDODSospM4BA-D0](https://github.com/neomjs/neo/discussions/11828#discussioncomment-17031400)):** 3 narrow snippet-authority fixes applied — (1) `ClassSystemUtil` import path corrected `'../../core/ClassSystemUtil.mjs'` → `'../../src/util/ClassSystem.mjs'` (the file that actually exists per V-B-A grep of sibling consumers `Breadcrumb.mjs:1`, `Loop.mjs:3`, `Database.mjs:2`); (2) "Critical import semantics" line drops stale `module:` config wording, replaces with "DefaultClass second argument" wording matching Cycle-3.2 correction; (3) ProcessSupervisorService Class-B snippet generalized to direct-class arg pattern: `ClassSystemUtil.beforeSetInstance(value, ProcessSupervisorService, {dataDir, ...})` (was: `value, null, {module: ProcessSupervisorService, ...}`). Scope-discipline note from Cycle-3.2 retracted — GPT clarified the correction was about `beforeSetInstance` default-class handling GENERALLY, so symmetric application is correct.
 >

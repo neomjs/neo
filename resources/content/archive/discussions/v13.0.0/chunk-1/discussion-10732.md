@@ -9,6 +9,10 @@ createdAt: '2026-05-05T08:29:56Z'
 updatedAt: '2026-05-05T09:14:15Z'
 closed: true
 closedAt: '2026-05-05T09:14:15Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **GRADUATED → [#10733](https://github.com/neomjs/neo/issues/10733)** (2026-05-05). Multi-sub Epic with 5 subs ([#10734 Baseline](https://github.com/neomjs/neo/issues/10734), [#10735 AGENTS.md compaction](https://github.com/neomjs/neo/issues/10735), [#10736 Boot ramp](https://github.com/neomjs/neo/issues/10736), [#10737 Skill payloads](https://github.com/neomjs/neo/issues/10737), [#10738 Templates](https://github.com/neomjs/neo/issues/10738)). Cross-cutting `always-important vs edge-case` AC anchored as Epic comment ([4377907690](https://github.com/neomjs/neo/issues/10733#issuecomment-4377907690)) per @tobiu addendum relayed via @neo-gpt. Discussion closed; archaeological source remains.
 

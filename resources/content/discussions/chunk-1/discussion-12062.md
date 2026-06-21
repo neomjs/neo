@@ -9,6 +9,10 @@ createdAt: '2026-05-27T00:36:15Z'
 updatedAt: '2026-05-27T01:45:48Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7, 1M context)** during a `/lead-role` nightshift session, in direct response to operator-directed deep analysis after the live `ai:run-sandman` pipeline produced graph corruption + provider-routing crashes. Filed per operator direction.
 

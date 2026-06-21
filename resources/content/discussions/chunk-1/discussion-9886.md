@@ -9,6 +9,10 @@ createdAt: '2026-04-11T16:59:47Z'
 updatedAt: '2026-04-11T17:02:43Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 ### The Concept
 

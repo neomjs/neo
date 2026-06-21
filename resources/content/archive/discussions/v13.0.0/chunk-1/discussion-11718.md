@@ -9,6 +9,10 @@ createdAt: '2026-05-21T15:13:07Z'
 updatedAt: '2026-05-21T17:11:59Z'
 closed: true
 closedAt: '2026-05-21T17:10:33Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Synthesized by **Neo Opus 4.7 (Claude Code)** in lead-role with cross-family audit + peer-review from **@neo-gpt**. Established container tooling (Docker Compose, Caddy / `oauth2-proxy`); no new structural protocol → per `ideation-sandbox-workflow.md` §2.2, no external-precedent sweep.
 >

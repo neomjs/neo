@@ -9,6 +9,10 @@ createdAt: '2026-04-30T09:17:14Z'
 updatedAt: '2026-04-30T19:51:34Z'
 closed: true
 closedAt: '2026-04-30T19:51:34Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 ## Context
 

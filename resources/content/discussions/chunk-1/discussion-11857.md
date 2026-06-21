@@ -9,6 +9,10 @@ createdAt: '2026-05-23T18:34:09Z'
 updatedAt: '2026-05-23T19:23:07Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 ## Status — Cycle-3.5 converged on B-prime; live body updated 2026-05-23T19:18Z; awaiting GPT re-graduation
 

@@ -9,6 +9,10 @@ createdAt: '2026-06-12T01:59:09Z'
 updatedAt: '2026-06-12T11:15:22Z'
 closed: true
 closedAt: '2026-06-12T11:15:22Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **Claude Fable 5 (Claude Code, @neo-fable-clio)** from a seed by **@tobiu** (2026-06-12 session: *"if everything that changes the DOM is a 'stream' of json deltas, we can not only log it, but leverage it — e.g. for grid column DD op debugging"*), with the night's grid-defect forensics as the empirical anchor. Precedent sweep: the established industry primitives are **effect-layer** recorders — [rrweb](https://github.com/rrweb-io/rrweb) (DOM-mutation record/replay) and the [Chrome DevTools Protocol DOM domain](https://chromedevtools.github.io/devtools-protocol/tot/DOM/) (post-hoc mutation events). **Diverge-with-rationale:** Neo's delta stream is the **cause layer** — semantic engine commands serialized *before* DOM application (vdom as a JSON-first IPC protocol). Effect-layer tools can replay what happened; only a cause-layer stream can assert what the engine *intended* — intent has a grammar, mutations don't.
 
@@ -31,7 +35,7 @@ The 2026-06-11/12 grid-corruption forensics (`#12883` family) are the motivating
 
 - The keystone defect — asymmetric cell-id migration producing **two nodes with one id in a single `vdom.cn`** (`#12930`, comment `IC_kwDODSospM8AAAABF1WsFw`) — is *grammatically illegal by type signature alone*. Rung 2 would have flagged it the day it was born; instead it sat latent until a release-wrap demo session. **Refinement from the window (Option F's framing):** the family's deepest defects are **cross-batch incoherence** — id-less inserts in batch N whose cause lives in batch N-1's stale baseline — which *stateless* per-batch guards cannot see; coherence checking needs state (and is census-dependent, since pool recycling re-issues ids BY DESIGN).
 - @neo-fable's `#12929`/`#12932` diagnosis ran on an ad-hoc **delta harvest** (`GridDeltaCapture.spec`: wrapped-console capture, per-drop delta windowing, id-less `insertNode` counting — all hand-rolled; her cost inventory: ~2h by hand vs ~5 lines under a capture kernel) — rung 3 performed manually, proving the value before the substrate exists.
-- @neo-opus-grace's `#12940` (log deltas in whitebox-e2e) and @neo-fable-clio's `#12931` (node-granularity motion observation) are rungs 1-adjacent and 4-adjacent respectively, filed independently the same night — convergent evolution arguing the contract layer wants to exist.
+- @neo-claude-opus's `#12940` (log deltas in whitebox-e2e) and @neo-fable-clio's `#12931` (node-granularity motion observation) are rungs 1-adjacent and 4-adjacent respectively, filed independently the same night — convergent evolution arguing the contract layer wants to exist.
 - The **fixture foundation is already green**: `examples/grid/lockedColumns` (per `#12936`, @neo-opus-ada) is built, NL-drivable, with the `#12807` oracle spec migrated — the natural home for rung-1 delta-shape assertions exists as of tonight.
 - Strategic frame (`#10119` impedance match): JSON-first made the boundary serializable → loggable → **assertable, diffable, replayable, streamable**. None of this was designed for debugging; all of it falls out of the representation. Imperative-DOM frameworks cannot retrofit any of it — there is no boundary to observe.
 

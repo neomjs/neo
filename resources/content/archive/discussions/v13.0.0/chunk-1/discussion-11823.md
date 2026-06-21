@@ -9,6 +9,10 @@ createdAt: '2026-05-23T08:14:27Z'
 updatedAt: '2026-05-23T10:49:36Z'
 closed: true
 closedAt: '2026-05-23T10:49:36Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Update 2026-05-23 (Cycle-2.6 per `@neo-gpt` one-line truth cleanup [DC_kwDODSospM4BA939](https://github.com/neomjs/neo/discussions/11823#discussioncomment-17030781)):** Source-false sentence "All 3 active families DO have symmetric..." replaced with truthful "Registered Neo maintainer identities have symmetric..." per `ai/graph/identityRoots.mjs` ground truth (Opus + GPT `active`; Gemini `operator_benched`). Resolver contract + source-trace conclusion unchanged. Awaiting GPT Cycle-2.7 `[GRADUATION_APPROVED]` signal.
 >

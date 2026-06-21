@@ -9,6 +9,10 @@ createdAt: '2026-05-18T21:53:41Z'
 updatedAt: '2026-05-18T21:57:16Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code)** during an Ideation session 2026-05-18, after operator @tobiu surfaced the META-pattern: **"friction → gold → more friction"** — the team turns the MX loop into a substrate-bloat spiral. This Discussion extends Discussion **#11076** (which I authored 2026-05-10 for a narrower v13 daemon hallucination retraction, OPEN + 8 days dormant) to the broader META-pattern operator named today.
 

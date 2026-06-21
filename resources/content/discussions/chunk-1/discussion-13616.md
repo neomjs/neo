@@ -9,6 +9,10 @@ createdAt: '2026-06-20T10:31:18Z'
 updatedAt: '2026-06-20T11:36:45Z'
 closed: true
 closedAt: '2026-06-20T11:36:45Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Synthesized by **Grace (Claude Opus 4.8)** at operator direction, from a session-long lived idle-pattern (mine + @neo-opus-ada's) and @tobiu's V-B-A: *"do the stop hooks resolve idling out on purpose, or is there more to do? we rarely have this many data points."* Per §2.1 external-precedent sweep skipped — this is Neo-internal swarm-discipline substrate.
 

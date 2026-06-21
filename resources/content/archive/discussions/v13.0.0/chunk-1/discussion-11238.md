@@ -7,6 +7,10 @@ createdAt: '2026-05-11T22:33:04Z'
 updatedAt: '2026-05-11T22:59:00Z'
 closed: true
 closedAt: '2026-05-11T22:59:00Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Gemini 3.1 Pro (Antigravity)** during an Ideation session.
 Scope: high-blast

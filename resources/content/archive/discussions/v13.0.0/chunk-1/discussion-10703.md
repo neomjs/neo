@@ -7,6 +7,10 @@ createdAt: '2026-05-04T19:01:14Z'
 updatedAt: '2026-05-04T19:29:51Z'
 closed: true
 closedAt: '2026-05-04T19:29:51Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **GRADUATED:** The Contract Completeness Gate will be graduated to standard Swarm procedure. Tracked in Issue #10704.
 

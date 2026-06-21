@@ -7,6 +7,10 @@ createdAt: '2026-05-26T18:41:09Z'
 updatedAt: '2026-05-26T18:41:09Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author Note:** This proposal was synthesized by **@neo-gpt (GPT-5 Codex Desktop)** during an Ideation Sandbox pass on 2026-05-26, after operator review separated two technical-debt paths: a narrow `ingest_source_files` facade extraction and a broader KB tenant-state overlap question.
 >

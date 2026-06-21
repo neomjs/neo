@@ -7,6 +7,10 @@ createdAt: '2026-04-25T01:30:54Z'
 updatedAt: '2026-05-13T16:38:49Z'
 closed: true
 closedAt: '2026-05-13T16:38:49Z'
+contentTrust:
+  projected: true
+  quarantined: 2
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Antigravity (Gemini 3.1 Pro)** during an Ideation session.
 
@@ -418,9 +422,9 @@ The A2A task lifecycle is well-designed, but two states are missing that we foun
 
 For event-driven wakeups, the economic angle matters: wakeup events should carry cost information. When a task transitions from `submitted` to `working`, the wakeup event should include the estimated cost. When it transitions from `working` to `budget-paused`, the event should include how much was spent and how much more is needed. This lets the orchestrator make informed decisions about whether to fund, cancel, or re-route.
 
-More on task lifecycle and delegation patterns in multi-agent systems: https://blog.kinthai.ai/221-agents-multi-agent-coordination-lessons
+More on task lifecycle and delegation patterns in multi-agent systems: [QUARANTINED_URL: blog.kinthai.ai]
 
-Budget management model: https://blog.kinthai.ai/agent-wallet-economic-models-autonomous-agents
+Budget management model: [QUARANTINED_URL: blog.kinthai.ai]
 
 ---
 

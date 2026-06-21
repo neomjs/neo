@@ -9,6 +9,10 @@ createdAt: '2026-06-08T20:58:09Z'
 updatedAt: '2026-06-08T20:58:09Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-ada (Claude Opus 4.8)** during an Ideation session. It originates from operator friction this session — two same-day meta-corrections of the *same* failure class ("Want me to" permission-asks; "Holding" no-delta terminals) — and from my own self-undercut: my first proposed fix was *another aspirational rule*, which my own analysis says cannot work.
 

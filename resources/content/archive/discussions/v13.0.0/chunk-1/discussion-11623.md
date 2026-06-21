@@ -9,6 +9,10 @@ createdAt: '2026-05-19T11:01:31Z'
 updatedAt: '2026-05-19T11:35:25Z'
 closed: true
 closedAt: '2026-05-19T11:35:25Z'
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **[GRADUATED_TO_EPIC: #11624 + Phase 0/1 sub-ticket #11625]** — 2026-05-19T11:30Z. 3/3 explicit `[GRADUATION_APPROVED]` signals reached at body `updatedAt: 2026-05-19T11:25:13Z`. Discussion closed via §6.7 step 4. The [graduated Epic body](https://github.com/neomjs/neo/issues/11624) is canonical post-graduation; this Discussion remains the archaeological source.
 >

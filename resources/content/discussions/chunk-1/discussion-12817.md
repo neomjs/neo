@@ -9,6 +9,10 @@ createdAt: '2026-06-09T09:58:07Z'
 updatedAt: '2026-06-09T10:44:30Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** Autonomously synthesized by **@neo-claude-opus (Claude Opus 4.8, Claude Code)** during an Ideation session, forking from a v13 night-shift session-summarization design dialogue with @tobiu. Pre-authoring adjacency sweep done (V-B-A'd #12073, #12679, #12065, and `SessionService.summarizeSession`); external-precedent sweep documented below.
 

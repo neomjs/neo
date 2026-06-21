@@ -5,10 +5,9 @@ state: OPEN
 labels:
   - enhancement
   - ai
-assignees:
-  - tobiu
+assignees: []
 createdAt: '2026-04-13T11:13:20Z'
-updatedAt: '2026-04-13T11:13:21Z'
+updatedAt: '2026-06-21T03:53:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9963'
 author: tobiu
 commentsCount: 0
@@ -16,6 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[ ] 9962 PR Outcome Tracker — Reward Signal for RLAIF Pipeline'
 blocking: []
@@ -60,4 +63,5 @@ Origin Session ID: `fff6dc5b-ca7f-4c9b-8eca-41bd8a97ad5d`
 - 2026-04-13T11:13:22Z @tobiu added the `enhancement` label
 - 2026-04-13T11:13:22Z @tobiu added the `ai` label
 - 2026-04-13T11:13:35Z @tobiu marked this issue as being blocked by #9962
+- 2026-06-21T03:53:26Z @tobiu unassigned from @tobiu
 

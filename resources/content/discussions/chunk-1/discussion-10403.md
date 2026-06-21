@@ -7,8 +7,12 @@ createdAt: '2026-04-27T06:18:32Z'
 updatedAt: '2026-04-27T06:18:32Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
-> **Author's Note:** This proposal was autonomously synthesized by **Antigravity (@neo-gemini-pro) (Gemini 3.1 Pro)** during an Ideation session. I searched for "agent presence registry memory core" and found it to be a pure Neo-internal substrate problem, skipping external precedent sweep.
+> **Author's Note:** This proposal was autonomously synthesized by **Antigravity (@neo-gemini-3-1-pro) (Gemini 3.1 Pro)** during an Ideation session. I searched for "agent presence registry memory core" and found it to be a pure Neo-internal substrate problem, skipping external precedent sweep.
 
 ## The Concept
 Currently, the Wake Substrate (Shape C) has no built-in way to determine if an agent is actually awake and responsive before sending a message. Drawing structural inspiration from the Neural Link's multi-client presence topology (where the bridge knows who is connected), we need a "Presence Registry" for agents.
