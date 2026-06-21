@@ -1,14 +1,14 @@
-import aiConfig                     from '../../../mcp/server/github-workflow/config.mjs';
-import Base                         from '../../../../src/core/Base.mjs';
-import crypto                       from 'crypto';
-import fs                           from 'fs/promises';
-import logger                       from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                       from 'gray-matter';
-import path                         from 'path';
-import GraphqlService               from '../GraphqlService.mjs';
-import ReleaseNotesSyncer           from './ReleaseNotesSyncer.mjs';
-import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
-import contentPath                  from '../shared/contentPath.mjs';
+import aiConfig                                                       from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                           from '../../../../src/core/Base.mjs';
+import crypto                                                         from 'crypto';
+import fs                                                             from 'fs/promises';
+import logger                                                         from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                         from 'gray-matter';
+import path                                                           from 'path';
+import GraphqlService                                                 from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                             from './ReleaseNotesSyncer.mjs';
+import {FETCH_DISCUSSIONS_FOR_SYNC, FETCH_SINGLE_DISCUSSION_FOR_SYNC} from '../queries/discussionQueries.mjs';
+import contentPath                                                    from '../shared/contentPath.mjs';
 import {
     createContentIndexEntry,
     updateContentIndex
@@ -222,6 +222,81 @@ class DiscussionSyncer extends Base {
     }
 
     /**
+     * @summary Renders a fetched discussion node to its synced Markdown (frontmatter + body + comments +
+     * nested replies), applying the content-trust sanitizer + the frontmatter integrity gate.
+     * Extracted from {@link #syncDiscussions} so the single-discussion force-refetch path renders
+     * identically (no bulk-sync-vs-refetch drift).
+     * @param {Object} discussion The discussion node (with `comments.nodes[].replies.nodes`).
+     * @returns {String} The gray-matter-serialized Markdown content.
+     * @throws {Error} When the serialized content is missing required frontmatter keys (a frontmatter-contract violation — likely a stale daemon code path).
+     */
+    #renderDiscussionMarkdown(discussion) {
+        const contentTrust = createContentTrustSummary();
+        const projectedDiscussion = this.#projectAuthoredNode(discussion, contentTrust, 'body');
+
+        const frontmatter = {
+            number   : discussion.number,
+            title    : discussion.title,
+            author   : discussion.author?.login || 'unknown',
+            category : discussion.category?.name || 'Uncategorized',
+            createdAt: discussion.createdAt,
+            updatedAt: discussion.updatedAt,
+            closed   : discussion.closed,
+            closedAt : discussion.closedAt,
+            contentTrust
+        };
+
+        let body = projectedDiscussion.body || '';
+
+        // Build comments structure
+        if (discussion.comments && discussion.comments.nodes && discussion.comments.nodes.length > 0) {
+            body += '\n\n## Comments\n\n';
+            for (const comment of discussion.comments.nodes) {
+                const projectedComment = this.#projectAuthoredNode(
+                    comment,
+                    contentTrust,
+                    `comment:${comment.id || comment.createdAt || 'unknown'}`
+                );
+
+                body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n`;
+                if (comment.isAnswer) {
+                    body += '> [!ANSWER]\n\n';
+                }
+                body += `${projectedComment.body}\n\n`;
+
+                // Parse replies if any
+                if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
+                    for (const reply of comment.replies.nodes) {
+                        const projectedReply = this.#projectAuthoredNode(
+                            reply,
+                            contentTrust,
+                            `comment:${comment.id || comment.createdAt || 'unknown'}/reply:${reply.id || reply.createdAt || 'unknown'}`
+                        );
+
+                        body += `#### Reply depth=1 by \`@${reply.author?.login || 'unknown'}\` on ${reply.createdAt}\n\n`;
+                        if (reply.isAnswer) {
+                            body += '> [!ANSWER]\n\n';
+                        }
+                        body += `${projectedReply.body}\n\n`;
+                    }
+                }
+                body += '---\n\n';
+            }
+        }
+
+        // Gray-matter serialization
+        const content = matter.stringify(body, frontmatter);
+
+        // Integrity gate: catches stale daemon code paths that silently drop frontmatter fields.
+        const integrity = verifyDiscussionFrontmatter(content);
+        if (!integrity.ok) {
+            throw new Error(`Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. Frontmatter contract violation — likely stale MCP daemon code path.`);
+        }
+
+        return content;
+    }
+
+    /**
      * Fetches discussions from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.
@@ -313,71 +388,8 @@ class DiscussionSyncer extends Base {
             try {
                 const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) continue;
-                const contentTrust = createContentTrustSummary();
-                const projectedDiscussion = this.#projectAuthoredNode(discussion, contentTrust, 'body');
 
-                const frontmatter = {
-                    number   : discussion.number,
-                    title    : discussion.title,
-                    author   : discussion.author?.login || 'unknown',
-                    category : discussion.category?.name || 'Uncategorized',
-                    createdAt: discussion.createdAt,
-                    updatedAt: discussion.updatedAt,
-                    closed   : discussion.closed,
-                    closedAt : discussion.closedAt,
-                    contentTrust
-                };
-
-                let body = projectedDiscussion.body || '';
-
-                // Build comments structure
-                if (discussion.comments && discussion.comments.nodes && discussion.comments.nodes.length > 0) {
-                    body += '\n\n## Comments\n\n';
-                    for (const comment of discussion.comments.nodes) {
-                        const projectedComment = this.#projectAuthoredNode(
-                            comment,
-                            contentTrust,
-                            `comment:${comment.id || comment.createdAt || 'unknown'}`
-                        );
-
-                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n`;
-                        if (comment.isAnswer) {
-                            body += '> [!ANSWER]\n\n';
-                        }
-                        body += `${projectedComment.body}\n\n`;
-
-                        // Parse replies if any
-                        if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
-                            for (const reply of comment.replies.nodes) {
-                                const projectedReply = this.#projectAuthoredNode(
-                                    reply,
-                                    contentTrust,
-                                    `comment:${comment.id || comment.createdAt || 'unknown'}/reply:${reply.id || reply.createdAt || 'unknown'}`
-                                );
-
-                                body += `#### Reply depth=1 by \`@${reply.author?.login || 'unknown'}\` on ${reply.createdAt}\n\n`;
-                                if (reply.isAnswer) {
-                                    body += '> [!ANSWER]\n\n';
-                                }
-                                body += `${projectedReply.body}\n\n`;
-                            }
-                        }
-                        body += '---\n\n';
-                    }
-                }
-
-                // Gray-matter serialization
-                const content = matter.stringify(body, frontmatter);
-
-                // Integrity gate: catches stale daemon code paths that silently drop frontmatter fields.
-                // The per-discussion `try { ... } catch (e)` at the loop boundary catches the throw,
-                // logs the warning, and skips the write, so broken-frontmatter files are never
-                // persisted while the sync run continues with other discussions.
-                const integrity = verifyDiscussionFrontmatter(content);
-                if (!integrity.ok) {
-                    throw new Error(`Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. ADR 0011 / #11573 contract violation — likely stale MCP daemon code path.`);
-                }
-
+                const content     = this.#renderDiscussionMarkdown(discussion);
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedDiscussion = cachedDiscussions[discussion.number];
@@ -463,6 +475,94 @@ class DiscussionSyncer extends Base {
             logger.info(`✨ Interacted and synced ${stats.count} modified discussions to disk.`);
         } else {
             logger.info(`✅ Synced 0 discussions (all up to date).`);
+        }
+
+        return stats;
+    }
+
+    /**
+     * @summary Force-refetches specific discussions from GitHub, bypassing the delta-by-`updatedAt`
+     * gate, and re-renders their local Markdown mirrors from current GitHub state.
+     *
+     * The bulk {@link #syncDiscussions} path is delta-gated and discussion mirrors are pull-only, so a
+     * mirror that drifted for a reason that does NOT bump `updatedAt` is never re-pulled. This is the
+     * single recovery primitive: it fetches each discussion via {@link FETCH_SINGLE_DISCUSSION_FOR_SYNC},
+     * re-renders via {@link #renderDiscussionMarkdown}, writes the file, and mutates the passed
+     * `metadata` in place. The caller persists metadata afterwards. Mirrors
+     * `PullRequestSyncer#refetchPullsByNumber` / `IssueSyncer#refetchIssuesByNumber`.
+     *
+     * @param {Array<Number>|Set<Number>} numbers The discussion numbers to refetch.
+     * @param {Object} metadata The sync metadata object (mutated in place).
+     * @param {Object} [indexMutations=null] Optional accumulator for `_index.json` updates.
+     * @returns {Promise<{refetched: {count: Number, discussions: Number[]}, errors: Array<{discussionNumber: Number, error: String}>}>}
+     */
+    async refetchDiscussionsByNumber(numbers, metadata, indexMutations = null) {
+        const stats = {refetched: {count: 0, discussions: []}, errors: []};
+        const list  = [...numbers];
+
+        for (const discussionNumber of list) {
+            try {
+                const data = await GraphqlService.query(
+                    FETCH_SINGLE_DISCUSSION_FOR_SYNC,
+                    {
+                        owner      : aiConfig.owner,
+                        repo       : aiConfig.repo,
+                        number     : discussionNumber,
+                        maxComments: 50,
+                        maxReplies : 20
+                    },
+                    true
+                );
+
+                const discussion = data.repository.discussion;
+                if (!discussion) {
+                    logger.warn(`Discussion #${discussionNumber} not found on GitHub, skipping refetch`);
+                    continue;
+                }
+
+                const planBuckets = this.#planBuckets(metadata, [discussion]);
+                const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
+                if (!targetPath) {
+                    if (indexMutations) {
+                        indexMutations.remove.push({type: 'discussions', id: discussionNumber});
+                    }
+                    continue;
+                }
+
+                const content     = this.#renderDiscussionMarkdown(discussion);
+                const contentHash = this.#calculateContentHash(content);
+
+                await fs.mkdir(path.dirname(targetPath), {recursive: true});
+                await fs.writeFile(targetPath, content, 'utf-8');
+
+                stats.refetched.count++;
+                stats.refetched.discussions.push(discussionNumber);
+                logger.debug(`✅ Refetched discussion #${discussionNumber}`);
+
+                metadata.discussions[discussionNumber] = {
+                    number  : discussion.number,
+                    closed  : discussion.closed,
+                    closedAt: discussion.closedAt,
+                    contentHash,
+                    path    : this.#relativePath(targetPath)
+                };
+
+                if (indexMutations) {
+                    const plan = planBuckets.get(discussionNumber);
+                    indexMutations.upsert.push(createContentIndexEntry({
+                        issueSyncConfig,
+                        type     : 'discussions',
+                        id       : discussionNumber,
+                        filePath : this.#resolvePath(this.#relativePath(targetPath)),
+                        itemIndex: plan ? plan.itemIndex : 0,
+                        version  : plan?.version || null,
+                        bucket   : null
+                    }));
+                }
+            } catch (e) {
+                logger.error(`Failed to refetch discussion #${discussionNumber}: ${e.message}`);
+                stats.errors.push({discussionNumber, error: e.message});
+            }
         }
 
         return stats;
