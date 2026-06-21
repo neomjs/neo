@@ -13,6 +13,7 @@ import {
     isLeaseStale,
     releaseHeavyMaintenanceLease,
     releaseHeavyMaintenanceLeaseSync,
+    shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease
 } from '../../../../../../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
@@ -69,6 +70,39 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 token: 'owner-token'
             }
         });
+    });
+
+    test('shouldYieldHeavyMaintenanceLease bounds the active hold (#13780)', () => {
+        const
+            acquiredAt      = '2026-05-16T20:00:00.000Z',
+            lease           = {owner: 'summary', acquiredAt},
+            maxActiveHoldMs = 5 * 60 * 1000; // 5 min
+
+        // active hold exceeds the budget → yield so an overdue peer can interleave
+        expect(shouldYieldHeavyMaintenanceLease(lease, {
+            now: new Date('2026-05-16T20:06:00.000Z'), maxActiveHoldMs
+        })).toBe(true);
+
+        // still within the budget → keep holding
+        expect(shouldYieldHeavyMaintenanceLease(lease, {
+            now: new Date('2026-05-16T20:03:00.000Z'), maxActiveHoldMs
+        })).toBe(false);
+
+        // exactly at the boundary → keep holding (strictly-greater contract)
+        expect(shouldYieldHeavyMaintenanceLease(lease, {
+            now: new Date('2026-05-16T20:05:00.000Z'), maxActiveHoldMs
+        })).toBe(false);
+
+        // unset / non-positive knob → never yields (byte-identical to today)
+        expect(shouldYieldHeavyMaintenanceLease(lease, {now: new Date('2026-05-16T23:00:00.000Z')})).toBe(false);
+        expect(shouldYieldHeavyMaintenanceLease(lease, {now: new Date('2026-05-16T23:00:00.000Z'), maxActiveHoldMs: 0})).toBe(false);
+
+        // fail-safe: missing lease / missing acquiredAt / unparseable timestamp → do not abandon work
+        expect(shouldYieldHeavyMaintenanceLease(null, {maxActiveHoldMs})).toBe(false);
+        expect(shouldYieldHeavyMaintenanceLease({owner: 'summary'}, {maxActiveHoldMs})).toBe(false);
+        expect(shouldYieldHeavyMaintenanceLease({acquiredAt: 'not-a-date'}, {
+            now: new Date('2026-05-16T23:00:00.000Z'), maxActiveHoldMs
+        })).toBe(false);
     });
 
     test('process liveness detects invalid owner pids', () => {
