@@ -3,14 +3,14 @@ id: 9421
 title: 'Refactor: Move grid column components into `src/grid/column/component/`'
 state: OPEN
 labels:
-  - stale
+  - no auto close
   - refactoring
   - architecture
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-09T16:23:08Z'
-updatedAt: '2026-06-08T06:11:47Z'
+updatedAt: '2026-06-16T17:03:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9421'
 author: tobiu
 commentsCount: 1

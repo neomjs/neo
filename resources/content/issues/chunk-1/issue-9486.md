@@ -9,17 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T17:41:38Z'
-updatedAt: '2026-03-31T12:14:10Z'
+updatedAt: '2026-06-11T01:21:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9486'
 author: tobiu
-commentsCount: 5
+commentsCount: 6
 parentIssue: null
 subIssues:
   - '[x] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
   - '[x] 9488 Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring'
   - '[x] 9489 Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
   - '[x] 9490 Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
-  - '[ ] 9491 Grid Multi-Body: Overhaul Column Drag & Drop (SortZone) across Split Headers'
+  - '[x] 9491 Grid Multi-Body: Overhaul Column Drag & Drop (SortZone) across Split Headers'
   - '[ ] 9492 Grid Multi-Body: Adapt Selection Models for Split Rows'
   - '[ ] 9493 Grid Multi-Body: Enable Cross-Window SubGrid Detachment (Pop-out)'
   - '[ ] 9494 Grid Multi-Body: Implement Direct Main-Thread Scroll Sync via MessageChannel'
@@ -46,12 +46,14 @@ subIssues:
   - '[x] 9614 Grid Multi-Body: Fix Horizontal Row Clipping & Scrollbar SCSS'
   - '[x] 9626 Epic: Grid Unified Scrolling & VDOM Orchestration'
   - '[ ] 9635 Grid Multi-Body: Restoring Vertical Scrollbar for Dual-Pipeline GPU Thumb Pinning'
-  - '[ ] 9636 Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection'
+  - '[x] 9636 Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection'
   - '[ ] 9637 Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling'
   - '[x] 9868 R&D: Grid Multi-Body Selection Architecture Redesign'
   - '[ ] 9872 Grid Multi-Body: 3-Tier Component Orchestration and Architecture Refactoring'
-subIssuesCompleted: 24
-subIssuesTotal: 35
+  - '[x] 12878 Column-header DnD resort misbehaves in locked multi-region grids'
+  - '[x] 12883 Column drag to the locked-end region fails to re-home (silent)'
+subIssuesCompleted: 28
+subIssuesTotal: 37
 blockedBy: []
 blocking: []
 ---
@@ -262,4 +264,45 @@ Recovery artifacts in this commit: issues #10030, #9486, #9999, #9535 —
 the four issues flagged as drifted by the detector baseline run — were
 healed via the new refetch endpoint and now reflect live GitHub state."
 - 2026-04-20T11:19:03Z @tobiu cross-referenced by PR #10122
+- 2026-06-07T21:33:35Z @neo-opus-ada cross-referenced by PR #12701
+- 2026-06-07T21:42:16Z @neo-gpt cross-referenced by PR #12697
+- 2026-06-07T21:42:18Z @neo-gpt cross-referenced by #12696
+- 2026-06-07T23:55:00Z @neo-opus-ada cross-referenced by #12707
+- 2026-06-07T23:56:40Z @neo-opus-ada cross-referenced by PR #12708
+- 2026-06-08T03:58:31Z @neo-opus-grace cross-referenced by PR #12722
+- 2026-06-08T10:14:56Z @neo-opus-grace cross-referenced by PR #12754
+- 2026-06-08T11:05:28Z @neo-opus-grace cross-referenced by #12757
+- 2026-06-08T11:05:42Z @neo-opus-grace cross-referenced by #12758
+- 2026-06-08T21:45:37Z @neo-opus-ada cross-referenced by PR #12784
+- 2026-06-09T00:11:22Z @neo-opus-grace cross-referenced by #12800
+- 2026-06-09T00:14:03Z @neo-opus-grace cross-referenced by PR #12801
+- 2026-06-10T23:25:54Z @neo-fable cross-referenced by #12878
+- 2026-06-10T23:26:09Z @neo-fable added sub-issue #12878
+- 2026-06-10T23:30:11Z @neo-fable cross-referenced by #12807
+- 2026-06-11T00:17:03Z @neo-fable cross-referenced by #12880
+- 2026-06-11T00:19:03Z @neo-fable cross-referenced by PR #12881
+### @neo-fable - 2026-06-11T01:21:09Z
+
+**Input from Claude Fable 5 (Claude Code):**
+
+> ❋ ## Open-sub staleness triage needed (27/36 done — the remaining 9 are part-gap, part-ghost)
+> 
+> Operator context (2026-06-11 nightshift): this epic's open tail "might explain gaps in the new grid — however, there will be stale items." The architecture moved UNDER several of these subs during the v13 window; each open sub needs a per-item verdict — **live-gap / stale-supersede / reshape** — before anyone burns a session implementing a superseded design.
+> 
+> **Known supersession anchors for the pass (V-B-A'd tonight or operator-named):**
+> 
+> 1. **Per-body peer SelectionModels are SUPERSEDED** by the `grid.View`-owned single SelectionModel (SSOT): #12758 (CLOSED, shipped via PR `#12784`) + the #9492 design-lock comment (https://github.com/neomjs/neo/issues/9492#issuecomment-4644149298). Any open sub assuming peer-SM-per-body construction (selection-sync subs especially — e.g. #9830's premise predates the SSOT) is in the stale-or-reshape class. The release note's grid cut-line already records the supersession publicly.
+> 2. **Cross-toolbar column DnD shipped**: #9491 CLOSED via PR #12792; the locked-region corruption layer fixed tonight via PR #12881 (#12878); the landing-index residual is #12880 (@neo-gpt, active). Open subs overlapping that surface should reference, not re-plan it.
+> 3. **`grid.View` owns body-scroll orchestration** (PR #12754) and `header.Wrapper` is extracted (#12800) — subs written against the pre-Wrapper topology need their Architectural Reality sections re-grounded.
+> 
+> **Suggested verdict vocabulary** (mirrors tonight's board + assignment triage): `live-keep` (real gap, premise holds) / `retire-supersede` (close citing the anchor) / `reshape` (gap real, prescription stale — comment the delta, don't silently rewrite another author's body).
+> 
+> @neo-opus-ada surfaced the 27/36 state during her assignment-triage pass — natural pickup if she wants it (hot context), but self-select per flat-peer. The pass output belongs here as a per-sub matrix comment, epic-resolution style.
+
+- 2026-06-11T01:37:24Z @neo-fable cross-referenced by PR #12882
+- 2026-06-11T01:46:25Z @neo-fable cross-referenced by #12883
+- 2026-06-11T01:47:03Z @neo-fable added sub-issue #12883
+- 2026-06-11T08:54:14Z @neo-gpt cross-referenced by PR #12892
+- 2026-06-11T09:35:58Z @neo-gpt cross-referenced by PR #12893
+- 2026-06-12T01:40:22Z @neo-fable cross-referenced by #12941
 
