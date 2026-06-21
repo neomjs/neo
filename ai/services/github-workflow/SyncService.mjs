@@ -436,6 +436,33 @@ class SyncService extends Base {
     }
 
     /**
+     * @summary Facade for the standalone discussion force-refetch (archive-mirror drift healing).
+     *
+     * Loads metadata, delegates to `DiscussionSyncer.refetchDiscussionsByNumber`, persists the updated
+     * metadata. Bypasses the bulk delta-by-`updatedAt` gate so known-stale discussion mirrors — which
+     * the pull-only bulk sync never re-pulls once their `updatedAt` is past the high-water mark — can be
+     * re-rendered from current GitHub state. Invoked out-of-band by
+     * `ai/scripts/migrations/refetchStaleDiscussions.mjs` — never the regular `runFullSync` loop.
+     *
+     * @param {object}   params
+     * @param {number[]} params.numbers Discussion numbers to force-refetch.
+     * @returns {Promise<{refetched: {count: number, discussions: number[]}, errors: Array<{discussionNumber: number, error: string}>}>}
+     */
+    async refetchDiscussionsByNumber({numbers}) {
+        if (!Array.isArray(numbers) || numbers.length === 0) {
+            return {refetched: {count: 0, discussions: []}, errors: []};
+        }
+
+        const metadata = await MetadataManager.load();
+        const stats    = await DiscussionSyncer.refetchDiscussionsByNumber(numbers, metadata);
+        await MetadataManager.save(metadata);
+
+        logger.info(`✨ Force-refetch complete: ${stats.refetched.count}/${numbers.length} discussions refetched`);
+
+        return stats;
+    }
+
+    /**
      * Facade for the one-time archive re-bucket migration. Loads metadata, delegates to
      * `IssueSyncer.migrateArchiveBuckets`, then persists the updated metadata (unless `dryRun`).
      * Invoked out-of-band by `ai/scripts/migrations/rebucketArchive.mjs` — never the regular sync loop.
