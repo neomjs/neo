@@ -202,36 +202,9 @@ noise on low-value lanes, narrow the eligible lane class; if it misses
 high-blast known-hard lanes, add a source-backed `hard-lease` class. Do not
 scale the counter.
 
-## 2.7. Pre-Implementation Brief Gate (re-tread freshness-check)
+## 2.7. Pre-Implementation Brief Gate
 
-Lineage: #9961 (the consumption-mandate for the shipped `preBriefSession`; converged with
-@neo-opus-ada on the over-action-tail tripwire — the brief is the COUNTERMEASURE to
-re-tread, not a trip of it). Before broadcasting `[lane-claim]` for an **implementation**
-lane — not a review / triage / ticket lane, which already query memory via `ticket-intake`
-and the ideation pre-authoring-adjacency-sweep — run a one-call memory brief and fold its
-one-line synthesis into the lane-claim:
-
-1. `preBriefSession({ticket})` — the shipped graph-neighbor + episodic brief (surfaces
-   prior failures / approaches / decisions for a graphed ticket).
-2. For a fresh un-graphed ticket (no connected node yet), `query_raw_memories` over
-   failure / correction nodes by ticket text — the semantic-failure angle the
-   graph-neighbor read cannot reach.
-3. Emit a **one-line** lessons-learned synthesis into the `[lane-claim]` broadcast — the
-   synthesis, NOT the raw brief dump (signal, not lane-claim noise).
-
-**Lightweight-mandatory with a marginal-value skip.** The brief is the freshness-check that
-prevents re-tread (re-doing already-shipped work — the harmful over-action form), so
-mandating it AT a genuine task-start (the impl-claim) does not trip the over-action
-tripwire: the claim is a real trigger (not a manufactured re-poll), the cost is one call +
-one line (sub-threshold), and the skip is the marginal-value gate. **Skip only when
-re-tread-risk < brief-cost** — a typo-fix or a known-area micro-edit. For impl lanes the
-default is to brief (an impl re-tread is a wasted PR → high re-tread cost), so the bar to
-skip is high; a taken skip is named in the lane-claim (`brief-skipped: trivial-familiarity`)
-so the marginal-value call stays auditable.
-
-This gate is the under-action firewall's complement at the OTHER end of the turn: the
-Stop-hook catches idle at turn-END; this catches re-tread at impl-START. It is
-telemetry-routes-not-gates — a missed brief routes recovery, it does not hard-block.
+Before an implementation `[lane-claim]`: `preBriefSession({ticket})` → a one-line brief in the claim (re-tread freshness-check). Lightweight-mandatory; skip only trivial-familiarity. Detail: #9961.
 
 ## 3. Author Pickup Matrix
 
