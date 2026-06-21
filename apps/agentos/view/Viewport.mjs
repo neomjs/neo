@@ -1,6 +1,7 @@
 import Accounts           from './Accounts.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
+import FirstWidgetPanel   from './FirstWidgetPanel.mjs';
 import FleetSettingsPanel from './FleetSettingsPanel.mjs';
 import ViewportController from './ViewportController.mjs';
 
@@ -76,6 +77,10 @@ class Viewport extends BaseViewport {
                 module   : FleetSettingsPanel,
                 flex     : 1,
                 reference: 'fleet'
+            }, {
+                module   : FirstWidgetPanel,
+                flex     : 1,
+                reference: 'first-widget'
             }]
         }]
     }

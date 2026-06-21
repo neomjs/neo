@@ -26,4 +26,20 @@ test.describe('AgentOS cockpit — cleaned shell (boot + content)', () => {
         await expect(page.locator('.agent-panel-swarm')).toHaveCount(0);
         await expect(page.locator('.agent-detach-button')).toHaveCount(0)
     });
+
+    // S1 of the EvidencePane relocation: the first-widget work-area, formerly a separate child app,
+    // now renders inline in the cockpit dashboard.Container as a hosted composite.
+    test('hosts the relocated first-widget panel: intake + evidence pane + the booted grid (S1)', async ({page}) => {
+        await page.goto('/apps/agentos/index.html');
+
+        // the relocated work-area mounts in the cockpit
+        await expect(page.locator('.agent-os-first-widget-panel')).toBeVisible({timeout: 60000});
+        // its subtree renders in the new host: the bounded intake, the evidence pane, the live-grid stage
+        await expect(page.locator('.agent-os-request-intake')).toBeVisible();
+        await expect(page.locator('.agent-os-evidence-pane')).toBeVisible();
+        await expect(page.locator('.agent-os-widget-stage')).toBeVisible();
+        // the controller booted the first grid through the add → insert seam INTO the stage — i.e. the
+        // insert-observer projection fires App-Worker-locally in the relocated host, not just the childapp
+        await expect(page.locator('.agent-os-first-widget-grid')).toBeVisible()
+    });
 });
