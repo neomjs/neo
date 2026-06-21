@@ -1043,6 +1043,61 @@ class GoldenPathSynthesizer extends Base {
         return {documents: recentIds.map(id => byId.get(id)).filter(doc => doc !== undefined && doc !== null)};
     }
 
+    /**
+     * @summary Renders the Consolidation Gaps section — undigested sessions made visible.
+     *
+     * Consolidation-liveness: the dream must **visibly record** sessions it has NOT
+     * digested, never silently. A fresh handoff over an undigested
+     * backlog reads healthy ("health-green-but-map-lying") unless the gap is surfaced — a
+     * lost walk must be *visibly* lost. Queries the summary collection for
+     * `graphDigested !== true` and renders the count + a bounded sample. Visibility-only:
+     * no routing change. Returns '' when the collection query fails (defensive) — but NOT
+     * when zero are undigested: a "0 undigested" line is itself the honest all-clear.
+     *
+     * @param {Object} summaryColl Summary Chroma collection (exposes async `.get`).
+     * @param {Object} [options]
+     * @param {Number} [options.limit=5] Max undigested sessions to sample.
+     * @returns {Promise<String>} The rendered section, or '' on query failure.
+     */
+    static async renderConsolidationGapsSection(summaryColl, {limit = 5} = {}) {
+        let raw;
+        try {
+            raw = await summaryColl.get({include: ['metadatas']});
+        } catch (e) {
+            return '';
+        }
+
+        const metas      = Array.isArray(raw?.metadatas) ? raw.metadatas : [],
+              ids        = Array.isArray(raw?.ids) ? raw.ids : [],
+              undigested = [];
+
+        for (let i = 0; i < metas.length; i++) {
+            const meta = metas[i];
+            // graphDigested is set true only after BOTH deterministic ingestion AND the
+            // semantic extractor complete (DreamService); anything else is an un-laid trail.
+            if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true') {
+                undigested.push({id: ids[i], title: meta.title || meta.sessionId || ids[i]});
+            }
+        }
+
+        let section = `\n## Consolidation Gaps\n\n`;
+        section += `*Consolidation-liveness (ADR 0023): sessions the dream has NOT yet laid as trails. A lost walk is visibly lost, never silently absent — a fresh handoff must not read healthy over an undigested backlog.*\n\n`;
+
+        if (undigested.length === 0) {
+            section += `✅ 0 sessions undigested — consolidation is current.\n`;
+            return section
+        }
+
+        section += `⚠️ **${undigested.length} session(s) undigested** (\`graphDigested !== true\`)`;
+        section += undigested.length > limit ? `, showing ${limit}:\n` : `:\n`;
+
+        for (const item of undigested.slice(0, limit)) {
+            section += `- \`${item.id}\` — ${item.title}\n`;
+        }
+
+        return section
+    }
+
     async synthesizeGoldenPath({
         repoEnrichmentEnabled = true,
         issuesDir = path.resolve(__dirname, '../../../resources/content/issues'),
@@ -1389,6 +1444,16 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // Defensive: ConsumerFrictionHelper failure must not break handoff rendering.
             // Log + continue with the rest of the handoff content.
             logger.warn(`[GoldenPathSynthesizer] ConsumerFriction section render failed: ${err.message}`);
+        }
+
+        // --- Consolidation Gaps (consolidation-liveness: undigested sessions made visible) ---
+        try {
+            const gapsSection = await this.constructor.renderConsolidationGapsSection(summaryColl);
+            if (gapsSection) {
+                handoffContent += gapsSection;
+            }
+        } catch (e) {
+            logger.warn(`[GoldenPathSynthesizer] Consolidation Gaps section render failed: ${e.message}`);
         }
 
         // --- Current Release / Incident Focus ---
