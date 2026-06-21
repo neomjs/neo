@@ -1,6 +1,6 @@
 # Blog Post Authoring Guide
 
-Fires when you author or revise a public-facing blog post: `learn/blog/<slug>.md` plus its portal registration in `apps/portal/resources/data/blog.json` (year node + leaf) and `apps/portal/sitemap.xml`. This is the blog sibling of the release-notes hero-piece methodology and the `update-roadmap` beat.
+Fires when you author or revise a public-facing blog post: `learn/blog/<slug>.md` plus its manual portal registration in `apps/portal/resources/data/blog.json` (year node + leaf). The SEO surfaces (`apps/portal/sitemap.xml`, `apps/portal/llms.txt`) are **generated, not hand-edited** — see §5. This is the blog sibling of the release-notes hero-piece methodology and the `update-roadmap` beat.
 
 **The recursive principle.** A blog post is a *public artifact*, held to its own thesis. If the post argues for rigor, it must *be* rigorous. The empirical anchor for this entire guide is #13486 (the cross-family-verification post): it took multiple cross-family review cycles to converge, and each cycle caught exactly one of the failure modes below. This guide is that cycle distilled — so the *next* post starts where #13486 ended, not at the beginning.
 
