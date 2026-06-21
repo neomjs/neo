@@ -368,4 +368,29 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
             confidence_score    : null  // 5 (outside [0,1]) → null
         });
     });
+
+    test('appendCandidates refuses a write to a production-like concepts dir from a test context (#13683 guard)', async () => {
+        // The guard keys on the test-runner signal (UNIT_TEST_MODE, set by the test-unit config)
+        // against a production-like (non-disposable) concepts dir. Point defaultConceptsDir at a
+        // production path and confirm the write is refused before it can pollute the live ontology.
+        ConceptService.defaultConceptsDir = '/var/neo-ai-data/concepts';
+
+        await expect(
+            ConceptDiscoveryService.appendCandidates([{id: 'should-not-write', name: 'X'}])
+        ).rejects.toThrow(/STORE_WRITE_GUARD/);
+
+        // The guard threw before the append — nothing was written at the production path.
+        expect(fs.existsSync('/var/neo-ai-data/concepts/nodes.jsonl')).toBe(false);
+    });
+
+    test('appendCandidates writes normally to a disposable (tmp) concepts dir — no false positive', async () => {
+        // The beforeEach default is an os.tmpdir() path (disposable) — the guard must be a no-op so
+        // the legitimate REM-pipeline append (and every other test here) is unaffected.
+        ConceptService.defaultConceptsDir = tmpConceptsDir;
+
+        await ConceptDiscoveryService.appendCandidates([{id: 'disposable-ok', name: 'Disposable OK'}]);
+
+        const nodesContent = fs.readFileSync(path.join(tmpConceptsDir, 'nodes.jsonl'), 'utf8');
+        expect(nodesContent).toContain('"disposable-ok"');
+    });
 });

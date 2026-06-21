@@ -1,13 +1,14 @@
-import fs                                                              from 'fs';
-import path                                                            from 'path';
-import yaml                                                             from 'js-yaml';
-import {fileURLToPath}                                                 from 'url';
-import Base                                                             from '../../../src/core/Base.mjs';
-import ConceptService                                                   from '../../services/ConceptService.mjs';
-import {Memory_Config as aiConfig}                                      from '../../services.mjs';
-import Json                                                             from '../../../src/util/Json.mjs';
-import logger                                                           from '../../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible                                                 from '../../provider/OpenAiCompatible.mjs';
+import fs                          from 'fs';
+import path                        from 'path';
+import yaml                        from 'js-yaml';
+import {fileURLToPath}             from 'url';
+import Base                        from '../../../src/core/Base.mjs';
+import ConceptService              from '../../services/ConceptService.mjs';
+import {Memory_Config as aiConfig} from '../../services.mjs';
+import Json                        from '../../../src/util/Json.mjs';
+import logger                      from '../../mcp/server/memory-core/logger.mjs';
+import OpenAiCompatible            from '../../provider/OpenAiCompatible.mjs';
+import {assertTestWriteIsolated}   from '../shared/storeWriteGuard.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -236,12 +237,12 @@ class ConceptDiscoveryService extends Base {
             if (ConceptService.nodes.has(raw.id)) continue;
 
             accepted.push({
-                id         : raw.id,
-                name       : raw.name,
+                id  : raw.id,
+                name: raw.name,
                 description: raw.description || `Mined candidate from ${sourceRef}. Awaiting curator review — promote by flipping \`validated: true\` and adjusting tier/weight in nodes.jsonl.`,
-                aliases    : Array.isArray(raw.aliases) ? raw.aliases : [],
-                source     : sourceRef,
-                reasoning  : raw.reasoning || '',
+                aliases  : Array.isArray(raw.aliases) ? raw.aliases : [],
+                source   : sourceRef,
+                reasoning: raw.reasoning || '',
                 ...CANDIDATE_DEFAULTS,
                 ...(extractionMetadata ? {extraction_metadata: extractionMetadata} : {})
             });
@@ -453,12 +454,20 @@ class ConceptDiscoveryService extends Base {
      * File is flush-written via `fs.promises.appendFile` which is atomic at the per-line level
      * on POSIX filesystems — safe for the single-writer REM pipeline pattern.
      * @param {Object[]} candidates
+     * @throws {Error} `STORE_WRITE_GUARD` when invoked from a test-runner context against the
+     *   production concepts dir (defense-in-depth via `assertTestWriteIsolated`) — never in production runtime.
      * @protected
      */
     async appendCandidates(candidates) {
         const
             conceptsDir = ConceptService.defaultConceptsDir || path.resolve(__dirname, '../../../.neo-ai-data/concepts'),
             nodesPath   = path.join(conceptsDir, 'nodes.jsonl');
+
+        // Defense-in-depth: refuse a concept-ontology write to the production concepts dir from a
+        // test-runner context (the orphan-bleed / backlog-corruption class). No-op in production
+        // runtime (no test signal) and for disposable/tmp dirs — the file-store parallel to the
+        // graph write-guard in SQLite.mjs.
+        assertTestWriteIsolated({storePath: conceptsDir, subsystem: 'concept-ontology'});
 
         let existing = '';
         try {

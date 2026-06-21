@@ -1,5 +1,7 @@
 import {test, expect}                                                        from '@playwright/test';
 import {isDisposableStorePath, isTestRunnerContext, assertTestWriteIsolated} from '../../../../../../ai/services/shared/storeWriteGuard.mjs';
+import os                                                                    from 'node:os';
+import path                                                                  from 'node:path';
 
 // A production-like absolute path: not :memory:, no tmp/test segment.
 const PROD_PATH = '/srv/neo/.neo-ai-data/datasets/rlaif/trajectories.jsonl';
@@ -12,6 +14,14 @@ test.describe('ai/services/shared/storeWriteGuard', () => {
         expect(isDisposableStorePath(null)).toBe(true);
         expect(isDisposableStorePath('')).toBe(true);
         expect(isDisposableStorePath(PROD_PATH)).toBe(false);
+    });
+
+    test('isDisposableStorePath: a real os.tmpdir() path is disposable even without a tmp/test segment', () => {
+        // macOS os.tmpdir() is /var/folders/.../T — no `tmp`/`test` substring — so the substring arms miss
+        // it; the os.tmpdir() prefix arm is what classifies it disposable. A file-store guard whose tests
+        // use os.tmpdir() (e.g. ConceptDiscoveryService) would false-positive on every run without this.
+        expect(isDisposableStorePath(os.tmpdir())).toBe(true);
+        expect(isDisposableStorePath(path.join(os.tmpdir(), 'neo-store-xyz', 'nodes.jsonl'))).toBe(true);
     });
 
     test('isTestRunnerContext: TEST_WORKER_INDEX or UNIT_TEST_MODE → true; neither → false', () => {
