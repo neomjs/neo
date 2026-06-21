@@ -4,15 +4,16 @@ title: 'Grid Multi-Body: Implement Data-Driven Variable Row Height Architecture'
 state: OPEN
 labels:
   - epic
+  - no auto close
   - ai
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-16T21:40:56Z'
-updatedAt: '2026-03-17T18:59:34Z'
+updatedAt: '2026-06-16T17:02:51Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9495'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
@@ -36,4 +37,9 @@ With a split-body architecture, ensuring visual row alignment is critical. We ca
 - 2026-03-16T21:41:23Z @tobiu cross-referenced by #9486
 - 2026-03-16T21:41:30Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:34Z @tobiu assigned to @tobiu
+### @github-actions - 2026-06-16T06:53:45Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-06-16T06:53:46Z @github-actions added the `stale` label
 

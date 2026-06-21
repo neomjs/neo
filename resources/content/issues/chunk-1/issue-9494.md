@@ -4,15 +4,16 @@ title: 'Grid Multi-Body: Implement Direct Main-Thread Scroll Sync via MessageCha
 state: OPEN
 labels:
   - epic
+  - no auto close
   - ai
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-16T21:40:51Z'
-updatedAt: '2026-03-17T18:59:29Z'
+updatedAt: '2026-06-16T17:03:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9494'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
@@ -37,4 +38,9 @@ When SubGrids are split across different browser windows, routing high-frequency
 - 2026-03-16T21:41:23Z @tobiu cross-referenced by #9486
 - 2026-03-16T21:41:29Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:29Z @tobiu assigned to @tobiu
+### @github-actions - 2026-06-16T06:53:46Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-06-16T06:53:47Z @github-actions added the `stale` label
 

@@ -14,14 +14,14 @@ author: tobiu
 commentsCount: 2
 parentIssue: null
 subIssues:
-  - '[ ] 13221 Neural Link mutation undo — Slice-1 (in-memory, single-level)'
+  - '[x] 13221 Neural Link mutation undo — Slice-1 (in-memory, single-level)'
   - '[x] 13304 Neural Link redo tool — re-apply the last undone transaction'
-  - '[ ] 13306 Neural Link redo Slice-2: e2e proof — undone component restored via redo'
+  - '[x] 13306 Neural Link redo Slice-2: e2e proof — undone component restored via redo'
   - '[x] 13326 Neural Link list_transactions — undo-stack audit/history tool'
   - '[x] 13331 feat: Neural Link named-transaction batching — begin_transaction + commit_transaction (undo-stack Slice-2)'
   - '[x] 13335 test(ai): integration — list_transactions reports a named batch (opCount + all labels)'
   - '[x] 13343 feat: Neural Link abort_transaction — discard an open named batch (undo-stack Slice-2 completion)'
-subIssuesCompleted: 5
+subIssuesCompleted: 7
 subIssuesTotal: 7
 blockedBy:
   - '[x] 9847 feat: Implement `remove_component` Neural Link Tool'
@@ -231,4 +231,6 @@ Adds the no-transaction-service fail-closed assertion gpt flagged for abort_tran
 - 2026-06-15T17:50:16Z @neo-opus-grace cross-referenced by #13373
 - 2026-06-15T18:05:07Z @neo-opus-vega cross-referenced by #13376
 - 2026-06-15T19:33:38Z @neo-opus-vega cross-referenced by #13012
+- 2026-06-16T03:48:29Z @neo-opus-vega cross-referenced by #13412
+- 2026-06-16T08:38:01Z @neo-gpt cross-referenced by PR #13414
 

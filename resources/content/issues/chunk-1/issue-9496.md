@@ -4,15 +4,16 @@ title: 'Grid Multi-Body: Adapt Keyboard Navigation for Split Bodies'
 state: OPEN
 labels:
   - epic
+  - no auto close
   - ai
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-16T21:51:30Z'
-updatedAt: '2026-03-17T18:59:40Z'
+updatedAt: '2026-06-16T07:21:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9496'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
@@ -39,4 +40,11 @@ Currently, using Left/Right arrow keys navigates through the DOM structure of a 
 - 2026-03-16T21:51:31Z @tobiu added the `grid` label
 - 2026-03-16T21:51:56Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:40Z @tobiu assigned to @tobiu
+### @github-actions - 2026-06-16T06:53:44Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-06-16T06:53:44Z @github-actions added the `stale` label
+- 2026-06-16T07:21:26Z @tobiu removed the `stale` label
+- 2026-06-16T07:21:26Z @tobiu added the `no auto close` label
 
