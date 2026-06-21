@@ -18,6 +18,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const repoRoot   = path.resolve(__dirname, '../../../../../../..');
 
+const RAW_EXTERNAL_URL = 'https://arkforge.tech/payload';
+const QUARANTINED_URL  = '[QUARANTINED_URL: arkforge.tech]';
+
 test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     let IssueIngestor;
     let StorageRouter;
@@ -44,9 +47,21 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     ];
 
     const mockFiles = {
-        'resources/content/issues/issue-2001.md': '---\nstate: OPEN\n---\n# Active Issue',
+        'resources/content/issues/issue-2001.md': [
+            '---',
+            'id: 2001',
+            'title: Active Issue',
+            'state: OPEN',
+            'contentTrust:',
+            '  projected: true',
+            '  quarantined: 1',
+            '---',
+            '# Active Issue',
+            '',
+            `External source was defanged as ${QUARANTINED_URL}.`
+        ].join('\n'),
         'resources/content/archive/issues/v1.0.0/issue-2002.md': '---\nstate: CLOSED\n---\n# Archive Issue',
-        'resources/content/discussions/discussion-3001.md': [
+        'resources/content/discussions/discussion-3001.md'     : [
             '---',
             'number: 3001',
             'title: Open Discussion',
@@ -94,11 +109,11 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         _originalGraphDb = GraphService.db;
         _originalGetGraphCollection = StorageRouter.getGraphCollection;
         GraphService.db = {
-            nodes: { get: () => null },
-            edges: { items: [] },
+            nodes           : { get: () => null },
+            edges           : { items: [] },
             getAdjacentNodes: () => {},
-            addNode: node => graphNodes.push(node),
-            updateNode: () => {}
+            addNode         : node => graphNodes.push(node),
+            updateNode      : () => {}
         };
 
         _originalExistsSync = fs.existsSync;
@@ -217,8 +232,8 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     test('ingestIssueStates() maps issues correctly through _index.json', async () => {
         StorageRouter.getGraphCollection = async () => ({
             upsert: async () => {},
-            get: async () => ({ ids: [], metadatas: [], documents: [] }),
-            add: async () => {}
+            get   : async () => ({ ids: [], metadatas: [], documents: [] }),
+            add   : async () => {}
         });
 
         try {
@@ -234,12 +249,35 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         }
     });
 
+    test('ingestIssueStates() emits sanitized persisted issue content without raw external URLs (#13703)', async () => {
+        const upserts = [];
+
+        StorageRouter.getGraphCollection = async () => ({
+            upsert: async payload => upserts.push(payload),
+            get   : async () => ({ ids: [], metadatas: [], documents: [] }),
+            add   : async () => {}
+        });
+
+        try {
+            const result = await IssueIngestor.ingestIssueStates();
+            const activeIssue = result.find(issue => issue.issueId === 'issue-2001');
+            const activeUpsert = upserts.find(payload => payload.ids[0] === 'issue-2001');
+
+            expect(activeIssue.body).toContain(QUARANTINED_URL);
+            expect(activeIssue.body).not.toContain(RAW_EXTERNAL_URL);
+            expect(activeUpsert.documents[0]).toContain(QUARANTINED_URL);
+            expect(activeUpsert.documents[0]).not.toContain(RAW_EXTERNAL_URL);
+        } finally {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
+    });
+
     test('ingestDiscussionStates() maps closed frontmatter into graph and vector lifecycle metadata', async () => {
         const upserts = [];
 
         StorageRouter.getGraphCollection = async () => ({
             upsert: async payload => upserts.push(payload),
-            get: async () => ({ ids: [], metadatas: [], documents: [] })
+            get   : async () => ({ ids: [], metadatas: [], documents: [] })
         });
 
         try {
