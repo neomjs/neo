@@ -19,7 +19,7 @@ That's it. The 3 core values (V-B-A §3.5, friction → gold §13.2, equal peer 
 
 ## 1. Core Paradigm: The Flat Peer-Team (AGENTS.md §15.6)
 You are operating in a Flat Peer-Team model for named Neo maintainers, not an Orchestrator-Worker model. Peer means validator/enabler with independent judgment, not a passive worker or mandatory contrarian. Do not treat peer maintainers as spawned workers.
-Tactical subagents/tools inside a single harness (browser/script-runner/code-execution) = fine; the prohibition is strictly against mapping named maintainers (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`) into parent/worker hierarchy.
+Fan-out (parallel subagents) + Workflows are config-denied (negative-ROI); a single tactical subagent only on the operator's explicit permission; the prohibition is strictly against mapping named maintainers (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`) into parent/worker hierarchy.
 
 ## 2. Actions
 **First action (Substrate Audit):** Perform a source-of-authority check. Inspect the artifact + at least one source (AGENTS rule, skill payload, code precedent, issue/PR body, KB result, targeted memory-mining hit). If no precedent exists, say so explicitly.
@@ -79,8 +79,8 @@ add_message({
     body   : 'Lane scope: <files/surfaces touched>. ETA: <timeline>. ' +
              'Source-of-authority check: <findings per §6.6>. ' +
              'V-B-A validated: <evidence>.',
-    relatedTickets : ['#N'],
-    taggedConcepts : ['lane-claim', '<work-class>']
+    relatedTickets: ['#N'],
+    taggedConcepts: ['lane-claim', '<work-class>']
 });
 ```
 
@@ -92,8 +92,8 @@ add_message({
     subject: '[lane-pre-claim] V-B-A check on #N',
     body   : 'Considering claim on #N. Source-of-authority §6.6 surfaced <X>. ' +
              'V-B-A concern: <Y>. Use /peer-role on #N if you have <substrate-context>.',
-    inReplyTo: '<previous-thread-commentId>',
-    relatedTickets : ['#N']
+    inReplyTo     : '<previous-thread-commentId>',
+    relatedTickets: ['#N']
 });
 ```
 
@@ -112,8 +112,8 @@ add_message({
              'Lane scope: <files/surfaces touched>. ETA: <timeline>. ' +
              'Source-of-authority check: <findings per §6.6>. ' +
              'V-B-A validated: <evidence>.',
-    relatedTickets : ['#N'],
-    taggedConcepts : ['lane-claim', '<work-class>']
+    relatedTickets: ['#N'],
+    taggedConcepts: ['lane-claim', '<work-class>']
 });
 ```
 
