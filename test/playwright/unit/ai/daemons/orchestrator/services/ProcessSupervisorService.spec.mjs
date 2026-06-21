@@ -1,8 +1,8 @@
-import {test, expect} from '@playwright/test';
-import fs from 'fs-extra';
-import path from 'path';
-import Neo from '../../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../../src/core/_export.mjs';
+import {test, expect}               from '@playwright/test';
+import fs                           from 'fs-extra';
+import path                         from 'path';
+import Neo                          from '../../../../../../../src/Neo.mjs';
+import * as core                    from '../../../../../../../src/core/_export.mjs';
 import { ProcessSupervisorService } from '../../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
 
 function createTestService() {
@@ -26,6 +26,14 @@ function createTestService() {
             args             : ['backfill-memory-summaries.mjs'],
             pidFileName      : 'memory-summary-backfill.pid',
             expectedCommand  : 'backfill-memory-summaries.mjs',
+            captureStdoutJson: true
+        },
+        kbSync: {
+            label            : 'knowledge base sync',
+            command          : 'node',
+            args             : ['syncKnowledgeBase.mjs'],
+            pidFileName      : 'kb-sync.pid',
+            expectedCommand  : 'syncKnowledgeBase.mjs',
             captureStdoutJson: true
         }
     };
@@ -51,10 +59,10 @@ function createTestService() {
         dataDir,
         taskDefinitions,
         taskStateService: mockTaskStateService,
-        healthService: mockHealthService,
-        writeLog: (level, message) => logEntries.push({level, message}),
-        spawnFn: () => ({ pid: 1234, on: () => {} }),
-        processCommand: (pid) => 'echo hello'
+        healthService   : mockHealthService,
+        writeLog        : (level, message) => logEntries.push({level, message}),
+        spawnFn         : () => ({ pid: 1234, on: () => {} }),
+        processCommand  : (pid) => 'echo hello'
     });
 
     return { service, dataDir, logEntries, mockTaskStateService, stateCalls, taskOutcomes };
@@ -327,6 +335,52 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
                 stdoutJsonParseError: expect.any(String),
                 stdoutJsonBytes     : 9
             })
+        }));
+    });
+
+    test('#13784: kbSync lease-held stdout records skipped, not false-green completed', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild = createManualChild();
+
+        service.spawnFn = () => manualChild.child;
+
+        expect(service.runTask('kbSync', 'periodic-sync:1800000')).toBe(true);
+        manualChild.writeStdout(JSON.stringify({
+            deferred: true,
+            reason  : 'heavy-maintenance-lease-held',
+            holder  : {owner: 'summary', reason: 'periodic-sweep', pid: 6988}
+        }));
+        manualChild.close(0);
+
+        expect(stateCalls).toContainEqual({action: 'skipped', taskName: 'kbSync'});
+        expect(stateCalls).not.toContainEqual({action: 'completed', taskName: 'kbSync'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'skipped',
+            taskName: 'kbSync',
+            details : expect.objectContaining({
+                reasonCode : 'heavy-maintenance-lease-held',
+                childReason: 'heavy-maintenance-lease-held',
+                deferred   : true
+            })
+        }));
+    });
+
+    test('#13784: kbSync real sync (deferred:false) records completed with embed counts', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild = createManualChild();
+
+        service.spawnFn = () => manualChild.child;
+
+        expect(service.runTask('kbSync', 'periodic-sync:1800000')).toBe(true);
+        manualChild.writeStdout(JSON.stringify({deferred: false, added: 2566, deleted: 1513}));
+        manualChild.close(0);
+
+        expect(stateCalls).toContainEqual({action: 'completed', taskName: 'kbSync'});
+        expect(stateCalls).not.toContainEqual({action: 'skipped', taskName: 'kbSync'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'completed',
+            taskName: 'kbSync',
+            details : expect.objectContaining({added: 2566, deleted: 1513})
         }));
     });
 
