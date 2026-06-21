@@ -283,6 +283,45 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     });
 
+    test('knowledge-base exposes compact list descriptions plus lazy-loaded handbook detail (#9953)', async () => {
+        const
+            server        = servers.find(item => item.name === 'knowledge-base'),
+            {tools}       = await listTools(server),
+            byName        = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl     = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}    = await import(moduleUrl),
+            handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'query_documents'}),
+            missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            queryDocs     = byName.query_documents,
+            askKnowledge  = byName.ask_knowledge_base,
+            handbookTool  = byName.get_mcp_tool_handbook;
+
+        expect(handbookTool.description.length).toBeLessThanOrEqual(120);
+        expect(queryDocs.description).toBe('Search the Knowledge Base and return ranked source references.');
+        expect(queryDocs.description).not.toContain('Prefer `ask_knowledge_base`');
+        expect(askKnowledge.description).toBe('Ask the Knowledge Base for a synthesized answer with cited references.');
+        expect(askKnowledge.description).not.toContain('zero-cost RAG subagent');
+        expect(handbookTool.annotations.readOnlyHint).toBe(true);
+
+        for (const tool of tools) {
+            expect(tool.description.length, `knowledge-base.${tool.name} description is not compact`).toBeLessThanOrEqual(120);
+        }
+
+        expect(handbook).toMatchObject({
+            toolId: 'query_documents',
+            found : true,
+            source: 'description'
+        });
+        expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('Prefer `ask_knowledge_base` for most queries');
+
+        expect(missing).toEqual({
+            toolId: 'missing_tool',
+            found : false,
+            code  : 'TOOL_NOT_FOUND',
+            message: 'Tool "missing_tool" does not exist in this MCP server.'
+        });
+    });
+
     test('unmigrated servers keep their existing list description behavior (#13268)', async () => {
         const
             server     = servers.find(item => item.name === 'github-workflow'),

@@ -54,6 +54,7 @@ const serviceMapping = {
     ask_knowledge_base   : SearchService           .ask                .bind(SearchService),
     get_class_hierarchy  : QueryService            .getClassHierarchy  .bind(QueryService),
     get_document_by_id   : DocumentService         .getDocumentById    .bind(DocumentService),
+    get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
     healthcheck          : HealthService           .healthcheck        .bind(HealthService),
     list_documents       : DocumentService         .listDocuments      .bind(DocumentService),
     list_agent_faqs      : KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
@@ -67,8 +68,10 @@ const serviceMapping = {
 };
 
 const toolService = Neo.create(ToolService, {
+    compactToolDescriptions    : true,
     openApiFilePath,
-    serviceMapping
+    serviceMapping,
+    toolListDescriptionMaxLength: 120
 });
 
 const _callTool = toolService.callTool.bind(toolService);
