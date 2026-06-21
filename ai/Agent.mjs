@@ -47,6 +47,16 @@ class Agent extends Base {
          */
         servers: [],
         /**
+         * Optional per-server tool allowlist for least-privilege capability gating. Shape:
+         * `{[serverName]: String[]}` — restricts a connected server to the named tools (e.g. limiting a
+         * local lower-parameter worker to `{'github-workflow': ['signal_state_transition']}` so it cannot
+         * initiate destructive operations it lacks the cognitive architecture to navigate). A server absent
+         * from the map keeps its full surface; `null` disables filtering entirely (the backward-compatible
+         * default). Enforced at tool-assembly via {@link Neo.ai.agent.resolveAllowedTools}.
+         * @member {Object|null} allowedTools=null
+         */
+        allowedTools: null,
+        /**
          * Registered sub-agent profiles available for delegation.
          * @member {Object} subAgents
          */
@@ -132,9 +142,10 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
 
         // Create the Loop
         this.loop = Neo.create(Loop, {
-            agent: this,
+            agent       : this,
+            allowedTools: this.allowedTools,
             assembler,
-            clients: this.clients,
+            clients     : this.clients,
             provider,
             scheduler
         });
@@ -217,7 +228,7 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
 
             subAgent = Neo.create(ProfileClass);
             await subAgent.ready();
-            
+
             this.activeSubAgents[profileName] = subAgent;
             this.subAgentTurns[profileName]   = 0;
         } else {
@@ -226,7 +237,7 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
 
         try {
             this.subAgentTurns[profileName]++;
-            
+
             const result = await subAgent.loop.processEvent({
                 type: 'delegate',
                 data: request,
