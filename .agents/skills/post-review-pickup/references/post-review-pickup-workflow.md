@@ -206,6 +206,10 @@ noise on low-value lanes, narrow the eligible lane class; if it misses
 high-blast known-hard lanes, add a source-backed `hard-lease` class. Do not
 scale the counter.
 
+## 2.7. Pre-Implementation Brief Gate
+
+Before an implementation `[lane-claim]`: `preBriefSession({ticket})` (+ `query_raw_memories` failure-mode if un-graphed) → a one-line brief. Mandatory; skip trivial-familiarity. Detail: #9961.
+
 ## 3. Author Pickup Matrix
 
 After posting review-response fixups and the author-side commentId handoff, the
