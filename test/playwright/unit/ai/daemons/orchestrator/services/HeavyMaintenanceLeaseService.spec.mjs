@@ -475,10 +475,11 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         try {
             const result = await withHeavyMaintenanceLease(() => 'fresh-acquire', {
                 leasePath,
-                owner       : 'kbSync',
+                owner                : 'kbSync',
                 now,
-                staleAfterMs: 60000,
-                token       : 'child-token'
+                staleAfterMs         : 60000,
+                token                : 'child-token',
+                onInheritedTokenStale: () => {} // AC8a hits the stale-inherited fall-through; pin no-op so the default warn does not leak into the suite
             });
 
             expect(result).toMatchObject({
@@ -521,14 +522,16 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
 
         let taskRan = false;
+        const staleHookCalls = [];
         try {
             const result = await withHeavyMaintenanceLease(() => {
                 taskRan = true;
             }, {
                 leasePath,
-                owner: 'kbSync',
+                owner                : 'kbSync',
                 now,
-                token: 'child-token'
+                token                : 'child-token',
+                onInheritedTokenStale: info => staleHookCalls.push(info)
             });
 
             expect(result).toMatchObject({
@@ -537,7 +540,59 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 lease   : {owner: 'summary', token: 'real-active-token'}
             });
             expect(taskRan).toBe(false);
+            // Hardening: this is the exact silent-skip scenario (stale inherited token + lease held).
+            // The deferral must be OBSERVABLE — a distinct previousStatus + the stale hook fired — so it
+            // can never again masquerade as a "completed" multi-day stall.
+            expect(result.previousStatus).toBe('inherited-token-stale');
+            expect(staleHookCalls).toHaveLength(1);
+            expect(staleHookCalls[0]).toMatchObject({inheritedToken: 'spurious-stale-token'});
         } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+            await releaseHeavyMaintenanceLease({leasePath, token: 'real-active-token', now});
+        }
+    });
+
+    test('#13763: stale-inherited-token deferral defaults to a loud stderr warn (no hook override)', async () => {
+        // Same stale-inherited scenario as AC8b, but WITHOUT injecting onInheritedTokenStale — pins the
+        // deliberately-loud DEFAULT (reconciled): with 6+ maintenance callers, a no-op default +
+        // per-caller opt-in is the fragile discipline whose lapse caused the original silent-skip
+        // regression, so the wrapper warns by default. The structural previousStatus marker stays present.
+        const leasePath = createLeasePath('inherit-default-warn');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'summary',
+            now,
+            staleAfterMs: 60000,
+            token       : 'real-active-token'
+        });
+
+        const original    = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
+
+        const originalWarn = console.warn;
+        const warnCalls    = [];
+        console.warn = (...args) => warnCalls.push(args.join(' '));
+
+        try {
+            const result = await withHeavyMaintenanceLease(() => {}, {
+                leasePath,
+                owner: 'kbSync',
+                now,
+                token: 'child-token'
+                // no onInheritedTokenStale → default loud warn
+            });
+
+            expect(result.previousStatus).toBe('inherited-token-stale');
+            expect(warnCalls).toHaveLength(1);
+            expect(warnCalls[0]).toContain('inherited lease token is stale');
+        } finally {
+            console.warn = originalWarn;
             if (original === undefined) {
                 delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
             } else {
@@ -588,9 +643,10 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 taskRan = true;
             }, {
                 leasePath,
-                owner: 'kbSync',
-                now  : t1,
-                token: 'child-token'
+                owner                : 'kbSync',
+                now                  : t1,
+                token                : 'child-token',
+                onInheritedTokenStale: () => {} // AC8c hits the stale-inherited fall-through; pin no-op so the default warn does not leak
             });
 
             expect(result).toMatchObject({
@@ -716,7 +772,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     test('default singleton delegates to the reusable helpers', async () => {
         const leasePath = createLeasePath('service');
         const service   = Neo.create(HeavyMaintenanceLeaseService, {
-            leasePath_: leasePath,
+            leasePath_   : leasePath,
             staleAfterMs_: 60000
         });
 
