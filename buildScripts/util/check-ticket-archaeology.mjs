@@ -1,9 +1,10 @@
 import {program}             from 'commander';
-import {execSync, spawnSync}  from 'node:child_process';
-import {readFileSync}         from 'node:fs';
-import path                   from 'node:path';
-import process                from 'node:process';
-import {fileURLToPath}        from 'node:url';
+import {execSync, spawnSync} from 'node:child_process';
+import {readFileSync}        from 'node:fs';
+import path                  from 'node:path';
+import process               from 'node:process';
+import {fileURLToPath}       from 'node:url';
+import {getStagedAddedLines} from './stagedDiff.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -173,7 +174,8 @@ function main() {
         return result.stdout.trim().split('\n').filter(Boolean);
     }
 
-    const files = argvFiles.length > 0
+    const isStagedMode = argvFiles.length > 0;
+    const files = isStagedMode
         ? argvFiles.filter(f => f.endsWith('.mjs'))
         : collectDefaultFiles();
 
@@ -192,7 +194,13 @@ function main() {
             continue;
         }
 
-        findTicketRefs(content).forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
+        // In staged (pre-commit) mode, scope findings to the author's added lines so we do not
+        // re-flag grandfathered refs on untouched lines; the default-dirs full audit stays whole-file.
+        const addedLines = isStagedMode ? getStagedAddedLines(file, gitRoot) : null;
+
+        findTicketRefs(content)
+            .filter(({line}) => !addedLines || addedLines.has(line))
+            .forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
     }
 
     if (violations.length > 0) {
