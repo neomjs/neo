@@ -49,6 +49,11 @@ function buildService(overrides = {}) {
     });
 }
 
+// Explicit fixture for the compatible-pair MECHANISM tests. DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+// is now empty — the kbSync/backfill pair raced on the inherited-lease-token bypass and skipped KB
+// embedding — so the mechanism is exercised here with an explicit pair rather than the live default.
+const COMPATIBLE_PAIRS_FIXTURE = [['kbSync', 'memory-summary-backfill']];
+
 test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService', () => {
 
     // ====================================================================
@@ -76,12 +81,12 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(Object.isFrozen(DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES)).toBe(true);
     });
 
-    test('DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS keeps miniSummary backfill independent of kbSync', () => {
-        expect(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS).toEqual([
-            ['kbSync', 'memory-summary-backfill']
-        ]);
+    test('DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS is EMPTY — heavy maintenance fully serialized', () => {
+        // The prior ['kbSync','memory-summary-backfill'] pair raced on the inherited-lease-token bypass
+        // (parent released before the kb-sync child booted → kb-sync skipped syncDatabase → multi-day
+        // embedding stall). Serialized until a race-free handshake replaces the bypass.
+        expect(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS).toEqual([]);
         expect(Object.isFrozen(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS)).toBe(true);
-        expect(Object.isFrozen(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS[0])).toBe(true);
     });
 
     // ====================================================================
@@ -114,22 +119,22 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(areHeavyMaintenanceTasksCompatible({
             taskName                           : 'kbSync',
             otherTaskName                      : 'memory-summary-backfill',
-            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         })).toBe(true);
         expect(areHeavyMaintenanceTasksCompatible({
             taskName                           : 'memory-summary-backfill',
             otherTaskName                      : 'kbSync',
-            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         })).toBe(true);
         expect(areHeavyMaintenanceTasksCompatible({
             taskName                           : 'summary',
             otherTaskName                      : 'kbSync',
-            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         })).toBe(false);
         expect(areHeavyMaintenanceTasksCompatible({
             taskName                           : 'kbSync',
             otherTaskName                      : 'kbSync',
-            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         })).toBe(false);
     });
 
@@ -161,14 +166,14 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             heavyMaintenanceTaskNames          : DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
             taskStateService                   : buildTaskStateService({kbSync: {running: true}}),
             candidateTaskName                  : 'memory-summary-backfill',
-            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         })).toBeNull();
 
         expect(getActiveHeavyMaintenanceTask({
             heavyMaintenanceTaskNames          : DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
             taskStateService                   : buildTaskStateService({summary: {running: true}, kbSync: {running: true}}),
             candidateTaskName                  : 'memory-summary-backfill',
-            compatibleHeavyMaintenanceTaskPairs: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         })).toBe('summary');
     });
 
@@ -400,10 +405,11 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         const outcomeCalls = [];
         const executions   = [];
         const service      = buildService({
-            taskStateService: buildTaskStateService({kbSync: {running: true}}),
-            healthService   : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})},
-            acquireLeaseFn  : () => ({acquired: true, lease: {token: 'memory-token'}}),
-            releaseLeaseFn  : () => {}
+            taskStateService                   : buildTaskStateService({kbSync: {running: true}}),
+            healthService                      : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})},
+            acquireLeaseFn                     : () => ({acquired: true, lease: {token: 'memory-token'}}),
+            releaseLeaseFn                     : () => {},
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         });
 
         const activeHeavyTask = {name: 'kbSync'};
@@ -454,10 +460,11 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         const executions   = [];
         const releases     = [];
         const service      = buildService({
-            taskStateService: buildTaskStateService({}),
-            healthService   : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})},
-            acquireLeaseFn  : () => ({acquired: false, lease: {owner: 'kbSync', pid: 77}}),
-            releaseLeaseFn  : opts => releases.push(opts)
+            taskStateService                   : buildTaskStateService({}),
+            healthService                      : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})},
+            acquireLeaseFn                     : () => ({acquired: false, lease: {owner: 'kbSync', pid: 77}}),
+            releaseLeaseFn                     : opts => releases.push(opts),
+            compatibleHeavyMaintenanceTaskPairs: COMPATIBLE_PAIRS_FIXTURE
         });
 
         const activeHeavyTask = {name: null};
