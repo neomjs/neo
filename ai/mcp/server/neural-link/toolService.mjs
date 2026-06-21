@@ -35,6 +35,7 @@ const serviceMapping = {
     get_drag_state               : InteractionService.getDragState              .bind(InteractionService),
     get_drag_trace               : InteractionService.getDragTrace              .bind(InteractionService),
     get_instance_properties      : InstanceService   .getInstanceProperties     .bind(InstanceService),
+    get_mcp_tool_handbook        : toolId => toolService.getToolHandbook(toolId),
     get_method_source            : RuntimeService    .getMethodSource           .bind(RuntimeService),
     get_namespace_tree           : RuntimeService    .getNamespaceTree          .bind(RuntimeService),
     get_record                   : DataService       .getRecord                 .bind(DataService),
@@ -69,8 +70,10 @@ const serviceMapping = {
 };
 
 const toolService = Neo.create(ToolService, {
+    compactToolDescriptions    : true,
     openApiFilePath,
-    serviceMapping
+    serviceMapping,
+    toolListDescriptionMaxLength: 120
 });
 
 const _callTool = toolService.callTool.bind(toolService);

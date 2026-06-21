@@ -37,6 +37,13 @@ const
             stdioReason    : 'toolService smoke is CI-friendly; full stdio boot remains covered by bucket-D McpServersHealth.spec.mjs because process transport needs harness env.'
         },
         {
+            name           : 'gitlab-workflow',
+            toolServicePath: 'ai/mcp/server/gitlab-workflow/toolService.mjs',
+            openApiPath    : 'ai/mcp/server/gitlab-workflow/openapi.yaml',
+            mcpServerPath  : 'ai/mcp/server/gitlab-workflow/mcp-server.mjs',
+            stdioReason    : 'toolService smoke is CI-friendly; full stdio boot requires GitLab token/project env and remains bucket-D coverage.'
+        },
+        {
             name           : 'github-workflow',
             toolServicePath: 'ai/mcp/server/github-workflow/toolService.mjs',
             openApiPath    : 'ai/mcp/server/github-workflow/openapi.yaml',
@@ -197,6 +204,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(servers.map(server => server.name).sort()).toEqual([
             'file-system',
             'github-workflow',
+            'gitlab-workflow',
             'knowledge-base',
             'memory-core',
             'neural-link'
@@ -361,15 +369,40 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     });
 
-    test('unmigrated servers keep their existing list description behavior (#13268)', async () => {
+    test('gitlab-workflow exposes compact list descriptions plus lazy-loaded handbook detail (#9953)', async () => {
         const
-            server     = servers.find(item => item.name === 'neural-link'),
-            {tools}    = await listTools(server),
-            tool       = tools.find(item => item.name === 'get_component_tree'),
-            operations = getOperationsById(server);
+            server       = servers.find(item => item.name === 'gitlab-workflow'),
+            {tools}      = await listTools(server),
+            byName       = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}   = await import(moduleUrl),
+            handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'create_issue'}),
+            missing      = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            createIssue  = byName.create_issue,
+            handbookTool = byName.get_mcp_tool_handbook;
 
-        expect(tool.description).toBe(operations.get_component_tree.description);
-        expect(tool.description.length).toBeGreaterThan(120);
+        expect(handbookTool.description.length).toBeLessThanOrEqual(120);
+        expect(handbookTool.annotations.readOnlyHint).toBe(true);
+        expect(createIssue.description).toBe('Create a GitLab issue');
+        expect(createIssue.description).not.toContain('GitLab GraphQL API');
+
+        for (const tool of tools) {
+            expect(tool.description.length, `gitlab-workflow.${tool.name} description is not compact`).toBeLessThanOrEqual(120);
+        }
+
+        expect(handbook).toMatchObject({
+            toolId: 'create_issue',
+            found : true,
+            source: 'description'
+        });
+        expect(handbook.handbook).toContain('GitLab GraphQL API');
+
+        expect(missing).toEqual({
+            toolId: 'missing_tool',
+            found : false,
+            code  : 'TOOL_NOT_FOUND',
+            message: 'Tool "missing_tool" does not exist in this MCP server.'
+        });
     });
 
     test('github-workflow exposes compact list descriptions plus lazy-loaded handbook detail (#13736)', async () => {
@@ -403,6 +436,42 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             source: 'description'
         });
         expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('Run `sync_all` to update local markdown files');
+
+        expect(missing).toEqual({
+            toolId: 'missing_tool',
+            found : false,
+            code  : 'TOOL_NOT_FOUND',
+            message: 'Tool "missing_tool" does not exist in this MCP server.'
+        });
+    });
+
+    test('neural-link exposes compact list descriptions plus lazy-loaded handbook detail (#9953)', async () => {
+        const
+            server       = servers.find(item => item.name === 'neural-link'),
+            {tools}      = await listTools(server),
+            byName       = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}   = await import(moduleUrl),
+            handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'find_instances'}),
+            missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            findInstances = byName.find_instances,
+            handbookTool  = byName.get_mcp_tool_handbook;
+
+        expect(handbookTool.description.length).toBeLessThanOrEqual(120);
+        expect(handbookTool.annotations.readOnlyHint).toBe(true);
+        expect(findInstances.description).toBe('Find Instances');
+        expect(findInstances.description).not.toContain('StateProviders');
+
+        for (const tool of tools) {
+            expect(tool.description.length, `neural-link.${tool.name} description is not compact`).toBeLessThanOrEqual(120);
+        }
+
+        expect(handbook).toMatchObject({
+            toolId: 'find_instances',
+            found : true,
+            source: 'description'
+        });
+        expect(handbook.handbook).toContain('StateProviders');
 
         expect(missing).toEqual({
             toolId: 'missing_tool',
