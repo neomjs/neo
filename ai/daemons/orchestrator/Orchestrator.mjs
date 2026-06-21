@@ -314,6 +314,7 @@ export class Orchestrator extends Base {
             lmsHost                          : AiConfig.openAiCompatible.host,
             lmsPort                          : AiConfig.orchestrator.lms.port,
             lmsContextLengths                : lmsPreloadConfig.contextLengths,
+            lmsParallels                     : lmsPreloadConfig.parallels,
             providerReadiness                : AiConfig.orchestrator.providerReadiness,
             graphLogCompactionVacuum         : AiConfig.orchestrator.graphLogCompaction.vacuum
         });

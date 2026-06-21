@@ -77,6 +77,7 @@ function probeTcpPort({port, timeoutMs}) {
  * @param {String} [options.lmsHost] OpenAI-compatible host exposed by the LM Studio server.
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
  * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
+ * @param {Object} [options.lmsParallels] Per-model `--parallel` slot-count override map keyed by model id (chat-only, from `aiConfig.localModels.chat.parallel`).
  * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
  * @param {Boolean} [options.graphLogCompactionVacuum] Whether scheduled GraphLog compaction also runs SQLite VACUUM.
  * @returns {Object}
@@ -98,6 +99,7 @@ export function buildTaskDefinitions({
     lmsHost,
     lmsPort,
     lmsContextLengths,
+    lmsParallels,
     providerReadiness,
     graphLogCompactionVacuum
 } = {}) {
@@ -330,6 +332,7 @@ export function buildTaskDefinitions({
                     host          : lmsHost,
                     models        : requiredModels,
                     contextLengths: lmsContextLengths,
+                    parallels     : lmsParallels,
                     allowPartial  : true,
                     attempts      : providerReadiness?.attempts,
                     delayMs       : providerReadiness?.delayMs,
