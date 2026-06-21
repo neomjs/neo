@@ -178,10 +178,10 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(rootSplitter.height).toBeUndefined();
         expect(rootSplitter.data).toMatchObject({
             boundaryIndex: 0,
-            dockSplitter: true,
-            operation   : 'resizeSplit',
-            orientation : 'horizontal',
-            splitNodeId : 'root'
+            dockSplitter : true,
+            operation    : 'resizeSplit',
+            orientation  : 'horizontal',
+            splitNodeId  : 'root'
         });
 
         expect(sideSplit.items.map(item => item.dockNodeType)).toEqual(['tabs', 'splitter', 'tabs']);
@@ -325,5 +325,62 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         };
 
         expect(() => DockLayoutAdapter.project(model)).toThrow(/preview-only field "sourceSortZone"/);
+    });
+
+    test('projects an autoHidden edge item into an edge rail and drops it from the tab flow', () => {
+        let model = createEdgeZoneModel();
+
+        model.items.terminal.autoHidden = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row          = result.items[0],
+            rail         = row.items.find(item => item.dockNodeType === 'edge-rail'),
+            side         = row.items.find(item => item.dockNodeId === 'side-split'),
+            terminalTabs = getProjectedChildren(side)[0];
+
+        // The auto-hidden item surfaces as a right-edge rail tab.
+        expect(rail).toBeTruthy();
+        expect(rail.dockEdge).toBe('right');
+        expect(rail.layout).toEqual({ntype: 'vbox', align: 'start'});
+        expect(rail.items.map(item => item.dockItemId)).toEqual(['terminal']);
+        expect(rail.items[0].dockNodeType).toBe('edge-rail-tab');
+        expect(rail.items[0].text).toBe('Terminal');
+        expect(rail.items[0].data).toEqual({dockEdge: 'right', dockItemId: 'terminal', dockRailTab: true});
+
+        // ...and is gone from its tab flow (the now-empty terminal-tabs).
+        expect(terminalTabs.dockNodeId).toBe('terminal-tabs');
+        expect(terminalTabs.items).toEqual([]);
+        expect(terminalTabs.activeIndex).toBeNull();
+    });
+
+    test('does not rail an item that is pinned but not autoHidden', () => {
+        let model = createEdgeZoneModel();
+
+        model.items.terminal.pinned = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row = result.items[0];
+
+        expect(row.items.find(item => item.dockNodeType === 'edge-rail')).toBeUndefined();
+    });
+
+    test('leaves a center-zone autoHidden item in the tab flow as a fail-safe (no center rail)', () => {
+        let model = createEdgeZoneModel();
+
+        model.items.strategy.autoHidden = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row    = result.items[0],
+            center = row.items[0];
+
+        // Center never auto-hides to a rail; the item stays visible rather than vanishing.
+        expect(row.items.find(item => item.dockNodeType === 'edge-rail')).toBeUndefined();
+        expect(center.items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
     });
 });
