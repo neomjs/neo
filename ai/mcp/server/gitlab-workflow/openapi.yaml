@@ -19,6 +19,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
+  /tool/handbook:
+    post:
+      operationId: get_mcp_tool_handbook
+      summary: Tool Handbook
+      description: Returns lazy-loaded usage detail for one GitLab Workflow MCP tool.
+      tags: [System]
+      x-annotations:
+        readOnlyHint: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /issues:
     get:
       operationId: list_issues

@@ -107,6 +107,7 @@ const expectedNeuralLinkToolTiers = {
     get_drag_state               : 'read',
     get_drag_trace               : 'read',
     get_instance_properties      : 'read',
+    get_mcp_tool_handbook        : 'read',
     get_method_source            : 'read',
     get_namespace_tree           : 'read',
     get_record                   : 'read',

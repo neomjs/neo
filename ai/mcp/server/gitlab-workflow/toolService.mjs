@@ -20,6 +20,7 @@ const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 const serviceMapping = {
     create_issue           : IssueService       .createIssue                .bind(IssueService),
     get_local_issue_by_id  : LocalFileService   .getIssueById               .bind(LocalFileService),
+    get_mcp_tool_handbook  : toolId => toolService.getToolHandbook(toolId),
     get_merge_request      : MergeRequestService.getMergeRequest            .bind(MergeRequestService),
     healthcheck            : HealthService      .healthcheck                .bind(HealthService),
     list_issues            : IssueService       .listIssues                 .bind(IssueService),
@@ -34,8 +35,10 @@ const serviceMapping = {
 };
 
 const toolService = Neo.create(ToolService, {
+    compactToolDescriptions    : true,
     openApiFilePath,
-    serviceMapping
+    serviceMapping,
+    toolListDescriptionMaxLength: 120
 });
 
 const callTool  = toolService.callTool .bind(toolService);
