@@ -1,17 +1,17 @@
-import {exec, execFile}                        from 'child_process';
-import path                                    from 'path';
-import {promisify}                             from 'util';
-import Base                                    from '../../../src/core/Base.mjs';
-import GraphqlService                          from './GraphqlService.mjs';
-import aiConfig                                from '../../mcp/server/github-workflow/config.mjs';
-import logger                                  from '../../mcp/server/github-workflow/logger.mjs';
+import {exec, execFile} from 'child_process';
+import path             from 'path';
+import {promisify}      from 'util';
+import Base             from '../../../src/core/Base.mjs';
+import GraphqlService   from './GraphqlService.mjs';
+import aiConfig         from '../../mcp/server/github-workflow/config.mjs';
+import logger           from '../../mcp/server/github-workflow/logger.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
     GET_PULL_REQUEST_ID,
     UPDATE_PULL_REQUEST_REVIEW
 }                                              from './queries/mutations.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
-import {projectConversationTrust}             from './shared/conversationTrust.mjs';
+import {projectConversationTrust}              from './shared/conversationTrust.mjs';
 
 const execAsync     = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -86,18 +86,20 @@ const INVISIBLE_PR_REVIEW_ANCHORS = [
 ];
 
 /**
- * Optional-first premise-snapshot anchors for the patch-blind review migration.
- *
- * Absence of all three labels is valid during the add-optional phase so in-flight reviews keep
- * passing. If an author starts emitting the snapshot, all three fields must be present together;
- * otherwise a partial snapshot reintroduces the same back-rationalized theater the snapshot is
- * meant to expose. Match the distinctive bold template labels, not bare prose, so incidental
- * phrases like "Patch Verdict" do not activate the partial-snapshot gate.
+ * REQUIRED premise-snapshot anchors — every agent PR review must carry all four. The fourth,
+ * **Premise Coherence**, forces the value-coherence verdict ("does this PR's premise cohere with our
+ * core values?") that fit-shape review skips — a green checklist over a wrong premise is theater.
+ * The forcing-function raises the floor by forcing ARTICULATION, not depth: the field is satisfied
+ * by a specific verdict ("coheres: lead stays facilitator-not-delegator" / "conflicts: adds
+ * surveillance vs flat-peer-team") OR a scoped "N/A — no value-surface (scope: ...)" for a trivial
+ * PR with no value-surface (the marginal-value skip). Match the distinctive bold template labels,
+ * not bare prose, so incidental phrases do not satisfy the gate.
  */
-const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
+const REQUIRED_PR_REVIEW_PREMISE_ANCHORS = [
     {label: 'Inputs Read Before Patch',  token: '**Inputs Read Before Patch:**'},
     {label: 'Expected Solution Shape',   token: '**Expected Solution Shape:**'},
-    {label: 'Patch Verdict',             token: '**Patch Verdict:**'}
+    {label: 'Patch Verdict',             token: '**Patch Verdict:**'},
+    {label: 'Premise Coherence',         token: '**Premise Coherence:**'}
 ];
 
 const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
@@ -223,7 +225,7 @@ function buildCheckoutPullRequest({
             return {
                 error  : 'Invalid repoPath',
                 message: `repoPath '${normalizedRepoPath}' is not a readable git worktree root.`,
-                code   : 'INVALID_REPO_PATH',
+                code    : 'INVALID_REPO_PATH',
                 repoPath: normalizedRepoPath,
                 details : error.stderr || error.message
             };
@@ -231,13 +233,13 @@ function buildCheckoutPullRequest({
 
         if (gitTopLevel !== normalizedRepoPath) {
             return {
-                error      : 'Unsafe checkout refused',
-                message    : [
+                error  : 'Unsafe checkout refused',
+                message: [
                     `repoPath '${normalizedRepoPath}' resolves to git top-level '${gitTopLevel}'. `,
                     'Pass the git top-level explicitly so the checkout target is unambiguous.'
                 ].join(''),
-                code       : 'REPO_PATH_NOT_GIT_ROOT',
-                repoPath   : normalizedRepoPath,
+                code    : 'REPO_PATH_NOT_GIT_ROOT',
+                repoPath: normalizedRepoPath,
                 gitTopLevel
             };
         }
@@ -251,7 +253,7 @@ function buildCheckoutPullRequest({
 
             return {
                 message: `Successfully checked out PR #${prNumber}`,
-                details: stdout.trim(),
+                details : stdout.trim(),
                 repoPath: gitTopLevel,
                 branch,
                 headSha
@@ -261,7 +263,7 @@ function buildCheckoutPullRequest({
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR',
+                code    : 'GH_CLI_ERROR',
                 repoPath: gitTopLevel,
                 details : error.stderr || error.message
             };
@@ -626,12 +628,9 @@ class PullRequestService extends Base {
         const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
         const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
         const missingTemplateSkeleton = getPrReviewTemplateSkeletonMisses(body);
-        const presentPremiseSnapshot  = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS .filter(anchor =>  body.includes(anchor.token));
-        const missingPremiseSnapshot  = presentPremiseSnapshot.length === 0
-            ? []
-            : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS
-                .filter(anchor => !body.includes(anchor.token))
-                .map(anchor => anchor.label);
+        const missingPremiseSnapshot  = REQUIRED_PR_REVIEW_PREMISE_ANCHORS
+            .filter(anchor => !body.includes(anchor.token))
+            .map(anchor => anchor.label);
 
         if (
             missingVisible.length > 0          ||
@@ -659,7 +658,7 @@ class PullRequestService extends Base {
                 `checks more structural anchors than this error names. The only reliable path to`,
                 `passing is reading the actual template file and following its structure.`,
                 missingPremiseSnapshot.length > 0
-                    ? `\nPremise snapshot note: the snapshot is optional during migration, but partial snapshots are invalid. Either omit it entirely or include all three fields.`
+                    ? `\nPremise snapshot note: all four premise fields (incl. **Premise Coherence:**) are REQUIRED. The value-coherence field takes a specific verdict ("coheres: ..." / "conflicts: ...") OR a scoped "N/A — no value-surface (scope: ...)" for a trivial PR.`
                     : ``,
                 diagnosticAnchor
                     ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
@@ -667,9 +666,9 @@ class PullRequestService extends Base {
             ].join('\n');
 
             return {
-                error   : 'PR Review Template Validation Failed',
+                error: 'PR Review Template Validation Failed',
                 message,
-                code    : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+                code : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
                 // `missing_visible` lists the named-in-message visible misses. Invisible misses
                 // are intentionally NOT enumerated in the response body — even programmatic
                 // callers should be nudged toward the skill rather than the anchor list.
