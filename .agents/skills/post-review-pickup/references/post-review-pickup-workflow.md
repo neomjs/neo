@@ -204,7 +204,7 @@ scale the counter.
 
 ## 2.7. Pre-Implementation Brief Gate
 
-Before an implementation `[lane-claim]`: `preBriefSession({ticket})` (+ `query_raw_memories` failure-mode if un-graphed) → a one-line brief in the claim. Mandatory; skip only trivial-familiarity. Detail: #9961.
+Before an implementation `[lane-claim]`: `preBriefSession({ticket})` (+ `query_raw_memories` failure-mode if un-graphed) → a one-line brief. Mandatory; skip trivial-familiarity. Detail: #9961.
 
 ## 3. Author Pickup Matrix
 
