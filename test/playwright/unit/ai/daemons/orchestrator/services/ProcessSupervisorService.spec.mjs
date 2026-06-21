@@ -9,28 +9,38 @@ function createTestService() {
     const dataDir = `/tmp/process-supervisor-service-test-${Date.now()}-${Math.random()}`;
     fs.ensureDirSync(dataDir);
     const logEntries = [];
+    const stateCalls = [];
     const taskOutcomes = [];
 
     const taskDefinitions = {
         mockTask: {
-            label: 'Mock Task',
-            command: 'echo',
-            args: ['hello'],
-            pidFileName: 'mockTask.pid',
+            label          : 'Mock Task',
+            command        : 'echo',
+            args           : ['hello'],
+            pidFileName    : 'mockTask.pid',
             expectedCommand: 'echo'
+        },
+        'memory-summary-backfill': {
+            label            : 'memory miniSummary backfill',
+            command          : 'node',
+            args             : ['backfill-memory-summaries.mjs'],
+            pidFileName      : 'memory-summary-backfill.pid',
+            expectedCommand  : 'backfill-memory-summaries.mjs',
+            captureStdoutJson: true
         }
     };
 
     const mockTaskStateService = {
-        getTaskState: (name) => ({ running: false, pid: null }),
-        markStarted: () => {},
+        getTaskState   : (name) => ({ running: false, pid: null }),
+        markStarted    : () => {},
         markSpawnFailed: () => {},
-        markSpawned: () => {},
-        markFailed: () => {},
-        markCompleted: () => {},
-        markReady: () => {},
-        clearRecovered: () => true,
-        adoptRunning: () => {}
+        markSpawned    : () => {},
+        markFailed     : () => {},
+        markCompleted  : taskName => stateCalls.push({action: 'completed', taskName}),
+        markSkipped    : taskName => stateCalls.push({action: 'skipped', taskName}),
+        markReady      : () => {},
+        clearRecovered : () => true,
+        adoptRunning   : () => {}
     };
 
     const mockHealthService = {
@@ -47,7 +57,37 @@ function createTestService() {
         processCommand: (pid) => 'echo hello'
     });
 
-    return { service, dataDir, logEntries, mockTaskStateService, taskOutcomes };
+    return { service, dataDir, logEntries, mockTaskStateService, stateCalls, taskOutcomes };
+}
+
+function createManualChild() {
+    let closeHandler;
+    let stdoutHandler;
+
+    return {
+        child: {
+            pid   : 9999,
+            stderr: {on: () => {}},
+            stdout: {
+                on(eventName, handler) {
+                    if (eventName === 'data') {
+                        stdoutHandler = handler;
+                    }
+                }
+            },
+            on(eventName, handler) {
+                if (eventName === 'close') {
+                    closeHandler = handler;
+                }
+            }
+        },
+        close(code = 0) {
+            closeHandler?.(code);
+        },
+        writeStdout(payload) {
+            stdoutHandler?.(Buffer.from(payload));
+        }
+    };
 }
 
 test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
@@ -171,6 +211,123 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         const stderrLogs = logEntries.filter(entry => entry.message.includes('stderr:'));
 
         expect(stderrLogs.map(entry => entry.level)).toEqual(['INFO', 'INFO', 'WARN', 'ERROR', 'ERROR']);
+    });
+
+    test('#13777: opted-in stdout JSON is recorded on successful child completion', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild = createManualChild();
+
+        service.taskDefinitions.mockTask.captureStdoutJson = true;
+        service.spawnFn = (command, args, options) => {
+            expect(options.stdio).toEqual(['ignore', 'pipe', 'pipe']);
+            return manualChild.child;
+        };
+
+        expect(service.runTask('mockTask', 'test-reason')).toBe(true);
+        manualChild.writeStdout(JSON.stringify({
+            success       : true,
+            processed     : 8,
+            updated       : 2,
+            deferred      : 6,
+            missingContent: 0,
+            runBudgetHit  : false
+        }));
+        manualChild.close(0);
+
+        expect(stateCalls).toContainEqual({action: 'completed', taskName: 'mockTask'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'completed',
+            taskName: 'mockTask',
+            details : expect.objectContaining({
+                processed     : 8,
+                updated       : 2,
+                deferred      : 6,
+                missingContent: 0,
+                runBudgetHit  : false
+            })
+        }));
+    });
+
+    test('#13777: memory-summary-backfill all-deferred stdout marks skipped, not completed', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild = createManualChild();
+        let successHooks = 0;
+
+        service.spawnFn = () => manualChild.child;
+
+        expect(service.runTask('memory-summary-backfill', 'pending-memory-minisummary:6', () => { successHooks++; })).toBe(true);
+        manualChild.writeStdout(JSON.stringify({
+            success       : true,
+            processed     : 6,
+            updated       : 0,
+            deferred      : 6,
+            missingContent: 0,
+            runBudgetHit  : false
+        }));
+        manualChild.close(0);
+
+        expect(successHooks).toBe(1);
+        expect(stateCalls).toContainEqual({action: 'skipped', taskName: 'memory-summary-backfill'});
+        expect(stateCalls).not.toContainEqual({action: 'completed', taskName: 'memory-summary-backfill'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'skipped',
+            taskName: 'memory-summary-backfill',
+            details : expect.objectContaining({
+                reasonCode    : 'all-deferred',
+                processed     : 6,
+                updated       : 0,
+                deferred      : 6,
+                missingContent: 0
+            })
+        }));
+    });
+
+    test('#13777: memory-summary-backfill lease-held stdout marks skipped with child reason', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild = createManualChild();
+
+        service.spawnFn = () => manualChild.child;
+
+        expect(service.runTask('memory-summary-backfill', 'pending-memory-minisummary:50')).toBe(true);
+        manualChild.writeStdout(JSON.stringify({
+            success : true,
+            deferred: true,
+            reason  : 'heavy-maintenance-lease-held',
+            holder  : {owner: 'summary'}
+        }));
+        manualChild.close(0);
+
+        expect(stateCalls).toContainEqual({action: 'skipped', taskName: 'memory-summary-backfill'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'skipped',
+            taskName: 'memory-summary-backfill',
+            details : expect.objectContaining({
+                reasonCode : 'heavy-maintenance-lease-held',
+                childReason: 'heavy-maintenance-lease-held',
+                deferred   : true
+            })
+        }));
+    });
+
+    test('#13777: malformed opted-in stdout fails soft and preserves success classification', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild = createManualChild();
+
+        service.taskDefinitions.mockTask.captureStdoutJson = true;
+        service.spawnFn = () => manualChild.child;
+
+        expect(service.runTask('mockTask', 'test-reason')).toBe(true);
+        manualChild.writeStdout('{not-json');
+        manualChild.close(0);
+
+        expect(stateCalls).toContainEqual({action: 'completed', taskName: 'mockTask'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status : 'completed',
+            details: expect.objectContaining({
+                stdoutJsonParseError: expect.any(String),
+                stdoutJsonBytes     : 9
+            })
+        }));
     });
 
     test('runTask dedupes repeated already-running skip logs', () => {
