@@ -44,13 +44,19 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
 export const DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS = Object.freeze([]);
 
 /**
- * Tasks whose graph writes must complete before Golden Path frontier refresh runs.
+ * Tasks whose graph writes must complete before a Golden Path frontier refresh runs.
+ *
+ * Empty by default: Golden Path is intentionally decoupled from `dream`. The hourly re-rank
+ * reads the CURRENT graph directly (not the dream digest — verified via the synthesizer-coupling
+ * check), so it must not block behind the multi-hour REM digest — that coupling froze the
+ * forecast for days. Accepted trade-off: a refresh racing an in-progress digest may not yet
+ * reflect it (bounded staleness, "better than empty/stale"; the next hourly run picks it up).
+ * Stays a reactive config leaf (`goldenPathDependencyTaskNames`), so a deployment can
+ * re-introduce a write-completion dependency if a specific store needs it.
  *
  * @type {ReadonlyArray<String>}
  */
-export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
-    'dream'
-]);
+export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([]);
 
 // ============================================================================
 // Group 1 — Read-only predicates / finders (pure functions, no side effects)

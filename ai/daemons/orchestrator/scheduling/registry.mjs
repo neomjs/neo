@@ -180,7 +180,12 @@ export const TASK_REGISTRY = Object.freeze([
         executionKind   : 'in-process-async',
         maintenanceClass: 'graph-dependent',
         backpressure    : 'after-heavy',
-        dependencies    : ['dream'],
+        // Decoupled from `dream`: golden-path synthesis is cheap (rank + summarize the CURRENT
+        // graph) and must run hourly for FRESHNESS — it must NOT block behind the heavy daily REM
+        // digest (which can run hours, off-peak). A re-rank of the current graph is "not perfect,
+        // but better than empty/stale" — the fix for the multi-day stale forecast.
+        // `backpressure: 'after-heavy'` still yields briefly post-heavy-task.
+        dependencies    : [],
         getDueTask({state, now, intervals, hooks}) {
             return (hooks.goldenPathGetDueTask || getGoldenPathDueTask)({
                 state               : state['golden-path'] ?? {},
