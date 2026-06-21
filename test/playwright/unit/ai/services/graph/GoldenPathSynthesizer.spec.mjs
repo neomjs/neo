@@ -388,6 +388,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText = TextEmbeddingService.embedText;
         const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate = OpenAiCompatible.prototype.generate;
         const Synthesizer = GoldenPathSynthesizer.constructor;
         const originalGetIssueStructuralWeight = Synthesizer.getIssueStructuralWeight;
         const originalHasOpenIssueBlocker = Synthesizer.hasOpenIssueBlocker;
@@ -440,6 +442,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         GoldenPathSynthesizer.fetchOpenPRs = async () => [];
         Synthesizer.getIssueStructuralWeight = issueId => issueId === 'issue-9401' ? 3 : 0;
         Synthesizer.hasOpenIssueBlocker = () => false;
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
         try {
             await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now});
@@ -448,6 +451,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             StorageRouter.getGraphCollection   = originalGetGraphCollection;
             StorageRouter.getSummaryCollection = originalGetSummaryCollection;
             TextEmbeddingService.embedText     = originalEmbedText;
+            OpenAiCompatible.prototype.generate = originalGenerate;
             Synthesizer.getIssueStructuralWeight = originalGetIssueStructuralWeight;
             Synthesizer.hasOpenIssueBlocker = originalHasOpenIssueBlocker;
             fs.rmSync(issuesDir, {recursive: true, force: true});
@@ -463,6 +467,138 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('Fresh unassigned issue');
         expect(handoffContent.indexOf('## Stale Assignment Candidates')).toBeLessThan(handoffContent.indexOf('## Silent Threads'));
         expect(handoffContent.indexOf('## Silent Threads')).toBeLessThan(handoffContent.indexOf('## Computed Golden Path'));
+    });
+
+    test('synthesizeGoldenPath surfaces current incidents and filters non-actionable computed recommendations', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-current-focus-issues-'));
+        const chunkDir                     = path.join(issuesDir, 'chunk-1');
+        const now                          = new Date('2026-06-21T11:30:00Z');
+        const suffix                       = `${process.pid}-${Date.now()}`;
+        const readyId                      = `issue-ready-${suffix}`;
+        const discussionId                 = `discussion-governance-${suffix}`;
+        const epicId                       = `issue-epic-${suffix}`;
+        const notReadyId                   = `issue-not-ready-${suffix}`;
+        aiConfig.vectorDimension = 2;
+
+        fs.mkdirSync(chunkDir, {recursive: true});
+        fs.writeFileSync(path.join(chunkDir, 'issue-13750.md'), [
+            '---',
+            'id: 13750',
+            "title: 'PRIO-ZERO: Golden Path release steering regression'",
+            'state: OPEN',
+            'labels:',
+            '  - bug',
+            '  - ai',
+            '  - regression',
+            '  - architecture',
+            '  - model-experience',
+            "createdAt: '2026-06-21T10:20:34Z'",
+            "updatedAt: '2026-06-21T11:20:50Z'",
+            'assignees:',
+            '  - neo-gpt',
+            '---',
+            '# PRIO-ZERO: Golden Path release steering regression',
+            '',
+            'Agent OS orchestrator regression.'
+        ].join('\n'));
+        fs.writeFileSync(path.join(chunkDir, 'issue-13012.md'), [
+            '---',
+            'id: 13012',
+            "title: 'Agent Harness v13.1 release epic'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            '  - ai',
+            '  - architecture',
+            'assignees: []',
+            "createdAt: '2026-06-10T00:00:00Z'",
+            "updatedAt: '2026-06-21T09:00:00Z'",
+            'milestone: v13.1',
+            '---',
+            '# Agent Harness v13.1 release epic'
+        ].join('\n'));
+        fs.writeFileSync(path.join(chunkDir, 'issue-12000.md'), [
+            '---',
+            'id: 12000',
+            "title: 'Old generic AI enhancement'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            '  - ai',
+            'assignees: []',
+            "createdAt: '2026-05-01T00:00:00Z'",
+            "updatedAt: '2026-05-01T00:00:00Z'",
+            '---',
+            '# Old generic AI enhancement'
+        ].join('\n'));
+
+        GraphService.upsertNode({
+            id        : discussionId,
+            type      : 'DISCUSSION',
+            state     : 'OPEN',
+            properties: {state: 'OPEN', title: 'Governance discussion'}
+        });
+        GraphService.upsertNode({
+            id        : epicId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Epic should not be immediate work', labels: ['epic', 'ai']}
+        });
+        GraphService.upsertNode({
+            id        : notReadyId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Not ready should not be immediate work', labels: ['not-code-ready', 'ai']}
+        });
+        GraphService.upsertNode({
+            id        : readyId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Actionable release leaf', labels: ['bug', 'ai']}
+        });
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[discussionId, epicId, notReadyId, readyId]],
+                distances: [[0.01, 0.02, 0.03, 0.5]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Agent OS regression focus']})});
+        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const focusIndex     = handoffContent.indexOf('## Current Release / Incident Focus');
+        const staleIndex     = handoffContent.indexOf('## Stale Assignment Candidates');
+        const computedIndex  = handoffContent.indexOf('## Computed Golden Path');
+        const focusSection   = handoffContent.slice(focusIndex, staleIndex);
+
+        expect(focusIndex).toBeGreaterThan(-1);
+        expect(staleIndex).toBeGreaterThan(-1);
+        expect(computedIndex).toBeGreaterThan(-1);
+        expect(focusIndex).toBeLessThan(computedIndex);
+        expect(focusSection).toContain('**#13750**');
+        expect(focusSection).toContain('**#13012**');
+        expect(focusSection).not.toContain('Old generic AI enhancement');
+        expect(handoffContent).toContain(readyId);
+        expect(handoffContent).not.toContain(discussionId);
+        expect(handoffContent).not.toContain(epicId);
+        expect(handoffContent).not.toContain(notReadyId);
     });
 
     test('synthesizeGoldenPath lists the 5 most recent open PRs with cross-family status', async () => {
@@ -782,7 +918,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
     });
 
-    test('synthesizeGoldenPath excludes CLOSED discussion nodes from computed recommendations', async () => {
+    test('synthesizeGoldenPath excludes discussion nodes from computed recommendations', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
@@ -794,6 +930,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const openId   = `discussion-open-${Date.now()}`;
         const closedId = `discussion-closed-${Date.now()}`;
+        const issueId  = `issue-actionable-${Date.now()}`;
 
         GraphService.upsertNode({
             id        : openId,
@@ -809,9 +946,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             state     : 'CLOSED',
             properties: {state: 'CLOSED', title: 'Closed Discussion Fixture', closed: true}
         });
+        GraphService.upsertNode({
+            id        : issueId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Actionable Issue Fixture', labels: ['bug', 'ai']}
+        });
 
         StorageRouter.getGraphCollection = async () => ({
-            query: async () => ({ ids: [[openId, closedId]], distances: [[0.1, 0.01]] })
+            query: async () => ({ ids: [[openId, closedId, issueId]], distances: [[0.1, 0.01, 0.5]] })
         });
         StorageRouter.getSummaryCollection = async () => ({
             get: async () => ({documents: ['mock document']})
@@ -832,7 +974,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
-        expect(handoffContent).toContain(openId);
+        expect(handoffContent).toContain(issueId);
+        expect(handoffContent).not.toContain(openId);
         expect(handoffContent).not.toContain(closedId);
     });
 });

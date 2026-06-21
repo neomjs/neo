@@ -15,6 +15,28 @@ import {buildGraphProvider, resolveGraphModelProvider}         from './providerD
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const DAY_MS     = 24 * 60 * 60 * 1000;
+const CURRENT_FOCUS_WINDOW_MS = 3 * DAY_MS;
+
+const COMPUTED_RECOMMENDATION_EXCLUDED_LABELS = Object.freeze(new Set([
+    'epic',
+    'needs-design',
+    'needs-re-triage',
+    'not-code-ready',
+    'not code ready'
+]));
+
+const CURRENT_FOCUS_EXCLUDED_LABELS = Object.freeze(new Set([
+    'deferred-by-design',
+    'duplicate',
+    'epic',
+    'invalid',
+    'needs-design',
+    'needs-re-triage',
+    'not-code-ready',
+    'not code ready',
+    'wontfix',
+    'wont fix'
+]));
 
 /**
  * Social Name → `@`-stripped GitHub login, derived from the canonical identity roster. The PR-body
@@ -663,6 +685,208 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Normalizes labels from graph nodes or synced issue frontmatter.
+     *
+     * Golden Path consumes labels from both JSON graph payloads and gray-matter
+     * frontmatter. Keeping normalization centralized prevents case / whitespace
+     * drift from routing non-actionable tickets back into computed work.
+     *
+     * @param {Array<*>} labels Raw label values.
+     * @returns {String[]} Lowercase label names.
+     */
+    static normalizeLabels(labels = []) {
+        return Array.isArray(labels)
+            ? labels.map(label => String(label).trim().toLowerCase()).filter(Boolean)
+            : []
+    }
+
+    /**
+     * @summary Determines whether a graph node can be an immediate computed recommendation.
+     *
+     * The Computed Golden Path is an execution steering surface. Discussions, epics,
+     * and tickets explicitly marked not-ready may still be important visibility, but
+     * presenting them as "next immediate focus" causes release-blind governance
+     * drift.
+     *
+     * @param {Object} nodeData Parsed graph node payload.
+     * @returns {Boolean}
+     */
+    static isActionableComputedRecommendation(nodeData) {
+        const nodeId = String(nodeData?.id || '');
+        const nodeType = String(nodeData?.type || nodeData?.properties?.type || '').toUpperCase();
+
+        if (nodeType === 'DISCUSSION' || nodeId.startsWith('discussion-')) return false;
+        if (nodeType && nodeType !== 'ISSUE') return false;
+        if (!nodeId.startsWith('issue-')) return false;
+
+        const labels = this.normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
+
+        return !labels.some(label => COMPUTED_RECOMMENDATION_EXCLUDED_LABELS.has(label))
+    }
+
+    /**
+     * @summary Scores one synced issue as a current release / incident focus candidate.
+     *
+     * This is deliberately a local-sync signal, not graph-centrality routing. It
+     * gives the handoff a deterministic "what is hot now" section even when the
+     * graph has not accumulated edges for a same-day regression or release ticket.
+     *
+     * @param {Object} options
+     * @param {Object} options.meta Issue frontmatter.
+     * @param {String} [options.content=''] Markdown body without frontmatter.
+     * @param {Date} [options.now=new Date()] Current clock.
+     * @param {Number} [options.windowMs=CURRENT_FOCUS_WINDOW_MS] Freshness window.
+     * @returns {Object|null}
+     */
+    static scoreCurrentFocusIssue({
+        meta,
+        content = '',
+        now = new Date(),
+        windowMs = CURRENT_FOCUS_WINDOW_MS
+    }) {
+        if (!meta || meta.state !== 'OPEN') return null;
+
+        const labels = this.normalizeLabels(meta.labels);
+        if (labels.some(label => CURRENT_FOCUS_EXCLUDED_LABELS.has(label))) return null;
+
+        const nowDate   = now instanceof Date ? now : new Date(now);
+        const createdAt = new Date(meta.createdAt);
+        const updatedAt = new Date(meta.updatedAt || meta.createdAt);
+        const freshCreated = !Number.isNaN(createdAt.getTime()) && nowDate - createdAt <= windowMs;
+        const freshUpdated = !Number.isNaN(updatedAt.getTime()) && nowDate - updatedAt <= windowMs;
+        const milestone = typeof meta.milestone === 'string' ? meta.milestone : meta.milestone?.title;
+        const issueText = `${meta.title || ''}\n${content || ''}`;
+
+        let score = 0;
+        const reasons = [];
+        let hasFocusSignal = false;
+
+        if (/\bPRIO[-\s]?ZERO\b/i.test(issueText)) {
+            score += 120;
+            reasons.push('prio-zero');
+            hasFocusSignal = true;
+        }
+        if (labels.includes('bug') || labels.includes('regression')) {
+            score += 90;
+            reasons.push('incident');
+            hasFocusSignal = true;
+        }
+        if (milestone === 'v13.1') {
+            score += 70;
+            reasons.push('v13.1');
+            hasFocusSignal = true;
+        }
+        if (labels.some(label => ['architecture', 'model-experience', 'performance'].includes(label))) {
+            score += 30;
+            reasons.push('agent-os');
+            hasFocusSignal = true;
+        }
+        if (freshCreated || freshUpdated) {
+            score += freshCreated ? 20 : 10;
+            reasons.push(freshCreated ? 'fresh-created' : 'fresh-updated');
+        }
+
+        if (!hasFocusSignal || (!freshCreated && !freshUpdated && milestone !== 'v13.1')) return null;
+
+        const rawNumber = meta.id || meta.number;
+
+        return {
+            labels,
+            lastActivityAt: Number.isNaN(updatedAt.getTime()) ? null : updatedAt.toISOString(),
+            milestone,
+            number        : Number(rawNumber) || rawNumber,
+            reasons       : [...new Set(reasons)],
+            score,
+            title         : meta.title || '(no title)'
+        }
+    }
+
+    /**
+     * @summary Builds current release / incident focus candidates from synced issue markdown.
+     *
+     * @param {Object} options
+     * @param {String} options.issuesDir Local synced issue directory.
+     * @param {Date} [options.now=new Date()] Current clock for deterministic tests.
+     * @param {Number} [options.windowMs=CURRENT_FOCUS_WINDOW_MS] Freshness window.
+     * @returns {Array<Object>} Candidates sorted by score, freshness, then issue number.
+     */
+    static buildCurrentFocusCandidates({
+        issuesDir,
+        now = new Date(),
+        windowMs = CURRENT_FOCUS_WINDOW_MS
+    }) {
+        const candidates = [];
+
+        for (const filePath of this.collectIssueMarkdownFiles(issuesDir)) {
+            let parsed;
+            try {
+                parsed = matter(fs.readFileSync(filePath, 'utf-8'));
+            } catch (error) {
+                logger.warn(`[GoldenPathSynthesizer] Failed to parse issue markdown for Current Focus: ${filePath}`, error);
+                continue;
+            }
+
+            const candidate = this.scoreCurrentFocusIssue({
+                meta   : parsed.data || {},
+                content: parsed.content,
+                now,
+                windowMs
+            });
+
+            if (candidate) {
+                candidates.push(candidate);
+            }
+        }
+
+        candidates.sort((a, b) =>
+            b.score - a.score ||
+            new Date(b.lastActivityAt || 0) - new Date(a.lastActivityAt || 0) ||
+            Number(b.number) - Number(a.number)
+        );
+
+        return candidates
+    }
+
+    /**
+     * @summary Renders the current release / incident focus section.
+     *
+     * @param {Array<Object>} candidates Current focus candidates.
+     * @param {Object} options
+     * @param {Date} [options.capturedAt=new Date()] Capture timestamp.
+     * @param {Number} [options.limit=5] Maximum candidates to render.
+     * @returns {String}
+     */
+    static renderCurrentFocusCandidatesSection(candidates, {
+        capturedAt = new Date(),
+        limit = 5
+    } = {}) {
+        let section = `\n## Current Release / Incident Focus\n\n`;
+        section += `*Captured at: ${capturedAt.toISOString()} (Source: local issue sync; release/incident signal, not graph-centrality routing)*\n\n`;
+
+        if (candidates.length === 0) {
+            section += `No current release or incident focus candidates detected.\n`;
+            return section
+        }
+
+        const visibleCandidates = candidates.slice(0, limit);
+
+        if (candidates.length > visibleCandidates.length) {
+            section += `Showing ${visibleCandidates.length} of ${candidates.length} candidates, sorted by current-focus score.\n\n`;
+        }
+
+        for (const candidate of visibleCandidates) {
+            const labels = candidate.labels.length > 0 ? ` [\`${candidate.labels.join('`, `')}\`]` : '';
+            const milestone = candidate.milestone ? ` — milestone ${candidate.milestone}` : '';
+            const reasons = candidate.reasons.length > 0 ? ` — reasons: ${candidate.reasons.join(', ')}` : '';
+
+            section += `- **#${candidate.number}**${labels}${milestone} — score ${candidate.score}${reasons}\n`;
+            section += `  - *${candidate.title}*\n`;
+        }
+
+        return section
+    }
+
+    /**
      * @summary Extracts the canonical author login (`@`-stripped) from a PR body's `Authored by …`
      * self-id line, resolving both the Social-Name-led form and the legacy `@identity` form.
      *
@@ -919,11 +1143,9 @@ class GoldenPathSynthesizer extends Base {
 
                 let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
 
-                // Apply the Negative ROI Protocol for automatically rejected Swarm tickets.
-                const labels = nodeData?.properties?.labels || [];
-                if (labels.includes('needs-re-triage')) {
-                    priority -= 10000;
-                    logger.debug(`[GoldenPathSynthesizer] Applied massive negative weight penalty to rejected node: ${issueId}`);
+                if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
+                    logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
+                    continue;
                 }
 
                 scoredNodes.push({
@@ -1130,6 +1352,22 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.warn(`[GoldenPathSynthesizer] ConsumerFriction section render failed: ${err.message}`);
         }
 
+        // --- Current Release / Incident Focus ---
+        let currentFocusAppend = '';
+        if (repoEnrichmentEnabled) {
+            try {
+                const Synthesizer = this.constructor;
+                const currentFocusCandidates = Synthesizer.buildCurrentFocusCandidates({
+                    issuesDir,
+                    now
+                });
+
+                currentFocusAppend = Synthesizer.renderCurrentFocusCandidatesSection(currentFocusCandidates, {capturedAt: now instanceof Date ? now : new Date(now)});
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Current Release / Incident Focus', e);
+            }
+        }
+
         // --- Stale Assignment Candidates ---
         let staleAssignmentAppend = '';
         if (repoEnrichmentEnabled) {
@@ -1291,7 +1529,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
+        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
