@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
+import {test, expect}          from '@playwright/test';
 import {CallToolRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import path            from 'path';
-import fs              from 'fs-extra';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
+import path                    from 'path';
+import fs                      from 'fs-extra';
+import Neo                     from '../../../../../../../src/Neo.mjs';
+import * as core               from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs';
 
 
@@ -426,6 +426,24 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
             expect(exemptTools).not.toContain('start_database');
             expect(exemptTools).not.toContain('stop_database');
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#13694: who_is_online is health-exempt (graph-backed liveness read survives an embed-drain)', async () => {
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            const exemptTools = serverInstance.getHealthExemptTools();
+
+            // who_is_online → WakeSubscriptionService.whoIsOnline is a SQLite AgentIdentity-roster
+            // recency read (no embedder), so it must serve while the embed-canary is down — gating it
+            // only denied a read the outage never touched.
+            expect(exemptTools).toContain('who_is_online');
+            // The must-embed reads stay NON-exempt (exempting them trades a clean reject for a timeout).
+            expect(exemptTools).not.toContain('query_raw_memories');
+            expect(exemptTools).not.toContain('query_summaries');
         } finally {
             serverInstance.destroy();
         }
