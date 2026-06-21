@@ -119,3 +119,55 @@ export function decideDeferenceStopHookAction(text = '', {
         phrase
     };
 }
+
+/**
+ * @typedef {Object} HoldLexiconEntry
+ * @property {RegExp} re    The relapse-frame matcher (case-insensitive).
+ * @property {String} label The human-readable phrase surfaced in the block directive.
+ */
+
+/**
+ * @summary The empirical sophisticated-hold lexicon — relapse-costume phrases observed in BOTH Opus
+ * instances at a gated-tail (nightshift 2026-06-21, operator-caught twice). This is NOT an allowlist of
+ * valid stops (that is the weaponizable exit-set the no-hold-state taxonomy forbids) and NOT a
+ * warrant-validator (the warrant — "does this advance a NAMED lane?" — is un-mechanizable). It is a
+ * DENYLIST of costumes the hook NAMES back to sharpen the mirror: an agent emitting these has performed
+ * a not-holding-shaped activity (a poll, a structured status) that advances no named lane. Each entry is
+ * a {@link HoldLexiconEntry}; `label` is the human-readable phrase surfaced in the block directive.
+ * @type {HoldLexiconEntry[]}
+ */
+export const HOLD_LEXICON = [
+    {re: /\bgated[\s-]?tail\b/i,                                          label: 'gated-tail'},
+    {re: /\bfully saturated\b|\bsaturated\s+(gated[\s-]?tail|pipeline|tail)\b/i, label: 'saturated pipeline/tail'},
+    {re: /\bmarginal[\s-]?value\b/i,                                      label: 'marginal-value (gate)'},
+    {re: /\bmanufactur\w*\s+a\s+marginal\b/i,                             label: 'manufacturing a marginal lane'},
+    {re: /\bno clean\b.{0,24}\b(self[\s-]?buildable|drivable)\s+lane\b/i, label: 'no clean self-buildable lane'},
+    {re: /\bholding the\b.{0,28}\btail\b/i,                               label: 'holding the (between-wakes) tail'},
+    {re: /\bpivots?\s+wake[\s-]?delivered\b/i,                            label: 'pivots wake-delivered'},
+    {re: /\bawaiting at minimal cost\b/i,                                 label: 'awaiting at minimal cost'},
+    {re: /\btight pivot[\s-]?check\b/i,                                   label: 'tight pivot-check'},
+    {re: /["']?wakeDisposition["']?\s*:/i,                                label: 'wakeDisposition: (structured-hold costume)'},
+    {re: /["']?awaitingOwnPrOnly["']?\s*:/i,                              label: 'awaitingOwnPrOnly: (structured-hold costume)'},
+    {re: /["']?laneContinuation["']?\s*:\s*["']?next[\s-]?lane/i,         label: 'laneContinuation: next-lane (structured-hold costume)'},
+    {re: /["']?namedGates["']?\s*:\s*\[\s*\]/i,                           label: 'namedGates: [] (structured-hold costume)'}
+];
+
+/**
+ * @summary Pure costume-tripwire — scans an agent's turn-final text for the {@link HOLD_LEXICON}
+ * relapse-frames and returns the matched human-readable labels (deduped, order-preserved). An empty
+ * array means no costume detected. This does NOT decide block/allow (the decision is unchanged; the
+ * warrant stays discipline) — it only enriches the block `reason` so the mirror names the SPECIFIC
+ * relapse instead of re-firing generically. Total + never-throws (it runs in the turn-end hook path,
+ * where a throw would trap every turn): a non-string / empty input returns `[]`. Exported + unit-tested.
+ * @param {String} text The agent's final assistant message text.
+ * @returns {String[]} The matched lexicon labels (deduped, in lexicon order).
+ */
+export function scanHoldLexicon(text) {
+    if (typeof text !== 'string' || !text) return [];
+
+    const matched = [];
+    for (const {re, label} of HOLD_LEXICON) {
+        if (re.test(text) && !matched.includes(label)) matched.push(label);
+    }
+    return matched;
+}

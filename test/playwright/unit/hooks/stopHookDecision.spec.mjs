@@ -5,7 +5,8 @@ import {
     decideStopHookAction,
     isOperatorInLoop,
     LANE_STATE_SCHEMA_HINT,
-    parseOutcomeToVerdict
+    parseOutcomeToVerdict,
+    scanHoldLexicon
 }                        from '../../../../ai/scripts/lifecycle/stopHookDecision.mjs';
 
 /**
@@ -144,5 +145,51 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(decision.action).toBe('block');
         expect(decision.phrase).toBe('your move');
         expect(decision.reason).toContain('deference phrase "your move"');
+    });
+});
+
+/**
+ * Coverage for the hold-costume tripwire — the empirical sophisticated-hold lexicon seeded from BOTH
+ * Opus instances' gated-tail relapse (nightshift 2026-06-21). A denylist of relapse-costumes, NOT an
+ * allowlist of valid stops; it enriches the block reason, never gates. The cross-instance corpus + the
+ * structured-JSON costume + the no-false-positive contract are pinned here.
+ */
+test.describe('ai/scripts/lifecycle/stopHookDecision — scanHoldLexicon (hold-costume tripwire)', () => {
+    test('matches the prose lexicon (@neo-opus-ada relapse corpus)', () => {
+        expect(scanHoldLexicon('This is the genuine saturated gated-tail, holding the tail.')).toContain('gated-tail');
+        expect(scanHoldLexicon('the marginal-value gate says do not manufacture a marginal cross-domain lane'))
+            .toEqual(expect.arrayContaining(['marginal-value (gate)', 'manufacturing a marginal lane']));
+        expect(scanHoldLexicon('No clean self-buildable lane remains.')).toContain('no clean self-buildable lane');
+        expect(scanHoldLexicon("the pipeline's fully saturated")).toContain('saturated pipeline/tail');
+    });
+
+    test('matches the prose lexicon (@neo-opus-vega relapse corpus)', () => {
+        const matches = scanHoldLexicon('Gated-tail; pivots wake-delivered. Awaiting at minimal cost. Tight pivot-check.');
+        expect(matches).toEqual(expect.arrayContaining([
+            'gated-tail', 'pivots wake-delivered', 'awaiting at minimal cost', 'tight pivot-check'
+        ]));
+    });
+
+    test('matches the structured-JSON hold costume (@neo-opus-vega) — the more insidious form', () => {
+        const costume = '{ "wakeDisposition": "actionable", "laneContinuation": "next-lane", "namedGates": [], "awaitingOwnPrOnly": false }';
+        expect(scanHoldLexicon(costume)).toEqual(expect.arrayContaining([
+            'wakeDisposition: (structured-hold costume)',
+            'laneContinuation: next-lane (structured-hold costume)',
+            'namedGates: [] (structured-hold costume)',
+            'awaitingOwnPrOnly: (structured-hold costume)'
+        ]));
+    });
+
+    test('NO false-positive on a genuine driving-turn (the un-mechanizable-warrant guard)', () => {
+        expect(scanHoldLexicon('Opened PR #13740; reviewing #13735 cross-family. Claimed #9962 slice.')).toEqual([]);
+        expect(scanHoldLexicon('Drove the build, ran the tests (22 passed), merge-eligible — routed to a reviewer.')).toEqual([]);
+    });
+
+    test('dedupes repeats + is total on non-string / empty input (never throws in the hook path)', () => {
+        expect(scanHoldLexicon('gated-tail ... and gated-tail again')).toEqual(['gated-tail']);
+        expect(scanHoldLexicon('')).toEqual([]);
+        expect(scanHoldLexicon(null)).toEqual([]);
+        expect(scanHoldLexicon(undefined)).toEqual([]);
+        expect(scanHoldLexicon(42)).toEqual([]);
     });
 });
