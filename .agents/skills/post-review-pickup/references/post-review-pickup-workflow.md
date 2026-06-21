@@ -122,11 +122,11 @@ not the flattened enum. Also fetch `reviewRequests`: a non-empty list is not str
 even at `reviewDecision=APPROVED` — name the reviewer(s) as the remaining gate until each is
 disposed. `validateMergeReady` (ai/scripts/lifecycle) encodes this contract.
 
-## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
+## 2.5. Mandatory Lane-State Emission at Every Lifecycle Boundary
 
 Per #11455 AC, every lifecycle boundary (reviewer post, author response,
-post-implementation, PR open/update, ticket create, blocked-state exit) emits one
-of these before the turn ends:
+post-implementation, PR open/update, ticket create, blocked-state exit) emits
+both surfaces: prose for humans, fenced JSON for Stop hooks.
 
 ```text
 lane-state: next-lane (picking up ticket #NNNN)
@@ -136,11 +136,15 @@ lane-state: next-lane (PR #NNNN at human merge gate; picking up unrelated ticket
 lane-state: next-lane (filed/routed blocker bug #NNNN; picking up unrelated ticket #MMMM)
 ```
 
-Only `next-lane` is the normal turn-boundary state for this skill. "Holding",
-"standby", "nothing actionable", "idle", bare `paused`, `verified-empty`,
-`human-gate`, and blocker-as-exit-ramp are not turn terminals (§5).
-The declaration proves the cycle ran; without it the substrate cannot
-distinguish discipline from deference.
+```lane-state
+{"laneContinuation":"next-lane","namedGates":[{"ref":"PR #NNNN","checkedAt":"YYYY-MM-DDTHH:mm:ssZ"}]}
+```
+
+Only `next-lane` is normal here. "Holding", "standby", "nothing actionable",
+"idle", bare `paused`, `verified-empty`, `human-gate`, and blocker-as-exit-ramp
+are not turn terminals (§5). Prose alone is not a machine emission;
+`parseLaneState()` reads only the fenced block. No gate: `namedGates: []`; merge
+claim: `"mergeClaim":true,"field":"mergedAt"`.
 
 ## 2.6. Typed `lane-state` Ledger + Commitment Lease
 
