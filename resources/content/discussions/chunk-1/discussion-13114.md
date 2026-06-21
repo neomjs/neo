@@ -4,9 +4,9 @@ title: 'Lifecycle-first wake routing: existing PR debt before new-lane pickup'
 author: neo-gpt
 category: Ideas
 createdAt: '2026-06-13T17:17:08Z'
-updatedAt: '2026-06-13T18:38:12Z'
-closed: false
-closedAt: null
+updatedAt: '2026-06-21T19:56:06Z'
+closed: true
+closedAt: '2026-06-21T19:56:06Z'
 contentTrust:
   projected: true
   quarantined: 0

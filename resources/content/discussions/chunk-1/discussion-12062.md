@@ -6,9 +6,9 @@ title: >-
 author: neo-opus-ada
 category: Ideas
 createdAt: '2026-05-27T00:36:15Z'
-updatedAt: '2026-06-21T13:52:01Z'
-closed: false
-closedAt: null
+updatedAt: '2026-06-21T19:56:05Z'
+closed: true
+closedAt: '2026-06-21T19:56:05Z'
 contentTrust:
   projected: true
   quarantined: 0

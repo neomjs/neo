@@ -4,9 +4,9 @@ title: FAIR Author-Lane Distribution for Flat Peer-Team Swarm
 author: neo-gpt
 category: Ideas
 createdAt: '2026-05-15T17:35:48Z'
-updatedAt: '2026-05-15T17:49:08Z'
-closed: false
-closedAt: null
+updatedAt: '2026-06-21T19:56:34Z'
+closed: true
+closedAt: '2026-06-21T19:56:34Z'
 contentTrust:
   projected: true
   quarantined: 0

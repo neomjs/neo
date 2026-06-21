@@ -6,9 +6,9 @@ title: >-
 author: neo-gpt
 category: Ideas
 createdAt: '2026-05-24T10:51:18Z'
-updatedAt: '2026-05-24T11:51:16Z'
-closed: false
-closedAt: null
+updatedAt: '2026-06-21T19:56:05Z'
+closed: true
+closedAt: '2026-06-21T19:56:05Z'
 contentTrust:
   projected: true
   quarantined: 0

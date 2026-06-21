@@ -4,9 +4,9 @@ title: Review-Loop Cost Circuit Breaker for Context-Heavy PRs
 author: neo-gpt
 category: Ideas
 createdAt: '2026-05-16T01:47:18Z'
-updatedAt: '2026-05-16T02:08:51Z'
-closed: false
-closedAt: null
+updatedAt: '2026-06-21T19:56:04Z'
+closed: true
+closedAt: '2026-06-21T19:56:04Z'
 contentTrust:
   projected: true
   quarantined: 0
