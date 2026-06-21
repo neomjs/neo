@@ -64,8 +64,8 @@ class DockLayoutAdapter extends Base {
         let title = item?.title || itemId;
 
         return {
-            cls       : ['neo-dashboard-dock-placeholder'],
-            data      : {
+            cls : ['neo-dashboard-dock-placeholder'],
+            data: {
                 componentRef       : item?.componentRef || null,
                 dockItemId         : itemId,
                 missingComponentRef: true
@@ -227,22 +227,22 @@ class DockLayoutAdapter extends Base {
             cls                       : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
             data                      : {
                 boundaryIndex,
-                dockNodeId : splitNodeId,
+                dockNodeId  : splitNodeId,
                 dockSplitter: true,
                 operation   : 'resizeSplit',
                 orientation,
                 splitNodeId
             },
-            dockNodeId                : splitNodeId,
-            dockZoneDocument          : context.dockZoneDocument,
-            dockNodeType              : 'splitter',
-            dockSplitBoundaryIndex    : boundaryIndex,
-            dockSplitOrientation      : orientation,
-            module                    : DockSplitter,
-            ntype                     : 'dashboard-dock-splitter',
-            onDockZoneDocumentChange  : context.onDockZoneDocumentChange,
+            dockNodeId                       : splitNodeId,
+            dockZoneDocument                 : context.dockZoneDocument,
+            dockNodeType                     : 'splitter',
+            dockSplitBoundaryIndex           : boundaryIndex,
+            dockSplitOrientation             : orientation,
+            module                           : DockSplitter,
+            ntype                            : 'dashboard-dock-splitter',
+            onDockZoneDocumentChange         : context.onDockZoneDocumentChange,
             orientation,
-            size                      : this.splitterSize,
+            size                             : this.splitterSize,
             splitNodeId,
             [isVertical ? 'height' : 'width']: this.splitterSize
         }
@@ -268,17 +268,112 @@ class DockLayoutAdapter extends Base {
         }
 
         return this.projectNode(model.root, {
-            applyDockZoneOperation    : options.applyDockZoneOperation,
-            dockZoneDocument          : options.dockZoneDocument || model,
-            items                     : model.items || {},
-            nodes                     : model.nodes,
-            onDockZoneDocumentChange  : options.onDockZoneDocumentChange,
-            resolveComponentRef       : options.resolveComponentRef || (() => null)
+            applyDockZoneOperation  : options.applyDockZoneOperation,
+            dockZoneDocument        : options.dockZoneDocument || model,
+            items                   : model.items || {},
+            nodes                   : model.nodes,
+            onDockZoneDocumentChange: options.onDockZoneDocumentChange,
+            resolveComponentRef     : options.resolveComponentRef || (() => null)
         })
     }
 
     /**
-     * Projects an edge-zone node into nested ordinary container configs.
+     * Collects the ids of auto-hidden items within a node subtree, in document order.
+     *
+     * Walks edge-zone / split / tabs nodes recursively and returns every item whose record carries
+     * `autoHidden === true`. `projectEdgeZoneNode` uses this to surface those items as a thin edge rail
+     * instead of a full pane — the QT-parity auto-hide affordance (see learn/agentos/HarnessDockZoneModel.md).
+     * @param {String} nodeId
+     * @param {Object} context
+     * @returns {String[]}
+     * @protected
+     * @static
+     */
+    static collectAutoHiddenItems(nodeId, context) {
+        let node   = context.nodes[nodeId],
+            result = [];
+
+        if (!node) {
+            return result
+        }
+
+        if (node.type === 'edge-zone') {
+            Object.values(node.zones || {}).forEach(childId => {
+                result.push(...this.collectAutoHiddenItems(childId, context))
+            })
+        } else if (node.type === 'split') {
+            (Array.isArray(node.children) ? node.children : []).forEach(childId => {
+                result.push(...this.collectAutoHiddenItems(childId, context))
+            })
+        } else if (node.type === 'tabs') {
+            (Array.isArray(node.items) ? node.items : []).forEach(itemId => {
+                if (context.items[itemId]?.autoHidden === true) {
+                    result.push(itemId)
+                }
+            })
+        }
+
+        return result
+    }
+
+    /**
+     * Projects one auto-hidden item id into a collapsed rail-tab affordance.
+     *
+     * The rail tab carries stable `dockItemId` + `dockEdge` metadata so a later reveal/pin slice
+     * can convert a click into a transient reveal or a `setItemPinned` operation.
+     * No DOMRect, hover, or open geometry is emitted — reveal/open state stays runtime-only per the
+     * JSON-first guardrail (HarnessDockZoneModel.md §Serializable vs Runtime).
+     * @param {String} itemId
+     * @param {String} edge
+     * @param {Object} context
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static createRailTab(itemId, edge, context) {
+        let item = context.items[itemId] || {};
+
+        return {
+            cls         : ['neo-dashboard-dock-rail-tab'],
+            data        : {dockEdge: edge, dockItemId: itemId, dockRailTab: true},
+            dockEdge    : edge,
+            dockItemId  : itemId,
+            dockNodeType: 'edge-rail-tab',
+            ntype       : 'button',
+            text        : item.title || itemId
+        }
+    }
+
+    /**
+     * Projects a set of auto-hidden item ids into a thin edge-rail strip for the owning edge.
+     * @param {String[]} itemIds
+     * @param {String} edge One of `top`, `right`, `bottom`, `left`.
+     * @param {Object} context
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static createEdgeRail(itemIds, edge, context) {
+        let isVertical = edge === 'left' || edge === 'right';
+
+        return {
+            cls         : ['neo-dashboard-dock-edge-rail', `neo-dashboard-dock-edge-rail-${edge}`],
+            dockEdge    : edge,
+            dockNodeType: 'edge-rail',
+            items       : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
+            layout      : {ntype: isVertical ? 'vbox' : 'hbox', align: 'start'},
+            ntype       : 'container'
+        }
+    }
+
+    /**
+     * Projects an edge-zone node into nested ordinary container configs, surfacing auto-hidden items as edge rails.
+     *
+     * Items committed as `autoHidden` within an edge band (top/right/bottom/left) are dropped from their tab flow
+     * and collected into a thin rail strip on that edge. Center never collapses to a rail — main content
+     * does not auto-hide — so a center-zone `autoHidden` item is left in the tab flow as a fail-safe (never vanishes).
+     * The reveal overlay + pin control that act on a rail tab are follow-up slices; this projection makes an
+     * auto-hidden item visible (as a rail tab) instead of invisible.
      * @param {String} nodeId
      * @param {Object} node
      * @param {Object} context
@@ -288,29 +383,57 @@ class DockLayoutAdapter extends Base {
      */
     static projectEdgeZoneNode(nodeId, node, context) {
         let {zones={}} = node,
-            middleItems = ['left', 'center', 'right']
-                .filter(zone => zones[zone])
-                .map(zone => this.projectNode(zones[zone], context)),
-            rows = [];
+            railsByEdge   = {},
+            railedItemIds = new Set();
+
+        ['top', 'right', 'bottom', 'left'].forEach(edge => {
+            if (zones[edge]) {
+                let itemIds = this.collectAutoHiddenItems(zones[edge], context);
+
+                if (itemIds.length) {
+                    railsByEdge[edge] = itemIds;
+                    itemIds.forEach(itemId => railedItemIds.add(itemId))
+                }
+            }
+        });
+
+        // Pass the railed set down so projectTabsNode drops those items from the tab flow.
+        let childContext = railedItemIds.size ? {...context, railedItemIds} : context,
+            middleItems  = [],
+            rows         = [];
+
+        if (railsByEdge.left)  middleItems.push(this.createEdgeRail(railsByEdge.left, 'left', context));
+        if (zones.left)        middleItems.push(this.projectNode(zones.left, childContext));
+        if (zones.center)      middleItems.push(this.projectNode(zones.center, childContext));
+        if (zones.right)       middleItems.push(this.projectNode(zones.right, childContext));
+        if (railsByEdge.right) middleItems.push(this.createEdgeRail(railsByEdge.right, 'right', context));
+
+        if (railsByEdge.top) {
+            rows.push(this.createEdgeRail(railsByEdge.top, 'top', context))
+        }
 
         if (zones.top) {
-            rows.push(this.projectNode(zones.top, context))
+            rows.push(this.projectNode(zones.top, childContext))
         }
 
         if (middleItems.length === 1) {
             rows.push(middleItems[0])
         } else if (middleItems.length > 1) {
             rows.push({
-                cls          : ['neo-dashboard-dock-edge-row'],
-                dockNodeType : 'edge-zone-row',
-                items        : middleItems,
-                layout       : {ntype: 'hbox', align: 'stretch'},
-                ntype        : 'container'
+                cls         : ['neo-dashboard-dock-edge-row'],
+                dockNodeType: 'edge-zone-row',
+                items       : middleItems,
+                layout      : {ntype: 'hbox', align: 'stretch'},
+                ntype       : 'container'
             })
         }
 
         if (zones.bottom) {
-            rows.push(this.projectNode(zones.bottom, context))
+            rows.push(this.projectNode(zones.bottom, childContext))
+        }
+
+        if (railsByEdge.bottom) {
+            rows.push(this.createEdgeRail(railsByEdge.bottom, 'bottom', context))
         }
 
         return {
@@ -414,6 +537,9 @@ class DockLayoutAdapter extends Base {
 
     /**
      * Projects a tabs node into a tab.Container-compatible config.
+     *
+     * Items present in `context.railedItemIds` (committed auto-hidden, surfaced as an edge rail by the owning
+     * edge-zone) are dropped from the tab flow; `activeItemId` falls back to the first remaining item.
      * @param {String} nodeId
      * @param {Object} node
      * @param {Object} context
@@ -422,7 +548,10 @@ class DockLayoutAdapter extends Base {
      * @static
      */
     static projectTabsNode(nodeId, node, context) {
-        let items       = Array.isArray(node.items) ? node.items : [],
+        let allItems    = Array.isArray(node.items) ? node.items : [],
+            items       = context.railedItemIds
+                ? allItems.filter(itemId => !context.railedItemIds.has(itemId))
+                : allItems,
             activeIndex = items.length ? items.indexOf(node.activeItemId) : null;
 
         if (activeIndex < 0) {
