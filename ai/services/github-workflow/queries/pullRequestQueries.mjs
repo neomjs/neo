@@ -142,6 +142,71 @@ export const FETCH_PULL_REQUESTS_FOR_SYNC = `
 `;
 
 /**
+ * @summary Single-PR variant of {@link FETCH_PULL_REQUESTS_FOR_SYNC} for the force-refetch path.
+ *
+ * Returns the identical sync node shape (body + comments + reviews + frontmatter fields) for ONE
+ * pull request by number, bypassing the bulk delta-by-`updatedAt` gating so a known-stale local
+ * mirror can be force-re-rendered from current GitHub state.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $prNumber: Int!
+ * - $maxComments: Int!
+ * - $maxReviews: Int!
+ */
+export const FETCH_SINGLE_PULL_FOR_SYNC = `
+  query FetchSinglePullForSync(
+    $owner: String!
+    $repo: String!
+    $prNumber: Int!
+    $maxComments: Int!
+    $maxReviews: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        number
+        title
+        body
+        state
+        createdAt
+        updatedAt
+        closedAt
+        mergedAt
+        url
+        headRefName
+        baseRefName
+
+        author {
+          login
+        }
+
+        comments(first: $maxComments) {
+          nodes {
+            createdAt
+            author {
+              login
+            }
+            body
+          }
+        }
+
+        reviews(first: $maxReviews) {
+          nodes {
+            createdAt
+            author {
+              login
+            }
+            body
+            state
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Query to get the global ID of a pull request.
  *
  * Variables required:
