@@ -411,8 +411,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(started).toEqual([]);
     });
 
-    test('defers golden path behind active dream graph mutation with explicit reason', () => {
-        const logs     = [];
+    test('refreshes golden path while dream graph mutation is active — decoupled for hourly freshness', async () => {
         const outcomes = [];
         const calls    = [];
 
@@ -432,24 +431,17 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
 
         TaskStateService.taskState['dream'].running = true;
-        orchestrator.writeLog = (level, message) => logs.push({level, message});
 
         orchestrator.poll();
+        await Promise.resolve();
 
-        expect(calls).toEqual([]);
-        expect(outcomes).toContainEqual({
+        // Decoupled: golden-path is NOT deferred behind the heavy, multi-hour dream digest — it runs
+        // on its hourly cadence against the current graph so the forecast stays fresh (stale-forecast fix).
+        expect(calls).toEqual(['golden-path']);
+        expect(outcomes).not.toContainEqual(expect.objectContaining({
             taskName: 'golden-path',
-            status  : 'skipped',
-            details : expect.objectContaining({
-                blockingTaskName: 'dream',
-                reason          : 'periodic-golden-path:600000',
-                reasonCode      : 'golden-path-dependency-backpressure'
-            })
-        });
-        expect(logs).toContainEqual({
-            level  : 'INFO',
-            message: expect.stringContaining('Deferring golden path synthesis; dependency task REM sleep graph extraction is active')
-        });
+            status  : 'skipped'
+        }));
     });
 
     test('allows golden path refresh while non-dream heavy maintenance is active', async () => {

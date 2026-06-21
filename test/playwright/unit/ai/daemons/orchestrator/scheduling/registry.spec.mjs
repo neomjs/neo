@@ -63,6 +63,16 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         expect(names).toContain('tenant-repo-sync');
     });
 
+    test('golden-path is decoupled from dream — runs hourly for freshness, not gated behind the heavy digest', () => {
+        const goldenPath = TASK_REGISTRY.find(d => d.taskName === 'golden-path');
+        expect(goldenPath, 'golden-path is registered').toBeTruthy();
+        // Decoupled: the cheap hourly re-rank must NOT hard-depend on the heavy daily REM digest,
+        // so the picker never drops golden-path while dream is running (the stale-forecast fix).
+        expect(goldenPath.dependencies).not.toContain('dream');
+        // dream stays registered — the decouple removes the dependency edge, not the task.
+        expect(TASK_REGISTRY.find(d => d.taskName === 'dream')).toBeTruthy();
+    });
+
     test('heavy task descriptors match MaintenanceBackpressureService SSOT (#11900)', () => {
         const descriptorByName = new Map(TASK_REGISTRY.map(descriptor => [descriptor.taskName, descriptor]));
         for (const taskName of DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES) {
