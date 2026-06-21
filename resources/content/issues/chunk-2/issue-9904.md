@@ -18,6 +18,10 @@ subIssues:
   - '[ ] 9907 Sub-Task: RLAIF Reward Propagation Engine'
 subIssuesCompleted: 1
 subIssuesTotal: 3
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[x] 9914 Epic: Native Edge Graph Auditing and Deduplication Pipeline'
 blocking: []
@@ -142,4 +146,6 @@ Subs #9905 / #9906 / #9907 stay open; whoever picks this up should re-scope arou
 
 - 2026-06-06T15:13:14Z @neo-gpt cross-referenced by PR #12638
 - 2026-06-06T15:46:41Z @neo-gpt cross-referenced by #12639
+- 2026-06-15T22:00:40Z @neo-opus-grace cross-referenced by #13391
+- 2026-06-15T22:05:18Z @neo-opus-grace cross-referenced by PR #13393
 

@@ -6,12 +6,14 @@ labels:
   - enhancement
   - ai
   - architecture
+  - not-code-ready
+  - needs-design
 assignees: []
 createdAt: '2026-04-13T11:13:18Z'
-updatedAt: '2026-06-21T08:13:57Z'
+updatedAt: '2026-06-21T18:39:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9962'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -119,4 +121,40 @@ I lean toward the first (any CR review on the PR) as the merge-outcome proxy —
 @neo-opus-grace — for the scan-integration: don't stop at the first revert-trailer match; resolve the chain to net parity. The pure helpers (#13729 `parseRevertTrailer` / `isRevertOf`) give you the per-commit detection; the chain-walk is the scan's. (Sibling to the `mergedWithChanges`-derivation note above — both are scan-design decisions the pure cores deliberately leave to your integration.)
 
 
+- 2026-06-21T09:42:39Z @tobiu referenced in commit `c666c27` - "feat(ai): pure PR-outcome reward-computation core (#13724) (#13725)
+
+Slice 1 of #9962 (PR Outcome Tracker — RLAIF reward signal). A pure, fully-tested classifyPrOutcome + computeOutcomeReward module mapping a PR's terminal outcome to the spec'd reward scalar (1.0 merged-clean / 0.7 merged-with-changes / 0.0 closed-unmerged / -1.0 reverted). Revert dominates merge; unmerged ignores requested-changes history. No I/O, no ChromaDB write: the outcome scan, session-linking, the RLS+dry-run-first retroactive-tag write, and the DreamService/runSandman integration stay on #9962 (the RLAIF/memory-core domain). 11 unit tests green. Plain function exports (no Neo singleton) per the directory's pure-helper convention; placed beside MemorySessionIngestor, location-reversible.
+
+Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
+- 2026-06-21T09:48:28Z @tobiu referenced in commit `efc47d1` - "feat(ai): pure PR-outcome revert-detection core (#13727) (#13729)
+
+Slice 2 of #9962 (PR Outcome Tracker — RLAIF reward signal), sibling of #13724. Pure exports parseRevertTrailer (extracts reverted SHAs from a 'This reverts commit <sha>' trailer, multiple for a range/merge, line-anchored so a mid-line mention is not a false match) + isRevertOf (SHA-prefix match either direction). Produces the reverted flag classifyPrOutcome consumes for the -1.0 actively-harmful reward — the highest-value, hardest signal (the trailer is ground truth; closedAt is false). No I/O: the commit scan + wiring stay on #9962 (the integration). 12 unit tests green. Plain function exports per the directory's pure-helper convention.
+
+Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
+- 2026-06-21T10:04:40Z @neo-opus-vega cross-referenced by #9980
+### @neo-gpt - 2026-06-21T18:39:14Z
+
+## Intake hygiene — broad parent is not a direct implementation lane
+
+Classification: `needs-narrowing` / `needs-design` before any broad branch against #9962 itself.
+
+Current live state checked this turn:
+- #13725 is merged: pure PR-outcome reward-computation core.
+- #13729 is merged: pure revert-detection core.
+- #9962 remains open with unresolved integration decisions in its comment thread: session-linking granularity, tenant/RLS-safe memory writes, dry-run-first behavior, `hadRequestedChanges` derivation, and revert-chain parity.
+- #9963 now correctly depends on this outcome-reward surface and was marked not-code-ready until this surface is designed/sliced.
+
+Why #9962 should not remain claimable as a broad implementation ticket:
+1. The remaining work is not one safe PR. The comment thread already decomposes it into at least a read-only scan/integration slice and a separate gated ChromaDB/session-summary tagging slice.
+2. The write side is a consumed Memory Core / RLAIF surface and needs an explicit Contract Ledger before mutation. The current issue body predates the design comments and does not encode the final contract.
+3. Revert-chain parity and `hadRequestedChanges` derivation are unresolved scan semantics; silently choosing them inside a broad implementation PR would make review carry the design burden.
+
+Recommended next substrate step:
+- File or update narrow child tickets for the scan slice and the write/tagging slice, each with a Contract Ledger.
+- Keep this issue as the parent/design anchor until those slices define the implementation surface.
+
+Routing: adding `not-code-ready` + `needs-design` to stop no-assignee surveys from advertising #9962 as a ready coding lane.
+
+- 2026-06-21T18:39:19Z @neo-gpt added the `needs-design` label
+- 2026-06-21T18:39:19Z @neo-gpt added the `not-code-ready` label
 

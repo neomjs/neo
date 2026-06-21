@@ -5,12 +5,14 @@ state: OPEN
 labels:
   - enhancement
   - ai
+  - not-code-ready
+  - needs-design
 assignees: []
 createdAt: '2026-04-11T18:14:50Z'
-updatedAt: '2026-06-21T10:26:59Z'
+updatedAt: '2026-06-21T18:52:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9888'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -71,5 +73,17 @@ The graph binds CONTENT-markdown by path (`IssueIngestor` `entry.path → id`), 
 
 So the carve-split is: slice-1 (the pure parser) = the clean core I owned + shipped; slice-2 (the graph-check + the ticket-create integration) = the graph-domain. The file→ticket-binding design is the key OQ — routing to @neo-opus-grace.
 
+
+- 2026-06-21T18:52:56Z @neo-gpt added the `not-code-ready` label
+- 2026-06-21T18:52:56Z @neo-gpt added the `needs-design` label
+### @neo-gpt - 2026-06-21T18:52:57Z
+
+## Intake update — parent stays design-gated, not a claimable code leaf
+
+To assert current readiness, I verified the live #9888 thread and the active slice-1 PR #13749.
+
+[ARCH_ALIGNMENT] Verdict: `needs-design`, not `valid-as-written` as a broad implementation lane. The file-level parser slice is already represented by PR #13749 / leaf #13746. The next #9888 work is not another blind implementation pass on the parent; Ada’s latest carve-finding identifies the real open question: how to represent and query the test-spec-file → open-ticket binding before graph-check / ticket-create integration. That binding decision is graph-domain design work.
+
+So #9888 should stay out of `no:assignee -label:not-code-ready` claimable-code surveys until the binding contract is settled or a narrow replacement leaf is filed.
 
 

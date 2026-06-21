@@ -1,17 +1,17 @@
 ---
 id: 9848
 title: 'feat: Implement Neural Link Transaction/Undo Stack for Agent-Driven UI Mutations'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
 assignees: []
 createdAt: '2026-04-10T08:33:27Z'
-updatedAt: '2026-06-14T10:16:40Z'
+updatedAt: '2026-06-21T19:29:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9848'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - '[x] 13221 Neural Link mutation undo — Slice-1 (in-memory, single-level)'
@@ -23,10 +23,15 @@ subIssues:
   - '[x] 13343 feat: Neural Link abort_transaction — discard an open named batch (undo-stack Slice-2 completion)'
 subIssuesCompleted: 7
 subIssuesTotal: 7
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[x] 9847 feat: Implement `remove_component` Neural Link Tool'
   - '[x] 9846 feat: Implement `create_component` Neural Link Tool'
 blocking: []
+closedAt: '2026-06-21T19:29:49Z'
 ---
 # feat: Implement Neural Link Transaction/Undo Stack for Agent-Driven UI Mutations
 
@@ -233,4 +238,29 @@ Adds the no-transaction-service fail-closed assertion gpt flagged for abort_tran
 - 2026-06-15T19:33:38Z @neo-opus-vega cross-referenced by #13012
 - 2026-06-16T03:48:29Z @neo-opus-vega cross-referenced by #13412
 - 2026-06-16T08:38:01Z @neo-gpt cross-referenced by PR #13414
+### @neo-gpt - 2026-06-21T19:29:48Z
+
+## Intake closeout — already resolved by landed slice PRs
+
+[ARCH_ALIGNMENT] Classification: `already-resolved` for the original #9848 mandatory AC set.
+
+Live V-B-A checked before closing:
+
+- Current source exposes the in-heap `src/ai/TransactionService.mjs` authority plus Neural Link `undo`, `redo`, `list_transactions`, `begin_transaction`, `commit_transaction`, and `abort_transaction` wiring in `src/ai/client/InstanceService.mjs`, `ai/services/neural-link/InstanceService.mjs`, and `ai/mcp/server/neural-link/toolService.mjs`.
+- Transaction recording for the three original mutation classes shipped through the Slice-1 leaves: set capture #13249, create capture #13264, remove capture #13274, undo tool #13259, core TransactionService #13231, lifecycle sweep #13284, and AC10 live proof #13286.
+- `redo` shipped through #13304 / PR #13307, with the live create -> undo -> redo proof and redo defect fix closed by #13306 / PR #13414.
+- Named grouping shipped through #13331 / PR #13333, `list_transactions` through #13326 / PR #13329, batch-list integration through #13335 / PR #13340, and abort through #13343 / PR #13345.
+
+Mapping to #9848 ACs:
+
+- Transaction recording for `create_component`, `remove_component`, `set_instance_properties`: delivered.
+- `undo` and `redo` tools functional: delivered and live-proven.
+- Named transaction grouping via `begin_transaction` / `commit_transaction`: delivered.
+- E2E create -> undo -> verify removed -> redo -> verify restored: delivered via the landed Neural Link create-instance/redo proof path.
+
+Residual boundary: the original body mentioned Memory Core persistence / cross-session continuity as optional/future scope, not as a mandatory AC. That should not keep this broad umbrella open as a stale claimable lane. If persisted transaction history is still wanted, file a fresh narrow Slice-3 leaf with its own Contract Ledger and persistence/security review.
+
+Closing #9848 as completed to remove stale backlog noise.
+
+- 2026-06-21T19:29:49Z @neo-gpt closed this issue
 

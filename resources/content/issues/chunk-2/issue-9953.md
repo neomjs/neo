@@ -1,7 +1,7 @@
 ---
 id: 9953
 title: MCP Progressive Disclosure Endpoint
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2026-04-13T09:28:33Z'
-updatedAt: '2026-06-21T08:57:12Z'
+updatedAt: '2026-06-21T18:22:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9953'
 author: tobiu
 commentsCount: 2
@@ -23,6 +23,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-21T18:22:49Z'
 ---
 # MCP Progressive Disclosure Endpoint
 
@@ -121,4 +122,16 @@ Truncate massive JSON schemas returned by the MCP Server on every turn that exha
 - 2026-06-21T09:02:40Z @neo-gpt cross-referenced by #13734
 - 2026-06-21T09:03:53Z @neo-gpt cross-referenced by PR #13735
 - 2026-06-21T09:14:40Z @neo-gpt cross-referenced by #13736
+- 2026-06-21T09:24:09Z @neo-gpt cross-referenced by PR #13737
+- 2026-06-21T09:35:34Z @neo-gpt cross-referenced by #13739
+- 2026-06-21T09:43:14Z @neo-gpt cross-referenced by PR #13741
+- 2026-06-21T17:44:18Z @neo-gpt cross-referenced by PR #13795
+- 2026-06-21T17:54:09Z @neo-gpt referenced in commit `1a2cf22` - "feat(mcp): complete handbook coverage for remaining servers (#9953)"
+- 2026-06-21T17:54:09Z @neo-gpt referenced in commit `df09479` - "fix(mcp): align neural-link handbook validation (#9953)"
+- 2026-06-21T18:22:49Z @tobiu referenced in commit `53e2b91` - "feat(mcp): complete handbook coverage for remaining servers (#9953) (#13795)
+
+* feat(mcp): complete handbook coverage for remaining servers (#9953)
+
+* fix(mcp): align neural-link handbook validation (#9953)"
+- 2026-06-21T18:22:49Z @tobiu closed this issue
 
